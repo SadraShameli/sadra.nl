@@ -17,7 +17,7 @@ How to read it:
 
 Done, each with a test that fails on the old code:
 
-- WP60 reverted: the exact day-close tree made N-89 worse, so `FundedStateValue.ts` and its tests are back on the pre-WP60 engine (WP66a heartbeats and WP58e best-day grid kept). N-89 stays open and disclosed.
+- WP60 reverted: the exact day-close tree made N-89 worse, so `FundedStateValue.ts` and its tests are back on the pre-WP60 engine (WP66a heartbeats and WP58e best-day grid kept). N-89 is closed by measurement on 2026-10-15 at today's default grid (see the audit tracker's N-89 row): TopStep No-fee Standard predicts $4,591 against a replay of $4,626, FTMO Growth $5,091 against $5,203.
 - PT-113 (all 13 steps) and its PT-96, PT-101 and PT-102 addenda: ended accounts leave both boards; modeled sessions to funded with its SE; realized rates print their SE; gross-only payouts on the statement row; engine rows keyed by plan and opt-ins (two accounts with different opt-ins get their own run and slot); exposure applies personal limits and names left-out group members; payout alerts use the personal policies; KPI labels follow the rulebook; one optimum-missing text and one sensitivity note; the sensitivity ranking compares the same plans; `SlotEngine.groupFailures` required.
 - PT-81b: the levers card reads the library's loss-risk delta; one realized-risk module; one bankroll URL enum; funded value fields required; `spendPayoutCurveOfRun`.
 - PT-114: `AccountReconstruction.rebuild` takes the rulebook's live cushion percent at every caller (the detail page now waits for the rulebook and says so if it fails to load).
@@ -35,11 +35,16 @@ Done, each with a test that fails on the old code:
 
 - DP speed (2026-10-15): MFF Pro's full gate-flag search went from 1,090 s to 213.5 s on the Mac with the same $66.81/day rate, $1,391 replayed monthly net and -$12 gap; TopStep No-fee Standard stays at about 3 to 4 minutes with identical figures. The cause was the funded value iteration's extrapolation on MFF Pro's top payout regime, a self-loop level converging at the horizon rate: every 251x jump was undone by the next sweep, and it took 17,909 of 19,057 sweeps per rate. b015c4de reverts a jump the next sweep takes back by 90% or more; 1d19c8af keys the eval DP memo by numbers (about 25 of its 58 s per rate went to string keys); d2a66902 skips a redundant Zod parse in the funded day close. Not under 5 minutes: Alpha Futures Standard. Its top payout regime has 10,098 groups (51 best-day buckets x 6 qualifying-day counts x 33 post-payout baselines) times 58 day-start cushions, so one sweep costs about 1.1 s on 14 cores and a self-loop level needs on the order of 2,900 sweeps: hours per search, before and after these changes. Getting it under 5 minutes needs a coarser best-day or baseline grid for consistency plans (measured against the replay first) or a faster solver for self-loop levels; the other 23 DP-eligible plans were not all timed.
 
+- PT-50 deep trace (2026-10-15): all 205 money packages traced except PT-58a3 (its code matches its spec). 12 escalations: 9 fixed with red-first tests in 8 commits (1953467f, 80460be4, 0d4a99af, 76d566d2, 970eed19, a961b55a, 7f212b25, b2952be5), 3 recorded (PT-58a3 is a question for you; PT-68b and PT-59b are LOW). Details in `santa-2026-10-14.md`, "Escalation outcomes".
+- Alpha Standard speed, measured 2026-10-15: Gauss-Seidel sweeps and reduced-rank extrapolation were both tried and dropped (no gain; the slow part is policy switching under the max, not geometric error). Consistency plans with a best-day grid (Alpha Standard and Zero, Apex EOD, E8 Signature, Tradeify Growth, MFF Builder, FundedNext Rapid Pro) take 10 minutes to hours per gate solve, so they break the 5-minute run limit and stay not validated. Apex EOD also needs about 23 GB at 10 workers.
+
+- PT-30a2's gate re-run is recorded (`engine-results/2026-10-15-dp-gate.md`, `DP_GATE_RUNS`, `DP_G2_RECORDED_ON` 2026-10-15): 12 plans validated (Alpha Advanced, E8 Zero Max 100 and 80, E8 Zero Starter 100, FTMO Growth, FundedNext Flex and Rapid Daily, MFF Pro, TopStep No-fee Standard and Standard-Standard, Tradeify Select Daily and Select Flex), FTMO Pro fails at 0.43x the best flat, and 20 eligible plans have no result because their solve runs past the 5-minute run limit (the funded-consistency plans and TopStep's DLL variants). `prop advise --dp` reads these verdicts.
+
 Not done:
 
-- PT-30a2's gate re-run (not running: the PC queue was stopped and the PC now boots Windows with a broken bun install), the DP pins and the N-89 redesign.
+- A DP fast enough for the 20 plans without a gate result (every funded-consistency plan and TopStep's DLL variants run past 5 minutes; Apex EOD also needs about 23 GB at 10 workers). Until then they show "not validated".
 - Migrations 0007 to 0015 are still not applied.
-- PT-50's deep trace: 16 of 205 money packages traced (G1 and G2 are done). PT-35 waits for PT-35b.
+- PT-35 waits for PT-35b.
 
 ## 1. UI paths to check in your dev server
 
