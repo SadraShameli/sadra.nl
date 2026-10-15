@@ -7,7 +7,7 @@ import {
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
 } from '~/lib/prop-calculator/advisor/ReconstructedAccount';
-import { TradingPhase } from '~/lib/prop-calculator/core';
+import { activationFee, TradingPhase } from '~/lib/prop-calculator/core';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
 import { closedSessionOf } from './MilestoneState';
@@ -52,17 +52,7 @@ export function netOfReplacementFee(
     replacementFee: number,
 ): TradeValueSwingResult {
     if (!swing.afterLossBusted) return swing;
-    const afterLoss: ValueResult = {
-        ...swing.afterLoss,
-        creditFree: {
-            ...swing.afterLoss.creditFree,
-            value: swing.afterLoss.creditFree.value - replacementFee,
-        },
-        creditInclusive: {
-            ...swing.afterLoss.creditInclusive,
-            value: swing.afterLoss.creditInclusive.value - replacementFee,
-        },
-    };
+    const afterLoss = lessFee(swing.afterLoss, replacementFee);
     return {
         ...swing,
         afterLoss,
@@ -89,15 +79,17 @@ export function tradeValueSwing(
         ...earlierLosses,
         request.risk * request.rr - commission,
     ]).account;
-    const afterWin = requireValue(
+    const isPassingWin =
+        account.kind === TradingPhase.Eval && account.plan.isPassed(won.state);
+    const afterWinValue = requireValue(
         valueAtState(
-            account.kind === TradingPhase.Eval &&
-                account.plan.isPassed(won.state)
-                ? freshFundedAccount(account.plan)
-                : won,
+            isPassingWin ? freshFundedAccount(account.plan) : won,
             spec,
         ),
     );
+    const afterWin = isPassingWin
+        ? lessFee(afterWinValue, activationFee(account.plan.fees))
+        : afterWinValue;
 
     const lost = closedSessionOf(account, [
         ...earlierLosses,
@@ -133,6 +125,20 @@ function freshEvalAccount(
         fundedTracker: null,
         kind: TradingPhase.Eval,
         state: account.plan.initialState(),
+    };
+}
+
+function lessFee(value: ValueResult, fee: number): ValueResult {
+    return {
+        ...value,
+        creditFree: {
+            ...value.creditFree,
+            value: value.creditFree.value - fee,
+        },
+        creditInclusive: {
+            ...value.creditInclusive,
+            value: value.creditInclusive.value - fee,
+        },
     };
 }
 

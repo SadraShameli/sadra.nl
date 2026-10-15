@@ -31,6 +31,7 @@ import {
 } from '~/lib/prop-calculator/advisor/value/ValueEstimate';
 import {
     type AccountState,
+    activationFee,
     applyClosedTrade,
     closeTradingDay,
     dollars,
@@ -555,9 +556,20 @@ describe('tradeValueSwing (F-V17, PT-65a step 3)', () => {
             expect(plan.isPassed(closedSession(account, 600 - 4).state)).toBe(
                 true,
             );
-            expect(outcome.afterWin).toEqual(
-                expectedValue(freshFundedAccount(plan), spec),
-            );
+            const activation = activationFee(plan.fees);
+            const funded = expectedValue(freshFundedAccount(plan), spec);
+            expect(activation).toBeGreaterThan(0);
+            expect(outcome.afterWin).toEqual({
+                ...funded,
+                creditFree: {
+                    ...funded.creditFree,
+                    value: funded.creditFree.value - activation,
+                },
+                creditInclusive: {
+                    ...funded.creditInclusive,
+                    value: funded.creditInclusive.value - activation,
+                },
+            });
         });
 
         it('values a busting loss as a fresh eval, with the rebuy lag disclosed', () => {
