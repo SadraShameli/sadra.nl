@@ -907,6 +907,17 @@ export type ScaleAtMultipleModel =
           readonly reason: string;
       };
 
+export interface SetupAccountRow {
+    readonly firm: string;
+    readonly href: string;
+    readonly key: string;
+    readonly label: string;
+    readonly note: null | string;
+    readonly plan: null | string;
+    readonly purchasedOn: string;
+    readonly stage: string;
+}
+
 export interface SetupChecklistCardModel {
     readonly doneCount: number;
     readonly isComplete: boolean;
@@ -1406,6 +1417,7 @@ interface SetupItemRow {
 }
 
 interface SetupStepRow {
+    readonly accounts: readonly SetupAccountRow[];
     readonly actionLabel: string;
     readonly detail: null | string;
     readonly href: string;
@@ -1730,6 +1742,8 @@ const SETUP_STEP_LABEL: Readonly<Record<SetupStep, string>> = {
     [SetupStep.FirmRulesVerified]: 'Firm rules verified',
     [SetupStep.StagesCaptured]: 'Stages captured',
 };
+
+const NO_BALANCE_YET_NOTE = 'No balance yet';
 
 const SETUP_STEP_ACTION: Readonly<Record<SetupStep, string>> = {
     [SetupStep.BudgetSet]: 'Add a deposit',
@@ -2224,8 +2238,10 @@ export function hubPortfolioOf(inputs: HubPortfolioInputs): HubPortfolio {
                           expectedValuePlanSerials: null,
                           ledger: ledgerFigures.ledger,
                           rulebook: inputs.rulebook,
-                          staleSnapshotAccountIds:
-                              staleSnapshotAccountIdsOf(alerts),
+                          staleSnapshotNotes: staleSnapshotNotesOf(
+                              alerts,
+                              inputs.snapshots,
+                          ),
                       }),
                   ),
     };
@@ -2409,6 +2425,7 @@ export function setupChecklistCardOf(
         doneCount: checklist.doneCount,
         isComplete: checklist.isComplete,
         steps: checklist.steps.map((result) => ({
+            accounts: result.missing.flatMap(setupAccountRows),
             actionLabel: SETUP_STEP_ACTION[result.step],
             detail: setupStepDetail(result),
             href: SETUP_STEP_HREF[result.step],
@@ -6730,6 +6747,23 @@ function sensitivityEntryOf(
     ];
 }
 
+function setupAccountRows(item: SetupMissingItem): readonly SetupAccountRow[] {
+    return item.kind === SetupMissingKind.Account
+        ? [
+              {
+                  firm: item.firm,
+                  href: routes.propCalculator.accounts.detail(item.accountId),
+                  key: item.accountId,
+                  label: item.label,
+                  note: item.note,
+                  plan: item.plan,
+                  purchasedOn: item.purchasedOn,
+                  stage: accountStageLabel(item.stage),
+              },
+          ]
+        : [];
+}
+
 function setupFor(
     load: PortfolioLoad,
     userId: string,
@@ -6755,7 +6789,12 @@ function setupFor(
                 ),
                 ledger,
                 rulebook: ready.alerts.rulebook,
-                staleSnapshotAccountIds: staleSnapshotAccountIdsOf(staleAlerts),
+                staleSnapshotNotes: staleSnapshotNotesOf(
+                    staleAlerts,
+                    context.accounts.flatMap(
+                        (monitored) => monitored.latestSnapshot ?? [],
+                    ),
+                ),
             }),
         );
     });
@@ -6769,15 +6808,7 @@ function setupFor(
 
 function setupItemRows(item: SetupMissingItem): readonly SetupItemRow[] {
     switch (item.kind) {
-        case SetupMissingKind.Account: {
-            return [
-                {
-                    href: routes.propCalculator.accounts.detail(item.accountId),
-                    key: item.accountId,
-                    label: item.label,
-                },
-            ];
-        }
+        case SetupMissingKind.Account:
         case SetupMissingKind.Bankroll: {
             return [];
         }
@@ -6857,16 +6888,35 @@ function stageCountText(row: FirmFunnel, stage: FunnelCohortStage): string {
     });
 }
 
-function staleSnapshotAccountIdsOf(
+function staleSnapshotNotesOf(
     alerts: readonly AccountAlert[],
-): ReadonlySet<string> {
-    return new Set(
-        alerts.flatMap((alert) =>
-            alert.kind === AlertKind.StaleSnapshot &&
-            alert.subject.kind === AlertSubjectKind.Account
-                ? alert.subject.accountId
-                : [],
-        ),
+    snapshots: readonly Pick<AlertSnapshotRow, 'accountId' | 'asOf'>[],
+): ReadonlyMap<string, string> {
+    const latestOn = new Map<string, string>();
+    for (const snapshot of snapshots) {
+        const known = latestOn.get(snapshot.accountId);
+        if (known === undefined || snapshot.asOf > known) {
+            latestOn.set(snapshot.accountId, snapshot.asOf);
+        }
+    }
+    return new Map(
+        alerts.flatMap((alert): (readonly [string, string])[] => {
+            if (
+                alert.kind !== AlertKind.StaleSnapshot ||
+                alert.subject.kind !== AlertSubjectKind.Account
+            ) {
+                return [];
+            }
+            const asOf = latestOn.get(alert.subject.accountId);
+            return [
+                [
+                    alert.subject.accountId,
+                    asOf === undefined
+                        ? NO_BALANCE_YET_NOTE
+                        : `Last balance ${asOf}`,
+                ],
+            ];
+        }),
     );
 }
 

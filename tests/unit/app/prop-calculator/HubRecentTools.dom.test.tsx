@@ -65,9 +65,13 @@ describe('recently used tools on the hub', () => {
         vi.unstubAllGlobals();
     });
 
-    it('renders nothing before any tool visit', () => {
+    it('keeps its row before any tool visit, with a note instead of links, so nothing below it moves', () => {
         renderHub();
-        expect(container.getHTML()).toBe('');
+        expect(container.textContent).toContain('Recently used');
+        expect(container.textContent).toContain(
+            'The tools you open show up here.',
+        );
+        expect(container.querySelectorAll('a')).toHaveLength(0);
     });
 
     it('records each tool route the recorder sees, most recent first', () => {

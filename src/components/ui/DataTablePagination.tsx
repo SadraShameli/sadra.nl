@@ -14,7 +14,7 @@ export function DataTableClientPagination<TData extends RowData>({
     table: ReactTable<typeof dataTableFeatures, TData>;
 }) {
     const pageIndex = table.state.pagination.pageIndex;
-    const pageCount = table.getPageCount();
+    const pageCount = Math.max(1, table.getPageCount());
     return (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>

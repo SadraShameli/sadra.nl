@@ -315,6 +315,9 @@ export default function ReadingSection() {
                             </div>
                         </div>
 
+                        {!sensors && currentReading.isLoading && (
+                            <Skeleton className="h-9 w-full max-w-xl rounded-lg" />
+                        )}
                         {sensors && (
                             <TabsList className="w-fit">
                                 {sensors.map((sensor) => (
@@ -329,118 +332,120 @@ export default function ReadingSection() {
                         )}
                     </div>
 
-                    {currentReading.data?.data?.map((reading) => {
-                        const chartData = reading.readings;
-                        return (
-                            <TabsContent
-                                key={reading.sensor.name}
-                                value={reading.sensor.name}
-                            >
-                                <div className="grid gap-5 text-sm leading-none font-semibold">
-                                    <div className="grid gap-5 lg:grid-cols-2">
-                                        <div
-                                            className={cn(
-                                                'app-reading__chart',
-                                                'relative rounded-xl border p-5',
-                                                currentReading.isRefetching &&
-                                                    'shimmer',
-                                            )}
-                                        >
-                                            <div className="absolute flex items-center gap-x-2 pb-5">
-                                                <ChartIcon />
-                                                Live Chart
-                                            </div>
-
-                                            <div className="mt-12 grid">
-                                                <AreaChartNew
-                                                    area={{ dataKey: 'value' }}
-                                                    config={{
-                                                        location: {
-                                                            label: currentLocation?.location_name,
-                                                        },
-                                                        sensor: {
-                                                            label: currentSensor,
-                                                        },
-                                                    }}
-                                                    data={chartData}
-                                                    tooltip={{
-                                                        labelKey: 'location',
-                                                        nameKey: 'sensor',
-                                                    }}
-                                                    xAxis={{ dataKey: 'date' }}
-                                                    yAxis={{
-                                                        tickFormatter: (
-                                                            value: number,
-                                                        ) =>
-                                                            `${value} ${sensors?.find((s) => s.name === currentSensor)?.unit}`,
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-5">
+                    <div
+                        className="shimmer rounded-xl"
+                        data-loading={currentReading.isRefetching}
+                    >
+                        {currentReading.data?.data?.map((reading) => {
+                            const chartData = reading.readings;
+                            return (
+                                <TabsContent
+                                    key={reading.sensor.name}
+                                    value={reading.sensor.name}
+                                >
+                                    <div className="grid gap-5 text-sm leading-none font-semibold">
+                                        <div className="grid gap-5 lg:grid-cols-2">
                                             <div
                                                 className={cn(
-                                                    'app-reading__latest',
-                                                    'relative flex rounded-xl bg-muted p-5',
-                                                    currentReading.isRefetching &&
-                                                        'shimmer',
+                                                    'app-reading__chart',
+                                                    'relative rounded-xl border p-5',
                                                 )}
                                             >
-                                                <div className="absolute flex items-center gap-x-2">
-                                                    <ThermometerSnowflake />
-                                                    Latest
+                                                <div className="absolute flex items-center gap-x-2 pb-5">
+                                                    <ChartIcon />
+                                                    Live Chart
                                                 </div>
 
-                                                <div className="m-auto text-2xl whitespace-nowrap lg:text-4xl">
-                                                    {`${reading.latestReading.value} ${reading.sensor.unit}`}
+                                                <div className="mt-12 grid">
+                                                    <AreaChartNew
+                                                        area={{
+                                                            dataKey: 'value',
+                                                        }}
+                                                        config={{
+                                                            location: {
+                                                                label: currentLocation?.location_name,
+                                                            },
+                                                            sensor: {
+                                                                label: currentSensor,
+                                                            },
+                                                        }}
+                                                        data={chartData}
+                                                        tooltip={{
+                                                            labelKey:
+                                                                'location',
+                                                            nameKey: 'sensor',
+                                                        }}
+                                                        xAxis={{
+                                                            dataKey: 'date',
+                                                        }}
+                                                        yAxis={{
+                                                            tickFormatter: (
+                                                                value: number,
+                                                            ) =>
+                                                                `${value} ${sensors?.find((s) => s.name === currentSensor)?.unit}`,
+                                                        }}
+                                                    />
                                                 </div>
                                             </div>
 
-                                            <div className="grid gap-5">
+                                            <div className="grid grid-cols-2 gap-5">
                                                 <div
                                                     className={cn(
-                                                        'app-reading__period-high',
-                                                        'relative flex min-h-36 rounded-xl bg-muted p-5',
-                                                        currentReading.isRefetching &&
-                                                            'shimmer',
+                                                        'app-reading__latest',
+                                                        'relative flex rounded-xl bg-muted p-5',
                                                     )}
                                                 >
-                                                    <div className="absolute">{`${reading.period_label} high`}</div>
+                                                    <div className="absolute flex items-center gap-x-2">
+                                                        <ThermometerSnowflake />
+                                                        Latest
+                                                    </div>
 
-                                                    <div className="m-auto text-xl whitespace-nowrap lg:text-3xl">
-                                                        {`${reading.highest} ${reading.sensor.unit}`}
+                                                    <div className="m-auto text-2xl whitespace-nowrap lg:text-4xl">
+                                                        {`${reading.latestReading.value} ${reading.sensor.unit}`}
                                                     </div>
                                                 </div>
 
-                                                <div
-                                                    className={cn(
-                                                        'app-reading__period-low',
-                                                        'relative min-h-36 rounded-xl bg-muted p-5',
-                                                        currentReading.isRefetching &&
-                                                            'shimmer',
-                                                    )}
-                                                >
-                                                    <div className="flex h-full">
-                                                        <div className="absolute">{`${reading.period_label} low`}</div>
+                                                <div className="grid gap-5">
+                                                    <div
+                                                        className={cn(
+                                                            'app-reading__period-high',
+                                                            'relative flex min-h-36 rounded-xl bg-muted p-5',
+                                                        )}
+                                                    >
+                                                        <div className="absolute">{`${reading.period_label} high`}</div>
 
                                                         <div className="m-auto text-xl whitespace-nowrap lg:text-3xl">
-                                                            {`${reading.lowest} ${reading.sensor.unit}`}
+                                                            {`${reading.highest} ${reading.sensor.unit}`}
+                                                        </div>
+                                                    </div>
+
+                                                    <div
+                                                        className={cn(
+                                                            'app-reading__period-low',
+                                                            'relative min-h-36 rounded-xl bg-muted p-5',
+                                                        )}
+                                                    >
+                                                        <div className="flex h-full">
+                                                            <div className="absolute">{`${reading.period_label} low`}</div>
+
+                                                            <div className="m-auto text-xl whitespace-nowrap lg:text-3xl">
+                                                                {`${reading.lowest} ${reading.sensor.unit}`}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </TabsContent>
-                        );
-                    })}
+                                </TabsContent>
+                            );
+                        })}
+                    </div>
                 </Tabs>
 
                 {!currentReading.data?.data &&
                     (currentReading.isLoading ? (
-                        <Skeleton className="mx-auto h-72 w-full" />
+                        <ReadingSkeleton />
                     ) : (
                         currentReading.isFetched && (
                             <EmptyState
@@ -451,6 +456,28 @@ export default function ReadingSection() {
                         )
                     ))}
             </Card>
+        </div>
+    );
+}
+
+function ReadingSkeleton() {
+    return (
+        <div
+            aria-busy="true"
+            aria-label="Loading readings"
+            className="mt-5 grid gap-5 lg:grid-cols-2"
+        >
+            <div className="rounded-xl border p-5">
+                <Skeleton className="h-6 w-28" />
+                <Skeleton className="mt-6 aspect-video w-full" />
+            </div>
+            <div className="grid grid-cols-2 gap-5">
+                <Skeleton className="rounded-xl" />
+                <div className="grid gap-5">
+                    <Skeleton className="min-h-36 rounded-xl" />
+                    <Skeleton className="min-h-36 rounded-xl" />
+                </div>
+            </div>
         </div>
     );
 }

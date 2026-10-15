@@ -6,14 +6,13 @@ import { ResumeDocument } from '~/app/(app)/resume/_pdf/ResumeDocument';
 import { isRoot } from '~/lib/auth/roles';
 import { getServerSession } from '~/lib/auth/server';
 import { resumeNameSchema, resumeSearchSchema } from '~/lib/schemas/resume';
+import { portfolioContent, siteContent } from '~/lib/site/content';
 import {
     coverLetters,
     defaultResumeVariantKey,
-    portfolioContent,
     resumeContent,
     resumeVariants,
-    siteContent,
-} from '~/lib/site/content';
+} from '~/lib/site/resume';
 import { routes } from '~/lib/site/routes';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 

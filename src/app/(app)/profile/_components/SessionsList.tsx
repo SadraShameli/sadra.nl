@@ -15,7 +15,6 @@ import { UAParser } from 'ua-parser-js';
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -194,13 +193,9 @@ export function SessionsList() {
                     />
                 }
                 filterPlaceholder="Search sessions…"
+                hasExternalFilters={hasFilters}
                 headerActions={
                     <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
-                        <ClearFiltersButton
-                            active={hasFilters}
-                            className="hidden md:flex"
-                            onReset={reset}
-                        />
                         <Select
                             onValueChange={(v) =>
                                 setStatusFilter(v as StatusFilter)
@@ -218,14 +213,10 @@ export function SessionsList() {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <ClearFiltersButton
-                            active={hasFilters}
-                            className="md:hidden"
-                            onReset={reset}
-                        />
                     </div>
                 }
                 isLoading={loading}
+                onResetFilters={reset}
                 pageSize={null}
                 rowId={(r) => r.token}
                 showFilter

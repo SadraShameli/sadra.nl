@@ -7,12 +7,11 @@ import type { LedgerId } from '~/lib/accounting/core/ids';
 
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    type DataTableInstance,
+    hasActiveTableFilter,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { EmptyState } from '~/components/ui/EmptyState';
@@ -29,10 +28,6 @@ type Ledger = {
     externalId: LedgerId;
     group: null | string;
 };
-
-function hasActiveFilter(table: DataTableInstance<Ledger>): boolean {
-    return table.getColumn('category')?.getFilterValue() !== undefined;
-}
 
 const LEDGER_CATEGORY_LABEL: Record<LedgerCategory, string> = {
     [LedgerCategory.Af]: 'Depreciation',
@@ -123,7 +118,7 @@ export function LedgersBrowser() {
                             <EmptyState
                                 description={
                                     credentialId
-                                        ? hasActiveFilter(table)
+                                        ? hasActiveTableFilter(table)
                                             ? 'No ledgers match this filter.'
                                             : 'Try a different category or pick another credential.'
                                         : 'Pick an accounting credential to load its ledgers.'
@@ -139,17 +134,11 @@ export function LedgersBrowser() {
                         filterPlaceholder="Search ledgers…"
                         headerActions={(table) => (
                             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                <ClearFiltersButton
-                                    active={hasActiveFilter(table)}
-                                    className="hidden md:flex"
-                                    onReset={() => table.resetColumnFilters()}
-                                />
                                 <ActiveConnectionNote
                                     credential={accounting}
                                     roleNoun="accounting credential"
                                 />
                                 <DataTableFacetSelect
-                                    className="w-48"
                                     column={table.getColumn('category')}
                                     format={(value) =>
                                         (
@@ -160,11 +149,6 @@ export function LedgersBrowser() {
                                         )[value] ?? value
                                     }
                                     placeholder="All categories"
-                                />
-                                <ClearFiltersButton
-                                    active={hasActiveFilter(table)}
-                                    className="md:hidden"
-                                    onReset={() => table.resetColumnFilters()}
                                 />
                             </div>
                         )}

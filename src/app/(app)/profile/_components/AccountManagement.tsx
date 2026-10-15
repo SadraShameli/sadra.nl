@@ -287,7 +287,6 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                     emptyState={<EmptyState icon={Users} title="No users" />}
                     headerActions={(table) => (
                         <DataTableFacetSelect
-                            className="w-32"
                             column={table.getColumn('role')}
                             placeholder="All roles"
                         />

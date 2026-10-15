@@ -13,16 +13,17 @@ import { hubCardHref } from '~/app/(app)/prop-calculator/_components/HubToolCard
 import { readLastToolQuery } from '~/app/(app)/prop-calculator/_components/lastToolQuery';
 import { type ToolCatalogEntry } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { Button } from '~/components/ui/Button';
+import { Skeleton } from '~/components/ui/Skeleton';
 
 interface RecentToolsState {
     lastQuery: null | string;
     tools: readonly ToolCatalogEntry[];
 }
 
-const NO_RECENT_TOOLS: RecentToolsState = { lastQuery: null, tools: [] };
+const RECENT_TOOL_PLACEHOLDERS = ['first', 'second', 'third'] as const;
 
 export function HubRecentTools() {
-    const [recent, setRecent] = useState<RecentToolsState>(NO_RECENT_TOOLS);
+    const [recent, setRecent] = useState<null | RecentToolsState>(null);
 
     useEffect(() => {
         setRecent({
@@ -30,8 +31,6 @@ export function HubRecentTools() {
             tools: recentToolLinks(readRecentTools()),
         });
     }, []);
-
-    if (recent.tools.length === 0) return null;
 
     return (
         <section
@@ -44,31 +43,43 @@ export function HubRecentTools() {
             >
                 Recently used
             </h2>
-            <ul className="flex flex-wrap gap-2">
-                {recent.tools.map((entry) => {
-                    const Icon = entry.icon;
-                    return (
-                        <li key={entry.id}>
-                            <Button asChild variant="outline">
-                                <Link
-                                    className="app-prop-calculator__recent-tool"
-                                    href={hubCardHref(
-                                        entry,
-                                        recent.lastQuery ?? undefined,
-                                    )}
-                                    prefetch={false}
-                                >
-                                    <Icon
-                                        aria-hidden
-                                        className="text-primary"
-                                    />
-                                    {entry.label}
-                                </Link>
-                            </Button>
-                        </li>
-                    );
-                })}
-            </ul>
+            {recent === null ? (
+                <div aria-hidden className="flex min-h-9 flex-wrap gap-2">
+                    {RECENT_TOOL_PLACEHOLDERS.map((key) => (
+                        <Skeleton className="h-9 w-36 rounded-md" key={key} />
+                    ))}
+                </div>
+            ) : recent.tools.length === 0 ? (
+                <p className="flex min-h-9 items-center text-sm text-muted-foreground">
+                    The tools you open show up here.
+                </p>
+            ) : (
+                <ul className="flex min-h-9 flex-wrap gap-2">
+                    {recent.tools.map((entry) => {
+                        const Icon = entry.icon;
+                        return (
+                            <li key={entry.id}>
+                                <Button asChild variant="outline">
+                                    <Link
+                                        className="app-prop-calculator__recent-tool"
+                                        href={hubCardHref(
+                                            entry,
+                                            recent.lastQuery ?? undefined,
+                                        )}
+                                        prefetch={false}
+                                    >
+                                        <Icon
+                                            aria-hidden
+                                            className="text-primary"
+                                        />
+                                        {entry.label}
+                                    </Link>
+                                </Button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
         </section>
     );
 }

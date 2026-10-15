@@ -1,10 +1,12 @@
 import {
+    type AccountStage,
     AccountStatus,
     AccountTracking,
     BankrollTransferKind,
     FeeKind,
     FirmKeyKind,
     firmKeyLabel,
+    firmKeyOf,
     isAccountDate,
 } from '~/lib/prop-accounts/core';
 import { type FirmId } from '~/lib/prop-calculator';
@@ -56,14 +58,19 @@ export interface SetupChecklistInputs {
     readonly firmVerificationDateOf?: (firmId: FirmId) => null | string;
     readonly ledger: PortfolioLedger;
     readonly rulebook: RulebookParameters;
-    readonly staleSnapshotAccountIds: ReadonlySet<string>;
+    readonly staleSnapshotNotes: ReadonlyMap<string, string>;
 }
 
 export type SetupMissingItem =
     | {
           readonly accountId: string;
+          readonly firm: string;
           readonly kind: SetupMissingKind.Account;
           readonly label: string;
+          readonly note: null | string;
+          readonly plan: null | string;
+          readonly purchasedOn: string;
+          readonly stage: AccountStage;
       }
     | {
           readonly firmId: FirmId;
@@ -162,15 +169,7 @@ function costsStep(inputs: SetupChecklistInputs): SetupStepResult {
         );
     }
     const missing = active.flatMap((entry): SetupMissingItem[] =>
-        hasPurchaseFee(entry)
-            ? []
-            : [
-                  {
-                      accountId: entry.row.id,
-                      kind: SetupMissingKind.Account,
-                      label: entry.row.label,
-                  },
-              ],
+        hasPurchaseFee(entry) ? [] : [missingAccountOf(entry, null)],
     );
     return missing.length === 0
         ? stepResult(SetupStep.CostsEntered, SetupStepStatus.Done)
@@ -260,6 +259,22 @@ function hasPurchaseFee(entry: LedgerAccount): boolean {
     return entry.fees.some((fee) => wanted.includes(fee.kind));
 }
 
+function missingAccountOf(
+    entry: LedgerAccount,
+    note: null | string,
+): SetupMissingItem {
+    return {
+        accountId: entry.row.id,
+        firm: firmKeyLabel(firmKeyOf(entry.row), []),
+        kind: SetupMissingKind.Account,
+        label: entry.row.label,
+        note,
+        plan: entry.plan?.plan.label ?? entry.row.planLabel,
+        purchasedOn: entry.row.purchasedOn,
+        stage: entry.row.stage,
+    };
+}
+
 function stagesStep(inputs: SetupChecklistInputs): SetupStepResult {
     const active = activeAccountsOf(inputs.ledger).filter(
         (entry) => entry.row.tracking === AccountTracking.Modeled,
@@ -270,13 +285,10 @@ function stagesStep(inputs: SetupChecklistInputs): SetupStepResult {
             SetupStepStatus.NotApplicable,
         );
     }
-    const missing = active
-        .filter((entry) => inputs.staleSnapshotAccountIds.has(entry.row.id))
-        .map((entry): SetupMissingItem => ({
-            accountId: entry.row.id,
-            kind: SetupMissingKind.Account,
-            label: entry.row.label,
-        }));
+    const missing = active.flatMap((entry): SetupMissingItem[] => {
+        const note = inputs.staleSnapshotNotes.get(entry.row.id);
+        return note === undefined ? [] : [missingAccountOf(entry, note)];
+    });
     return missing.length === 0
         ? stepResult(SetupStep.StagesCaptured, SetupStepStatus.Done)
         : stepResult(

@@ -22,13 +22,11 @@ import {
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     type DataTableSlot,
-    hasActiveColumnFilter,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
@@ -190,17 +188,11 @@ export function BodyView() {
                                         />
                                     </div>
                                 </div>
-                                <ClearFiltersButton
-                                    active={hasActiveColumnFilter(table)}
-                                    onReset={() => {
-                                        setDateRange(undefined);
-                                        table.resetColumnFilters();
-                                    }}
-                                />
                             </div>
                         )}
                         isLoading={measurements.isLoading}
                         onDelete={(id) => remove.mutate({ id })}
+                        onResetFilters={() => setDateRange(undefined)}
                         rows={rows}
                     />
                 </CardContent>
@@ -490,11 +482,13 @@ function MeasurementsHistoryTable({
     headerActions,
     isLoading,
     onDelete,
+    onResetFilters,
     rows,
 }: {
     headerActions?: DataTableSlot<MeasurementRow>;
     isLoading: boolean;
     onDelete: (id: string) => void;
+    onResetFilters: () => void;
     rows: MeasurementRow[];
 }) {
     const columns = useMemo<DataTableColumn<MeasurementRow>[]>(
@@ -614,6 +608,7 @@ function MeasurementsHistoryTable({
             headerActions={headerActions}
             initialColumnVisibility={{ unit: false }}
             isLoading={isLoading}
+            onResetFilters={onResetFilters}
             pageSize={25}
             rowId={(r) => r.id}
             showFilter

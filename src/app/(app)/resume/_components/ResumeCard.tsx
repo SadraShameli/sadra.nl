@@ -4,7 +4,7 @@ import { Download, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useId, useState } from 'react';
 
-import type { ResumeVariantKey } from '~/lib/site/content';
+import type { ResumeVariantKey } from '~/lib/site/resume';
 
 import { Button } from '~/components/ui/Button';
 import { Label } from '~/components/ui/Label';

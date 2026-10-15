@@ -1,7 +1,10 @@
 'use client';
 
 import { LiftingSettingsForm } from '~/app/(app)/profile/_components/LiftingSettingsForm';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import {
+    type ProfileSubTab,
+    ProfileSubTabs,
+} from '~/app/(app)/profile/_components/ProfileSubTabs';
 import { type RouterOutputs } from '~/trpc/react';
 
 import { ExercisesManager } from './ExercisesManager';
@@ -10,28 +13,37 @@ import { WorkoutsManager } from './WorkoutsManager';
 
 type Settings = RouterOutputs['lifting']['settings']['get'];
 
-export function LiftingHub({ initialSettings }: { initialSettings: Settings }) {
-    return (
-        <Tabs className="flex flex-col gap-6" defaultValue="settings">
-            <TabsList className="w-fit self-start">
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-                <TabsTrigger value="exercises">Exercises</TabsTrigger>
-                <TabsTrigger value="programs">Programs</TabsTrigger>
-                <TabsTrigger value="workouts">Workouts</TabsTrigger>
-            </TabsList>
+const LiftingTab = {
+    Exercises: 'exercises',
+    Programs: 'programs',
+    Settings: 'settings',
+    Workouts: 'workouts',
+} as const;
 
-            <TabsContent value="settings">
-                <LiftingSettingsForm initial={initialSettings} />
-            </TabsContent>
-            <TabsContent value="exercises">
-                <ExercisesManager />
-            </TabsContent>
-            <TabsContent value="programs">
-                <ProgramsManager />
-            </TabsContent>
-            <TabsContent value="workouts">
-                <WorkoutsManager />
-            </TabsContent>
-        </Tabs>
-    );
+type LiftingTab = (typeof LiftingTab)[keyof typeof LiftingTab];
+
+export function LiftingHub({ initialSettings }: { initialSettings: Settings }) {
+    const tabs: readonly ProfileSubTab<LiftingTab>[] = [
+        {
+            content: <LiftingSettingsForm initial={initialSettings} />,
+            label: 'Settings',
+            value: LiftingTab.Settings,
+        },
+        {
+            content: <ExercisesManager />,
+            label: 'Exercises',
+            value: LiftingTab.Exercises,
+        },
+        {
+            content: <ProgramsManager />,
+            label: 'Programs',
+            value: LiftingTab.Programs,
+        },
+        {
+            content: <WorkoutsManager />,
+            label: 'Workouts',
+            value: LiftingTab.Workouts,
+        },
+    ];
+    return <ProfileSubTabs defaultValue={LiftingTab.Settings} tabs={tabs} />;
 }

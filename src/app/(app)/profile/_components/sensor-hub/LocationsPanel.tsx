@@ -1,53 +1,34 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
+import { MapPin, Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
+    ProfileNumberField,
+    ProfileTextField,
+} from '~/app/(app)/profile/_components/ProfileFormFields';
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
+import {
+    MutedCell,
+    PrimaryCell,
+    profileActionsColumn,
+    ProfileDateCell,
+    ProfileDatePrecision,
+    ProfileTableEmpty,
+    RowActionButton,
+    RowConfirmAction,
+} from '~/app/(app)/profile/_components/ProfileTable';
 import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
-import { Separator } from '~/components/ui/Separator';
+    DataTable,
+    type DataTableColumn,
+    hasActiveTableFilter,
+} from '~/components/ui/DataTable';
+import { Dialog, DialogTrigger } from '~/components/ui/Dialog';
 import {
     type LocationCreateInput,
     locationCreateSchema,
@@ -68,14 +49,11 @@ type LocationRow = {
     name: string;
 };
 
-const ALL = '__all__';
+const editLocationSchema = locationUpdateSchema.omit({ id: true });
 
 export function LocationsPanel() {
     const utilities = api.useUtils();
     const locs = api.location.listAdmin.useQuery();
-    const devices = api.device.listAdmin.useQuery();
-    const sensors = api.sensor.listAdmin.useQuery();
-    const deviceSensorMappings = api.sensor.listDeviceMappings.useQuery();
     const create = api.location.create.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
@@ -100,221 +78,106 @@ export function LocationsPanel() {
 
     const [newOpen, setNewOpen] = useState(false);
     const [editing, setEditing] = useState<LocationRow | null>(null);
-    const [developmentFilter, setDevelopmentFilter] = useState<string>(ALL);
-    const [locFilter, setLocFilter] = useState<string>(ALL);
-    const [sensFilter, setSensFilter] = useState<string>(ALL);
-    const hasFilters =
-        locFilter !== ALL || developmentFilter !== ALL || sensFilter !== ALL;
-    const resetFilters = () => {
-        setLocFilter(ALL);
-        setDevelopmentFilter(ALL);
-        setSensFilter(ALL);
-    };
 
-    const allRows = useMemo(() => locs.data ?? [], [locs.data]);
-    const developmentOptions = useMemo(
-        () => devices.data ?? [],
-        [devices.data],
-    );
-    const sensorOptions = useMemo(() => sensors.data ?? [], [sensors.data]);
-    const locationIdsWithSensor = useMemo(() => {
-        if (sensFilter === ALL) return null;
-        const sensorId = Number(sensFilter);
-        const deviceIds = new Set(
-            (deviceSensorMappings.data ?? [])
-                .filter((m) => m.sensor_id === sensorId)
-                .map((m) => m.device_id),
-        );
-        return new Set(
-            developmentOptions
-                .filter((d) => deviceIds.has(d.id))
-                .map((d) => d.location_id),
-        );
-    }, [deviceSensorMappings.data, developmentOptions, sensFilter]);
-    const rows = useMemo(() => {
-        return allRows.filter((l) => {
-            if (locFilter !== ALL && String(l.id) !== locFilter) return false;
-            if (developmentFilter !== ALL) {
-                const development = developmentOptions.find(
-                    (d) => String(d.id) === developmentFilter,
-                );
-                if (l.id !== development?.location_id) return false;
-            }
-            return !locationIdsWithSensor || locationIdsWithSensor.has(l.id);
-        });
-    }, [
-        allRows,
-        developmentOptions,
-        developmentFilter,
-        locFilter,
-        locationIdsWithSensor,
-    ]);
+    const rows = useMemo(() => locs.data ?? [], [locs.data]);
 
     const columns = useMemo<DataTableColumn<LocationRow>[]>(
         () => [
             {
                 accessorKey: 'name',
                 cell: ({ row }) => (
-                    <span className="font-medium text-white">
-                        {row.original.name}
-                    </span>
+                    <PrimaryCell>{row.original.name}</PrimaryCell>
                 ),
                 header: 'Name',
             },
             {
                 accessorKey: 'location_id',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        #{row.original.location_id}
-                    </span>
+                    <MutedCell>#{row.original.location_id}</MutedCell>
                 ),
                 header: 'ID',
             },
             {
                 accessorKey: 'location_name',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {row.original.location_name}
-                    </span>
+                    <MutedCell>{row.original.location_name}</MutedCell>
                 ),
                 header: 'Slug',
             },
             {
                 accessorKey: 'created_at',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {new Date(row.original.created_at).toLocaleDateString()}
-                    </span>
+                    <ProfileDateCell
+                        precision={ProfileDatePrecision.Day}
+                        value={row.original.created_at}
+                    />
                 ),
                 header: 'Created',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex justify-end gap-2">
-                        <Button
-                            onClick={() => setEditing(row.original)}
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline">
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete &ldquo;{row.original.name}
-                                        &rdquo;?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Fails if devices or readings reference
-                                        this location.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            del.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            profileActionsColumn<LocationRow>((location) => (
+                <>
+                    <RowActionButton
+                        icon={Pencil}
+                        label="Edit location"
+                        onClick={() => setEditing(location)}
+                    />
+                    <RowConfirmAction
+                        description="Fails if devices or readings reference this location."
+                        label="Delete location"
+                        onConfirm={() => del.mutate({ id: location.id })}
+                        title={`Delete “${location.name}”?`}
+                    />
+                </>
+            )),
         ],
         [del],
     );
 
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Locations</CardTitle>
-                <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                    <DialogTrigger asChild>
-                        <Button size="sm">
-                            <Plus className="mr-1 size-4" />
-                            New location
-                        </Button>
-                    </DialogTrigger>
-                    <NewLocationDialog
-                        onClose={() => setNewOpen(false)}
-                        onSubmit={(v) =>
-                            create.mutate(v, {
-                                onSuccess: () => setNewOpen(false),
-                            })
-                        }
-                        pending={create.isPending}
-                    />
-                </Dialog>
-            </CardHeader>
-            <Separator />
-            <CardContent className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    <FilterField
-                        label="Location"
-                        onChange={setLocFilter}
-                        options={allRows.map((l) => ({
-                            id: String(l.id),
-                            name: l.name,
-                        }))}
-                        value={locFilter}
-                    />
-                    <FilterField
-                        label="Device"
-                        onChange={setDevelopmentFilter}
-                        options={developmentOptions.map((d) => ({
-                            id: String(d.id),
-                            name: d.name,
-                        }))}
-                        value={developmentFilter}
-                    />
-                    <FilterField
-                        label="Sensor"
-                        onChange={setSensFilter}
-                        options={sensorOptions.map((s) => ({
-                            id: String(s.id),
-                            name: s.name,
-                        }))}
-                        value={sensFilter}
-                    />
-                </div>
+    const newButton = (
+        <DialogTrigger asChild>
+            <Button size="sm">
+                <Plus className="size-4" />
+                New location
+            </Button>
+        </DialogTrigger>
+    );
 
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={
-                        <EmptyState
-                            description="Add a location to group readings by where they were captured."
-                            icon={MapPin}
-                            title="No locations yet"
-                        />
+    return (
+        <>
+            <Dialog onOpenChange={setNewOpen} open={newOpen}>
+                <ProfilePanel
+                    action={newButton}
+                    description="Places where devices capture readings and recordings."
+                    title="Locations"
+                >
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={(table) => (
+                            <ProfileTableEmpty
+                                action={newButton}
+                                description="Add a location to group readings by where they were captured."
+                                filtered={hasActiveTableFilter(table)}
+                                icon={MapPin}
+                                noun="locations"
+                            />
+                        )}
+                        filterPlaceholder="Search locations…"
+                        isLoading={locs.isLoading}
+                        rowId={(r) => String(r.id)}
+                        showFilter
+                    />
+                </ProfilePanel>
+                <NewLocationDialog
+                    onClose={() => setNewOpen(false)}
+                    onSubmit={(v) =>
+                        create.mutate(v, {
+                            onSuccess: () => setNewOpen(false),
+                        })
                     }
-                    headerActions={
-                        <ClearFiltersButton
-                            active={hasFilters}
-                            onReset={resetFilters}
-                        />
-                    }
-                    isLoading={locs.isLoading}
-                    rowId={(r) => String(r.id)}
-                    showFilter
+                    pending={create.isPending}
                 />
-            </CardContent>
+            </Dialog>
 
             <Dialog
                 onOpenChange={(o) => !o && setEditing(null)}
@@ -334,7 +197,7 @@ export function LocationsPanel() {
                     />
                 )}
             </Dialog>
-        </Card>
+        </>
     );
 }
 
@@ -349,91 +212,33 @@ function EditLocationDialog({
     onSubmit: (v: EditLocationValues) => void;
     pending: boolean;
 }) {
-    const editSchema = locationUpdateSchema.omit({ id: true });
     const form = useForm<EditLocationValues>({
         defaultValues: {
             location_name: initial.location_name,
             name: initial.name,
         },
-        resolver: zodResolver(editSchema),
+        resolver: zodResolver(editLocationSchema),
     });
     return (
-        <DialogContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>Edit location</DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 flex flex-col gap-3">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Display name</FormLabel>
-                                    <FormControl>
-                                        <Input {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="location_name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Slug</FormLabel>
-                                    <FormControl>
-                                        <Input {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                    <DialogFooter className="mt-4">
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button disabled={pending} type="submit">
-                            Save
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
-        </DialogContent>
-    );
-}
-
-function FilterField({
-    label,
-    onChange,
-    options,
-    value,
-}: {
-    label: string;
-    onChange: (v: string) => void;
-    options: { id: string; name: string }[];
-    value: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">{label}</Label>
-            <Select onValueChange={onChange} value={value}>
-                <SelectTrigger>
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value={ALL}>All</SelectItem>
-                    {options.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
-                            {o.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
+        <ProfileFormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={onSubmit}
+            pending={pending}
+            submitLabel="Save"
+            title="Edit location"
+        >
+            <ProfileTextField
+                control={form.control}
+                label="Display name"
+                name="name"
+            />
+            <ProfileTextField
+                control={form.control}
+                label="Slug"
+                name="location_name"
+            />
+        </ProfileFormDialog>
     );
 }
 
@@ -451,83 +256,31 @@ function NewLocationDialog({
         resolver: zodResolver(locationCreateSchema),
     });
     return (
-        <DialogContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>New location</DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 flex flex-col gap-3">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Display name</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            placeholder="Living room"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="location_name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Slug</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            placeholder="living-room"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="location_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Public location ID</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            inputMode="numeric"
-                                            onChange={(event) => {
-                                                const n = Number(
-                                                    event.target.value,
-                                                );
-                                                field.onChange(
-                                                    Number.isFinite(n) ? n : 0,
-                                                );
-                                            }}
-                                            ref={field.ref}
-                                            step="1"
-                                            type="number"
-                                            value={field.value}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                    <DialogFooter className="mt-4">
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button disabled={pending} type="submit">
-                            Create
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
-        </DialogContent>
+        <ProfileFormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={onSubmit}
+            pending={pending}
+            submitLabel="Create"
+            title="New location"
+        >
+            <ProfileTextField
+                control={form.control}
+                label="Display name"
+                name="name"
+                placeholder="Living room"
+            />
+            <ProfileTextField
+                control={form.control}
+                label="Slug"
+                name="location_name"
+                placeholder="living-room"
+            />
+            <ProfileNumberField
+                control={form.control}
+                label="Public location ID"
+                name="location_id"
+            />
+        </ProfileFormDialog>
     );
 }

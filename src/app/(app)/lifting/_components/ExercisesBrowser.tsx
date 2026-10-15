@@ -7,12 +7,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { EmptyState } from '~/components/ui/EmptyState';
@@ -200,12 +198,6 @@ export function ExercisesBrowser() {
                                         />
                                         Custom only
                                     </label>
-                                    <ClearFiltersButton
-                                        active={hasActiveColumnFilter(table)}
-                                        onReset={() =>
-                                            table.resetColumnFilters()
-                                        }
-                                    />
                                 </div>
                             );
                         }}

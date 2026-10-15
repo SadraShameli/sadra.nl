@@ -1,49 +1,39 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Dumbbell, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Dumbbell, Pencil, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
+import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
+import { ProfileTextField } from '~/app/(app)/profile/_components/ProfileFormFields';
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
+    MutedCell,
+    PrimaryCell,
+    profileActionsColumn,
+    ProfileTableEmpty,
+    RowActionButton,
+    RowConfirmAction,
+} from '~/app/(app)/profile/_components/ProfileTable';
 import { Button } from '~/components/ui/Button';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
+    hasActiveTableFilter,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
+import { Dialog } from '~/components/ui/Dialog';
 import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Form,
     FormControl,
     FormField,
     FormItem,
     FormLabel,
     FormMessage,
 } from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
 import {
     Select,
     SelectContent,
@@ -66,6 +56,11 @@ import { api, type RouterOutputs } from '~/trpc/react';
 type ExerciseFormInput = z.input<typeof customExerciseInputSchema>;
 type ExerciseRow = RouterOutputs['lifting']['exercise']['list'][number];
 
+const ExerciseColumn = {
+    Equipment: 'equipment',
+    Muscle: 'primaryMuscle',
+} as const;
+
 const DEFAULTS: CreateCustomExerciseInput = {
     equipment: 'barbell',
     force: 'push',
@@ -82,6 +77,7 @@ interface ExerciseDialogProperties {
     onSubmit: (values: CreateCustomExerciseInput) => Promise<unknown>;
     open: boolean;
     pending: boolean;
+    submitLabel: string;
     title: string;
 }
 
@@ -128,167 +124,99 @@ export function ExercisesManager() {
             {
                 accessorKey: 'name',
                 cell: ({ row }) => (
-                    <span className="font-medium text-white">
-                        {row.original.name}
-                    </span>
+                    <PrimaryCell>{row.original.name}</PrimaryCell>
                 ),
                 header: 'Name',
             },
             {
-                accessorKey: 'primaryMuscle',
+                accessorKey: ExerciseColumn.Muscle,
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground capitalize">
+                    <MutedCell className="capitalize">
                         {row.original.primaryMuscle}
-                    </span>
+                    </MutedCell>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Muscle',
             },
             {
-                accessorKey: 'equipment',
+                accessorKey: ExerciseColumn.Equipment,
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground capitalize">
+                    <MutedCell className="capitalize">
                         {row.original.equipment}
-                    </span>
+                    </MutedCell>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Equipment',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex items-center justify-end gap-2">
-                        <Button
-                            aria-label="Edit exercise"
-                            onClick={() => setEditing(row.original)}
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    aria-label="Delete exercise"
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete &ldquo;{row.original.name}
-                                        &rdquo;?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Workouts referencing this exercise will
-                                        keep their logged sets, but the exercise
-                                        can&apos;t be selected anymore.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            remove.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                enableSorting: false,
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            profileActionsColumn<ExerciseRow>((exercise) => (
+                <>
+                    <RowActionButton
+                        icon={Pencil}
+                        label="Edit exercise"
+                        onClick={() => setEditing(exercise)}
+                    />
+                    <RowConfirmAction
+                        description="Workouts referencing this exercise keep their logged sets, but the exercise can't be selected anymore."
+                        label="Delete exercise"
+                        onConfirm={() => remove.mutate({ id: exercise.id })}
+                        title={`Delete “${exercise.name}”?`}
+                    />
+                </>
+            )),
         ],
         [remove],
     );
 
-    return (
-        <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                    Custom exercises you&apos;ve added. Built-in exercises are
-                    managed centrally.
-                </p>
-                <Button
-                    className="gap-1"
-                    onClick={() => setIsCreateOpen(true)}
-                    size="sm"
-                >
-                    <Plus className="size-4" /> New exercise
-                </Button>
-            </div>
+    const newButton = (
+        <Button onClick={() => setIsCreateOpen(true)} size="sm">
+            <Plus className="size-4" />
+            New exercise
+        </Button>
+    );
 
-            <DataTable
-                belowFilter={(table) => (
-                    <ClearFiltersButton
-                        active={hasActiveColumnFilter(table)}
-                        onReset={() => table.resetColumnFilters()}
-                    />
-                )}
-                columns={columns}
-                data={rows}
-                emptyState={(table) => (
-                    <EmptyState
-                        description={
-                            hasActiveColumnFilter(table)
-                                ? 'No exercises match these filters.'
-                                : 'Create one from the New exercise button.'
-                        }
-                        icon={Dumbbell}
-                        title={
-                            hasActiveColumnFilter(table)
-                                ? 'No matches'
-                                : 'No custom exercises yet'
-                        }
-                    />
-                )}
-                filterPlaceholder="Search exercises…"
-                filterPosition="bottom"
-                headerActions={(table) => (
-                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                Muscle
-                            </span>
+    return (
+        <>
+            <ProfilePanel
+                action={newButton}
+                description="Your own exercises. Built-in exercises are managed centrally."
+                title="Exercises"
+            >
+                <DataTable
+                    columns={columns}
+                    data={rows}
+                    emptyState={(table) => (
+                        <ProfileTableEmpty
+                            action={newButton}
+                            description="Add an exercise the built-in library is missing."
+                            filtered={hasActiveTableFilter(table)}
+                            icon={Dumbbell}
+                            noun="custom exercises"
+                        />
+                    )}
+                    filterPlaceholder="Search exercises…"
+                    headerActions={(table) => (
+                        <>
                             <DataTableFacetSelect
-                                className="w-36"
-                                column={table.getColumn('primaryMuscle')}
-                                format={(value) => (
-                                    <span className="capitalize">{value}</span>
-                                )}
+                                column={table.getColumn(ExerciseColumn.Muscle)}
+                                format={capitalized}
+                                label="Muscle"
                                 placeholder="All muscles"
                             />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                Equipment
-                            </span>
                             <DataTableFacetSelect
-                                className="w-36"
-                                column={table.getColumn('equipment')}
-                                format={(value) => (
-                                    <span className="capitalize">{value}</span>
+                                column={table.getColumn(
+                                    ExerciseColumn.Equipment,
                                 )}
-                                placeholder="All gear"
+                                format={capitalized}
+                                label="Equipment"
+                                placeholder="All equipment"
                             />
-                        </div>
-                    </div>
-                )}
-                isLoading={query.isLoading}
-                rowId={(r) => r.id}
-                showFilter
-            />
+                        </>
+                    )}
+                    isLoading={query.isLoading}
+                    rowId={(r) => r.id}
+                    showFilter
+                />
+            </ProfilePanel>
 
             <ExerciseDialog
                 onClose={() => setIsCreateOpen(false)}
@@ -298,6 +226,7 @@ export function ExercisesManager() {
                 }}
                 open={isCreateOpen}
                 pending={create.isPending}
+                submitLabel="Create"
                 title="New exercise"
             />
             {editing && (
@@ -321,11 +250,16 @@ export function ExercisesManager() {
                     }}
                     open
                     pending={update.isPending}
+                    submitLabel="Save"
                     title="Edit exercise"
                 />
             )}
-        </div>
+        </>
     );
+}
+
+function capitalized(value: string) {
+    return <span className="capitalize">{value}</span>;
 }
 
 function EnumSelect({
@@ -375,6 +309,7 @@ function ExerciseDialog({
     onSubmit,
     open,
     pending,
+    submitLabel,
     title,
 }: ExerciseDialogProperties) {
     const form = useForm<ExerciseFormInput, unknown, CreateCustomExerciseInput>(
@@ -389,10 +324,6 @@ function ExerciseDialog({
         if (open) form.reset(initial ?? DEFAULTS);
     }, [open, initial, form]);
 
-    const submit = form.handleSubmit(async (values) => {
-        await onSubmit(values);
-    });
-
     return (
         <Dialog
             onOpenChange={(o) => {
@@ -400,66 +331,46 @@ function ExerciseDialog({
             }}
             open={open}
         >
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{title}</DialogTitle>
-                </DialogHeader>
-                <Form {...form}>
-                    <form className="flex flex-col gap-4" onSubmit={submit}>
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Name</FormLabel>
-                                    <FormControl>
-                                        <Input autoComplete="off" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <EnumSelect
-                                control={form.control}
-                                label="Primary muscle"
-                                name="primaryMuscle"
-                                values={MUSCLE_VALUES}
-                            />
-                            <EnumSelect
-                                control={form.control}
-                                label="Equipment"
-                                name="equipment"
-                                values={EQUIPMENT_VALUES}
-                            />
-                            <EnumSelect
-                                control={form.control}
-                                label="Force"
-                                name="force"
-                                values={FORCE_VALUES}
-                            />
-                            <EnumSelect
-                                control={form.control}
-                                label="Mechanic"
-                                name="mechanic"
-                                values={MECHANIC_VALUES}
-                            />
-                        </div>
-                        <DialogFooter>
-                            <Button
-                                onClick={onClose}
-                                type="button"
-                                variant="ghost"
-                            >
-                                Cancel
-                            </Button>
-                            <Button disabled={pending} type="submit">
-                                {pending ? 'Saving…' : 'Save'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
+            <ProfileFormDialog
+                form={form}
+                onCancel={onClose}
+                onSubmit={onSubmit}
+                pending={pending}
+                submitLabel={submitLabel}
+                title={title}
+            >
+                <ProfileTextField
+                    control={form.control}
+                    label="Name"
+                    name="name"
+                />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <EnumSelect
+                        control={form.control}
+                        label="Primary muscle"
+                        name="primaryMuscle"
+                        values={MUSCLE_VALUES}
+                    />
+                    <EnumSelect
+                        control={form.control}
+                        label="Equipment"
+                        name="equipment"
+                        values={EQUIPMENT_VALUES}
+                    />
+                    <EnumSelect
+                        control={form.control}
+                        label="Force"
+                        name="force"
+                        values={FORCE_VALUES}
+                    />
+                    <EnumSelect
+                        control={form.control}
+                        label="Mechanic"
+                        name="mechanic"
+                        values={MECHANIC_VALUES}
+                    />
+                </div>
+            </ProfileFormDialog>
         </Dialog>
     );
 }

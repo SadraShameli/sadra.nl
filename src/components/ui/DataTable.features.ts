@@ -137,8 +137,9 @@ export type DataTableServerPagination = {
 export type DataTableSlot<TData extends RowData> =
     ((table: DataTableInstance<TData>) => ReactNode) | ReactNode;
 
-export function hasActiveColumnFilter<TData extends RowData>(
+export function hasActiveTableFilter<TData extends RowData>(
     table: Table<typeof dataTableFeatures, TData>,
 ): boolean {
-    return table.store.state.columnFilters.length > 0;
+    const { columnFilters, globalFilter } = table.store.state;
+    return columnFilters.length > 0 || Boolean(globalFilter);
 }

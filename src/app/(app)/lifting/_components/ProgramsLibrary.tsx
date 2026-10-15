@@ -156,7 +156,7 @@ export function ProgramsLibrary() {
     );
 
     const isFiltersActive =
-        debouncedSearch.length > 0 || category !== 'all' || days !== 'all';
+        search.length > 0 || category !== 'all' || days !== 'all';
 
     const totalEnrollments = mine.data?.enrollments.length ?? 0;
     const ownedCount = mine.data?.owned.length ?? 0;

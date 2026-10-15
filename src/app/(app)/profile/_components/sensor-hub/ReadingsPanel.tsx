@@ -6,6 +6,23 @@ import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
+import {
+    ProfileIdSelectField,
+    ProfileNumberField,
+    ProfileNumberStep,
+} from '~/app/(app)/profile/_components/ProfileFormFields';
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
+import {
+    formatProfileDate,
+    MutedCell,
+    PrimaryCell,
+    profileActionsColumn,
+    ProfileDateCell,
+    ProfileDatePrecision,
+    ProfileTableEmpty,
+    RowConfirmAction,
+} from '~/app/(app)/profile/_components/ProfileTable';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -18,44 +35,20 @@ import {
     AlertDialogTrigger,
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
-import { Separator } from '~/components/ui/Separator';
+    DataTable,
+    type DataTableColumn,
+    hasActiveTableFilter,
+} from '~/components/ui/DataTable';
+import { Dialog, DialogTrigger } from '~/components/ui/Dialog';
 import {
     type ReadingCreateAdminInput,
     readingCreateAdminSchema,
 } from '~/lib/schemas/sensor-hub';
 import { api } from '~/trpc/react';
 
-const ALL = '__all__';
+import { SensorHubScopeFilters, useSensorHubScope } from './SensorHubScope';
 
 type ReadingRow = {
     created_at: Date;
@@ -66,30 +59,22 @@ type ReadingRow = {
     value: number;
 };
 
+type SensorOption = { id: number; name: string; unit: null | string };
+
 export function ReadingsPanel() {
     const utilities = api.useUtils();
     const locations = api.location.listAdmin.useQuery();
     const devices = api.device.listAdmin.useQuery();
     const sensors = api.sensor.listAdmin.useQuery();
 
-    const [locFilter, setLocFilter] = useState(ALL);
-    const [developmentFilter, setDevelopmentFilter] = useState(ALL);
-    const [sensFilter, setSensFilter] = useState(ALL);
+    const scope = useSensorHubScope();
     const [selected, setSelected] = useState<ReadingRow[]>([]);
-    const hasFilters =
-        locFilter !== ALL || developmentFilter !== ALL || sensFilter !== ALL;
-    const resetFilters = () => {
-        setLocFilter(ALL);
-        setDevelopmentFilter(ALL);
-        setSensFilter(ALL);
-    };
 
     const readings = api.reading.listAdmin.useQuery({
-        device_id:
-            developmentFilter === ALL ? undefined : Number(developmentFilter),
+        device_id: scope.scope.deviceId,
         limit: 500,
-        location_id: locFilter === ALL ? undefined : Number(locFilter),
-        sensor_id: sensFilter === ALL ? undefined : Number(sensFilter),
+        location_id: scope.scope.locationId,
+        sensor_id: scope.scope.sensorId,
     });
 
     const del = api.reading.delete.useMutation({
@@ -126,8 +111,14 @@ export function ReadingsPanel() {
         [devices.data],
     );
 
-    const columns = useMemo<DataTableColumn<ReadingRow>[]>(
-        () => [
+    const columns = useMemo<DataTableColumn<ReadingRow>[]>(() => {
+        const valueWithUnit = (reading: ReadingRow): string => {
+            const unit = sensorMap.get(reading.sensor_id)?.unit;
+            return unit
+                ? `${String(reading.value)} ${unit}`
+                : String(reading.value);
+        };
+        return [
             {
                 cell: ({ row }) => (
                     <Checkbox
@@ -154,26 +145,17 @@ export function ReadingsPanel() {
             },
             {
                 accessorKey: 'value',
-                cell: ({ row }) => {
-                    const sens = sensorMap.get(row.original.sensor_id);
-                    return (
-                        <span className="font-medium text-white tabular-nums">
-                            {row.original.value}
-                            {sens?.unit ? ` ${sens.unit}` : ''}
-                        </span>
-                    );
-                },
+                cell: ({ row }) => (
+                    <PrimaryCell>{valueWithUnit(row.original)}</PrimaryCell>
+                ),
                 header: 'Value',
             },
             {
                 accessorFn: (row) =>
                     sensorMap.get(row.sensor_id)?.name ??
                     `sensor#${row.sensor_id}`,
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {sensorMap.get(row.original.sensor_id)?.name ??
-                            `sensor#${row.original.sensor_id}`}
-                    </span>
+                cell: ({ getValue }) => (
+                    <MutedCell>{String(getValue())}</MutedCell>
                 ),
                 header: 'Sensor',
                 id: 'sensor',
@@ -181,11 +163,8 @@ export function ReadingsPanel() {
             {
                 accessorFn: (row) =>
                     deviceMap.get(row.device_id) ?? `device#${row.device_id}`,
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {deviceMap.get(row.original.device_id) ??
-                            `device#${row.original.device_id}`}
-                    </span>
+                cell: ({ getValue }) => (
+                    <MutedCell>{String(getValue())}</MutedCell>
                 ),
                 header: 'Device',
                 id: 'device',
@@ -193,217 +172,132 @@ export function ReadingsPanel() {
             {
                 accessorKey: 'created_at',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {new Date(row.original.created_at).toLocaleString()}
-                    </span>
+                    <ProfileDateCell
+                        precision={ProfileDatePrecision.Minute}
+                        value={row.original.created_at}
+                    />
                 ),
                 header: 'Recorded',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex justify-end">
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline">
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete reading?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        {row.original.value}
-                                        {sensorMap.get(row.original.sensor_id)
-                                            ?.unit
-                                            ? ` ${sensorMap.get(row.original.sensor_id)?.unit}`
-                                            : ''}{' '}
-                                        at{' '}
-                                        {new Date(
-                                            row.original.created_at,
-                                        ).toLocaleString()}
-                                        .
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            del.mutate({ id: row.original.id })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
-        ],
-        [del, deviceMap, sensorMap],
+            profileActionsColumn<ReadingRow>((reading) => (
+                <RowConfirmAction
+                    description={`${valueWithUnit(reading)} at ${formatProfileDate(reading.created_at, ProfileDatePrecision.Minute)}.`}
+                    label="Delete reading"
+                    onConfirm={() => del.mutate({ id: reading.id })}
+                    title="Delete reading?"
+                />
+            )),
+        ];
+    }, [del, deviceMap, sensorMap]);
+
+    const newButton = (
+        <DialogTrigger asChild>
+            <Button size="sm">
+                <Plus className="size-4" />
+                New reading
+            </Button>
+        </DialogTrigger>
     );
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Readings</CardTitle>
-                <div className="flex items-center gap-2">
-                    {selected.length > 0 && (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="destructive">
-                                    <Trash2 className="mr-1 size-3.5" />
-                                    Delete {selected.length}
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete {selected.length} reading(s)?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This cannot be undone.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            delBulk.mutate({
-                                                ids: selected.map((r) => r.id),
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    )}
-                    <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm">
-                                <Plus className="mr-1 size-4" />
-                                New reading
-                            </Button>
-                        </DialogTrigger>
-                        <NewReadingDialog
-                            devices={(devices.data ?? []).map((d) => ({
-                                id: d.id,
-                                name: d.name,
-                            }))}
-                            onClose={() => setNewOpen(false)}
-                            onSubmit={(v) =>
-                                readingCreateMutation.mutate(v, {
-                                    onSuccess: () => setNewOpen(false),
-                                })
-                            }
-                            pending={readingCreateMutation.isPending}
-                            sensors={(sensors.data ?? []).map((s) => ({
-                                id: s.id,
-                                name: s.name,
-                                unit: s.unit,
-                            }))}
-                        />
-                    </Dialog>
-                </div>
-            </CardHeader>
-            <Separator />
-            <CardContent className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    <FilterField
-                        label="Location"
-                        onChange={setLocFilter}
-                        options={(locations.data ?? []).map((l) => ({
-                            id: String(l.id),
-                            name: l.name,
-                        }))}
-                        value={locFilter}
-                    />
-                    <FilterField
-                        label="Device"
-                        onChange={setDevelopmentFilter}
-                        options={(devices.data ?? []).map((d) => ({
-                            id: String(d.id),
-                            name: d.name,
-                        }))}
-                        value={developmentFilter}
-                    />
-                    <FilterField
-                        label="Sensor"
-                        onChange={setSensFilter}
-                        options={(sensors.data ?? []).map((s) => ({
-                            id: String(s.id),
-                            name: s.name,
-                        }))}
-                        value={sensFilter}
-                    />
-                </div>
-
+        <Dialog onOpenChange={setNewOpen} open={newOpen}>
+            <ProfilePanel
+                action={
+                    <>
+                        {selected.length > 0 && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="destructive">
+                                        <Trash2 className="size-4" />
+                                        Delete {selected.length}
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Delete {selected.length} reading(s)?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                            Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() =>
+                                                delBulk.mutate({
+                                                    ids: selected.map(
+                                                        (r) => r.id,
+                                                    ),
+                                                })
+                                            }
+                                        >
+                                            Delete
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                        {newButton}
+                    </>
+                }
+                description="Raw sensor values, newest first. Select rows to delete them in bulk."
+                title="Readings"
+            >
                 <DataTable
                     columns={columns}
                     data={rows}
-                    emptyState={
-                        <EmptyState
-                            description="Adjust the filters to widen your search."
+                    emptyState={(table) => (
+                        <ProfileTableEmpty
+                            action={newButton}
+                            description="Readings appear here as devices report them."
+                            filtered={
+                                scope.isActive || hasActiveTableFilter(table)
+                            }
                             icon={Activity}
-                            title="No readings"
+                            noun="readings"
                         />
-                    }
+                    )}
+                    filterPlaceholder="Search readings…"
+                    hasExternalFilters={scope.isActive}
                     headerActions={
-                        <ClearFiltersButton
-                            active={hasFilters}
-                            onReset={resetFilters}
+                        <SensorHubScopeFilters
+                            controller={scope}
+                            devices={devices.data ?? []}
+                            locations={locations.data ?? []}
+                            sensors={sensors.data ?? []}
                         />
                     }
                     isLoading={readings.isLoading}
+                    onResetFilters={scope.reset}
                     onRowSelectionChange={setSelected}
                     pageSize={25}
                     rowId={(r) => String(r.id)}
                     rowSelection
                     showFilter
                 />
-            </CardContent>
-        </Card>
-    );
-}
-
-function FilterField({
-    label,
-    onChange,
-    options,
-    value,
-}: {
-    label: string;
-    onChange: (v: string) => void;
-    options: { id: string; name: string }[];
-    value: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">{label}</Label>
-            <Select onValueChange={onChange} value={value}>
-                <SelectTrigger>
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value={ALL}>All</SelectItem>
-                    {options.map((o) => (
-                        <SelectItem key={o.id} value={o.id}>
-                            {o.name}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </div>
+            </ProfilePanel>
+            <NewReadingDialog
+                devices={(devices.data ?? []).map((d) => ({
+                    id: d.id,
+                    label: d.name,
+                }))}
+                onClose={() => setNewOpen(false)}
+                onSubmit={(v) =>
+                    readingCreateMutation.mutate(v, {
+                        onSuccess: () => setNewOpen(false),
+                    })
+                }
+                pending={readingCreateMutation.isPending}
+                sensors={(sensors.data ?? []).map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                    unit: s.unit,
+                }))}
+            />
+        </Dialog>
     );
 }
 
@@ -414,11 +308,11 @@ function NewReadingDialog({
     pending,
     sensors,
 }: {
-    devices: { id: number; name: string }[];
+    devices: { id: number; label: string }[];
     onClose: () => void;
     onSubmit: (v: ReadingCreateAdminInput) => void;
     pending: boolean;
-    sensors: { id: number; name: string; unit: null | string }[];
+    sensors: SensorOption[];
 }) {
     const form = useForm<ReadingCreateAdminInput>({
         defaultValues: { deviceId: 0, sensorId: 0, value: 0 },
@@ -427,132 +321,37 @@ function NewReadingDialog({
     const sensorId = form.watch('sensorId');
     const selectedUnit = sensors.find((s) => s.id === sensorId)?.unit;
     return (
-        <DialogContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>New reading</DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 flex flex-col gap-3">
-                        <FormField
-                            control={form.control}
-                            name="deviceId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Device</FormLabel>
-                                    <Select
-                                        onValueChange={(v) =>
-                                            field.onChange(Number(v))
-                                        }
-                                        value={
-                                            field.value
-                                                ? String(field.value)
-                                                : ''
-                                        }
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pick a device" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {devices.map((d) => (
-                                                <SelectItem
-                                                    key={d.id}
-                                                    value={String(d.id)}
-                                                >
-                                                    {d.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="sensorId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Sensor</FormLabel>
-                                    <Select
-                                        onValueChange={(v) =>
-                                            field.onChange(Number(v))
-                                        }
-                                        value={
-                                            field.value
-                                                ? String(field.value)
-                                                : ''
-                                        }
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pick a sensor" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {sensors.map((s) => (
-                                                <SelectItem
-                                                    key={s.id}
-                                                    value={String(s.id)}
-                                                >
-                                                    {s.name}
-                                                    {s.unit
-                                                        ? ` (${s.unit})`
-                                                        : ''}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="value"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>
-                                        Value
-                                        {selectedUnit
-                                            ? ` (${selectedUnit})`
-                                            : ''}
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            inputMode="decimal"
-                                            onChange={(event) => {
-                                                const n = Number(
-                                                    event.target.value,
-                                                );
-                                                field.onChange(
-                                                    Number.isFinite(n) ? n : 0,
-                                                );
-                                            }}
-                                            placeholder="0"
-                                            ref={field.ref}
-                                            step="any"
-                                            type="number"
-                                            value={field.value}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                    <DialogFooter className="mt-4">
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button disabled={pending} type="submit">
-                            Create
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
-        </DialogContent>
+        <ProfileFormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={onSubmit}
+            pending={pending}
+            submitLabel="Create"
+            title="New reading"
+        >
+            <ProfileIdSelectField
+                control={form.control}
+                label="Device"
+                name="deviceId"
+                options={devices}
+                placeholder="Pick a device"
+            />
+            <ProfileIdSelectField
+                control={form.control}
+                label="Sensor"
+                name="sensorId"
+                options={sensors.map((s) => ({
+                    id: s.id,
+                    label: s.unit ? `${s.name} (${s.unit})` : s.name,
+                }))}
+                placeholder="Pick a sensor"
+            />
+            <ProfileNumberField
+                control={form.control}
+                label={selectedUnit ? `Value (${selectedUnit})` : 'Value'}
+                name="value"
+                step={ProfileNumberStep.Any}
+            />
+        </ProfileFormDialog>
     );
 }

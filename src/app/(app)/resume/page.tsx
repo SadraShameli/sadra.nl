@@ -6,7 +6,7 @@ import {
     coverLetters,
     defaultResumeVariantKey,
     resumeVariants,
-} from '~/lib/site/content';
+} from '~/lib/site/resume';
 
 import ResumeCard from './_components/ResumeCard';
 

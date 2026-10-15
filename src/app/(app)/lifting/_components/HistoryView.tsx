@@ -20,13 +20,11 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
 } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
@@ -339,10 +337,6 @@ export function HistoryView({ from }: HistoryViewProperties) {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <ClearFiltersButton
-                                    active={hasActiveColumnFilter(table)}
-                                    onReset={() => table.resetColumnFilters()}
-                                />
                             </div>
                         );
                     }}

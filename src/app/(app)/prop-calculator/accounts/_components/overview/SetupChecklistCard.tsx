@@ -9,6 +9,7 @@ import { SetupStepStatus } from '~/lib/prop-accounts';
 import { cn } from '~/lib/utilities';
 
 import { type SetupChecklistCardModel } from './overviewModel';
+import { SetupAccountsTable } from './SetupAccountsTable';
 
 type SetupStepModel = SetupChecklistCardModel['steps'][number];
 
@@ -84,59 +85,64 @@ function SetupStepItem({ step }: { readonly step: SetupStepModel }) {
         step.status === SetupStepStatus.Missing ||
         step.status === SetupStepStatus.NotChecked;
     return (
-        <li className="flex items-start gap-3 p-3">
-            <StepIcon status={step.status} />
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <p
-                    className={cn(
-                        'text-sm font-medium',
-                        step.status === SetupStepStatus.Done
-                            ? 'text-muted-foreground'
-                            : 'text-foreground',
+        <li className="flex flex-col gap-3 p-3">
+            <div className="flex items-start gap-3">
+                <StepIcon status={step.status} />
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <p
+                        className={cn(
+                            'text-sm font-medium',
+                            step.status === SetupStepStatus.Done
+                                ? 'text-muted-foreground'
+                                : 'text-foreground',
+                        )}
+                    >
+                        <span className="sr-only">{step.statusLabel}: </span>
+                        {step.label}
+                    </p>
+                    {step.detail !== null && (
+                        <p className="text-xs text-muted-foreground">
+                            {step.detail}
+                        </p>
                     )}
-                >
-                    <span className="sr-only">{step.statusLabel}: </span>
-                    {step.label}
-                </p>
-                {step.detail !== null && (
-                    <p className="text-xs text-muted-foreground">
-                        {step.detail}
-                    </p>
-                )}
-                {step.status === SetupStepStatus.NotApplicable && (
-                    <p className="text-xs text-muted-foreground">
-                        {step.statusLabel}
-                    </p>
-                )}
-                {step.items.length > 0 && (
-                    <ul className="flex flex-wrap gap-1.5">
-                        {step.items.map((item) => (
-                            <li key={item.key}>
-                                <Badge
-                                    asChild
-                                    className="font-medium hover:bg-accent"
-                                    variant="outline"
-                                >
-                                    <Link href={item.href}>{item.label}</Link>
-                                </Badge>
-                            </li>
-                        ))}
-                    </ul>
+                    {step.status === SetupStepStatus.NotApplicable && (
+                        <p className="text-xs text-muted-foreground">
+                            {step.statusLabel}
+                        </p>
+                    )}
+                </div>
+                {isOpen && (
+                    <Button
+                        asChild
+                        className="shrink-0"
+                        size="sm"
+                        variant={
+                            step.status === SetupStepStatus.Missing
+                                ? 'outline'
+                                : 'ghost'
+                        }
+                    >
+                        <Link href={step.href}>{step.actionLabel}</Link>
+                    </Button>
                 )}
             </div>
-            {isOpen && (
-                <Button
-                    asChild
-                    className="shrink-0"
-                    size="sm"
-                    variant={
-                        step.status === SetupStepStatus.Missing
-                            ? 'outline'
-                            : 'ghost'
-                    }
-                >
-                    <Link href={step.href}>{step.actionLabel}</Link>
-                </Button>
+            {step.accounts.length > 0 && (
+                <SetupAccountsTable accounts={step.accounts} />
+            )}
+            {step.items.length > 0 && (
+                <ul className="flex flex-wrap gap-1.5 pl-7">
+                    {step.items.map((item) => (
+                        <li key={item.key}>
+                            <Badge
+                                asChild
+                                className="font-medium hover:bg-accent"
+                                variant="outline"
+                            >
+                                <Link href={item.href}>{item.label}</Link>
+                            </Badge>
+                        </li>
+                    ))}
+                </ul>
             )}
         </li>
     );

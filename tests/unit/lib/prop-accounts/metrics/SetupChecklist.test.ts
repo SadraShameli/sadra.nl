@@ -31,13 +31,14 @@ type Overrides = Partial<SetupChecklistInputs> & {
     readonly ledger: SetupChecklistInputs['ledger'];
 };
 
-const NO_STALE: ReadonlySet<string> = new Set();
+const STALE_NOTE = 'No balance snapshot recorded yet';
+const NO_STALE: ReadonlyMap<string, string> = new Map();
 
 function checklistOf(overrides: Overrides) {
     return setupChecklistOf({
         expectedValuePlanSerials: new Set(),
         rulebook: DEFAULT_RULEBOOK,
-        staleSnapshotAccountIds: NO_STALE,
+        staleSnapshotNotes: NO_STALE,
         ...overrides,
     });
 }
@@ -201,14 +202,19 @@ describe('setupChecklistOf', () => {
             const fresh = account(EVAL_PLAN, { label: 'Fresh one' });
             const step = stepFor(SetupStep.StagesCaptured, {
                 ledger: ledger({ accounts: [stale, fresh] }),
-                staleSnapshotAccountIds: new Set([stale.id]),
+                staleSnapshotNotes: new Map([[stale.id, STALE_NOTE]]),
             });
             expect(step.status).toBe(SetupStepStatus.Missing);
             expect(step.missing).toEqual([
                 {
                     accountId: stale.id,
+                    firm: EVAL_PLAN.firm.displayName,
                     kind: SetupMissingKind.Account,
                     label: 'Stale one',
+                    note: STALE_NOTE,
+                    plan: EVAL_PLAN.plan.label,
+                    purchasedOn: stale.purchasedOn,
+                    stage: stale.stage,
                 },
             ]);
         });
@@ -218,7 +224,7 @@ describe('setupChecklistOf', () => {
             const held = account(EVAL_PLAN);
             const step = stepFor(SetupStep.StagesCaptured, {
                 ledger: ledger({ accounts: [ended, held] }),
-                staleSnapshotAccountIds: new Set([ended.id]),
+                staleSnapshotNotes: new Map([[ended.id, STALE_NOTE]]),
             });
             expect(step.status).toBe(SetupStepStatus.Done);
         });
@@ -231,7 +237,7 @@ describe('setupChecklistOf', () => {
             });
             const step = stepFor(SetupStep.StagesCaptured, {
                 ledger: ledger({ accounts: [ledgerOnly] }),
-                staleSnapshotAccountIds: new Set([ledgerOnly.id]),
+                staleSnapshotNotes: new Map([[ledgerOnly.id, STALE_NOTE]]),
             });
             expect(step.status).toBe(SetupStepStatus.NotApplicable);
         });
@@ -280,8 +286,13 @@ describe('setupChecklistOf', () => {
             expect(step.missing).toEqual([
                 {
                     accountId: held.id,
+                    firm: EVAL_PLAN.firm.displayName,
                     kind: SetupMissingKind.Account,
                     label: 'Eval one',
+                    note: null,
+                    plan: EVAL_PLAN.plan.label,
+                    purchasedOn: held.purchasedOn,
+                    stage: held.stage,
                 },
             ]);
         });

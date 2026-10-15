@@ -7710,12 +7710,16 @@ describe('buildOverview setup checklist (PT-69, F-V28)', () => {
         expect(byKey.get(SetupStep.FirmRulesVerified)?.detail).toContain(
             firmDataProvenance(EVAL_PLAN.firm.id).verifiedOn,
         );
-        expect(byKey.get(SetupStep.StagesCaptured)?.items).toEqual([
-            {
+        expect(byKey.get(SetupStep.StagesCaptured)?.items).toEqual([]);
+        expect(byKey.get(SetupStep.StagesCaptured)?.accounts).toEqual([
+            expect.objectContaining({
+                firm: EVAL_PLAN.firm.displayName,
                 href: routes.propCalculator.accounts.detail(alpha.id),
                 key: alpha.id,
                 label: 'Alpha',
-            },
+                note: 'No balance yet',
+                plan: EVAL_PLAN.plan.label,
+            }),
         ]);
         expect(byKey.get(SetupStep.ExpectedValueComputed)?.href).toBe(
             `${routes.propCalculator.accounts.index}#prop-overview-expected-net-heading`,
@@ -7847,7 +7851,7 @@ describe('setupChecklistCardOf (PT-69, F-V28)', () => {
                 expectedValuePlanSerials: null,
                 ledger,
                 rulebook: DEFAULT_RULEBOOK,
-                staleSnapshotAccountIds: new Set(),
+                staleSnapshotNotes: new Map(),
             }),
         );
         expect(card.steps).toHaveLength(5);

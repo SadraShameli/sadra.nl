@@ -8,7 +8,6 @@ import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
@@ -190,13 +189,9 @@ export function MutationsBrowser() {
                                 />
                             }
                             filterPlaceholder="Search mutations…"
+                            hasExternalFilters={hasFilters}
                             headerActions={
                                 <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                    <ClearFiltersButton
-                                        active={hasFilters}
-                                        className="hidden md:flex"
-                                        onReset={reset}
-                                    />
                                     <ActiveConnectionNote
                                         credential={accounting}
                                         roleNoun="accounting credential"
@@ -240,15 +235,11 @@ export function MutationsBrowser() {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <ClearFiltersButton
-                                        active={hasFilters}
-                                        className="md:hidden"
-                                        onReset={reset}
-                                    />
                                 </div>
                             }
                             initialSorting={[{ desc: true, id: 'date' }]}
                             isLoading={!!credentialId && mutationsQ.isPending}
+                            onResetFilters={reset}
                             rowId={(r) => r.externalId}
                             serverPagination={{
                                 hasNextPage: rows.length === PAGE_SIZE,

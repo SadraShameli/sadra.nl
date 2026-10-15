@@ -49,7 +49,7 @@ function modelOf(options: {
             ],
         }),
         rulebook: DEFAULT_RULEBOOK,
-        staleSnapshotAccountIds: new Set(),
+        staleSnapshotNotes: new Map(),
     });
     const card = setupChecklistCardOf(checklist);
     return options.hub ? { ...card, totalSteps: card.totalSteps - 1 } : card;
@@ -127,14 +127,15 @@ describe('SetupChecklistCard', () => {
             );
         });
 
-        it('links each missing item to its fix, as the overview card does', () => {
+        it('lists each missing account in a table row linked to the account, as the overview card does', () => {
             const model = modelOf({ hub: true, withCosts: false });
             const costs = model.steps.find(
                 (step) => step.key === SetupStep.CostsEntered,
             );
-            expect(costs?.items.length).toBeGreaterThan(0);
+            expect(costs?.accounts.length).toBeGreaterThan(0);
             render(<SetupChecklistCompact model={model} />);
-            const items = costs?.items ?? [];
+            const items = costs?.accounts ?? [];
+            expect(container.querySelector('table')).not.toBeNull();
             for (const item of items) {
                 const anchor = [...container.querySelectorAll('a')].find(
                     (candidate) =>
@@ -155,7 +156,7 @@ describe('SetupChecklistCard', () => {
                 if (step.status === SetupStepStatus.Missing) {
                     expect(hrefs).toContain(step.href);
                 }
-                for (const item of step.items) {
+                for (const item of [...step.items, ...step.accounts]) {
                     expect(hrefs).toContain(item.href);
                 }
             }

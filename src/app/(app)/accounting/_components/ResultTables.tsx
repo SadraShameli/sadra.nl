@@ -16,13 +16,10 @@ import type {
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    type DataTableInstance,
-    hasActiveColumnFilter,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { DateRangePicker } from '~/components/ui/DatePicker';
@@ -35,6 +32,10 @@ import {
     DialogTitle,
 } from '~/components/ui/Dialog';
 import { EmptyState } from '~/components/ui/EmptyState';
+import {
+    FilterSelect,
+    type FilterSelectOption,
+} from '~/components/ui/FilterSelect';
 import { Input } from '~/components/ui/Input';
 import {
     Select,
@@ -54,6 +55,11 @@ import { type TaxCodeOption, useTaxCodes } from './useTaxCodes';
 const ALL = '__all__';
 type DirectionFilter = BookingDirection | typeof ALL;
 
+const DIRECTION_OPTIONS: readonly FilterSelectOption[] = [
+    { label: 'Incoming', value: 'IN' },
+    { label: 'Outgoing', value: 'OUT' },
+];
+
 function DirectionSelect({
     onChange,
     value,
@@ -62,19 +68,13 @@ function DirectionSelect({
     value: DirectionFilter;
 }) {
     return (
-        <Select
-            onValueChange={(v) => onChange(v as DirectionFilter)}
-            value={value}
-        >
-            <SelectTrigger className="h-8 w-40 text-xs">
-                <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value={ALL}>All directions</SelectItem>
-                <SelectItem value="IN">Incoming</SelectItem>
-                <SelectItem value="OUT">Outgoing</SelectItem>
-            </SelectContent>
-        </Select>
+        <FilterSelect
+            label="Direction"
+            onValueChange={(v) => onChange((v ?? ALL) as DirectionFilter)}
+            options={DIRECTION_OPTIONS}
+            placeholder="All directions"
+            value={value === ALL ? undefined : value}
+        />
     );
 }
 
@@ -90,14 +90,6 @@ function FilterField({
             <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
                 {label}
             </span>
-            {children}
-        </div>
-    );
-}
-
-function HeaderActionsShell({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
             {children}
         </div>
     );
@@ -170,17 +162,13 @@ export function BookingsTable({
         [bookings, direction, taxCode, dateRange],
     );
 
-    const hasFilters = (table: DataTableInstance<Booking>): boolean =>
-        direction !== ALL ||
-        taxCode !== ALL ||
-        Boolean(dateRange?.from) ||
-        hasActiveColumnFilter(table);
+    const hasFilters =
+        direction !== ALL || taxCode !== ALL || Boolean(dateRange?.from);
 
-    const reset = (table: DataTableInstance<Booking>) => {
+    const reset = () => {
         setDirection(ALL);
         setTaxCode(ALL);
         setDateRange(undefined);
-        table.resetColumnFilters();
     };
 
     const columns = useMemo<DataTableColumn<Booking>[]>(
@@ -292,12 +280,6 @@ export function BookingsTable({
     ) : (
         <>
             <DataTable
-                belowFilter={(table) => (
-                    <ClearFiltersButton
-                        active={hasFilters(table)}
-                        onReset={() => reset(table)}
-                    />
-                )}
                 columns={columns}
                 data={rows}
                 emptyState={
@@ -307,62 +289,48 @@ export function BookingsTable({
                     />
                 }
                 filterPlaceholder="Filter bookings…"
-                filterPosition="bottom"
+                hasExternalFilters={hasFilters}
                 headerActions={(table) => (
-                    <HeaderActionsShell>
-                        <FilterField label="Direction">
-                            <DirectionSelect
-                                onChange={setDirection}
-                                value={direction}
-                            />
-                        </FilterField>
-                        <FilterField label="VAT">
-                            <Select onValueChange={setTaxCode} value={taxCode}>
-                                <SelectTrigger className="h-8 w-44 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={ALL}>
-                                        All VAT codes
-                                    </SelectItem>
-                                    {taxCodeOptions.map((o) => (
-                                        <SelectItem key={o.code} value={o.code}>
-                                            {o.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FilterField>
-                        <FilterField label="Counterpart">
-                            <DataTableFacetSelect
-                                className="w-48"
-                                column={table.getColumn('counterpartName')}
-                                placeholder="All counterparts"
-                            />
-                        </FilterField>
+                    <>
+                        <DirectionSelect
+                            onChange={setDirection}
+                            value={direction}
+                        />
+                        <FilterSelect
+                            label="VAT"
+                            onValueChange={(v) => setTaxCode(v ?? ALL)}
+                            options={taxCodeOptions.map((o) => ({
+                                label: o.label,
+                                value: o.code,
+                            }))}
+                            placeholder="All VAT codes"
+                            value={taxCode === ALL ? undefined : taxCode}
+                        />
+                        <DataTableFacetSelect
+                            column={table.getColumn('counterpartName')}
+                            label="Counterpart"
+                            placeholder="All counterparts"
+                        />
                         {(table
                             .getColumn('sourceCurrency')
                             ?.getFacetedUniqueValues().size ?? 0) > 1 && (
-                            <FilterField label="Currency">
-                                <DataTableFacetSelect
-                                    className="w-28"
-                                    column={table.getColumn('sourceCurrency')}
-                                    placeholder="All currencies"
-                                />
-                            </FilterField>
-                        )}
-                        <FilterField label="Date range">
-                            <DateRangePicker
-                                align="end"
-                                className="h-8 text-xs"
-                                onChange={setDateRange}
-                                placeholder="Any date"
-                                value={dateRange}
+                            <DataTableFacetSelect
+                                column={table.getColumn('sourceCurrency')}
+                                label="Currency"
+                                placeholder="All currencies"
                             />
-                        </FilterField>
-                    </HeaderActionsShell>
+                        )}
+                        <DateRangePicker
+                            align="end"
+                            className="h-8 text-xs"
+                            onChange={setDateRange}
+                            placeholder="Any date"
+                            value={dateRange}
+                        />
+                    </>
                 )}
                 initialColumnVisibility={{ sourceCurrency: false }}
+                onResetFilters={reset}
                 pageSize={20}
                 rowId={(r) => r.txnId}
                 showFilter
@@ -391,14 +359,6 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                 : result.matches.filter((m) => m.direction === direction),
         [result.matches, direction],
     );
-
-    const hasFilters = (table: DataTableInstance<MatchAudit>): boolean =>
-        direction !== ALL || hasActiveColumnFilter(table);
-
-    const reset = (table: DataTableInstance<MatchAudit>) => {
-        setDirection(ALL);
-        table.resetColumnFilters();
-    };
 
     const columns = useMemo<DataTableColumn<MatchAudit>[]>(
         () => [
@@ -457,12 +417,6 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
         />
     ) : (
         <DataTable
-            belowFilter={(table) => (
-                <ClearFiltersButton
-                    active={hasFilters(table)}
-                    onReset={() => reset(table)}
-                />
-            )}
             columns={columns}
             data={rows}
             emptyState={
@@ -472,24 +426,21 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                 />
             }
             filterPlaceholder="Filter matches…"
-            filterPosition="bottom"
+            hasExternalFilters={direction !== ALL}
             headerActions={(table) => (
-                <HeaderActionsShell>
-                    <FilterField label="Direction">
-                        <DirectionSelect
-                            onChange={setDirection}
-                            value={direction}
-                        />
-                    </FilterField>
-                    <FilterField label="Matched ledger">
-                        <DataTableFacetSelect
-                            className="w-48"
-                            column={table.getColumn('matchedDisplay')}
-                            placeholder="All ledgers"
-                        />
-                    </FilterField>
-                </HeaderActionsShell>
+                <>
+                    <DirectionSelect
+                        onChange={setDirection}
+                        value={direction}
+                    />
+                    <DataTableFacetSelect
+                        column={table.getColumn('matchedDisplay')}
+                        label="Matched ledger"
+                        placeholder="All ledgers"
+                    />
+                </>
             )}
+            onResetFilters={() => setDirection(ALL)}
             pageSize={20}
             rowId={(r) => `${r.direction}|${r.matchedDisplay}|${r.rawName}`}
             showFilter
@@ -572,12 +523,6 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
         />
     ) : (
         <DataTable
-            belowFilter={
-                <ClearFiltersButton
-                    active={direction !== ALL}
-                    onReset={() => setDirection(ALL)}
-                />
-            }
             columns={columns}
             data={rows}
             emptyState={
@@ -587,17 +532,11 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
                 />
             }
             filterPlaceholder="Filter counterparts…"
-            filterPosition="bottom"
+            hasExternalFilters={direction !== ALL}
             headerActions={
-                <HeaderActionsShell>
-                    <FilterField label="Direction">
-                        <DirectionSelect
-                            onChange={setDirection}
-                            value={direction}
-                        />
-                    </FilterField>
-                </HeaderActionsShell>
+                <DirectionSelect onChange={setDirection} value={direction} />
             }
+            onResetFilters={() => setDirection(ALL)}
             pageSize={20}
             rowId={(r) => `${r.direction}|${r.name}`}
             showFilter
@@ -791,9 +730,6 @@ export function UnknownsTable({
     ) : (
         <>
             <DataTable
-                belowFilter={
-                    <ClearFiltersButton active={hasFilters} onReset={reset} />
-                }
                 columns={columns}
                 data={rows}
                 emptyState={
@@ -803,26 +739,23 @@ export function UnknownsTable({
                     />
                 }
                 filterPlaceholder="Filter unknowns…"
-                filterPosition="bottom"
+                hasExternalFilters={hasFilters}
                 headerActions={
-                    <HeaderActionsShell>
-                        <FilterField label="Direction">
-                            <DirectionSelect
-                                onChange={setDirection}
-                                value={direction}
-                            />
-                        </FilterField>
-                        <FilterField label="First seen">
-                            <DateRangePicker
-                                align="end"
-                                className="h-8 text-xs"
-                                onChange={setDateRange}
-                                placeholder="Any date"
-                                value={dateRange}
-                            />
-                        </FilterField>
-                    </HeaderActionsShell>
+                    <>
+                        <DirectionSelect
+                            onChange={setDirection}
+                            value={direction}
+                        />
+                        <DateRangePicker
+                            align="end"
+                            className="h-8 text-xs"
+                            onChange={setDateRange}
+                            placeholder="First seen, any date"
+                            value={dateRange}
+                        />
+                    </>
                 }
+                onResetFilters={reset}
                 pageSize={20}
                 rowId={(r) => `${r.direction}|${r.rawName}`}
                 showFilter

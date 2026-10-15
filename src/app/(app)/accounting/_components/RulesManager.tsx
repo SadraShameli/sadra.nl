@@ -22,12 +22,11 @@ import type {
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
+    hasActiveTableFilter,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { DateRangePicker } from '~/components/ui/DatePicker';
@@ -588,13 +587,13 @@ function BankAccountsCard({
                     emptyState={(table) => (
                         <EmptyState
                             description={
-                                hasActiveColumnFilter(table)
+                                hasActiveTableFilter(table)
                                     ? 'No bank accounts match the current filters.'
                                     : 'Map a Wise currency to a ledger to start importing.'
                             }
                             icon={Landmark}
                             title={
-                                hasActiveColumnFilter(table)
+                                hasActiveTableFilter(table)
                                     ? 'No matches'
                                     : 'No bank accounts'
                             }
@@ -603,18 +602,11 @@ function BankAccountsCard({
                     filterPlaceholder="Search accounts…"
                     headerActions={(table) => (
                         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                            <ClearFiltersButton
-                                active={hasActiveColumnFilter(table)}
-                                className="hidden md:flex"
-                                onReset={() => table.resetColumnFilters()}
-                            />
                             <DataTableFacetSelect
-                                className="w-40"
                                 column={table.getColumn('currency')}
                                 placeholder="All currencies"
                             />
                             <DataTableFacetSelect
-                                className="w-48"
                                 column={table.getColumn('ledger')}
                                 placeholder="All ledgers"
                             />
@@ -811,7 +803,7 @@ function RulesCard({
                     const index = allRules.findIndex(
                         (r) => r.id === row.original.id,
                     );
-                    const isFiltered = hasActiveColumnFilter(table);
+                    const isFiltered = hasActiveTableFilter(table);
                     return (
                         <div className="flex items-center gap-1">
                             <Button
@@ -873,13 +865,13 @@ function RulesCard({
                     emptyState={(table) => (
                         <EmptyState
                             description={
-                                hasActiveColumnFilter(table)
+                                hasActiveTableFilter(table)
                                     ? 'No rules match the current filters.'
                                     : 'Add a rule to classify transactions.'
                             }
                             icon={Filter}
                             title={
-                                hasActiveColumnFilter(table)
+                                hasActiveTableFilter(table)
                                     ? 'No matches'
                                     : 'No rules yet'
                             }
@@ -888,23 +880,15 @@ function RulesCard({
                     filterPlaceholder="Search rules…"
                     headerActions={(table) => (
                         <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                            <ClearFiltersButton
-                                active={hasActiveColumnFilter(table)}
-                                className="hidden md:flex"
-                                onReset={() => table.resetColumnFilters()}
-                            />
                             <DataTableFacetSelect
-                                className="w-40"
                                 column={table.getColumn('direction')}
                                 placeholder="All directions"
                             />
                             <DataTableFacetSelect
-                                className="w-48"
                                 column={table.getColumn('ledger')}
                                 placeholder="All ledgers"
                             />
                             <DataTableFacetSelect
-                                className="w-44"
                                 column={table.getColumn('taxCode')}
                                 format={labelOf}
                                 placeholder="All VAT codes"

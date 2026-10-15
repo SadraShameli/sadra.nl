@@ -11,12 +11,11 @@ import type {
 
 import { Badge } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
+    hasActiveTableFilter,
 } from '~/components/ui/DataTable';
 import { DateRangePicker } from '~/components/ui/DatePicker';
 import { EmptyState } from '~/components/ui/EmptyState';
@@ -199,7 +198,7 @@ export function TransactionsBrowser() {
                             <EmptyState
                                 description={
                                     credentialId
-                                        ? hasActiveColumnFilter(table)
+                                        ? hasActiveTableFilter(table)
                                             ? 'No transactions match this filter.'
                                             : 'Fetched transactions from this credential will appear here.'
                                         : 'Pick a transactions credential above to load transactions.'
@@ -215,11 +214,6 @@ export function TransactionsBrowser() {
                         filterPlaceholder="Search transactions…"
                         headerActions={(table) => (
                             <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                <ClearFiltersButton
-                                    active={hasActiveColumnFilter(table)}
-                                    className="hidden md:flex"
-                                    onReset={() => table.resetColumnFilters()}
-                                />
                                 <ActiveConnectionNote
                                     credential={source}
                                     roleNoun="transaction source"
@@ -291,11 +285,6 @@ export function TransactionsBrowser() {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <ClearFiltersButton
-                                    active={hasActiveColumnFilter(table)}
-                                    className="md:hidden"
-                                    onReset={() => table.resetColumnFilters()}
-                                />
                             </div>
                         )}
                         initialSorting={[{ desc: true, id: 'date' }]}

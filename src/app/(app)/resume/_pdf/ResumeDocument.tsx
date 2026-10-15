@@ -12,10 +12,8 @@ import {
     View,
 } from '@react-pdf/renderer';
 
-import {
-    type PortfolioSectionView,
-    type ResumeLanguage,
-} from '~/lib/site/content';
+import { type PortfolioSectionView } from '~/lib/site/content';
+import { type ResumeLanguage } from '~/lib/site/resume';
 
 import { styles } from './styles';
 

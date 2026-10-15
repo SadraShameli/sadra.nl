@@ -46,13 +46,11 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Calendar } from '~/components/ui/Calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
-    type DataTableInstance,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
 import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
@@ -246,20 +244,6 @@ export function GoalsView() {
         }
         return map;
     }, [goals]);
-
-    const EXTRA_FILTER_COLUMNS = ['kind', 'exercise', 'targetDate'] as const;
-
-    const hasExtraFilters = (table: DataTableInstance<GoalRow>): boolean =>
-        EXTRA_FILTER_COLUMNS.some(
-            (id) => table.getColumn(id)?.getFilterValue() !== undefined,
-        );
-
-    const clearExtraFilters = (table: DataTableInstance<GoalRow>) => {
-        setTargetDateRange(undefined);
-        for (const id of EXTRA_FILTER_COLUMNS) {
-            table.getColumn(id)?.setFilterValue(undefined);
-        }
-    };
 
     const setStatus = useCallback(
         (g: GoalRow, status: GoalStatus) => {
@@ -636,12 +620,6 @@ export function GoalsView() {
                 </CardHeader>
                 <CardContent>
                     <DataTable<GoalRow>
-                        belowFilter={(table) => (
-                            <ClearFiltersButton
-                                active={hasExtraFilters(table)}
-                                onReset={() => clearExtraFilters(table)}
-                            />
-                        )}
                         columns={columns}
                         data={goals}
                         emptyState={(table) => {
@@ -769,6 +747,7 @@ export function GoalsView() {
                             );
                         }}
                         isLoading={goalsQuery.isLoading}
+                        onResetFilters={() => setTargetDateRange(undefined)}
                         pageSize={10}
                         rowClassName={(r) =>
                             r.status === GOAL_STATUS.ACHIEVED

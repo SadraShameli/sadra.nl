@@ -1,25 +1,30 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, Pencil, Plus, Radio, Ruler, Trash2, X } from 'lucide-react';
+import { Check, Pencil, Plus, Radio, Ruler, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
+import { ProfileTextField } from '~/app/(app)/profile/_components/ProfileFormFields';
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
+    MutedCell,
+    PrimaryCell,
+    profileActionsColumn,
+    ProfileDateCell,
+    ProfileDatePrecision,
+    ProfileTableEmpty,
+    RowActionButton,
+    RowConfirmAction,
+} from '~/app/(app)/profile/_components/ProfileTable';
 import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import {
+    DataTable,
+    type DataTableColumn,
+    hasActiveTableFilter,
+} from '~/components/ui/DataTable';
 import {
     Dialog,
     DialogContent,
@@ -28,7 +33,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
 import {
     Form,
     FormControl,
@@ -56,6 +60,8 @@ import {
 } from '~/lib/schemas/sensor-hub';
 import { api } from '~/trpc/react';
 
+import { SensorHubScopeFilters, useSensorHubScope } from './SensorHubScope';
+
 type SensorRow = {
     created_at: Date;
     id: number;
@@ -69,6 +75,9 @@ export function SensorsPanel() {
     const utilities = api.useUtils();
     const sensors = api.sensor.listAdmin.useQuery();
     const units = api.sensorUnit.list.useQuery();
+    const locations = api.location.listAdmin.useQuery();
+    const devices = api.device.listAdmin.useQuery();
+    const mappings = api.sensor.listDeviceMappings.useQuery();
     const create = api.sensor.create.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
@@ -94,146 +103,178 @@ export function SensorsPanel() {
     const [newOpen, setNewOpen] = useState(false);
     const [editing, setEditing] = useState<null | SensorRow>(null);
     const [unitsOpen, setUnitsOpen] = useState(false);
+    const scope = useSensorHubScope();
+    const { deviceId, locationId } = scope.scope;
 
-    const rows = sensors.data ?? [];
     const unitOptions = units.data ?? [];
+    const deviceRows = useMemo(() => devices.data ?? [], [devices.data]);
+
+    const sensorLinks = useMemo(() => {
+        const locationOfDevice = new Map(
+            deviceRows.map((device) => [device.id, device.location_id]),
+        );
+        return (mappings.data ?? []).map((mapping) => ({
+            deviceId: mapping.device_id,
+            locationId: locationOfDevice.get(mapping.device_id),
+            sensorId: mapping.sensor_id,
+        }));
+    }, [deviceRows, mappings.data]);
+
+    const counts = useMemo(() => {
+        const sensorsByLocation = new Map<number, Set<number>>();
+        const device = new Map<number, number>();
+        for (const link of sensorLinks) {
+            device.set(link.deviceId, (device.get(link.deviceId) ?? 0) + 1);
+            if (link.locationId === undefined) continue;
+            const set = sensorsByLocation.get(link.locationId) ?? new Set();
+            set.add(link.sensorId);
+            sensorsByLocation.set(link.locationId, set);
+        }
+        const location = new Map(
+            [...sensorsByLocation].map(([id, set]) => [id, set.size]),
+        );
+        return { device, location };
+    }, [sensorLinks]);
+
+    const rows = useMemo(() => {
+        const all = sensors.data ?? [];
+        if (deviceId === undefined && locationId === undefined) return all;
+        const inScope = new Set(
+            sensorLinks
+                .filter(
+                    (link) =>
+                        (deviceId === undefined ||
+                            link.deviceId === deviceId) &&
+                        (locationId === undefined ||
+                            link.locationId === locationId),
+                )
+                .map((link) => link.sensorId),
+        );
+        return all.filter((sensor) => inScope.has(sensor.id));
+    }, [deviceId, locationId, sensorLinks, sensors.data]);
 
     const columns = useMemo<DataTableColumn<SensorRow>[]>(
         () => [
             {
                 accessorKey: 'name',
                 cell: ({ row }) => (
-                    <span className="font-medium text-white">
-                        {row.original.name}
-                    </span>
+                    <PrimaryCell>{row.original.name}</PrimaryCell>
                 ),
                 header: 'Name',
             },
             {
                 accessorKey: 'unit',
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {row.original.unit}
-                    </span>
-                ),
+                cell: ({ row }) => <MutedCell>{row.original.unit}</MutedCell>,
                 header: 'Unit',
             },
             {
                 accessorKey: 'created_at',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {new Date(row.original.created_at).toLocaleDateString()}
-                    </span>
+                    <ProfileDateCell
+                        precision={ProfileDatePrecision.Day}
+                        value={row.original.created_at}
+                    />
                 ),
                 header: 'Created',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex justify-end gap-2">
-                        <Button
-                            onClick={() => setEditing(row.original)}
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline">
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete sensor &ldquo;{row.original.name}
-                                        &rdquo;?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Removes its device mappings. Fails if
-                                        readings reference it.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            del.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            profileActionsColumn<SensorRow>((sensor) => (
+                <>
+                    <RowActionButton
+                        icon={Pencil}
+                        label="Edit sensor"
+                        onClick={() => setEditing(sensor)}
+                    />
+                    <RowConfirmAction
+                        description="Removes its device mappings. Fails if readings reference it."
+                        label="Delete sensor"
+                        onConfirm={() => del.mutate({ id: sensor.id })}
+                        title={`Delete sensor “${sensor.name}”?`}
+                    />
+                </>
+            )),
         ],
         [del],
     );
 
+    const newButton = (
+        <DialogTrigger asChild>
+            <Button size="sm">
+                <Plus className="size-4" />
+                New sensor
+            </Button>
+        </DialogTrigger>
+    );
+
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Sensors</CardTitle>
-                <div className="flex flex-wrap gap-2">
-                    <Dialog onOpenChange={setUnitsOpen} open={unitsOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm" variant="outline">
-                                <Ruler className="mr-1 size-4" />
+        <>
+            <Dialog onOpenChange={setNewOpen} open={newOpen}>
+                <ProfilePanel
+                    action={
+                        <>
+                            <Button
+                                onClick={() => setUnitsOpen(true)}
+                                size="sm"
+                                variant="outline"
+                            >
+                                <Ruler className="size-4" />
                                 Manage units
                             </Button>
-                        </DialogTrigger>
-                        <UnitsManagerDialog
-                            onClose={() => setUnitsOpen(false)}
-                            units={unitOptions}
-                        />
-                    </Dialog>
-                    <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm">
-                                <Plus className="mr-1 size-4" />
-                                New sensor
-                            </Button>
-                        </DialogTrigger>
-                        <SensorDialog
-                            initial={null}
-                            onClose={() => setNewOpen(false)}
-                            onSubmit={(v) =>
-                                create.mutate(v, {
-                                    onSuccess: () => setNewOpen(false),
-                                })
-                            }
-                            pending={create.isPending}
-                            units={unitOptions}
-                        />
-                    </Dialog>
-                </div>
-            </CardHeader>
-            <Separator />
-            <CardContent>
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={
-                        <EmptyState
-                            description="Add a sensor to track readings from your devices."
-                            icon={Radio}
-                            title="No sensors yet"
-                        />
+                            {newButton}
+                        </>
                     }
-                    isLoading={sensors.isLoading}
-                    rowId={(r) => String(r.id)}
-                    showFilter
+                    description="What each device measures, and the units readings use."
+                    title="Sensors"
+                >
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={(table) => (
+                            <ProfileTableEmpty
+                                action={newButton}
+                                description="Add a sensor to track readings from your devices."
+                                filtered={
+                                    scope.isActive ||
+                                    hasActiveTableFilter(table)
+                                }
+                                icon={Radio}
+                                noun="sensors"
+                            />
+                        )}
+                        filterPlaceholder="Search sensors…"
+                        hasExternalFilters={scope.isActive}
+                        headerActions={
+                            <SensorHubScopeFilters
+                                controller={scope}
+                                counts={counts}
+                                devices={deviceRows}
+                                locations={locations.data ?? []}
+                            />
+                        }
+                        isLoading={sensors.isLoading}
+                        onResetFilters={scope.reset}
+                        rowId={(r) => String(r.id)}
+                        showFilter
+                    />
+                </ProfilePanel>
+                <SensorDialog
+                    initial={null}
+                    onClose={() => setNewOpen(false)}
+                    onSubmit={(v) =>
+                        create.mutate(v, {
+                            onSuccess: () => setNewOpen(false),
+                        })
+                    }
+                    pending={create.isPending}
+                    units={unitOptions}
                 />
-            </CardContent>
+            </Dialog>
+
+            <Dialog onOpenChange={setUnitsOpen} open={unitsOpen}>
+                <UnitsManagerDialog
+                    onClose={() => setUnitsOpen(false)}
+                    units={unitOptions}
+                />
+            </Dialog>
 
             <Dialog
                 onOpenChange={(o) => !o && setEditing(null)}
@@ -254,7 +295,7 @@ export function SensorsPanel() {
                     />
                 )}
             </Dialog>
-        </Card>
+        </>
     );
 }
 
@@ -279,76 +320,49 @@ function SensorDialog({
         resolver: zodResolver(sensorCreateSchema),
     });
     return (
-        <DialogContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {initial ? 'Edit sensor' : 'New sensor'}
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 flex flex-col gap-3">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Name</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            placeholder="Temperature"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="unit"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Unit</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pick a unit" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {units.map((u) => (
-                                                <SelectItem
-                                                    key={u.id}
-                                                    value={u.value}
-                                                >
-                                                    {u.value}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                    <DialogFooter className="mt-4">
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button
-                            disabled={pending || units.length === 0}
-                            type="submit"
+        <ProfileFormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={onSubmit}
+            pending={pending}
+            submitDisabled={units.length === 0}
+            submitLabel={initial ? 'Save' : 'Create'}
+            title={initial ? 'Edit sensor' : 'New sensor'}
+        >
+            <ProfileTextField
+                control={form.control}
+                label="Name"
+                name="name"
+                placeholder="Temperature"
+            />
+            <FormField
+                control={form.control}
+                name="unit"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Unit</FormLabel>
+                        <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
                         >
-                            {initial ? 'Save' : 'Create'}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
-        </DialogContent>
+                            <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pick a unit" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {units.map((u) => (
+                                    <SelectItem key={u.id} value={u.value}>
+                                        {u.value}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+        </ProfileFormDialog>
     );
 }
 
@@ -380,37 +394,18 @@ function UnitRowEditor({
                 <span className="font-mono text-sm text-white">
                     {unit.value}
                 </span>
-                <div className="flex gap-1">
-                    <Button
+                <div className="flex items-center gap-1">
+                    <RowActionButton
+                        icon={Pencil}
+                        label="Rename unit"
                         onClick={() => setEditing(true)}
-                        size="sm"
-                        variant="ghost"
-                    >
-                        <Pencil className="size-3.5" />
-                    </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="ghost">
-                                <Trash2 className="size-3.5" />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Delete unit &ldquo;{unit.value}&rdquo;?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Fails if any sensor still uses this unit.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={onDelete}>
-                                    Delete
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    />
+                    <RowConfirmAction
+                        description="Fails if any sensor still uses this unit."
+                        label="Delete unit"
+                        onConfirm={onDelete}
+                        title={`Delete unit “${unit.value}”?`}
+                    />
                 </div>
             </div>
         );
@@ -440,23 +435,27 @@ function UnitRowEditor({
                     )}
                 />
                 <Button
+                    aria-label="Save unit"
                     disabled={update.isPending}
-                    size="sm"
+                    size="icon-sm"
+                    title="Save unit"
                     type="submit"
-                    variant="outline"
+                    variant="ghost"
                 >
-                    <Check className="size-3.5" />
+                    <Check className="size-4" />
                 </Button>
                 <Button
                     onClick={() => {
                         form.reset({ id: unit.id, value: unit.value });
                         setEditing(false);
                     }}
-                    size="sm"
+                    aria-label="Cancel rename"
+                    size="icon-sm"
+                    title="Cancel rename"
                     type="button"
                     variant="ghost"
                 >
-                    <X className="size-3.5" />
+                    <X className="size-4" />
                 </Button>
             </form>
         </Form>
@@ -525,7 +524,7 @@ function UnitsManagerDialog({
                                         disabled={create.isPending}
                                         type="submit"
                                     >
-                                        <Plus className="mr-1 size-4" />
+                                        <Plus className="size-4" />
                                         Add
                                     </Button>
                                 </div>

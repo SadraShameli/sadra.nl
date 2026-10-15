@@ -8,7 +8,6 @@ import { useMemo, useState } from 'react';
 
 import { Badge, type BadgeProperties } from '~/components/ui/Badge';
 import { Card, CardContent } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import {
@@ -221,13 +220,9 @@ export function RunsBrowser() {
                                     }
                                 />
                             }
+                            hasExternalFilters={hasFilters}
                             headerActions={
                                 <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                    <ClearFiltersButton
-                                        active={hasFilters}
-                                        className="hidden md:flex"
-                                        onReset={reset}
-                                    />
                                     <Select
                                         onValueChange={(v) => {
                                             setStatusFilter(
@@ -279,6 +274,7 @@ export function RunsBrowser() {
                             }
                             initialSorting={DEFAULT_SORTING}
                             isLoading={runsQ.isPending}
+                            onResetFilters={reset}
                             onSortingChange={sortBy}
                             pageSize={null}
                             rowId={(r) => r.id}

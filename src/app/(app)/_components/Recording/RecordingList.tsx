@@ -2,6 +2,7 @@ import { Music2, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { EmptyState } from '~/components/ui/EmptyState';
+import { Skeleton } from '~/components/ui/Skeleton';
 import { ScrollArea } from '~/components/ui/ScrollArea';
 import { DurationFormat } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
@@ -10,6 +11,7 @@ import type { RecordingSummary } from './types';
 
 interface RecordingListProperties {
     currentIdx: number;
+    isLoading: boolean;
     isPlaying: boolean;
     onSelect: (recording: RecordingSummary) => void;
     recordings: RecordingSummary[] | undefined;
@@ -17,6 +19,7 @@ interface RecordingListProperties {
 
 export function RecordingList({
     currentIdx,
+    isLoading,
     isPlaying,
     onSelect,
     recordings,
@@ -61,7 +64,23 @@ export function RecordingList({
             </div>
 
             <ScrollArea>
-                {recordings?.length ? (
+                {isLoading ? (
+                    <ul
+                        aria-busy="true"
+                        aria-label="Loading recordings"
+                        className="flex flex-col gap-1 pr-3"
+                    >
+                        {LOADING_ROWS.map((width) => (
+                            <li
+                                className="flex items-center gap-3 p-2"
+                                key={width}
+                            >
+                                <Skeleton className={cn('h-4', width)} />
+                                <Skeleton className="ml-auto h-3 w-10" />
+                            </li>
+                        ))}
+                    </ul>
+                ) : recordings?.length ? (
                     filtered.length === 0 ? (
                         <EmptyState
                             icon={Search}
@@ -71,7 +90,7 @@ export function RecordingList({
                         <ul
                             className={cn(
                                 'app-recording__list-items',
-                                'flex flex-col pr-3',
+                                'flex animate-in flex-col pr-3 duration-300 fade-in',
                             )}
                         >
                             {filtered.map((recording) => {
@@ -136,6 +155,8 @@ export function RecordingList({
         </div>
     );
 }
+
+const LOADING_ROWS = ['w-3/5', 'w-2/5', 'w-1/2', 'w-2/3', 'w-1/3'] as const;
 
 function PlayingIndicator() {
     return (

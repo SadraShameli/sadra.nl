@@ -1,40 +1,32 @@
 'use client';
 
-import { format } from 'date-fns';
-import { ExternalLink, LibraryBig, LogOut, Trash2 } from 'lucide-react';
+import { ExternalLink, LibraryBig, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { toast } from 'sonner';
 
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
+    MutedCell,
+    PrimaryCell,
+    profileActionsColumn,
+    ProfileDateCell,
+    ProfileDatePrecision,
+    ProfileTableEmpty,
+    RowActionLink,
+    RowConfirmAction,
+} from '~/app/(app)/profile/_components/ProfileTable';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
+    type DataTableInstance,
+    hasActiveTableFilter,
 } from '~/components/ui/DataTable';
 import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { FilterSelect } from '~/components/ui/FilterSelect';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -43,7 +35,11 @@ type ProgramEnrollment =
 type ProgramOwned =
     RouterOutputs['lifting']['program']['listMine']['owned'][number];
 
-const FILTER_ALL = '__all__';
+const ProgramColumn = {
+    Category: 'category',
+    DaysPerWeek: 'daysPerWeek',
+    Status: 'status',
+} as const;
 
 export function ProgramsManager() {
     const utilities = api.useUtils();
@@ -86,93 +82,54 @@ export function ProgramsManager() {
                 accessorKey: 'name',
                 cell: ({ row }) => (
                     <Link
-                        className="font-medium text-white hover:underline"
+                        className="hover:underline"
                         href={routes.lifting.program(row.original.slug)}
                     >
-                        {row.original.name}
+                        <PrimaryCell>{row.original.name}</PrimaryCell>
                     </Link>
                 ),
                 header: 'Name',
             },
             {
-                accessorKey: 'category',
+                accessorKey: ProgramColumn.Category,
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground capitalize">
+                    <MutedCell className="capitalize">
                         {row.original.category}
-                    </span>
+                    </MutedCell>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Category',
             },
             {
-                accessorKey: 'daysPerWeek',
+                accessorKey: ProgramColumn.DaysPerWeek,
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
+                    <MutedCell>
                         {row.original.daysPerWeek} ×/wk ·{' '}
                         {row.original.lengthWeeks} wk
-                    </span>
+                    </MutedCell>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Structure',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex items-center justify-end gap-2">
-                        <Button
-                            aria-label="Open program"
-                            asChild
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Link
-                                href={routes.lifting.program(row.original.slug)}
-                            >
-                                <ExternalLink className="size-3.5" />
-                            </Link>
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    aria-label="Delete program"
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete &ldquo;{row.original.name}
-                                        &rdquo;?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Your enrollments in this program will
-                                        also be removed.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            customProgramDeleteMutation.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                enableSorting: false,
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            profileActionsColumn<ProgramOwned>((program) => (
+                <>
+                    <RowActionLink
+                        href={routes.lifting.program(program.slug)}
+                        icon={ExternalLink}
+                        label="Open program"
+                    />
+                    <RowConfirmAction
+                        description="Your enrollments in this program will also be removed."
+                        label="Delete program"
+                        onConfirm={() =>
+                            customProgramDeleteMutation.mutate({
+                                id: program.id,
+                            })
+                        }
+                        title={`Delete “${program.name}”?`}
+                    />
+                </>
+            )),
         ],
         [customProgramDeleteMutation],
     );
@@ -182,17 +139,19 @@ export function ProgramsManager() {
             {
                 accessorKey: 'programId',
                 cell: ({ row }) => (
-                    <span className="font-medium text-white">
+                    <PrimaryCell>
                         {programNameById.get(row.original.programId) ??
                             'Program'}
-                    </span>
+                    </PrimaryCell>
                 ),
                 header: 'Program',
             },
             {
-                accessorKey: 'status',
+                accessorKey: ProgramColumn.Status,
                 cell: ({ row }) => (
-                    <Badge variant="secondary">{row.original.status}</Badge>
+                    <Badge className="capitalize" variant="secondary">
+                        {row.original.status}
+                    </Badge>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Status',
@@ -200,262 +159,153 @@ export function ProgramsManager() {
             {
                 accessorFn: (r) => `${r.currentWeek}-${r.currentDay}`,
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
+                    <MutedCell>
                         wk {row.original.currentWeek} · day{' '}
                         {row.original.currentDay}
-                    </span>
+                    </MutedCell>
                 ),
                 header: 'Position',
                 id: 'position',
             },
             {
-                accessorFn: (r) => {
-                    const d = toDate(r.startDate);
-                    return d ? d.getTime() : 0;
-                },
-                cell: ({ row }) => {
-                    const d = toDate(row.original.startDate);
-                    return (
-                        <span className="text-xs text-muted-foreground">
-                            {d ? format(d, 'MMM d, y') : '-'}
-                        </span>
-                    );
-                },
+                accessorFn: (r) => toDate(r.startDate)?.getTime() ?? 0,
+                cell: ({ row }) => (
+                    <ProfileDateCell
+                        precision={ProfileDatePrecision.Day}
+                        value={toDate(row.original.startDate)}
+                    />
+                ),
                 header: 'Started',
                 id: 'startDate',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex justify-end">
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    aria-label="Unenroll"
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    <LogOut className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Unenroll?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Removes your enrollment. Past workouts
-                                        stay intact. You can re-enroll any time.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            unenroll.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Unenroll
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                enableSorting: false,
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            profileActionsColumn<ProgramEnrollment>((enrollment) => (
+                <RowConfirmAction
+                    confirmLabel="Unenroll"
+                    description="Removes your enrollment. Past workouts stay intact. You can re-enroll any time."
+                    icon={LogOut}
+                    label="Unenroll"
+                    onConfirm={() => unenroll.mutate({ id: enrollment.id })}
+                    title="Unenroll?"
+                />
+            )),
         ],
         [programNameById, unenroll],
     );
 
+    const programsPageButton = (
+        <Button asChild size="sm">
+            <Link href={routes.lifting.programs}>
+                <ExternalLink className="size-4" />
+                Programs page
+            </Link>
+        </Button>
+    );
+
     return (
-        <div className="flex flex-col gap-8">
-            <section className="flex flex-col gap-3">
-                <div className="flex items-center justify-between gap-3">
-                    <div>
-                        <h3 className="text-sm font-semibold text-white">
-                            Custom programs
-                        </h3>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                            Programs you&apos;ve created. Use the programs page
-                            to build new ones: the structure is multi-week and
-                            doesn&apos;t fit in a simple dialog.
-                        </p>
-                    </div>
-                    <Button asChild className="gap-1" size="sm">
-                        <Link href={routes.lifting.programs}>
-                            <ExternalLink className="size-4" /> Open programs
-                            page
-                        </Link>
-                    </Button>
-                </div>
+        <div className="flex flex-col gap-6">
+            <ProfilePanel
+                action={programsPageButton}
+                description="Programs you created. Build and edit them on the programs page."
+                title="Custom programs"
+            >
                 <DataTable
-                    belowFilter={(table) => (
-                        <ClearFiltersButton
-                            active={hasActiveColumnFilter(table)}
-                            onReset={() => table.resetColumnFilters()}
-                        />
-                    )}
                     columns={ownedColumns}
                     data={ownedRows}
                     emptyState={(table) => (
-                        <EmptyState
-                            description={
-                                hasActiveColumnFilter(table)
-                                    ? 'No programs match these filters.'
-                                    : 'Build one from the programs page, or duplicate an official program to customize.'
-                            }
+                        <ProfileTableEmpty
+                            action={programsPageButton}
+                            description="Build one on the programs page, or duplicate an official program to customize it."
+                            filtered={hasActiveTableFilter(table)}
                             icon={LibraryBig}
-                            title={
-                                hasActiveColumnFilter(table)
-                                    ? 'No matches'
-                                    : 'No custom programs'
-                            }
+                            noun="custom programs"
                         />
                     )}
                     filterPlaceholder="Search programs…"
-                    filterPosition="bottom"
-                    headerActions={(table) => {
-                        const daysColumn = table.getColumn('daysPerWeek');
-                        if (!daysColumn) return null;
-                        const daysOptions = (
-                            [...daysColumn.getFacetedUniqueValues()] as [
-                                number,
-                                number,
-                            ][]
-                        ).toSorted(([a], [b]) => a - b);
-                        return (
-                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                        Category
-                                    </span>
-                                    <DataTableFacetSelect
-                                        className="w-40"
-                                        column={table.getColumn('category')}
-                                        format={(value) => (
-                                            <span className="capitalize">
-                                                {value}
-                                            </span>
-                                        )}
-                                        placeholder="All categories"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                        Frequency
-                                    </span>
-                                    <Select
-                                        onValueChange={(v) =>
-                                            daysColumn.setFilterValue(
-                                                v === FILTER_ALL
-                                                    ? undefined
-                                                    : Number(v),
-                                            )
-                                        }
-                                        value={
-                                            daysColumn.getFilterValue() ===
-                                            undefined
-                                                ? FILTER_ALL
-                                                : String(
-                                                      daysColumn.getFilterValue(),
-                                                  )
-                                        }
-                                    >
-                                        <SelectTrigger className="h-8 w-36 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={FILTER_ALL}>
-                                                Any frequency
-                                            </SelectItem>
-                                            {daysOptions.map(
-                                                ([days, count]) => (
-                                                    <SelectItem
-                                                        key={days}
-                                                        value={String(days)}
-                                                    >
-                                                        {days}× / week ({count})
-                                                    </SelectItem>
-                                                ),
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                        );
-                    }}
+                    headerActions={(table) => (
+                        <>
+                            <DataTableFacetSelect
+                                column={table.getColumn(ProgramColumn.Category)}
+                                format={(value) => (
+                                    <span className="capitalize">{value}</span>
+                                )}
+                                label="Category"
+                                placeholder="All categories"
+                            />
+                            <FrequencySelect table={table} />
+                        </>
+                    )}
                     isLoading={mine.isLoading}
                     rowId={(r) => r.id}
                     showFilter
                 />
-            </section>
+            </ProfilePanel>
 
-            <section className="flex flex-col gap-3">
-                <div>
-                    <h3 className="text-sm font-semibold text-white">
-                        Enrollments
-                    </h3>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                        Programs you&apos;re currently following.
-                    </p>
-                </div>
+            <ProfilePanel
+                description="Programs you are currently following."
+                title="Enrollments"
+            >
                 <DataTable
-                    belowFilter={(table) => (
-                        <ClearFiltersButton
-                            active={hasActiveColumnFilter(table)}
-                            onReset={() => table.resetColumnFilters()}
-                        />
-                    )}
                     columns={enrollmentColumns}
                     data={enrollments}
                     emptyState={(table) => (
-                        <EmptyState
-                            description={
-                                hasActiveColumnFilter(table)
-                                    ? 'No enrollments match this filter.'
-                                    : 'Enroll in a program from the programs page.'
-                            }
+                        <ProfileTableEmpty
+                            action={programsPageButton}
+                            description="Enroll in a program from the programs page."
+                            filtered={hasActiveTableFilter(table)}
                             icon={LibraryBig}
-                            title={
-                                hasActiveColumnFilter(table)
-                                    ? 'No matches'
-                                    : 'No active enrollments'
-                            }
+                            noun="enrollments"
                         />
                     )}
                     filterPlaceholder="Search enrollments…"
-                    filterPosition="bottom"
                     headerActions={(table) => (
-                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                    Status
-                                </span>
-                                <DataTableFacetSelect
-                                    className="w-36"
-                                    column={table.getColumn('status')}
-                                    format={(value) => (
-                                        <span className="capitalize">
-                                            {value}
-                                        </span>
-                                    )}
-                                    placeholder="All statuses"
-                                />
-                            </div>
-                        </div>
+                        <DataTableFacetSelect
+                            column={table.getColumn(ProgramColumn.Status)}
+                            format={(value) => (
+                                <span className="capitalize">{value}</span>
+                            )}
+                            label="Status"
+                            placeholder="All statuses"
+                        />
                     )}
                     isLoading={mine.isLoading}
                     rowId={(r) => r.id}
                     showFilter
                 />
-            </section>
+            </ProfilePanel>
         </div>
+    );
+}
+
+function FrequencySelect({
+    table,
+}: {
+    table: DataTableInstance<ProgramOwned>;
+}) {
+    const column = table.getColumn(ProgramColumn.DaysPerWeek);
+    if (!column) return null;
+    const options = [...column.getFacetedUniqueValues()]
+        .filter(
+            (entry): entry is [number, number] => typeof entry[0] === 'number',
+        )
+        .toSorted(([a], [b]) => a - b)
+        .map(([days, count]) => ({
+            count,
+            label: `${String(days)}× / week`,
+            value: String(days),
+        }));
+    const current = column.getFilterValue();
+    return (
+        <FilterSelect
+            label="Frequency"
+            onValueChange={(value) =>
+                column.setFilterValue(
+                    value === undefined ? undefined : Number(value),
+                )
+            }
+            options={options}
+            placeholder="Any frequency"
+            value={typeof current === 'number' ? String(current) : undefined}
+        />
     );
 }
 

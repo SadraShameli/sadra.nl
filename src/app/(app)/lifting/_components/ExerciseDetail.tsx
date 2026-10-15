@@ -9,7 +9,6 @@ import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import {
     DataTable,
     DataTableAlign,
@@ -203,14 +202,10 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProperties) {
                             />
                         }
                         filterPlaceholder="Search PRs"
+                        hasExternalFilters={isPrFiltersActive}
                         headerActions={
                             <div className="flex flex-col gap-2">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <ClearFiltersButton
-                                        active={isPrFiltersActive}
-                                        className="hidden md:flex"
-                                        onReset={resetPrFilters}
-                                    />
                                     <Select
                                         onValueChange={setPrKindFilter}
                                         value={prKindFilter}
@@ -256,14 +251,10 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProperties) {
                                         value={prCustomRange}
                                     />
                                 </div>
-                                <ClearFiltersButton
-                                    active={isPrFiltersActive}
-                                    className="md:hidden"
-                                    onReset={resetPrFilters}
-                                />
                             </div>
                         }
                         isLoading={prs.isLoading}
+                        onResetFilters={resetPrFilters}
                         pageSize={null}
                         rowId={(r) => r.id}
                         showFilter

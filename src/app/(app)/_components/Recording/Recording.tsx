@@ -4,6 +4,7 @@ import { Download } from 'lucide-react';
 
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
+import { Skeleton } from '~/components/ui/Skeleton';
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
@@ -78,9 +79,13 @@ export default function RecordingSection({
                                 <p className="text-[10px] font-medium tracking-[0.2em] text-neutral-500 uppercase">
                                     Now Playing
                                 </p>
-                                <p className="mt-1.5 truncate text-base font-semibold text-neutral-50">
-                                    {currentRecording?.file_name ?? '-'}
-                                </p>
+                                {recordings.isPending ? (
+                                    <Skeleton className="mt-1.5 h-6 w-48 max-w-full" />
+                                ) : (
+                                    <p className="mt-1.5 animate-in truncate text-base font-semibold text-neutral-50 duration-300 fade-in">
+                                        {currentRecording?.file_name ?? '-'}
+                                    </p>
+                                )}
                             </div>
                             <Button
                                 aria-label="Download recording"
@@ -138,6 +143,7 @@ export default function RecordingSection({
                         <div className="border-t border-white/6 pt-5">
                             <RecordingList
                                 currentIdx={currentRecordingIdx}
+                                isLoading={recordings.isPending}
                                 isPlaying={isPlaying}
                                 onSelect={handleRecordingSelect}
                                 recordings={recordings.data}

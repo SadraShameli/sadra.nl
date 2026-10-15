@@ -13,6 +13,8 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from 'lucide-react';
 import { Fragment, useState } from 'react';
 
+import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+
 import {
     DATA_TABLE_ALIGN_CLASS_NAME,
     DataTableAlign,
@@ -21,6 +23,7 @@ import {
     type DataTableRow,
     type DataTableServerPagination,
     type DataTableSlot,
+    hasActiveTableFilter,
 } from '~/components/ui/DataTable.features';
 import {
     DataTableClientPagination,
@@ -50,8 +53,16 @@ export {
     type DataTableServerPagination,
     type DataTableSlot,
     DataTableSortFunction,
-    hasActiveColumnFilter,
+    hasActiveTableFilter,
 } from '~/components/ui/DataTable.features';
+
+const DATA_TABLE_ROW_HEIGHT_REM = 2.25;
+
+const ARIA_SORT = {
+    asc: 'ascending',
+    desc: 'descending',
+    none: 'none',
+} as const;
 
 export type DataTableProperties<TData extends RowData> = {
     belowFilter?: DataTableSlot<TData>;
@@ -64,10 +75,12 @@ export type DataTableProperties<TData extends RowData> = {
     filterPosition?: 'bottom' | 'top';
     footer?: DataTableSlot<TData>;
     getRowCanExpand?: (row: DataTableRow<TData>) => boolean;
+    hasExternalFilters?: boolean;
     headerActions?: DataTableSlot<TData>;
     initialColumnVisibility?: ColumnVisibilityState;
     initialSorting?: SortingState;
     isLoading?: boolean;
+    onResetFilters?: () => void;
     onRowSelectionChange?: (rows: TData[]) => void;
     onSortingChange?: (sorting: SortingState) => void;
     pageSize?: null | number;
@@ -92,10 +105,12 @@ export function DataTable<TData extends RowData>({
     filterPosition = 'top',
     footer,
     getRowCanExpand,
+    hasExternalFilters = false,
     headerActions,
     initialColumnVisibility,
     initialSorting,
     isLoading,
+    onResetFilters,
     onRowSelectionChange,
     onSortingChange,
     pageSize = 10,
@@ -158,6 +173,28 @@ export function DataTable<TData extends RowData>({
     });
 
     const colCount = table.getVisibleLeafColumns().length;
+    const pageRows = table.getRowModel().rows;
+    const loadedRowCount = table.getCoreRowModel().rows.length;
+    const fullPageSize = serverPagination?.pageSize ?? pageSize;
+    const reservedRows =
+        fullPageSize === null || isLoading === true
+            ? 0
+            : Math.min(
+                  fullPageSize,
+                  serverPagination ? fullPageSize : loadedRowCount,
+              );
+    const fillerRows = Math.max(0, reservedRows - pageRows.length);
+    const hasClientPages = pageSize !== null && loadedRowCount > pageSize;
+    const clearFilters = (
+        <ClearFiltersButton
+            active={hasActiveTableFilter(table) || hasExternalFilters}
+            onReset={() => {
+                setGlobalFilter('');
+                setColumnFilters([]);
+                onResetFilters?.();
+            }}
+        />
+    );
 
     return (
         <div className={cn('flex w-full min-w-0 flex-col gap-3', className)}>
@@ -167,23 +204,24 @@ export function DataTable<TData extends RowData>({
                 (filterPosition === 'bottom' ? (
                     <div className="flex flex-col gap-2">
                         {renderDataTableSlot(headerActions, table)}
-                        {(showFilter || belowFilter) && (
-                            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
-                                {showFilter ? (
-                                    <Input
-                                        className="h-8 max-w-xs text-xs"
-                                        onChange={(event) =>
-                                            setGlobalFilter(event.target.value)
-                                        }
-                                        placeholder={filterPlaceholder}
-                                        value={globalFilter}
-                                    />
-                                ) : (
-                                    <span />
-                                )}
+                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
+                            {showFilter ? (
+                                <Input
+                                    className="h-8 max-w-xs text-xs"
+                                    onChange={(event) =>
+                                        setGlobalFilter(event.target.value)
+                                    }
+                                    placeholder={filterPlaceholder}
+                                    value={globalFilter}
+                                />
+                            ) : (
+                                <span />
+                            )}
+                            <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+                                {clearFilters}
                                 {renderDataTableSlot(belowFilter, table)}
                             </div>
-                        )}
+                        </div>
                     </div>
                 ) : (
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -199,7 +237,10 @@ export function DataTable<TData extends RowData>({
                         ) : (
                             <span />
                         )}
-                        {renderDataTableSlot(headerActions, table)}
+                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                            {clearFilters}
+                            {renderDataTableSlot(headerActions, table)}
+                        </div>
                     </div>
                 ))}
             <div className="w-full min-w-0 overflow-hidden rounded-lg border border-border/60 bg-background">
@@ -226,6 +267,15 @@ export function DataTable<TData extends RowData>({
                                         );
                                     return (
                                         <TableHead
+                                            aria-sort={
+                                                isSortable
+                                                    ? ARIA_SORT[
+                                                          sorted === false
+                                                              ? 'none'
+                                                              : sorted
+                                                      ]
+                                                    : undefined
+                                            }
                                             className={
                                                 align
                                                     ? DATA_TABLE_ALIGN_CLASS_NAME[
@@ -289,16 +339,26 @@ export function DataTable<TData extends RowData>({
                                     )}
                                 </TableRow>
                             ))
-                        ) : table.getRowModel().rows.length === 0 ? (
+                        ) : pageRows.length === 0 ? (
                             <TableRow className="animate-in duration-500 fade-in-0 fill-mode-both hover:bg-transparent">
-                                <TableCell className="p-0" colSpan={colCount}>
+                                <TableCell
+                                    className="p-0"
+                                    colSpan={colCount}
+                                    style={
+                                        reservedRows > 0
+                                            ? {
+                                                  height: `${String(reservedRows * DATA_TABLE_ROW_HEIGHT_REM)}rem`,
+                                              }
+                                            : undefined
+                                    }
+                                >
                                     {renderDataTableSlot(emptyState, table) ?? (
                                         <EmptyState title={emptyMessage} />
                                     )}
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            table.getRowModel().rows.map((row, index) => {
+                            pageRows.map((row, index) => {
                                 const delay = `${Math.min(index, 12) * 35}ms`;
                                 return (
                                     <Fragment key={row.id}>
@@ -364,6 +424,16 @@ export function DataTable<TData extends RowData>({
                                 );
                             })
                         )}
+                        {pageRows.length > 0 &&
+                            Array.from({ length: fillerRows }, (_, index) => (
+                                <TableRow
+                                    aria-hidden
+                                    className="h-9 border-transparent hover:bg-transparent"
+                                    key={`filler-${String(index)}`}
+                                >
+                                    <TableCell colSpan={colCount} />
+                                </TableRow>
+                            ))}
                     </TableBody>
                     {footer !== undefined && !isLoading && data.length > 0 && (
                         <TableFooter>
@@ -378,10 +448,7 @@ export function DataTable<TData extends RowData>({
                     rowCount={data.length}
                 />
             ) : (
-                pageSize !== null &&
-                table.getPageCount() > 1 && (
-                    <DataTableClientPagination table={table} />
-                )
+                hasClientPages && <DataTableClientPagination table={table} />
             )}
         </div>
     );

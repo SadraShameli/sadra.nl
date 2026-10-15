@@ -23,7 +23,7 @@ const SelectTrigger = React.forwardRef<
             'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
             'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
             'dark:border-input dark:bg-input/30',
-            '[&>span]:line-clamp-1',
+            'text-left whitespace-nowrap [&>span]:min-w-0 [&>span]:truncate',
             className,
         )}
         ref={reference}

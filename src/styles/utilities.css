@@ -49,7 +49,7 @@
 }
 
 @utility shimmer {
-    @apply relative isolate overflow-hidden rounded-xl opacity-50 shadow-xl shadow-black/5 transition-opacity duration-500 ease-in-out before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_3s_infinite] before:border-t before:border-b before:border-neutral-100/10 before:bg-linear-to-r before:from-transparent before:via-neutral-100/10 before:to-transparent;
+    @apply relative isolate overflow-hidden transition-opacity duration-500 ease-in-out before:pointer-events-none before:absolute before:inset-0 before:animate-[shimmer_2s_ease-in-out_infinite] before:bg-linear-to-r before:from-transparent before:via-neutral-100/10 before:to-transparent before:opacity-0 before:transition-opacity before:duration-500 data-[loading=true]:opacity-60 data-[loading=true]:before:opacity-100;
 }
 
 @utility pt-spacing {
