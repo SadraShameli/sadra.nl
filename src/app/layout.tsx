@@ -7,9 +7,10 @@ import { Suspense } from 'react';
 
 import GridBackground from '~/components/ui/GridBg';
 import { Toaster } from '~/components/ui/Sonner';
-import { nunito, orbitron } from '~/fonts';
+import { jetBrainsMono, orbitron, plusJakartaSans } from '~/fonts';
 import { siteContent } from '~/lib/site/content';
 import { SITE_NAME } from '~/lib/site/siteName';
+import { THEME_BACKGROUND_COLOR } from '~/lib/site/themeColor';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 import { cn } from '~/lib/utilities';
 import { TRPCReactProvider } from '~/trpc/react';
@@ -20,7 +21,7 @@ import Navbar from './(app)/_components/Navbar';
 import { SessionAccountLink } from './(app)/_components/SessionAccountLink';
 
 export const viewport: Viewport = {
-    themeColor: '#000',
+    themeColor: THEME_BACKGROUND_COLOR,
 };
 
 const siteOrigin = getPublicSiteOrigin();
@@ -48,7 +49,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
     return (
         <html
-            className={cn('dark scroll-smooth antialiased', nunito.variable)}
+            className={cn(
+                'dark scroll-smooth antialiased',
+                plusJakartaSans.variable,
+                jetBrainsMono.variable,
+            )}
             data-scroll-behavior="smooth"
             lang="en"
         >

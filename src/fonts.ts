@@ -1,9 +1,15 @@
-import { Nunito, Orbitron } from 'next/font/google';
+import { JetBrains_Mono, Orbitron, Plus_Jakarta_Sans } from 'next/font/google';
 
-const nunito = Nunito({
+const plusJakartaSans = Plus_Jakarta_Sans({
     display: 'swap',
     subsets: ['latin'],
-    variable: '--font-nunito',
+    variable: '--font-plus-jakarta-sans',
+});
+
+const jetBrainsMono = JetBrains_Mono({
+    display: 'swap',
+    subsets: ['latin'],
+    variable: '--font-jetbrains-mono',
 });
 
 const orbitron = Orbitron({
@@ -12,4 +18,4 @@ const orbitron = Orbitron({
     variable: '--font-orbitron',
 });
 
-export { nunito, orbitron };
+export { jetBrainsMono, orbitron, plusJakartaSans };

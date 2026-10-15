@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { type SectionErrorProperties } from '~/components/SectionError';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
-import { nunito, orbitron } from '~/fonts';
+import { jetBrainsMono, orbitron, plusJakartaSans } from '~/fonts';
 import { cn } from '~/lib/utilities';
 
 export default function GlobalError({ error, retry }: SectionErrorProperties) {
@@ -18,7 +18,14 @@ export default function GlobalError({ error, retry }: SectionErrorProperties) {
     }, [error]);
 
     return (
-        <html className={cn('dark antialiased', nunito.variable)} lang="en">
+        <html
+            className={cn(
+                'dark antialiased',
+                plusJakartaSans.variable,
+                jetBrainsMono.variable,
+            )}
+            lang="en"
+        >
             <body
                 className={cn(
                     'app-global-error',

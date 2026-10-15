@@ -1,0 +1,1 @@
+export const THEME_BACKGROUND_COLOR = '#050406';
