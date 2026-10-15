@@ -10,6 +10,11 @@ line.
 
 - **No comments or docstrings.** Ever. Code must read self-explanatory; match
   the style of the file you're in.
+- **No em dashes (`—`) and no double hyphen used as a dash (`word -- word`)**
+  in `src/` or `tests/`: strings, UI text, CLI help, firm notes, error messages,
+  test names. Never add one again. Use a colon, comma, semicolon, parentheses or
+  a full stop. CLI flags (`--fee`), CSS custom properties and code operators are
+  not prose and stay. `tests/unit/proseDashes.test.ts` fails on either.
 - **Domain/class-shaped files use PascalCase** (`AccountState.ts`,
   `TradingFirm.ts`, `FirmComparisonTable.tsx`), even when they export
   functions rather than a class (e.g. `core/DailyLossLimit.ts`,
