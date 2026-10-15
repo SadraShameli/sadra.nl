@@ -6,6 +6,19 @@ import {
     ENTRY_CONFLUENCE_KEYS,
 } from './types';
 
+export const KNOCKOUT_RULES: readonly {
+    readonly key: keyof TradingPlanConfig['knockouts'];
+    readonly label: string;
+}[] = [
+    { key: 'distracted', label: 'Distracted' },
+    { key: 'boredomHunt', label: 'Boredom-driven setup hunt' },
+    { key: 'revengeOrFomo', label: 'Revenge / FOMO impulse' },
+    { key: 'slNotProtected', label: 'Stop loss under-protected' },
+    { key: 'dolAlreadyTaken', label: 'DOL already taken / invalidated' },
+    { key: 'bothSidedLiquidity', label: 'Both-sided liquidity' },
+    { key: 'outsideMacroWindow', label: 'Outside macro window' },
+];
+
 export const WEIGHT_CATEGORIES: {
     hint: string;
     key: keyof TradingPlanConfig['weights'];

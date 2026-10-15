@@ -46,18 +46,12 @@ import {
     updateTradingPlanInputSchema,
 } from '~/lib/schemas/trading';
 import { updateTradingPlan } from '~/lib/trading/actions';
-import { CONFLUENCE_GROUPS, WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
+import {
+    CONFLUENCE_GROUPS,
+    KNOCKOUT_RULES,
+    WEIGHT_CATEGORIES,
+} from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
-
-const KNOCKOUT_LABELS: Record<keyof TradingPlanConfig['knockouts'], string> = {
-    boredomHunt: 'Boredom-driven setup hunt',
-    bothSidedLiquidity: 'Both-sided liquidity',
-    distracted: 'Distracted',
-    dolAlreadyTaken: 'DOL already taken / invalidated',
-    outsideMacroWindow: 'Outside macro window',
-    revengeOrFomo: 'Revenge / FOMO impulse',
-    slNotProtected: 'Stop loss under-protected',
-};
 
 export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
     const [pending, startTransition] = useTransition();
@@ -518,24 +512,18 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 >
                     <Eyebrow as="h3">Knockout rules</Eyebrow>
                     <div className="grid gap-2 md:grid-cols-2">
-                        {(
-                            Object.keys(config.knockouts) as Array<
-                                keyof TradingPlanConfig['knockouts']
-                            >
-                        ).map((k) => (
+                        {KNOCKOUT_RULES.map(({ key, label }) => (
                             <label
                                 className="flex cursor-pointer items-center justify-between rounded-md border border-border/60 p-3"
-                                key={k}
+                                key={key}
                             >
-                                <span className="text-sm">
-                                    {KNOCKOUT_LABELS[k]}
-                                </span>
+                                <span className="text-sm">{label}</span>
                                 <Switch
-                                    checked={config.knockouts[k]}
+                                    checked={config.knockouts[key]}
                                     onCheckedChange={(v) =>
                                         updateConfig('knockouts', {
                                             ...config.knockouts,
-                                            [k]: v,
+                                            [key]: v,
                                         })
                                     }
                                 />
