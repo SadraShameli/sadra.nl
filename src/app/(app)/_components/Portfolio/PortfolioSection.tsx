@@ -9,6 +9,7 @@ import SectionEyebrow from './SectionEyebrow';
 type PortfolioSectionProperties = {
     entries: PortfolioSectionView[];
     eyebrowLabel?: string;
+    hasLeadImage?: boolean;
     id: string;
     title: string;
 };
@@ -16,6 +17,7 @@ type PortfolioSectionProperties = {
 export default function PortfolioSection({
     entries,
     eyebrowLabel,
+    hasLeadImage = false,
     id,
     title,
 }: PortfolioSectionProperties) {
@@ -39,6 +41,7 @@ export default function PortfolioSection({
                 {entries.map((entry, index) => (
                     <PortfolioEntry
                         entry={entry}
+                        isLeadImage={hasLeadImage && index === 0}
                         key={`${entry.title}-${entry.date}-${index}`}
                     />
                 ))}

@@ -56,6 +56,7 @@ export default function PortfolioContent({
             <PortfolioSection
                 entries={experience}
                 eyebrowLabel="Work experience"
+                hasLeadImage
                 id="experience"
                 title={experienceSectionTitle}
             />

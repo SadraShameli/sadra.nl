@@ -11,11 +11,15 @@ import SkillChip from './SkillChip';
 
 type PortfolioEntryProperties = {
     entry: PortfolioSectionView;
+    isLeadImage: boolean;
 };
 
 const PRESENT_DATE = /\bPresent\s*$/;
 
-export default function PortfolioEntry({ entry }: PortfolioEntryProperties) {
+export default function PortfolioEntry({
+    entry,
+    isLeadImage,
+}: PortfolioEntryProperties) {
     const isCurrent = PRESENT_DATE.test(entry.date);
     const alt = `${entry.title} workspace`;
 
@@ -116,8 +120,9 @@ export default function PortfolioEntry({ entry }: PortfolioEntryProperties) {
                             'aspect-16/10 w-full max-w-md rounded-xl object-cover',
                         )}
                         decoding="async"
+                        fetchPriority={isLeadImage ? 'high' : 'auto'}
                         height={500}
-                        loading="lazy"
+                        loading={isLeadImage ? 'eager' : 'lazy'}
                         sizes="(min-width: 1024px) 28rem, 100vw"
                         src={entry.imageUrl}
                         unoptimized
