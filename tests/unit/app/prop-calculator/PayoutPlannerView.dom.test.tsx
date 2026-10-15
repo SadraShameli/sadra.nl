@@ -511,6 +511,16 @@ describe('PayoutPlannerView (PT-31e)', () => {
         settle();
     }
 
+    it('keeps its phone column inside the screen, so a wide table scrolls in its own container', () => {
+        render(<PayoutPlannerView />);
+        const layout = container.querySelector(
+            '.app-prop-calculator__payout-planner',
+        );
+        expect(layout?.classList.contains('grid-cols-[minmax(0,1fr)]')).toBe(
+            true,
+        );
+    });
+
     function renderSweepOptimum(patch: {
         documentedStandardError: null | number;
         documentedValue: number;

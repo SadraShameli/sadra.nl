@@ -18,7 +18,7 @@ export function ProvenanceLine({
     );
     return (
         <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-            <p>{text.parts.join(' · ')}</p>
+            <p className="wrap-break-word">{text.parts.join(' · ')}</p>
             {text.openItems.length === 0 ? (
                 <p>{text.openItemsSummary}</p>
             ) : (

@@ -72,6 +72,16 @@ describe('the provenance line reads in words (PT-108 step 5, F-125, F-126)', () 
         expect(text).not.toContain('funded-sweep-fresh');
     });
 
+    it('wraps a long plan rules fingerprint instead of widening the page on a phone', () => {
+        const fingerprint = 'a'.repeat(64);
+        render({ ...PROVENANCE, planRulesFingerprint: fingerprint });
+
+        const line = [...container.querySelectorAll('p')].find((paragraph) =>
+            paragraph.textContent.includes(fingerprint),
+        );
+        expect(line?.classList.contains('wrap-break-word')).toBe(true);
+    });
+
     it('labels a from-state basis as the current state', () => {
         render({
             ...PROVENANCE,

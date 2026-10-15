@@ -291,7 +291,7 @@ export function PayoutPlannerView() {
                 ])}
                 toolId={ToolId.PayoutPlanner}
             />
-            <div className="app-prop-calculator__payout-planner mb-10 grid gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+            <div className="app-prop-calculator__payout-planner mb-10 grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
                 <section
                     aria-labelledby={INPUTS_HEADING_ID}
                     className="flex flex-col gap-4"
