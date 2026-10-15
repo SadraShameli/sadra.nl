@@ -10,6 +10,7 @@ import {
     accountStageOn,
     type AccountStageStarts,
     compareText,
+    dayNumberOf,
     isLedgerOnlyAccount,
     latestEventOn,
     type ModeledAccountRow,
@@ -23,9 +24,10 @@ import {
     usdCents,
     usdCentsFromDollars,
     usdCentsToDollars,
+    weekdaysInRange,
 } from '~/lib/prop-accounts/core';
 import { SnapshotField } from '~/lib/prop-accounts/snapshots';
-import { type Dollars, isoDaysBetween, type Plan } from '~/lib/prop-calculator';
+import { type Dollars, type Plan } from '~/lib/prop-calculator';
 import {
     type AccountPendingPayoutCounts,
     type AccountSnapshotInput,
@@ -282,9 +284,9 @@ export function snapshotInputFrom(
         dashboardFloor: optionalDollars(snapshot?.dashboardFloorCents),
         elapsedDaysSinceAttemptStart:
             stage === SizingStage.Eval
-                ? Math.max(
-                      0,
-                      isoDaysBetween(account.purchasedOn, resolvedAsOf) + 1,
+                ? weekdaysInRange(
+                      dayNumberOf(account.purchasedOn),
+                      dayNumberOf(resolvedAsOf) + 1,
                   )
                 : undefined,
         evalBestDayProfit: optionalDollars(snapshot?.evalBestDayProfitCents),

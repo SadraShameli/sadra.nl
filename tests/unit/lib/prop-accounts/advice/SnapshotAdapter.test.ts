@@ -291,7 +291,7 @@ describe('snapshotInputFrom: a pure row-to-domain mapping', () => {
         );
     });
 
-    it('carries the idle-day-inclusive elapsed days since the eval started, for an eval-stage account', () => {
+    it('carries the elapsed trading sessions since the eval started, idle weekdays included and weekends left out, for an eval-stage account (PT-50 escalation on PT-12k)', () => {
         const evalRow: ModeledAccountRow<SnapshotAccountRow> = {
             ...accountRow(),
             purchasedOn: '2026-01-01',
@@ -305,7 +305,7 @@ describe('snapshotInputFrom: a pure row-to-domain mapping', () => {
             [],
             '2026-01-10',
         );
-        expect(input.elapsedDaysSinceAttemptStart).toBe(10);
+        expect(input.elapsedDaysSinceAttemptStart).toBe(7);
     });
 
     it('keeps elapsedDaysSinceAttemptStart consistent with tradingDays for a no-idle-day eval account, reconstructing without an elapsedDays-below-tradingDays violation', () => {
