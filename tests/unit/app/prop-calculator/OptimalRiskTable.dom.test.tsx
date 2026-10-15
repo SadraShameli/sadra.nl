@@ -305,7 +305,7 @@ describe('OptimalRiskTable objective ranking (PT-63, F-V15)', () => {
         render(SizingObjective.RuinFirst);
         expect(starredRiskTexts()[0]).toContain('(2%)');
         expect(container.textContent).toContain(
-            'RuinFirst ranks plans to buy; risk sizing stays on monthly net (Hard Rule 3)',
+            "Ruin first ranks which plan to buy; risk sizing stays on monthly net, because evals risk the most the plan's limits allow",
         );
     });
 

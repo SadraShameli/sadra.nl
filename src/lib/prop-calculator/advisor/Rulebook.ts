@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { formatCurrency } from '~/lib/format';
 import {
     CENTS_PER_DOLLAR,
     type DayStopRule,
@@ -37,6 +38,8 @@ export const RULEBOOK_SCHEMA_VERSION = 1;
 export const HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS = 200_000;
 export const HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS =
     HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS / CENTS_PER_DOLLAR;
+
+export const MIN_RETAINED_CUSHION_TEXT = `the standard minimum cushion of ${formatCurrency(HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS)} kept after a payout`;
 export const LADDER_FRACTION_SUM_TOLERANCE = 1e-9;
 
 export interface AlertThresholds {
@@ -258,7 +261,7 @@ export function hardRule4Violation(
     const { maxRiskDailyCapMultiple, mode } = rulebook.eval;
     const { rr } = rulebook.strategy;
     return mode === EvalSizingMode.MaxRisk && rr > maxRiskDailyCapMultiple
-        ? `Hard Rule 4 needs the daily cap multiple (${maxRiskDailyCapMultiple}) to be at least the rr (${rr}), or one win overshoots the daily cap`
+        ? `The daily cap multiple (${maxRiskDailyCapMultiple}) must be at least the reward to risk (${rr}), or one win overshoots the daily cap`
         : null;
 }
 
@@ -436,7 +439,7 @@ export const rulebookSchema = z
         ) {
             context.addIssue({
                 code: 'custom',
-                message: `retained cushion below $${HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS} breaks Hard Rule 2; set allowBelowHardRule2 to keep it`,
+                message: `retained cushion below ${MIN_RETAINED_CUSHION_TEXT}; set allowBelowHardRule2 to keep it`,
                 path: ['payout', 'retainedCushionCents'],
             });
         }

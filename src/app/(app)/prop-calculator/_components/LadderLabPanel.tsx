@@ -4,6 +4,7 @@ import { FlaskConical } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 
+import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
@@ -390,7 +391,8 @@ export default function LadderLabPanel({
         <Card
             className={cn(
                 'app-prop-calculator__ladder-lab',
-                'scroll-mt-26 px-5 py-4',
+                HEADER_SCROLL_MARGIN,
+                'px-5 py-4',
             )}
             id="ladder-lab"
         >
@@ -523,11 +525,15 @@ export default function LadderLabPanel({
 
             <div className="mt-3 flex flex-wrap items-end gap-4">
                 <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">
+                    <label
+                        className="text-xs text-muted-foreground"
+                        htmlFor="ladder-day-stop-rule"
+                    >
                         Day stop rule
-                    </span>
+                    </label>
                     <DayStopRulePicker
                         compact
+                        id="ladder-day-stop-rule"
                         onChange={(value) =>
                             setForm((current) => ({
                                 ...current,

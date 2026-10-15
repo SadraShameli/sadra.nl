@@ -5,12 +5,10 @@ import { useMemo } from 'react';
 import { Alert } from '~/components/ui/Alert';
 import { Card, CardContent } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
-import { panelDescriptions } from './kpiDescriptions';
 import { probStreakAtLeast } from './lab/labMath';
 
 interface ResiliencePanelProperties {
@@ -68,15 +66,6 @@ export default function ResiliencePanel({
 
     return (
         <Card className={cn('app-prop-calculator__resilience', 'px-5 py-4')}>
-            <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">
-                    Streak and drawdown resilience
-                </h3>
-                <InfoPopover title="Streak and drawdown resilience">
-                    {panelDescriptions.resilience}
-                </InfoPopover>
-            </div>
-
             <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
                 <Card className="gap-1 py-2">
                     <CardContent className="px-3">

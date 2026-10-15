@@ -224,9 +224,12 @@ describe('LadderLabPanel restored from the result slot', () => {
             .find((label) => label.textContent.startsWith('Unaffordable rung'))
             ?.querySelector('select');
         expect(rungSizing?.value).toBe(RungSizing.SkipIfUnaffordable);
+        const dayStopLabel = container.querySelector(
+            'label[for="ladder-day-stop-rule"]',
+        );
+        expect(dayStopLabel?.textContent).toBe('Day stop rule');
         expect(
-            container.querySelector('[aria-label="Day stop rule"]')
-                ?.textContent,
+            container.querySelector('#ladder-day-stop-rule')?.textContent,
         ).toContain('K losses');
         expect(container.textContent).toContain('Ranked ladders (1)');
         expect(container.textContent).toContain('Scored 40 distinct ladders');

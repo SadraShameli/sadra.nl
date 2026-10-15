@@ -64,7 +64,7 @@ describe('one simulator href builder (PT-111, F-33 (4))', () => {
     it('is the simulator route with the encoded state as its query', () => {
         const state = { ...defaultCalculatorState(), rebuyLagDays: 2.5 };
         expect(simulatorHref(state)).toBe(
-            `${routes.propCalculator.simulator}?${encodeState(state).toString()}`,
+            `${routes.propCalculator.simulator}?${encodeState(state, { pageBlobs: [] }).toString()}`,
         );
     });
 
@@ -72,7 +72,7 @@ describe('one simulator href builder (PT-111, F-33 (4))', () => {
         const state = defaultCalculatorState();
         const options = { objectiveUrl: ObjectiveUrlMode.Explicit };
         expect(simulatorHref(state, options)).toBe(
-            `${routes.propCalculator.simulator}?${encodeState(state, options).toString()}`,
+            `${routes.propCalculator.simulator}?${encodeState(state, { ...options, pageBlobs: [] }).toString()}`,
         );
         expect(simulatorHref(state, options)).not.toBe(simulatorHref(state));
     });

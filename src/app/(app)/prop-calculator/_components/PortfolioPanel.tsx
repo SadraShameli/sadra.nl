@@ -40,6 +40,7 @@ import {
     type Plan,
     type PlanOptIns,
     type Roi,
+    ROI_BASIS_LABEL,
     serializePlanId,
     type SimInputs,
     type SimOutputs,
@@ -311,9 +312,10 @@ export function PortfolioRoiCard({ roi }: { roi: Roi }) {
             accent={roiAccent(roi)}
             info={{
                 body: 'Annualised net profit divided by total eval cost, expressed as a percentage. = (combined monthly net × 12) ÷ total eval cost. Above 0 % means the portfolio is expected to be net profitable over the year, after fees. Shows n/a when the total eval cost is $0, since a return on no outlay has no ratio.',
-                title: 'Annual ROI on fees',
+                title: ROI_BASIS_LABEL[roi.basis],
             }}
-            label="Annual ROI on fees"
+            label={ROI_BASIS_LABEL[roi.basis]}
+            sub="monthly net × 12 ÷ total eval cost"
             value={formatOptionalPercent(roi.value)}
         />
     );
@@ -1113,11 +1115,13 @@ function SummaryCard({
     accent = KpiAccent.Neutral,
     info,
     label,
+    sub,
     value,
 }: {
     accent?: KpiAccent;
     info?: { body: string; title: string };
     label: string;
+    sub?: string;
     value: string;
 }) {
     return (
@@ -1139,6 +1143,9 @@ function SummaryCard({
                 >
                     {value}
                 </p>
+                {sub !== undefined && (
+                    <p className="text-[10px] text-muted-foreground">{sub}</p>
+                )}
             </CardContent>
         </Card>
     );

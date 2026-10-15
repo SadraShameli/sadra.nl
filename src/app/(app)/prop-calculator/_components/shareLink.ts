@@ -1,3 +1,4 @@
+import { pageEncodeOptions } from './calculatorUrlSync';
 import { type CalculatorState } from './types';
 import { encodeState, type EncodeStateOptions } from './urlState';
 
@@ -10,7 +11,7 @@ export function buildShareLink(
     return shareLinkForQuery(
         origin,
         pathname,
-        encodeState(state, options).toString(),
+        encodeState(state, pageEncodeOptions(pathname, options)).toString(),
     );
 }
 

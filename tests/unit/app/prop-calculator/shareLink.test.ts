@@ -31,7 +31,40 @@ describe('buildShareLink', () => {
                 {},
             ),
         ).toBe(
-            `https://sadra.nl/prop-calculator/analysis?${encodeState(state).toString()}`,
+            `https://sadra.nl/prop-calculator/analysis?${encodeState(state, { pageBlobs: [] }).toString()}`,
+        );
+    });
+
+    it('carries the lab scenarios and the portfolio only on the page that uses them (PT-119)', () => {
+        const state = defaultCalculatorState();
+        const parametersOn = (pathname: string) =>
+            new URL(buildShareLink('https://sadra.nl', pathname, state, {}))
+                .searchParams;
+        const full = encodeState(state);
+        expect(parametersOn('/prop-calculator/analysis').has('lab')).toBe(
+            false,
+        );
+        expect(parametersOn('/prop-calculator/analysis').has('pf')).toBe(false);
+        expect(parametersOn('/prop-calculator/strategy-lab').get('lab')).toBe(
+            full.get('lab'),
+        );
+        expect(parametersOn('/prop-calculator/planner').get('pf')).toBe(
+            full.get('pf'),
+        );
+        expect(
+            buildShareLink(
+                'https://sadra.nl',
+                '/prop-calculator/simulator',
+                state,
+                {},
+            ).length,
+        ).toBeLessThan(
+            buildShareLink(
+                'https://sadra.nl',
+                '/prop-calculator/strategy-lab',
+                state,
+                {},
+            ).length,
         );
     });
 

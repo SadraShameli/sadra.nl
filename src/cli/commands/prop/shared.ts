@@ -284,7 +284,7 @@ export class RuinFirstNeedsBankroll extends Error {}
 export class SortObjectiveConflict extends Error {}
 
 export const RUIN_FIRST_NOT_APPLICABLE_MESSAGE =
-    'RuinFirst only ranks which plan to buy; eval rungs and funded risk stay on Hard Rules 3 and 5';
+    'RuinFirst only ranks which plan to buy; eval rungs keep the maximum risk the plan allows and funded risk stays a fixed amount';
 
 export class TablePrinter {
     constructor(private readonly columns: readonly TableColumn[]) {}

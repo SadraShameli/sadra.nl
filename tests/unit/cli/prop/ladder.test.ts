@@ -57,11 +57,12 @@ import {
     TopStepVariant,
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import { DRAWDOWN_KIND_TEXT } from '~/lib/prop-calculator/describe';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
-import { flagsNamedButNotAccepted } from './helpFlags';
 import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
+import { flagsNamedButNotAccepted } from './helpFlags';
 
 function apexEodPlan(): Plan {
     const plan = new ApexTraderFunding().findPlan({
@@ -886,6 +887,14 @@ describe('prop ladder --objective (PT-63, F-V15)', () => {
         expect(output.indexOf('FASTEST TO FUNDED')).toBeLessThan(
             output.indexOf('CHEAPEST PER FUNDED ACCOUNT'),
         );
+    });
+
+    it('prints the drawdown kind as readable text, the same as the plan rules', async () => {
+        const { output } = await capturedLadder(smallRun);
+        expect(output).toContain(
+            `| drawdown ${DRAWDOWN_KIND_TEXT[DrawdownKind.EodTrailing]} |`,
+        );
+        expect(output).not.toContain(DrawdownKind.EodTrailing);
     });
 
     it('prints cycle cash and the cost table first under --objective cycle', async () => {

@@ -3,7 +3,7 @@ import {
     type LegacySectionTarget,
 } from '~/lib/site/legacyCalculatorLinks';
 
-import { isCalculatorInputsPath } from './toolCatalog';
+import { isCalculatorInputsPath, pageStateBlobsOnPath } from './toolCatalog';
 import { type CalculatorState } from './types';
 import { encodeState, type EncodeStateOptions } from './urlState';
 
@@ -34,7 +34,7 @@ export function legacyHashNavigation(
         ? null
         : {
               ...section,
-              target: `${section.route}?${encodeState(state, options).toString()}#${section.fragment}`,
+              target: `${section.route}?${encodeState(state, pageEncodeOptions(section.route, options)).toString()}#${section.fragment}`,
           };
 }
 
@@ -56,10 +56,20 @@ export function nextUrl(
     options?: EncodeStateOptions,
 ): null | string {
     if (!isCalculatorInputsPath(pathname)) return null;
-    const encoded = encodeState(state, options).toString();
+    const encoded = encodeState(
+        state,
+        pageEncodeOptions(pathname, options),
+    ).toString();
     return canonicalSearch(currentSearch) === canonicalSearch(encoded)
         ? null
         : `${pathname}?${encoded}${currentHash}`;
+}
+
+export function pageEncodeOptions(
+    pathname: string,
+    options: EncodeStateOptions = {},
+): EncodeStateOptions {
+    return { ...options, pageBlobs: pageStateBlobsOnPath(pathname) };
 }
 
 export function stillPendingLegacyHash(

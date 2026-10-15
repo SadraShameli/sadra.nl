@@ -60,7 +60,10 @@ import {
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
-import { describeShare } from '~/lib/prop-calculator/describe';
+import {
+    describeShare,
+    DRAWDOWN_KIND_TEXT,
+} from '~/lib/prop-calculator/describe';
 
 type LadderArguments = LadderGridArguments &
     Partial<Record<UnsupportedLadderFlag, unknown>> &
@@ -464,7 +467,7 @@ const command = defineCommand({
             ui.heading(plan.label);
             ui.muted(`  ${objectiveHeadingLine(objective)}`);
             ui.muted(
-                `  cushion ${formatCurrency(score.cushion)} | drawdown ${plan.drawdown.kind} | target ${formatCurrency(plan.profitTarget)} | consistency ${describeShare(plan.evalConsistencyRule())} | min days ${plan.minTradingDays} | ${describeEvalWindow(plan, score.maxDays)}`,
+                `  cushion ${formatCurrency(score.cushion)} | drawdown ${DRAWDOWN_KIND_TEXT[plan.drawdown.kind]} | target ${formatCurrency(plan.profitTarget)} | consistency ${describeShare(plan.evalConsistencyRule())} | min days ${plan.minTradingDays} | ${describeEvalWindow(plan, score.maxDays)}`,
             );
             ui.muted(
                 `  grid ${formatCurrency(grid.lo)}-${formatCurrency(grid.max)} step ${formatCurrency(grid.step)} x${grid.slots} | ${score.sims} sims | stop ${describeStopRule(score.stopRule)} | commission ${formatCurrency(score.commission)} | ${describeLadderSizing(plan, score.positionSizing)}`,

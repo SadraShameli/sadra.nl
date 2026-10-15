@@ -11,11 +11,9 @@ import {
     ContractLimitKind,
     type ContractLimits,
     type DailyLossLimitConfig,
-    type DailyLossLimitDescriptor,
-    DailyLossLimitShape,
-    describeDailyLossLimit,
     describeFundedResetTerms,
     describePayoutDayGate,
+    DrawdownKind,
     type DrawdownStrategy,
     LifetimeCapScope,
     lifetimePayoutCountLimit,
@@ -30,6 +28,8 @@ import {
     retryPath,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
+
+import { dailyLossLimitText } from './DailyLossLimitText';
 
 export enum ContractUnit {
     Micro = 'micro',
@@ -115,6 +115,12 @@ export const PLAN_RULE_SEGMENT_LABEL: Readonly<
     [PlanRuleSegmentKind.ResetFee]: 'Reset fee',
 };
 
+export const DRAWDOWN_KIND_TEXT: Readonly<Record<DrawdownKind, string>> = {
+    [DrawdownKind.EodTrailing]: 'EOD trailing',
+    [DrawdownKind.IntradayTrailing]: 'intraday trailing',
+    [DrawdownKind.Static]: 'static',
+};
+
 const CLOSED_ACCOUNT = 'account closed; the next purchase refills the slot';
 
 const NO_FUNDED_RESET = `no funded reset modeled: ${CLOSED_ACCOUNT}`;
@@ -127,7 +133,7 @@ export function describeDll(
     config: DailyLossLimitConfig,
     isTerminating: boolean,
 ): string {
-    const shape = describeDllShape(describeDailyLossLimit(config));
+    const shape = dailyLossLimitText(config);
     return isTerminating ? `${shape} (hard)` : shape;
 }
 
@@ -158,11 +164,11 @@ export function describePayoutSplit(
             const share = formatPercent(step.tiers[0]?.traderShare ?? 0, 0);
             const first = step.fromPayoutIndex + 1;
             const next = steps[index + 1];
-            if (next === undefined) return `${share} (payout ${first}+)`;
+            if (next === undefined) return `${share} (payout ${first} onward)`;
             const last = next.fromPayoutIndex;
             return first === last
                 ? `${share} (payout ${first})`
-                : `${share} (payouts ${first}-${last})`;
+                : `${share} (payouts ${first} to ${last})`;
         })
         .join(', ');
 }
@@ -350,7 +356,7 @@ export function describePlanRules(plan: Plan): readonly PlanRuleLine[] {
                       segment(
                           PlanRuleSegmentKind.PayoutLadder,
                           'payout ladder',
-                          `[${plan.payoutLadder.steps.join(', ')}] min request ${formatCurrency(plan.payoutLadder.minRequestAmount)}`,
+                          `${plan.payoutLadder.steps.map((step) => formatGateCurrency(step)).join(', ')}; min request ${formatCurrency(plan.payoutLadder.minRequestAmount)}`,
                       ),
                   ],
               ]
@@ -433,39 +439,12 @@ function describeConclusion(plan: Plan): string {
         : `account concludes ${limits.join(' or ')}`;
 }
 
-function describeDllShape(descriptor: DailyLossLimitDescriptor): string {
-    switch (descriptor.kind) {
-        case DailyLossLimitShape.Fixed: {
-            return `$${descriptor.amount}`;
-        }
-        case DailyLossLimitShape.None: {
-            return 'none';
-        }
-        case DailyLossLimitShape.Range: {
-            return `$${descriptor.min}-$${descriptor.max}`;
-        }
-        case DailyLossLimitShape.RangeWithUnlimitedTier: {
-            const limited =
-                descriptor.max <= descriptor.min
-                    ? `$${descriptor.min}`
-                    : `$${descriptor.min}-$${descriptor.max}`;
-            return `${limited}, none on some tiers`;
-        }
-        case DailyLossLimitShape.ShareOfPeak: {
-            return `${descriptor.share * 100}% peak`;
-        }
-        case DailyLossLimitShape.Staged: {
-            return `${describeDllShape(descriptor.before)} -> ${describeDllShape(descriptor.after)}`;
-        }
-    }
-}
-
 function describeDrawdown(
     drawdown: DrawdownStrategy,
     startingBalance: number,
     payoutFloorEffect: PayoutFloorEffect,
 ): string {
-    const base = `${formatCurrency(drawdown.amount)} ${drawdown.kind}`;
+    const base = `${formatCurrency(drawdown.amount)} ${DRAWDOWN_KIND_TEXT[drawdown.kind]}`;
     const lock = drawdown.lock;
     if (lock === undefined) {
         return `${base}, no lock${describePayoutFloorEffect(payoutFloorEffect)}`;
@@ -563,14 +542,14 @@ function payoutCapSegment(schedule: PayoutCapSchedule): null | PlanRuleSegment {
             return segment(
                 PlanRuleSegmentKind.PayoutCap,
                 'payout cap',
-                `by payout: ${schedule.steps.map((step) => `#${step.from + 1}+ ${describePayoutCapRegime(step.regime)}`).join(' | ')}`,
+                `by payout: ${schedule.steps.map((step) => `from payout ${step.from + 1}, ${describePayoutCapRegime(step.regime)}`).join('; ')}`,
             );
         }
         case PayoutCapScheduleKind.ByQualifyingDays: {
             return segment(
                 PlanRuleSegmentKind.PayoutCap,
                 'payout cap',
-                `by qualifying days: ${schedule.steps.map((step) => `day ${step.from}+ ${describePayoutCapRegime(step.regime)}`).join(' | ')}`,
+                `by qualifying days: ${schedule.steps.map((step) => `from qualifying day ${step.from}, ${describePayoutCapRegime(step.regime)}`).join('; ')}`,
             );
         }
         case PayoutCapScheduleKind.Flat: {
@@ -598,7 +577,7 @@ function qualifyingDaySegments(plan: Plan): PlanRuleSegment[] {
                     null,
                     plan.minQualifyingDayProfit === null
                         ? 'any day counts'
-                        : `winning day >= ${formatCurrency(plan.minQualifyingDayProfit)}`,
+                        : `winning day of ${formatCurrency(plan.minQualifyingDayProfit)} or more`,
                 ),
             ];
         }

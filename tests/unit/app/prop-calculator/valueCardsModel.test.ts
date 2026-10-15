@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { RulebookSource } from '~/app/(app)/prop-calculator/_components/bankroll/rulebookSource';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import {
     calculatorFieldLabelOf,
@@ -18,6 +19,7 @@ import {
     toolsWorkerPendingText,
     uncertainCountText,
     uncertainCurrencyText,
+    valueBasisText,
     type ValueCardsCalculatorInputs,
     valueCardsInputFor,
     ValueCardsInputKind,
@@ -733,5 +735,38 @@ describe('valueChainCardSteps keeps each step priced cumulative trigger (PT-36r,
                 .filter((step) => step.kind !== ValueChainStepKind.FreshFunded)
                 .map((step) => step.cumulativePayoutTrigger),
         ).toStrictEqual([undefined, undefined, undefined]);
+    });
+});
+
+describe('valueBasisText (PT-119)', () => {
+    it('names the rulebook strategy the value cards use and the page inputs EV per attempt uses', () => {
+        const text = valueBasisText(
+            { rrRatio: 1.5, tradesPerDay: 1, winrate: 0.55 },
+            {
+                strategy: {
+                    ...DEFAULT_RULEBOOK.strategy,
+                    rr: 2,
+                    tradesPerDayMax: 4,
+                    winrate: 0.4,
+                },
+            },
+            RulebookSource.User,
+        );
+        expect(text).toContain(
+            'the strategy in your rulebook (40.0% winrate, 2.00:1 reward to risk, up to 4 trades a day)',
+        );
+        expect(text).toContain(
+            'EV per attempt in the results panel uses the page inputs instead (55.0% winrate, 1.50:1 reward to risk, 1 trade a day',
+        );
+    });
+
+    it('says the default rulebook is the basis when the user has none', () => {
+        expect(
+            valueBasisText(
+                { rrRatio: 2, tradesPerDay: 2, winrate: 0.4 },
+                DEFAULT_RULEBOOK,
+                RulebookSource.DefaultSignedOut,
+            ),
+        ).toContain('the strategy in the default rulebook');
     });
 });

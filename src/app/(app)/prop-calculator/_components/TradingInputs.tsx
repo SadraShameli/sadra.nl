@@ -366,10 +366,14 @@ export default function TradingInputs({
                                 </p>
                             </div>
                             <div>
-                                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                                <label
+                                    className="mb-1 block text-xs font-medium text-muted-foreground"
+                                    htmlFor="day-stop-rule"
+                                >
                                     Day-stop rule
-                                </span>
+                                </label>
                                 <DayStopRulePicker
+                                    id="day-stop-rule"
                                     onChange={onDayStopChange}
                                     value={dayStop}
                                 />

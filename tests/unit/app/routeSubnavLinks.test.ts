@@ -272,6 +272,18 @@ describe('subnavHref', () => {
         expect(subnavHref({ carriesQuery: true, href: '/a' }, '?')).toBe('/a');
     });
 
+    it('uses an item own query in place of the shared one, still only when it opts in', () => {
+        expect(
+            subnavHref(
+                { carriesQuery: true, href: '/a', query: 'x=1&lab=L' },
+                'x=1',
+            ),
+        ).toBe('/a?x=1&lab=L');
+        expect(
+            subnavHref({ carriesQuery: false, href: '/a', query: 'x=1' }, ''),
+        ).toBe('/a');
+    });
+
     it('does not double a leading question mark', () => {
         expect(subnavHref({ carriesQuery: true, href: '/a' }, '?x=1')).toBe(
             '/a?x=1',

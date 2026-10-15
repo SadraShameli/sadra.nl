@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
 import { FirmId } from '~/lib/prop-calculator';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
@@ -49,7 +50,7 @@ describe('ToolSection', () => {
                     `app-prop-calculator__section-${id}`,
                 ),
             ).toBe(true);
-            expect(section.classList.contains('scroll-mt-26')).toBe(true);
+            expect(section.classList.contains(HEADER_SCROLL_MARGIN)).toBe(true);
             expect(heading?.id).toBe(`${id}-heading`);
             expect(heading?.textContent).toBe('Section title');
             expect(heading?.classList.contains('sr-only')).toBe(false);
@@ -76,6 +77,28 @@ describe('ToolSection', () => {
         const heading = section.querySelector(':scope > h2');
         expect(heading?.classList.contains('sr-only')).toBe(true);
         expect(section.getAttribute('aria-labelledby')).toBe(heading?.id);
+    });
+
+    it('puts the info icon beside the h2 and keeps the h2 as the section label', () => {
+        act(() => {
+            root.render(
+                <ToolSection
+                    id={LegacySection.TailRisk}
+                    info="What tail risk means"
+                    title="Tail risk"
+                >
+                    <p>body</p>
+                </ToolSection>,
+            );
+        });
+        const section = renderedSection();
+        const heading = section.querySelector('h2');
+        const button = section.querySelector('button');
+        expect(heading?.textContent).toBe('Tail risk');
+        expect(section.getAttribute('aria-labelledby')).toBe(heading?.id);
+        expect(button?.getAttribute('aria-label')).toBe('About Tail risk');
+        expect(heading?.parentElement).toBe(button?.parentElement);
+        expect(section.querySelectorAll('h2, h3')).toHaveLength(1);
     });
 
     it('appends a caller className to the section classes', () => {

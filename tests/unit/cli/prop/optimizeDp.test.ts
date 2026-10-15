@@ -2390,9 +2390,14 @@ describe('optimize dp --objective (PT-63, F-V15)', () => {
         expect(cycle.rrRatio).toBe(config.rrRatio);
     });
 
-    it('says the rate-0 eval policy is not the Hard Rule 3 speed policy and must not be used as sizing', () => {
-        expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).toContain('Hard Rule 3');
-        expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).toContain('Hard Rule 5');
+    it('says the rate-0 eval policy is not the documented speed policy and must not be used as sizing', () => {
+        expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).toContain(
+            'risk the most the constraints allow, for speed to funded',
+        );
+        expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).toContain(
+            'not the documented fixed amount',
+        );
+        expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).not.toContain('Hard Rule');
         expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).toContain('not sizing');
         expect(CYCLE_OBJECTIVE_NOT_SIZING_NOTE).not.toContain('\u{2014}');
     });
@@ -2415,7 +2420,7 @@ describe('optimize dp --objective (PT-63, F-V15)', () => {
         ]);
         expect(exitCode).toBe(1);
         expect(stderr).toContain(
-            'RuinFirst only ranks which plan to buy; eval rungs and funded risk stay on Hard Rules 3 and 5',
+            'RuinFirst only ranks which plan to buy; eval rungs keep the maximum risk the plan allows and funded risk stays a fixed amount',
         );
         expect(solveAverageRewardPolicy).not.toHaveBeenCalled();
     });

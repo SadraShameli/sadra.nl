@@ -62,7 +62,7 @@ function variant(): BankrollPlanVariantInputs {
 const RESULT: CopySplitToolsResult['result'] = {
     basisLines: [
         'win rate 40% at 1:2, 30 funded days',
-        'funded risk $250 per account, the Hard Rule 5 fixed amount, not divided by the split',
+        'funded risk $250 per account, the fixed funded amount, not divided by the split',
         'the copies are engine copies that take identical trades, so they win and bust together',
     ],
     indistinguishableSplits: [1],

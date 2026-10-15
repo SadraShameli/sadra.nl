@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import InfoPopover from '~/components/ui/InfoPopover';
 import {
     formatCompactCurrency,
     formatPercent,
@@ -93,20 +92,6 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
 
     return (
         <Card className={cn('app-prop-calculator__tail-risk', 'p-5')}>
-            <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">Tail risk</h3>
-                <InfoPopover title="Tail risk">
-                    Value at Risk (VaR) and Conditional VaR (Expected Shortfall)
-                    computed from the full distribution of trial outcomes. VaR
-                    95% is the loss you won&apos;t exceed in 19 out of 20
-                    trials. CVaR 95% is the average loss in the worst 5% of
-                    outcomes: it describes the shape of the tail, not just where
-                    it starts. Tail ratio compares the 95th percentile gain to
-                    the 5th percentile loss; &gt; 1 means your upside tail is
-                    larger than your downside tail.
-                </InfoPopover>
-            </div>
-
             <div className="flex flex-col gap-5">
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
                     <StatCard

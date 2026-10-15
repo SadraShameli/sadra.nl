@@ -419,7 +419,7 @@ describe('readAdviseInputs: required-flag failures name the flag (F-133 step 1b)
 });
 
 describe('readAdviseInputs: rulebook overrides (F-133 step 1a/1b)', () => {
-    it('a --retain-cushion below $2,000 fails with the Hard Rule 2 message', () => {
+    it('a --retain-cushion below $2,000 fails with the standard minimum cushion message', () => {
         expect(() =>
             readAdviseInputs(
                 parseAdvise([
@@ -428,7 +428,7 @@ describe('readAdviseInputs: rulebook overrides (F-133 step 1a/1b)', () => {
                     '1500',
                 ]),
             ),
-        ).toThrow(/Hard Rule 2/);
+        ).toThrow(/standard minimum cushion of \$2,000 kept after a payout/);
     });
 
     it('--allow-below-hard-rule-2 permits a --retain-cushion below $2,000', () => {
@@ -444,7 +444,7 @@ describe('readAdviseInputs: rulebook overrides (F-133 step 1a/1b)', () => {
         ).not.toThrow();
     });
 
-    it('--eval-mode max-risk with --rr above the daily cap multiple fails with the Hard Rule 4 message', () => {
+    it('--eval-mode max-risk with --rr above the daily cap multiple fails with the daily cap message', () => {
         expect(() =>
             readAdviseInputs(
                 parseAdvise([
@@ -455,7 +455,9 @@ describe('readAdviseInputs: rulebook overrides (F-133 step 1a/1b)', () => {
                     '10',
                 ]),
             ),
-        ).toThrow(/Hard Rule 4/);
+        ).toThrow(
+            /daily cap multiple \(\d+\) must be at least the reward to risk/,
+        );
     });
 });
 

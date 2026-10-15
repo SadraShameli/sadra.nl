@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     payoutBlockReasonText,
     payoutFirmMinimumMessage,
+    payoutGateClearedText,
+    payoutGateText,
     payoutPathStepText,
     type PayoutPlannerAccountInput,
     type PayoutPlannerImplausibleResult,
@@ -508,7 +510,12 @@ describe('planPayoutReadiness: payoutPath (F-V19)', () => {
         if (result.kind !== PayoutPlannerResultKind.Ready) return;
         for (const step of result.path) {
             expect(step.satisfied).toBe(true);
-            expect(payoutPathStepText(step)).toMatch(/^done:/);
+            expect(payoutPathStepText(step)).toBe(
+                `cleared: ${payoutGateClearedText(step.gate)}`,
+            );
+            expect(payoutPathStepText(step)).not.toContain(
+                payoutGateText(step.gate),
+            );
         }
     });
 

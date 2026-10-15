@@ -20,8 +20,16 @@ import { initialStateFromSearch } from '~/app/(app)/prop-calculator/_components/
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
 import { routes } from '~/lib/site/routes';
 
-const { analysis, index, positionSize, rules, simulator, sizing } =
-    routes.propCalculator;
+const {
+    analysis,
+    index,
+    planner,
+    positionSize,
+    rules,
+    simulator,
+    sizing,
+    strategyLab,
+} = routes.propCalculator;
 
 interface Entry {
     hash: string;
@@ -125,7 +133,7 @@ function providerPass(
 }
 
 function query(state: CalculatorState): string {
-    return encodeState(state).toString();
+    return encodeState(state, { pageBlobs: [] }).toString();
 }
 
 function sharedState(): CalculatorState {
@@ -148,6 +156,11 @@ function withWinrate(state: CalculatorState, value: number): CalculatorState {
         type: CalculatorActionType.SetWinrate,
         value,
     });
+}
+
+function writtenParameters(url: null | string): URLSearchParams {
+    if (url === null) throw new Error('expected a URL write');
+    return new URL(url, 'https://sadra.nl').searchParams;
 }
 
 describe('nextUrl', () => {
@@ -271,6 +284,47 @@ describe('nextUrl', () => {
         );
         expect(nextUrl(state, simulator, `?${query(state)}`, '')).toBeNull();
         expect(nextUrl(state, simulator, query(state), '')).toBeNull();
+    });
+});
+
+describe('nextUrl page-owned state (PT-119)', () => {
+    it('carries the lab scenarios only on the strategy lab and the portfolio only on the planner', () => {
+        const state = sharedState();
+        const full = encodeState(state);
+        expect(full.has('lab')).toBe(true);
+        expect(full.has('pf')).toBe(true);
+
+        const onSimulator = writtenParameters(
+            nextUrl(state, simulator, '', ''),
+        );
+        expect(onSimulator.has('lab')).toBe(false);
+        expect(onSimulator.has('pf')).toBe(false);
+
+        const onLab = writtenParameters(nextUrl(state, strategyLab, '', ''));
+        expect(onLab.get('lab')).toBe(full.get('lab'));
+        expect(onLab.has('pf')).toBe(false);
+
+        const onPlanner = writtenParameters(nextUrl(state, planner, '', ''));
+        expect(onPlanner.get('pf')).toBe(full.get('pf'));
+        expect(onPlanner.has('lab')).toBe(false);
+    });
+
+    it('still reads the lab from an old link on another page, then drops it from that page URL only', () => {
+        const base = sharedState();
+        const shared = { ...base, labScenarios: base.labScenarios.slice(0, 1) };
+        const oldLink = encodeState(shared).toString();
+        const loaded = initialStateFromSearch(`?${oldLink}`);
+        expect(loaded.labScenarios).toEqual(shared.labScenarios);
+
+        const onSimulator = writtenParameters(
+            nextUrl(loaded, simulator, `?${oldLink}`, ''),
+        );
+        expect(onSimulator.has('lab')).toBe(false);
+        expect(onSimulator.get('wr')).toBe(encodeState(shared).get('wr'));
+
+        expect(
+            writtenParameters(nextUrl(loaded, strategyLab, '', '')).get('lab'),
+        ).toBe(encodeState(shared).get('lab'));
     });
 });
 

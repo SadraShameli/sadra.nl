@@ -95,7 +95,9 @@ describe('propAccounts.rulebook', () => {
         const shape = errorShapeOf(await rejectionOf(caller.rulebook.get()));
         expect(shape.data.code).toBe('PRECONDITION_FAILED');
         expect(shape.data.zodError).toBeNull();
-        expect(shape.message).toMatch(/Hard Rule 4/);
+        expect(shape.message).toMatch(
+            /daily cap multiple \(\d+\) must be at least the reward to risk/,
+        );
         expect(shape.message).toMatch(
             /save a valid rulebook or reset it to the defaults/i,
         );

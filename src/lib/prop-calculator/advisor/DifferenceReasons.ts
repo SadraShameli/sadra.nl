@@ -62,7 +62,7 @@ export const ENGINE_INPUTS_REFUSAL_TEXT: Readonly<
 export const RETAINED_CUSHION_BASIS_TEXT: Readonly<
     Record<RetainedCushionBasis, string>
 > = {
-    [RetainedCushionBasis.HardRule2Default]: "Hard Rule 2's minimum",
+    [RetainedCushionBasis.HardRule2Default]: 'the standard minimum cushion',
     [RetainedCushionBasis.LiveOneDrawdown]: 'one live drawdown',
     [RetainedCushionBasis.PersonalOverride]: 'your personal override',
     [RetainedCushionBasis.RulebookSize]: "your rulebook's retained cushion",

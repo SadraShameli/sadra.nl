@@ -324,13 +324,13 @@ describe('personalPayoutOverrideWarningText (PT-19i review, one text for every s
         );
     });
 
-    it('names Hard Rule 2 and the personal override as the basis in their own words', () => {
+    it('names the standard minimum cushion and the personal override as the basis in their own words', () => {
         expect(
             personalPayoutOverrideWarningText({
                 ...warning,
                 retainedCushionBasis: RetainedCushionBasis.HardRule2Default,
             }),
-        ).toContain("(Hard Rule 2's minimum)");
+        ).toContain('(the standard minimum cushion)');
         expect(
             personalPayoutOverrideWarningText({
                 ...warning,

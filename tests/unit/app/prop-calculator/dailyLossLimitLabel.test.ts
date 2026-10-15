@@ -9,11 +9,24 @@ import {
     dollars,
     fraction,
 } from '~/lib/prop-calculator';
+import { dailyLossLimitText } from '~/lib/prop-calculator/describe';
 
 describe('web daily loss limit badge label', () => {
+    it('reads the same as the plan rules text, so the two never drift apart', () => {
+        const plans = ALL_FIRMS.flatMap((firm) => firm.plans);
+        for (const plan of plans) {
+            const label = dailyLossLimitLabel(plan.fundedDailyLossLimit);
+            if (label !== null) {
+                expect(label).toBe(
+                    dailyLossLimitText(plan.fundedDailyLossLimit),
+                );
+            }
+        }
+    });
+
     it('shows the Apex Live Level 1 no-limit tier next to its $5,000 to $10,000 range (WP22b)', () => {
         expect(dailyLossLimitLabel(APEX_LIVE_DAILY_LOSS_LIMIT)).toBe(
-            '$5,000–$10,000 (scales, none on some tiers)',
+            '$5,000 to $10,000, none on some tiers',
         );
     });
 
@@ -34,7 +47,7 @@ describe('web daily loss limit badge label', () => {
                     },
                 ],
             }),
-        ).toBe('$2,000 (none on some tiers)');
+        ).toBe('$2,000, none on some tiers');
     });
 
     it('keeps the finite range, fixed, share and none labels', () => {
@@ -54,7 +67,7 @@ describe('web daily loss limit badge label', () => {
                     },
                 ],
             }),
-        ).toBe('$1,000–$3,000 (scales)');
+        ).toBe('$1,000 to $3,000');
         expect(
             dailyLossLimitLabel({
                 amount: dollars(1200),
@@ -66,7 +79,7 @@ describe('web daily loss limit badge label', () => {
                 kind: DailyLossLimitKind.PeakProfitShare,
                 share: fraction(0.6),
             }),
-        ).toBe('60% of peak');
+        ).toBe('60% of the peak day-close profit');
         expect(dailyLossLimitLabel({ kind: DailyLossLimitKind.None })).toBe(
             null,
         );
@@ -100,11 +113,11 @@ describe('web daily loss limit badge label for every registry plan (PT-31a pin)'
             ],
             "apex $50K · EOD trailing": [
               "$1,000",
-              "$1,000–$3,000 (scales)",
+              "$1,000 to $3,000",
             ],
             "apex $50K · Intraday trailing": [
               null,
-              "$1,000–$3,000 (scales)",
+              "$1,000 to $3,000",
             ],
             "e8futures $50K · Signature": [
               null,
@@ -176,7 +189,7 @@ describe('web daily loss limit badge label for every registry plan (PT-31a pin)'
             ],
             "lucid $50K · LucidDirect": [
               "$1,200",
-              "$1,200 → 60% of peak",
+              "$1,200 until the drawdown locks, then 60% of the peak day-close profit",
             ],
             "lucid $50K · LucidFlex": [
               null,
@@ -192,7 +205,7 @@ describe('web daily loss limit badge label for every registry plan (PT-31a pin)'
             ],
             "lucid $50K · LucidPro": [
               "$1,200",
-              "$1,200 → 60% of peak",
+              "$1,200 until the drawdown locks, then 60% of the peak day-close profit",
             ],
             "lucid $50K · LucidPro (no DLL)": [
               null,
@@ -256,11 +269,11 @@ describe('web daily loss limit badge label for every registry plan (PT-31a pin)'
             ],
             "tradeify $50K · Growth": [
               "$1,250",
-              "$1,250–$2,000 (scales)",
+              "$1,250 to $2,000",
             ],
             "tradeify $50K · Lightning Funded": [
-              "$1,250–$2,000 (scales)",
-              "$1,250–$2,000 (scales)",
+              "$1,250 to $2,000",
+              "$1,250 to $2,000",
             ],
             "tradeify $50K · Select Daily": [
               null,

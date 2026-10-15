@@ -182,6 +182,47 @@ export function payoutFirmMinimumMessage(
     return `firm minimum ${money(notice.minimumRequestAmount)} is above your ${money(notice.requestedAmount)} request`;
 }
 
+export function payoutGateClearedText(gate: PayoutGate): string {
+    switch (gate) {
+        case PayoutGate.AccountConcluded: {
+            return 'the account is still open (the lifetime payout limit is not reached)';
+        }
+        case PayoutGate.BelowFullRequest: {
+            return 'the ladder step affords the full requested amount';
+        }
+        case PayoutGate.BelowMinPayoutProfit: {
+            return 'the account has reached the minimum payout profit';
+        }
+        case PayoutGate.BelowMinRequest: {
+            return 'the withdrawable amount meets the plan minimum request';
+        }
+        case PayoutGate.DayGateNotMet: {
+            return 'the day gate since the last pass or payout is met';
+        }
+        case PayoutGate.EarlyWithdrawalBelowFloor: {
+            return 'no one-time early withdrawal puts the balance at or below the floor';
+        }
+        case PayoutGate.EarlyWithdrawalBelowMinimum: {
+            return 'no one-time early withdrawal falls below its own minimum';
+        }
+        case PayoutGate.FundedConsistency: {
+            return 'the funded consistency rule is met';
+        }
+        case PayoutGate.LadderExhausted: {
+            return 'a payout-ladder step is still available';
+        }
+        case PayoutGate.LadderStepUnaffordable: {
+            return 'the current ladder step can afford this request';
+        }
+        case PayoutGate.LifetimeDollarCapReached: {
+            return 'the lifetime payout dollar cap is not reached';
+        }
+        case PayoutGate.NothingWithdrawable: {
+            return 'there is an amount withdrawable above the retained cushion';
+        }
+    }
+}
+
 export function payoutGateText(gate: PayoutGate): string {
     switch (gate) {
         case PayoutGate.AccountConcluded: {
@@ -224,8 +265,8 @@ export function payoutGateText(gate: PayoutGate): string {
 }
 
 export function payoutPathStepText(step: PayoutPathStep): string {
+    if (step.satisfied) return `cleared: ${payoutGateClearedText(step.gate)}`;
     const label = payoutGateText(step.gate);
-    if (step.satisfied) return `done: ${label}`;
     if (step.remaining === null) return label;
     switch (step.unit) {
         case PayoutPathStepUnit.Count: {

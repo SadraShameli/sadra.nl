@@ -184,13 +184,13 @@ describe('planRuleLines: payout caps (R1-44)', () => {
 
     it('shows the E8 Signature cap steps by payout number', () => {
         expect(linesFor(signatureE8)).toContain(
-            '    payout cap by payout: #1+ max $1,250 per request | #3+ max $2,250 per request | #5+ max $3,250 per request',
+            '    payout cap by payout: from payout 1, max $1,250 per request; from payout 3, max $2,250 per request; from payout 5, max $3,250 per request',
         );
     });
 
     it('shows the FundedNext Legacy cap lifting at exactly 30 benchmark days', () => {
         expect(linesFor(legacy)).toContain(
-            '    payout cap by qualifying days: day 0+ 50% of total profit, max $6,000 per request | day 30+ uncapped',
+            '    payout cap by qualifying days: from qualifying day 0, 50% of total profit, max $6,000 per request; from qualifying day 30, uncapped',
         );
     });
 
@@ -240,17 +240,17 @@ describe('planRuleLines: eval and funded drawdown (R1-45)', () => {
     it('shows the TPT eval EOD drawdown and the funded intraday drawdown', () => {
         const lines = linesFor(tpt);
         expect(lines[0]).toContain(
-            'eval drawdown $2,000 eod-trailing, locks at +$2,000 to breakeven',
+            'eval drawdown $2,000 EOD trailing, locks at +$2,000 to breakeven',
         );
         expect(lines).toContain(
-            '    funded drawdown $2,000 intraday-trailing, locks at +$2,000 to breakeven',
+            '    funded drawdown $2,000 intraday trailing, locks at +$2,000 to breakeven',
         );
     });
 
     it('shows one drawdown line for FTMO Growth, whose drawdown is the same in both stages', () => {
         const lines = linesFor(ftmoGrowth);
         expect(lines[0]).toContain(
-            'drawdown $2,000 eod-trailing, locks at +$2,000 to breakeven',
+            'drawdown $2,000 EOD trailing, locks at +$2,000 to breakeven',
         );
         expect(lines[0]).not.toContain('eval drawdown');
         expect(lines.some((line) => line.includes('funded drawdown'))).toBe(
@@ -261,17 +261,17 @@ describe('planRuleLines: eval and funded drawdown (R1-45)', () => {
     it('shows the E8 Zero lock-free Challenge and the funded lock that also fires on the 1st payout', () => {
         const lines = linesFor(zeroMaxE8);
         expect(lines[0]).toContain(
-            'eval drawdown $1,500 eod-trailing, no lock',
+            'eval drawdown $1,500 EOD trailing, no lock',
         );
         expect(lines).toContain(
-            '    funded drawdown $1,500 eod-trailing, locks at +$1,500 to breakeven or on 1st payout',
+            '    funded drawdown $1,500 EOD trailing, locks at +$1,500 to breakeven or on 1st payout',
         );
     });
 
     it('shows the Apex EOD eval lock floor above breakeven and a separate funded line', () => {
         const lines = linesFor(apexEod);
         expect(lines[0]).toContain(
-            'eval drawdown $2,000 eod-trailing, locks at +$5,000 to +$3,000',
+            'eval drawdown $2,000 EOD trailing, locks at +$5,000 to +$3,000',
         );
         expect(
             lines.some((line) => line.startsWith('    funded drawdown ')),
@@ -281,23 +281,23 @@ describe('planRuleLines: eval and funded drawdown (R1-45)', () => {
     it('shows the MFF Pro eval profit lock and the funded lock that fires on the first payout (R1-51)', () => {
         const lines = linesFor(mffPro);
         expect(lines[0]).toContain(
-            'eval drawdown $2,000 eod-trailing, locks at +$2,100 to +$100',
+            'eval drawdown $2,000 EOD trailing, locks at +$2,100 to +$100',
         );
         expect(lines).toContain(
-            '    funded drawdown $2,000 eod-trailing, locks on first payout to +$100',
+            '    funded drawdown $2,000 EOD trailing, locks on first payout to +$100',
         );
     });
 
     it('shows the TopStep XFA floor reset on each payout', () => {
         expect(linesFor(topStepXfa)).toContain(
-            '    funded drawdown $2,000 eod-trailing, locks at +$2,000 to breakeven, floor reset to breakeven on each payout',
+            '    funded drawdown $2,000 EOD trailing, locks at +$2,000 to breakeven, floor reset to breakeven on each payout',
         );
     });
 
     it('shows one drawdown segment for the instant-funded TopStep Pro Account', () => {
         const lines = linesFor(topStepPro);
         expect(lines[0]).toContain(
-            'drawdown $2,000 eod-trailing, locks at +$2,000 to breakeven',
+            'drawdown $2,000 EOD trailing, locks at +$2,000 to breakeven',
         );
         expect(lines.join('\n')).not.toContain('eval drawdown');
         expect(lines.join('\n')).not.toContain('funded drawdown');
@@ -306,10 +306,10 @@ describe('planRuleLines: eval and funded drawdown (R1-45)', () => {
     it('shows the Alpha Futures Advanced $1,750 Evaluation and $2,000 Qualified drawdowns', () => {
         const lines = linesFor(alphaAdvanced);
         expect(lines[0]).toContain(
-            'eval drawdown $1,750 eod-trailing, locks at +$1,750 to breakeven',
+            'eval drawdown $1,750 EOD trailing, locks at +$1,750 to breakeven',
         );
         expect(lines).toContain(
-            '    funded drawdown $2,000 eod-trailing, locks at +$2,000 to breakeven',
+            '    funded drawdown $2,000 EOD trailing, locks at +$2,000 to breakeven',
         );
     });
 
@@ -393,7 +393,7 @@ describe('describePayoutSplit (R1-31)', () => {
             splitStep(4, 0.9),
         ]);
         expect(describePayoutSplit(split)).toBe(
-            '70% (payouts 1-2), 80% (payouts 3-4), 90% (payout 5+)',
+            '70% (payouts 1 to 2), 80% (payouts 3 to 4), 90% (payout 5 onward)',
         );
     });
 
@@ -403,7 +403,7 @@ describe('describePayoutSplit (R1-31)', () => {
             splitStep(1, 0.9),
         ]);
         expect(describePayoutSplit(split)).toBe(
-            '50% (payout 1), 90% (payout 2+)',
+            '50% (payout 1), 90% (payout 2 onward)',
         );
     });
 
@@ -412,7 +412,7 @@ describe('describePayoutSplit (R1-31)', () => {
             line.startsWith('    payout split'),
         );
         expect(payoutLine).toContain(
-            'payout split 70% (payouts 1-2), 80% (payouts 3-4), 90% (payout 5+)',
+            'payout split 70% (payouts 1 to 2), 80% (payouts 3 to 4), 90% (payout 5 onward)',
         );
         expect(payoutLine).toContain('first $0 | min request $500');
     });
@@ -464,7 +464,7 @@ describe('planRuleLines: payout day gate in its own unit (N-7)', () => {
 
     it('keeps the qualifying-day qualifier for a qualifying-day gate', () => {
         expect(payoutLineOf(legacy)).toContain(
-            'day gate 5 qualifying days | winning day >= $200',
+            'day gate 5 qualifying days | winning day of $200 or more',
         );
     });
 });

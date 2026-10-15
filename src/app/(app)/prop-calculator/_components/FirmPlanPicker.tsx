@@ -80,8 +80,11 @@ export default function FirmPlanPicker({
                     }}
                     value={serializePlanId(plan.id)}
                 >
-                    <SelectTrigger id="plan-select">
-                        <SelectValue />
+                    <SelectTrigger
+                        aria-describedby="plan-select-terms"
+                        id="plan-select"
+                    >
+                        <SelectValue>{plan.label}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         {firm.plans.map((p) => (
@@ -89,15 +92,27 @@ export default function FirmPlanPicker({
                                 key={serializePlanId(p.id)}
                                 value={serializePlanId(p.id)}
                             >
-                                {p.label}: target{' '}
-                                {formatCompactCurrency(p.profitTarget)} ·
-                                drawdown{' '}
-                                {formatCompactCurrency(p.drawdown.amount)}
+                                <span className="flex flex-col">
+                                    <span>{p.label}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        {planTermsText(p)}
+                                    </span>
+                                </span>
                             </SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
+                <p
+                    className="mt-1 text-xs text-muted-foreground"
+                    id="plan-select-terms"
+                >
+                    {planTermsText(plan)}
+                </p>
             </div>
         </div>
     );
+}
+
+function planTermsText(plan: Plan): string {
+    return `Target ${formatCompactCurrency(plan.profitTarget)} · drawdown ${formatCompactCurrency(plan.drawdown.amount)}`;
 }

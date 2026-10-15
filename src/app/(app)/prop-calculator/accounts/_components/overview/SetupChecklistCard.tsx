@@ -77,7 +77,10 @@ export function SetupChecklistCompact({
             </p>
             <ul className="flex flex-col gap-2">
                 {model.steps.map((step) => (
-                    <li className="flex flex-col gap-1" key={step.key}>
+                    <li
+                        className="flex flex-col items-start gap-1"
+                        key={step.key}
+                    >
                         <CompactStepBadge step={step} />
                         <StepDetail step={step} />
                     </li>

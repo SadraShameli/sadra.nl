@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
 import { planReferenceOf } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollModel';
+import {
+    rulebookOwnerText,
+    type RulebookSource,
+} from '~/app/(app)/prop-calculator/_components/bankroll/rulebookSource';
 import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/types';
 import {
@@ -13,7 +17,7 @@ import {
     ToolsRequestKind,
     type ValueChainToolsRequest,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { formatGateCurrency } from '~/lib/format';
+import { formatGateCurrency, formatPercent } from '~/lib/format';
 import {
     CENTS_PER_DOLLAR,
     findFirm,
@@ -44,6 +48,11 @@ export enum ValueCardsInputKind {
     Ready = 'ready',
     Refused = 'refused',
 }
+
+export type ValueBasisInputs = Pick<
+    CalculatorState,
+    'rrRatio' | 'tradesPerDay' | 'winrate'
+>;
 
 export type ValueCardsCalculatorInputs = Pick<
     CalculatorState,
@@ -203,6 +212,15 @@ export function uncertainCurrencyText(value: UncertainValue): string {
         : `${formatGateCurrency(value.value)} ± ${formatGateCurrency(value.standardError)}`;
 }
 
+export function valueBasisText(
+    inputs: ValueBasisInputs,
+    rulebook: Pick<RulebookParameters, 'strategy'>,
+    source: RulebookSource,
+): string {
+    const { strategy } = rulebook;
+    return `These values use the strategy in ${rulebookOwnerText(source)} (${strategyText(strategy.winrate, strategy.rr, strategy.tradesPerDayMax, 'up to ')}) and its documented sizing. EV per attempt in the results panel uses the page inputs instead (${strategyText(inputs.winrate, inputs.rrRatio, inputs.tradesPerDay, '')}, with the risk per trade you entered), so the two figures differ whenever these differ.`;
+}
+
 export function valueCardsInputFor(
     inputs: ValueCardsCalculatorInputs,
     rulebook: RulebookParameters,
@@ -319,4 +337,13 @@ export function valueChainToolsRequest(
         runId,
         spec: cards.spec,
     };
+}
+
+function strategyText(
+    winrate: number,
+    rewardToRisk: number,
+    tradesPerDay: number,
+    tradesPrefix: string,
+): string {
+    return `${formatPercent(winrate)} winrate, ${rewardToRisk.toFixed(2)}:1 reward to risk, ${tradesPrefix}${String(tradesPerDay)} ${tradesPerDay === 1 ? 'trade' : 'trades'} a day`;
 }

@@ -25,7 +25,7 @@ describe('objectiveApplicability (F-V15, Hard Rule 3, Hard Rule 5, Mistake 10)',
         }
     });
 
-    it('falls back RuinFirst to MonthlyNet on every sizing surface, with a reason naming Hard Rule 3 and 5', () => {
+    it('falls back RuinFirst to MonthlyNet on every sizing surface, with a reason that says what the eval and funded sizing rules are', () => {
         const sizingSurfaces = [
             RankingSurface.FundedRiskSweep,
             RankingSurface.Dp,
@@ -44,8 +44,11 @@ describe('objectiveApplicability (F-V15, Hard Rule 3, Hard Rule 5, Mistake 10)',
                 ObjectiveApplicabilityVerdict.NotApplicable,
             );
             expect(result.effectiveObjective).toBe(SizingObjective.MonthlyNet);
-            expect(result.reason).toMatch(/hard rule 3/i);
-            expect(result.reason).toMatch(/hard rule 5/i);
+            expect(result.reason).toMatch(
+                /evals risk the most the constraints allow/,
+            );
+            expect(result.reason).toMatch(/funded risk is a fixed amount/);
+            expect(result.reason).not.toMatch(/hard rule|mistake \d/i);
         }
     });
 

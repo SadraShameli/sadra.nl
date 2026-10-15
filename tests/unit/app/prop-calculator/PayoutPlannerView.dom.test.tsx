@@ -774,7 +774,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             );
         });
 
-        it('says the Hard Rule 2 minimum is waived when the rulebook keeps a smaller cushion', () => {
+        it('says the standard minimum cushion is waived when the rulebook keeps a smaller cushion', () => {
             searchState.query = READY_QUERY;
             rulebookQueryState.current = {
                 data: {
@@ -793,16 +793,19 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             const readiness = sectionOf('Readiness').textContent;
             expect(readiness).toContain('Minimum cushion kept: $500');
-            expect(readiness).toContain('below the $2,000 Hard Rule 2 minimum');
+            expect(readiness).toContain(
+                'below the standard minimum cushion of $2,000 kept after a payout: your rulebook waives it',
+            );
+            expect(readiness).not.toContain('Hard Rule');
         });
 
-        it('says nothing about a Hard Rule 2 waiver when the cushion meets the minimum', () => {
+        it('says nothing about a waived minimum cushion when the cushion meets the minimum', () => {
             searchState.query = READY_QUERY;
 
             render(<PayoutPlannerView />);
 
             expect(sectionOf('Readiness').textContent).not.toContain(
-                'Hard Rule 2 minimum',
+                'your rulebook waives it',
             );
         });
 
@@ -858,7 +861,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             expect(items.length).toBeGreaterThan(0);
             expect(items.map((item) => item.textContent)).toContain(
-                'done: the day gate since the last pass or payout has not been met yet',
+                'cleared: the day gate since the last pass or payout is met',
             );
         });
     });

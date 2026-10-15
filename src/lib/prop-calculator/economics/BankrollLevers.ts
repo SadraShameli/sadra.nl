@@ -22,7 +22,7 @@ export enum BankrollLeverKind {
 }
 
 export enum BankrollLeverLabel {
-    ConflictsWithHardRule3 = 'what-if: conflicts with Hard Rule 3',
+    ConflictsWithHardRule3 = "what-if: differs from the documented eval sizing, which risks the most the plan's limits allow",
     RequestUnchanged = 'what-if: documented request unchanged',
 }
 

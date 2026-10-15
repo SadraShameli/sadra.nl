@@ -292,7 +292,7 @@ describe('EvalMaxRiskRule (Hard Rules 3 and 4, opt-in)', () => {
 
     it('refuses an rr above the daily cap multiple (one win would overshoot the cap)', () => {
         expect(() => new EvalMaxRiskRule(maxRiskRulebook(3, 2))).toThrow(
-            /Hard Rule 4 needs the daily cap multiple \(2\) to be at least the rr \(3\)/,
+            /The daily cap multiple \(2\) must be at least the reward to risk \(3\)/,
         );
     });
 

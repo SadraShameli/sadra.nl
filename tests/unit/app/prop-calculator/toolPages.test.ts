@@ -648,7 +648,7 @@ describe.each(PAGES)('the $folder tool page', (spec) => {
         expect(srOnly).toHaveLength(sections.length === 1 ? 1 : 0);
     });
 
-    it('keeps every inner legacy id inside its panel with scroll-mt-26, so a legacy fragment lands below the navbar', () => {
+    it('keeps every inner legacy id inside its panel with the header-height scroll margin, so a legacy fragment lands below the navbar', () => {
         for (const section of spec.innerSections) {
             const panel = INNER_SECTION_PANELS[section];
             expect(panel).toBeDefined();
@@ -657,7 +657,7 @@ describe.each(PAGES)('the $folder tool page', (spec) => {
             const opener = new RegExp(
                 String.raw`<\w+(?=[^>]*\bid="${section}")[^>]*>`,
             ).exec(source);
-            expect(opener?.[0]).toMatch(/scroll-mt-26/);
+            expect(opener?.[0]).toMatch(/\bHEADER_SCROLL_MARGIN\b/);
         }
     });
 
@@ -1265,6 +1265,19 @@ describe('hubCardHref (F-38)', () => {
         );
         expect(hubCardHref(simulator, '')).toBe(
             routes.propCalculator.simulator,
+        );
+    });
+
+    it('passes the lab and the portfolio only to the tool that uses them (PT-119)', () => {
+        const lastQuery = 'firm=apex&lab=LAB&pf=PF';
+        expect(hubCardHref(simulator, lastQuery)).toBe(
+            `${routes.propCalculator.simulator}?firm=apex`,
+        );
+        expect(
+            hubCardHref(toolCatalogEntry(ToolId.StrategyLab), lastQuery),
+        ).toBe(`${routes.propCalculator.strategyLab}?firm=apex&lab=LAB`);
+        expect(hubCardHref(toolCatalogEntry(ToolId.Planner), lastQuery)).toBe(
+            `${routes.propCalculator.planner}?firm=apex&pf=PF`,
         );
     });
 

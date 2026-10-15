@@ -31,6 +31,11 @@ export enum LinkParameter {
     Portfolio = 'pf',
 }
 
+export enum PageStateBlob {
+    LabScenarios = 'lab-scenarios',
+    Portfolio = 'portfolio',
+}
+
 export enum SizingMode {
     Dollar = 'dollar',
     Percent = 'percent',

@@ -76,6 +76,7 @@ import {
     DEFAULT_MAX_EVAL_DAYS,
     type DocumentedPolicySpec,
     HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
+    MIN_RETAINED_CUSHION_TEXT,
     NEXT_PAYOUT_AMONG_PAYING_TEXT,
     NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
     NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
@@ -1056,11 +1057,8 @@ function PayoutPlannerReadinessSummary({
                         {cushion.amount <
                             HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS && (
                             <p className="text-amber-400">
-                                This is below the{' '}
-                                {formatGateCurrency(
-                                    HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS,
-                                )}{' '}
-                                Hard Rule 2 minimum: your rulebook waives it.
+                                This is below {MIN_RETAINED_CUSHION_TEXT}: your
+                                rulebook waives it.
                             </p>
                         )}
                         {isPeakAssumedForState && (

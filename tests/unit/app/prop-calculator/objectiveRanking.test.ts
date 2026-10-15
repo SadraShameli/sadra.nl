@@ -262,7 +262,7 @@ describe('riskTableObjective', () => {
         expect(view.requested).toBe(SizingObjective.RuinFirst);
         expect(view.effective).toBe(SizingObjective.MonthlyNet);
         expect(view.note).toBe(
-            'RuinFirst ranks plans to buy; risk sizing stays on monthly net (Hard Rule 3)',
+            "Ruin first ranks which plan to buy; risk sizing stays on monthly net, because evals risk the most the plan's limits allow",
         );
         expect(RUIN_FIRST_RISK_TABLE_NOTE).toBe(view.note);
     });

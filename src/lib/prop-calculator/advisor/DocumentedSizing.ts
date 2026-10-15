@@ -51,10 +51,10 @@ export enum SizingConstraint {
 }
 
 export enum SizingProvenance {
-    FundedFixedRisk = 'Hard Rule 5 fixed risk and take profit',
+    FundedFixedRisk = 'Fixed funded risk and take profit',
     GeneralDerivation = 'General derivation for any plan',
     LiveCushionPercent = 'Live account percent of cushion',
-    MaxRisk = 'Hard Rules 3 and 4 max risk with a daily cap',
+    MaxRisk = 'Maximum eval risk the plan allows, with a daily cap',
     MffRapidEodSearch = 'from the MFF Rapid EOD 50K search, extrapolated to this plan',
 }
 

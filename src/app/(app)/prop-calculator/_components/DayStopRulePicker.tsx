@@ -17,14 +17,18 @@ import { DAY_STOP_KIND_LABELS } from './describeDayStopRule';
 
 interface DayStopRulePickerProperties {
     compact?: boolean;
+    id?: string;
     onChange: (rule: DayStopRule) => void;
     value: DayStopRule;
 }
+
+const DAY_STOP_RULE_LABEL = 'Day stop rule';
 
 type Kind = DayStopRule['kind'];
 
 export default function DayStopRulePicker({
     compact = false,
+    id,
     onChange,
     value,
 }: DayStopRulePickerProperties) {
@@ -79,8 +83,11 @@ export default function DayStopRulePicker({
                 value={value.kind}
             >
                 <SelectTrigger
-                    aria-label="Day stop rule"
+                    aria-label={
+                        id === undefined ? DAY_STOP_RULE_LABEL : undefined
+                    }
                     className={compact ? 'h-7 text-xs' : undefined}
+                    id={id}
                 >
                     <SelectValue />
                 </SelectTrigger>

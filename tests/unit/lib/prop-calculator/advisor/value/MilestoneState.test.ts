@@ -323,7 +323,9 @@ describe('milestoneState (F-V17, PT-65a step 2)', () => {
         };
         const account = fundedAccount(plan, { balance: 51_500 });
 
-        expect(() => milestoneState(account, spec)).toThrow(/Hard Rule 2/);
+        expect(() => milestoneState(account, spec)).toThrow(
+            /below the standard minimum cushion of \$2,000 kept after a payout/,
+        );
     });
 
     it('live: not modeled gives the plan-level typed reason (E8 runs no live program)', () => {

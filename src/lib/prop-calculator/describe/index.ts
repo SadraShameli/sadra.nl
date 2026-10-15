@@ -1,3 +1,4 @@
+export { dailyLossLimitText } from './DailyLossLimitText';
 export {
     firmDataProvenance,
     type FirmDataProvenanceEntry,
@@ -9,6 +10,7 @@ export {
     describePayoutSplit,
     describePlanRules,
     describeShare,
+    DRAWDOWN_KIND_TEXT,
     formatPlanRuleLine,
     PLAN_RULE_SEGMENT_LABEL,
     planConsistencyLabels,

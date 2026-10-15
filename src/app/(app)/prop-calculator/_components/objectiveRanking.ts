@@ -110,7 +110,7 @@ export const ENGINE_OPTIMUM_NOTE =
     'The starred row is the engine optimum for this sweep, not the documented sizing: it assumes no daily profit cap in the eval and one risk per trade for both the eval and funded phases. Ruin first and cycle cash do not change documented sizing.';
 
 export const RUIN_FIRST_RISK_TABLE_NOTE =
-    'RuinFirst ranks plans to buy; risk sizing stays on monthly net (Hard Rule 3)';
+    "Ruin first ranks which plan to buy; risk sizing stays on monthly net, because evals risk the most the plan's limits allow";
 
 export const OBJECTIVE_OPTIONS: readonly ObjectiveOption[] = Object.values(
     SizingObjective,

@@ -95,6 +95,7 @@ import {
     ledgerRecordedLadderFor,
     liveTriggerCountText,
     liveTriggerLimitsFor,
+    MIN_RETAINED_CUSHION_TEXT,
     NEXT_PAYOUT_AMONG_PAYING_TEXT,
     NEXT_PAYOUT_ELIGIBLE_NOW_TEXT,
     NEXT_PAYOUT_NO_TRIAL_PAID_TEXT,
@@ -298,8 +299,7 @@ export const adviseArguments = {
     ...adviseDpArguments,
     'allow-below-hard-rule-2': {
         default: false,
-        description:
-            'Allow a --retain-cushion below the $2,000 Hard Rule 2 floor',
+        description: `Allow a --retain-cushion below ${MIN_RETAINED_CUSHION_TEXT}`,
         type: 'boolean',
     },
     balance: {
@@ -438,8 +438,7 @@ export const adviseArguments = {
         type: 'string',
     },
     'retain-cushion': {
-        description:
-            "Personal minimum cushion to leave on payout, never below the plan's floor or the $2,000 Hard Rule 2 default (pass --allow-below-hard-rule-2 to go lower). Omit to use the rulebook default",
+        description: `Personal minimum cushion to leave on payout, never below the plan's floor or ${MIN_RETAINED_CUSHION_TEXT} (pass --allow-below-hard-rule-2 to go lower). Omit to use the rulebook default`,
         type: 'string',
     },
     risk: {
@@ -1323,7 +1322,7 @@ function ladderSearchLines(
     return [
         summary,
         ...gridLines,
-        `  fastest-to-funded ladder (eval-stage proxy for MonthlyNet, Hard Rule 3) [${winner.ladder.join(', ')}]: days to funded ${formatNumberWithSe(winner.expectedDaysToFunded, winner.expectedDaysToFundedStandardError, 1)}, pass rate ${formatPercentWithSe(winner.passRate, winner.passRateStandardError)}, cost/funded ${formatCurrencyWithSe(winner.costPerFunded, winner.costPerFundedStandardError)}`,
+        `  fastest-to-funded ladder (eval-stage proxy for MonthlyNet under the documented maximum eval risk) [${winner.ladder.join(', ')}]: days to funded ${formatNumberWithSe(winner.expectedDaysToFunded, winner.expectedDaysToFundedStandardError, 1)}, pass rate ${formatPercentWithSe(winner.passRate, winner.passRateStandardError)}, cost/funded ${formatCurrencyWithSe(winner.costPerFunded, winner.costPerFundedStandardError)}`,
     ];
 }
 

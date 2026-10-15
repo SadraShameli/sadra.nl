@@ -177,7 +177,7 @@ export function bundleRenewalNote(
 }
 
 export const CYCLE_OBJECTIVE_NOT_SIZING_NOTE =
-    'the rate-0 eval policy has no time cost, so it favours the conservative eval sizing that Hard Rule 3 rejects (risk the max the constraints allow, speed to funded) and its funded risk is not the Hard Rule 5 fixed amount: read it as an eval-stage proxy for cycle cash, not sizing, and size from the documented rungs and the fixed funded risk instead';
+    'the rate-0 eval policy has no time cost, so it favours conservative eval sizing over the documented eval sizing (risk the most the constraints allow, for speed to funded) and its funded risk is not the documented fixed amount: read it as an eval-stage proxy for cycle cash, not sizing, and size from the documented rungs and the fixed funded risk instead';
 
 export function dpGridSettingsLine(
     plan: Plan,

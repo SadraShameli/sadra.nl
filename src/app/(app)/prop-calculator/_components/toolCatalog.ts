@@ -19,6 +19,7 @@ import {
 import { routes } from '~/lib/site/routes';
 
 import { panelDescriptions } from './kpiDescriptions';
+import { PageStateBlob } from './types';
 
 export enum ToolGroup {
     Analyse = 'analyse',
@@ -251,8 +252,26 @@ const TOOLS_BY_ROUTE = new Map<string, ToolCatalogEntry>(
 export const LINKED_TOOL_CATALOG: readonly ToolCatalogEntry[] =
     TOOL_CATALOG.filter((entry) => entry.hasPage);
 
+const PAGE_STATE_BLOBS: Readonly<
+    Partial<Record<ToolId, readonly PageStateBlob[]>>
+> = {
+    [ToolId.Planner]: [PageStateBlob.Portfolio],
+    [ToolId.StrategyLab]: [PageStateBlob.LabScenarios],
+};
+
 export function isCalculatorInputsPath(pathname: string): boolean {
     return toolForPathname(pathname)?.usesCalculatorInputs ?? false;
+}
+
+export function pageStateBlobsOf(id: ToolId): readonly PageStateBlob[] {
+    return PAGE_STATE_BLOBS[id] ?? [];
+}
+
+export function pageStateBlobsOnPath(
+    pathname: string,
+): readonly PageStateBlob[] {
+    const tool = toolForPathname(pathname);
+    return tool === null ? [] : pageStateBlobsOf(tool.id);
 }
 
 export function toolCatalogEntry(id: ToolId): ToolCatalogEntry {

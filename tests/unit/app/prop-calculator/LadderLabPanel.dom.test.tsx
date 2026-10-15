@@ -558,7 +558,7 @@ describe('LadderLabPanel objective and contracts at the stop (PT-63, F-V15, F-V2
         );
         expect(rowFor([200, 300, 400]).textContent).toContain('★');
         expect(container.textContent).toContain(
-            'RuinFirst ranks plans to buy; risk sizing stays on monthly net (Hard Rule 3)',
+            "Ruin first ranks which plan to buy; risk sizing stays on monthly net, because evals risk the most the plan's limits allow",
         );
     });
 

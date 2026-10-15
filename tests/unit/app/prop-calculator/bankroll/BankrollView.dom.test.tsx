@@ -11,7 +11,10 @@ import {
     ToolsRequestKind,
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { BankrollLeverKind } from '~/lib/prop-calculator/economics';
+import {
+    BankrollLeverKind,
+    BankrollLeverLabel,
+} from '~/lib/prop-calculator/economics';
 import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 
 const currentState = vi.hoisted(() => ({
@@ -754,7 +757,7 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
 
             expect(container.textContent).toContain(
-                'what-if: conflicts with Hard Rule 3',
+                BankrollLeverLabel.ConflictsWithHardRule3,
             );
 
             const instance = toolsWorkerBox.instances[2];
@@ -1293,7 +1296,7 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
                                 deltaPassProbability: 0.02,
                                 evPerAttempt: 50,
                                 kind: BankrollLeverKind.Risk,
-                                label: 'what-if: conflicts with Hard Rule 3',
+                                label: BankrollLeverLabel.ConflictsWithHardRule3,
                                 lossRisk: 0.2,
                                 monthlyNet: 540,
                                 passProbability: 0.62,
@@ -1306,7 +1309,7 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             });
 
             expect(container.textContent).toContain(
-                'what-if: conflicts with Hard Rule 3',
+                BankrollLeverLabel.ConflictsWithHardRule3,
             );
             expect(container.textContent).toContain('$40');
             expect(container.textContent).toContain('20.0%');

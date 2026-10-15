@@ -6,7 +6,6 @@ import { useMemo } from 'react';
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
-import InfoPopover from '~/components/ui/InfoPopover';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     type SimInputs,
@@ -19,6 +18,7 @@ import { cn } from '~/lib/utilities';
 import RuleStressBarChartView from './charts/RuleStressBarChartView';
 import { ComputationId } from './ComputationId';
 import { buildStressScenarios } from './ruleStressScenarios';
+import { formatSignedPercent } from './signedPercent';
 import { simInputsCacheKey } from './simInputsCacheKey';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useDebouncedComputation } from './useDebouncedSimulation';
@@ -165,32 +165,11 @@ export default function RuleStressTestPanel({
         <Card
             className={cn('app-prop-calculator__rule-stress-test', 'px-5 py-4')}
         >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">Rule stress test</h3>
-                    <InfoPopover title="Rule stress test">
-                        Prop firms tighten their rules over time. This runs your
-                        current setup against 4 hypothetical tightenings:
-                        daily-loss-limit halved, payout ladder cut 20%, the
-                        first-payout and per-cycle profit gates raised 50%, and
-                        the qualifying-day profit bar raised 40%. Each uses the
-                        same seed and trial count as the baseline for a
-                        like-for-like comparison. Note that because a
-                        funded-phase rule change can shift how many days a given
-                        trial runs before busting or closing out its payout
-                        ladder, later trials can still draw a different random
-                        path than the baseline once the two diverge, so treat
-                        differences as directionally informative, not a pure
-                        noise-free A/B test. Shows how resilient your edge is if
-                        the firm changes the rules on you.
-                    </InfoPopover>
-                </div>
-                {pending && (
-                    <span className="text-xs text-muted-foreground">
-                        computing…
-                    </span>
-                )}
-            </div>
+            {pending && (
+                <p className="self-end text-xs text-muted-foreground">
+                    computing…
+                </p>
+            )}
 
             {rows.length === 0 ? (
                 error === null ? (
@@ -229,11 +208,6 @@ function deltaClass(delta: number): string {
 function formatSignedCurrency(n: number): string {
     const sign = n > 0 ? '+' : '';
     return `${sign}${formatCurrency(n)}`;
-}
-
-function formatSignedPercent(p: number): string {
-    const sign = p > 0 ? '+' : '';
-    return `${sign}${formatPercent(p)}`;
 }
 
 function pctDelta(value: number, baseline: null | ScenarioRow): number {

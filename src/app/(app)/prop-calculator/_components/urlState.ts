@@ -39,7 +39,12 @@ import type {
 } from './types';
 
 import { clampNumber, clampStateToPlan } from './clamp';
-import { LabLinkStatus, LinkParameter, SizingMode } from './types';
+import {
+    LabLinkStatus,
+    LinkParameter,
+    PageStateBlob,
+    SizingMode,
+} from './types';
 
 export enum ObjectiveUrlMode {
     Explicit = 'explicit',
@@ -49,7 +54,18 @@ export enum ObjectiveUrlMode {
 
 export interface EncodeStateOptions {
     readonly objectiveUrl?: ObjectiveUrlMode;
+    readonly pageBlobs?: readonly PageStateBlob[];
 }
+
+const LAB_URL_PARAMETER = 'lab';
+
+const PAGE_STATE_BLOB_PARAMETER: Readonly<Record<PageStateBlob, string>> = {
+    [PageStateBlob.LabScenarios]: LAB_URL_PARAMETER,
+    [PageStateBlob.Portfolio]: LinkParameter.Portfolio,
+};
+
+const ALL_PAGE_STATE_BLOBS: readonly PageStateBlob[] =
+    Object.values(PageStateBlob);
 
 export type LabLinkDecode = LabLinkOutcome & { scenarios: LabScenario[] };
 
@@ -74,7 +90,7 @@ export const LINK_PARAMETER_LABELS: Readonly<Record<LinkParameter, string>> = {
     [LinkParameter.Portfolio]: 'portfolio',
 };
 
-const UNREADABLE_LAB_PARAMETER = unreadableParameter('lab');
+const UNREADABLE_LAB_PARAMETER = unreadableParameter(LAB_URL_PARAMETER);
 const NOT_A_SCENARIO_LIST = 'the lab parameter is not a list of scenarios';
 const SCENARIO_COUNT_OUT_OF_RANGE = `the lab parameter must hold 1 to ${plainNumber(MAX_LAB_SCENARIOS)} scenarios`;
 const NOT_A_PORTFOLIO =
@@ -370,7 +386,7 @@ export function decodeLabLink(
     fallback: LabScenario[],
 ): LabLinkDecode {
     const decoded = decodeBlobParameter(
-        parameters.get('lab'),
+        parameters.get(LAB_URL_PARAMETER),
         UNREADABLE_LAB_PARAMETER,
         readLabScenarios,
     );
@@ -573,11 +589,18 @@ export function encodeState(
         const dp = base64UrlEncode(JSON.stringify(state.evalDayPolicy));
         if (dp) p.set(LinkParameter.EvalDayPolicy, dp);
     }
-    if (state.labScenarios.length > 0) {
+    const pageBlobs = options.pageBlobs ?? ALL_PAGE_STATE_BLOBS;
+    if (
+        pageBlobs.includes(PageStateBlob.LabScenarios) &&
+        state.labScenarios.length > 0
+    ) {
         const lab = base64UrlEncode(JSON.stringify(state.labScenarios));
-        if (lab) p.set('lab', lab);
+        if (lab) p.set(LAB_URL_PARAMETER, lab);
     }
-    if (state.portfolio.length > 0) {
+    if (
+        pageBlobs.includes(PageStateBlob.Portfolio) &&
+        state.portfolio.length > 0
+    ) {
         const wire = state.portfolio.map((entry) => ({
             activationDiscountPercent: entry.activationDiscountPercent,
             count: entry.count,
@@ -622,6 +645,19 @@ export function persistScenarios(scenarios: SavedScenarioRecord[]): void {
     } catch {
         return;
     }
+}
+
+export function withPageStateBlobsOnly(
+    query: string,
+    pageBlobs: readonly PageStateBlob[],
+): string {
+    const parameters = new URLSearchParams(query);
+    for (const blob of ALL_PAGE_STATE_BLOBS) {
+        if (!pageBlobs.includes(blob)) {
+            parameters.delete(PAGE_STATE_BLOB_PARAMETER[blob]);
+        }
+    }
+    return parameters.toString();
 }
 
 export function withSharedLab(

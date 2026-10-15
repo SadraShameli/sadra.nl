@@ -28,7 +28,8 @@ export default function InfoPopover({
                 <Button
                     aria-label={`About ${title}`}
                     className={cn(
-                        'size-4 rounded-full p-0 text-muted-foreground',
+                        'relative size-4 rounded-full p-0 text-muted-foreground',
+                        'before:absolute before:top-1/2 before:left-1/2 before:size-6 before:-translate-1/2 pointer-coarse:before:size-11',
                         className,
                     )}
                     size="sm"

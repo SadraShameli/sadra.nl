@@ -34,6 +34,7 @@ import {
     kellySizing,
 } from './kellySizing';
 import { panelDescriptions } from './kpiDescriptions';
+import { formatSignedPercent } from './signedPercent';
 import StatCard from './StatCard';
 
 interface StrategyAnalysisProperties {
@@ -247,13 +248,6 @@ export default function StrategyAnalysis({
 
     return (
         <Card className={cn('app-prop-calculator__strategy-analysis', 'p-5')}>
-            <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">Strategy analysis</h3>
-                <InfoPopover title="Strategy analysis">
-                    {panelDescriptions.strategyAnalysis}
-                </InfoPopover>
-            </div>
-
             <div className="flex flex-col gap-6">
                 <section
                     className={cn('app-prop-calculator__strategy-returns')}
@@ -265,8 +259,8 @@ export default function StrategyAnalysis({
                     <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                         <Metric
                             label="Annualized ROI"
-                            sub={`${(breakdown.monthlyPct * 100).toFixed(2)}%/mo · ${(breakdown.weeklyPct * 100).toFixed(2)}%/wk · ${(breakdown.perTradePct * 100).toFixed(3)}%/trade`}
-                            value={`${(breakdown.yearlyPct * 100).toFixed(2)}% / yr`}
+                            sub={`${formatSignedPercent(breakdown.monthlyPct, 2)} a month · ${formatSignedPercent(breakdown.weeklyPct, 2)} a week · ${formatSignedPercent(breakdown.perTradePct, 3)} a trade, before account fees`}
+                            value={`${formatSignedPercent(breakdown.yearlyPct, 2)} a year`}
                             valueClass={
                                 breakdown.yearlyPct > 0
                                     ? 'text-emerald-400'
@@ -557,8 +551,9 @@ export default function StrategyAnalysis({
                                 Kelly (information only)
                             </p>
                             <p className="text-[11px] text-muted-foreground">
-                                Size by the documented eval and funded rules
-                                (Hard Rules 3 and 5).{' '}
+                                Size by the documented eval and funded rules:
+                                evals risk the most the plan&apos;s limits
+                                allow, funded accounts risk a fixed amount.{' '}
                                 {
                                     ECONOMICS_DISCLOSURE_TEXT[
                                         EconomicsDisclosure.KellyNotPropSizing

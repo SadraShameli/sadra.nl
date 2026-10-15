@@ -2,7 +2,9 @@
 
 import { useRef } from 'react';
 
+import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { Card } from '~/components/ui/Card';
+import { cn } from '~/lib/utilities';
 
 import {
     AppliedEvalLadderNotice,
@@ -23,7 +25,10 @@ export function InputsSummary({
     const summaryReference = useRef<HTMLDivElement>(null);
     return (
         <Card
-            className="app-prop-calculator__inputs-summary flex scroll-mt-26 flex-col gap-3 px-5 py-4 outline-none"
+            className={cn(
+                'app-prop-calculator__inputs-summary flex flex-col gap-3 px-5 py-4 outline-none',
+                HEADER_SCROLL_MARGIN,
+            )}
             ref={summaryReference}
             tabIndex={-1}
         >

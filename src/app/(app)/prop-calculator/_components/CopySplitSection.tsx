@@ -26,7 +26,6 @@ import {
     defaultCopySplitInputs,
     parseCopySplitInputs,
 } from './copySplitModel';
-import { CalculatorObjectiveChip } from './ObjectiveChip';
 
 interface FieldAccessibilityProps {
     'aria-describedby'?: string;
@@ -142,9 +141,10 @@ export default function CopySplitSection() {
                 <p className="text-xs text-muted-foreground">
                     The same total risk per trade across N copied accounts
                     against one concentrated account, under your engine policy.
-                    The comparison unit is the whole group of accounts.
+                    The comparison unit is the whole group of accounts. It ranks
+                    the splits by the ranking objective chosen at the top of
+                    this page.
                 </p>
-                <CalculatorObjectiveChip />
                 <RulebookSourceNotice source={rulebookSource} />
                 <div className="flex flex-wrap items-end gap-4">
                     <div className="flex flex-col gap-1">

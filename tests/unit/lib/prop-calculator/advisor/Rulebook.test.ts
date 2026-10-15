@@ -640,7 +640,7 @@ describe('rulebookSchema', () => {
         expect(overshoot.error?.issues).toEqual([
             expect.objectContaining({
                 message:
-                    'Hard Rule 4 needs the daily cap multiple (2) to be at least the rr (3), or one win overshoots the daily cap',
+                    'The daily cap multiple (2) must be at least the reward to risk (3), or one win overshoots the daily cap',
                 path: ['eval', 'maxRiskDailyCapMultiple'],
             }),
         ]);

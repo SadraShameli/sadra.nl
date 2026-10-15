@@ -36,7 +36,8 @@ function warningOf(
 describe('one retained-cushion basis wording for the planner, the value chain and the warning (PT-19i LOW a)', () => {
     it('words every basis so it reads after "from" and inside parentheses', () => {
         expect(RETAINED_CUSHION_BASIS_TEXT).toEqual({
-            [RetainedCushionBasis.HardRule2Default]: "Hard Rule 2's minimum",
+            [RetainedCushionBasis.HardRule2Default]:
+                'the standard minimum cushion',
             [RetainedCushionBasis.LiveOneDrawdown]: 'one live drawdown',
             [RetainedCushionBasis.PersonalOverride]: 'your personal override',
             [RetainedCushionBasis.RulebookSize]:

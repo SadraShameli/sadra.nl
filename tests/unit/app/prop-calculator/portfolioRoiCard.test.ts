@@ -56,6 +56,12 @@ describe('PortfolioRoiCard: the portfolio "Annual ROI on fees" card (R1-29)', ()
         ]);
     });
 
+    it('says how the figure is worked out under the value', () => {
+        const markup = renderedRoiCard(100, 600);
+        expect(markup).toContain('Annual ROI on fees');
+        expect(markup).toContain('monthly net × 12 ÷ total eval cost');
+    });
+
     it('renders an exact break-even with the neutral accent, like the results and cash-flow panels', () => {
         const markup = renderedRoiCard(0, 600);
         expect(markup).toContain('>0.0%<');

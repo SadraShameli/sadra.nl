@@ -45,13 +45,16 @@ import {
     MffuVariant,
     simulate,
 } from '~/lib/prop-calculator';
-import { BankrollLeverKind } from '~/lib/prop-calculator/economics';
+import {
+    BankrollLeverKind,
+    BankrollLeverLabel,
+} from '~/lib/prop-calculator/economics';
 import { simulateBankrollTimeline } from '~/lib/prop-calculator/portfolioTimeline';
 
+import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 const SMALL_PLAN = ['--firm', 'mffu', '--variant', 'rapid-eod'];
-import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 const SMALL_SIM = [
     ...SMALL_PLAN,
     '--trials',
@@ -545,7 +548,7 @@ describe('prop bankroll compare', () => {
             ),
             SMALL_SIM,
         );
-        expect(stdout).toContain('what-if: conflicts with Hard Rule 3');
+        expect(stdout).toContain(BankrollLeverLabel.ConflictsWithHardRule3);
     });
 
     it('does not label the plain configured-risk row as a what-if when --risks is omitted', async () => {
@@ -557,7 +560,7 @@ describe('prop bankroll compare', () => {
             ),
             SMALL_SIM,
         );
-        expect(stdout).not.toContain('what-if: conflicts with Hard Rule 3');
+        expect(stdout).not.toContain(BankrollLeverLabel.ConflictsWithHardRule3);
     });
 
     it('prints the closed-form comparison for --multiples with the illustration label', async () => {
@@ -717,7 +720,7 @@ describe('prop bankroll levers', () => {
             ),
             SMALL_SIM,
         );
-        expect(stdout).toContain('what-if: conflicts with Hard Rule 3');
+        expect(stdout).toContain(BankrollLeverLabel.ConflictsWithHardRule3);
         expect(stdout).toContain('what-if: documented request unchanged');
         expect(stdout).toContain('base');
     });

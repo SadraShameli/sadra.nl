@@ -164,7 +164,7 @@ function succeeded(
         kind: ToolsResponseKind.CopySplit,
         result: {
             basisLines: [
-                'funded risk $250 per account, the Hard Rule 5 fixed amount, not divided by the split',
+                'funded risk $250 per account, the fixed funded amount, not divided by the split',
                 'the copies are engine copies that take identical trades, so they win and bust together',
             ],
             indistinguishableSplits: [1],
@@ -348,17 +348,21 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
         );
     });
 
-    it('never says this page ranks by ruin first when the bankroll chose ruin first automatically', () => {
+    it('never says this page ranks by ruin first when the bankroll chose ruin first automatically, and leaves the choice note to the page picker', () => {
         harness.objective = SizingObjective.RuinFirst;
         harness.choice = {
             automaticBasis: { availableCents: 100_000, switchCents: 500_000 },
             queryFailure: null,
         };
+        harness.result = succeeded({
+            note: 'RuinFirst only ranks which plan to buy.',
+            requestedObjective: SizingObjective.RuinFirst,
+        });
         render();
         const text = container.textContent;
-        expect(text).toContain('Chosen automatically');
+        expect(text).not.toContain('Chosen automatically');
         expect(text).toContain('which plan to buy');
-        expect(text).toContain("this page's sizing stays on monthly net");
+        expect(text).toContain('objective: monthly net');
         expect(text).not.toMatch(/page ranks by ruin first/i);
     });
 
@@ -557,6 +561,17 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
             'RuinFirst only ranks which plan to buy.',
         );
         expect(container.textContent).toContain('objective: monthly net');
+    });
+
+    it('has no objective picker of its own, so the page-level picker is the only one', () => {
+        harness.result = succeeded({});
+        render();
+        expect(
+            container.querySelector('select[aria-label="Ranking objective"]'),
+        ).toBeNull();
+        expect(container.textContent).toContain(
+            'ranking objective chosen at the top of this page',
+        );
     });
 
     it('never runs the engine on the main thread', () => {

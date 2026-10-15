@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { z } from 'zod';
 
 import { formatCurrency } from '~/lib/format';
@@ -22,6 +23,8 @@ import { CalculatorActionType } from './calculatorReducer';
 import { OBJECTIVE_OPTIONS, riskTableObjective } from './objectiveRanking';
 
 const objectiveSchema = z.enum(SizingObjective);
+
+const OBJECTIVE_SELECT_LABEL = 'Ranking objective';
 
 interface ObjectiveChipProperties {
     choiceNotes?: readonly string[];
@@ -59,7 +62,7 @@ export function ObjectiveChip({
     objective,
     onChange,
 }: ObjectiveChipProperties) {
-    const label = riskTableObjective(objective).label;
+    const selectId = useId();
     return (
         <div
             className={cn(
@@ -68,12 +71,13 @@ export function ObjectiveChip({
             )}
         >
             <div className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground">
-                    Objective: {label}
-                </span>
+                <label className="text-muted-foreground" htmlFor={selectId}>
+                    {OBJECTIVE_SELECT_LABEL}
+                </label>
                 <select
-                    aria-label="Ranking objective"
+                    aria-label={OBJECTIVE_SELECT_LABEL}
                     className="h-7 rounded-md border bg-transparent px-2 text-xs"
+                    id={selectId}
                     onChange={(event) => {
                         const chosen = objectiveSchema.safeParse(
                             event.target.value,

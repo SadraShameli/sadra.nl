@@ -1,5 +1,6 @@
 import { routes } from '~/lib/site/routes';
 
+import { pageEncodeOptions } from './calculatorUrlSync';
 import { type CalculatorState } from './types';
 import { encodeState, type EncodeStateOptions } from './urlState';
 
@@ -7,5 +8,5 @@ export function simulatorHref(
     state: CalculatorState,
     encodeOptions?: EncodeStateOptions,
 ): string {
-    return `${routes.propCalculator.simulator}?${encodeState(state, encodeOptions).toString()}`;
+    return `${routes.propCalculator.simulator}?${encodeState(state, pageEncodeOptions(routes.propCalculator.simulator, encodeOptions)).toString()}`;
 }

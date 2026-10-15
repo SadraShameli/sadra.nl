@@ -819,7 +819,7 @@ describe('copySplitBasisLines', () => {
         expect(text).toContain('1:2');
         expect(text).toContain('30 funded days');
         expect(text).toContain('funded risk $250 per account');
-        expect(text).toContain('Hard Rule 5');
+        expect(text).toContain('the fixed funded amount');
         expect(text).not.toContain('\u{2014}');
     });
 
@@ -830,7 +830,7 @@ describe('copySplitBasisLines', () => {
         ).join('\n');
         expect(text).toContain('funded risk $800 per account');
         expect(text).toContain('not divided by the split');
-        expect(text).not.toContain('Hard Rule 5');
+        expect(text).not.toContain('the fixed funded amount');
     });
 
     it('names the payout request and the retained cushion request', () => {

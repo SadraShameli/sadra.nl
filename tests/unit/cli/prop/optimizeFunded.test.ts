@@ -1575,7 +1575,7 @@ describe('optimize funded --objective is an alias over --sort (PT-63, F-V15)', (
     it('refuses ruin-first as not applicable to a funded risk sweep', () => {
         expect(ruinFirstFundedSort).toThrow(ObjectiveNotApplicable);
         expect(ruinFirstFundedSort).toThrow(
-            'RuinFirst only ranks which plan to buy; eval rungs and funded risk stay on Hard Rules 3 and 5',
+            'RuinFirst only ranks which plan to buy; eval rungs keep the maximum risk the plan allows and funded risk stays a fixed amount',
         );
     });
 

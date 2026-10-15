@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
+import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { CalculatorInputsForm } from '~/app/(app)/prop-calculator/_components/CalculatorInputsForm';
 import {
     useBaseResult,
@@ -25,12 +26,16 @@ import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPag
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
 import { FundedValueCard } from '~/app/(app)/prop-calculator/_components/value/FundedValueCard';
-import { valueCardsInputFor } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
+import {
+    valueBasisText,
+    valueCardsInputFor,
+} from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import { ValueChainCard } from '~/app/(app)/prop-calculator/_components/value/ValueChainCard';
 import { accountPrefillHref } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
 import { Button } from '~/components/ui/Button';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+import { cn } from '~/lib/utilities';
 
 const ResultsPanel = dynamic(
     () => import('~/app/(app)/prop-calculator/_components/ResultsPanel'),
@@ -55,7 +60,7 @@ export function SimulatorView() {
     const { chartType, pinned } = useLabSlots();
     const actions = useCalculatorActions();
 
-    const { rulebook } = useToolRulebook();
+    const { rulebook, source: rulebookSource } = useToolRulebook();
     const valueCards = useMemo(
         () => valueCardsInputFor(state, rulebook),
         [state, rulebook],
@@ -169,7 +174,7 @@ export function SimulatorView() {
 
                 <section
                     aria-labelledby="value-heading"
-                    className="flex scroll-mt-26 flex-col gap-6"
+                    className={cn('flex flex-col gap-6', HEADER_SCROLL_MARGIN)}
                     id="value"
                 >
                     <h2
@@ -178,6 +183,9 @@ export function SimulatorView() {
                     >
                         Value
                     </h2>
+                    <p className="text-sm text-muted-foreground">
+                        {valueBasisText(state, rulebook, rulebookSource)}
+                    </p>
                     <ValueChainCard cards={valueCards} />
                     <FundedValueCard
                         cards={valueCards}

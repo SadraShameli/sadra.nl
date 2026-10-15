@@ -135,6 +135,14 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         });
     }
 
+    function chosenObjective(): string {
+        const select = container.querySelector<HTMLSelectElement>(
+            'select[aria-label="Ranking objective"]',
+        );
+        if (select === null) throw new Error('select missing');
+        return select.value;
+    }
+
     function pick(objective: SizingObjective) {
         const select = container.querySelector<HTMLSelectElement>(
             'select[aria-label="Ranking objective"]',
@@ -165,6 +173,17 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         });
         container.remove();
         vi.unstubAllGlobals();
+    });
+
+    it('names the objective once, in the dropdown, under a visible label tied to it (PT-119)', () => {
+        open();
+        const select = container.querySelector<HTMLSelectElement>(
+            'select[aria-label="Ranking objective"]',
+        );
+        const label = container.querySelector('label');
+        expect(label?.textContent).toBe('Ranking objective');
+        expect(label?.getAttribute('for')).toBe(select?.id);
+        expect(container.textContent).not.toContain('Objective: ');
     });
 
     it('names the bankroll and the threshold when the objective was chosen automatically', () => {
@@ -200,7 +219,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         expect(container.textContent).toContain('Chosen automatically');
         click('reset');
         expect(container.textContent).toContain('Chosen automatically');
-        expect(container.textContent).toContain('Objective: ruin first');
+        expect(chosenObjective()).toBe(SizingObjective.RuinFirst);
     });
 
     it('says the objective was chosen automatically after a reset that followed a link objective (PT-63e)', () => {
@@ -210,7 +229,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         open('?obj=cycle-cash');
         expect(container.textContent).not.toContain('Chosen automatically');
         click('reset');
-        expect(container.textContent).toContain('Objective: ruin first');
+        expect(chosenObjective()).toBe(SizingObjective.RuinFirst);
         expect(container.textContent).toContain('Chosen automatically');
     });
 
@@ -221,7 +240,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         open();
         click('apply-cycle');
         expect(container.textContent).not.toContain('Chosen automatically');
-        expect(container.textContent).toContain('Objective: cycle cash');
+        expect(chosenObjective()).toBe(SizingObjective.CycleCash);
     });
 
     it('keeps the automatic note when an applied state carries the same objective', () => {

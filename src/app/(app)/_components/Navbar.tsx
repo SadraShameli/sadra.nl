@@ -2,11 +2,14 @@
 
 import { User } from 'lucide-react';
 import Link from 'next/link';
+import { useRef } from 'react';
 
 import { SocialIcon } from '~/components/ui/SocialIcon';
 import { siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
+
+import { useHeaderHeightVariable } from './useHeaderHeightVariable';
 
 interface NavbarSession {
     user: { id: string };
@@ -14,6 +17,8 @@ interface NavbarSession {
 
 export default function Navbar({ session }: { session: NavbarSession | null }) {
     const { navBrand, socialLinks } = siteContent;
+    const navReference = useRef<HTMLElement>(null);
+    useHeaderHeightVariable(navReference);
 
     return (
         <nav
@@ -21,6 +26,7 @@ export default function Navbar({ session }: { session: NavbarSession | null }) {
                 'app-shell__navbar',
                 'sticky inset-x-0 top-0 z-50 bg-black/75 backdrop-blur-2xl backdrop-saturate-200',
             )}
+            ref={navReference}
         >
             <div className="container mx-auto flex items-center justify-between py-5">
                 <div className="flex items-center gap-3">

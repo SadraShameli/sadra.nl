@@ -8,6 +8,8 @@ import {
     NO_PERSONAL_CAPS,
     type PersonalCaps,
     type ReconstructedFundedOrEvalAccount,
+    RETAINED_CUSHION_BASIS_TEXT,
+    RetainedCushionBasis,
 } from '~/lib/prop-calculator/advisor';
 import {
     type DocumentedPolicySpec,
@@ -49,6 +51,9 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { ALL_FIRMS, findFirm } from '~/lib/prop-calculator/firms';
+
+const HARD_RULE_2_BASIS_TEXT =
+    RETAINED_CUSHION_BASIS_TEXT[RetainedCushionBasis.HardRule2Default];
 
 function eligibleFundedMilestone() {
     const plan = rapidEodPlan();
@@ -1054,7 +1059,7 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
                 `Retained cushion ${formatCurrency(cushion, 2)}`,
             );
             expect(text).toContain("your rulebook's retained cushion");
-            expect(text).not.toContain('Hard Rule 2');
+            expect(text).not.toContain(HARD_RULE_2_BASIS_TEXT);
             expect(text).not.toContain('your personal override');
         });
 
@@ -1105,7 +1110,7 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
             const text = step?.assumptions.join('\n') ?? '';
             expect(text).toContain('Retained cushion $3,000.00');
             expect(text).toContain("your rulebook's retained cushion");
-            expect(text).not.toContain('Hard Rule 2');
+            expect(text).not.toContain(HARD_RULE_2_BASIS_TEXT);
         });
 
         it('does not call a below-Hard-Rule-2 rulebook cushion Hard Rule 2', () => {
@@ -1139,7 +1144,7 @@ describe('valueChain (F-V17, PT-65b step 5)', () => {
             expect(text).toContain(
                 "raised to the plan's own floor from $1,000.00",
             );
-            expect(text).not.toContain('Hard Rule 2');
+            expect(text).not.toContain(HARD_RULE_2_BASIS_TEXT);
         });
     });
 

@@ -3,7 +3,11 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PropCalculatorSubnav } from '~/app/(app)/prop-calculator/_components/PropCalculatorSubnav';
-import { LINKED_TOOL_CATALOG } from '~/app/(app)/prop-calculator/_components/toolCatalog';
+import {
+    LINKED_TOOL_CATALOG,
+    toolCatalogEntry,
+    ToolId,
+} from '~/app/(app)/prop-calculator/_components/toolCatalog';
 
 import { basePath } from './toolPageFiles';
 
@@ -14,7 +18,9 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
-    useCalculatorInputs: () => ({ debouncedQuery: 'firm=apex' }),
+    useCalculatorInputs: () => ({
+        debouncedQuery: 'firm=apex&lab=LAB&pf=PF',
+    }),
 }));
 
 describe('PropCalculatorSubnav', () => {
@@ -81,6 +87,27 @@ describe('PropCalculatorSubnav', () => {
                 (link) => link.getAttribute('aria-current') !== null,
             ),
         ).toHaveLength(1);
+    });
+
+    it('gives the strategy lab link the lab state and the planner link the portfolio, and drops both elsewhere (PT-119)', () => {
+        render(toolCatalogEntry(ToolId.Simulator).route);
+        const hrefOf = (id: ToolId) =>
+            links()
+                .find(
+                    (link) =>
+                        basePath(link.getAttribute('href') ?? '') ===
+                        toolCatalogEntry(id).route,
+                )
+                ?.getAttribute('href');
+        expect(hrefOf(ToolId.StrategyLab)).toBe(
+            `${toolCatalogEntry(ToolId.StrategyLab).route}?firm=apex&lab=LAB`,
+        );
+        expect(hrefOf(ToolId.Planner)).toBe(
+            `${toolCatalogEntry(ToolId.Planner).route}?firm=apex&pf=PF`,
+        );
+        expect(hrefOf(ToolId.Analysis)).toBe(
+            `${toolCatalogEntry(ToolId.Analysis).route}?firm=apex`,
+        );
     });
 
     it('marks no link on a route outside the tools', () => {

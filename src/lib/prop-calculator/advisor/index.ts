@@ -441,6 +441,7 @@ export {
     LadderFractionSource,
     type LiveSizingParameters,
     type LiveTransferAssumptions,
+    MIN_RETAINED_CUSHION_TEXT,
     type PayoutParameters,
     type ReviewParameters,
     ReviewWeekday,

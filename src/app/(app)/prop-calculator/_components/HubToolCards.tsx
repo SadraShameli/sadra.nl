@@ -9,9 +9,11 @@ import { cn } from '~/lib/utilities';
 import { readLastToolQuery } from './lastToolQuery';
 import {
     LINKED_TOOL_CATALOG,
+    pageStateBlobsOf,
     type ToolCatalogEntry,
     ToolGroup,
 } from './toolCatalog';
+import { withPageStateBlobsOnly } from './urlState';
 
 export interface HubToolGroup {
     group: ToolGroup;
@@ -40,7 +42,7 @@ const HUB_GROUP_ORDER: readonly ToolGroup[] = [
 export function hubCardHref(entry: ToolCatalogEntry, query = ''): string {
     return subnavHref(
         { carriesQuery: entry.usesCalculatorInputs, href: entry.route },
-        query,
+        withPageStateBlobsOnly(query, pageStateBlobsOf(entry.id)),
     );
 }
 

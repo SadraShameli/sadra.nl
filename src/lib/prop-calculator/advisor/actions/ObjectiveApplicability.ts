@@ -24,7 +24,7 @@ export interface ObjectiveApplicabilityResult {
 }
 
 export const RUIN_FIRST_NOT_APPLICABLE_REASON =
-    'RuinFirst only ranks which plan to buy next (Hard Rule 3: on evals, risk the max the constraints allow, speed to funded, not pass rate; Hard Rule 5: funded risk is a fixed amount, not chosen by an objective); Mistake 10 was recommending conservative eval sizing this way, so eval rungs, funded risk and documented rules keep ranking by MonthlyNet.';
+    'RuinFirst only ranks which plan to buy next: evals risk the most the constraints allow, for speed to funded rather than pass rate, and funded risk is a fixed amount, not chosen by an objective. Ranking sizing by ruin first would recommend conservative eval sizing, so eval rungs, funded risk and documented rules keep ranking by MonthlyNet.';
 
 const RUIN_FIRST_SURFACES: ReadonlySet<RankingSurface> = new Set([
     RankingSurface.Compare,

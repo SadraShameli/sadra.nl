@@ -154,6 +154,14 @@ describe('CompareView mounts the objective chip and hands the objective and bank
         return element;
     }
 
+    function chosenObjective(): string {
+        const select = container.querySelector<HTMLSelectElement>(
+            'select[aria-label="Ranking objective"]',
+        );
+        if (select === null) throw new Error('select missing');
+        return select.value;
+    }
+
     function pick(objective: SizingObjective) {
         const select = container.querySelector<HTMLSelectElement>(
             'select[aria-label="Ranking objective"]',
@@ -234,7 +242,7 @@ describe('CompareView mounts the objective chip and hands the objective and bank
         harness.availableCents = 250_000;
         await open();
         pick(SizingObjective.RuinFirst);
-        expect(container.textContent).toContain('Objective: ruin first');
+        expect(chosenObjective()).toBe(SizingObjective.RuinFirst);
         expect(container.textContent).not.toContain(RUIN_FIRST_RISK_TABLE_NOTE);
         expect(container.textContent).not.toContain('sizing stays on');
         expect(container.textContent).not.toContain(
@@ -248,7 +256,7 @@ describe('CompareView mounts the objective chip and hands the objective and bank
         harness.availableCents = null;
         await open();
         pick(SizingObjective.RuinFirst);
-        expect(container.textContent).toContain('Objective: ruin first');
+        expect(chosenObjective()).toBe(SizingObjective.RuinFirst);
         expect(container.textContent).not.toContain(RUIN_FIRST_RISK_TABLE_NOTE);
         expect(container.textContent).not.toContain('sizing stays on');
     });

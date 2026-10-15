@@ -106,6 +106,49 @@ describe('StrategyAnalysis edge leverage and net R to pass (F-V9, PT-61b)', () =
     });
 });
 
+describe('StrategyAnalysis returns breakdown signs every rate (PT-119)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+    });
+
+    it('signs a positive per-trade rate next to a negative monthly rate', () => {
+        const baseInputs = inputsOf();
+        const simulated = simulate(baseInputs);
+        const result = {
+            ...simulated,
+            expectancyDollars: 47.5,
+            expectedMonthlyNet: -270,
+        };
+        const perTrade = result.expectancyDollars / baseInputs.plan.accountSize;
+        const monthly = result.expectedMonthlyNet / baseInputs.plan.accountSize;
+        act(() => {
+            root.render(
+                <StrategyAnalysis baseInputs={baseInputs} result={result} />,
+            );
+        });
+        const text = container.textContent;
+        expect(text).toContain(`${formatPercent(monthly, 2)} a month`);
+        expect(text).toContain(
+            `+${formatPercent(perTrade, 3)} a trade, before account fees`,
+        );
+        expect(text).toContain(`${formatPercent(monthly * 12, 2)} a year`);
+        expect(text).not.toContain('%/trade');
+    });
+});
+
 describe('StrategyAnalysis Kelly as information only (PT-53 handoff, PT-86)', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -161,7 +204,7 @@ describe('StrategyAnalysis Kelly as information only (PT-53 handoff, PT-86)', ()
     it('keeps the documented eval and funded rules as the sizing headline', () => {
         renderAnalysis(inputsOf());
         expect(container.textContent).toContain(
-            'Size by the documented eval and funded rules (Hard Rules 3 and 5)',
+            "Size by the documented eval and funded rules: evals risk the most the plan's limits allow, funded accounts risk a fixed amount.",
         );
     });
 

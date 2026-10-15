@@ -357,7 +357,7 @@ function fundedRiskLine(
 ): string {
     const amount = formatCurrency(fundedRiskPerAccount(base, funded));
     return base.fundedRiskPerTrade === undefined
-        ? `funded risk ${amount} per account, the Hard Rule 5 fixed amount, not divided by the split`
+        ? `funded risk ${amount} per account, the fixed funded amount, not divided by the split`
         : `funded risk ${amount} per account as given, not divided by the split`;
 }
 

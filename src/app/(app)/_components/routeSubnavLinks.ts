@@ -8,6 +8,7 @@ export interface SubnavLink {
     href: string;
     match?: SubnavMatch;
     prefetch?: boolean;
+    query?: string;
 }
 
 export interface SubnavLinkAttributes {
@@ -50,7 +51,8 @@ export function isSubnavItemActive(
 }
 
 export function subnavHref(item: SubnavLink, query: string): string {
-    const bare = query.startsWith('?') ? query.slice(1) : query;
+    const itemQuery = item.query ?? query;
+    const bare = itemQuery.startsWith('?') ? itemQuery.slice(1) : itemQuery;
     return bare !== '' && item.carriesQuery === true
         ? `${item.href}?${bare}`
         : item.href;

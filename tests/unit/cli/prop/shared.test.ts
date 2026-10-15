@@ -725,9 +725,9 @@ describe("describeShare (N-43, N-45 display): the consistency cell reads the rul
 });
 
 describe('describeDll prints a no-limit tier (WP22b)', () => {
-    it('shows the Apex Live Level 1 no-limit tier next to its $5000-$10000 range', () => {
+    it('shows the Apex Live Level 1 no-limit tier next to its $5,000 to $10,000 range', () => {
         expect(describeDll(APEX_LIVE_DAILY_LOSS_LIMIT, false)).toBe(
-            '$5000-$10000, none on some tiers',
+            '$5,000 to $10,000, none on some tiers',
         );
     });
 
@@ -751,7 +751,7 @@ describe('describeDll prints a no-limit tier (WP22b)', () => {
                 },
                 true,
             ),
-        ).toBe('$2000, none on some tiers (hard)');
+        ).toBe('$2,000, none on some tiers (hard)');
     });
 });
 
@@ -1354,7 +1354,7 @@ describe('readObjective (PT-63, F-V15)', () => {
         ]) {
             expect(() => ruinFirstOn(surface)).toThrow(ObjectiveNotApplicable);
             expect(() => ruinFirstOn(surface)).toThrow(
-                'RuinFirst only ranks which plan to buy; eval rungs and funded risk stay on Hard Rules 3 and 5',
+                'RuinFirst only ranks which plan to buy; eval rungs keep the maximum risk the plan allows and funded risk stays a fixed amount',
             );
         }
     });

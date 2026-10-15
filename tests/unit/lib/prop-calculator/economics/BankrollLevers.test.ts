@@ -187,3 +187,14 @@ describe('empiricalPayingStatsOf', () => {
         expect(stats.valuePerPayingAttempt).toBe(100);
     });
 });
+
+describe('bankroll lever labels say what the rule is (PT-119)', () => {
+    it('names the documented eval sizing a risk or trades-per-day what-if departs from, with no private rule number', () => {
+        expect(BankrollLeverLabel.ConflictsWithHardRule3).toBe(
+            "what-if: differs from the documented eval sizing, which risks the most the plan's limits allow",
+        );
+        for (const label of Object.values(BankrollLeverLabel)) {
+            expect(label).not.toMatch(/hard rule/i);
+        }
+    });
+});

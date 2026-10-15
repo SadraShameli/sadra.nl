@@ -1,6 +1,7 @@
 'use client';
 
-import { DrawdownKind, type Plan, TradingPhase } from '~/lib/prop-calculator';
+import { type Plan, TradingPhase } from '~/lib/prop-calculator';
+import { DRAWDOWN_KIND_TEXT } from '~/lib/prop-calculator/describe';
 import { cn } from '~/lib/utilities';
 
 import { describeConsistencyBadge } from './consistencyBadge';
@@ -38,7 +39,11 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
                 value={`${ptdd.toFixed(2)}×`}
                 valueClassName={ptddColor(ptdd)}
             />
-            <Badge label="Drawdown" value={drawdownLabel(plan.drawdown.kind)} />
+            <Badge
+                label="Drawdown"
+                value={DRAWDOWN_KIND_TEXT[plan.drawdown.kind]}
+                valueClassName="inline-block first-letter:uppercase"
+            />
             <Badge label="Payout" value={payoutLabel} />
             {plan.minTradingDays > 0 && (
                 <Badge label="Min days" value={String(plan.minTradingDays)} />
@@ -72,13 +77,6 @@ function Badge({ label, value, valueClassName = '' }: BadgeProperties) {
             </span>
         </span>
     );
-}
-
-function drawdownLabel(kind: DrawdownKind): string {
-    if (kind === DrawdownKind.EodTrailing) return 'EOD trailing';
-    return kind === DrawdownKind.IntradayTrailing
-        ? 'Intraday trailing'
-        : 'Static';
 }
 
 function payoutShareLabel(plan: Plan): string {

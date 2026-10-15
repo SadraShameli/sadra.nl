@@ -1480,7 +1480,7 @@ describe('prop compare names the objective and runs split vs concentrate (PT-63,
         expect(stdout).toContain('win rate 40% at 1:2');
         expect(stdout).toContain('10 funded days');
         expect(stdout).toContain('funded risk $250 per account');
-        expect(stdout).toContain('Hard Rule 5');
+        expect(stdout).toContain('the fixed funded amount');
         expect(stdout).toContain('payout request');
         expect(stdout).toContain('rebuy lag is assumed zero');
         expect(stdout).toContain(COPY_SPLIT_CORRELATION_NOTE);
