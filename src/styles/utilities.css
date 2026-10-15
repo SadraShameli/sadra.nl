@@ -53,106 +53,106 @@
 }
 
 @utility pt-spacing {
-    padding-top: var(--spacing-64);
+    padding-top: --spacing(16);
 
     @media (min-width: 1024px) {
-        padding-top: var(--spacing-96);
+        padding-top: --spacing(24);
     }
 }
 
 @utility pb-spacing {
-    padding-bottom: var(--spacing-64);
+    padding-bottom: --spacing(16);
 
     @media (min-width: 1024px) {
-        padding-bottom: var(--spacing-96);
+        padding-bottom: --spacing(24);
     }
 }
 
 @utility py-spacing {
-    padding-bottom: var(--spacing-64);
-    padding-top: var(--spacing-64);
+    padding-bottom: --spacing(16);
+    padding-top: --spacing(16);
 
     @media (min-width: 1024px) {
-        padding-bottom: var(--spacing-96);
-        padding-top: var(--spacing-96);
+        padding-bottom: --spacing(24);
+        padding-top: --spacing(24);
     }
 }
 
 @utility pt-spacing-inner {
-    padding-top: var(--spacing-32);
+    padding-top: --spacing(8);
 
     @media (min-width: 1024px) {
-        padding-top: var(--spacing-64);
+        padding-top: --spacing(16);
     }
 }
 
 @utility pb-spacing-inner {
-    padding-bottom: var(--spacing-32);
+    padding-bottom: --spacing(8);
 
     @media (min-width: 1024px) {
-        padding-bottom: var(--spacing-64);
+        padding-bottom: --spacing(16);
     }
 }
 
 @utility py-spacing-inner {
-    padding-bottom: var(--spacing-32);
-    padding-top: var(--spacing-32);
+    padding-bottom: --spacing(8);
+    padding-top: --spacing(8);
 
     @media (min-width: 1024px) {
-        padding-bottom: var(--spacing-64);
-        padding-top: var(--spacing-64);
+        padding-bottom: --spacing(16);
+        padding-top: --spacing(16);
     }
 }
 
 @utility mt-spacing {
-    margin-top: var(--spacing-64);
+    margin-top: --spacing(16);
 
     @media (min-width: 1024px) {
-        margin-top: var(--spacing-96);
+        margin-top: --spacing(24);
     }
 }
 
 @utility mb-spacing {
-    margin-bottom: var(--spacing-64);
+    margin-bottom: --spacing(16);
 
     @media (min-width: 1024px) {
-        margin-bottom: var(--spacing-96);
+        margin-bottom: --spacing(24);
     }
 }
 
 @utility my-spacing {
-    margin-bottom: var(--spacing-64);
-    margin-top: var(--spacing-64);
+    margin-bottom: --spacing(16);
+    margin-top: --spacing(16);
 
     @media (min-width: 1024px) {
-        margin-bottom: var(--spacing-96);
-        margin-top: var(--spacing-96);
+        margin-bottom: --spacing(24);
+        margin-top: --spacing(24);
     }
 }
 
 @utility mt-spacing-inner {
-    margin-top: var(--spacing-32);
+    margin-top: --spacing(8);
 
     @media (min-width: 1024px) {
-        margin-top: var(--spacing-64);
+        margin-top: --spacing(16);
     }
 }
 
 @utility mb-spacing-inner {
-    margin-bottom: var(--spacing-32);
+    margin-bottom: --spacing(8);
 
     @media (min-width: 1024px) {
-        margin-bottom: var(--spacing-64);
+        margin-bottom: --spacing(16);
     }
 }
 
 @utility my-spacing-inner {
-    margin-bottom: var(--spacing-32);
-    margin-top: var(--spacing-32);
+    margin-bottom: --spacing(8);
+    margin-top: --spacing(8);
 
     @media (min-width: 1024px) {
-        margin-bottom: var(--spacing-64);
-        margin-top: var(--spacing-64);
+        margin-bottom: --spacing(16);
+        margin-top: --spacing(16);
     }
 }
 
