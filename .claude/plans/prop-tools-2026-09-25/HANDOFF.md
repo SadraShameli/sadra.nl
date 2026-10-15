@@ -40,10 +40,11 @@ Done, each with a test that fails on the old code:
 
 - PT-30a2's gate re-run is recorded (`engine-results/2026-10-15-dp-gate.md`, `DP_GATE_RUNS`, `DP_G2_RECORDED_ON` 2026-10-15): 12 plans validated (Alpha Advanced, E8 Zero Max 100 and 80, E8 Zero Starter 100, FTMO Growth, FundedNext Flex and Rapid Daily, MFF Pro, TopStep No-fee Standard and Standard-Standard, Tradeify Select Daily and Select Flex), FTMO Pro fails at 0.43x the best flat, and 20 eligible plans have no result because their solve runs past the 5-minute run limit (the funded-consistency plans and TopStep's DLL variants). `prop advise --dp` reads these verdicts.
 
+- Migrations applied 2026-10-15 to the Neon database Production, Preview and local development now share (`bun run db:migrate`): 0006 to 0015, 16 `sadranl_prop_*` tables; 0006's three accounting-importer columns became varchar(32) with no data cut (ids at most 8 digits, VAT codes at most 11 characters). Vercel Preview was missing four env vars and pointed at the old Aiven database; both are fixed, and the branch preview builds.
+
 Not done:
 
 - A DP fast enough for the 20 plans without a gate result (every funded-consistency plan and TopStep's DLL variants run past 5 minutes; Apex EOD also needs about 23 GB at 10 workers). Until then they show "not validated".
-- Migrations 0007 to 0015 are still not applied.
 - PT-35 waits for PT-35b.
 
 ## 1. UI paths to check in your dev server
