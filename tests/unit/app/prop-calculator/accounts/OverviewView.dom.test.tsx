@@ -1801,6 +1801,7 @@ describe('OverviewView', () => {
         });
 
         it('says so instead of throwing when web workers are not available, and the other cards keep their data', () => {
+            vi.stubGlobal('Worker', undefined);
             answerEverything([heldFundedAccount()]);
             render();
             const expectedNet = sectionNamed('Expected net');
