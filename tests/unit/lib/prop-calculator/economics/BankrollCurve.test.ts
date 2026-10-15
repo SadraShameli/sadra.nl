@@ -19,6 +19,8 @@ import {
     spendPayoutCurveOfRun,
 } from '~/lib/prop-calculator/economics';
 
+import { posixPath } from '../../../posixPath';
+
 const THREE_POINT_NETS = [
     ...Array.from({ length: 80 }, () => -250),
     ...Array.from({ length: 15 }, () => 500),
@@ -321,7 +323,7 @@ describe('spendPayoutCurveOfRun (PT-81b)', () => {
             .filter((file) =>
                 /\bspendPayoutCurve\(/.test(readFileSync(file, 'utf8')),
             )
-            .map((file) => path.relative(path.resolve(), file));
+            .map((file) => posixPath(path.relative(path.resolve(), file)));
         expect(callers).toEqual([
             'src/lib/prop-calculator/economics/BankrollCurve.ts',
         ]);

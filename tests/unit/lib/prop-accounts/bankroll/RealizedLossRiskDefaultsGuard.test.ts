@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { posixPath } from '../../../posixPath';
+
 const SOURCES = readdirSync(path.resolve('src'), {
     recursive: true,
     withFileTypes: true,
@@ -14,7 +16,7 @@ const SOURCES = readdirSync(path.resolve('src'), {
 
 function definingFiles(pattern: RegExp): readonly string[] {
     return SOURCES.filter(({ text }) => pattern.test(text)).map(({ file }) =>
-        path.relative(path.resolve(), file),
+        posixPath(path.relative(path.resolve(), file)),
     );
 }
 

@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { posixPath } from '../../../posixPath';
+
 describe('the DP default trades per day has one definition (WP66b)', () => {
     it('is defined only in the core constants', () => {
         const defining = readdirSync(path.resolve('src'), {
@@ -15,7 +17,7 @@ describe('the DP default trades per day has one definition (WP66b)', () => {
                     readFileSync(file, 'utf8'),
                 ),
             )
-            .map((file) => path.relative(path.resolve(), file));
+            .map((file) => posixPath(path.relative(path.resolve(), file)));
         expect(defining).toEqual(['src/lib/prop-calculator/core/constants.ts']);
     });
 });
