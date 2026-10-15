@@ -23,6 +23,7 @@ import {
     NO_PENDING_PAYOUT_COUNTS,
     type ReconstructedFundedOrEvalAccount,
     ReconstructedLiveKind,
+    RULE_SOURCE_LABEL,
     type RulebookParameters,
     RuleSource,
 } from '~/lib/prop-calculator/advisor';
@@ -60,7 +61,7 @@ const DEVIATING_RULEBOOK: RulebookParameters = {
     },
 };
 
-const CUSTOM_HEADLINE = `your custom rule (differs from ${RuleSource.HardRule2})`;
+const CUSTOM_HEADLINE = `your custom rule (differs from ${RULE_SOURCE_LABEL[RuleSource.HardRule2]})`;
 const DOCUMENTED_HEADLINE = 'your documented rule';
 
 function evalAccount(): ReconstructedFundedOrEvalAccount {

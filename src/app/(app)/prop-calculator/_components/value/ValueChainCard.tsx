@@ -6,6 +6,7 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 import {
     assumptionText,
     liveTransferAssumptionLines,
@@ -71,9 +72,9 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
             </h3>
             <div aria-live="polite" className="flex flex-col gap-4">
                 {failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">
-                        {failureReason}
-                    </p>
+                    <Alert variant="destructive">
+                        <AlertDescription>{failureReason}</AlertDescription>
+                    </Alert>
                 )}
                 {pendingText === null ? null : (
                     <p className="text-xs text-muted-foreground">
@@ -81,13 +82,9 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                     </p>
                 )}
                 {stepFailures.map((failure) => (
-                    <p
-                        className="text-xs text-rose-400"
-                        key={failure.kind}
-                        role="alert"
-                    >
-                        {failure.text}
-                    </p>
+                    <Alert key={failure.kind} variant="destructive">
+                        <AlertDescription>{failure.text}</AlertDescription>
+                    </Alert>
                 ))}
                 {result === null ? null : (
                     <>

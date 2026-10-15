@@ -3,6 +3,14 @@
 import { useId } from 'react';
 import { z } from 'zod';
 
+import { Field, FieldDescription, FieldLabel } from '~/components/ui/Field';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/Select';
 import { formatCurrency } from '~/lib/format';
 import { CENTS_PER_DOLLAR } from '~/lib/prop-calculator';
 import {
@@ -64,45 +72,52 @@ export function ObjectiveChip({
 }: ObjectiveChipProperties) {
     const selectId = useId();
     return (
-        <div
+        <Field
             className={cn(
-                'app-prop-calculator__objective-chip flex flex-col gap-1 text-xs',
+                'app-prop-calculator__objective-chip gap-1',
                 className,
             )}
         >
             <div className="flex flex-wrap items-center gap-2">
-                <label className="text-muted-foreground" htmlFor={selectId}>
+                <FieldLabel htmlFor={selectId}>
                     {OBJECTIVE_SELECT_LABEL}
-                </label>
-                <select
-                    aria-label={OBJECTIVE_SELECT_LABEL}
-                    className="h-7 rounded-md border bg-transparent px-2 text-xs"
-                    id={selectId}
-                    onChange={(event) => {
-                        const chosen = objectiveSchema.safeParse(
-                            event.target.value,
-                        );
+                </FieldLabel>
+                <Select
+                    onValueChange={(value) => {
+                        const chosen = objectiveSchema.safeParse(value);
                         if (chosen.success) onChange(chosen.data);
                     }}
                     value={objective}
                 >
-                    {OBJECTIVE_OPTIONS.map((option) => (
-                        <option key={option.objective} value={option.objective}>
-                            {option.label}
-                        </option>
-                    ))}
-                </select>
+                    <SelectTrigger className="w-auto" id={selectId}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {OBJECTIVE_OPTIONS.map((option) => (
+                            <SelectItem
+                                key={option.objective}
+                                value={option.objective}
+                            >
+                                {option.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
-            <p className="text-muted-foreground">
+            <FieldDescription>
                 {sizingObjectiveText(objective)}
-            </p>
-            {note !== null && <p className="text-amber-400">{note}</p>}
+            </FieldDescription>
+            {note !== null && (
+                <FieldDescription className="text-amber-400">
+                    {note}
+                </FieldDescription>
+            )}
             {choiceNotes.map((choiceNote) => (
-                <p className="text-amber-400" key={choiceNote}>
+                <FieldDescription className="text-amber-400" key={choiceNote}>
                     {choiceNote}
-                </p>
+                </FieldDescription>
             ))}
-        </div>
+        </Field>
     );
 }
 

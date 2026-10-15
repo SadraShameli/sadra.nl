@@ -10,7 +10,17 @@ import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDe
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { toolsWorkerPendingText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Badge } from '~/components/ui/Badge';
 import { Card } from '~/components/ui/Card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '~/components/ui/Table';
 import { formatGateCurrency, formatPercent } from '~/lib/format';
 import { stableJson } from '~/lib/stableJson';
 
@@ -78,68 +88,63 @@ export default function TakeProfitWhatIf() {
                             </p>
                         )
                     ) : (
-                        <p className="text-xs text-rose-400" role="alert">
-                            {failureReason}
-                        </p>
+                        <Alert variant="destructive">
+                            <AlertDescription>{failureReason}</AlertDescription>
+                        </Alert>
                     )
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                            <thead>
-                                <tr className="text-muted-foreground">
-                                    <th className="py-1 pr-3">RR</th>
-                                    <th className="py-1 pr-3">Win rate</th>
-                                    <th className="py-1 pr-3">P(pass)</th>
-                                    <th className="py-1 pr-3">Days to pass</th>
-                                    <th className="py-1 pr-3">Monthly net</th>
-                                    <th className="py-1 pr-3">Cycle net</th>
-                                    <th className="py-1 pr-3">Note</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rows.map((row) => (
-                                    <tr
-                                        className="border-t border-white/10"
-                                        key={row.rrRatio}
-                                    >
-                                        <td className="py-1 pr-3 font-mono">
-                                            {row.rrRatio.toFixed(2)}
-                                        </td>
-                                        <td className="py-1 pr-3 font-mono">
-                                            {formatPercent(row.winrate)}
-                                        </td>
-                                        <td className="py-1 pr-3 font-mono">
-                                            {formatPercent(
-                                                row.attemptPassProbability,
-                                            )}
-                                        </td>
-                                        <td className="py-1 pr-3 font-mono">
-                                            {row.daysToPassP50.toFixed(0)}
-                                        </td>
-                                        <td className="py-1 pr-3 font-mono">
-                                            {formatGateCurrency(
-                                                row.expectedMonthlyNet,
-                                            )}
-                                        </td>
-                                        <td className="py-1 pr-3 font-mono">
-                                            {formatGateCurrency(
-                                                row.expectedNet,
-                                            )}
-                                        </td>
-                                        <td
-                                            className={
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>RR</TableHead>
+                                <TableHead>Win rate</TableHead>
+                                <TableHead>P(pass)</TableHead>
+                                <TableHead>Days to pass</TableHead>
+                                <TableHead>Monthly net</TableHead>
+                                <TableHead>Cycle net</TableHead>
+                                <TableHead>Note</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="font-mono">
+                            {rows.map((row) => (
+                                <TableRow key={row.rrRatio}>
+                                    <TableCell>
+                                        {row.rrRatio.toFixed(2)}
+                                    </TableCell>
+                                    <TableCell>
+                                        {formatPercent(row.winrate)}
+                                    </TableCell>
+                                    <TableCell>
+                                        {formatPercent(
+                                            row.attemptPassProbability,
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        {row.daysToPassP50.toFixed(0)}
+                                    </TableCell>
+                                    <TableCell>
+                                        {formatGateCurrency(
+                                            row.expectedMonthlyNet,
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        {formatGateCurrency(row.expectedNet)}
+                                    </TableCell>
+                                    <TableCell className="font-sans">
+                                        <Badge
+                                            variant={
                                                 row.isAnchor
-                                                    ? 'py-1 pr-3 text-emerald-400'
-                                                    : 'py-1 pr-3 text-amber-400'
+                                                    ? 'success'
+                                                    : 'warning'
                                             }
                                         >
                                             {row.label}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 )}
             </Card>
         </section>

@@ -1,17 +1,31 @@
 'use client';
 
 import { FlaskConical } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import { EmptyState } from '~/components/ui/EmptyState';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
 import { Progress } from '~/components/ui/Progress';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/Select';
+import {
+    formatCurrency,
+    formatGateCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     type DayPolicy,
@@ -92,10 +106,8 @@ interface LatestLadderRun {
     search: LadderSearchState;
 }
 
-const instrumentChoiceSchema = z.union([
-    z.literal(''),
-    z.enum(InstrumentSymbol),
-]);
+const INSTRUMENT_NOT_SET = 'not-set';
+const instrumentSymbolSchema = z.enum(InstrumentSymbol);
 const rungSizingSchema = z.enum(RungSizing);
 
 export default function LadderLabPanel({
@@ -490,47 +502,54 @@ export default function LadderLabPanel({
                     }
                     value={sims}
                 />
-                <div className="flex flex-col gap-1">
-                    <label
-                        className="text-xs text-muted-foreground"
-                        htmlFor="ladder-lab-instrument"
-                    >
+                <Field>
+                    <FieldLabel htmlFor="ladder-lab-instrument">
                         Instrument
-                    </label>
-                    <select
-                        className="h-8 rounded-md border bg-transparent px-2 text-xs"
-                        id="ladder-lab-instrument"
-                        onChange={(event) => {
-                            const parsed = instrumentChoiceSchema.safeParse(
-                                event.target.value,
-                            );
-                            if (parsed.success) {
+                    </FieldLabel>
+                    <Select
+                        onValueChange={(value) => {
+                            const parsed =
+                                value === INSTRUMENT_NOT_SET
+                                    ? ''
+                                    : instrumentSymbolSchema.safeParse(value)
+                                          .data;
+                            if (parsed !== undefined) {
                                 setForm((current) => ({
                                     ...current,
-                                    displayInstrument: parsed.data,
+                                    displayInstrument: parsed,
                                 }));
                             }
                         }}
-                        value={instrument}
+                        value={
+                            instrument === '' ? INSTRUMENT_NOT_SET : instrument
+                        }
                     >
-                        <option value="">Not set</option>
-                        {ALL_INSTRUMENTS.map((spec) => (
-                            <option key={spec.symbol} value={spec.symbol}>
-                                {spec.symbol} (${spec.pointValue}/pt)
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                        <SelectTrigger id="ladder-lab-instrument">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={INSTRUMENT_NOT_SET}>
+                                Not set
+                            </SelectItem>
+                            {ALL_INSTRUMENTS.map((spec) => (
+                                <SelectItem
+                                    key={spec.symbol}
+                                    value={spec.symbol}
+                                >
+                                    {spec.symbol} (
+                                    {formatGateCurrency(spec.pointValue)}/pt)
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </Field>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-end gap-4">
-                <div className="flex flex-col gap-1">
-                    <label
-                        className="text-xs text-muted-foreground"
-                        htmlFor="ladder-day-stop-rule"
-                    >
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field>
+                    <FieldLabel htmlFor="ladder-day-stop-rule">
                         Day stop rule
-                    </label>
+                    </FieldLabel>
                     <DayStopRulePicker
                         compact
                         id="ladder-day-stop-rule"
@@ -542,17 +561,14 @@ export default function LadderLabPanel({
                         }
                         value={stopRule}
                     />
-                </div>
-                <label className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">
+                </Field>
+                <Field>
+                    <FieldLabel htmlFor="ladder-rung-sizing">
                         {UNAFFORDABLE_RUNG_LABEL}
-                    </span>
-                    <select
-                        className="h-8 rounded-md border bg-transparent px-2 text-xs"
-                        onChange={(event) => {
-                            const parsed = rungSizingSchema.safeParse(
-                                event.target.value,
-                            );
+                    </FieldLabel>
+                    <Select
+                        onValueChange={(value) => {
+                            const parsed = rungSizingSchema.safeParse(value);
                             if (parsed.success) {
                                 setForm((current) => ({
                                     ...current,
@@ -562,13 +578,18 @@ export default function LadderLabPanel({
                         }}
                         value={rungSizing}
                     >
-                        {RUNG_SIZING_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                                {RUNG_SIZING_LABELS[option]}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+                        <SelectTrigger id="ladder-rung-sizing">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {RUNG_SIZING_OPTIONS.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                    {RUNG_SIZING_LABELS[option]}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </Field>
             </div>
 
             <p className="mt-3 text-xs text-muted-foreground">
@@ -609,11 +630,12 @@ export default function LadderLabPanel({
             {scored === null &&
                 state.phase === LadderRunPhase.Idle &&
                 view.kind !== LadderLabViewKind.Cancelled && (
-                    <p className="mt-4 rounded-md border border-dashed border-white/10 px-3 py-6 text-center text-sm text-muted-foreground">
-                        Set the grid above, then press Run search to score every
-                        ladder on days to funded, cost per funded account and
-                        pass rate.
-                    </p>
+                    <EmptyState
+                        className="mt-4 border"
+                        description="Set the grid above, then press Run search to score every ladder on days to funded, cost per funded account and pass rate."
+                        icon={FlaskConical}
+                        title="No search run yet"
+                    />
                 )}
 
             {scored && (
@@ -741,36 +763,39 @@ function LadderRowButton({
     switch (action.kind) {
         case LadderRowActionKind.Apply: {
             return (
-                <button
-                    className="text-xs text-muted-foreground underline"
+                <Button
                     onClick={() => onApply(action.policy, action.rungSizing)}
+                    size="sm"
                     type="button"
+                    variant="link"
                 >
                     Apply
-                </button>
+                </Button>
             );
         }
         case LadderRowActionKind.Clear: {
             return (
-                <button
-                    className="text-xs text-muted-foreground underline"
+                <Button
                     onClick={onClear}
+                    size="sm"
                     type="button"
+                    variant="link"
                 >
                     Clear
-                </button>
+                </Button>
             );
         }
         case LadderRowActionKind.Unavailable: {
             return (
-                <button
-                    className="text-xs text-muted-foreground/50"
+                <Button
                     disabled
+                    size="sm"
                     title="Run the search again on the current inputs to apply a ladder"
                     type="button"
+                    variant="link"
                 >
                     Apply
-                </button>
+                </Button>
             );
         }
     }
@@ -799,11 +824,12 @@ function NumberField({
     onChange: (value: number) => void;
     value: number;
 }) {
+    const id = useId();
     return (
-        <label className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">{label}</span>
+        <Field>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
             <Input
-                className="h-8"
+                id={id}
                 inputMode="numeric"
                 max={max}
                 onChange={(event) => {
@@ -817,7 +843,7 @@ function NumberField({
                 }}
                 value={value}
             />
-        </label>
+        </Field>
     );
 }
 

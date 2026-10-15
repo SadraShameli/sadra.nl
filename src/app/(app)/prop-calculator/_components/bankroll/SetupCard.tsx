@@ -9,6 +9,9 @@ import {
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Button } from '~/components/ui/Button';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
 import { useSession } from '~/lib/auth/client';
 import {
@@ -133,13 +136,8 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
             headingId="bankroll-setup-heading"
             title="Setup"
         >
-            <div className="flex flex-col gap-1">
-                <label
-                    className="text-xs font-medium text-muted-foreground"
-                    htmlFor="bankroll-budget"
-                >
-                    Budget ($)
-                </label>
+            <Field>
+                <FieldLabel htmlFor="bankroll-budget">Budget ($)</FieldLabel>
                 <Input
                     id="bankroll-budget"
                     inputMode="decimal"
@@ -155,8 +153,8 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                     value={state.budget === null ? '' : String(state.budget)}
                 />
                 {availableCents === null || availableCents <= 0 ? null : (
-                    <button
-                        className="w-fit text-xs text-primary underline"
+                    <Button
+                        className="w-fit px-0"
                         onClick={() =>
                             onChange({
                                 budget: parseBankrollDollarsField(
@@ -164,20 +162,19 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                                 ),
                             })
                         }
+                        size="sm"
                         type="button"
+                        variant="link"
                     >
                         Use your available bankroll (
                         {formatGateCurrency(availableCents / 100)})
-                    </button>
+                    </Button>
                 )}
-            </div>
-            <div className="flex flex-col gap-1">
-                <label
-                    className="text-xs font-medium text-muted-foreground"
-                    htmlFor="bankroll-loss-threshold"
-                >
+            </Field>
+            <Field>
+                <FieldLabel htmlFor="bankroll-loss-threshold">
                     Loss-risk threshold (0 to 0.5, optional)
-                </label>
+                </FieldLabel>
                 <Input
                     id="bankroll-loss-threshold"
                     inputMode="decimal"
@@ -196,7 +193,7 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                             : String(state.lossThreshold)
                     }
                 />
-            </div>
+            </Field>
             {calculatorState.maxAttempts > 1 ? (
                 <p className="text-xs text-amber-400">
                     {`The calculator's max attempts is ${String(calculatorState.maxAttempts)}, but the figures below treat each trial as one attempt. Set it to 1 for per-attempt pricing.`}
@@ -268,9 +265,11 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                 </div>
             )}
             {budgetCheck?.kind === BankrollBudgetCheckKind.Short ? (
-                <p className="text-sm text-rose-400" role="alert">
-                    {bankrollBudgetShortText(budgetCheck)}
-                </p>
+                <Alert variant="destructive">
+                    <AlertDescription>
+                        {bankrollBudgetShortText(budgetCheck)}
+                    </AlertDescription>
+                </Alert>
             ) : null}
             <BankrollRunStatus
                 isRequested={budget !== null}
@@ -316,9 +315,11 @@ function RealizedRiskSection({
     switch (realized.status) {
         case RealizedBankrollRiskStatus.Failed: {
             return (
-                <p className="text-xs text-rose-400" role="alert">
-                    Your realized figures could not be loaded.
-                </p>
+                <Alert variant="destructive">
+                    <AlertDescription>
+                        Your realized figures could not be loaded.
+                    </AlertDescription>
+                </Alert>
             );
         }
         case RealizedBankrollRiskStatus.Loading: {

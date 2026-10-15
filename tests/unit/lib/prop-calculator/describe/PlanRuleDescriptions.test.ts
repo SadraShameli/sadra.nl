@@ -12,6 +12,7 @@ import {
     type Plan,
     type PlanId,
     RetryKind,
+    TopStepVariant,
     TradeifyVariant,
 } from '~/lib/prop-calculator';
 import {
@@ -91,7 +92,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 40% | funded none',
         'contracts 4 mini / 40 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $328 | activation $0 | monthly $0 | reset $328',
-        'payout split 80% | first $100 | per cycle $100 | min request $100 | day gate 0 qualifying days | any day counts',
+        'payout split 80% | first $100 | since last payout at least $100, waived on the first payout | min request $100 | day gate 0 qualifying days | any day counts',
         'payout cap max $3,000 per request',
     ],
     'e8futures/zero-max-100': [
@@ -100,7 +101,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 40% | funded none',
         'contracts 4 mini / 40 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $428 | activation $0 | monthly $0 | reset $428',
-        'payout split 100% | first $100 | per cycle $100 | min request $100 | day gate 0 qualifying days | any day counts',
+        'payout split 100% | first $100 | since last payout at least $100, waived on the first payout | min request $100 | day gate 0 qualifying days | any day counts',
         'payout cap max $3,000 per request',
     ],
     'e8futures/zero-starter-80': [
@@ -109,7 +110,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 40% | funded none',
         'contracts 4 mini / 40 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $178 | activation $0 | monthly $0 | reset $178',
-        'payout split 80% | first $100 | per cycle $100 | min request $100 | day gate 0 qualifying days | any day counts',
+        'payout split 80% | first $100 | since last payout at least $100, waived on the first payout | min request $100 | day gate 0 qualifying days | any day counts',
         'payout cap max $1,000 per request',
     ],
     'e8futures/zero-starter-100': [
@@ -118,7 +119,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 40% | funded none',
         'contracts 4 mini / 40 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $228 | activation $0 | monthly $0 | reset $228',
-        'payout split 100% | first $100 | per cycle $100 | min request $100 | day gate 0 qualifying days | any day counts',
+        'payout split 100% | first $100 | since last payout at least $100, waived on the first payout | min request $100 | day gate 0 qualifying days | any day counts',
         'payout cap max $1,000 per request',
     ],
     'ftmo-futures/growth': [
@@ -145,7 +146,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 40% | funded none',
         'contracts 3 mini / 30 micro | funded 3 mini / 30 micro',
         'fees eval $134 | activation $0 | monthly $0 | reset $78',
-        'payout split 95% | first $500 | per cycle $500 | min request $250 | day gate 5 qualifying days | winning day of $200 or more',
+        'payout split 95% | first $500 | since last payout at least $500, waived on the first payout | min request $250 | day gate 5 qualifying days | winning day of $200 or more',
         'payout cap 50% of total profit, max $1,500 per request',
     ],
     'fundednext/fnl-003': [
@@ -153,7 +154,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL n/a | funded DLL $1,000 | consistency eval n/a | funded 20%',
         'contracts n/a | funded 3 mini / 30 micro',
         'fees eval $150 | activation $0 | monthly $0 | reset $0',
-        'payout split 90% | first $2,900 | per cycle $800 | min request $800 | day gate 5 qualifying days, then 0 per payout cycle | any day counts',
+        'payout split 90% | first $2,900 | since last payout at least $800, waived on the first payout | min request $800 | day gate 5 qualifying days, then 0 per payout cycle | any day counts',
         'payout buffer: EOD balance must clear $52,100',
         'payout cap max $1,200 per request',
     ],
@@ -163,7 +164,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 40% | funded none',
         'contracts 3 mini / 30 micro | funded 5 mini / 50 micro',
         'fees eval $200 | activation $0 | monthly $0 | reset $184',
-        'payout split 80% | first $500 | per cycle $500 | min request $250 | day gate 5 qualifying days | winning day of $200 or more',
+        'payout split 80% | first $500 | since last payout at least $500, waived on the first payout | min request $250 | day gate 5 qualifying days | winning day of $200 or more',
         'payout cap by qualifying days: from qualifying day 0, 50% of total profit, max $6,000 per request; from qualifying day 30, uncapped',
     ],
     'fundednext/rapid-daily': [
@@ -172,7 +173,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,000 | funded DLL $1,000 | consistency eval none | funded none',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $300 | activation $0 | monthly $0 | reset $190',
-        'payout split 90% | first $500 | per cycle $500 | min request $250 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $500 | since last payout at least $500, waived on the first payout | min request $250 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
         'payout cap max $1,200 per request',
     ],
@@ -182,7 +183,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval none | funded 40%',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $300 | activation $0 | monthly $0 | reset $175',
-        'payout split 90% | first $500 | per cycle $500 | min request $250 | day gate 3 qualifying days | any day counts',
+        'payout split 90% | first $500 | since last payout at least $500, waived on the first payout | min request $250 | day gate 3 qualifying days | any day counts',
         'payout cap max $1,200 per request',
     ],
     'fundednext/rapid-pro-dll-add-on': [
@@ -191,7 +192,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,000 | funded DLL $1,000 | consistency eval none | funded 40%',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $260 | activation $0 | monthly $0 | reset $135',
-        'payout split 90% | first $500 | per cycle $500 | min request $250 | day gate 3 qualifying days | any day counts',
+        'payout split 90% | first $500 | since last payout at least $500, waived on the first payout | min request $250 | day gate 3 qualifying days | any day counts',
         'payout cap max $1,200 per request',
     ],
     'lucid/daily-eod': [
@@ -200,7 +201,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 50% | funded none',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $185 | activation $0 | monthly $0 | reset $135',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $500 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $500 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
     ],
     'lucid/daily-eod-dll': [
@@ -209,7 +210,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,200 | funded DLL $1,200 | consistency eval 50% | funded none',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $160 | activation $0 | monthly $0 | reset $110',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $500 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $500 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
     ],
     'lucid/daily-intraday': [
@@ -217,7 +218,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 50% | funded none',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $156 | activation $0 | monthly $0 | reset $115',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $500 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $500 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
     ],
     'lucid/daily-intraday-dll': [
@@ -225,7 +226,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,200 | funded DLL $1,200 | consistency eval 50% | funded none',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $131 | activation $0 | monthly $0 | reset $90',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $500 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $500 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
     ],
     'lucid/direct': [
@@ -233,7 +234,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL n/a | funded DLL $1,200 until the drawdown locks, then 60% of the peak day-close profit | consistency eval n/a | funded 20%',
         'contracts n/a | funded 4 mini / 40 micro',
         'fees eval $515 | activation $0 | monthly $0 | reset $515',
-        'payout split 90% | first $3,000 | per cycle $2,500 | min request $500 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $3,000 | since last payout at least $2,500, waived on the first payout | min request $500 | day gate 0 qualifying days | any day counts',
         'payout ladder $2,000, $2,000, $2,000, $2,500, $2,500; min request $500',
     ],
     'lucid/flex': [
@@ -242,7 +243,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 50% | funded none',
         'contracts 4 mini / 40 micro | funded up to 4 mini (tiered) / up to 40 micro (tiered)',
         'fees eval $146 | activation $0 | monthly $0 | reset $105',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $500 | day gate 5 qualifying days | winning day of $150 or more',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $500 | day gate 5 qualifying days | winning day of $150 or more',
         'payout cap max $2,000 per request',
         'per-request cap 50% of cycle profit',
     ],
@@ -252,7 +253,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,200 | funded DLL $1,200 | consistency eval 50% | funded none',
         'contracts 4 mini / 40 micro | funded up to 4 mini (tiered) / up to 40 micro (tiered)',
         'fees eval $131 | activation $0 | monthly $0 | reset $90',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $500 | day gate 5 qualifying days | winning day of $150 or more',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $500 | day gate 5 qualifying days | winning day of $150 or more',
         'payout cap max $2,000 per request',
         'per-request cap 50% of cycle profit',
     ],
@@ -269,7 +270,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,200 | funded DLL $1,200 until the drawdown locks, then 60% of the peak day-close profit | consistency eval none | funded 40%',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $167 | activation $0 | monthly $0 | reset $115',
-        'payout split 90% | first $500 | per cycle $500 | min request $500 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $500 | since last payout at least $500, waived on the first payout | min request $500 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
         'payout ladder $2,000, $2,500; min request $500',
     ],
@@ -278,7 +279,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval none | funded 40%',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $192 | activation $0 | monthly $0 | reset $140',
-        'payout split 90% | first $500 | per cycle $500 | min request $500 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $500 | since last payout at least $500, waived on the first payout | min request $500 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
         'payout ladder $2,000, $2,500; min request $500',
     ],
@@ -287,7 +288,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,000 | funded DLL $1,000 | consistency eval none | funded 50%',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $153 | activation $0 | monthly $0 | reset $153',
-        'payout split 80% | first $2,600 | per cycle $500 | min request $500 | day gate 2 qualifying days | any day counts',
+        'payout split 80% | first $2,600 | since last payout at least $500, waived on the first payout | min request $500 | day gate 2 qualifying days | any day counts',
         'payout ladder $2,000, $2,000, $2,000, $2,000, $2,000; min request $500',
     ],
     'mffu/pro': [
@@ -311,7 +312,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 30% | funded none',
         'contracts 3 mini / 30 micro | funded 3 mini / 30 micro',
         'fees eval $209 | activation $0 | monthly $0 | reset $209',
-        'payout split 90% | first $2,100 | per cycle $500 | min request $500 | day gate 1 qualifying days | any day counts',
+        'payout split 90% | first $2,100 | since last payout at least $500, waived on the first payout | min request $500 | day gate 1 qualifying days | any day counts',
     ],
     'topstep/no-fee-consistency': [
         'target $3,000 | eval drawdown $2,000 EOD trailing, locks at +$2,000 to breakeven | min days 2',
@@ -319,7 +320,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 55% | funded 40%',
         'contracts 5 mini / 50 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $0 | activation $0 | monthly $95 | reset $95',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $125 | day gate 3 qualifying days | any day counts',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $125 | day gate 3 qualifying days | any day counts',
         'payout cap 50% of total profit, max $3,000 per request',
     ],
     'topstep/no-fee-consistency-dll': [
@@ -328,7 +329,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,000 | funded DLL $1,000 | consistency eval 55% | funded 40%',
         'contracts 5 mini / 50 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $0 | activation $0 | monthly $85 | reset $95',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $125 | day gate 3 qualifying days | any day counts',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $125 | day gate 3 qualifying days | any day counts',
         'payout cap 50% of total profit, max $6,000 per request',
     ],
     'topstep/no-fee-standard': [
@@ -337,7 +338,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 55% | funded none',
         'contracts 5 mini / 50 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $0 | activation $0 | monthly $95 | reset $95',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $125 | day gate 5 qualifying days | winning day of $150 or more',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $125 | day gate 5 qualifying days | winning day of $150 or more',
         'payout cap 50% of total profit, max $2,000 per request',
     ],
     'topstep/no-fee-standard-dll': [
@@ -346,7 +347,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,000 | funded DLL $1,000 | consistency eval 55% | funded none',
         'contracts 5 mini / 50 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $0 | activation $0 | monthly $85 | reset $95',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $125 | day gate 5 qualifying days | winning day of $150 or more',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $125 | day gate 5 qualifying days | winning day of $150 or more',
         'payout cap 50% of total profit, max $4,000 per request',
     ],
     'topstep/pro-account': [
@@ -354,7 +355,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL n/a | funded DLL $1,000 | consistency eval n/a | funded none',
         'contracts n/a | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $0 | activation $0 | monthly $0 | reset $0',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $0 | day gate 5 qualifying days | winning day of $150 or more',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $0 | day gate 5 qualifying days | winning day of $150 or more',
         'payout cap max $2,000 per request',
     ],
     'topstep/standard-consistency': [
@@ -363,7 +364,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 55% | funded 40%',
         'contracts 5 mini / 50 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $0 | activation $149 | monthly $49 | reset $49',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $125 | day gate 3 qualifying days | any day counts',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $125 | day gate 3 qualifying days | any day counts',
         'payout cap 50% of total profit, max $3,000 per request',
     ],
     'topstep/standard-consistency-dll': [
@@ -372,7 +373,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,000 | funded DLL $1,000 | consistency eval 55% | funded 40%',
         'contracts 5 mini / 50 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $0 | activation $149 | monthly $49 | reset $49',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $125 | day gate 3 qualifying days | any day counts',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $125 | day gate 3 qualifying days | any day counts',
         'payout cap 50% of total profit, max $6,000 per request',
     ],
     'topstep/standard-standard': [
@@ -381,7 +382,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 55% | funded none',
         'contracts 5 mini / 50 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $0 | activation $149 | monthly $49 | reset $49',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $125 | day gate 5 qualifying days | winning day of $150 or more',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $125 | day gate 5 qualifying days | winning day of $150 or more',
         'payout cap 50% of total profit, max $2,000 per request',
     ],
     'topstep/standard-standard-dll': [
@@ -390,7 +391,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,000 | funded DLL $1,000 | consistency eval 55% | funded none',
         'contracts 5 mini / 50 micro | funded up to 5 mini (tiered) / up to 50 micro (tiered)',
         'fees eval $0 | activation $149 | monthly $49 | reset $49',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $125 | day gate 5 qualifying days | winning day of $150 or more',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $125 | day gate 5 qualifying days | winning day of $150 or more',
         'payout cap 50% of total profit, max $4,000 per request',
     ],
     'tpt/': [
@@ -407,7 +408,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL $1,250 | funded DLL $1,250 to $2,000 | consistency eval none | funded 35%',
         'contracts 4 mini / 40 micro | funded 4 mini / 40 micro',
         'fees eval $145 | activation $0 | monthly $0 | reset $95',
-        'payout split 90% | first $3,000 | per cycle $0.01 | min request $500 | day gate 5 qualifying days | winning day of $150 or more',
+        'payout split 90% | first $3,000 | since last payout above $0, waived on the first payout | min request $500 | day gate 5 qualifying days | winning day of $150 or more',
         'payout ladder $1,500, $2,000, $2,500, $3,000; min request $500',
     ],
     'tradeify/lightning': [
@@ -415,7 +416,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL n/a | funded DLL $1,250 to $2,000 | consistency eval n/a | funded 20%',
         'contracts n/a | funded 4 mini / 40 micro',
         'fees eval $492 | activation $0 | monthly $0 | reset $492',
-        'payout split 90% | first $3,000 | per cycle $2,000 | min request $1,000 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $3,000 | since last payout at least $2,000, waived on the first payout | min request $1,000 | day gate 0 qualifying days | any day counts',
         'payout ladder $2,000, $2,000, $2,000, $2,500; min request $1,000',
     ],
     'tradeify/select-daily': [
@@ -424,7 +425,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL $1,000 | consistency eval 40% | funded none',
         'contracts 4 mini / 40 micro | funded up to 4 mini (tiered) / up to 40 micro (tiered)',
         'fees eval $165 | activation $0 | monthly $0 | reset $109',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $250 | day gate 0 qualifying days | any day counts',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $250 | day gate 0 qualifying days | any day counts',
         'payout buffer: EOD balance must clear $52,100',
         'payout cap max $1,250 per request',
         'per-request cap 200% of cycle profit',
@@ -435,7 +436,7 @@ const PINNED_RULE_LINES: Readonly<Record<string, readonly string[]>> = {
         'eval DLL none | funded DLL none | consistency eval 40% | funded none',
         'contracts 4 mini / 40 micro | funded up to 4 mini (tiered) / up to 40 micro (tiered)',
         'fees eval $165 | activation $0 | monthly $0 | reset $109',
-        'payout split 90% | first $0 | per cycle $0.01 | min request $250 | day gate 5 qualifying days | winning day of $150 or more',
+        'payout split 90% | first $0 | since last payout above $0, waived on the first payout | min request $250 | day gate 5 qualifying days | winning day of $150 or more',
         'payout cap 50% of total profit, max $2,500 per request',
     ],
 };
@@ -491,6 +492,15 @@ const PINNED_ON_BREACH_LINES: Readonly<Record<string, string>> = {
 
 function byText(a: string, b: string): number {
     return a.localeCompare(b);
+}
+
+function perCycleSegment(plan: Plan): PlanRuleSegment | undefined {
+    return describePlanRules(plan)
+        .flat()
+        .find(
+            (segment) =>
+                segment.kind === PlanRuleSegmentKind.PerCyclePayoutGate,
+        );
 }
 
 function planFor(planId: PlanId): Plan {
@@ -851,5 +861,32 @@ describe('planConsistencyLabels (shared by the CLI and the web badge)', () => {
             eval: null,
             funded: '50%',
         });
+    });
+});
+
+describe('the per-cycle payout gate wording', () => {
+    it('reads the TopStep $50K Standard XFA cent gate as net profit since the last payout above $0, waived on the first payout', () => {
+        const plan = planFor({
+            accountSize: 50_000,
+            firm: FirmId.TopStep,
+            variant: TopStepVariant.StandardStandard,
+        });
+        expect(
+            PLAN_RULE_SEGMENT_LABEL[PlanRuleSegmentKind.PerCyclePayoutGate],
+        ).toBe('Net profit since the last payout');
+        expect(perCycleSegment(plan)?.value).toBe(
+            'above $0, waived on the first payout',
+        );
+    });
+
+    it('reads a dollar gate as at least that amount since the last payout, waived on the first payout', () => {
+        const plan = planFor({
+            accountSize: 50_000,
+            firm: FirmId.TopStep,
+            variant: TopStepVariant.StandardStandard,
+        }).withOverrides({ minPayoutProfitPerCycle: dollars(1500) });
+        expect(perCycleSegment(plan)?.value).toBe(
+            'at least $1,500, waived on the first payout',
+        );
     });
 });

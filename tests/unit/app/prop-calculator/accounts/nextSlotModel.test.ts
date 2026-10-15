@@ -45,6 +45,8 @@ import {
     assumptionText,
     type CumulativePayoutTriggerAssumption,
     DEFAULT_RULEBOOK,
+    RULE_SOURCE_LABEL,
+    RuleSource,
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 import { LiveTransferContinuationKind } from '~/lib/prop-calculator/simulator';
@@ -447,7 +449,9 @@ describe('nextSlotModelOf ranked rows', () => {
             ),
         ).toBe(true);
         const warned = model.ranked.filter((row) =>
-            row.notes.some((note) => note.includes('Hard Rule 2')),
+            row.notes.some((note) =>
+                note.includes(RULE_SOURCE_LABEL[RuleSource.HardRule2]),
+            ),
         );
         expect(warned.length).toBeGreaterThan(0);
         for (const row of model.ranked) {
@@ -1033,8 +1037,9 @@ describe('nextSlotModelOf assumptions', () => {
         expect(text).toContain('Every run simulates 2,000 trials');
         expect(text).toContain('Commission is zero, which is optimistic');
         expect(text).toContain('assumed rebuy lag of 0 days');
-        expect(text).toContain('Hard Rule 2');
-        expect(text).toContain('from your payout sizing and Hard Rule 2');
+        expect(text).toContain(
+            `from your payout sizing and ${RULE_SOURCE_LABEL[RuleSource.HardRule2]}`,
+        );
     });
 
     it('states the measured rebuy lag when the ledger has a replacement', () => {

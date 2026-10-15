@@ -8,6 +8,7 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
@@ -146,9 +147,9 @@ export function FundedValueCard({
             </div>
             <div aria-live="polite" className="flex flex-col gap-3">
                 {failureReason === null ? null : (
-                    <p className="text-xs text-rose-400" role="alert">
-                        {failureReason}
-                    </p>
+                    <Alert variant="destructive">
+                        <AlertDescription>{failureReason}</AlertDescription>
+                    </Alert>
                 )}
                 {pendingText === null ? null : (
                     <p className="text-xs text-muted-foreground">

@@ -22,7 +22,16 @@ import {
     ChartLegend,
     ChartLegendContent,
 } from '~/components/ui/Chart';
+import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '~/components/ui/Table';
 import {
     formatCompactCurrency,
     formatGateCurrency,
@@ -93,13 +102,10 @@ export function SpendPayoutCurveCard() {
             headingId="bankroll-spend-payout-curve-heading"
             title="Spend vs payout"
         >
-            <div className="flex flex-col gap-1">
-                <label
-                    className="text-xs font-medium text-muted-foreground"
-                    htmlFor="bankroll-curve-budgets"
-                >
+            <Field data-invalid={isTooMany}>
+                <FieldLabel htmlFor="bankroll-curve-budgets">
                     Budgets ($, comma-separated)
-                </label>
+                </FieldLabel>
                 <Input
                     aria-invalid={isTooMany}
                     id="bankroll-curve-budgets"
@@ -108,11 +114,9 @@ export function SpendPayoutCurveCard() {
                     value={budgetsText}
                 />
                 {isTooMany ? (
-                    <p className="text-xs text-rose-400">
-                        {TOO_MANY_BUDGETS_TEXT}
-                    </p>
+                    <FieldError>{TOO_MANY_BUDGETS_TEXT}</FieldError>
                 ) : null}
-            </div>
+            </Field>
             {rows === null ? (
                 <BankrollRunStatus
                     isRequested={requestBudgets !== null}
@@ -239,83 +243,70 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
 
 function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
     return (
-        <div className="overflow-x-auto">
-            <table
-                aria-label="Spend and payout per budget"
-                className="w-full text-left text-xs"
-            >
-                <thead>
-                    <tr className="text-muted-foreground">
-                        <th className="py-1 pr-3">Budget</th>
-                        <th className="py-1 pr-3">Attempts</th>
-                        <th className="py-1 pr-3">Expected spend</th>
-                        <th className="py-1 pr-3">Expected payouts</th>
-                        <th className="py-1 pr-3">Expected net</th>
-                        <th className="py-1 pr-3">Net P10</th>
-                        <th className="py-1 pr-3">Net P90</th>
-                        <th className="py-1 pr-3">P(net &lt; 0)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map((row, index) => (
-                        <tr
-                            className="border-t border-white/10"
-                            key={`${String(row.budget)}-${String(index)}`}
-                        >
-                            <td className="py-1 pr-3 font-mono">
-                                {formatGateCurrency(row.budget)}
-                            </td>
-                            {row.figures === null ? (
-                                <td
-                                    className="py-1 pr-3 text-amber-400"
-                                    colSpan={7}
-                                >
-                                    {NOT_APPLICABLE}
-                                    {row.reason === null
-                                        ? ''
-                                        : `: ${ECONOMICS_REASON_TEXT[row.reason]}`}
-                                </td>
-                            ) : (
-                                <>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {row.figures.attempts}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(
-                                            row.figures.expectedSpend,
-                                        )}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(
-                                            row.figures.expectedPayouts,
-                                        )}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(
-                                            row.figures.expectedNet,
-                                        )}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(row.figures.netP10)}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(row.figures.netP90)}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {row.figures
-                                            .lossProbabilityStandardError ===
-                                        null
-                                            ? formatPercent(
-                                                  row.figures.lossProbability,
-                                              )
-                                            : `${formatPercent(row.figures.lossProbability)} (SE ${formatPercent(row.figures.lossProbabilityStandardError)})`}
-                                    </td>
-                                </>
-                            )}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+        <Table aria-label="Spend and payout per budget">
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Budget</TableHead>
+                    <TableHead>Attempts</TableHead>
+                    <TableHead>Expected spend</TableHead>
+                    <TableHead>Expected payouts</TableHead>
+                    <TableHead>Expected net</TableHead>
+                    <TableHead>Net P10</TableHead>
+                    <TableHead>Net P90</TableHead>
+                    <TableHead>P(net &lt; 0)</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody className="font-mono">
+                {rows.map((row, index) => (
+                    <TableRow key={`${String(row.budget)}-${String(index)}`}>
+                        <TableCell>{formatGateCurrency(row.budget)}</TableCell>
+                        {row.figures === null ? (
+                            <TableCell
+                                className="font-sans text-amber-400"
+                                colSpan={7}
+                            >
+                                {NOT_APPLICABLE}
+                                {row.reason === null
+                                    ? ''
+                                    : `: ${ECONOMICS_REASON_TEXT[row.reason]}`}
+                            </TableCell>
+                        ) : (
+                            <>
+                                <TableCell>{row.figures.attempts}</TableCell>
+                                <TableCell>
+                                    {formatGateCurrency(
+                                        row.figures.expectedSpend,
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {formatGateCurrency(
+                                        row.figures.expectedPayouts,
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {formatGateCurrency(
+                                        row.figures.expectedNet,
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {formatGateCurrency(row.figures.netP10)}
+                                </TableCell>
+                                <TableCell>
+                                    {formatGateCurrency(row.figures.netP90)}
+                                </TableCell>
+                                <TableCell>
+                                    {row.figures
+                                        .lossProbabilityStandardError === null
+                                        ? formatPercent(
+                                              row.figures.lossProbability,
+                                          )
+                                        : `${formatPercent(row.figures.lossProbability)} (SE ${formatPercent(row.figures.lossProbabilityStandardError)})`}
+                                </TableCell>
+                            </>
+                        )}
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
     );
 }

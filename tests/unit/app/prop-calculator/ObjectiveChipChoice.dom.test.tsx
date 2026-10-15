@@ -14,6 +14,12 @@ import {
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 
+import {
+    chosenObjective,
+    objectiveSelect,
+    pickObjective,
+} from './objectiveSelect';
+
 interface Harness {
     availableCents: null | number;
     isRulebookFailed: boolean;
@@ -135,25 +141,6 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         });
     }
 
-    function chosenObjective(): string {
-        const select = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Ranking objective"]',
-        );
-        if (select === null) throw new Error('select missing');
-        return select.value;
-    }
-
-    function pick(objective: SizingObjective) {
-        const select = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Ranking objective"]',
-        );
-        if (select === null) throw new Error('select missing');
-        act(() => {
-            select.value = objective;
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-    }
-
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         sessionStorage.clear();
@@ -177,12 +164,10 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
 
     it('names the objective once, in the dropdown, under a visible label tied to it (PT-119)', () => {
         open();
-        const select = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Ranking objective"]',
-        );
+        const select = objectiveSelect(container);
         const label = container.querySelector('label');
         expect(label?.textContent).toBe('Ranking objective');
-        expect(label?.getAttribute('for')).toBe(select?.id);
+        expect(label?.getAttribute('for')).toBe(select.id);
         expect(container.textContent).not.toContain('Objective: ');
     });
 
@@ -219,7 +204,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         expect(container.textContent).toContain('Chosen automatically');
         click('reset');
         expect(container.textContent).toContain('Chosen automatically');
-        expect(chosenObjective()).toBe(SizingObjective.RuinFirst);
+        expect(chosenObjective(container)).toBe(SizingObjective.RuinFirst);
     });
 
     it('says the objective was chosen automatically after a reset that followed a link objective (PT-63e)', () => {
@@ -229,7 +214,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         open('?obj=cycle-cash');
         expect(container.textContent).not.toContain('Chosen automatically');
         click('reset');
-        expect(chosenObjective()).toBe(SizingObjective.RuinFirst);
+        expect(chosenObjective(container)).toBe(SizingObjective.RuinFirst);
         expect(container.textContent).toContain('Chosen automatically');
     });
 
@@ -240,7 +225,7 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         open();
         click('apply-cycle');
         expect(container.textContent).not.toContain('Chosen automatically');
-        expect(chosenObjective()).toBe(SizingObjective.CycleCash);
+        expect(chosenObjective(container)).toBe(SizingObjective.CycleCash);
     });
 
     it('keeps the automatic note when an applied state carries the same objective', () => {
@@ -252,12 +237,12 @@ describe('the objective chip says how the objective was chosen (PT-63c, F-V15)',
         expect(container.textContent).toContain('Chosen automatically');
     });
 
-    it('drops the automatic note once the user picks an objective themselves', () => {
+    it('drops the automatic note once the user picks an objective themselves', async () => {
         harness.userId = 'user-1';
         harness.rulebook = withSwitch();
         harness.availableCents = 100_000;
         open();
-        pick(SizingObjective.MonthlyNet);
+        await pickObjective(container, SizingObjective.MonthlyNet);
         expect(container.textContent).not.toContain('Chosen automatically');
     });
 

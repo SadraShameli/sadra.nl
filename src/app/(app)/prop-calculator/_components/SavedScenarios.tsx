@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -560,9 +561,9 @@ function ScenarioStoreError({
 }: ScenarioStoreErrorProperties) {
     return (
         <div className="flex flex-col items-start gap-2">
-            <p className="text-xs text-destructive" role="alert">
-                {message}
-            </p>
+            <Alert variant="destructive">
+                <AlertDescription>{message}</AlertDescription>
+            </Alert>
             <Button
                 className="h-7 px-2 text-xs"
                 onClick={onRetry}

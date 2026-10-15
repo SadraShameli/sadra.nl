@@ -1,3 +1,5 @@
+import { Alert, AlertDescription } from '~/components/ui/Alert';
+
 import { type RulebookSource, rulebookSourceNotice } from './rulebookSource';
 
 interface RulebookSourceNoticeProperties {
@@ -10,11 +12,8 @@ export function RulebookSourceNotice({
     const notice = rulebookSourceNotice(source);
     if (notice === null) return null;
     return (
-        <p
-            className="text-xs text-amber-400"
-            role={notice.isFailure ? 'alert' : 'status'}
-        >
-            {notice.text}
-        </p>
+        <Alert role={notice.isFailure ? 'alert' : 'status'} variant="warning">
+            <AlertDescription>{notice.text}</AlertDescription>
+        </Alert>
     );
 }

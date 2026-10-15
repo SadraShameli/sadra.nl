@@ -43,6 +43,8 @@ import {
     CopySplitRowKind,
 } from '~/lib/prop-calculator/advisor/policy';
 
+import { hasObjectiveSelect } from './objectiveSelect';
+
 interface SectionHarness {
     buildRequest: ((runId: number) => null | ToolsWorkerRequest) | null;
     choice: ObjectiveChoice;
@@ -566,9 +568,7 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
     it('has no objective picker of its own, so the page-level picker is the only one', () => {
         harness.result = succeeded({});
         render();
-        expect(
-            container.querySelector('select[aria-label="Ranking objective"]'),
-        ).toBeNull();
+        expect(hasObjectiveSelect(container)).toBe(false);
         expect(container.textContent).toContain(
             'ranking objective chosen at the top of this page',
         );

@@ -4,7 +4,16 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { z } from 'zod';
 
+import {
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+    FieldLegend,
+    FieldSet,
+} from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
+import { Separator } from '~/components/ui/Separator';
 import { formatCompactCurrency, NOT_APPLICABLE } from '~/lib/format';
 import { dollars, floorToWholeCents, fraction } from '~/lib/prop-calculator';
 import {
@@ -119,57 +128,57 @@ export default function FunnelWhatIfSection() {
     const isInvalid = isFilled && outcome === null;
 
     return (
-        <div className="flex flex-col gap-3 border-t border-white/10 pt-4">
-            <p className="text-xs font-medium text-muted-foreground">
-                What-if funnel (attempts, pass rate, payout rate, payout, fee)
-            </p>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                <WhatIfField
-                    id="cash-flow-what-if-attempts"
-                    invalid={isInvalid}
-                    label="Attempts"
-                    registration={whatIfForm.register('attempts')}
-                />
-                <WhatIfField
-                    id="cash-flow-what-if-pass-rate"
-                    invalid={isInvalid}
-                    label="Pass rate (%)"
-                    registration={whatIfForm.register('passRate')}
-                />
-                <WhatIfField
-                    id="cash-flow-what-if-payout-rate"
-                    invalid={isInvalid}
-                    label="Payout rate given funded (%)"
-                    registration={whatIfForm.register('payoutRate')}
-                />
-                <WhatIfField
-                    id="cash-flow-what-if-average-payout"
-                    invalid={isInvalid}
-                    label="Average payout ($)"
-                    registration={whatIfForm.register('averagePayout')}
-                />
-                <WhatIfField
-                    id="cash-flow-what-if-attempt-cost"
-                    invalid={isInvalid}
-                    label="Attempt cost ($)"
-                    registration={whatIfForm.register('attemptCost')}
-                />
-            </div>
-            {isInvalid ? (
-                <p
-                    className="text-[11px] text-rose-400"
-                    id={WHAT_IF_VALIDATION_MESSAGE_ID}
-                >
-                    {WHAT_IF_VALIDATION_MESSAGE}
-                </p>
-            ) : outcome === null ? (
-                isFilled ? null : (
-                    <p className="text-[11px] text-muted-foreground">
+        <div className="flex flex-col gap-3">
+            <Separator />
+            <FieldSet className="gap-3">
+                <FieldLegend className="mb-0" variant="label">
+                    What-if funnel (attempts, pass rate, payout rate, payout,
+                    fee)
+                </FieldLegend>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                    <WhatIfField
+                        id="cash-flow-what-if-attempts"
+                        invalid={isInvalid}
+                        label="Attempts"
+                        registration={whatIfForm.register('attempts')}
+                    />
+                    <WhatIfField
+                        id="cash-flow-what-if-pass-rate"
+                        invalid={isInvalid}
+                        label="Pass rate (%)"
+                        registration={whatIfForm.register('passRate')}
+                    />
+                    <WhatIfField
+                        id="cash-flow-what-if-payout-rate"
+                        invalid={isInvalid}
+                        label="Payout rate given funded (%)"
+                        registration={whatIfForm.register('payoutRate')}
+                    />
+                    <WhatIfField
+                        id="cash-flow-what-if-average-payout"
+                        invalid={isInvalid}
+                        label="Average payout ($)"
+                        registration={whatIfForm.register('averagePayout')}
+                    />
+                    <WhatIfField
+                        id="cash-flow-what-if-attempt-cost"
+                        invalid={isInvalid}
+                        label="Attempt cost ($)"
+                        registration={whatIfForm.register('attemptCost')}
+                    />
+                </div>
+                {isInvalid ? (
+                    <FieldError id={WHAT_IF_VALIDATION_MESSAGE_ID}>
+                        {WHAT_IF_VALIDATION_MESSAGE}
+                    </FieldError>
+                ) : isFilled ? null : (
+                    <FieldDescription>
                         Fill in all five fields to see how many attempts pass
                         and get paid, and the net after fees.
-                    </p>
-                )
-            ) : (
+                    </FieldDescription>
+                )}
+            </FieldSet>
+            {outcome === null ? null : (
                 <>
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                         <StatCard
@@ -237,21 +246,18 @@ function WhatIfField({
     registration: UseFormRegisterReturn;
 }) {
     return (
-        <div className="flex flex-col gap-1">
-            <label className="text-[11px] text-muted-foreground" htmlFor={id}>
-                {label}
-            </label>
+        <Field data-invalid={invalid}>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
             <Input
                 {...registration}
                 aria-describedby={
                     invalid ? WHAT_IF_VALIDATION_MESSAGE_ID : undefined
                 }
                 aria-invalid={invalid}
-                className="h-7 text-xs"
                 id={id}
                 inputMode="decimal"
                 type="number"
             />
-        </div>
+        </Field>
     );
 }

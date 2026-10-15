@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
 import {
     formatGateCurrency,
@@ -51,13 +52,10 @@ export function BatchCard() {
             headingId="bankroll-batch-heading"
             title="Batch"
         >
-            <div className="flex flex-col gap-1">
-                <label
-                    className="text-xs font-medium text-muted-foreground"
-                    htmlFor="bankroll-batch-attempts"
-                >
+            <Field>
+                <FieldLabel htmlFor="bankroll-batch-attempts">
                     Attempts (N)
-                </label>
+                </FieldLabel>
                 <Input
                     id="bankroll-batch-attempts"
                     inputMode="numeric"
@@ -71,7 +69,7 @@ export function BatchCard() {
                     type="number"
                     value={attemptsText}
                 />
-            </div>
+            </Field>
             {result === null ? (
                 <BankrollRunStatus
                     isRequested={attempts !== null}

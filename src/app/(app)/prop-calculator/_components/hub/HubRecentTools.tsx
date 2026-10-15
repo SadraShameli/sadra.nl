@@ -12,7 +12,7 @@ import {
 import { hubCardHref } from '~/app/(app)/prop-calculator/_components/HubToolCards';
 import { readLastToolQuery } from '~/app/(app)/prop-calculator/_components/lastToolQuery';
 import { type ToolCatalogEntry } from '~/app/(app)/prop-calculator/_components/toolCatalog';
-import { cn } from '~/lib/utilities';
+import { Button } from '~/components/ui/Button';
 
 interface RecentToolsState {
     lastQuery: null | string;
@@ -49,23 +49,22 @@ export function HubRecentTools() {
                     const Icon = entry.icon;
                     return (
                         <li key={entry.id}>
-                            <Link
-                                className={cn(
-                                    'app-prop-calculator__recent-tool',
-                                    'flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm font-medium text-white transition-colors hover:border-primary/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                                )}
-                                href={hubCardHref(
-                                    entry,
-                                    recent.lastQuery ?? undefined,
-                                )}
-                                prefetch={false}
-                            >
-                                <Icon
-                                    aria-hidden
-                                    className="size-4 text-primary"
-                                />
-                                {entry.label}
-                            </Link>
+                            <Button asChild variant="outline">
+                                <Link
+                                    className="app-prop-calculator__recent-tool"
+                                    href={hubCardHref(
+                                        entry,
+                                        recent.lastQuery ?? undefined,
+                                    )}
+                                    prefetch={false}
+                                >
+                                    <Icon
+                                        aria-hidden
+                                        className="text-primary"
+                                    />
+                                    {entry.label}
+                                </Link>
+                            </Button>
                         </li>
                     );
                 })}

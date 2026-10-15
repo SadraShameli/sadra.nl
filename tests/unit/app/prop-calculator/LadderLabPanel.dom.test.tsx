@@ -31,6 +31,10 @@ import {
     type LadderSearchState,
 } from '~/app/(app)/prop-calculator/_components/ladderSearchTypes';
 import {
+    RUNG_SIZING_LABELS,
+    UNAFFORDABLE_RUNG_LABEL,
+} from '~/app/(app)/prop-calculator/_components/rungSizingLabels';
+import {
     ApexVariant,
     type DayPolicy,
     DayStopRuleKind,
@@ -44,6 +48,8 @@ import {
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { findFirm } from '~/lib/prop-calculator/firms';
+
+import { labelledSelect, selectedText } from './labelledControl';
 
 interface PanelHarness {
     dispatch: Mock<(action: CalculatorAction) => void>;
@@ -313,13 +319,11 @@ describe('LadderLabPanel', () => {
         'seeds the unaffordable rung choice from the calculator inputs (%s)',
         (rungSizing) => {
             render(baseInputsWith(rungSizing), null);
-            const select = [...container.querySelectorAll('label')]
-                .find((label) =>
-                    label.textContent.startsWith('Unaffordable rung'),
-                )
-                ?.querySelector('select');
-            expect(select).toBeInstanceOf(HTMLSelectElement);
-            expect(select?.value).toBe(rungSizing);
+            expect(
+                selectedText(
+                    labelledSelect(container, UNAFFORDABLE_RUNG_LABEL),
+                ),
+            ).toBe(RUNG_SIZING_LABELS[rungSizing]);
         },
     );
 

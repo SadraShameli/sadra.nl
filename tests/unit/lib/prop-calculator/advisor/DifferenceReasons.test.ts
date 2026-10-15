@@ -13,6 +13,7 @@ import {
     LiveTriggerScope,
     personalPayoutOverrideWarningText,
     RetainedCushionBasis,
+    RULE_SOURCE_LABEL,
     RuleSource,
     SIZING_ASSUMPTION_TEXT,
     SIZING_CONSTRAINT_TEXT,
@@ -38,7 +39,7 @@ describe('differenceReasonHeadline (F-124, PD-32)', () => {
             funded: { ...DEFAULT_RULEBOOK.funded, riskCents: 30_000 },
         };
         expect(differenceReasonHeadline(custom)).toBe(
-            `your custom rule (differs from ${RuleSource.HardRule5})`,
+            `your custom rule (differs from ${RULE_SOURCE_LABEL[RuleSource.HardRule5]})`,
         );
     });
 });

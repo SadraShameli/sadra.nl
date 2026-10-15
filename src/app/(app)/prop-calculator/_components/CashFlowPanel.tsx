@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 
-import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
 import {
     formatCompactCurrency,
     formatPercent,
@@ -137,35 +138,38 @@ export default function CashFlowPanel({
                         {panelDescriptions.cashFlow}
                     </InfoPopover>
                 </div>
-                <div className="flex gap-2">
-                    {HORIZON_OPTIONS.map((h, index) => (
-                        <Button
-                            className="h-7 px-2.5 text-xs"
-                            key={h.label}
-                            onClick={() => setHorizonIndex(index)}
-                            size="sm"
-                            type="button"
-                            variant={
-                                index === horizonIndex ? 'default' : 'ghost'
-                            }
+                <ToggleGroup
+                    aria-label="Horizon"
+                    onValueChange={(value: string) => {
+                        const index = HORIZON_OPTIONS.findIndex(
+                            (option) => option.label === value,
+                        );
+                        if (index !== -1) setHorizonIndex(index);
+                    }}
+                    size="sm"
+                    type="single"
+                    value={HORIZON_OPTIONS[horizonIndex]?.label ?? ''}
+                    variant="outline"
+                >
+                    {HORIZON_OPTIONS.map((option) => (
+                        <ToggleGroupItem
+                            key={option.label}
+                            value={option.label}
                         >
-                            {h.label}
-                        </Button>
+                            {option.label}
+                        </ToggleGroupItem>
                     ))}
-                </div>
+                </ToggleGroup>
             </div>
 
             <div className="flex flex-col gap-5">
                 <div className="flex flex-wrap items-end gap-4">
-                    <div>
-                        <label
-                            className="mb-1 block text-[11px] text-muted-foreground"
-                            htmlFor="cash-flow-accounts"
-                        >
+                    <Field className="w-auto">
+                        <FieldLabel htmlFor="cash-flow-accounts">
                             Accounts (max {accountCap})
-                        </label>
+                        </FieldLabel>
                         <Input
-                            className="h-7 w-20 text-xs"
+                            className="w-24"
                             id="cash-flow-accounts"
                             max={accountCap}
                             min={MIN_ACCOUNTS}
@@ -183,16 +187,13 @@ export default function CashFlowPanel({
                             type="number"
                             value={effectiveAccounts}
                         />
-                    </div>
-                    <div>
-                        <label
-                            className="mb-1 block text-[11px] text-muted-foreground"
-                            htmlFor="cash-flow-trials"
-                        >
+                    </Field>
+                    <Field className="w-auto">
+                        <FieldLabel htmlFor="cash-flow-trials">
                             Trials
-                        </label>
+                        </FieldLabel>
                         <Input
-                            className="h-7 w-20 text-xs"
+                            className="w-24"
                             id="cash-flow-trials"
                             max={MAX_TRIALS}
                             min={MIN_TRIALS}
@@ -210,8 +211,8 @@ export default function CashFlowPanel({
                             type="number"
                             value={trials}
                         />
-                    </div>
-                    <span className="pb-1.5 text-[11px] text-muted-foreground">
+                    </Field>
+                    <span className="pb-2 text-xs text-muted-foreground">
                         {pending
                             ? 'computing…'
                             : 'independent of the global trial/account settings above'}

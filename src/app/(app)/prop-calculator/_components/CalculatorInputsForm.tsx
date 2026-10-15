@@ -3,7 +3,14 @@
 import { type ReactNode } from 'react';
 
 import { Card } from '~/components/ui/Card';
+import {
+    Field,
+    FieldDescription,
+    FieldGroup,
+    FieldLabel,
+} from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
+import { Separator } from '~/components/ui/Separator';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 import { cn } from '~/lib/utilities';
 
@@ -144,58 +151,57 @@ export function CalculatorInputsForm({
                         trials={state.trials}
                         winrate={state.winrate}
                     />
-                    <div className="mt-5 border-t border-border/40 pt-4">
-                        <label
-                            className="mb-1 block text-xs font-medium text-muted-foreground"
-                            htmlFor="funded-horizon-days"
-                        >
-                            {CALCULATOR_FIELD_LABELS.fundedHorizonDays}
-                        </label>
-                        <Input
-                            id="funded-horizon-days"
-                            max={bounds.fundedHorizonDays.max}
-                            min={bounds.fundedHorizonDays.min}
-                            onChange={(event) =>
-                                actions.setFundedHorizonDays(
-                                    Number(event.target.value),
-                                )
-                            }
-                            step={bounds.fundedHorizonDays.step}
-                            type="number"
-                            value={state.fundedHorizonDays}
-                        />
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            Funded trading days simulated after a pass. Funded
-                            survival, payouts and the horizon credit in monthly
-                            net are measured over this window.
-                        </p>
-                        <label
-                            className="mt-4 mb-1 block text-xs font-medium text-muted-foreground"
-                            htmlFor="rebuy-lag-days"
-                        >
-                            {CALCULATOR_FIELD_LABELS.rebuyLagDays}
-                        </label>
-                        <Input
-                            id="rebuy-lag-days"
-                            max={CALCULATOR_SCALAR_BOUNDS.rebuyLag.max}
-                            min={CALCULATOR_SCALAR_BOUNDS.rebuyLag.min}
-                            onChange={(event) =>
-                                actions.setRebuyLagDays(
-                                    Number(event.target.value),
-                                )
-                            }
-                            step={REBUY_LAG_STEP}
-                            type="number"
-                            value={state.rebuyLagDays}
-                        />
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            Trading days an account slot sits empty before each
-                            eval attempt, the first included: rebuy, credential
-                            delivery, activation review. Zero is the engine
-                            default; the account page offers the lag measured
-                            from your own replacements.
-                        </p>
-                    </div>
+                    <Separator className="my-5" />
+                    <FieldGroup className="gap-4">
+                        <Field>
+                            <FieldLabel htmlFor="funded-horizon-days">
+                                {CALCULATOR_FIELD_LABELS.fundedHorizonDays}
+                            </FieldLabel>
+                            <Input
+                                id="funded-horizon-days"
+                                max={bounds.fundedHorizonDays.max}
+                                min={bounds.fundedHorizonDays.min}
+                                onChange={(event) =>
+                                    actions.setFundedHorizonDays(
+                                        Number(event.target.value),
+                                    )
+                                }
+                                step={bounds.fundedHorizonDays.step}
+                                type="number"
+                                value={state.fundedHorizonDays}
+                            />
+                            <FieldDescription>
+                                Funded trading days simulated after a pass.
+                                Funded survival, payouts and the horizon credit
+                                in monthly net are measured over this window.
+                            </FieldDescription>
+                        </Field>
+                        <Field>
+                            <FieldLabel htmlFor="rebuy-lag-days">
+                                {CALCULATOR_FIELD_LABELS.rebuyLagDays}
+                            </FieldLabel>
+                            <Input
+                                id="rebuy-lag-days"
+                                max={CALCULATOR_SCALAR_BOUNDS.rebuyLag.max}
+                                min={CALCULATOR_SCALAR_BOUNDS.rebuyLag.min}
+                                onChange={(event) =>
+                                    actions.setRebuyLagDays(
+                                        Number(event.target.value),
+                                    )
+                                }
+                                step={REBUY_LAG_STEP}
+                                type="number"
+                                value={state.rebuyLagDays}
+                            />
+                            <FieldDescription>
+                                Trading days an account slot sits empty before
+                                each eval attempt, the first included: rebuy,
+                                credential delivery, activation review. Zero is
+                                the engine default; the account page offers the
+                                lag measured from your own replacements.
+                            </FieldDescription>
+                        </Field>
+                    </FieldGroup>
                 </Card>
                 {aside}
             </div>

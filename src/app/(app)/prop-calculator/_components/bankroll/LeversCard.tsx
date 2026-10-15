@@ -4,7 +4,17 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { Badge } from '~/components/ui/Badge';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '~/components/ui/Table';
 import {
     formatDelta,
     formatGateCurrency,
@@ -82,13 +92,10 @@ export function LeversCard() {
             title="Levers"
         >
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="flex flex-col gap-1">
-                    <label
-                        className="text-xs font-medium text-muted-foreground"
-                        htmlFor="bankroll-levers-bankroll"
-                    >
+                <Field>
+                    <FieldLabel htmlFor="bankroll-levers-bankroll">
                         Bankroll ($)
-                    </label>
+                    </FieldLabel>
                     <Input
                         id="bankroll-levers-bankroll"
                         inputMode="decimal"
@@ -100,28 +107,22 @@ export function LeversCard() {
                         placeholder="Enter your bankroll"
                         type="number"
                     />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label
-                        className="text-xs font-medium text-muted-foreground"
-                        htmlFor="bankroll-levers-risks"
-                    >
+                </Field>
+                <Field>
+                    <FieldLabel htmlFor="bankroll-levers-risks">
                         Risk candidates ($, comma-separated)
-                    </label>
+                    </FieldLabel>
                     <Input
                         id="bankroll-levers-risks"
                         onChange={(event) => setRisksText(event.target.value)}
                         placeholder="e.g. 200, 300"
                         value={risksText}
                     />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label
-                        className="text-xs font-medium text-muted-foreground"
-                        htmlFor="bankroll-levers-trades-per-day"
-                    >
+                </Field>
+                <Field>
+                    <FieldLabel htmlFor="bankroll-levers-trades-per-day">
                         Trades/day candidates (comma-separated)
-                    </label>
+                    </FieldLabel>
                     <Input
                         id="bankroll-levers-trades-per-day"
                         onChange={(event) =>
@@ -130,14 +131,11 @@ export function LeversCard() {
                         placeholder="e.g. 1, 2"
                         value={tradesPerDayText}
                     />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label
-                        className="text-xs font-medium text-muted-foreground"
-                        htmlFor="bankroll-levers-request-sizes"
-                    >
+                </Field>
+                <Field>
+                    <FieldLabel htmlFor="bankroll-levers-request-sizes">
                         Payout request candidates ($, comma-separated)
-                    </label>
+                    </FieldLabel>
                     <Input
                         id="bankroll-levers-request-sizes"
                         onChange={(event) =>
@@ -146,89 +144,84 @@ export function LeversCard() {
                         placeholder="e.g. 500, 1000"
                         value={requestSizesText}
                     />
-                </div>
+                </Field>
             </div>
             {rows === null ? (
                 <BankrollRunStatus isRequested={canRun} state={worker.state} />
             ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                        <thead>
-                            <tr className="text-muted-foreground">
-                                <th className="py-1 pr-3">Lever</th>
-                                <th className="py-1 pr-3">Value</th>
-                                <th className="py-1 pr-3">Δ EV/attempt</th>
-                                <th className="py-1 pr-3">Δ Monthly net</th>
-                                <th className="py-1 pr-3">Δ P(pass)</th>
-                                <th className="py-1 pr-3">Δ P(pays)</th>
-                                <th className="py-1 pr-3">Loss risk</th>
-                                <th className="py-1 pr-3">Δ Loss risk</th>
-                                <th className="py-1 pr-3">Note</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows.map((row, index) => (
-                                <tr
-                                    className="border-t border-white/10"
-                                    key={`${row.kind}-${String(index)}`}
-                                >
-                                    <td className="py-1 pr-3">
-                                        {LEVER_KIND_LABEL[row.kind]}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {formatLeverValue(row.kind, row.value)}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(
-                                            row.deltaEvPerAttempt,
-                                        )}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {formatGateCurrency(
-                                            row.deltaMonthlyNet,
-                                        )}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {
-                                            formatDelta(
-                                                row.deltaPassProbability,
-                                                0,
-                                                'percent',
-                                            ).text
-                                        }
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {row.deltaAttemptPaysProbability ===
-                                        undefined
-                                            ? NOT_APPLICABLE
-                                            : formatDelta(
-                                                  row.deltaAttemptPaysProbability,
-                                                  0,
-                                                  'percent',
-                                              ).text}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {row.lossRisk === null
-                                            ? NOT_APPLICABLE
-                                            : formatPercent(row.lossRisk)}
-                                    </td>
-                                    <td className="py-1 pr-3 font-mono">
-                                        {row.deltaLossProbability === null
-                                            ? NOT_APPLICABLE
-                                            : formatDelta(
-                                                  row.deltaLossProbability,
-                                                  0,
-                                                  'percent',
-                                              ).text}
-                                    </td>
-                                    <td className="py-1 pr-3 text-amber-400">
-                                        {row.label ?? ''}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Lever</TableHead>
+                            <TableHead>Value</TableHead>
+                            <TableHead>Δ EV/attempt</TableHead>
+                            <TableHead>Δ Monthly net</TableHead>
+                            <TableHead>Δ P(pass)</TableHead>
+                            <TableHead>Δ P(pays)</TableHead>
+                            <TableHead>Loss risk</TableHead>
+                            <TableHead>Δ Loss risk</TableHead>
+                            <TableHead>Note</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {rows.map((row, index) => (
+                            <TableRow key={`${row.kind}-${String(index)}`}>
+                                <TableCell>
+                                    {LEVER_KIND_LABEL[row.kind]}
+                                </TableCell>
+                                <TableCell className="font-mono">
+                                    {formatLeverValue(row.kind, row.value)}
+                                </TableCell>
+                                <TableCell className="font-mono">
+                                    {formatGateCurrency(row.deltaEvPerAttempt)}
+                                </TableCell>
+                                <TableCell className="font-mono">
+                                    {formatGateCurrency(row.deltaMonthlyNet)}
+                                </TableCell>
+                                <TableCell className="font-mono">
+                                    {
+                                        formatDelta(
+                                            row.deltaPassProbability,
+                                            0,
+                                            'percent',
+                                        ).text
+                                    }
+                                </TableCell>
+                                <TableCell className="font-mono">
+                                    {row.deltaAttemptPaysProbability ===
+                                    undefined
+                                        ? NOT_APPLICABLE
+                                        : formatDelta(
+                                              row.deltaAttemptPaysProbability,
+                                              0,
+                                              'percent',
+                                          ).text}
+                                </TableCell>
+                                <TableCell className="font-mono">
+                                    {row.lossRisk === null
+                                        ? NOT_APPLICABLE
+                                        : formatPercent(row.lossRisk)}
+                                </TableCell>
+                                <TableCell className="font-mono">
+                                    {row.deltaLossProbability === null
+                                        ? NOT_APPLICABLE
+                                        : formatDelta(
+                                              row.deltaLossProbability,
+                                              0,
+                                              'percent',
+                                          ).text}
+                                </TableCell>
+                                <TableCell>
+                                    {row.label === null ? null : (
+                                        <Badge variant="warning">
+                                            {row.label}
+                                        </Badge>
+                                    )}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
             )}
         </BankrollSection>
     );

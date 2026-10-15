@@ -81,6 +81,13 @@ import {
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { netPerScreenHour } from '~/lib/prop-calculator/economics';
 
+import { pickOption } from './accounts/pickOption';
+import {
+    labelledControl,
+    labelledSelect,
+    optionTexts,
+    selectedText,
+} from './labelledControl';
 import {
     RUIN_FIXTURE_BANKROLL_CENTS,
     RUIN_FIXTURE_MONTHLY_ORDER,
@@ -130,15 +137,16 @@ describe('PlanComparisonTable $/screen hour column (F-V25, PT-61b)', () => {
     });
 
     it('shows the column once hours/day and accounts/session are both set', () => {
-        const hoursInput = container.querySelector<HTMLInputElement>(
-            'input[aria-label="Hours per day"]',
+        const hoursInput = labelledControl(
+            container,
+            'Hours per day',
+            HTMLInputElement,
         );
-        const accountsInput = container.querySelector<HTMLInputElement>(
-            'input[aria-label="Accounts per session"]',
+        const accountsInput = labelledControl(
+            container,
+            'Accounts per session',
+            HTMLInputElement,
         );
-        if (!hoursInput || !accountsInput) {
-            throw new Error('screen-hour inputs missing');
-        }
         act(() => {
             dispatchInput(hoursInput, '4');
         });
@@ -166,15 +174,16 @@ describe('PlanComparisonTable $/screen hour column (F-V25, PT-61b)', () => {
     });
 
     it('rejects 0.5 accounts per session: no column, an inline hint (PT-61d, F-V22)', () => {
-        const hoursInput = container.querySelector<HTMLInputElement>(
-            'input[aria-label="Hours per day"]',
+        const hoursInput = labelledControl(
+            container,
+            'Hours per day',
+            HTMLInputElement,
         );
-        const accountsInput = container.querySelector<HTMLInputElement>(
-            'input[aria-label="Accounts per session"]',
+        const accountsInput = labelledControl(
+            container,
+            'Accounts per session',
+            HTMLInputElement,
         );
-        if (!hoursInput || !accountsInput) {
-            throw new Error('screen-hour inputs missing');
-        }
         act(() => {
             dispatchInput(hoursInput, '4');
         });
@@ -351,21 +360,21 @@ describe('PlanComparisonTable follows and names the objective (PT-83, F-V15, F-V
         expect(container.textContent).toContain('Ranked by monthly net');
     });
 
-    it('disables the top select until both hours inputs are set, then limits the rows', () => {
+    it('disables the top select until both hours inputs are set, then limits the rows', async () => {
         render();
-        const select = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Show top"]',
-        );
-        if (!select) throw new Error('top select missing');
+        const select = labelledSelect(container, 'Show top');
         expect(select.disabled).toBe(true);
         expect(rowLabels(container).length).toBeGreaterThan(3);
-        const hoursInput = container.querySelector<HTMLInputElement>(
-            'input[aria-label="Hours per day"]',
+        const hoursInput = labelledControl(
+            container,
+            'Hours per day',
+            HTMLInputElement,
         );
-        const accountsInput = container.querySelector<HTMLInputElement>(
-            'input[aria-label="Accounts per session"]',
+        const accountsInput = labelledControl(
+            container,
+            'Accounts per session',
+            HTMLInputElement,
         );
-        if (!hoursInput || !accountsInput) throw new Error('inputs missing');
         act(() => {
             dispatchInput(hoursInput, '4');
         });
@@ -375,14 +384,14 @@ describe('PlanComparisonTable follows and names the objective (PT-83, F-V15, F-V
         });
         expect(select.disabled).toBe(false);
         const all = rowLabels(container);
-        act(() => {
-            Reflect.set(HTMLSelectElement.prototype, 'value', '3', select);
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-        });
+        await pickOption(select, 'Top 3');
         expect(rowLabels(container)).toStrictEqual(all.slice(0, 3));
-        expect(
-            [...select.options].map((option) => option.textContent),
-        ).toStrictEqual(['Top 3', 'Top 5', 'Top 10', 'All']);
+        expect(await optionTexts(select)).toStrictEqual([
+            'Top 3',
+            'Top 5',
+            'Top 10',
+            'All',
+        ]);
         act(() => {
             dispatchInput(accountsInput, '');
         });
@@ -522,43 +531,39 @@ describe('PlanComparisonTable ranks RuinFirst by the batch loss risk at a known 
         );
     });
 
-    it('resets the top select to All and shows every row again when an hours input is cleared', () => {
+    it('resets the top select to All and shows every row again when an hours input is cleared', async () => {
         render(null, SizingObjective.MonthlyNet);
-        const select = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Show top"]',
+        const select = labelledSelect(container, 'Show top');
+        const hoursInput = labelledControl(
+            container,
+            'Hours per day',
+            HTMLInputElement,
         );
-        const hoursInput = container.querySelector<HTMLInputElement>(
-            'input[aria-label="Hours per day"]',
+        const accountsInput = labelledControl(
+            container,
+            'Accounts per session',
+            HTMLInputElement,
         );
-        const accountsInput = container.querySelector<HTMLInputElement>(
-            'input[aria-label="Accounts per session"]',
-        );
-        if (!select || !hoursInput || !accountsInput) {
-            throw new Error('controls missing');
-        }
         act(() => {
             dispatchInput(hoursInput, '4');
         });
         act(() => {
             dispatchInput(accountsInput, '2');
         });
-        act(() => {
-            Reflect.set(HTMLSelectElement.prototype, 'value', '3', select);
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-        });
+        await pickOption(select, 'Top 3');
         expect(rowLabels(container)).toHaveLength(3);
         expect(container.textContent).toContain('showing 3 of 5 plans');
         act(() => {
             dispatchInput(hoursInput, '');
         });
-        expect(select.value).toBe('all');
+        expect(selectedText(select)).toBe('All');
         expect(rowLabels(container)).toHaveLength(5);
         expect(container.textContent).toContain('5 plans');
         expect(container.textContent).not.toContain('showing');
         act(() => {
             dispatchInput(hoursInput, '4');
         });
-        expect(select.value).toBe('all');
+        expect(selectedText(select)).toBe('All');
         expect(rowLabels(container)).toHaveLength(5);
     });
 });

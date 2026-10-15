@@ -16,6 +16,7 @@ import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useDebouncedComputation } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import { type LiveOutputs, simulateLiveAccount } from '~/lib/prop-calculator';
 
@@ -78,9 +79,9 @@ export function LiveView() {
                             </p>
                         )}
                     {model.status === LiveToolStatus.NotModeled ? (
-                        <p className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-muted-foreground">
-                            {model.message}
-                        </p>
+                        <Alert>
+                            <AlertDescription>{model.message}</AlertDescription>
+                        </Alert>
                     ) : (
                         <LiveComputationResult
                             error={error}

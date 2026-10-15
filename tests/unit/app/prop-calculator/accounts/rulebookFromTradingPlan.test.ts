@@ -28,6 +28,7 @@ import {
     LadderFractionSource,
     ReviewWeekday,
     RiskDisplayUnit,
+    RULE_SOURCE_LABEL,
     rulebookDeviation,
     type RulebookParameters,
     rulebookSchema,
@@ -578,7 +579,9 @@ describe('documentedRuleLabel', () => {
     it('names every deviation in a custom rule label', () => {
         expect(
             documentedRuleLabel([RuleSource.HardRule5, RuleSource.HardRule6]),
-        ).toBe('your custom rule (differs from Hard Rule 5, Hard Rule 6)');
+        ).toBe(
+            `your custom rule (differs from ${RULE_SOURCE_LABEL[RuleSource.HardRule5]}, ${RULE_SOURCE_LABEL[RuleSource.HardRule6]})`,
+        );
     });
 });
 

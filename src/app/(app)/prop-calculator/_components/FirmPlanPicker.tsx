@@ -1,5 +1,6 @@
 'use client';
 
+import { Field, FieldDescription, FieldLabel } from '~/components/ui/Field';
 import {
     Select,
     SelectContent,
@@ -38,13 +39,8 @@ export default function FirmPlanPicker({
                 'grid gap-4 md:grid-cols-2',
             )}
         >
-            <div>
-                <label
-                    className="mb-2 block text-xs font-medium text-muted-foreground"
-                    htmlFor="firm-select"
-                >
-                    Firm
-                </label>
+            <Field>
+                <FieldLabel htmlFor="firm-select">Firm</FieldLabel>
                 <Select
                     onValueChange={(v) => {
                         const firmId = parseFirmId(v);
@@ -64,15 +60,12 @@ export default function FirmPlanPicker({
                         ))}
                     </SelectContent>
                 </Select>
-            </div>
+            </Field>
 
-            <div>
-                <label
-                    className="mb-2 block text-xs font-medium text-muted-foreground"
-                    htmlFor="plan-select"
-                >
+            <Field>
+                <FieldLabel htmlFor="plan-select">
                     Plan &amp; account size
-                </label>
+                </FieldLabel>
                 <Select
                     onValueChange={(v) => {
                         const next = firm.findPlanBySerial(v);
@@ -102,13 +95,10 @@ export default function FirmPlanPicker({
                         ))}
                     </SelectContent>
                 </Select>
-                <p
-                    className="mt-1 text-xs text-muted-foreground"
-                    id="plan-select-terms"
-                >
+                <FieldDescription id="plan-select-terms">
                     {planTermsText(plan)}
-                </p>
-            </div>
+                </FieldDescription>
+            </Field>
         </div>
     );
 }

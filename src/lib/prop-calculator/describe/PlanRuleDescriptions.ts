@@ -13,10 +13,12 @@ import {
     type DailyLossLimitConfig,
     describeFundedResetTerms,
     describePayoutDayGate,
+    type Dollars,
     DrawdownKind,
     type DrawdownStrategy,
     LifetimeCapScope,
     lifetimePayoutCountLimit,
+    ONE_CENT,
     type PayoutCapRegime,
     type PayoutCapSchedule,
     PayoutCapScheduleKind,
@@ -109,7 +111,8 @@ export const PLAN_RULE_SEGMENT_LABEL: Readonly<
     [PlanRuleSegmentKind.PayoutLadder]: 'Payout ladder',
     [PlanRuleSegmentKind.PayoutProfitShare]: 'Per-request cap',
     [PlanRuleSegmentKind.PayoutSplit]: 'Payout split',
-    [PlanRuleSegmentKind.PerCyclePayoutGate]: 'Profit per payout cycle',
+    [PlanRuleSegmentKind.PerCyclePayoutGate]:
+        'Net profit since the last payout',
     [PlanRuleSegmentKind.ProfitTarget]: 'Profit target',
     [PlanRuleSegmentKind.QualifyingDay]: 'Qualifying day',
     [PlanRuleSegmentKind.ResetFee]: 'Reset fee',
@@ -122,6 +125,8 @@ export const DRAWDOWN_KIND_TEXT: Readonly<Record<DrawdownKind, string>> = {
 };
 
 const CLOSED_ACCOUNT = 'account closed; the next purchase refills the slot';
+
+const FIRST_PAYOUT_WAIVER = 'waived on the first payout';
 
 const NO_FUNDED_RESET = `no funded reset modeled: ${CLOSED_ACCOUNT}`;
 
@@ -322,8 +327,10 @@ export function describePlanRules(plan: Plan): readonly PlanRuleLine[] {
                 : [
                       segment(
                           PlanRuleSegmentKind.PerCyclePayoutGate,
-                          'per cycle',
-                          formatGateCurrency(plan.minPayoutProfitPerCycle),
+                          'since last payout',
+                          describePerCyclePayoutGate(
+                              plan.minPayoutProfitPerCycle,
+                          ),
                       ),
                   ]),
             segment(
@@ -520,6 +527,14 @@ function describePayoutFloorEffect(effect: PayoutFloorEffect): string {
             return ', floor reset to breakeven on each payout';
         }
     }
+}
+
+function describePerCyclePayoutGate(minimum: Dollars): string {
+    const threshold =
+        minimum <= ONE_CENT
+            ? `above ${formatCurrency(0)}`
+            : `at least ${formatGateCurrency(minimum)}`;
+    return `${threshold}, ${FIRST_PAYOUT_WAIVER}`;
 }
 
 function dollarCapScopeNote(plan: Plan, scope: LifetimeCapScope): string {

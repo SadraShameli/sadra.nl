@@ -2,6 +2,7 @@ import {
     ToolsWorkerPhase,
     type ToolsWorkerState,
 } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 
 interface BankrollRunStatusProperties {
     idleText?: string;
@@ -29,9 +30,9 @@ export function BankrollRunStatus({
     }
     if (isRequested && state.phase === ToolsWorkerPhase.Failed) {
         return (
-            <p className="text-xs text-rose-400" role="alert">
-                {state.reason}
-            </p>
+            <Alert variant="destructive">
+                <AlertDescription>{state.reason}</AlertDescription>
+            </Alert>
         );
     }
     return isRequested || idleText === undefined ? null : (

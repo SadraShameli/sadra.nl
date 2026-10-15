@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronDown } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
@@ -26,6 +27,21 @@ import {
     type FundedSweepRequest,
     type FundedSweepResult,
 } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Button } from '~/components/ui/Button';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '~/components/ui/Collapsible';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '~/components/ui/Table';
 import { LifetimePayoutCapBasis } from '~/lib/prop-calculator/advisor';
 import { type Plan } from '~/lib/prop-calculator/core';
 import {
@@ -168,9 +184,11 @@ function FundedOptimizerResult({
     }
     if (result.kind === FundedCandidateBuildKind.Refused) {
         return (
-            <p className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-muted-foreground">
-                {describeFundedSweepRefusal(result.refusal)}
-            </p>
+            <Alert>
+                <AlertDescription>
+                    {describeFundedSweepRefusal(result.refusal)}
+                </AlertDescription>
+            </Alert>
         );
     }
     const rows = fundedOptimizerRows(result.rows, sort, request.base.trials);
@@ -191,57 +209,57 @@ function FundedOptimizerResult({
                     ))}
                 </ul>
             )}
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead>
-                        <tr>
-                            {FUNDED_ROW_HEADERS.map((label) => (
-                                <th
-                                    className="px-2 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground first-letter:uppercase"
-                                    key={label}
-                                    scope="col"
-                                >
-                                    {label}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map((row) => (
-                            <tr
-                                className="border-t border-white/5"
-                                key={row.cells[0]}
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        {FUNDED_ROW_HEADERS.map((label) => (
+                            <TableHead
+                                className="first-letter:uppercase"
+                                key={label}
+                                scope="col"
                             >
-                                {row.cells.map((cell, index) => {
-                                    const standardError =
-                                        row.standardErrors[index] ?? null;
-                                    return (
-                                        <td
-                                            className="px-2 py-1 whitespace-nowrap tabular-nums"
-                                            key={`${row.cells[0]}-${index}`}
-                                        >
-                                            {cell}
-                                            {standardError !== null &&
-                                                ` (SE ${standardError})`}
-                                        </td>
-                                    );
-                                })}
-                            </tr>
+                                {label}
+                            </TableHead>
                         ))}
-                    </tbody>
-                </table>
-            </div>
-            <details className="group rounded-md border border-white/10 px-3 py-2 text-xs text-muted-foreground">
-                <summary className="cursor-pointer font-medium text-white select-none">
-                    How the ranking and the survivors column work
-                </summary>
-                <p className="mt-2 whitespace-pre-line">
-                    {fundedSortDescription(sort, sortDescriptionInputs)}
-                </p>
-                <p className="mt-2 whitespace-pre-line">
-                    {fundedSurvivorsNote(request.base.trials)}
-                </p>
-            </details>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rows.map((row) => (
+                        <TableRow key={row.cells[0]}>
+                            {row.cells.map((cell, index) => {
+                                const standardError =
+                                    row.standardErrors[index] ?? null;
+                                return (
+                                    <TableCell
+                                        className="whitespace-nowrap tabular-nums"
+                                        key={`${row.cells[0]}-${index}`}
+                                    >
+                                        {cell}
+                                        {standardError !== null &&
+                                            ` (SE ${standardError})`}
+                                    </TableCell>
+                                );
+                            })}
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+            <Collapsible className="rounded-md border">
+                <CollapsibleTrigger asChild>
+                    <Button
+                        className="group w-full justify-between"
+                        type="button"
+                        variant="ghost"
+                    >
+                        How the ranking and the survivors column work
+                        <ChevronDown className="transition-transform group-data-[state=open]:rotate-180" />
+                    </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="flex flex-col gap-2 px-3 pb-3 text-sm whitespace-pre-line text-muted-foreground">
+                    <p>{fundedSortDescription(sort, sortDescriptionInputs)}</p>
+                    <p>{fundedSurvivorsNote(request.base.trials)}</p>
+                </CollapsibleContent>
+            </Collapsible>
         </div>
     );
 }

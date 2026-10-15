@@ -34,6 +34,8 @@ import {
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 
+import { chosenObjective, pickObjective } from './objectiveSelect';
+
 interface TableHarness {
     choice: ObjectiveChoice;
     dispatch: Mock<(action: CalculatorAction) => void>;
@@ -320,22 +322,12 @@ describe('OptimalRiskTable objective ranking (PT-63, F-V15)', () => {
             '.app-prop-calculator__objective-chip',
         );
         expect(chip?.textContent).toContain('cycle cash');
-        const select = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Ranking objective"]',
-        );
-        expect(select?.value).toBe(SizingObjective.CycleCash);
+        expect(chosenObjective(container)).toBe(SizingObjective.CycleCash);
     });
 
-    it('sets the chosen objective through the SetObjective action, never by replacing the whole state', () => {
+    it('sets the chosen objective through the SetObjective action, never by replacing the whole state', async () => {
         render(SizingObjective.MonthlyNet);
-        const select = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Ranking objective"]',
-        );
-        if (select === null) throw new Error('chip select missing');
-        act(() => {
-            select.value = SizingObjective.CycleCash;
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-        });
+        await pickObjective(container, SizingObjective.CycleCash);
         expect(harness.dispatch).toHaveBeenCalledTimes(1);
         expect(harness.dispatch).toHaveBeenCalledWith({
             objective: SizingObjective.CycleCash,

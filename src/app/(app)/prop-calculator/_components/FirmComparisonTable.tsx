@@ -6,8 +6,21 @@ import { useMemo, useState } from 'react';
 import { Card } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
+import {
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/Field';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/Select';
 import {
     formatCurrency,
     formatDays,
@@ -56,6 +69,8 @@ const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 500;
 const TOP_LIMIT_ALL = 'all';
 const TOP_LIMIT_CHOICES: readonly number[] = [3, 5, 10];
+const TOP_LIMIT_DISABLED_HINT =
+    'Set hours per day and accounts per session first';
 
 export interface ComparisonViewRequest {
     bankrollCents: null | number;
@@ -409,6 +424,7 @@ export function ScreenHourInputs({
         parseAccountsPerSession(accountsPerSessionInput) !== null;
     const hoursHintId = `${idPrefix}-hours-per-day-hint`;
     const accountsHintId = `${idPrefix}-accounts-per-session-hint`;
+    const topLimitHintId = `${idPrefix}-top-limit-hint`;
     const isHoursInvalid =
         hoursPerDayInput.trim() !== '' &&
         parsePositiveNumber(hoursPerDayInput) === null;
@@ -416,19 +432,15 @@ export function ScreenHourInputs({
         accountsPerSessionInput.trim() !== '' &&
         parseAccountsPerSession(accountsPerSessionInput) === null;
     return (
-        <div className="flex flex-wrap items-end gap-3">
-            <div>
-                <label
-                    className="mb-1 block text-[11px] text-muted-foreground"
-                    htmlFor={`${idPrefix}-hours-per-day`}
-                >
+        <div className="flex flex-wrap items-start gap-3">
+            <Field className="w-auto" data-invalid={isHoursInvalid}>
+                <FieldLabel htmlFor={`${idPrefix}-hours-per-day`}>
                     Hours per day
-                </label>
+                </FieldLabel>
                 <Input
                     aria-describedby={isHoursInvalid ? hoursHintId : undefined}
                     aria-invalid={isHoursInvalid}
-                    aria-label="Hours per day"
-                    className="h-7 w-16 text-xs"
+                    className="w-24"
                     id={`${idPrefix}-hours-per-day`}
                     min={0}
                     onChange={(event) =>
@@ -440,28 +452,21 @@ export function ScreenHourInputs({
                     value={hoursPerDayInput}
                 />
                 {isHoursInvalid ? (
-                    <p
-                        className="mt-1 text-[11px] text-amber-400"
-                        id={hoursHintId}
-                    >
+                    <FieldError id={hoursHintId}>
                         A number of hours above 0
-                    </p>
+                    </FieldError>
                 ) : null}
-            </div>
-            <div>
-                <label
-                    className="mb-1 block text-[11px] text-muted-foreground"
-                    htmlFor={`${idPrefix}-accounts-per-session`}
-                >
+            </Field>
+            <Field className="w-auto" data-invalid={isAccountsInvalid}>
+                <FieldLabel htmlFor={`${idPrefix}-accounts-per-session`}>
                     Accounts per session
-                </label>
+                </FieldLabel>
                 <Input
                     aria-describedby={
                         isAccountsInvalid ? accountsHintId : undefined
                     }
                     aria-invalid={isAccountsInvalid}
-                    aria-label="Accounts per session"
-                    className="h-7 w-16 text-xs"
+                    className="w-24"
                     id={`${idPrefix}-accounts-per-session`}
                     min={1}
                     onChange={(event) =>
@@ -473,42 +478,44 @@ export function ScreenHourInputs({
                     value={accountsPerSessionInput}
                 />
                 {isAccountsInvalid ? (
-                    <p
-                        className="mt-1 text-[11px] text-amber-400"
-                        id={accountsHintId}
-                    >
+                    <FieldError id={accountsHintId}>
                         Whole number, at least 1
-                    </p>
+                    </FieldError>
                 ) : null}
-            </div>
-            <div>
-                <label
-                    className="mb-1 block text-[11px] text-muted-foreground"
-                    htmlFor={`${idPrefix}-top-limit`}
-                >
+            </Field>
+            <Field className="w-auto" data-disabled={!isTopLimitEnabled}>
+                <FieldLabel htmlFor={`${idPrefix}-top-limit`}>
                     Show top
-                </label>
-                <select
-                    aria-label="Show top"
-                    className="h-7 rounded-md border bg-transparent px-2 text-xs disabled:opacity-50"
+                </FieldLabel>
+                <Select
                     disabled={!isTopLimitEnabled}
-                    id={`${idPrefix}-top-limit`}
-                    onChange={(event) => onTopLimitChange(event.target.value)}
-                    title={
-                        isTopLimitEnabled
-                            ? undefined
-                            : 'Set hours per day and accounts per session first'
-                    }
+                    onValueChange={onTopLimitChange}
                     value={topLimitInput}
                 >
-                    {TOP_LIMIT_CHOICES.map((choice) => (
-                        <option key={choice} value={String(choice)}>
-                            Top {choice}
-                        </option>
-                    ))}
-                    <option value={TOP_LIMIT_ALL}>All</option>
-                </select>
-            </div>
+                    <SelectTrigger
+                        aria-describedby={
+                            isTopLimitEnabled ? undefined : topLimitHintId
+                        }
+                        className="w-28"
+                        id={`${idPrefix}-top-limit`}
+                    >
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {TOP_LIMIT_CHOICES.map((choice) => (
+                            <SelectItem key={choice} value={String(choice)}>
+                                Top {choice}
+                            </SelectItem>
+                        ))}
+                        <SelectItem value={TOP_LIMIT_ALL}>All</SelectItem>
+                    </SelectContent>
+                </Select>
+                {isTopLimitEnabled ? null : (
+                    <FieldDescription id={topLimitHintId}>
+                        {TOP_LIMIT_DISABLED_HINT}
+                    </FieldDescription>
+                )}
+            </Field>
         </div>
     );
 }

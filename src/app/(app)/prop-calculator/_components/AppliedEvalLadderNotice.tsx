@@ -1,5 +1,6 @@
 'use client';
 
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
 
 import {
@@ -45,8 +46,11 @@ export function AppliedEvalLadderNotice({
         ? describeNonDefaultRungSizing(state.rungSizing)
         : null;
     return (
-        <div className="app-prop-calculator__applied-eval-ladder flex flex-col gap-2 rounded-md border border-border/60 px-3 py-2 text-xs md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-col gap-1">
+        <Alert
+            className="app-prop-calculator__applied-eval-ladder flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+            role="note"
+        >
+            <AlertDescription className="flex flex-col gap-1">
                 <p>
                     <span className="text-muted-foreground">
                         {NOTICE_LEADS[scope]}{' '}
@@ -65,10 +69,10 @@ export function AppliedEvalLadderNotice({
                         </span>
                     </p>
                 )}
-            </div>
+            </AlertDescription>
             <Button
                 aria-label="Clear the applied eval ladder"
-                className="h-7 shrink-0 px-2 text-xs"
+                className="shrink-0"
                 onClick={() => {
                     onCleared?.();
                     setEvalDayPolicy(null);
@@ -79,6 +83,6 @@ export function AppliedEvalLadderNotice({
             >
                 Clear
             </Button>
-        </div>
+        </Alert>
     );
 }

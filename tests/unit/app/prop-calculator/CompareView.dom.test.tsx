@@ -14,6 +14,12 @@ import {
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 
+import {
+    chosenObjective,
+    hasObjectiveSelect,
+    pickObjective,
+} from './objectiveSelect';
+
 interface Harness {
     availableCents: null | number;
     isSummaryPending: boolean;
@@ -154,25 +160,6 @@ describe('CompareView mounts the objective chip and hands the objective and bank
         return element;
     }
 
-    function chosenObjective(): string {
-        const select = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Ranking objective"]',
-        );
-        if (select === null) throw new Error('select missing');
-        return select.value;
-    }
-
-    function pick(objective: SizingObjective) {
-        const select = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Ranking objective"]',
-        );
-        if (select === null) throw new Error('chip select missing');
-        act(() => {
-            select.value = objective;
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-    }
-
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         sessionStorage.clear();
@@ -195,10 +182,8 @@ describe('CompareView mounts the objective chip and hands the objective and bank
 
     it('mounts the chip and passes the chosen objective to both tables', async () => {
         await open();
-        expect(
-            container.querySelector('select[aria-label="Ranking objective"]'),
-        ).not.toBeNull();
-        pick(SizingObjective.CycleCash);
+        expect(hasObjectiveSelect(container)).toBe(true);
+        await pickObjective(container, SizingObjective.CycleCash);
         expect(table('plan-table').dataset.objective).toBe(
             SizingObjective.CycleCash,
         );
@@ -241,8 +226,8 @@ describe('CompareView mounts the objective chip and hands the objective and bank
         harness.userId = 'user-1';
         harness.availableCents = 250_000;
         await open();
-        pick(SizingObjective.RuinFirst);
-        expect(chosenObjective()).toBe(SizingObjective.RuinFirst);
+        await pickObjective(container, SizingObjective.RuinFirst);
+        expect(chosenObjective(container)).toBe(SizingObjective.RuinFirst);
         expect(container.textContent).not.toContain(RUIN_FIRST_RISK_TABLE_NOTE);
         expect(container.textContent).not.toContain('sizing stays on');
         expect(container.textContent).not.toContain(
@@ -255,8 +240,8 @@ describe('CompareView mounts the objective chip and hands the objective and bank
         harness.userId = null;
         harness.availableCents = null;
         await open();
-        pick(SizingObjective.RuinFirst);
-        expect(chosenObjective()).toBe(SizingObjective.RuinFirst);
+        await pickObjective(container, SizingObjective.RuinFirst);
+        expect(chosenObjective(container)).toBe(SizingObjective.RuinFirst);
         expect(container.textContent).not.toContain(RUIN_FIRST_RISK_TABLE_NOTE);
         expect(container.textContent).not.toContain('sizing stays on');
     });

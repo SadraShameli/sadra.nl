@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
 
 interface BankrollNumberFieldProperties {
@@ -25,13 +26,8 @@ export function BankrollNumberField({
         initial === null ? '' : String(initial),
     );
     return (
-        <div className="flex flex-col gap-1">
-            <label
-                className="text-xs font-medium text-muted-foreground"
-                htmlFor={id}
-            >
-                {label}
-            </label>
+        <Field>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
             <Input
                 aria-describedby={describedBy}
                 id={id}
@@ -44,6 +40,6 @@ export function BankrollNumberField({
                 type="number"
                 value={text}
             />
-        </div>
+        </Field>
     );
 }

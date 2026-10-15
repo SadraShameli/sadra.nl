@@ -3,6 +3,9 @@ import { Fragment } from 'react';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
+import { Badge } from '~/components/ui/Badge';
+import { Button } from '~/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import {
     ALL_FIRMS,
     type FirmId,
@@ -25,13 +28,11 @@ export function RulesView() {
                 className="app-prop-calculator__rules-nav mb-8 flex flex-wrap gap-2"
             >
                 {ALL_FIRMS.map((firm) => (
-                    <a
-                        className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-white/30 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                        href={`#${firmRulesSectionId(firm)}`}
-                        key={firm.id}
-                    >
-                        {firm.displayName}
-                    </a>
+                    <Button asChild key={firm.id} size="sm" variant="outline">
+                        <a href={`#${firmRulesSectionId(firm)}`}>
+                            {firm.displayName}
+                        </a>
+                    </Button>
                 ))}
             </nav>
             <div className="app-prop-calculator__rules mb-10 flex flex-col gap-10">
@@ -61,29 +62,40 @@ function firmRulesSectionId(firm: TradingFirm): `rules-${FirmId}` {
 
 function PlanRules({ plan }: { plan: Plan }) {
     return (
-        <article className="flex flex-col gap-3 rounded-lg border border-white/10 p-4">
-            <h3 className="text-base font-semibold text-white">
-                {plan.label}
-                {!plan.isPurchasable && (
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">
-                        [{PLAN_AVAILABILITY_LABEL[plan.availability]}]
-                    </span>
-                )}
-            </h3>
-            <dl className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-                {describePlanRules(plan)
-                    .flat()
-                    .map((segment) => (
-                        <Fragment key={segment.kind}>
-                            <dt className="text-muted-foreground">
-                                {PLAN_RULE_SEGMENT_LABEL[segment.kind]}
-                            </dt>
-                            <dd className="text-white tabular-nums">
-                                {segment.value}
-                            </dd>
-                        </Fragment>
-                    ))}
-            </dl>
+        <article>
+            <Card className="h-full gap-4">
+                <CardHeader>
+                    <CardTitle
+                        as="h3"
+                        className="flex flex-wrap items-center gap-2"
+                    >
+                        {plan.label}
+                        {!plan.isPurchasable && (
+                            <Badge asChild variant="secondary">
+                                <span>
+                                    {PLAN_AVAILABILITY_LABEL[plan.availability]}
+                                </span>
+                            </Badge>
+                        )}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <dl className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+                        {describePlanRules(plan)
+                            .flat()
+                            .map((segment) => (
+                                <Fragment key={segment.kind}>
+                                    <dt className="text-muted-foreground">
+                                        {PLAN_RULE_SEGMENT_LABEL[segment.kind]}
+                                    </dt>
+                                    <dd className="tabular-nums">
+                                        {segment.value}
+                                    </dd>
+                                </Fragment>
+                            ))}
+                    </dl>
+                </CardContent>
+            </Card>
         </article>
     );
 }

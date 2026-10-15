@@ -109,19 +109,19 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return `${detail.leftOutCount} candidate${detail.leftOutCount === 1 ? '' : 's'} left out of the sweep.`;
         }
         case DifferenceReason.CeilingCap: {
-            return `Capped at the $${detail.ceiling.toFixed(2)} profit ceiling for today.`;
+            return `Capped at the ${formatCurrency(detail.ceiling, 2)} profit ceiling for today.`;
         }
         case DifferenceReason.ConsistencyCap: {
-            return `Capped at $${detail.maxDayProfit.toFixed(2)}, the most today's profit can be before the payout is pushed out.`;
+            return `Capped at ${formatCurrency(detail.maxDayProfit, 2)}, the most today's profit can be before the payout is pushed out.`;
         }
         case DifferenceReason.ConsistencyNotEvaluated: {
             return 'This plan has no consistency rule to evaluate.';
         }
         case DifferenceReason.CushionCap: {
-            return `Capped so at least $${detail.cushion.toFixed(2)} of retained cushion remains.`;
+            return `Capped so at least ${formatCurrency(detail.cushion, 2)} of retained cushion remains.`;
         }
         case DifferenceReason.DailyLossCap: {
-            return `Capped by the $${detail.dailyLossLimit.toFixed(2)} daily loss limit.`;
+            return `Capped by the ${formatCurrency(detail.dailyLossLimit, 2)} daily loss limit.`;
         }
         case DifferenceReason.DocumentedLadderNeverFunded: {
             return `Your documented ladder never funded the account in ${detail.sims} simulated attempts, so it has no cost or speed to compare with the optimum.`;
@@ -130,7 +130,7 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return `Your documented ladder was requested but not scored (${detail.sims} simulations planned), so it is not compared with the optimum.`;
         }
         case DifferenceReason.DpGridMisaligned: {
-            return `The $${detail.drawdown.toFixed(2)} drawdown is not an even multiple of the $${detail.step.toFixed(2)} cushion step; informational only.`;
+            return `The ${formatCurrency(detail.drawdown, 2)} drawdown is not an even multiple of the ${formatCurrency(detail.step, 2)} cushion step; informational only.`;
         }
         case DifferenceReason.DpGridSaturation: {
             return 'The DP grid is saturated at this state; the solve may be less reliable here.';
@@ -160,14 +160,14 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return `The engine's best ladder never funded the account in ${detail.sims} simulated attempts, so no cost or speed to funded can be compared here.`;
         }
         case DifferenceReason.FirmMinimumAboveRequest: {
-            return `Requested $${detail.requested.toFixed(2)}, raised to the firm's $${detail.minimum.toFixed(2)} minimum.`;
+            return `Requested ${formatCurrency(detail.requested, 2)}, raised to the firm's ${formatCurrency(detail.minimum, 2)} minimum.`;
         }
         case DifferenceReason.FlatRiskIgnoresState: {
             const gapText =
                 detail.gapInCombinedSEs === null
                     ? 'an exact difference with no measured uncertainty'
                     : `${detail.gapInCombinedSEs.toFixed(1)} combined SEs apart`;
-            return `The documented flat $${detail.documentedFlatRisk.toFixed(2)} risk ignores your current state; a one-step comparison favours $${detail.fromStateOptimum.toFixed(2)} over the documented $${detail.documentedFlatRisk.toFixed(2)}, ${gapText}; documented sizing afterwards.`;
+            return `The documented flat ${formatCurrency(detail.documentedFlatRisk, 2)} risk ignores your current state; a one-step comparison favours ${formatCurrency(detail.fromStateOptimum, 2)} over the documented ${formatCurrency(detail.documentedFlatRisk, 2)}, ${gapText}; documented sizing afterwards.`;
         }
         case DifferenceReason.FreshStartApproximation: {
             return 'This optimum was computed from a fresh start, not the current account state.';
@@ -183,9 +183,9 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
                 detail.affordableRisk >= detail.minimumTradeRisk
                     ? ''
                     : detail.affordableRisk > 0
-                      ? ` The caps beside it (the daily loss room and any personal max risk per trade) leave only $${detail.affordableRisk.toFixed(2)} of risk.`
+                      ? ` The caps beside it (the daily loss room and any personal max risk per trade) leave only ${formatCurrency(detail.affordableRisk, 2)} of risk.`
                       : ' The caps beside it (the daily loss room and any personal max risk per trade) leave no room for it, so no trade is offered.';
-            return `This account sits on its live floor, which is still alive. The smallest placeable trade is ${minimum}, $${detail.minimumTradeRisk.toFixed(2)} of risk. Any loss breaches the live floor, and a live account cannot be repurchased. Offering that one trade is this tool's minimum-trade convention, not a firm rule; not trading is the alternative.${limit}`;
+            return `This account sits on its live floor, which is still alive. The smallest placeable trade is ${minimum}, ${formatCurrency(detail.minimumTradeRisk, 2)} of risk. Any loss breaches the live floor, and a live account cannot be repurchased. Offering that one trade is this tool's minimum-trade convention, not a firm rule; not trading is the alternative.${limit}`;
         }
         case DifferenceReason.LiveModelApproximation: {
             return 'No account-level live model exists for this firm; the firm-level rule is used instead.';
@@ -203,19 +203,19 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return 'This optimum ranks by speed to funded, not by expected monthly net.';
         }
         case DifferenceReason.PayoutPolicyDiffers: {
-            return `The headline's documented payout request is $${detail.headlineRequest.toFixed(2)}, but this number used the payout-size optimum of $${detail.engineRequest.toFixed(2)}.`;
+            return `The headline's documented payout request is ${formatCurrency(detail.headlineRequest, 2)}, but this number used the payout-size optimum of ${formatCurrency(detail.engineRequest, 2)}.`;
         }
         case DifferenceReason.PersonalCap: {
-            return `Capped by your personal max risk per trade of $${detail.cap.toFixed(2)}.`;
+            return `Capped by your personal max risk per trade of ${formatCurrency(detail.cap, 2)}.`;
         }
         case DifferenceReason.PlanRulesChanged: {
             return "This plan's rules changed since the advice was computed; refresh it.";
         }
         case DifferenceReason.RemainingTargetCap: {
-            return `Capped at the $${detail.remaining.toFixed(2)} remaining to the profit target.`;
+            return `Capped at the ${formatCurrency(detail.remaining, 2)} remaining to the profit target.`;
         }
         case DifferenceReason.RetainedCushionBasis: {
-            return `Retained cushion is the larger of the rulebook's $${detail.rulebookCushion.toFixed(2)} and D4's $${detail.d4Cushion.toFixed(2)}.`;
+            return `Retained cushion is the larger of the rulebook's ${formatCurrency(detail.rulebookCushion, 2)} and D4's ${formatCurrency(detail.d4Cushion, 2)}.`;
         }
         case DifferenceReason.StaleAdvice: {
             return `This advice is from the ${detail.snapshotDate} snapshot and is stale; rung amounts are withheld.`;
@@ -227,7 +227,7 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return `Placed as ${detail.contracts} whole contract${detail.contracts === 1 ? '' : 's'}, rounded down from the documented risk.`;
         }
         case DifferenceReason.WithinNoise: {
-            return `The $${detail.gap.toFixed(2)} gap is within $${detail.threshold.toFixed(2)} of noise; treat these as the same.`;
+            return `The ${formatCurrency(detail.gap, 2)} gap is within ${formatCurrency(detail.threshold, 2)} of noise; treat these as the same.`;
         }
         case DifferenceReason.WouldTriggerLive: {
             return `This would trigger a live-account transition: ${liveTriggerCountText(detail.trigger)}.`;

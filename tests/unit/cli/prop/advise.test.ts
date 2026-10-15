@@ -1843,7 +1843,7 @@ describe('prop advise text carries no raw JSON or policy key (PT-109 step 6, F-1
             candidate.includes('documented payout request'),
         );
         expect(line).toContain('$500.00');
-        expect(line).toContain('$3000.00');
+        expect(line).toContain('$3,000.00');
         expect(lines.join('\n')).not.toContain('documented-$');
         expect(lines.join('\n')).not.toContain('payout-size-sweep-optimum');
     });

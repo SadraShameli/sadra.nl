@@ -14,6 +14,8 @@ import { type CalculatorState } from '~/app/(app)/prop-calculator/_components/ty
 import { WorkerTaskPhase } from '~/app/(app)/prop-calculator/_components/workerTaskState';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 
+import { chosenObjective, pickObjective } from './objectiveSelect';
+
 const box = vi.hoisted(() => ({
     accountPolicy: null as null | PropCalculatorModule.FirmAccountPolicy,
 }));
@@ -305,24 +307,12 @@ describe('FundedOptimizerView follows and names the shared objective (PT-83, F-V
         expect(container.textContent).toContain(RUIN_FIRST_RISK_TABLE_NOTE);
     });
 
-    it('mounts the shared objective chip in place of the old Monthly or Cycle toggle', () => {
+    it('mounts the shared objective chip in place of the old Monthly or Cycle toggle', async () => {
         renderView(SizingObjective.MonthlyNet);
-        const chip = container.querySelector<HTMLSelectElement>(
-            'select[aria-label="Ranking objective"]',
-        );
-        if (chip === null) throw new Error('objective chip missing');
-        expect(chip.value).toBe(SizingObjective.MonthlyNet);
+        expect(chosenObjective(container)).toBe(SizingObjective.MonthlyNet);
         expect(container.textContent).not.toContain('This run only');
         expect(container.textContent).not.toContain('Steady state');
-        act(() => {
-            Reflect.set(
-                HTMLSelectElement.prototype,
-                'value',
-                SizingObjective.CycleCash,
-                chip,
-            );
-            chip.dispatchEvent(new Event('change', { bubbles: true }));
-        });
+        await pickObjective(container, SizingObjective.CycleCash);
         expect(dispatched.actions).toStrictEqual([
             {
                 objective: SizingObjective.CycleCash,

@@ -16,9 +16,15 @@ import {
     type LadderSearchState,
 } from '~/app/(app)/prop-calculator/_components/ladderSearchTypes';
 import {
+    RUNG_SIZING_LABELS,
+    UNAFFORDABLE_RUNG_LABEL,
+} from '~/app/(app)/prop-calculator/_components/rungSizingLabels';
+import { formatGateCurrency } from '~/lib/format';
+import {
     ApexVariant,
     DayStopRuleKind,
     FirmId,
+    INSTRUMENTS,
     InstrumentSymbol,
     type LadderScore,
     type Plan,
@@ -26,6 +32,12 @@ import {
     type SimInputs,
 } from '~/lib/prop-calculator';
 import { findFirm } from '~/lib/prop-calculator/firms';
+
+import {
+    labelledControl,
+    labelledSelect,
+    selectedText,
+} from './labelledControl';
 
 interface RestoreHarness {
     ladderSlot: LadderResultSlot | null;
@@ -151,10 +163,8 @@ describe('LadderLabPanel restored from the result slot', () => {
         });
     }
 
-    function fieldValue(label: string): string | undefined {
-        return [...container.querySelectorAll('label')]
-            .find((candidate) => candidate.textContent.startsWith(label))
-            ?.querySelector('input')?.value;
+    function fieldValue(label: string): string {
+        return labelledControl(container, label, HTMLInputElement).value;
     }
 
     function rowApply(): HTMLButtonElement[] {
@@ -216,14 +226,12 @@ describe('LadderLabPanel restored from the result slot', () => {
         expect(fieldValue('Step')).toBe('50');
         expect(fieldValue('Rungs')).toBe('3');
         expect(fieldValue('Sims per ladder')).toBe('1234');
+        expect(selectedText(labelledSelect(container, 'Instrument'))).toBe(
+            `${InstrumentSymbol.ES} (${formatGateCurrency(INSTRUMENTS[InstrumentSymbol.ES].pointValue)}/pt)`,
+        );
         expect(
-            container.querySelector<HTMLSelectElement>('#ladder-lab-instrument')
-                ?.value,
-        ).toBe(InstrumentSymbol.ES);
-        const rungSizing = [...container.querySelectorAll('label')]
-            .find((label) => label.textContent.startsWith('Unaffordable rung'))
-            ?.querySelector('select');
-        expect(rungSizing?.value).toBe(RungSizing.SkipIfUnaffordable);
+            selectedText(labelledSelect(container, UNAFFORDABLE_RUNG_LABEL)),
+        ).toBe(RUNG_SIZING_LABELS[RungSizing.SkipIfUnaffordable]);
         const dayStopLabel = container.querySelector(
             'label[for="ladder-day-stop-rule"]',
         );

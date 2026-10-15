@@ -146,7 +146,7 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
             'you need at least $4,300 (43 attempts) at this plan for your threshold',
         );
         const alert = container.querySelector('[role="alert"]');
-        expect(alert?.className).toContain('text-rose-400');
+        expect(alert?.className).toContain('text-destructive');
     });
 
     it('repeats the figure the minimum budget card shows', () => {

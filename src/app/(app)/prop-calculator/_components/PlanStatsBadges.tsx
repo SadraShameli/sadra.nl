@@ -1,5 +1,6 @@
 'use client';
 
+import { Badge } from '~/components/ui/Badge';
 import { type Plan, TradingPhase } from '~/lib/prop-calculator';
 import { DRAWDOWN_KIND_TEXT } from '~/lib/prop-calculator/describe';
 import { cn } from '~/lib/utilities';
@@ -8,7 +9,7 @@ import { describeConsistencyBadge } from './consistencyBadge';
 import { dailyLossLimitLabel } from './dailyLossLimitLabel';
 import { ptddColor } from './metricColors';
 
-interface BadgeProperties {
+interface PlanStatProperties {
     label: string;
     value: string;
     valueClassName?: string;
@@ -31,28 +32,31 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
         <div
             className={cn(
                 'app-prop-calculator__plan-stats-badges',
-                'flex flex-col gap-y-1 text-xs md:flex-row md:flex-wrap md:items-center md:gap-x-5',
+                'flex flex-wrap items-center gap-2',
             )}
         >
-            <Badge
+            <PlanStat
                 label="PT:DD"
                 value={`${ptdd.toFixed(2)}×`}
                 valueClassName={ptddColor(ptdd)}
             />
-            <Badge
+            <PlanStat
                 label="Drawdown"
                 value={DRAWDOWN_KIND_TEXT[plan.drawdown.kind]}
                 valueClassName="inline-block first-letter:uppercase"
             />
-            <Badge label="Payout" value={payoutLabel} />
+            <PlanStat label="Payout" value={payoutLabel} />
             {plan.minTradingDays > 0 && (
-                <Badge label="Min days" value={String(plan.minTradingDays)} />
+                <PlanStat
+                    label="Min days"
+                    value={String(plan.minTradingDays)}
+                />
             )}
             {consistencyLabel !== null && (
-                <Badge label="Consistency" value={consistencyLabel} />
+                <PlanStat label="Consistency" value={consistencyLabel} />
             )}
             {dailyLossLimitValue !== null && (
-                <Badge
+                <PlanStat
                     label="Daily loss"
                     value={
                         isDailyLossLimitHard
@@ -68,17 +72,6 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
     );
 }
 
-function Badge({ label, value, valueClassName = '' }: BadgeProperties) {
-    return (
-        <span className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">{label}</span>
-            <span className={`font-mono font-semibold ${valueClassName}`}>
-                {value}
-            </span>
-        </span>
-    );
-}
-
 function payoutShareLabel(plan: Plan): string {
     const schedule = plan.payoutSplit.schedule;
     const first = schedule[0]?.tiers[0]?.traderShare ?? 1;
@@ -86,4 +79,15 @@ function payoutShareLabel(plan: Plan): string {
     const firstPct = (first * 100).toFixed(0);
     const lastPct = (last * 100).toFixed(0);
     return firstPct === lastPct ? `${firstPct}%` : `${firstPct}–${lastPct}%`;
+}
+
+function PlanStat({ label, value, valueClassName }: PlanStatProperties) {
+    return (
+        <Badge className="gap-1.5 font-normal" variant="outline">
+            <span className="text-muted-foreground">{label}</span>
+            <span className={cn('font-mono font-semibold', valueClassName)}>
+                {value}
+            </span>
+        </Badge>
+    );
 }

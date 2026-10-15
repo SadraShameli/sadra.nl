@@ -8,6 +8,7 @@ import {
     type SameEvOutcome,
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { Field, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
 import {
     formatGateCurrency,
@@ -66,13 +67,10 @@ export function SameEvCard() {
             title="Same EV, different risk"
         >
             <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                    <label
-                        className="text-xs font-medium text-muted-foreground"
-                        htmlFor="bankroll-same-ev-bankroll"
-                    >
+                <Field>
+                    <FieldLabel htmlFor="bankroll-same-ev-bankroll">
                         Bankroll ($)
-                    </label>
+                    </FieldLabel>
                     <Input
                         id="bankroll-same-ev-bankroll"
                         inputMode="decimal"
@@ -84,14 +82,11 @@ export function SameEvCard() {
                         placeholder="Enter your bankroll"
                         type="number"
                     />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label
-                        className="text-xs font-medium text-muted-foreground"
-                        htmlFor="bankroll-same-ev-risk-b"
-                    >
+                </Field>
+                <Field>
+                    <FieldLabel htmlFor="bankroll-same-ev-risk-b">
                         Strategy B risk per trade ($)
-                    </label>
+                    </FieldLabel>
                     <Input
                         aria-describedby={
                             riskB === null
@@ -108,7 +103,7 @@ export function SameEvCard() {
                         placeholder="e.g. 500"
                         type="number"
                     />
-                </div>
+                </Field>
             </div>
             {riskB === null ? null : (
                 <p

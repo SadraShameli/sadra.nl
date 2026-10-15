@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import { Field, FieldGroup, FieldLabel } from '~/components/ui/Field';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { Input } from '~/components/ui/Input';
 import {
@@ -60,6 +61,7 @@ import {
 } from './feePreview';
 import { KPI_ACCENT_TEXT_CLASS, KpiAccent, roiAccent } from './kpiAccent';
 import { panelDescriptions } from './kpiDescriptions';
+import { PercentInput } from './PercentInput';
 import { portfolioCacheKey } from './portfolioCacheKey';
 import { describeResetFee, hasResetOption } from './retryDescription';
 import { partitionBySizing, type SizingRefusal } from './simulationFailure';
@@ -427,18 +429,15 @@ function CouponCell({
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-80">
-                <div className="flex flex-col gap-3">
-                    <p className="text-xs font-semibold">Coupon discounts</p>
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs text-muted-foreground"
-                                htmlFor={`eval-discount-${entry.id}`}
-                            >
+                <FieldGroup className="gap-4">
+                    <p className="text-sm font-semibold">Coupon discounts</p>
+                    <Field data-disabled={plan.fees.oneTimeEval === 0}>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel htmlFor={`eval-discount-${entry.id}`}>
                                 Eval fee discount
-                            </label>
+                            </FieldLabel>
                             {plan.fees.oneTimeEval > 0 && (
-                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                     {describeEvalFee(
                                         plan.fees,
                                         purchaseDiscounts,
@@ -446,39 +445,29 @@ function CouponCell({
                                 </span>
                             )}
                         </div>
-                        <div className="relative">
-                            <Input
-                                className="pr-7"
-                                disabled={plan.fees.oneTimeEval === 0}
-                                id={`eval-discount-${entry.id}`}
-                                max={100}
-                                min={0}
-                                onChange={(event) =>
-                                    onUpdate(entry.id, {
-                                        evalDiscountPercent: Number(
-                                            event.target.value,
-                                        ),
-                                    })
-                                }
-                                step={1}
-                                type="number"
-                                value={entry.evalDiscountPercent || ''}
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                %
-                            </span>
-                        </div>
-                    </div>
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs text-muted-foreground"
+                        <PercentInput
+                            id={`eval-discount-${entry.id}`}
+                            isDisabled={plan.fees.oneTimeEval === 0}
+                            onChange={(evalDiscountPercent) =>
+                                onUpdate(entry.id, { evalDiscountPercent })
+                            }
+                            value={entry.evalDiscountPercent}
+                        />
+                    </Field>
+                    <Field
+                        data-disabled={
+                            plan.fees.activation === 0 ||
+                            entry.linkActivationDiscount
+                        }
+                    >
+                        <div className="flex items-center justify-between">
+                            <FieldLabel
                                 htmlFor={`activation-discount-${entry.id}`}
                             >
                                 Activation fee discount
-                            </label>
+                            </FieldLabel>
                             {plan.fees.activation > 0 && (
-                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                     {describeActivationFee(
                                         plan.fees,
                                         purchaseDiscounts,
@@ -487,38 +476,25 @@ function CouponCell({
                             )}
                         </div>
                         <div className="flex items-stretch gap-2">
-                            <div className="relative flex-1">
-                                <Input
-                                    className="pr-7"
-                                    disabled={
-                                        plan.fees.activation === 0 ||
-                                        entry.linkActivationDiscount
-                                    }
-                                    id={`activation-discount-${entry.id}`}
-                                    max={100}
-                                    min={0}
-                                    onChange={(event) =>
-                                        onUpdate(entry.id, {
-                                            activationDiscountPercent: Number(
-                                                event.target.value,
-                                            ),
-                                        })
-                                    }
-                                    step={1}
-                                    type="number"
-                                    value={
-                                        (entry.linkActivationDiscount
-                                            ? entry.evalDiscountPercent
-                                            : entry.activationDiscountPercent) ||
-                                        ''
-                                    }
-                                />
-                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                    %
-                                </span>
-                            </div>
+                            <PercentInput
+                                id={`activation-discount-${entry.id}`}
+                                isDisabled={
+                                    plan.fees.activation === 0 ||
+                                    entry.linkActivationDiscount
+                                }
+                                onChange={(activationDiscountPercent) =>
+                                    onUpdate(entry.id, {
+                                        activationDiscountPercent,
+                                    })
+                                }
+                                value={
+                                    entry.linkActivationDiscount
+                                        ? entry.evalDiscountPercent
+                                        : entry.activationDiscountPercent
+                                }
+                            />
                             <Toggle
-                                className="text-xs whitespace-nowrap"
+                                className="whitespace-nowrap"
                                 disabled={plan.fees.activation === 0}
                                 onPressedChange={(isLinked: boolean) =>
                                     onUpdate(entry.id, {
@@ -532,17 +508,16 @@ function CouponCell({
                                 Match eval
                             </Toggle>
                         </div>
-                    </div>
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs text-muted-foreground"
+                    </Field>
+                    <Field data-disabled={plan.fees.monthlySubscription === 0}>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel
                                 htmlFor={`monthly-subscription-discount-${entry.id}`}
                             >
                                 Monthly subscription discount
-                            </label>
+                            </FieldLabel>
                             {plan.fees.monthlySubscription > 0 && (
-                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                     {describeMonthlySubscriptionFee(
                                         plan.fees,
                                         purchaseDiscounts,
@@ -550,69 +525,38 @@ function CouponCell({
                                 </span>
                             )}
                         </div>
-                        <div className="relative">
-                            <Input
-                                className="pr-7"
-                                disabled={plan.fees.monthlySubscription === 0}
-                                id={`monthly-subscription-discount-${entry.id}`}
-                                max={100}
-                                min={0}
-                                onChange={(event) =>
-                                    onUpdate(entry.id, {
-                                        monthlySubscriptionDiscountPercent:
-                                            Number(event.target.value),
-                                    })
-                                }
-                                step={1}
-                                type="number"
-                                value={
-                                    entry.monthlySubscriptionDiscountPercent ||
-                                    ''
-                                }
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                %
-                            </span>
-                        </div>
-                    </div>
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs text-muted-foreground"
-                                htmlFor={`reset-discount-${entry.id}`}
-                            >
+                        <PercentInput
+                            id={`monthly-subscription-discount-${entry.id}`}
+                            isDisabled={plan.fees.monthlySubscription === 0}
+                            onChange={(monthlySubscriptionDiscountPercent) =>
+                                onUpdate(entry.id, {
+                                    monthlySubscriptionDiscountPercent,
+                                })
+                            }
+                            value={entry.monthlySubscriptionDiscountPercent}
+                        />
+                    </Field>
+                    <Field data-disabled={!hasResetOption(plan.fees)}>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel htmlFor={`reset-discount-${entry.id}`}>
                                 Reset fee discount
-                            </label>
-                            <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                            </FieldLabel>
+                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 {describeResetFee(plan.fees, purchaseDiscounts)}
                             </span>
                         </div>
-                        <div className="relative">
-                            <Input
-                                className="pr-7"
-                                disabled={!hasResetOption(plan.fees)}
-                                id={`reset-discount-${entry.id}`}
-                                max={100}
-                                min={0}
-                                onChange={(event) =>
-                                    onUpdate(entry.id, {
-                                        resetDiscountPercent: Number(
-                                            event.target.value,
-                                        ),
-                                    })
-                                }
-                                step={1}
-                                type="number"
-                                value={entry.resetDiscountPercent || ''}
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                %
-                            </span>
-                        </div>
-                    </div>
+                        <PercentInput
+                            id={`reset-discount-${entry.id}`}
+                            isDisabled={!hasResetOption(plan.fees)}
+                            onChange={(resetDiscountPercent) =>
+                                onUpdate(entry.id, { resetDiscountPercent })
+                            }
+                            value={entry.resetDiscountPercent}
+                        />
+                    </Field>
                     {hasCoupon && (
                         <Button
-                            className="h-auto justify-start p-0 text-[11px] text-muted-foreground hover:text-foreground"
+                            className="w-fit px-0"
                             onClick={() =>
                                 onUpdate(entry.id, {
                                     activationDiscountPercent: 0,
@@ -624,12 +568,12 @@ function CouponCell({
                             }
                             size="sm"
                             type="button"
-                            variant="ghost"
+                            variant="link"
                         >
                             Reset discounts
                         </Button>
                     )}
-                </div>
+                </FieldGroup>
             </PopoverContent>
         </Popover>
     );
@@ -1022,17 +966,14 @@ function PositionSizingCell({
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-64">
-                <div className="flex flex-col gap-3">
-                    <p className="text-xs font-semibold">
+                <FieldGroup className="gap-4">
+                    <p className="text-sm font-semibold">
                         Contract-limit sizing
                     </p>
-                    <div>
-                        <label
-                            className="mb-1 block text-xs text-muted-foreground"
-                            htmlFor={`sizing-instrument-${entry.id}`}
-                        >
+                    <Field>
+                        <FieldLabel htmlFor={`sizing-instrument-${entry.id}`}>
                             Instrument
-                        </label>
+                        </FieldLabel>
                         <Select
                             onValueChange={(v) =>
                                 onUpdate(entry.id, {
@@ -1044,10 +985,7 @@ function PositionSizingCell({
                             }
                             value={entry.instrument ?? 'global'}
                         >
-                            <SelectTrigger
-                                className="h-7 w-full text-xs"
-                                id={`sizing-instrument-${entry.id}`}
-                            >
+                            <SelectTrigger id={`sizing-instrument-${entry.id}`}>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1064,15 +1002,12 @@ function PositionSizingCell({
                                 ))}
                             </SelectContent>
                         </Select>
-                    </div>
+                    </Field>
                     {hasOverride && (
-                        <div>
-                            <label
-                                className="mb-1 block text-xs text-muted-foreground"
-                                htmlFor={`sizing-stop-${entry.id}`}
-                            >
+                        <Field>
+                            <FieldLabel htmlFor={`sizing-stop-${entry.id}`}>
                                 Stop distance (points)
-                            </label>
+                            </FieldLabel>
                             <Input
                                 id={`sizing-stop-${entry.id}`}
                                 min={0.25}
@@ -1087,11 +1022,11 @@ function PositionSizingCell({
                                 type="number"
                                 value={entry.stopPoints ?? ''}
                             />
-                        </div>
+                        </Field>
                     )}
                     {hasOverride && (
                         <Button
-                            className="h-auto justify-start p-0 text-[11px] text-muted-foreground hover:text-foreground"
+                            className="w-fit px-0"
                             onClick={() =>
                                 onUpdate(entry.id, {
                                     instrument: null,
@@ -1100,12 +1035,12 @@ function PositionSizingCell({
                             }
                             size="sm"
                             type="button"
-                            variant="ghost"
+                            variant="link"
                         >
                             Use global setting
                         </Button>
                     )}
-                </div>
+                </FieldGroup>
             </PopoverContent>
         </Popover>
     );

@@ -13,8 +13,19 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Badge } from '~/components/ui/Badge';
 import { Card } from '~/components/ui/Card';
+import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '~/components/ui/Table';
 import { CENTS_PER_DOLLAR } from '~/lib/prop-calculator';
 import { type CopySplitFundedSizing } from '~/lib/prop-calculator/advisor/policy';
 import { stableJson } from '~/lib/stableJson';
@@ -146,20 +157,16 @@ export default function CopySplitSection() {
                     this page.
                 </p>
                 <RulebookSourceNotice source={rulebookSource} />
-                <div className="flex flex-wrap items-end gap-4">
-                    <div className="flex flex-col gap-1">
-                        <label
-                            className="text-xs text-muted-foreground"
-                            htmlFor={totalRiskId}
-                        >
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <Field data-invalid={totalRiskIssue !== null}>
+                        <FieldLabel htmlFor={totalRiskId}>
                             Total risk per trade ($)
-                        </label>
+                        </FieldLabel>
                         <Input
                             {...invalidFieldProps(
                                 totalRiskIssue !== null,
                                 totalRiskIssueId,
                             )}
-                            className="h-8 w-32"
                             id={totalRiskId}
                             inputMode="decimal"
                             onChange={(event) =>
@@ -170,20 +177,21 @@ export default function CopySplitSection() {
                             }
                             value={text.totalRisk}
                         />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label
-                            className="text-xs text-muted-foreground"
-                            htmlFor={splitsId}
-                        >
+                        {totalRiskIssue !== null && (
+                            <FieldError id={totalRiskIssueId}>
+                                {totalRiskIssue}
+                            </FieldError>
+                        )}
+                    </Field>
+                    <Field data-invalid={splitsIssue !== null}>
+                        <FieldLabel htmlFor={splitsId}>
                             Splits (accounts, comma separated)
-                        </label>
+                        </FieldLabel>
                         <Input
                             {...invalidFieldProps(
                                 splitsIssue !== null,
                                 splitsIssueId,
                             )}
-                            className="h-8 w-48"
                             id={splitsId}
                             onChange={(event) =>
                                 setText((current) => ({
@@ -193,20 +201,21 @@ export default function CopySplitSection() {
                             }
                             value={text.splits}
                         />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label
-                            className="text-xs text-muted-foreground"
-                            htmlFor={fundedRiskId}
-                        >
+                        {splitsIssue !== null && (
+                            <FieldError id={splitsIssueId}>
+                                {splitsIssue}
+                            </FieldError>
+                        )}
+                    </Field>
+                    <Field data-invalid={fundedRisk === null}>
+                        <FieldLabel htmlFor={fundedRiskId}>
                             Funded risk per trade, per account ($)
-                        </label>
+                        </FieldLabel>
                         <Input
                             {...invalidFieldProps(
                                 fundedRisk === null,
                                 fundedRiskIssueId,
                             )}
-                            className="h-8 w-32"
                             id={fundedRiskId}
                             inputMode="decimal"
                             onChange={(event) =>
@@ -214,44 +223,22 @@ export default function CopySplitSection() {
                             }
                             value={fundedRiskShown}
                         />
-                    </div>
+                        {fundedRisk === null && (
+                            <FieldError id={fundedRiskIssueId}>
+                                funded risk must be a positive dollar amount
+                            </FieldError>
+                        )}
+                    </Field>
                 </div>
-                {totalRiskIssue !== null && (
-                    <p
-                        className="text-xs text-rose-400"
-                        id={totalRiskIssueId}
-                        role="alert"
-                    >
-                        {totalRiskIssue}
-                    </p>
-                )}
-                {splitsIssue !== null && (
-                    <p
-                        className="text-xs text-rose-400"
-                        id={splitsIssueId}
-                        role="alert"
-                    >
-                        {splitsIssue}
-                    </p>
-                )}
-                {fundedRisk === null && (
-                    <p
-                        className="text-xs text-rose-400"
-                        id={fundedRiskIssueId}
-                        role="alert"
-                    >
-                        funded risk must be a positive dollar amount
-                    </p>
-                )}
                 {isComputing && (
                     <p className="text-xs text-muted-foreground" role="status">
                         Computing the splits...
                     </p>
                 )}
                 {failureReason !== null && hasRequest && (
-                    <p className="text-xs text-rose-400" role="alert">
-                        {failureReason}
-                    </p>
+                    <Alert variant="destructive">
+                        <AlertDescription>{failureReason}</AlertDescription>
+                    </Alert>
                 )}
                 {header !== null && (
                     <>
@@ -276,78 +263,67 @@ export default function CopySplitSection() {
                     </>
                 )}
                 {rows.length > 0 && (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                            <thead>
-                                <tr className="text-muted-foreground">
-                                    <th className="py-1 pr-3">Split</th>
-                                    <th className="py-1 pr-3">Eval pass</th>
-                                    <th className="py-1 pr-3">
-                                        Days to pass P50
-                                    </th>
-                                    <th className="py-1 pr-3">Total fees</th>
-                                    <th className="py-1 pr-3">
-                                        Monthly net (group)
-                                    </th>
-                                    <th className="py-1 pr-3">
-                                        Cycle net (group)
-                                    </th>
-                                    <th className="py-1 pr-3">Net per fee $</th>
-                                    <th className="py-1 pr-3">Contracts</th>
-                                    <th className="py-1 pr-3">Noise</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rows.map((row) => (
-                                    <tr
-                                        className="border-t border-white/10"
-                                        key={row.splitCount}
-                                    >
-                                        <td className="py-1 pr-3 font-mono">
-                                            {row.label}
-                                        </td>
-                                        {row.isRefused ? (
-                                            <td
-                                                className="py-1 pr-3 text-amber-400"
-                                                colSpan={8}
-                                            >
-                                                Refused: {row.refusal}
-                                            </td>
-                                        ) : (
-                                            <>
-                                                <td className="py-1 pr-3 font-mono">
-                                                    {row.passRate}
-                                                </td>
-                                                <td className="py-1 pr-3 font-mono">
-                                                    {row.daysToPass}
-                                                </td>
-                                                <td className="py-1 pr-3 font-mono">
-                                                    {row.totalFees}
-                                                </td>
-                                                <td className="py-1 pr-3 font-mono">
-                                                    {row.monthlyNet}
-                                                </td>
-                                                <td className="py-1 pr-3 font-mono">
-                                                    {row.cycleNet}
-                                                </td>
-                                                <td className="py-1 pr-3 font-mono">
-                                                    {row.netPerFeeDollar}
-                                                </td>
-                                                <td className="py-1 pr-3 text-muted-foreground">
-                                                    {row.contracts}
-                                                </td>
-                                                <td className="py-1 pr-3 text-amber-400">
-                                                    {row.isWithinNoise
-                                                        ? 'within noise'
-                                                        : ''}
-                                                </td>
-                                            </>
-                                        )}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Split</TableHead>
+                                <TableHead>Eval pass</TableHead>
+                                <TableHead>Days to pass P50</TableHead>
+                                <TableHead>Total fees</TableHead>
+                                <TableHead>Monthly net (group)</TableHead>
+                                <TableHead>Cycle net (group)</TableHead>
+                                <TableHead>Net per fee $</TableHead>
+                                <TableHead>Contracts</TableHead>
+                                <TableHead>Noise</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody className="font-mono">
+                            {rows.map((row) => (
+                                <TableRow key={row.splitCount}>
+                                    <TableCell>{row.label}</TableCell>
+                                    {row.isRefused ? (
+                                        <TableCell
+                                            className="font-sans text-amber-400"
+                                            colSpan={8}
+                                        >
+                                            Refused: {row.refusal}
+                                        </TableCell>
+                                    ) : (
+                                        <>
+                                            <TableCell>
+                                                {row.passRate}
+                                            </TableCell>
+                                            <TableCell>
+                                                {row.daysToPass}
+                                            </TableCell>
+                                            <TableCell>
+                                                {row.totalFees}
+                                            </TableCell>
+                                            <TableCell>
+                                                {row.monthlyNet}
+                                            </TableCell>
+                                            <TableCell>
+                                                {row.cycleNet}
+                                            </TableCell>
+                                            <TableCell>
+                                                {row.netPerFeeDollar}
+                                            </TableCell>
+                                            <TableCell className="font-sans text-muted-foreground">
+                                                {row.contracts}
+                                            </TableCell>
+                                            <TableCell className="font-sans">
+                                                {row.isWithinNoise ? (
+                                                    <Badge variant="warning">
+                                                        within noise
+                                                    </Badge>
+                                                ) : null}
+                                            </TableCell>
+                                        </>
+                                    )}
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 )}
             </Card>
         </section>

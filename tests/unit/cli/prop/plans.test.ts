@@ -429,20 +429,22 @@ function payoutLineOf(planId: PlanId): string {
 describe('planRuleLines: per-cycle payout profit gate (N-42)', () => {
     it("shows FundedNext Legacy's $500 per-cycle gate next to its $500 first-payout gate (N-93)", () => {
         expect(payoutLineOf(legacy)).toContain(
-            'first $500 | per cycle $500 | min request $250',
+            'first $500 | since last payout at least $500, waived on the first payout | min request $250',
         );
     });
 
-    it('prints a sub-dollar per-cycle gate in cents instead of rounding it to $0', () => {
+    it('prints a one-cent per-cycle gate as above $0 instead of rounding it to $0', () => {
         const centGate = planFor(legacy).withOverrides({
             minPayoutProfitPerCycle: dollars(0.01),
         });
 
-        expect(planRuleLines(centGate).join('\n')).toContain('per cycle $0.01');
+        expect(planRuleLines(centGate).join('\n')).toContain(
+            'since last payout above $0, waived on the first payout',
+        );
     });
 
     it('prints no per-cycle segment for a plan with no per-cycle gate', () => {
-        expect(payoutLineOf(alphaStandard)).not.toContain('per cycle');
+        expect(payoutLineOf(alphaStandard)).not.toContain('since last payout');
     });
 });
 

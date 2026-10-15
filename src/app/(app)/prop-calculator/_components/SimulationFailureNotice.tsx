@@ -1,4 +1,4 @@
-import { cn } from '~/lib/utilities';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 
 interface SimulationFailureNoticeProperties {
     message: null | string;
@@ -9,13 +9,11 @@ export function SimulationFailureNotice({
 }: SimulationFailureNoticeProperties) {
     if (message === null) return null;
     return (
-        <p
-            className={cn(
-                'app-prop-calculator__simulation-failure',
-                'rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-400',
-            )}
+        <Alert
+            className="app-prop-calculator__simulation-failure"
+            variant="warning"
         >
-            {message}
-        </p>
+            <AlertDescription>{message}</AlertDescription>
+        </Alert>
     );
 }

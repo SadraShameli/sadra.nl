@@ -98,10 +98,10 @@ describe('RulesView', () => {
     it('renders one h3 and one definition list per plan', () => {
         const planCount = registryPlans().length;
         expect(container.querySelectorAll('article')).toHaveLength(planCount);
-        expect(container.querySelectorAll(':scope article > h3')).toHaveLength(
+        expect(container.querySelectorAll(':scope article h3')).toHaveLength(
             planCount,
         );
-        expect(container.querySelectorAll(':scope article > dl')).toHaveLength(
+        expect(container.querySelectorAll(':scope article dl')).toHaveLength(
             planCount,
         );
     });
@@ -128,7 +128,7 @@ describe('RulesView', () => {
 
     it('marks only the non-purchasable plans with the CLI availability label', () => {
         const headings = textsOf(
-            container.querySelectorAll(':scope article > h3'),
+            container.querySelectorAll(':scope article h3'),
         );
         const plans = registryPlans();
         expect(plans.some((plan) => !plan.isPurchasable)).toBe(true);
@@ -136,7 +136,7 @@ describe('RulesView', () => {
             expect(headings[index]).toBe(
                 plan.isPurchasable
                     ? plan.label
-                    : `${plan.label}[${PLAN_AVAILABILITY_LABEL[plan.availability]}]`,
+                    : `${plan.label}${PLAN_AVAILABILITY_LABEL[plan.availability]}`,
             );
         }
     });

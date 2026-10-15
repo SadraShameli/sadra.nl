@@ -56,8 +56,18 @@ import {
 import { payoutStakeViewOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
 import { type AssumptionView } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceViewModel';
 import { AssumptionsList } from '~/app/(app)/prop-calculator/accounts/_components/advice/AssumptionsList';
+import { Badge } from '~/components/ui/Badge';
+import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
+import {
+    Table,
+    TableBody,
+    TableCaption,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '~/components/ui/Table';
 import { formatGateCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -103,7 +113,6 @@ import { noiseVerdict, NoiseVerdict } from '~/lib/prop-calculator/stats';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
 import { cn } from '~/lib/utilities';
 
-const FIELD_LABEL_CLASS = 'text-xs font-medium text-muted-foreground';
 const INPUTS_HEADING_ID = 'payout-planner-inputs-heading';
 const OUTLOOK_HEADING_ID = 'payout-planner-outlook-heading';
 const READINESS_HEADING_ID = 'payout-planner-readiness-heading';
@@ -640,10 +649,8 @@ function PayoutPlannerCountField({
     const isInvalid = parsePayoutPlannerCount(text) === null;
     const hintId = `${id}-hint`;
     return (
-        <div className="flex flex-col gap-1">
-            <Label className={FIELD_LABEL_CLASS} htmlFor={id}>
-                {label}
-            </Label>
+        <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
             <Input
                 aria-describedby={isInvalid ? hintId : undefined}
                 aria-invalid={isInvalid}
@@ -659,11 +666,9 @@ function PayoutPlannerCountField({
                 value={text}
             />
             {isInvalid ? (
-                <p className="text-xs text-amber-400" id={hintId}>
-                    {invalidText}
-                </p>
+                <FieldError id={hintId}>{invalidText}</FieldError>
             ) : null}
-        </div>
+        </Field>
     );
 }
 
@@ -695,10 +700,8 @@ function PayoutPlannerDollarField<T extends number>({
     const isInvalid = !(allowEmpty && isEmpty) && parse(text) === null;
     const hintId = `${id}-hint`;
     return (
-        <div className="flex flex-col gap-1">
-            <Label className={FIELD_LABEL_CLASS} htmlFor={id}>
-                {label}
-            </Label>
+        <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
             <Input
                 aria-describedby={isInvalid ? hintId : undefined}
                 aria-invalid={isInvalid}
@@ -719,11 +722,9 @@ function PayoutPlannerDollarField<T extends number>({
                 value={text}
             />
             {isInvalid ? (
-                <p className="text-xs text-amber-400" id={hintId}>
-                    {invalidText}
-                </p>
+                <FieldError id={hintId}>{invalidText}</FieldError>
             ) : null}
-        </div>
+        </Field>
     );
 }
 
@@ -832,13 +833,10 @@ function PayoutPlannerInputs({
                 parse={parsePayoutPlannerOptionalDollars}
                 value={state.floorAtLastPayout}
             />
-            <div className="flex flex-col gap-1">
-                <Label
-                    className={FIELD_LABEL_CLASS}
-                    htmlFor="payout-planner-last-payout-on"
-                >
+            <Field>
+                <FieldLabel htmlFor="payout-planner-last-payout-on">
                     Last payout date (optional)
-                </Label>
+                </FieldLabel>
                 <Input
                     id="payout-planner-last-payout-on"
                     onChange={(event) => {
@@ -850,7 +848,7 @@ function PayoutPlannerInputs({
                     type="date"
                     value={state.lastPayoutOn ?? ''}
                 />
-            </div>
+            </Field>
         </div>
     );
 }
@@ -1199,35 +1197,30 @@ function PayoutSweepOutcome({
                 payout, T32); the credit-free realized monthly net is shown
                 alongside.
             </p>
-            <table className="w-full text-sm">
-                <caption className="sr-only">{SWEEP_TABLE_CAPTION}</caption>
-                <thead>
-                    <tr className="text-left text-xs text-muted-foreground">
-                        <th className="py-1 pr-4" scope="col">
-                            Request size
-                        </th>
-                        <th className="py-1 pr-4" scope="col">
+            <Table>
+                <TableCaption className="sr-only">
+                    {SWEEP_TABLE_CAPTION}
+                </TableCaption>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead scope="col">Request size</TableHead>
+                        <TableHead scope="col">
                             Credit-inclusive net/mo (± SE)
-                        </th>
-                        <th className="py-1 pr-4" scope="col">
+                        </TableHead>
+                        <TableHead scope="col">
                             Credit-free net/mo (± SE)
-                        </th>
-                        <th
-                            className={isTransferPriced ? 'py-1 pr-4' : 'py-1'}
-                            scope="col"
-                        >
+                        </TableHead>
+                        <TableHead scope="col">
                             Bust probability (± SE)
-                        </th>
+                        </TableHead>
                         {isTransferPriced ? (
-                            <th className="py-1" scope="col">
-                                Sent live
-                            </th>
+                            <TableHead scope="col">Sent live</TableHead>
                         ) : null}
-                    </tr>
-                </thead>
-                <tbody>
+                    </TableRow>
+                </TableHeader>
+                <TableBody className="tabular-nums">
                     {optimum.rows.map((row) => (
-                        <tr
+                        <TableRow
                             className={
                                 row.requestSize === documentedSize
                                     ? 'font-semibold text-white'
@@ -1235,18 +1228,19 @@ function PayoutSweepOutcome({
                             }
                             key={row.requestSize}
                         >
-                            <td className="py-1 pr-4 tabular-nums">
-                                {formatGateCurrency(row.requestSize)}
-                                {sweepRowTags(row, optimum, documentedSize).map(
-                                    (tag) => (
-                                        <span
-                                            className="ml-2 text-xs font-normal text-amber-400"
-                                            key={tag}
-                                        >
+                            <TableCell>
+                                <span className="flex flex-wrap items-center gap-2">
+                                    {formatGateCurrency(row.requestSize)}
+                                    {sweepRowTags(
+                                        row,
+                                        optimum,
+                                        documentedSize,
+                                    ).map((tag) => (
+                                        <Badge key={tag} variant="warning">
                                             {tag}
-                                        </span>
-                                    ),
-                                )}
+                                        </Badge>
+                                    ))}
+                                </span>
                                 {row.firmMinimumAboveRequest === null ? null : (
                                     <div className="text-xs font-normal">
                                         firm minimum{' '}
@@ -1271,44 +1265,38 @@ function PayoutSweepOutcome({
                                             .join(', ')}
                                     </div>
                                 ) : null}
-                            </td>
-                            <td className="py-1 pr-4 tabular-nums">
+                            </TableCell>
+                            <TableCell>
                                 {formatGateCurrency(creditInclusiveOf(row))}
                                 {standardErrorText(
                                     creditInclusiveStandardErrorOf(row),
                                 )}
-                            </td>
-                            <td className="py-1 pr-4 tabular-nums">
+                            </TableCell>
+                            <TableCell>
                                 {formatGateCurrency(creditFreeOf(row))}
                                 {standardErrorText(
                                     creditFreeStandardErrorOf(row),
                                 )}
-                            </td>
-                            <td
-                                className={
-                                    isTransferPriced
-                                        ? 'py-1 pr-4 tabular-nums'
-                                        : 'py-1 tabular-nums'
-                                }
-                            >
+                            </TableCell>
+                            <TableCell>
                                 {formatPercent(row.out.fundedBustProbability)}
                                 {standardErrorText(
                                     row.out.estimates.fundedBustProbability
                                         .standardError,
                                     formatPercent,
                                 )}
-                            </td>
+                            </TableCell>
                             {isTransferPriced ? (
-                                <td className="py-1 tabular-nums">
+                                <TableCell>
                                     {formatPercent(
                                         row.out.liveTransferProbability,
                                     )}
-                                </td>
+                                </TableCell>
                             ) : null}
-                        </tr>
+                        </TableRow>
                     ))}
-                </tbody>
-            </table>
+                </TableBody>
+            </Table>
             <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {sweepOptimumNotes(optimum, documentedSize).map((note) => (
                     <li key={note}>{note}</li>

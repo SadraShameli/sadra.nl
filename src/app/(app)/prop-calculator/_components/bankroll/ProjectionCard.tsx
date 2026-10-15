@@ -15,6 +15,14 @@ import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToo
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '~/components/ui/Table';
+import {
     formatCompactCurrency,
     formatGateCurrency,
     formatPercent,
@@ -346,50 +354,42 @@ function MonthEndBands({
                     />
                 </ComposedChart>
             </ChartContainer>
-            <div className="overflow-x-auto">
-                <table
-                    aria-label="Month-end projection"
-                    className="w-full text-left text-xs"
-                >
-                    <thead>
-                        <tr className="text-muted-foreground">
-                            <th className="py-1 pr-3">Month</th>
-                            <th className="py-1 pr-3">Bankroll P10</th>
-                            <th className="py-1 pr-3">Bankroll P50</th>
-                            <th className="py-1 pr-3">Bankroll P90</th>
-                            <th className="py-1 pr-3">Payouts (P50)</th>
-                            <th className="py-1 pr-3">Spend (P50)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {monthEnds.map((row) => (
-                            <tr
-                                className="border-t border-white/10"
-                                key={row.month}
-                            >
-                                <td className="py-1 pr-3">
-                                    {row.month} (day {row.day})
-                                </td>
-                                <td className="py-1 pr-3 font-mono">
-                                    {formatGateCurrency(row.cashP10)}
-                                </td>
-                                <td className="py-1 pr-3 font-mono">
-                                    {formatGateCurrency(row.cashP50)}
-                                </td>
-                                <td className="py-1 pr-3 font-mono">
-                                    {formatGateCurrency(row.cashP90)}
-                                </td>
-                                <td className="py-1 pr-3 font-mono">
-                                    {formatGateCurrency(row.payoutsP50)}
-                                </td>
-                                <td className="py-1 pr-3 font-mono">
-                                    {formatGateCurrency(row.spendP50)}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+            <Table aria-label="Month-end projection">
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Month</TableHead>
+                        <TableHead>Bankroll P10</TableHead>
+                        <TableHead>Bankroll P50</TableHead>
+                        <TableHead>Bankroll P90</TableHead>
+                        <TableHead>Payouts (P50)</TableHead>
+                        <TableHead>Spend (P50)</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {monthEnds.map((row) => (
+                        <TableRow key={row.month}>
+                            <TableCell>
+                                {row.month} (day {row.day})
+                            </TableCell>
+                            <TableCell className="font-mono">
+                                {formatGateCurrency(row.cashP10)}
+                            </TableCell>
+                            <TableCell className="font-mono">
+                                {formatGateCurrency(row.cashP50)}
+                            </TableCell>
+                            <TableCell className="font-mono">
+                                {formatGateCurrency(row.cashP90)}
+                            </TableCell>
+                            <TableCell className="font-mono">
+                                {formatGateCurrency(row.payoutsP50)}
+                            </TableCell>
+                            <TableCell className="font-mono">
+                                {formatGateCurrency(row.spendP50)}
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
         </div>
     );
 }

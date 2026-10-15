@@ -4,6 +4,12 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { subnavHref } from '~/app/(app)/_components/routeSubnavLinks';
+import {
+    Card,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '~/components/ui/Card';
 import { cn } from '~/lib/utilities';
 
 import { readLastToolQuery } from './lastToolQuery';
@@ -77,7 +83,7 @@ export function HubToolCards() {
                                     <Link
                                         className={cn(
                                             'app-prop-calculator__hub-card',
-                                            'flex h-full flex-col gap-2 rounded-xl border border-border/60 bg-card p-5 transition-colors hover:border-primary/60 hover:bg-card/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                                            'group block h-full rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                                         )}
                                         href={hubCardHref(
                                             entry,
@@ -85,16 +91,23 @@ export function HubToolCards() {
                                         )}
                                         prefetch={false}
                                     >
-                                        <span className="flex items-center gap-2 text-base font-semibold text-white">
-                                            <Icon
-                                                aria-hidden
-                                                className="size-4 text-primary"
-                                            />
-                                            {entry.label}
-                                        </span>
-                                        <span className="text-sm text-muted-foreground">
-                                            {entry.blurb}
-                                        </span>
+                                        <Card className="h-full transition-colors group-hover:border-primary/60">
+                                            <CardHeader>
+                                                <CardTitle
+                                                    as="h3"
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    <Icon
+                                                        aria-hidden
+                                                        className="size-4 text-primary"
+                                                    />
+                                                    {entry.label}
+                                                </CardTitle>
+                                                <CardDescription>
+                                                    {entry.blurb}
+                                                </CardDescription>
+                                            </CardHeader>
+                                        </Card>
                                     </Link>
                                 </li>
                             );

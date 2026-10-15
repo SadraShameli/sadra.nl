@@ -36,6 +36,12 @@ import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
+import {
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
 import {
     Select,
@@ -55,7 +61,6 @@ import { RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 
 const START_TIER = 'start';
-const LABEL_CLASS = 'text-xs font-medium text-muted-foreground';
 const OPTIONAL_PLACEHOLDER = 'Optional, leave blank to skip';
 const INPUTS_HEADING_ID = 'position-size-inputs-heading';
 const RESULT_HEADING_ID = 'position-size-result-heading';
@@ -201,10 +206,8 @@ function NumberField<T extends number>({
     const isInvalid = !isBlank && parse(text) === null;
     const hintId = `${id}-hint`;
     return (
-        <div className="flex flex-col gap-1">
-            <label className={LABEL_CLASS} htmlFor={id}>
-                {label}
-            </label>
+        <Field data-invalid={isInvalid}>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
             <Input
                 aria-describedby={isInvalid ? hintId : undefined}
                 aria-invalid={isInvalid}
@@ -232,11 +235,9 @@ function NumberField<T extends number>({
                 value={text}
             />
             {isInvalid ? (
-                <p className="text-xs text-amber-400" id={hintId}>
-                    {invalidText}
-                </p>
+                <FieldError id={hintId}>{invalidText}</FieldError>
             ) : null}
-        </div>
+        </Field>
     );
 }
 
@@ -285,13 +286,10 @@ function PositionSizeInputs({
                     value={state.stopPoints}
                 />
             </div>
-            <div className="flex flex-col gap-1">
-                <label
-                    className={LABEL_CLASS}
-                    htmlFor="position-size-instrument"
-                >
+            <Field>
+                <FieldLabel htmlFor="position-size-instrument">
                     Instrument
-                </label>
+                </FieldLabel>
                 <Select
                     onValueChange={(value) => {
                         const instrument = parsePositionSizeInstrument(value);
@@ -311,7 +309,7 @@ function PositionSizeInputs({
                         ))}
                     </SelectContent>
                 </Select>
-            </div>
+            </Field>
             {firm === undefined ? null : (
                 <FirmPlanPicker
                     firm={firm}
@@ -327,13 +325,8 @@ function PositionSizeInputs({
                 />
             )}
             <div className="grid gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1">
-                    <label
-                        className={LABEL_CLASS}
-                        htmlFor="position-size-phase"
-                    >
-                        Phase
-                    </label>
+                <Field>
+                    <FieldLabel htmlFor="position-size-phase">Phase</FieldLabel>
                     <Select
                         onValueChange={(value) => {
                             const phase = parsePositionSizePhase(value);
@@ -353,19 +346,16 @@ function PositionSizeInputs({
                         </SelectContent>
                     </Select>
                     {phases.includes(TradingPhase.Eval) ? null : (
-                        <p className="text-xs text-muted-foreground">
+                        <FieldDescription>
                             Instant-funded plan: there is no eval phase.
-                        </p>
+                        </FieldDescription>
                     )}
-                </div>
+                </Field>
                 {tiers.length === 0 ? null : (
-                    <div className="flex flex-col gap-1">
-                        <label
-                            className={LABEL_CLASS}
-                            htmlFor="position-size-tier"
-                        >
+                    <Field>
+                        <FieldLabel htmlFor="position-size-tier">
                             Funded contract tier
-                        </label>
+                        </FieldLabel>
                         <Select
                             onValueChange={(value) => {
                                 onChange({
@@ -399,7 +389,7 @@ function PositionSizeInputs({
                                 ))}
                             </SelectContent>
                         </Select>
-                    </div>
+                    </Field>
                 )}
             </div>
             <NumberField
@@ -435,10 +425,10 @@ function PositionSizeInputs({
                         value={state.retryFee}
                     />
                 ) : null}
-                <div className="flex flex-col gap-1">
-                    <label className={LABEL_CLASS} htmlFor="position-size-unit">
+                <Field>
+                    <FieldLabel htmlFor="position-size-unit">
                         Risk shown as
-                    </label>
+                    </FieldLabel>
                     <Select
                         onValueChange={(value) => {
                             const unit = parsePositionSizeUnit(value);
@@ -457,7 +447,7 @@ function PositionSizeInputs({
                             ))}
                         </SelectContent>
                     </Select>
-                </div>
+                </Field>
             </div>
         </div>
     );
