@@ -91,10 +91,6 @@
         @apply bg-background text-foreground;
     }
 
-    p {
-        @apply text-base font-normal lg:text-lg;
-    }
-
     .skip-link {
         background: hsl(var(--foreground));
         border-radius: 0.375rem;

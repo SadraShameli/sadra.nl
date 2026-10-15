@@ -38,7 +38,7 @@ export default function Footer() {
         <footer
             className={cn(
                 'app-shell__footer',
-                'relative mt-96 border-t border-white/5 bg-linear-to-b from-black to-black/95',
+                'relative mt-24 border-t border-white/5 bg-linear-to-b from-black to-black/95',
             )}
         >
             <div

@@ -36,10 +36,6 @@
     --radius-md: calc(var(--radius) - 2px);
     --radius-sm: calc(var(--radius) - 4px);
 
-    --spacing-32: 32px;
-    --spacing-64: 64px;
-    --spacing-96: 96px;
-
     --breakpoint-sm: 375px;
     --breakpoint-md: 768px;
     --breakpoint-lg: 1024px;

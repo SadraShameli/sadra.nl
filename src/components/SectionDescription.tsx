@@ -12,7 +12,12 @@ export default function SectionDescription({
 }: SectionTitleProperties) {
     return (
         <RevealAnimation>
-            <p className={cn('mx-auto mt-4 text-center lg:w-2/3', className)}>
+            <p
+                className={cn(
+                    'mx-auto mt-4 text-center text-base lg:w-2/3 lg:text-lg',
+                    className,
+                )}
+            >
                 {text}
             </p>
         </RevealAnimation>
