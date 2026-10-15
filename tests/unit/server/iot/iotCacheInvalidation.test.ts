@@ -18,7 +18,10 @@ vi.mock('next/cache', () => ({
     cacheTag: vi.fn(),
     revalidateTag: mocks.revalidateTag,
 }));
+vi.mock('~/environment', () => ({ environment: { NODE_ENV: 'test' } }));
 vi.mock('~/server/db', () => ({ db: {} }));
+vi.mock('~/lib/email', () => ({}));
+vi.mock('~/lib/notify', () => ({ scheduleFanOut: vi.fn() }));
 vi.mock('~/server/api/root', () => ({ createCaller: mocks.createCaller }));
 vi.mock('~/server/helpers/audio', () => ({
     applyAudioFilters: (buffer: Buffer) => ({ buffer, durationSeconds: 1 }),

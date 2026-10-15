@@ -148,7 +148,7 @@ export const homepageContent: HomepageData = {
         'Devices made by me, designed to record and register various climate telemetry and noise pollution data.',
     sensorHubTitle: 'This is Sensor Hub',
     sensorHubVideo: {
-        poster: '/sensorUnit-poster.jpg',
+        poster: '/sensorUnit-poster.png',
         src: '/sensorUnit.mp4',
     },
 };
