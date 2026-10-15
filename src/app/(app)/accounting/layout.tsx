@@ -1,12 +1,9 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 
-import { notFound, redirect } from 'next/navigation';
-
-import { isRoot } from '~/lib/auth/roles';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { requireRootUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 
+import { AccountingPageSkeleton } from './_components/AccountingSkeleton';
 import { AccountingSubnav } from './_components/AccountingSubnav';
 
 export const metadata = {
@@ -14,19 +11,24 @@ export const metadata = {
     title: 'Accounting Importer',
 };
 
-export default async function AccountingLayout({
+export default function AccountingLayout({
     children,
 }: {
     children: ReactNode;
 }) {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    if (!isRoot(session.user.role)) notFound();
-
     return (
         <div className={cn('app-accounting')}>
-            <AccountingSubnav />
-            {children}
+            <Suspense fallback={<AccountingPageSkeleton />}>
+                <RootOnly>
+                    <AccountingSubnav />
+                    {children}
+                </RootOnly>
+            </Suspense>
         </div>
     );
+}
+
+async function RootOnly({ children }: { children: ReactNode }) {
+    await requireRootUser();
+    return children;
 }

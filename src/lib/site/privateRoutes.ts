@@ -1,13 +1,17 @@
-import { z } from 'zod';
+import { type Route } from 'next';
 
-import { routes, withQuery } from '~/lib/site/routes';
+import {
+    type PathWithQuery,
+    routes,
+    sameOriginRouteSchema,
+    withQuery,
+} from '~/lib/site/routes';
 
-export const callbackUrlSchema = z
-    .string()
-    .max(512)
-    .regex(/^\/(?![/\\])[^\\\p{Cc}]*$/u, 'Must be a same-origin path');
+export const callbackUrlSchema = sameOriginRouteSchema;
 
 export const PRIVATE_PREFIXES: readonly string[] = [
+    routes.accounting.index,
+    routes.lifting.index,
     routes.profile,
     routes.tradeChecklist.index,
     routes.propCalculator.accounts.index,
@@ -19,7 +23,10 @@ export function isPrivatePath(pathname: string): boolean {
     );
 }
 
-export function loginRedirectFor(pathname: string, search = ''): string {
+export function loginRedirectFor(
+    pathname: string,
+    search = '',
+): PathWithQuery<typeof routes.auth.login> {
     const query = search.startsWith('?') ? search.slice(1) : search;
     const candidates =
         query === '' ? [pathname] : [`${pathname}?${query}`, pathname];
@@ -31,8 +38,12 @@ export function loginRedirectFor(pathname: string, search = ''): string {
 
 export function readCallbackUrl(
     searchParameters: Pick<URLSearchParams, 'get'>,
-): string {
+): Route {
     return callbackUrlSchema
         .catch(routes.home)
         .parse(searchParameters.get('callbackUrl'));
+}
+
+export function currentCallbackUrl(): Route {
+    return readCallbackUrl(new URLSearchParams(window.location.search));
 }

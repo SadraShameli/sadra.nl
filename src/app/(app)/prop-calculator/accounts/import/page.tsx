@@ -1,8 +1,11 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -16,17 +19,9 @@ export const metadata: Metadata = {
     title: 'Import accounts',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function PropAccountsImportPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.import));
-    }
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.externalFirm.list.prefetch();
+export default function PropAccountsImportPage() {
     return (
-        <HydrateClient>
+        <PageTransition>
             <main
                 className={cn(
                     'app-prop-accounts__import',
@@ -37,8 +32,24 @@ export default async function PropAccountsImportPage() {
                     description="Paste or upload a CSV of accounts or balance snapshots. Every row is checked before anything is saved, and nothing is saved while any row has an issue."
                     title="Import"
                 />
-                <ImportView />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <PropAccountsImportContent />
+                </Suspense>
             </main>
+        </PageTransition>
+    );
+}
+
+async function PropAccountsImportContent() {
+    const session = await getServerSession();
+    if (!session?.user.id) {
+        redirect(loginRedirectFor(routes.propCalculator.accounts.import));
+    }
+    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
+    void api.propAccounts.externalFirm.list.prefetch();
+    return (
+        <HydrateClient>
+            <ImportView />
         </HydrateClient>
     );
 }

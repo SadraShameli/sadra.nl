@@ -1,9 +1,12 @@
 import { and, desc, eq, gte } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { z } from 'zod';
 
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PrepView } from '~/app/(app)/trade-checklist/_components/PrepView';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { dailyPreparationRowSchema } from '~/lib/schemas/trading';
 import { routes } from '~/lib/site/routes';
@@ -18,9 +21,33 @@ export const metadata: Metadata = {
     title: 'Pre-market Prep',
 };
 
-export const dynamic = 'force-dynamic';
+export default function PreMarketPrepPage() {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-trade-checklist__prep-view',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <header className="mb-8">
+                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        Pre-market prep
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+                        The discipline gate before you ever pick up the mouse. Tick
+                        off the prep you finished today and let the streak speak.
+                    </p>
+                </header>
+                <Suspense fallback={<TradeChecklistDataSkeleton />}>
+                    <PreMarketPrepContent />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function PreMarketPrepPage() {
+async function PreMarketPrepContent() {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
@@ -51,28 +78,11 @@ export default async function PreMarketPrepPage() {
     const activePlanId = plans[0]?.id ?? null;
 
     return (
-        <main
-            className={cn(
-                'app-trade-checklist__prep-view',
-                'container pt-spacing pb-24',
-            )}
-        >
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    Pre-market prep
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                    The discipline gate before you ever pick up the mouse. Tick
-                    off the prep you finished today and let the streak speak.
-                </p>
-            </header>
-
-            <PrepView
-                activePlanId={activePlanId}
-                history={history}
-                today={today}
-            />
-        </main>
+        <PrepView
+            activePlanId={activePlanId}
+            history={history}
+            today={today}
+        />
     );
 }
 

@@ -1,9 +1,11 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { LogShellSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { LogShell } from '~/app/(app)/lifting/_components/log/LogShell';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/server';
 
@@ -12,23 +14,24 @@ export const metadata: Metadata = {
     title: 'Log',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function LiftingLogPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    const settings = await api.lifting.settings.get();
+export default function LiftingLogPage() {
     return (
-        <main className={cn('app-lifting__log', 'container pt-spacing pb-24')}>
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    Log
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                    One tap per set. Quick capture, no friction.
-                </p>
-            </header>
-            <LogShell initialSettings={settings} />
-        </main>
+        <PageTransition>
+            <main className={cn('app-lifting__log', 'container pt-spacing pb-24')}>
+                <LiftingPageHeader
+                    description="One tap per set. Quick capture, no friction."
+                    title="Log"
+                />
+                <Suspense fallback={<LogShellSkeleton />}>
+                    <LiftingLogContent />
+                </Suspense>
+            </main>
+        </PageTransition>
     );
+}
+
+async function LiftingLogContent() {
+    await requireSessionUser();
+    const settings = await api.lifting.settings.get();
+    return <LogShell initialSettings={settings} />;
 }

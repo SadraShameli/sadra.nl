@@ -14,16 +14,18 @@ import ProjectAIImage from '~/assets/images/projectai.jpg';
 import SadraImage from '~/assets/images/sadra.jpg';
 import SensorHubImage from '~/assets/images/units.jpg';
 
+export type ExternalUrl = `https://${string}`;
+
 export type PortfolioSectionView = {
     date: string;
     highlights?: string[];
     imageUrl?: string;
-    location?: { title: string; url?: null | string };
+    location?: { title: string; url?: ExternalUrl | null };
     role?: null | string;
     skills?: string[];
     summary?: null | string;
     title: string;
-    url?: null | string;
+    url?: ExternalUrl | null;
 };
 
 type HomepageData = {
@@ -62,7 +64,7 @@ type SiteData = {
     metaTitle: string;
     navBrand: string;
     profiles: SocialProfile[];
-    socialLinks: { platform: string; url: string }[];
+    socialLinks: { platform: string; url: ExternalUrl }[];
 };
 
 type SiteManifest = {
@@ -74,7 +76,7 @@ type SiteManifest = {
 type SocialProfile = {
     platform: string;
     title: string;
-    url: string;
+    url: ExternalUrl;
 };
 
 export const siteContent: SiteData = {

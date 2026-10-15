@@ -10,7 +10,7 @@ import {
     serializePlanId,
 } from '~/lib/prop-calculator';
 import { CalculatorUrlParameter, UrlFlag } from '~/lib/schemas/url';
-import { routes } from '~/lib/site/routes';
+import { type PathWithQuery, routes } from '~/lib/site/routes';
 
 import { keepOfferedOptIns } from './accountPlanOptions';
 
@@ -51,12 +51,12 @@ export function accountPrefillHref(
     firmId: FirmId,
     plan: Plan,
     optIns: PlanOptIns,
-): string {
+): PathWithQuery<typeof routes.propCalculator.accounts.new> {
     const query = accountPrefillQuery(
         validatedPrefill(firmId, serializePlanId(plan.id), optIns),
     );
     const base = routes.propCalculator.accounts.new;
-    return query === '' ? base : `${base}?${query}`;
+    return query === '' ? base : (`${base}?${query}` as const);
 }
 
 export function accountPrefillQuery(prefill: AccountPrefill): string {

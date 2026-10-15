@@ -1,6 +1,9 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
@@ -16,16 +19,9 @@ export const metadata: Metadata = {
     title: 'Journal edge',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function PropAccountsEdgePage() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.edge));
-    }
-    void api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
+export default function PropAccountsEdgePage() {
     return (
-        <HydrateClient>
+        <PageTransition>
             <main
                 className={cn(
                     'app-prop-accounts__edge',
@@ -41,8 +37,23 @@ export default async function PropAccountsEdgePage() {
                         win rate and reward to risk your rulebook assumes.
                     </p>
                 </header>
-                <EdgeView />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <PropAccountsEdgeContent />
+                </Suspense>
             </main>
+        </PageTransition>
+    );
+}
+
+async function PropAccountsEdgeContent() {
+    const session = await getServerSession();
+    if (!session?.user.id) {
+        redirect(loginRedirectFor(routes.propCalculator.accounts.edge));
+    }
+    void api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
+    return (
+        <HydrateClient>
+            <EdgeView />
         </HydrateClient>
     );
 }

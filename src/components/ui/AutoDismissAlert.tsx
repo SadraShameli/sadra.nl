@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
 import { Alert, type AlertProperties } from '~/components/ui/Alert';
+import { sameOriginRoute } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
 const AUTO_DISMISS_PARAMS = ['success', 'error'];
@@ -41,7 +42,7 @@ export function AutoDismissAlert({
             }
             if (!isChanged) return;
             const query = sp.toString();
-            router.replace(query ? `${pathname}?${query}` : pathname, {
+            router.replace(sameOriginRoute(pathname, query), {
                 scroll: false,
             });
         }, dismissMs + FADE_DURATION_MS);

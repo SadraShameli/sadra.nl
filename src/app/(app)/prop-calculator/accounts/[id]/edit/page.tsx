@@ -1,9 +1,12 @@
 import { type Metadata } from 'next';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { AccountEditor } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { openAccountPage } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountIdParameter';
+import { PageTransition } from '~/components/PageTransition';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
@@ -13,9 +16,32 @@ export const metadata: Metadata = {
     title: 'Edit account',
 };
 
-export const dynamic = 'force-dynamic';
+export default function EditPropAccountPage({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-prop-accounts__edit',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <AccountsPageHeader
+                    description="Change this account's plan, details and personal rules."
+                    title="Edit account"
+                />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <EditPropAccountContent params={params} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function EditPropAccountPage({
+async function EditPropAccountContent({
     params,
 }: {
     params: Promise<{ id: string }>;
@@ -31,18 +57,7 @@ export default async function EditPropAccountPage({
     void api.propAccounts.round.list.prefetch();
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-prop-accounts__edit',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <AccountsPageHeader
-                    description="Change this account's plan, details and personal rules."
-                    title="Edit account"
-                />
-                <AccountEditor id={id} />
-            </main>
+            <AccountEditor id={id} />
         </HydrateClient>
     );
 }

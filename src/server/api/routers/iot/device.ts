@@ -3,8 +3,7 @@ import { and, asc, eq, lt, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { DeviceCreatedEmail } from '~/lib/email';
-import { fanOutEvent } from '~/lib/notify';
-import { captureError } from '~/lib/observability/logger';
+import { scheduleFanOut } from '~/lib/notify';
 import {
     deviceCreateSchema,
     deviceUpdateSchema,
@@ -83,21 +82,16 @@ export const deviceRouter = createTRPCRouter({
                 })
                 .returning({ id: device.id });
 
-            void (async () => {
-                try {
-                    await fanOutEvent(
-                        'device_created',
-                        (to) =>
-                            new DeviceCreatedEmail(to, {
-                                deviceId: input.device_id,
-                                deviceName: input.name,
-                                locationName: loc.name,
-                            }),
-                    );
-                } catch (error: unknown) {
-                    captureError(error, { tag: 'device.notify' });
-                }
-            })();
+            scheduleFanOut(
+                'device_created',
+                (to) =>
+                    new DeviceCreatedEmail(to, {
+                        deviceId: input.device_id,
+                        deviceName: input.name,
+                        locationName: loc.name,
+                    }),
+                'device.notify',
+            );
 
             return { id: inserted?.id };
         }),

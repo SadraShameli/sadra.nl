@@ -1,3 +1,5 @@
+import { type Route } from 'next';
+import { cacheLife } from 'next/cache';
 import Link from 'next/link';
 
 import Eyebrow from '~/components/Eyebrow';
@@ -8,7 +10,7 @@ import { cn } from '~/lib/utilities';
 
 type Column = {
     heading: string;
-    links: { external?: boolean; href: string; label: string }[];
+    links: { external?: boolean; href: Route; label: string }[];
 };
 
 const columns: Column[] = [
@@ -30,9 +32,9 @@ const columns: Column[] = [
     },
 ];
 
-export default function Footer() {
+export default async function Footer() {
     const { metaDescription, navBrand, socialLinks } = siteContent;
-    const year = new Date().getFullYear();
+    const year = await currentYear();
 
     return (
         <footer
@@ -111,4 +113,10 @@ export default function Footer() {
             </div>
         </footer>
     );
+}
+
+async function currentYear(): Promise<number> {
+    'use cache';
+    cacheLife('days');
+    return new Date().getFullYear();
 }

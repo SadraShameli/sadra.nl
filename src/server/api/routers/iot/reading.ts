@@ -3,8 +3,7 @@ import { and, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { LoudnessAlertEmail, ReadingCreatedEmail } from '~/lib/email';
-import { fanOutEvent } from '~/lib/notify';
-import { captureError } from '~/lib/observability/logger';
+import { scheduleFanOut } from '~/lib/notify';
 import {
     adminProcedure,
     type ContextType,
@@ -230,25 +229,20 @@ export const readingRouter = createTRPCRouter({
                 .where(eq(location.id, ctx.device.location_id))
                 .limit(1);
 
-            void (async () => {
-                try {
-                    await fanOutEvent(
-                        'reading_created',
-                        (to) =>
-                            new ReadingCreatedEmail(to, {
-                                deviceName: ctx.device.name,
-                                locationName: loc?.name ?? undefined,
-                                sensorReadings: resolved.map((r) => ({
-                                    name: r.name,
-                                    unit: r.unit,
-                                    value: r.value,
-                                })),
-                            }),
-                    );
-                } catch (error: unknown) {
-                    captureError(error, { tag: 'reading.notify' });
-                }
-            })();
+            scheduleFanOut(
+                'reading_created',
+                (to) =>
+                    new ReadingCreatedEmail(to, {
+                        deviceName: ctx.device.name,
+                        locationName: loc?.name ?? undefined,
+                        sensorReadings: resolved.map((r) => ({
+                            name: r.name,
+                            unit: r.unit,
+                            value: r.value,
+                        })),
+                    }),
+                'reading.notify',
+            );
 
             const threshold = ctx.device.loudness_threshold;
             if (threshold > 0) {
@@ -260,22 +254,17 @@ export const readingRouter = createTRPCRouter({
                     loudness.value > threshold &&
                     shouldAlert(ctx.device.id)
                 ) {
-                    void (async () => {
-                        try {
-                            await fanOutEvent(
-                                'loudness_alert',
-                                (to) =>
-                                    new LoudnessAlertEmail(to, {
-                                        deviceName: ctx.device.name,
-                                        locationName: loc?.name ?? undefined,
-                                        threshold,
-                                        value: loudness.value,
-                                    }),
-                            );
-                        } catch (error: unknown) {
-                            captureError(error, { tag: 'reading.alert' });
-                        }
-                    })();
+                    scheduleFanOut(
+                        'loudness_alert',
+                        (to) =>
+                            new LoudnessAlertEmail(to, {
+                                deviceName: ctx.device.name,
+                                locationName: loc?.name ?? undefined,
+                                threshold,
+                                value: loudness.value,
+                            }),
+                        'reading.alert',
+                    );
                 }
             }
 

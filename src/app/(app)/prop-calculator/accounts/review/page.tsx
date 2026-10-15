@@ -1,6 +1,9 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -15,19 +18,9 @@ export const metadata: Metadata = {
     title: 'Weekly review',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function PropAccountsReviewPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.review));
-    }
-    void api.propAccounts.account.list.prefetch({});
-    void api.propAccounts.snapshot.latestForAll.prefetch();
-    void api.propAccounts.decision.latestForAll.prefetch();
-    void api.propAccounts.rulebook.get.prefetch();
+export default function PropAccountsReviewPage() {
     return (
-        <HydrateClient>
+        <PageTransition>
             <main
                 className={cn(
                     'app-prop-accounts__review',
@@ -44,8 +37,26 @@ export default async function PropAccountsReviewPage() {
                         sizes into the decision log.
                     </p>
                 </header>
-                <WeeklyReviewView />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <PropAccountsReviewContent />
+                </Suspense>
             </main>
+        </PageTransition>
+    );
+}
+
+async function PropAccountsReviewContent() {
+    const session = await getServerSession();
+    if (!session?.user.id) {
+        redirect(loginRedirectFor(routes.propCalculator.accounts.review));
+    }
+    void api.propAccounts.account.list.prefetch({});
+    void api.propAccounts.snapshot.latestForAll.prefetch();
+    void api.propAccounts.decision.latestForAll.prefetch();
+    void api.propAccounts.rulebook.get.prefetch();
+    return (
+        <HydrateClient>
+            <WeeklyReviewView />
         </HydrateClient>
     );
 }

@@ -1,7 +1,10 @@
 import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
+import { PageTransition } from '~/components/PageTransition';
 import type { LightAssessment } from '~/lib/trading/analytics';
 
 import { AnalyticsDashboard } from '~/app/(app)/trade-checklist/_components/AnalyticsDashboard';
@@ -17,9 +20,34 @@ export const metadata: Metadata = {
     title: 'Trade Analytics',
 };
 
-export const dynamic = 'force-dynamic';
+export default function TradeAnalyticsPage() {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-trade-checklist__analytics-dashboard',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <header className="mb-8">
+                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        Analytics
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+                        Quantified hindsight on every graded setup. Filter by plan,
+                        cross-check whether your grades actually predict outcomes,
+                        and find which components and windows have edge.
+                    </p>
+                </header>
+                <Suspense fallback={<TradeChecklistDataSkeleton />}>
+                    <TradeAnalyticsContent />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function TradeAnalyticsPage() {
+async function TradeAnalyticsContent() {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
@@ -69,23 +97,6 @@ export default async function TradeAnalyticsPage() {
     }));
 
     return (
-        <main
-            className={cn(
-                'app-trade-checklist__analytics-dashboard',
-                'container pt-spacing pb-24',
-            )}
-        >
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    Analytics
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                    Quantified hindsight on every graded setup. Filter by plan,
-                    cross-check whether your grades actually predict outcomes,
-                    and find which components and windows have edge.
-                </p>
-            </header>
-            <AnalyticsDashboard assessments={assessments} plans={plans} />
-        </main>
+        <AnalyticsDashboard assessments={assessments} plans={plans} />
     );
 }

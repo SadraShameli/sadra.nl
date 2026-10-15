@@ -1,6 +1,8 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { AccountCreator } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
@@ -9,6 +11,7 @@ import {
     parseAccountPrefill,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -20,9 +23,32 @@ export const metadata: Metadata = {
     title: 'Add account',
 };
 
-export const dynamic = 'force-dynamic';
+export default function NewPropAccountPage({
+    searchParams,
+}: {
+    searchParams: Promise<AccountPrefillParameters>;
+}) {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-prop-accounts__new',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <AccountsPageHeader
+                    description="Pick the firm and plan, then enter what the firm dashboard shows today."
+                    title="Add account"
+                />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <NewPropAccountContent searchParams={searchParams} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function NewPropAccountPage({
+async function NewPropAccountContent({
     searchParams,
 }: {
     searchParams: Promise<AccountPrefillParameters>;
@@ -43,22 +69,11 @@ export default async function NewPropAccountPage({
     void api.propAccounts.round.list.prefetch();
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-prop-accounts__new',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <AccountsPageHeader
-                    description="Pick the firm and plan, then enter what the firm dashboard shows today."
-                    title="Add account"
-                />
-                <AccountCreator
-                    initialFirm={prefill.firmId}
-                    initialOptIns={prefill.optIns}
-                    initialPlan={prefill.planSerial}
-                />
-            </main>
+            <AccountCreator
+                initialFirm={prefill.firmId}
+                initialOptIns={prefill.optIns}
+                initialPlan={prefill.planSerial}
+            />
         </HydrateClient>
     );
 }

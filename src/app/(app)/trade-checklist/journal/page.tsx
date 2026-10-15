@@ -1,9 +1,12 @@
 import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { z } from 'zod';
 
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { JournalView } from '~/app/(app)/trade-checklist/_components/JournalView';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
 import { routes } from '~/lib/site/routes';
@@ -17,9 +20,34 @@ export const metadata: Metadata = {
     title: 'Trade Journal',
 };
 
-export const dynamic = 'force-dynamic';
+export default function TradeJournalPage() {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-trade-checklist__journal-view',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <header className="mb-8">
+                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        Journal
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+                        Filter, search, and drill into every assessment you have
+                        ever graded. Filter state lives in the URL so views are
+                        shareable.
+                    </p>
+                </header>
+                <Suspense fallback={<TradeChecklistDataSkeleton />}>
+                    <TradeJournalContent />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function TradeJournalPage() {
+async function TradeJournalContent() {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
@@ -40,24 +68,6 @@ export default async function TradeJournalPage() {
     const history = z.array(tradeAssessmentRowSchema).parse(rawRows);
 
     return (
-        <main
-            className={cn(
-                'app-trade-checklist__journal-view',
-                'container pt-spacing pb-24',
-            )}
-        >
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    Journal
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                    Filter, search, and drill into every assessment you have
-                    ever graded. Filter state lives in the URL so views are
-                    shareable.
-                </p>
-            </header>
-
-            <JournalView history={history} plans={plans} />
-        </main>
+        <JournalView history={history} plans={plans} />
     );
 }

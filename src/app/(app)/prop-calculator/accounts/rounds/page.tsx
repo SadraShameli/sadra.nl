@@ -1,11 +1,14 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -20,22 +23,9 @@ export const metadata: Metadata = {
     title: 'Rounds',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function PropAccountsRoundsPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.rounds));
-    }
-    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
-    void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
-    void api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);
-    void api.propAccounts.round.list.prefetch();
-    void api.propAccounts.externalFirm.list.prefetch();
-    void api.propAccounts.rulebook.get.prefetch();
+export default function PropAccountsRoundsPage() {
     return (
-        <HydrateClient>
+        <PageTransition>
             <main
                 className={cn(
                     'app-prop-accounts__rounds',
@@ -52,8 +42,29 @@ export default async function PropAccountsRoundsPage() {
                         round.
                     </p>
                 </header>
-                <RoundsView />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <PropAccountsRoundsContent />
+                </Suspense>
             </main>
+        </PageTransition>
+    );
+}
+
+async function PropAccountsRoundsContent() {
+    const session = await getServerSession();
+    if (!session?.user.id) {
+        redirect(loginRedirectFor(routes.propCalculator.accounts.rounds));
+    }
+    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
+    void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
+    void api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT);
+    void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);
+    void api.propAccounts.round.list.prefetch();
+    void api.propAccounts.externalFirm.list.prefetch();
+    void api.propAccounts.rulebook.get.prefetch();
+    return (
+        <HydrateClient>
+            <RoundsView />
         </HydrateClient>
     );
 }

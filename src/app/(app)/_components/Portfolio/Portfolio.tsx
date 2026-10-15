@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import type { PortfolioSectionView } from '~/lib/site/content';
 
 import RevealAnimation from '~/components/ui/Animations/Reveal';
@@ -7,7 +9,6 @@ import PortfolioHero from './PortfolioHero';
 import PortfolioSection from './PortfolioSection';
 
 export type PortfolioContentProperties = {
-    canViewResume: boolean;
     education: PortfolioSectionView[];
     educationSectionTitle: string;
     email: string;
@@ -18,6 +19,7 @@ export type PortfolioContentProperties = {
     profiles: SocialProfile[];
     projects: PortfolioSectionView[];
     projectsSectionTitle: string;
+    resumeLink: ReactNode;
 };
 
 type SocialProfile = {
@@ -27,7 +29,6 @@ type SocialProfile = {
 };
 
 export default function PortfolioContent({
-    canViewResume,
     education,
     educationSectionTitle,
     email,
@@ -38,16 +39,17 @@ export default function PortfolioContent({
     profiles,
     projects,
     projectsSectionTitle,
+    resumeLink,
 }: PortfolioContentProperties) {
     return (
         <div className={cn('app-portfolio__content', 'flex flex-col')}>
             <RevealAnimation>
                 <PortfolioHero
-                    canViewResume={canViewResume}
                     email={email}
                     headline={heroHeadline}
                     name={name}
                     profiles={profiles}
+                    resumeLink={resumeLink}
                 />
             </RevealAnimation>
 

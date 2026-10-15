@@ -1,5 +1,6 @@
 'use client';
 
+import { type Route } from 'next';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -9,7 +10,7 @@ const CHARS = String.raw`!<>-\/[]{}=+*^?#@$%`;
 
 interface Properties {
     className?: string;
-    href?: string;
+    href?: Route;
     text: string;
     trigger?: number;
 }

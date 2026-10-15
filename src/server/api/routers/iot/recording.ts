@@ -3,8 +3,7 @@ import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { RecordingCreatedEmail } from '~/lib/email';
-import { fanOutEvent } from '~/lib/notify';
-import { captureError } from '~/lib/observability/logger';
+import { scheduleFanOut } from '~/lib/notify';
 import { recordingRenameSchema } from '~/lib/schemas/sensor-hub';
 import {
     adminProcedure,
@@ -145,22 +144,17 @@ export const recordingsRouter = createTRPCRouter({
                 .where(eq(location.id, ctx.device.location_id))
                 .limit(1);
 
-            void (async () => {
-                try {
-                    await fanOutEvent(
-                        'recording_created',
-                        (to) =>
-                            new RecordingCreatedEmail(to, {
-                                deviceName: ctx.device.name,
-                                durationSeconds: input.duration_seconds,
-                                fileName,
-                                locationName: loc?.name ?? undefined,
-                            }),
-                    );
-                } catch (error: unknown) {
-                    captureError(error, { tag: 'recording.notify' });
-                }
-            })();
+            scheduleFanOut(
+                'recording_created',
+                (to) =>
+                    new RecordingCreatedEmail(to, {
+                        deviceName: ctx.device.name,
+                        durationSeconds: input.duration_seconds,
+                        fileName,
+                        locationName: loc?.name ?? undefined,
+                    }),
+                'recording.notify',
+            );
 
             return { status: 201 };
         }),

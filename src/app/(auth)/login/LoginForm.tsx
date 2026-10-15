@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -18,23 +18,22 @@ import {
 import { Input } from '~/components/ui/Input';
 import { authClient } from '~/lib/auth/client';
 import { type LoginInput, loginInputSchema } from '~/lib/schemas/auth';
-import { readCallbackUrl } from '~/lib/site/privateRoutes';
+import { currentCallbackUrl } from '~/lib/site/privateRoutes';
 
 export function LoginForm() {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [topError, setTopError] = useState<null | string>(null);
-    const searchParameters = useSearchParams();
-    const callbackUrl = readCallbackUrl(searchParameters);
 
     const form = useForm<LoginInput>({
-        defaultValues: { callbackUrl, email: '', password: '' },
+        defaultValues: { email: '', password: '' },
         mode: 'onTouched',
         resolver: zodResolver(loginInputSchema),
     });
 
     const onSubmit = (data: LoginInput) => {
         setTopError(null);
+        const callbackUrl = currentCallbackUrl();
         startTransition(async () => {
             const result = await authClient.signIn.email({
                 callbackURL: callbackUrl,

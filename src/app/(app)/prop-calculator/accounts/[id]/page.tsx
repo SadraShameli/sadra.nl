@@ -1,5 +1,7 @@
 import { type Metadata } from 'next';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AdvicePanel } from '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
@@ -8,6 +10,7 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { PageTransition } from '~/components/PageTransition';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
@@ -18,9 +21,28 @@ export const metadata: Metadata = {
     title: 'Prop account',
 };
 
-export const dynamic = 'force-dynamic';
+export default function PropAccountDetailPage({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-prop-accounts__detail',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <PropAccountDetailContent params={params} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function PropAccountDetailPage({
+async function PropAccountDetailContent({
     params,
 }: {
     params: Promise<{ id: string }>;
@@ -47,18 +69,11 @@ export default async function PropAccountDetailPage({
     void api.propAccounts.decision.listForAccount.prefetch({ id });
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-prop-accounts__detail',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <AccountDetailView
-                    advice={<AdvicePanel id={id} />}
-                    id={id}
-                    userId={userId}
-                />
-            </main>
+            <AccountDetailView
+                advice={<AdvicePanel id={id} />}
+                id={id}
+                userId={userId}
+            />
         </HydrateClient>
     );
 }

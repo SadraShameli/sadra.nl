@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+import { parseSameOriginRoute } from '~/lib/site/routes';
+
 import { readLastToolQuery } from './lastToolQuery';
 import {
     hubLegacyTarget,
@@ -20,7 +22,7 @@ export function HubLegacySectionRedirect() {
         );
         if (target === null) return;
         watchLegacyFragmentScroll(target.fragment, target.route);
-        router.replace(target.href);
+        router.replace(parseSameOriginRoute(target.href));
     }, [router]);
 
     return null;

@@ -1,7 +1,10 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -18,19 +21,9 @@ export const metadata: Metadata = {
     title: 'Rulebook',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function PropRulebookPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.rulebook));
-    }
-    void api.propAccounts.rulebook.get.prefetch();
-    const tradingPlan = tradingPlanSourceFrom(
-        await loadActiveTradingPlan(session.user.id),
-    );
+export default function PropRulebookPage() {
     return (
-        <HydrateClient>
+        <PageTransition>
             <main
                 className={cn(
                     'app-prop-accounts__rulebook',
@@ -41,8 +34,26 @@ export default async function PropRulebookPage() {
                     description="The documented rules the sizing suggester will use as its headline. Every value that differs from the skill is listed, with a preview of the custom rule label that headline will carry."
                     title="Rulebook"
                 />
-                <RulebookView tradingPlan={tradingPlan} />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <PropRulebookContent />
+                </Suspense>
             </main>
+        </PageTransition>
+    );
+}
+
+async function PropRulebookContent() {
+    const session = await getServerSession();
+    if (!session?.user.id) {
+        redirect(loginRedirectFor(routes.propCalculator.accounts.rulebook));
+    }
+    void api.propAccounts.rulebook.get.prefetch();
+    const tradingPlan = tradingPlanSourceFrom(
+        await loadActiveTradingPlan(session.user.id),
+    );
+    return (
+        <HydrateClient>
+            <RulebookView tradingPlan={tradingPlan} />
         </HydrateClient>
     );
 }

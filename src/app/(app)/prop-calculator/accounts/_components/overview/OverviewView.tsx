@@ -7,7 +7,6 @@ import { memo, type ReactNode, useMemo, useState } from 'react';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
-import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
 import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
@@ -127,18 +126,6 @@ export function OverviewView({ userId }: { readonly userId: string }) {
         [values],
     );
     return (
-        <>
-            <AccountsPageHeader
-                action={
-                    <Button asChild>
-                        <Link href={routes.propCalculator.accounts.new}>
-                            Add account
-                        </Link>
-                    </Button>
-                }
-                description="Spend, payouts received and net across every account you hold, with alerts and each account's stage and latest balance."
-                title="Prop accounts"
-            />
             <div className="flex flex-col gap-8">
                 <LoadIssues issues={load.failures} variant="destructive" />
                 <LoadIssues issues={load.stale} variant="warning" />
@@ -168,7 +155,6 @@ export function OverviewView({ userId }: { readonly userId: string }) {
                     accountsTable
                 )}
             </div>
-        </>
     );
 }
 

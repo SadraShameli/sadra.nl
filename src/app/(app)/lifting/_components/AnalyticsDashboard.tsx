@@ -2,7 +2,7 @@
 
 import { eachDayOfInterval, format, getDay, subMonths } from 'date-fns';
 import { CalendarRange } from 'lucide-react';
-import { useMemo } from 'react';
+import { type ReactNode, useMemo } from 'react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { EmptyState } from '~/components/ui/EmptyState';
@@ -21,7 +21,7 @@ import {
     type WeekStart,
 } from '~/lib/lifting/types';
 import { cn } from '~/lib/utilities';
-import { api } from '~/trpc/react';
+import { api, type RouterOutputs } from '~/trpc/react';
 
 export function AnalyticsDashboard() {
     const range = useMemo(() => {
@@ -40,41 +40,59 @@ export function AnalyticsDashboard() {
     const weekStart = settings.data?.weekStart ?? 'mon';
 
     return (
+        <AnalyticsPanels
+            consistency={consistency.data}
+            heatmap={
+                <FrequencyHeatmap
+                    data={heatmap.data}
+                    from={range.from}
+                    isLoading={heatmap.isLoading}
+                    to={range.to}
+                    unitWeight={unitWeight}
+                    weekStart={weekStart}
+                />
+            }
+            unitWeight={unitWeight}
+            volume={volume.data}
+        />
+    );
+}
+
+export function AnalyticsDashboardSkeleton() {
+    return <AnalyticsPanels heatmap={<HeatmapSkeleton />} />;
+}
+
+function AnalyticsPanels({
+    consistency,
+    heatmap,
+    unitWeight = 'kg',
+    volume,
+}: {
+    readonly consistency?: RouterOutputs['lifting']['analytics']['consistency'];
+    readonly heatmap: ReactNode;
+    readonly unitWeight?: UnitWeight;
+    readonly volume?: RouterOutputs['lifting']['analytics']['volumePerMuscle'];
+}) {
+    return (
         <div className="flex flex-col gap-6">
             <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <Stat
                     label="Current streak"
-                    value={
-                        consistency.data
-                            ? `${consistency.data.currentStreak} wk`
-                            : '-'
-                    }
+                    value={consistency && `${consistency.currentStreak} wk`}
                 />
                 <Stat
                     label="Longest streak"
-                    value={
-                        consistency.data
-                            ? `${consistency.data.longestStreak} wk`
-                            : '-'
-                    }
+                    value={consistency && `${consistency.longestStreak} wk`}
                 />
                 <Stat
                     label="Sessions / week"
-                    value={
-                        consistency.data
-                            ? consistency.data.sessionsPerWeek.toFixed(1)
-                            : '-'
-                    }
+                    value={consistency?.sessionsPerWeek.toFixed(1)}
                 />
                 <Stat
                     label="Tonnage (90d)"
                     value={
-                        volume.data
-                            ? WeightUnit.format(
-                                  volume.data.tonnageKg,
-                                  unitWeight,
-                              )
-                            : '-'
+                        volume &&
+                        WeightUnit.format(volume.tonnageKg, unitWeight)
                     }
                 />
             </section>
@@ -88,8 +106,7 @@ export function AnalyticsDashboard() {
                 <CardContent>
                     <div className="flex flex-col gap-2">
                         {MUSCLE_VALUES.map((m) => {
-                            const sets = volume.data?.setsPerMuscle[m] ?? 0;
-                            const pct = Math.min(100, sets * 5);
+                            const sets = volume?.setsPerMuscle[m] ?? 0;
                             return (
                                 <div
                                     className="flex items-center gap-3"
@@ -98,13 +115,22 @@ export function AnalyticsDashboard() {
                                     <span className="w-24 text-xs text-muted-foreground capitalize">
                                         {m}
                                     </span>
-                                    <Progress
-                                        className="h-2 flex-1"
-                                        value={pct}
-                                    />
-                                    <span className="w-10 text-right text-xs tabular-nums">
-                                        {sets}
-                                    </span>
+                                    {volume ? (
+                                        <>
+                                            <Progress
+                                                className="h-2 flex-1"
+                                                value={Math.min(100, sets * 5)}
+                                            />
+                                            <span className="w-10 text-right text-xs tabular-nums">
+                                                {sets}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Skeleton className="h-2 flex-1" />
+                                            <Skeleton className="h-4 w-10" />
+                                        </>
+                                    )}
                                 </div>
                             );
                         })}
@@ -118,19 +144,14 @@ export function AnalyticsDashboard() {
                         Frequency heatmap
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <FrequencyHeatmap
-                        data={heatmap.data}
-                        from={range.from}
-                        isLoading={heatmap.isLoading}
-                        to={range.to}
-                        unitWeight={unitWeight}
-                        weekStart={weekStart}
-                    />
-                </CardContent>
+                <CardContent>{heatmap}</CardContent>
             </Card>
         </div>
     );
+}
+
+function HeatmapSkeleton() {
+    return <Skeleton className="h-24 w-full rounded-md" />;
 }
 
 const LEVEL_CLASS = [
@@ -207,7 +228,7 @@ function FrequencyHeatmap({
     }, [data, from, to, weekStart]);
 
     if (isLoading) {
-        return <Skeleton className="h-24 w-full rounded-md" />;
+        return <HeatmapSkeleton />;
     }
 
     return grid?.hasAny ? (
@@ -279,12 +300,18 @@ function FrequencyHeatmap({
     );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value }: { label: string; value: string | undefined }) {
     return (
         <Card className="gap-2 py-4">
             <CardContent>
                 <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
+                {value === undefined ? (
+                    <Skeleton className="mt-1 h-8 w-16" />
+                ) : (
+                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                        {value}
+                    </p>
+                )}
             </CardContent>
         </Card>
     );

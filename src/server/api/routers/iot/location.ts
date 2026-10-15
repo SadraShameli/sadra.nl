@@ -2,8 +2,7 @@ import { and, desc, eq, gte, lt } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { LocationCreatedEmail } from '~/lib/email';
-import { fanOutEvent } from '~/lib/notify';
-import { captureError } from '~/lib/observability/logger';
+import { scheduleFanOut } from '~/lib/notify';
 import {
     locationCreateSchema,
     locationUpdateSchema,
@@ -52,20 +51,15 @@ export const locationRouter = createTRPCRouter({
                 .insert(location)
                 .values(input)
                 .returning({ id: location.id });
-            void (async () => {
-                try {
-                    await fanOutEvent(
-                        'location_created',
-                        (to) =>
-                            new LocationCreatedEmail(to, {
-                                locationId: input.location_id,
-                                locationName: input.name,
-                            }),
-                    );
-                } catch (error: unknown) {
-                    captureError(error, { tag: 'location.notify' });
-                }
-            })();
+            scheduleFanOut(
+                'location_created',
+                (to) =>
+                    new LocationCreatedEmail(to, {
+                        locationId: input.location_id,
+                        locationName: input.name,
+                    }),
+                'location.notify',
+            );
             return { id: inserted?.id };
         }),
 

@@ -1,3 +1,5 @@
+import { type Route } from 'next';
+
 import {
     fundedTierOptions,
     normalizePositionSizeInput,
@@ -40,7 +42,7 @@ export interface ContractsSizingInput {
 }
 
 export interface ContractsSizingView {
-    readonly href: string;
+    readonly href: Route;
     readonly inline: null | {
         readonly contracts: number;
         readonly siblingSeverityText: null | string;
@@ -71,7 +73,7 @@ export function contractsSizingOf(
         state,
         stopPoints === null ? [PositionSizeUrlParameter.Stop] : [],
     );
-    const href = `${routes.propCalculator.positionSize}?${query}`;
+    const href = `${routes.propCalculator.positionSize}?${query}` as const;
     if (stopPoints === null) return { href, inline: null };
     const result = positionSizeFor(state);
     return {

@@ -67,7 +67,7 @@ import {
     type TradingPlanCreateInput,
     tradingPlanCreateSchema,
 } from '~/lib/schemas/sensor-hub';
-import { routes } from '~/lib/site/routes';
+import { routes, sameOriginRoute } from '~/lib/site/routes';
 import {
     cloneTradingPlan,
     createTradingPlan,
@@ -137,7 +137,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
         if (successMessage) sp.delete('success');
         if (errorMessage) sp.delete('error');
         const query = sp.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, {
+        router.replace(sameOriginRoute(pathname, query), {
             scroll: false,
         });
     }, [searchParameters, router, pathname]);

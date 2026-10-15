@@ -1,8 +1,9 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { type ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 
+import { PageTransition } from '~/components/PageTransition';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { AutoDismissAlert } from '~/components/ui/AutoDismissAlert';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
@@ -19,6 +20,7 @@ import { AccountManagement } from './_components/AccountManagement';
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
 import { LiftingHub } from './_components/lifting/LiftingHub';
 import { ProfileNav } from './_components/ProfileNav';
+import { ProfileSkeleton } from './_components/ProfileSkeleton';
 import {
     normalizeProfileTab,
     type ProfileTabValue,
@@ -49,11 +51,23 @@ const PW_MESSAGES: Record<string, string> = {
     pw_wrong: 'Current password is incorrect.',
 };
 
-export default async function ProfilePage({
-    searchParams,
-}: {
+interface ProfilePageProperties {
     searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+}
+
+export default function ProfilePage({ searchParams }: ProfilePageProperties) {
+    return (
+        <main className={cn('app-profile', 'container mx-auto px-4 py-10 lg:py-16')}>
+            <div className="grid gap-4 md:grid-cols-[240px_1fr] md:items-start md:gap-6">
+                <Suspense fallback={<ProfileSkeleton />}>
+                    <ProfileContent searchParams={searchParams} />
+                </Suspense>
+            </div>
+        </main>
+    );
+}
+
+async function ProfileContent({ searchParams }: ProfilePageProperties) {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
 
@@ -195,37 +209,30 @@ export default async function ProfilePage({
 
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-profile',
-                    'container mx-auto px-4 py-10 lg:py-16',
-                )}
-            >
-                <div className="grid gap-4 md:grid-cols-[240px_1fr] md:items-start md:gap-6">
-                    <Card className="p-0 md:sticky md:top-24">
-                        <aside className="py-4 md:py-6">
-                            <ProfileNav
-                                activeTab={activeTab}
-                                email={email}
-                                isAdmin={isAdmin}
-                                isRoot={isUserIsRoot}
-                                name={name}
-                            />
-                        </aside>
-                    </Card>
+            <Card className="p-0 md:sticky md:top-24">
+                <aside className="py-4 md:py-6">
+                    <ProfileNav
+                        activeTab={activeTab}
+                        email={email}
+                        isAdmin={isAdmin}
+                        isRoot={isUserIsRoot}
+                        name={name}
+                    />
+                </aside>
+            </Card>
 
-                    <Card className="min-w-0 p-0">
-                        <section className="flex min-w-0 flex-col gap-6 p-4 md:p-8">
-                            <h1 className="text-2xl font-semibold tracking-tight">
-                                {TAB_TITLES[activeTab]}
-                            </h1>
-                            <div className="flex min-w-0 flex-col gap-6">
-                                {content}
-                            </div>
-                        </section>
-                    </Card>
-                </div>
-            </main>
+            <Card className="min-w-0 p-0">
+                <PageTransition transitionKey={activeTab}>
+                    <section className="flex min-w-0 flex-col gap-6 p-4 md:p-8">
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            {TAB_TITLES[activeTab]}
+                        </h1>
+                        <div className="flex min-w-0 flex-col gap-6">
+                            {content}
+                        </div>
+                    </section>
+                </PageTransition>
+            </Card>
         </HydrateClient>
     );
 }

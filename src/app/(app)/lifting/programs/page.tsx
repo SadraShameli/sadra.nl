@@ -1,9 +1,10 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
 import { ProgramsLibrary } from '~/app/(app)/lifting/_components/ProgramsLibrary';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 
 export const metadata: Metadata = {
@@ -11,27 +12,23 @@ export const metadata: Metadata = {
     title: 'Programs',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function LiftingProgramsPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+export default function LiftingProgramsPage() {
     return (
-        <main
-            className={cn(
-                'app-lifting__programs',
-                'container pt-spacing pb-24',
-            )}
-        >
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    Programs
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                    Follow a proven program or build your own.
-                </p>
-            </header>
-            <ProgramsLibrary />
-        </main>
+        <PageTransition>
+            <main className={cn('app-lifting__programs', 'container pt-spacing pb-24')}>
+                <LiftingPageHeader
+                    description="Follow a proven program or build your own."
+                    title="Programs"
+                />
+                <Suspense fallback={<ProgramsLibrary />}>
+                    <LiftingProgramsContent />
+                </Suspense>
+            </main>
+        </PageTransition>
     );
+}
+
+async function LiftingProgramsContent() {
+    await requireSessionUser();
+    return <ProgramsLibrary />;
 }

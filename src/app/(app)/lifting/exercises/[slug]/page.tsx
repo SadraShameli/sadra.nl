@@ -1,9 +1,11 @@
 import { type Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { LiftingDetailSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { ExerciseDetail } from '~/app/(app)/lifting/_components/ExerciseDetail';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
@@ -21,29 +23,29 @@ export async function generateMetadata({
     };
 }
 
-export const dynamic = 'force-dynamic';
+export default function LiftingExerciseDetailPage({ params }: PageProperties) {
+    return (
+        <PageTransition>
+            <main className={cn('app-lifting__exercise-detail', 'container pt-spacing pb-24')}>
+                <Suspense fallback={<LiftingDetailSkeleton />}>
+                    <LiftingExerciseDetailContent params={params} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function LiftingExerciseDetailPage({
-    params,
-}: PageProperties) {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+async function LiftingExerciseDetailContent({ params }: PageProperties) {
+    await requireSessionUser();
     const { slug } = await params;
+    const exercise = await loadLiftingExerciseDetail(slug);
+    void api.lifting.settings.get.prefetch();
+    return <HydrateClient><ExerciseDetail exercise={exercise} /></HydrateClient>;
+}
+
+async function loadLiftingExerciseDetail(slug: string) {
     try {
-        const exercise = await api.lifting.exercise.get({ slug });
-        void api.lifting.settings.get.prefetch();
-        return (
-            <HydrateClient>
-                <main
-                    className={cn(
-                        'app-lifting__exercise-detail',
-                        'container pt-spacing pb-24',
-                    )}
-                >
-                    <ExerciseDetail exercise={exercise} />
-                </main>
-            </HydrateClient>
-        );
+        return await api.lifting.exercise.get({ slug });
     } catch {
         notFound();
     }

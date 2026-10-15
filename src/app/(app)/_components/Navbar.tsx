@@ -1,8 +1,7 @@
 'use client';
 
-import { User } from 'lucide-react';
 import Link from 'next/link';
-import { useRef } from 'react';
+import { type ReactNode, useRef } from 'react';
 
 import { SocialIcon } from '~/components/ui/SocialIcon';
 import { siteContent } from '~/lib/site/content';
@@ -11,11 +10,7 @@ import { cn } from '~/lib/utilities';
 
 import { useHeaderHeightVariable } from './useHeaderHeightVariable';
 
-interface NavbarSession {
-    user: { id: string };
-}
-
-export default function Navbar({ session }: { session: NavbarSession | null }) {
+export default function Navbar({ accountLink }: { accountLink: ReactNode }) {
     const { navBrand, socialLinks } = siteContent;
     const navReference = useRef<HTMLElement>(null);
     useHeaderHeightVariable(navReference);
@@ -56,18 +51,7 @@ export default function Navbar({ session }: { session: NavbarSession | null }) {
                         </Link>
                     ))}
 
-                    <Link
-                        aria-label={session?.user ? 'Profile' : 'Sign in'}
-                        className={cn(
-                            'app-shell__account-link',
-                            'flex size-5 items-center justify-center text-white transition hover:opacity-60',
-                        )}
-                        href={
-                            session?.user ? routes.profile : routes.auth.login
-                        }
-                    >
-                        <User className="size-5" strokeWidth={1.75} />
-                    </Link>
+                    {accountLink}
                 </div>
             </div>
             <div className={'app-shell__subnav-slot'} id="navbar-subnav-slot" />

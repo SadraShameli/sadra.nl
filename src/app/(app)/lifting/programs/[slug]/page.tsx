@@ -1,9 +1,11 @@
 import { type Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { LiftingDetailSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { ProgramDetail } from '~/app/(app)/lifting/_components/ProgramDetail';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
@@ -21,29 +23,29 @@ export async function generateMetadata({
     };
 }
 
-export const dynamic = 'force-dynamic';
+export default function LiftingProgramDetailPage({ params }: PageProperties) {
+    return (
+        <PageTransition>
+            <main className={cn('app-lifting__program', 'container pt-spacing pb-24')}>
+                <Suspense fallback={<LiftingDetailSkeleton />}>
+                    <LiftingProgramDetailContent params={params} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function LiftingProgramDetailPage({
-    params,
-}: PageProperties) {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+async function LiftingProgramDetailContent({ params }: PageProperties) {
+    await requireSessionUser();
     const { slug } = await params;
+    const program = await loadLiftingProgramDetail(slug);
+    void api.lifting.settings.get.prefetch();
+    return <HydrateClient><ProgramDetail program={program} /></HydrateClient>;
+}
+
+async function loadLiftingProgramDetail(slug: string) {
     try {
-        const program = await api.lifting.program.get({ slug });
-        void api.lifting.settings.get.prefetch();
-        return (
-            <HydrateClient>
-                <main
-                    className={cn(
-                        'app-lifting__program',
-                        'container pt-spacing pb-24',
-                    )}
-                >
-                    <ProgramDetail program={program} />
-                </main>
-            </HydrateClient>
-        );
+        return await api.lifting.program.get({ slug });
     } catch {
         notFound();
     }

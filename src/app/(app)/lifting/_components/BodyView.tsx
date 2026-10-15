@@ -139,54 +139,46 @@ export function BodyView() {
                     <MeasurementsHistoryTable
                         headerActions={(table) => (
                             <div className="flex w-full flex-col gap-3">
-                                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
-                                    <div className="flex flex-col gap-1.5">
-                                        <Label className="text-xs">Kind</Label>
-                                        <DataTableFacetSelect
-                                            column={table.getColumn('kind')}
-                                            format={(k) => (
-                                                <span className="capitalize">
-                                                    {k.replaceAll('_', ' ')}
-                                                </span>
-                                            )}
-                                            placeholder="All kinds"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <Label className="text-xs">Unit</Label>
-                                        <DataTableFacetSelect
-                                            column={table.getColumn('unit')}
-                                            placeholder="All units"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <Label className="text-xs">
-                                            Date range
-                                        </Label>
-                                        <DateRangePicker
-                                            maxDate={new Date()}
-                                            onChange={(range) => {
-                                                setDateRange(range);
-                                                table
-                                                    .getColumn('takenAt')
-                                                    ?.setFilterValue(
-                                                        range?.from
-                                                            ? [
-                                                                  startOfDay(
+                                <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                                    <DataTableFacetSelect
+                                        label="Kind"
+                                        column={table.getColumn('kind')}
+                                        format={(k) => (
+                                            <span className="capitalize">
+                                                {k.replaceAll('_', ' ')}
+                                            </span>
+                                        )}
+                                        placeholder="All kinds"
+                                    />
+                                    <DataTableFacetSelect
+                                        label="Unit"
+                                        column={table.getColumn('unit')}
+                                        placeholder="All units"
+                                    />
+                                    <DateRangePicker
+                                        className="h-8 w-full text-xs md:w-auto"
+                                        maxDate={new Date()}
+                                        onChange={(range) => {
+                                            setDateRange(range);
+                                            table
+                                                .getColumn('takenAt')
+                                                ?.setFilterValue(
+                                                    range?.from
+                                                        ? [
+                                                              startOfDay(
+                                                                  range.from,
+                                                              ).getTime(),
+                                                              endOfDay(
+                                                                  range.to ??
                                                                       range.from,
-                                                                  ).getTime(),
-                                                                  endOfDay(
-                                                                      range.to ??
-                                                                          range.from,
-                                                                  ).getTime(),
-                                                              ]
-                                                            : undefined,
-                                                    );
-                                            }}
-                                            placeholder="Any time"
-                                            value={dateRange}
-                                        />
-                                    </div>
+                                                              ).getTime(),
+                                                          ]
+                                                        : undefined,
+                                                );
+                                        }}
+                                        placeholder="Any time"
+                                        value={dateRange}
+                                    />
                                 </div>
                             </div>
                         )}

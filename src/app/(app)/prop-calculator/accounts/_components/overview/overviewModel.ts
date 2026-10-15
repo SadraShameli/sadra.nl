@@ -1,3 +1,4 @@
+import { type Route } from 'next';
 import { z } from 'zod';
 
 import type {
@@ -909,7 +910,7 @@ export type ScaleAtMultipleModel =
 
 export interface SetupAccountRow {
     readonly firm: string;
-    readonly href: string;
+    readonly href: ReturnType<typeof routes.propCalculator.accounts.detail>;
     readonly key: string;
     readonly label: string;
     readonly note: null | string;
@@ -1411,7 +1412,7 @@ interface ReplacementRow {
 type RequiredPortfolioSource = Exclude<PortfolioSource, CheckPortfolioSource>;
 
 interface SetupItemRow {
-    readonly href: string;
+    readonly href: Route;
     readonly key: string;
     readonly label: string;
 }
@@ -1420,7 +1421,7 @@ interface SetupStepRow {
     readonly accounts: readonly SetupAccountRow[];
     readonly actionLabel: string;
     readonly detail: null | string;
-    readonly href: string;
+    readonly href: Route;
     readonly items: readonly SetupItemRow[];
     readonly key: SetupStep;
     readonly label: string;
@@ -1733,7 +1734,7 @@ const CUSHION_BASIS_LABEL: Readonly<Record<CushionRatioBasis, string>> = {
     [CushionRatioBasis.Live]: 'Live',
 };
 
-const EXPECTED_NET_SECTION_HREF = `${routes.propCalculator.accounts.index}#prop-overview-expected-net-heading`;
+const EXPECTED_NET_SECTION_HREF = `${routes.propCalculator.accounts.index}#prop-overview-expected-net-heading` as const;
 
 const SETUP_STEP_LABEL: Readonly<Record<SetupStep, string>> = {
     [SetupStep.BudgetSet]: 'Budget set',
@@ -1753,7 +1754,7 @@ const SETUP_STEP_ACTION: Readonly<Record<SetupStep, string>> = {
     [SetupStep.StagesCaptured]: 'Enter balances',
 };
 
-const SETUP_STEP_HREF: Readonly<Record<SetupStep, string>> = {
+const SETUP_STEP_HREF: Readonly<Record<SetupStep, Route>> = {
     [SetupStep.BudgetSet]: routes.propCalculator.accounts.ledger,
     [SetupStep.CostsEntered]: routes.propCalculator.accounts.ledger,
     [SetupStep.ExpectedValueComputed]: EXPECTED_NET_SECTION_HREF,

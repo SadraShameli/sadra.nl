@@ -1,7 +1,10 @@
 import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
+import { PageTransition } from '~/components/PageTransition';
 import type { LightAssessment } from '~/lib/trading/analytics';
 
 import { CalendarView } from '~/app/(app)/trade-checklist/_components/CalendarView';
@@ -21,9 +24,35 @@ export const metadata: Metadata = {
     title: 'Trade Calendar',
 };
 
-export const dynamic = 'force-dynamic';
+export default function TradeCalendarPage({
+    searchParams,
+}: CalendarPageProperties) {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-trade-checklist__calendar-view',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <header className="mb-8">
+                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        Calendar
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+                        Trading days at a glance. Click any day to drill into that
+                        day&apos;s assessments in the journal.
+                    </p>
+                </header>
+                <Suspense fallback={<TradeChecklistDataSkeleton />}>
+                    <TradeCalendarContent searchParams={searchParams} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function TradeCalendarPage({
+async function TradeCalendarContent({
     searchParams,
 }: CalendarPageProperties) {
     const session = await getServerSession();
@@ -66,24 +95,7 @@ export default async function TradeCalendarPage({
     }));
 
     return (
-        <main
-            className={cn(
-                'app-trade-checklist__calendar-view',
-                'container pt-spacing pb-24',
-            )}
-        >
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    Calendar
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                    Trading days at a glance. Click any day to drill into that
-                    day&apos;s assessments in the journal.
-                </p>
-            </header>
-
-            <CalendarView assessments={assessments} month={month} />
-        </main>
+        <CalendarView assessments={assessments} month={month} />
     );
 }
 

@@ -3,6 +3,7 @@
 import { type RowData } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import { type LucideIcon, Trash2 } from 'lucide-react';
+import { type Route } from 'next';
 import Link from 'next/link';
 import { type ReactNode } from 'react';
 
@@ -159,12 +160,12 @@ export function RowActionButton({
     );
 }
 
-export function RowActionLink({
+export function RowActionLink<T extends string>({
     download,
     href,
     icon: Icon,
     label,
-}: RowActionIdentity & { download?: string; href: string }) {
+}: RowActionIdentity & { download?: string; href: Route<T> }) {
     return (
         <Button asChild size="icon-sm" variant="ghost">
             {download === undefined ? (

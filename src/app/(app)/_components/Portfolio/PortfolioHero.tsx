@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { FileText, Mail, Send } from 'lucide-react';
 import Link from 'next/link';
 
@@ -6,11 +8,11 @@ import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
 type PortfolioHeroProperties = {
-    canViewResume: boolean;
     email: string;
     headline: string;
     name: string;
     profiles: SocialProfile[];
+    resumeLink: ReactNode;
 };
 
 type SocialProfile = {
@@ -20,10 +22,10 @@ type SocialProfile = {
 };
 
 export default function PortfolioHero({
-    canViewResume,
     email,
     headline,
     name,
+    resumeLink,
 }: PortfolioHeroProperties) {
     return (
         <header className={cn('app-portfolio__hero')}>
@@ -62,18 +64,7 @@ export default function PortfolioHero({
                     </Link>
                 </Button>
 
-                {canViewResume && (
-                    <Button
-                        asChild
-                        className="h-auto min-h-11 gap-2 rounded-full"
-                        variant="outline"
-                    >
-                        <Link href={routes.resume.index}>
-                            <FileText aria-hidden="true" className="size-4" />
-                            <span>Resume</span>
-                        </Link>
-                    </Button>
-                )}
+                {resumeLink}
 
                 <Button
                     asChild
@@ -87,5 +78,20 @@ export default function PortfolioHero({
                 </Button>
             </div>
         </header>
+    );
+}
+
+export function ResumeLinkButton() {
+    return (
+        <Button
+            asChild
+            className="h-auto min-h-11 gap-2 rounded-full"
+            variant="outline"
+        >
+            <Link href={routes.resume.index}>
+                <FileText aria-hidden="true" className="size-4" />
+                <span>Resume</span>
+            </Link>
+        </Button>
     );
 }

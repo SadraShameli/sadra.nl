@@ -47,7 +47,7 @@ vi.mock('~/lib/auth/server', () => ({
     auth: { api: { getSession: vi.fn() } },
 }));
 vi.mock('~/lib/email', () => ({}));
-vi.mock('~/lib/notify', () => ({ fanOutEvent: vi.fn() }));
+vi.mock('~/lib/notify', () => ({ scheduleFanOut: vi.fn() }));
 vi.mock('~/lib/observability/rate-limit', () => ({
     isWithinRateLimit: vi.fn(() => Promise.resolve(true)),
 }));

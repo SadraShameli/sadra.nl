@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -18,19 +18,16 @@ import {
 import { Input } from '~/components/ui/Input';
 import { authClient } from '~/lib/auth/client';
 import { type SignupInput, signupInputSchema } from '~/lib/schemas/auth';
-import { readCallbackUrl } from '~/lib/site/privateRoutes';
+import { currentCallbackUrl } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 
 export function SignupForm() {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [topError, setTopError] = useState<null | string>(null);
-    const searchParameters = useSearchParams();
-    const callbackUrl = readCallbackUrl(searchParameters);
 
     const form = useForm<SignupInput>({
         defaultValues: {
-            callbackUrl,
             confirm: '',
             email: '',
             name: '',
@@ -42,6 +39,7 @@ export function SignupForm() {
 
     const onSubmit = (data: SignupInput) => {
         setTopError(null);
+        const callbackUrl = currentCallbackUrl();
         startTransition(async () => {
             const result = await authClient.signUp.email({
                 callbackURL: callbackUrl,

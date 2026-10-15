@@ -1,6 +1,12 @@
 import { type Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
+import { PageTransition } from '~/components/PageTransition';
+import { Button } from '~/components/ui/Button';
 import { getServerSession } from '~/lib/auth/server';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
@@ -21,9 +27,35 @@ export const metadata: Metadata = {
     title: 'Prop accounts',
 };
 
-export const dynamic = 'force-dynamic';
+export default function PropAccountsPage() {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-prop-accounts__overview',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <AccountsPageHeader
+                    action={
+                        <Button asChild>
+                            <Link href={routes.propCalculator.accounts.new}>
+                                Add account
+                            </Link>
+                        </Button>
+                    }
+                    description="Spend, payouts received and net across every account you hold, with alerts and each account's stage and latest balance."
+                    title="Prop accounts"
+                />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <PropAccountsContent />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function PropAccountsPage() {
+async function PropAccountsContent() {
     const session = await getServerSession();
     if (!session?.user.id) {
         redirect(loginRedirectFor(routes.propCalculator.accounts.index));
@@ -45,14 +77,7 @@ export default async function PropAccountsPage() {
     void api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-prop-accounts__overview',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <OverviewView userId={session.user.id} />
-            </main>
+            <OverviewView userId={session.user.id} />
         </HydrateClient>
     );
 }

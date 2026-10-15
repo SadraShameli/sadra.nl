@@ -18,7 +18,7 @@ vi.mock('~/lib/auth/server', () => ({
     auth: { api: { getSession: vi.fn() } },
 }));
 vi.mock('~/lib/email', () => ({}));
-vi.mock('~/lib/notify', () => ({ fanOutEvent: vi.fn() }));
+vi.mock('~/lib/notify', () => ({ scheduleFanOut: vi.fn() }));
 
 const TOKEN_HASH = 'a'.repeat(64);
 

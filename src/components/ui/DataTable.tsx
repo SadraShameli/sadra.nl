@@ -58,6 +58,11 @@ export {
 
 const DATA_TABLE_ROW_HEIGHT_REM = 2.25;
 
+type DataTableSearch = {
+    readonly onChange: (value: string) => void;
+    readonly value: string;
+};
+
 const ARIA_SORT = {
     asc: 'ascending',
     desc: 'descending',
@@ -81,6 +86,7 @@ export type DataTableProperties<TData extends RowData> = {
     initialSorting?: SortingState;
     isLoading?: boolean;
     onResetFilters?: () => void;
+    search?: DataTableSearch;
     onRowSelectionChange?: (rows: TData[]) => void;
     onSortingChange?: (sorting: SortingState) => void;
     pageSize?: null | number;
@@ -111,6 +117,7 @@ export function DataTable<TData extends RowData>({
     initialSorting,
     isLoading,
     onResetFilters,
+    search,
     onRowSelectionChange,
     onSortingChange,
     pageSize = 10,
@@ -185,11 +192,17 @@ export function DataTable<TData extends RowData>({
               );
     const fillerRows = Math.max(0, reservedRows - pageRows.length);
     const hasClientPages = pageSize !== null && loadedRowCount > pageSize;
+    const searchValue = search?.value ?? globalFilter;
+    const changeSearch = search?.onChange ?? setGlobalFilter;
     const clearFilters = (
         <ClearFiltersButton
-            active={hasActiveTableFilter(table) || hasExternalFilters}
+            active={
+                hasActiveTableFilter(table) ||
+                hasExternalFilters ||
+                searchValue !== ''
+            }
             onReset={() => {
-                setGlobalFilter('');
+                changeSearch('');
                 setColumnFilters([]);
                 onResetFilters?.();
             }}
@@ -209,10 +222,10 @@ export function DataTable<TData extends RowData>({
                                 <Input
                                     className="h-8 max-w-xs text-xs"
                                     onChange={(event) =>
-                                        setGlobalFilter(event.target.value)
+                                        changeSearch(event.target.value)
                                     }
                                     placeholder={filterPlaceholder}
-                                    value={globalFilter}
+                                    value={searchValue}
                                 />
                             ) : (
                                 <span />
@@ -229,10 +242,10 @@ export function DataTable<TData extends RowData>({
                             <Input
                                 className="h-8 max-w-xs text-xs"
                                 onChange={(event) =>
-                                    setGlobalFilter(event.target.value)
+                                    changeSearch(event.target.value)
                                 }
                                 placeholder={filterPlaceholder}
-                                value={globalFilter}
+                                value={searchValue}
                             />
                         ) : (
                             <span />

@@ -1,5 +1,6 @@
 import { type Metadata } from 'next';
 
+import { PageTransition } from '~/components/PageTransition';
 import { Card } from '~/components/ui/Card';
 
 import { ContactForm } from './ContactForm';
@@ -11,14 +12,16 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
     return (
-        <main className="container mx-auto max-w-xl px-6 py-16">
-            <h1 className="mb-3 text-3xl font-semibold">Get in touch</h1>
-            <p className="mb-8 text-sm text-muted-foreground">
-                Drop a line for collaborations, questions or just a hello.
-            </p>
-            <Card className="p-6">
-                <ContactForm />
-            </Card>
-        </main>
+        <PageTransition>
+            <main className="container mx-auto max-w-xl px-6 py-16">
+                <h1 className="mb-3 text-3xl font-semibold">Get in touch</h1>
+                <p className="mb-8 text-sm text-muted-foreground">
+                    Drop a line for collaborations, questions or just a hello.
+                </p>
+                <Card className="p-6">
+                    <ContactForm />
+                </Card>
+            </main>
+        </PageTransition>
     );
 }

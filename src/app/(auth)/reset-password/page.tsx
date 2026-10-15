@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { PageTransition } from '~/components/PageTransition';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { resetPasswordSearchSchema } from '~/lib/schemas/url';
@@ -14,50 +16,66 @@ const errorMessages: Record<string, string> = {
         'This reset link has expired or already been used. Request a new one.',
 };
 
-export default async function ResetPasswordPage({
-    searchParams,
-}: {
+interface ResetPasswordPageProperties {
     searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+}
+
+export default function ResetPasswordPage({
+    searchParams,
+}: ResetPasswordPageProperties) {
+    return (
+        <PageTransition>
+            <div
+                className={cn(
+                    'app-auth__page',
+                    'flex flex-1 items-center justify-center px-4 pt-20 pb-12',
+                )}
+            >
+                <div className="w-full max-w-sm">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Set new password</CardTitle>
+                        </CardHeader>
+                        <Suspense
+                            fallback={
+                                <CardContent>
+                                    <ResetPasswordForm token="" />
+                                </CardContent>
+                            }
+                        >
+                            <ResetPasswordBody searchParams={searchParams} />
+                        </Suspense>
+                    </Card>
+                </div>
+            </div>
+        </PageTransition>
+    );
+}
+
+async function ResetPasswordBody({ searchParams }: ResetPasswordPageProperties) {
     const { error, token } = resetPasswordSearchSchema.parse(
         await searchParams,
     );
 
     if (!token && !error) redirect(routes.auth.forgotPassword);
 
-    return (
-        <div
-            className={cn(
-                'app-auth__page',
-                'flex flex-1 items-center justify-center px-4 pt-20 pb-12',
-            )}
-        >
-            <div className="w-full max-w-sm">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Set new password</CardTitle>
-                    </CardHeader>
-                    {error === 'expired' ? (
-                        <CardContent className="flex flex-col gap-4">
-                            <Alert variant="destructive">
-                                <AlertDescription>
-                                    {errorMessages.expired}
-                                </AlertDescription>
-                            </Alert>
-                            <Link
-                                className="text-sm underline underline-offset-4 hover:opacity-70"
-                                href={routes.auth.forgotPassword}
-                            >
-                                Request a new link
-                            </Link>
-                        </CardContent>
-                    ) : (
-                        <CardContent>
-                            <ResetPasswordForm token={token ?? ''} />
-                        </CardContent>
-                    )}
-                </Card>
-            </div>
-        </div>
+    return error === 'expired' ? (
+        <CardContent className="flex flex-col gap-4">
+            <Alert variant="destructive">
+                <AlertDescription>
+                    {errorMessages.expired}
+                </AlertDescription>
+            </Alert>
+            <Link
+                className="text-sm underline underline-offset-4 hover:opacity-70"
+                href={routes.auth.forgotPassword}
+            >
+                Request a new link
+            </Link>
+        </CardContent>
+    ) : (
+        <CardContent>
+            <ResetPasswordForm token={token ?? ''} />
+        </CardContent>
     );
 }

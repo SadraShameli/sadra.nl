@@ -4,18 +4,20 @@ import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { GeistSans } from 'geist/font/sans';
 import { type Metadata, type Viewport } from 'next';
+import { Suspense } from 'react';
 
 import GridBackground from '~/components/ui/GridBg';
 import { Toaster } from '~/components/ui/Sonner';
 import { orbitron } from '~/fonts';
-import { getServerSession } from '~/lib/auth/server';
 import { siteContent } from '~/lib/site/content';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 import { cn } from '~/lib/utilities';
 import { TRPCReactProvider } from '~/trpc/react';
 
+import { AccountLink } from './(app)/_components/AccountLink';
 import Footer from './(app)/_components/Footer';
 import Navbar from './(app)/_components/Navbar';
+import { SessionAccountLink } from './(app)/_components/SessionAccountLink';
 
 export const viewport: Viewport = {
     themeColor: '#000',
@@ -44,13 +46,11 @@ export const metadata: Metadata = {
     },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const session = await getServerSession();
-
     return (
         <html
             className="dark scroll-smooth antialiased"
@@ -66,7 +66,15 @@ export default async function RootLayout({
                 )}
             >
                 <TRPCReactProvider>
-                    <Navbar session={session} />
+                    <Navbar
+                        accountLink={
+                            <Suspense
+                                fallback={<AccountLink signedIn={false} />}
+                            >
+                                <SessionAccountLink />
+                            </Suspense>
+                        }
+                    />
                     <GridBackground />
                     <div className="flex flex-1 flex-col" id="main-content">
                         {children}

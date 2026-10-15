@@ -684,64 +684,50 @@ export function GoalsView() {
                                         </TabsList>
                                     </Tabs>
 
-                                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label className="text-xs">
-                                                Kind
-                                            </Label>
-                                            <DataTableFacetSelect
-                                                column={table.getColumn('kind')}
-                                                format={(k) =>
-                                                    KIND_LABEL[k as GoalKind]
-                                                }
-                                                placeholder="All kinds"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label className="text-xs">
-                                                Exercise
-                                            </Label>
-                                            <DataTableFacetSelect
-                                                column={table.getColumn(
-                                                    'exercise',
-                                                )}
-                                                format={(id) =>
-                                                    id === EXERCISE_NONE
-                                                        ? 'Unassigned'
-                                                        : (exerciseNameById.get(
-                                                              id,
-                                                          ) ?? id)
-                                                }
-                                                placeholder="All exercises"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label className="text-xs">
-                                                Target date
-                                            </Label>
-                                            <DateRangePicker
-                                                onChange={(range) => {
-                                                    setTargetDateRange(range);
-                                                    table
-                                                        .getColumn('targetDate')
-                                                        ?.setFilterValue(
-                                                            range?.from
-                                                                ? [
-                                                                      startOfDay(
+                                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                                        <DataTableFacetSelect
+                                            label="Kind"
+                                            column={table.getColumn('kind')}
+                                            format={(k) =>
+                                                KIND_LABEL[k as GoalKind]
+                                            }
+                                            placeholder="All kinds"
+                                        />
+                                        <DataTableFacetSelect
+                                            label="Exercise"
+                                            column={table.getColumn('exercise')}
+                                            format={(id) =>
+                                                id === EXERCISE_NONE
+                                                    ? 'Unassigned'
+                                                    : (exerciseNameById.get(
+                                                          id,
+                                                      ) ?? id)
+                                            }
+                                            placeholder="All exercises"
+                                        />
+                                        <DateRangePicker
+                                            className="h-8 w-full text-xs md:w-auto"
+                                            onChange={(range) => {
+                                                setTargetDateRange(range);
+                                                table
+                                                    .getColumn('targetDate')
+                                                    ?.setFilterValue(
+                                                        range?.from
+                                                            ? [
+                                                                  startOfDay(
+                                                                      range.from,
+                                                                  ).getTime(),
+                                                                  endOfDay(
+                                                                      range.to ??
                                                                           range.from,
-                                                                      ).getTime(),
-                                                                      endOfDay(
-                                                                          range.to ??
-                                                                              range.from,
-                                                                      ).getTime(),
-                                                                  ]
-                                                                : undefined,
-                                                        );
-                                                }}
-                                                placeholder="Any target date"
-                                                value={targetDateRange}
-                                            />
-                                        </div>
+                                                                  ).getTime(),
+                                                              ]
+                                                            : undefined,
+                                                    );
+                                            }}
+                                            placeholder="Any target date"
+                                            value={targetDateRange}
+                                        />
                                     </div>
                                 </div>
                             );

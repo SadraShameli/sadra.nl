@@ -1,9 +1,11 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
 import { HistoryView } from '~/app/(app)/lifting/_components/HistoryView';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { HistoryViewSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
@@ -12,13 +14,26 @@ export const metadata: Metadata = {
     title: 'Lifting history',
 };
 
-export const dynamic = 'force-dynamic';
-
 const MONTHS_BACK = 6;
 
-export default async function LiftingHistoryPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+export default function LiftingHistoryPage() {
+    return (
+        <PageTransition>
+            <main className={cn('app-lifting__history', 'container pt-spacing pb-24')}>
+                <LiftingPageHeader
+                    description="The receipts. Tap any workout to revisit it."
+                    title="History"
+                />
+                <Suspense fallback={<HistoryViewSkeleton />}>
+                    <LiftingHistoryContent />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
+
+async function LiftingHistoryContent() {
+    await requireSessionUser();
 
     const from = new Date();
     from.setMonth(from.getMonth() - MONTHS_BACK);
@@ -28,22 +43,7 @@ export default async function LiftingHistoryPage() {
 
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-lifting__history',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        History
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        The receipts. Tap any workout to revisit it.
-                    </p>
-                </header>
-                <HistoryView from={from} />
-            </main>
+            <HistoryView from={from} />
         </HydrateClient>
     );
 }

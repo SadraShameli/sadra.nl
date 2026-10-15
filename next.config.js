@@ -44,10 +44,13 @@ const securityHeaders = [
 @type {import("next").NextConfig}
 */
 const config = {
+    cacheComponents: true,
     async headers() {
         return [{ headers: securityHeaders, source: '/:path*' }];
     },
+    partialPrefetching: true,
     poweredByHeader: false,
+    reactCompiler: true,
     turbopack: {
         rules: {
             '*.{ts,tsx}': {
@@ -63,6 +66,7 @@ const config = {
             },
         },
     },
+    typedRoutes: true,
 };
 
 const sentryConfig = withSentryConfig(config, {

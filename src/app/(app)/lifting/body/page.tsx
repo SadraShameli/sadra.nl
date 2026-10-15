@@ -1,9 +1,11 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
 import { BodyView } from '~/app/(app)/lifting/_components/BodyView';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { BodyViewSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
@@ -12,30 +14,28 @@ export const metadata: Metadata = {
     title: 'Body',
 };
 
-export const dynamic = 'force-dynamic';
+export default function LiftingBodyPage() {
+    return (
+        <PageTransition>
+            <main className={cn('app-lifting__body', 'container pt-spacing pb-24')}>
+                <LiftingPageHeader
+                    description="Track bodyweight and tape measurements."
+                    title="Body"
+                />
+                <Suspense fallback={<BodyViewSkeleton />}>
+                    <LiftingBodyContent />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function LiftingBodyPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+async function LiftingBodyContent() {
+    await requireSessionUser();
     void api.lifting.settings.get.prefetch();
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-lifting__body',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Body
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        Track bodyweight and tape measurements.
-                    </p>
-                </header>
-                <BodyView />
-            </main>
+            <BodyView />
         </HydrateClient>
     );
 }

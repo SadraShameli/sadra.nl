@@ -1,9 +1,13 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
-import { AnalyticsDashboard } from '~/app/(app)/lifting/_components/AnalyticsDashboard';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import {
+    AnalyticsDashboard,
+    AnalyticsDashboardSkeleton,
+} from '~/app/(app)/lifting/_components/AnalyticsDashboard';
+import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
@@ -12,30 +16,28 @@ export const metadata: Metadata = {
     title: 'Lifting analytics',
 };
 
-export const dynamic = 'force-dynamic';
+export default function LiftingAnalyticsPage() {
+    return (
+        <PageTransition>
+            <main className={cn('app-lifting__analytics', 'container pt-spacing pb-24')}>
+                <LiftingPageHeader
+                    description="Volume, frequency, and strength curves."
+                    title="Analytics"
+                />
+                <Suspense fallback={<AnalyticsDashboardSkeleton />}>
+                    <LiftingAnalyticsContent />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function LiftingAnalyticsPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+async function LiftingAnalyticsContent() {
+    await requireSessionUser();
     void api.lifting.settings.get.prefetch();
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-lifting__analytics',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Analytics
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        Volume, frequency, and strength curves.
-                    </p>
-                </header>
-                <AnalyticsDashboard />
-            </main>
+            <AnalyticsDashboard />
         </HydrateClient>
     );
 }

@@ -34,6 +34,7 @@ import {
     OBJECTIVE_URL_PARAMETER,
 } from '~/lib/schemas/url';
 import { legacySectionTarget } from '~/lib/site/legacyCalculatorLinks';
+import { parseSameOriginRoute } from '~/lib/site/routes';
 
 import {
     type CalculatorAction,
@@ -468,7 +469,7 @@ export function useCalculator(): UseCalculatorReturn {
             encodeOptions,
         );
         if (pendingLegacyHash !== null)
-            router.replace(pendingLegacyHash.target);
+            router.replace(parseSameOriginRoute(pendingLegacyHash.target));
         setMount({ mounted: true, pendingLegacyHash });
     }, [encodeOptions, pathname, router, state]);
 

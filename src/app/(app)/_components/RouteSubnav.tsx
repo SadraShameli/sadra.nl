@@ -3,7 +3,7 @@
 import { type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import {
@@ -28,7 +28,15 @@ interface RouteSubnavProperties {
     query?: string;
 }
 
-export function RouteSubnav({
+export function RouteSubnav(properties: RouteSubnavProperties) {
+    return (
+        <Suspense fallback={null}>
+            <RouteSubnavPortal {...properties} />
+        </Suspense>
+    );
+}
+
+function RouteSubnavPortal({
     ariaLabel,
     className,
     items,

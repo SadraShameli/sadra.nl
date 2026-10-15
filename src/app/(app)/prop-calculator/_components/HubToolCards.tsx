@@ -1,5 +1,6 @@
 'use client';
 
+import { type Route } from 'next';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -45,7 +46,7 @@ const HUB_GROUP_ORDER: readonly ToolGroup[] = [
     ToolGroup.Labs,
 ];
 
-export function hubCardHref(entry: ToolCatalogEntry, query = ''): string {
+export function hubCardHref(entry: ToolCatalogEntry, query = ''): Route {
     return subnavHref(
         { carriesQuery: entry.usesCalculatorInputs, href: entry.route },
         withPageStateBlobsOnly(query, pageStateBlobsOf(entry.id)),

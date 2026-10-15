@@ -4,6 +4,8 @@ import { nextCookies } from 'better-auth/next-js';
 import { admin, magicLink } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
+import { cache } from 'react';
 
 import { environment } from '~/environment';
 import { ac, roles } from '~/lib/auth/permissions';
@@ -49,7 +51,7 @@ export const auth = betterAuth({
                             .set({ role: ROLE.ROOT })
                             .where(eq(userTable.id, createdUser.id));
                     }
-                    void (async () => {
+                    after(async () => {
                         try {
                             await mailer.send(
                                 new SignUpNotificationEmail(
@@ -64,7 +66,7 @@ export const auth = betterAuth({
                                 tag: 'auth.signup.notify',
                             });
                         }
-                    })();
+                    });
                 },
             },
         },
@@ -130,5 +132,6 @@ export const auth = betterAuth({
 
 export type Session = typeof auth.$Infer.Session;
 
-export const getServerSession = async () =>
-    auth.api.getSession({ headers: await headers() });
+export const getServerSession = cache(async () =>
+    auth.api.getSession({ headers: await headers() }),
+);

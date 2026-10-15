@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
@@ -24,6 +23,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
+import { Skeleton } from '~/components/ui/Skeleton';
 import { WeightUnit } from '~/lib/lifting/format';
 import { PR_KIND_VALUES } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
@@ -137,24 +137,12 @@ export function TodayHero() {
 
     return (
         <div className="flex flex-col gap-6">
-            {active.data && (
-                <Link className="block" href={routes.lifting.log}>
-                    <Alert variant="success">
-                        <Activity className="size-4" />
-                        <AlertTitle>Active workout</AlertTitle>
-                        <AlertDescription>
-                            {active.data.name ?? 'Workout'}: resume
-                        </AlertDescription>
-                    </Alert>
-                </Link>
-            )}
-
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Stat
                     icon={<Flame className="size-4" />}
                     label="Current streak"
                     value={
-                        summary.data ? `${summary.data.currentStreak} wk` : '-'
+                        summary.data ? `${summary.data.currentStreak} wk` : null
                     }
                 />
                 <Stat
@@ -163,7 +151,7 @@ export function TodayHero() {
                     value={
                         summary.data
                             ? summary.data.sessionsThisWeek.toFixed(0)
-                            : '-'
+                            : null
                     }
                 />
                 <Stat
@@ -172,7 +160,7 @@ export function TodayHero() {
                     value={
                         summary.data
                             ? summary.data.recentPrs.length.toString()
-                            : '-'
+                            : null
                     }
                 />
             </div>
@@ -185,19 +173,28 @@ export function TodayHero() {
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-wrap gap-3">
-                        <Button
-                            className="gap-2"
-                            disabled={start.isPending || !!active.data}
-                            onClick={() => start.mutate({})}
-                            type="button"
-                        >
-                            <Play className="size-4" />
-                            {active.data
-                                ? 'Resume active'
-                                : start.isPending
-                                  ? 'Starting…'
-                                  : 'Start workout'}
-                        </Button>
+                        {active.isPending ? (
+                            <Skeleton className="h-9 w-40" />
+                        ) : active.data ? (
+                            <Button asChild className="gap-2">
+                                <Link href={routes.lifting.log}>
+                                    <Activity className="size-4" />
+                                    Resume {active.data.name ?? 'workout'}
+                                </Link>
+                            </Button>
+                        ) : (
+                            <Button
+                                className="gap-2"
+                                disabled={start.isPending}
+                                onClick={() => start.mutate({})}
+                                type="button"
+                            >
+                                <Play className="size-4" />
+                                {start.isPending
+                                    ? 'Starting…'
+                                    : 'Start workout'}
+                            </Button>
+                        )}
                         <Button asChild type="button" variant="outline">
                             <Link href={routes.lifting.routines}>
                                 From routine
@@ -212,15 +209,20 @@ export function TodayHero() {
                 </CardContent>
             </Card>
 
-            {(summary.isLoading ||
-                (summary.data && summary.data.recentPrs.length > 0)) && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            <Trophy className="size-4" /> Recent PRs
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                        <Trophy className="size-4" /> Recent PRs
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {summary.data?.recentPrs.length === 0 ? (
+                        <EmptyState
+                            description="Log a heavier set to set your first PR."
+                            icon={Trophy}
+                            title="No PRs yet"
+                        />
+                    ) : (
                         <DataTable
                             columns={prColumns}
                             data={filteredPrs}
@@ -305,9 +307,9 @@ export function TodayHero() {
                             showFilter
                             skeletonRows={3}
                         />
-                    </CardContent>
-                </Card>
-            )}
+                    )}
+                </CardContent>
+            </Card>
         </div>
     );
 }
@@ -319,7 +321,7 @@ function Stat({
 }: {
     icon: React.ReactNode;
     label: string;
-    value: string;
+    value: null | string;
 }) {
     return (
         <Card className="gap-2 py-4">
@@ -328,7 +330,13 @@ function Stat({
                     {icon}
                     {label}
                 </div>
-                <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
+                {value === null ? (
+                    <Skeleton className="mt-1 h-8 w-16" />
+                ) : (
+                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                        {value}
+                    </p>
+                )}
             </CardContent>
         </Card>
     );

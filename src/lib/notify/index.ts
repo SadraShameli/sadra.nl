@@ -1,12 +1,27 @@
 import 'server-only';
 import { and, eq } from 'drizzle-orm';
+import { after } from 'next/server';
 
 import { type EmailMessage, mailer } from '~/lib/email';
 import { type EventType } from '~/lib/notify/types';
 import { captureError } from '~/lib/observability/logger';
 import { db, notificationPreference, user } from '~/server/db';
 
-export async function fanOutEvent(
+export function scheduleFanOut(
+    eventType: EventType,
+    factory: (to: string) => EmailMessage,
+    tag: string,
+): void {
+    after(async () => {
+        try {
+            await fanOutEvent(eventType, factory);
+        } catch (error: unknown) {
+            captureError(error, { tag });
+        }
+    });
+}
+
+async function fanOutEvent(
     eventType: EventType,
     factory: (to: string) => EmailMessage,
 ): Promise<void> {
@@ -21,10 +36,9 @@ export async function fanOutEvent(
             ),
         );
 
-    for (const sub of subscribers) {
-        if (!sub.email) continue;
-        const { email } = sub;
-        void (async () => {
+    await Promise.all(
+        subscribers.map(async ({ email }) => {
+            if (!email) return;
             try {
                 await mailer.send(factory(email));
             } catch (error: unknown) {
@@ -33,6 +47,6 @@ export async function fanOutEvent(
                     tag: 'notify.fanOut',
                 });
             }
-        })();
-    }
+        }),
+    );
 }

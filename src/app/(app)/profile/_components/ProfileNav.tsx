@@ -11,6 +11,7 @@ import {
     User,
     Users,
 } from 'lucide-react';
+import { type Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
@@ -24,7 +25,7 @@ import { cn } from '~/lib/utilities';
 import type { ProfileTabValue } from './profileTabs';
 
 type NavItem = {
-    href: string;
+    href: Route;
     icon: LucideIcon;
     label: string;
     tab?: ProfileTabValue;

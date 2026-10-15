@@ -4,11 +4,11 @@ import { Clock, Dumbbell, Flag, Play, Square } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { LogShellSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { RestTimerOverlay } from '~/app/(app)/lifting/_components/shared/RestTimerOverlay';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent } from '~/components/ui/Card';
 import { EmptyState } from '~/components/ui/EmptyState';
-import { Skeleton } from '~/components/ui/Skeleton';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     UNIT_DISTANCE_VALUES,
@@ -64,19 +64,7 @@ export function LogShell({ initialSettings }: LogShellProperties) {
     }, [activeWorkout.data]);
 
     if (activeWorkout.isLoading) {
-        return (
-            <div>
-                <Skeleton className="mb-4 h-16 w-full rounded-2xl" />
-                <div className="flex flex-col gap-4">
-                    {Array.from({ length: 2 }, (_, index) => (
-                        <Skeleton
-                            className="h-48 w-full rounded-2xl"
-                            key={index}
-                        />
-                    ))}
-                </div>
-            </div>
-        );
+        return <LogShellSkeleton />;
     }
 
     const workout = activeWorkout.data;

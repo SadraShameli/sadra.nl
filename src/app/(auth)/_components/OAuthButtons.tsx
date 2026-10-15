@@ -1,13 +1,12 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
 import { useTransition } from 'react';
 
 import { Button } from '~/components/ui/Button';
 import GithubIcon from '~/components/ui/Icons/Github';
 import GoogleIcon from '~/components/ui/Icons/Google';
 import { authClient } from '~/lib/auth/client';
-import { readCallbackUrl } from '~/lib/site/privateRoutes';
+import { currentCallbackUrl } from '~/lib/site/privateRoutes';
 import { cn } from '~/lib/utilities';
 
 export function OAuthButtons({
@@ -19,13 +18,14 @@ export function OAuthButtons({
 }) {
     const [pendingGoogle, startGoogle] = useTransition();
     const [pendingGithub, startGithub] = useTransition();
-    const searchParameters = useSearchParams();
 
     if (!hasGoogle && !hasGithub) return null;
 
-    const callbackUrl = readCallbackUrl(searchParameters);
     const signInWith = (provider: 'github' | 'google') =>
-        authClient.signIn.social({ callbackURL: callbackUrl, provider });
+        authClient.signIn.social({
+            callbackURL: currentCallbackUrl(),
+            provider,
+        });
 
     return (
         <div className={cn('app-auth__oauth-buttons', 'flex flex-col gap-2')}>

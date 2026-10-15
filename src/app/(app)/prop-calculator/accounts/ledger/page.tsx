@@ -1,8 +1,11 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
+import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -16,9 +19,28 @@ export const metadata: Metadata = {
     title: 'Ledger',
 };
 
-export const dynamic = 'force-dynamic';
+export default function PropAccountsLedgerPage() {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-prop-accounts__ledger',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <AccountsPageHeader
+                    description="Every payout and fee across your accounts. Filter it and export exactly what you see as CSV."
+                    title="Ledger"
+                />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <PropAccountsLedgerContent />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function PropAccountsLedgerPage() {
+async function PropAccountsLedgerContent() {
     const session = await getServerSession();
     if (!session?.user.id) {
         redirect(loginRedirectFor(routes.propCalculator.accounts.ledger));
@@ -31,18 +53,7 @@ export default async function PropAccountsLedgerPage() {
     void api.propAccounts.firmStatement.list.prefetch();
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-prop-accounts__ledger',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <AccountsPageHeader
-                    description="Every payout and fee across your accounts. Filter it and export exactly what you see as CSV."
-                    title="Ledger"
-                />
-                <LedgerView />
-            </main>
+            <LedgerView />
         </HydrateClient>
     );
 }

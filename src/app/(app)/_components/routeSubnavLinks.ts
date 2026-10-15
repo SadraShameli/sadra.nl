@@ -1,3 +1,7 @@
+import { type Route } from 'next';
+
+import { sameOriginRoute } from '~/lib/site/routes';
+
 export enum SubnavMatch {
     Exact = 'exact',
     Prefix = 'prefix',
@@ -50,12 +54,13 @@ export function isSubnavItemActive(
     }
 }
 
-export function subnavHref(item: SubnavLink, query: string): string {
+export function subnavHref(item: SubnavLink, query: string): Route {
     const itemQuery = item.query ?? query;
     const bare = itemQuery.startsWith('?') ? itemQuery.slice(1) : itemQuery;
-    return bare !== '' && item.carriesQuery === true
-        ? `${item.href}?${bare}`
-        : item.href;
+    return sameOriginRoute(
+        item.href,
+        item.carriesQuery === true ? bare : '',
+    );
 }
 
 export function subnavItemKey(item: SubnavLink): string {

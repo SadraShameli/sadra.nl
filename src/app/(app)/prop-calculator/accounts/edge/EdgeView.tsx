@@ -45,7 +45,7 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { type WilsonInterval } from '~/lib/prop-calculator/stats';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
-import { routes } from '~/lib/site/routes';
+import { type PathWithQuery, routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type EdgeReport = RouterOutputs['propAccounts']['edge']['summary'];
@@ -374,13 +374,13 @@ function expectancyDescription(rewardToRisk: number): string {
 function measuredEdgeCalculatorHref(
     winrate: number,
     rewardToRisk: number,
-): string {
+): PathWithQuery<typeof routes.propCalculator.index> {
     const hub = routes.propCalculator.index;
     const query = encodeState(
         { ...defaultCalculatorState(), rrRatio: rewardToRisk, winrate },
         pageEncodeOptions(hub),
     ).toString();
-    return `${hub}?${query}`;
+    return `${hub}?${query}` as const;
 }
 
 function measuredEdgeCaption(

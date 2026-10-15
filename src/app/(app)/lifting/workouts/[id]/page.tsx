@@ -1,17 +1,17 @@
 import { type Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { LiftingDetailSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { WorkoutDetailView } from '~/app/(app)/lifting/_components/WorkoutDetail';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
 interface PageProperties {
     params: Promise<{ id: string }>;
 }
-
-export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
     params,
@@ -23,27 +23,29 @@ export async function generateMetadata({
     };
 }
 
-export default async function LiftingWorkoutDetailPage({
-    params,
-}: PageProperties) {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+export default function LiftingWorkoutDetailPage({ params }: PageProperties) {
+    return (
+        <PageTransition>
+            <main className={cn('app-lifting__workout-detail', 'container pt-spacing pb-24')}>
+                <Suspense fallback={<LiftingDetailSkeleton />}>
+                    <LiftingWorkoutDetailContent params={params} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
+
+async function LiftingWorkoutDetailContent({ params }: PageProperties) {
+    await requireSessionUser();
     const { id } = await params;
+    const workout = await loadLiftingWorkoutDetail(id);
+    void api.lifting.settings.get.prefetch();
+    return <HydrateClient><WorkoutDetailView initial={workout} /></HydrateClient>;
+}
+
+async function loadLiftingWorkoutDetail(id: string) {
     try {
-        const workout = await api.lifting.workout.get({ id });
-        void api.lifting.settings.get.prefetch();
-        return (
-            <HydrateClient>
-                <main
-                    className={cn(
-                        'app-lifting__workout-detail',
-                        'container pt-spacing pb-24',
-                    )}
-                >
-                    <WorkoutDetailView initial={workout} />
-                </main>
-            </HydrateClient>
-        );
+        return await api.lifting.workout.get({ id });
     } catch {
         notFound();
     }

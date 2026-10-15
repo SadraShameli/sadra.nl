@@ -1,3 +1,5 @@
+import { type Route } from 'next';
+
 import {
     type CalculatorAction,
     CalculatorActionType,
@@ -34,7 +36,7 @@ export enum AccountCalculatorLinkFlag {
 
 export interface AccountCalculatorLink {
     readonly flags: readonly AccountCalculatorLinkFlag[];
-    readonly href: string;
+    readonly href: Route;
     readonly label: string;
 }
 

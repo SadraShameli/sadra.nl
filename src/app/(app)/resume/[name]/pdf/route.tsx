@@ -32,8 +32,6 @@ const cvShow: Record<
 };
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
 export async function GET(
     request: Request,
     { params }: { params: Promise<{ name: string }> },

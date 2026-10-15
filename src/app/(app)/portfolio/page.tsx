@@ -1,8 +1,9 @@
 import { type Metadata } from 'next';
+import { Suspense } from 'react';
 
 import PortfolioContent from '~/app/(app)/_components/Portfolio/Portfolio';
-import { isRoot } from '~/lib/auth/roles';
-import { getServerSession } from '~/lib/auth/server';
+import RootResumeLink from '~/app/(app)/_components/Portfolio/RootResumeLink';
+import { PageTransition } from '~/components/PageTransition';
 import { portfolioContent, siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 
@@ -18,31 +19,34 @@ export const metadata: Metadata = {
     title: portfolioContent.metaTitle,
 };
 
-export default async function PortfolioPage() {
-    const session = await getServerSession();
-    const canViewResume = isRoot(session?.user.role);
-
+export default function PortfolioPage() {
     return (
-        <main className={`app-portfolio container grid w-full pt-spacing`}>
-            <div className="my-content mx-auto w-full max-w-4xl">
-                <PortfolioContent
-                    canViewResume={canViewResume}
-                    education={portfolioContent.education}
-                    educationSectionTitle={
-                        portfolioContent.educationSectionTitle
-                    }
-                    email={siteContent.email}
-                    experience={portfolioContent.experience}
-                    experienceSectionTitle={
-                        portfolioContent.experienceSectionTitle
-                    }
-                    heroHeadline={portfolioContent.heroHeadline}
-                    name={siteContent.manifest.name}
-                    profiles={siteContent.profiles}
-                    projects={portfolioContent.projects}
-                    projectsSectionTitle={portfolioContent.projectsSectionTitle}
-                />
-            </div>
-        </main>
+        <PageTransition>
+            <main className={`app-portfolio container grid w-full pt-spacing`}>
+                <div className="my-content mx-auto w-full max-w-4xl">
+                    <PortfolioContent
+                        education={portfolioContent.education}
+                        educationSectionTitle={
+                            portfolioContent.educationSectionTitle
+                        }
+                        email={siteContent.email}
+                        experience={portfolioContent.experience}
+                        experienceSectionTitle={
+                            portfolioContent.experienceSectionTitle
+                        }
+                        heroHeadline={portfolioContent.heroHeadline}
+                        name={siteContent.manifest.name}
+                        profiles={siteContent.profiles}
+                        projects={portfolioContent.projects}
+                        projectsSectionTitle={portfolioContent.projectsSectionTitle}
+                        resumeLink={
+                            <Suspense fallback={null}>
+                                <RootResumeLink />
+                            </Suspense>
+                        }
+                    />
+                </div>
+            </main>
+        </PageTransition>
     );
 }
