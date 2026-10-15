@@ -31,11 +31,13 @@ Done, each with a test that fails on the old code:
 
 - PT-119 (Q52 answered (a), 2026-10-15): the documented-policy simulation caps each funded day at the funded consistency ceiling the advice card uses (6bebe90e), so the projection, next-slot ranking and payout-size figures on the 18 consistency plans follow the card. The documented rule now sizes a day once instead of on every trade, which halves the cost the rule-sized funded day adds.
 
+- PT-30a2's DpStateValues (3f695367, 2026-10-15): `prop advise --dp --values` prints the DP's value at your state (expected cash with no charge for time, and net of the solved rate), your documented rung after a win and after a loss, and the four value-chain states; `--candidates` adds every action-grid risk. Both DPs read these exactly on their own keys; the best risk equals the policy's. `--store` now fills `value_samples`, which the web shows for validated rows.
+
+- DP speed (2026-10-15): MFF Pro's full gate-flag search went from 1,090 s to 213.5 s on the Mac with the same $66.81/day rate, $1,391 replayed monthly net and -$12 gap; TopStep No-fee Standard stays at about 3 to 4 minutes with identical figures. The cause was the funded value iteration's extrapolation on MFF Pro's top payout regime, a self-loop level converging at the horizon rate: every 251x jump was undone by the next sweep, and it took 17,909 of 19,057 sweeps per rate. b015c4de reverts a jump the next sweep takes back by 90% or more; 1d19c8af keys the eval DP memo by numbers (about 25 of its 58 s per rate went to string keys); d2a66902 skips a redundant Zod parse in the funded day close. The rest of WP66b (R1 to R6) is superseded: no plan measured takes over 5 minutes.
+
 Not done:
 
-- WP66b: R1's first part landed (67e68d2c, exact, about 1.2x on a coarse TopStep run). The rest of R1, R2 and R6 are not done: their design doc is lost, R2 changes results, and a default-grid CPU profile did not finish within 30 minutes on the loaded PC.
 - PT-30a2's gate re-run (running on the PC, see below), the DP pins and the N-89 redesign.
-- PT-30a2's DpStateValues and `prop advise --dp --values --candidates`: the funded DP has no value lookup for an arbitrary state, and mid-day win and loss states are not DP keys, so a lookup would have to map onto the solver's key layout first.
 - Migrations 0007 to 0015 are still not applied.
 - G1, G2 and PT-50 (the santa gates and the final pass) need two independent reviewer agents per item, so they did not run under the no-agent instruction. PT-35 waits for G2 and PT-35b.
 
