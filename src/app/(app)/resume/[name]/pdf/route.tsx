@@ -1,5 +1,7 @@
 import { renderToStream } from '@react-pdf/renderer';
 import { notFound } from 'next/navigation';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
 import { registerFonts } from '~/app/(app)/resume/_pdf/fonts';
 import { ResumeDocument } from '~/app/(app)/resume/_pdf/ResumeDocument';
@@ -13,8 +15,6 @@ import {
     resumeContent,
     resumeVariants,
 } from '~/lib/site/resume';
-import { routes } from '~/lib/site/routes';
-import { getPublicSiteOrigin } from '~/lib/site/url';
 
 const cvShow: Record<
     | 'education'
@@ -30,6 +30,11 @@ const cvShow: Record<
     projectLocations: false,
     projectSummaries: false,
 };
+
+const RESUME_AVATAR_PATH = path.join(
+    process.cwd(),
+    'src/assets/images/sadra-avatar.jpg',
+);
 
 export async function GET(
     request: Request,
@@ -56,7 +61,6 @@ export async function GET(
     const isShowCover = Boolean(selectedCover);
 
     registerFonts();
-    const origin = getPublicSiteOrigin();
     const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
     const filename = `${isShowCover ? 'Cover' : 'Resume'} - ${capitalizedName}.pdf`;
 
@@ -82,7 +86,10 @@ export async function GET(
             hobbies={cvShow.hobbies ? resumeContent.hobbies : []}
             languages={cvShow.languages ? resumeContent.languages : []}
             links={resumeContent.links}
-            profilePictureSrc={`${origin}${routes.resume.profileImage(name)}`}
+            profilePicture={{
+                data: await readFile(RESUME_AVATAR_PATH),
+                format: 'jpg',
+            }}
             projects={cvProjects}
             research={[]}
             showCover={isShowCover}

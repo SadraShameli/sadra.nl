@@ -86,7 +86,6 @@ export const routes = {
     resume: {
         index: '/resume',
         pdf: (name: string) => `/resume/${name}/pdf` as const,
-        profileImage: (name: string) => `/resume/${name}.jpg` as const,
     },
     tradeChecklist: {
         analytics: '/trade-checklist/analytics',
