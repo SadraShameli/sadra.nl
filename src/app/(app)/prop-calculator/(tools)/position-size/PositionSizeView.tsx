@@ -152,7 +152,7 @@ export function PositionSizeView() {
                     className="flex flex-col gap-4"
                 >
                     <h2
-                        className="text-lg font-semibold tracking-tight text-white"
+                        className="text-lg font-semibold tracking-tight text-foreground"
                         id={INPUTS_HEADING_ID}
                     >
                         Trade
@@ -168,7 +168,7 @@ export function PositionSizeView() {
                     className="flex flex-col gap-4"
                 >
                     <h2
-                        className="text-lg font-semibold tracking-tight text-white"
+                        className="text-lg font-semibold tracking-tight text-foreground"
                         id={RESULT_HEADING_ID}
                     >
                         Position
@@ -526,7 +526,7 @@ function PositionSizeSummary({
                 </p>
             ) : null}
             {result.refusal === null ? null : (
-                <p className="text-sm text-amber-400">{result.refusal}</p>
+                <p className="text-sm text-warning">{result.refusal}</p>
             )}
             {result.atRiskIfBustedText === null ? null : (
                 <p className="text-sm text-muted-foreground">
@@ -560,7 +560,7 @@ function PositionSizeUnavailable() {
                 />
                 <StatCard label="Contract limit" value={NOT_APPLICABLE} />
             </div>
-            <p className="text-sm text-amber-400">{FIX_FIELD_TEXT}</p>
+            <p className="text-sm text-warning">{FIX_FIELD_TEXT}</p>
         </div>
     );
 }

@@ -946,8 +946,8 @@ function StrategyLabTable({
                         className={
                             row.original.result &&
                             (row.original.result.expectedMonthlyNet > 0
-                                ? 'text-emerald-400'
-                                : 'text-rose-400')
+                                ? 'text-success'
+                                : 'text-destructive')
                         }
                         value={row.original.result?.expectedMonthlyNet}
                     >

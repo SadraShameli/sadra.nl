@@ -20,7 +20,7 @@ export const CostCard = memo(function CostCard({
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium text-white">
+                <h3 className="text-sm font-medium text-foreground">
                     Net spend by firm
                 </h3>
                 {model.byFirm.length === 0 ? (
@@ -52,7 +52,7 @@ export const CostCard = memo(function CostCard({
             </div>
             {model.byKind.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-white">
+                    <h3 className="text-sm font-medium text-foreground">
                         Net spend by fee kind
                     </h3>
                     <Table>
@@ -78,7 +78,7 @@ export const CostCard = memo(function CostCard({
                 </div>
             )}
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium text-white">
+                <h3 className="text-sm font-medium text-foreground">
                     Cost per funded account
                 </h3>
                 {model.perPlan.length === 0 ? (
@@ -174,7 +174,7 @@ export const CostCard = memo(function CostCard({
             </div>
             {model.byAccountSize.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-white">
+                    <h3 className="text-sm font-medium text-foreground">
                         Attempts and cost per attempt by account size
                     </h3>
                     <Table>
@@ -220,7 +220,7 @@ export const CostCard = memo(function CostCard({
             )}
             {model.byFirmAttemptCost.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-white">
+                    <h3 className="text-sm font-medium text-foreground">
                         Attempts and cost per attempt by firm
                     </h3>
                     <Table>
@@ -271,7 +271,7 @@ export const CostCard = memo(function CostCard({
             {(model.discountsByFirm.length > 0 ||
                 model.discountsNote !== null) && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-white">
+                    <h3 className="text-sm font-medium text-foreground">
                         Discounts captured by firm
                     </h3>
                     {model.discountsByFirm.length > 0 && (

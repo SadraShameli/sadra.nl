@@ -12,7 +12,7 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    frontier: { color: 'hsl(142 76% 45%)', label: 'Efficient frontier' },
+    frontier: { color: 'var(--success)', label: 'Efficient frontier' },
 };
 
 export default function LadderFrontierChartView({ frontier }: Properties) {

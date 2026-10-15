@@ -47,7 +47,7 @@ export function ComponentCorrelationChart({
             componentScoreCorrelation(assessments, category).map((d) => ({
                 ...d,
                 bucket: `${d.pctOfMax - 20}–${d.pctOfMax}%`,
-                fill: d.avgR > 0 ? 'hsl(142 71% 45%)' : 'hsl(0 84% 60%)',
+                fill: d.avgR > 0 ? 'var(--success)' : 'var(--destructive)',
                 fillOpacity: d.count < 3 ? 0.35 : 0.85,
             })),
         [assessments, category],
@@ -107,14 +107,14 @@ export function ComponentCorrelationChart({
                             width={48}
                         />
                         <ReferenceLine
-                            stroke="hsl(0 0% 50%)"
+                            stroke="var(--muted-foreground)"
                             strokeDasharray="4 4"
                             y={0}
                         />
                         <Bar dataKey="avgR" isAnimationActive={false}>
                             <LabelList
                                 dataKey="count"
-                                fill="hsl(0 0% 70%)"
+                                fill="var(--muted-foreground)"
                                 fontSize={11}
                                 formatter={(v: unknown) =>
                                     typeof v === 'number' ? `n=${v}` : ''

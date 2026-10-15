@@ -56,7 +56,7 @@ const CommandInput = React.forwardRef<
     React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, ...properties }, reference) => (
     <div
-        className="flex items-center border-b border-white/6 px-3"
+        className="flex items-center border-b border-border/60 px-3"
         data-slot="command-input-wrapper"
     >
         <Search className="mr-2 size-4 shrink-0 text-muted-foreground" />
@@ -116,7 +116,7 @@ const CommandSeparator = React.forwardRef<
     React.ComponentPropsWithoutRef<typeof CommandPrimitive.Separator>
 >(({ className, ...properties }, reference) => (
     <CommandPrimitive.Separator
-        className={cn('-mx-1 h-px bg-white/6', className)}
+        className={cn('-mx-1 h-px bg-foreground/6', className)}
         ref={reference}
         {...properties}
     />
@@ -129,7 +129,7 @@ const CommandItem = React.forwardRef<
 >(({ className, ...properties }, reference) => (
     <CommandPrimitive.Item
         className={cn(
-            "relative flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-neutral-100 transition outline-none select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected='true']:bg-primary/15 data-[selected='true']:text-foreground",
+            "relative flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground transition outline-none select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected='true']:bg-primary/15 data-[selected='true']:text-foreground",
             className,
         )}
         ref={reference}

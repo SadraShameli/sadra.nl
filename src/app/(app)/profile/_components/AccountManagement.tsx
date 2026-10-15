@@ -152,7 +152,7 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
             {
                 accessorKey: 'name',
                 cell: ({ row }) => (
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-foreground">
                         {row.original.name}
                     </span>
                 ),

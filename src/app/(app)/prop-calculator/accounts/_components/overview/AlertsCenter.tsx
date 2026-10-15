@@ -109,7 +109,7 @@ function severityTextClass(severity: AlertSeverity): string {
             return 'text-muted-foreground';
         }
         case AlertSeverity.Warning: {
-            return 'text-amber-400';
+            return 'text-warning';
         }
     }
 }

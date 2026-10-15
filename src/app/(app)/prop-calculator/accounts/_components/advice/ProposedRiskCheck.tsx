@@ -150,7 +150,7 @@ function VerdictBlock({
                 {view.verdictText}
             </p>
             {view.placementText !== null && (
-                <p className="text-sm font-medium text-amber-400">
+                <p className="text-sm font-medium text-warning">
                     {view.placementText}
                 </p>
             )}

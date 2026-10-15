@@ -36,9 +36,9 @@ import { recordAssessmentOutcome } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 
 const OUTCOMES: { label: string; tone: string; value: Outcome }[] = [
-    { label: 'Win', tone: 'border-emerald-500/50', value: 'win' },
-    { label: 'Loss', tone: 'border-rose-500/50', value: 'loss' },
-    { label: 'Breakeven', tone: 'border-amber-500/50', value: 'breakeven' },
+    { label: 'Win', tone: 'border-success/50', value: 'win' },
+    { label: 'Loss', tone: 'border-destructive/50', value: 'loss' },
+    { label: 'Breakeven', tone: 'border-warning/50', value: 'breakeven' },
     { label: 'No trade', tone: 'border-border/60', value: 'no-trade' },
 ];
 

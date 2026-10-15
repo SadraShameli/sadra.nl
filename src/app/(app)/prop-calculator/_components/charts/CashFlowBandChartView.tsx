@@ -28,8 +28,11 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    band: { color: 'hsl(142 76% 45% / 0.18)', label: 'P10–P90' },
-    median: { color: 'hsl(142 76% 45%)', label: 'Median net' },
+    band: {
+        color: 'color-mix(in oklab, var(--success) 18%, transparent)',
+        label: 'P10–P90',
+    },
+    median: { color: 'var(--success)', label: 'Median net' },
 };
 
 export default function CashFlowBandChartView({ result }: Properties) {
@@ -81,12 +84,12 @@ export default function CashFlowBandChartView({ result }: Properties) {
                 />
                 <ReferenceLine
                     label={{
-                        fill: 'hsl(0 0% 70%)',
+                        fill: 'var(--muted-foreground)',
                         fontSize: 11,
                         position: 'insideBottomLeft',
                         value: 'Break-even',
                     }}
-                    stroke="hsl(0 0% 70%)"
+                    stroke="var(--muted-foreground)"
                     strokeDasharray="4 4"
                     y={0}
                 />
@@ -100,7 +103,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                 />
                 <Area
                     dataKey="range"
-                    fill="hsl(142 76% 45%)"
+                    fill="var(--success)"
                     fillOpacity={0.18}
                     isAnimationActive={false}
                     legendType="none"
@@ -111,7 +114,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                     dataKey="net50"
                     dot={false}
                     isAnimationActive={false}
-                    stroke="hsl(142 76% 45%)"
+                    stroke="var(--success)"
                     strokeWidth={2.5}
                     type="monotone"
                 />

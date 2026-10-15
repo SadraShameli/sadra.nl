@@ -7,9 +7,9 @@ export enum KpiAccent {
 }
 
 export const KPI_ACCENT_TEXT_CLASS: Record<KpiAccent, string> = {
-    [KpiAccent.Negative]: 'text-rose-400',
+    [KpiAccent.Negative]: 'text-destructive',
     [KpiAccent.Neutral]: 'text-foreground',
-    [KpiAccent.Positive]: 'text-emerald-400',
+    [KpiAccent.Positive]: 'text-success',
 };
 
 export function probabilityAccent(probability: number): KpiAccent {

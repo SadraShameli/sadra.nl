@@ -74,24 +74,24 @@ export default function DrawdownDurationPanel({
 
     const underwaterClass =
         m.avgUnderwaterPct < 0.2
-            ? 'text-emerald-400'
+            ? 'text-success'
             : m.avgUnderwaterPct < 0.4
-              ? 'text-amber-400'
-              : 'text-rose-400';
+              ? 'text-warning'
+              : 'text-destructive';
 
     const recoveryClass =
         m.avgRecovery < 3
-            ? 'text-emerald-400'
+            ? 'text-success'
             : m.avgRecovery < 10
-              ? 'text-amber-400'
-              : 'text-rose-400';
+              ? 'text-warning'
+              : 'text-destructive';
 
     const vShapeClass =
         m.vShapePct > 0.6
-            ? 'text-emerald-400'
+            ? 'text-success'
             : m.vShapePct > 0.3
-              ? 'text-amber-400'
-              : 'text-rose-400';
+              ? 'text-warning'
+              : 'text-destructive';
 
     return (
         <Card className={cn('app-prop-calculator__drawdown-duration', 'p-5')}>
@@ -235,10 +235,10 @@ function RecoveryTaxTable({ avgDepth }: { avgDepth: number }) {
                         <span
                             className={
                                 r < 0.12
-                                    ? 'text-emerald-400'
+                                    ? 'text-success'
                                     : r < 0.25
-                                      ? 'text-amber-400'
-                                      : 'text-rose-400'
+                                      ? 'text-warning'
+                                      : 'text-destructive'
                             }
                         >
                             {(r * 100).toFixed(1)}% gain required

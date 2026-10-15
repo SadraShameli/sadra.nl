@@ -85,10 +85,10 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
         : '∞';
     const tailColor =
         m.tailRatio > 1.5
-            ? 'text-emerald-400'
+            ? 'text-success'
             : m.tailRatio > 1
-              ? 'text-amber-400'
-              : 'text-rose-400';
+              ? 'text-warning'
+              : 'text-destructive';
 
     return (
         <Card className={cn('app-prop-calculator__tail-risk', 'p-5')}>
@@ -99,28 +99,28 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
                         sub="loss in 1-of-20 trials"
                         subInheritsColor
                         value={formatCompactCurrency(m.var95)}
-                        valueClassName="text-rose-400"
+                        valueClassName="text-destructive"
                     />
                     <StatCard
                         label="CVaR 95% (ES)"
                         sub="avg loss in worst 5%"
                         subInheritsColor
                         value={formatCompactCurrency(m.cvar95)}
-                        valueClassName="text-rose-400"
+                        valueClassName="text-destructive"
                     />
                     <StatCard
                         label="VaR 99%"
                         sub="loss in 1-of-100 trials"
                         subInheritsColor
                         value={formatCompactCurrency(m.var99)}
-                        valueClassName="text-rose-500"
+                        valueClassName="text-destructive"
                     />
                     <StatCard
                         label="CVaR 99% (ES)"
                         sub="avg loss in worst 1%"
                         subInheritsColor
                         value={formatCompactCurrency(m.cvar99)}
-                        valueClassName="text-rose-500"
+                        valueClassName="text-destructive"
                     />
                     <StatCard
                         label="Tail ratio"
@@ -195,10 +195,10 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
                             className={cn(
                                 'font-medium',
                                 p > 0.25
-                                    ? 'text-rose-400'
+                                    ? 'text-destructive'
                                     : p > 0.1
-                                      ? 'text-amber-400'
-                                      : 'text-emerald-400',
+                                      ? 'text-warning'
+                                      : 'text-success',
                             )}
                         >
                             {formatPercent(p)}
@@ -218,9 +218,9 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
                                 g === null
                                     ? 'text-muted-foreground'
                                     : g > 0.5
-                                      ? 'text-emerald-400'
+                                      ? 'text-success'
                                       : g > 0.25
-                                        ? 'text-amber-400'
+                                        ? 'text-warning'
                                         : 'text-muted-foreground',
                             )}
                         >

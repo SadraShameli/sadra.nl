@@ -269,7 +269,7 @@ function namedScrollRegion(labelledBy: string) {
 function Progress({ model }: { readonly model: NextSlotModel }) {
     if (!model.isProvisional) return null;
     return (
-        <p className="text-sm text-amber-400" role="status">
+        <p className="text-sm text-warning" role="status">
             Provisional ranking: {model.computed} of {model.requested} engine
             runs done. Plans join the ranking as their runs finish, so ranks,
             the payout-policy sensitive marks and the slots to fill can still
@@ -294,7 +294,7 @@ function RankedRow({ row }: { readonly row: NextSlotRankedViewRow }) {
             <TableCell>
                 {row.firm} {row.plan}
                 {notes.map((note) => (
-                    <span className="block text-xs text-amber-400" key={note}>
+                    <span className="block text-xs text-warning" key={note}>
                         {note}
                     </span>
                 ))}
@@ -497,7 +497,7 @@ function Section({
     return (
         <section aria-labelledby={`next-slot-${id}`}>
             <h2
-                className="mb-3 text-xl font-semibold text-white"
+                className="mb-3 text-xl font-semibold text-foreground"
                 id={`next-slot-${id}`}
             >
                 {title}

@@ -6,6 +6,7 @@ import {
     LineChart,
     LogOut,
     type LucideIcon,
+    Palette,
     Radio,
     Receipt,
     User,
@@ -19,6 +20,7 @@ import { Avatar, AvatarFallback } from '~/components/ui/Avatar';
 import { Button } from '~/components/ui/Button';
 import { authClient } from '~/lib/auth/client';
 import { profileTabUrl, routes } from '~/lib/site/routes';
+import { applyBrowserTheme } from '~/lib/theme';
 import { cn } from '~/lib/utilities';
 
 import type { ProfileTabValue } from './profileTabs';
@@ -60,6 +62,12 @@ const LIFTING_ITEM: NavItem = {
     label: 'Lifting',
     tab: 'lifting',
 };
+const APPEARANCE_ITEM: NavItem = {
+    href: profileTabUrl('appearance'),
+    icon: Palette,
+    label: 'Appearance',
+    tab: 'appearance',
+};
 const ACCOUNTING_ITEM: NavItem = {
     href: routes.accounting.index,
     icon: Receipt,
@@ -85,6 +93,7 @@ export function ProfileNav({
     const [pending, startTransition] = useTransition();
     const items: NavItem[] = [
         ACCOUNT_ITEM,
+        APPEARANCE_ITEM,
         ...(isAdmin ? [USERS_ITEM, SENSOR_HUB_ITEM] : []),
         TRADING_PLAN_ITEM,
         LIFTING_ITEM,
@@ -94,7 +103,7 @@ export function ProfileNav({
 
     return (
         <div className="flex flex-col gap-4 px-4 md:gap-6 md:px-2">
-            <div className="flex items-center gap-3 rounded-xl bg-white/3 p-3">
+            <div className="flex items-center gap-3 rounded-xl bg-foreground/3 p-3">
                 <Avatar className="size-10 rounded-full">
                     <AvatarFallback className="rounded-full bg-primary/15 font-semibold text-primary">
                         {initial}
@@ -121,7 +130,7 @@ export function ProfileNav({
                                 'w-full justify-start gap-2 px-3!',
                                 isActive
                                     ? 'bg-primary/15 text-foreground hover:bg-primary/20'
-                                    : 'text-muted-foreground hover:bg-white/3 hover:text-foreground',
+                                    : 'text-muted-foreground hover:bg-foreground/3 hover:text-foreground',
                             )}
                             key={item.href}
                             size="sm"
@@ -140,11 +149,12 @@ export function ProfileNav({
 
             <div className="border-t pt-3">
                 <Button
-                    className="w-full justify-start gap-2 px-3! text-muted-foreground hover:bg-white/3 hover:text-foreground"
+                    className="w-full justify-start gap-2 px-3! text-muted-foreground hover:bg-foreground/3 hover:text-foreground"
                     disabled={pending}
                     onClick={() =>
                         startTransition(async () => {
                             await authClient.signOut();
+                            applyBrowserTheme(null);
                             queryClient.clear();
                             window.location.assign(routes.home);
                         })

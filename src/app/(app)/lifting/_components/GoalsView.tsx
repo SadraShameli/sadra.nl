@@ -29,6 +29,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -152,23 +153,13 @@ function formatGoalTarget(
     return kind === 'streak' ? `${value} wk` : String(value);
 }
 
-const HEAT_LEVELS = [
-    'bg-muted/40',
-    'bg-emerald-500/25',
-    'bg-emerald-500/50',
-    'bg-emerald-500/75',
-    'bg-emerald-500',
-] as const;
-
 const WEEKDAY_HINTS = ['Mon', 'Wed', 'Fri'] as const;
 
 const CALENDAR_MODIFIER_CLASS = {
-    achieved:
-        'bg-emerald-500/30 text-emerald-100 hover:bg-emerald-500/40 rounded-md',
-    targetActive:
-        'bg-amber-500/30 text-amber-100 hover:bg-amber-500/40 rounded-md',
+    achieved: 'bg-success/30 text-success hover:bg-success/40 rounded-md',
+    targetActive: 'bg-warning/30 text-warning hover:bg-warning/40 rounded-md',
     targetMissed:
-        'bg-rose-500/30 text-rose-100 hover:bg-rose-500/40 rounded-md',
+        'bg-destructive/30 text-destructive hover:bg-destructive/40 rounded-md',
 } as const;
 
 interface Stats {
@@ -281,7 +272,7 @@ export function GoalsView() {
             {
                 accessorKey: 'targetValue',
                 cell: ({ row }) => (
-                    <span className="font-semibold text-white tabular-nums">
+                    <span className="font-semibold text-foreground tabular-nums">
                         {formatGoalTarget(
                             row.original.kind,
                             row.original.targetValue,
@@ -296,7 +287,7 @@ export function GoalsView() {
                 cell: ({ row }) =>
                     row.original.exerciseSlug && row.original.exerciseName ? (
                         <Link
-                            className="text-xs text-muted-foreground hover:text-white hover:underline"
+                            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
                             href={routes.lifting.exercise(
                                 row.original.exerciseSlug,
                             )}
@@ -353,7 +344,7 @@ export function GoalsView() {
                     row.achievedAt ? new Date(row.achievedAt).getTime() : 0,
                 cell: ({ row }) =>
                     row.original.achievedAt ? (
-                        <span className="text-xs text-emerald-400 tabular-nums">
+                        <span className="text-xs text-success tabular-nums">
                             {format(
                                 new Date(row.original.achievedAt),
                                 'MMM d, yyyy',
@@ -434,7 +425,7 @@ export function GoalsView() {
                             </span>
                             <span className="tabular-nums">
                                 {stats.achieved} / {stats.total} goals ·{' '}
-                                <span className="text-emerald-400">
+                                <span className="text-success">
                                     {achievementRate}%
                                 </span>
                             </span>
@@ -715,7 +706,7 @@ export function GoalsView() {
                         pageSize={10}
                         rowClassName={(r) =>
                             r.status === GOAL_STATUS.ACHIEVED
-                                ? 'bg-emerald-500/5'
+                                ? 'bg-success/5'
                                 : undefined
                         }
                         rowId={(r) => r.id}
@@ -744,8 +735,8 @@ const STAT_TONE: Record<
 > = {
     default: 'text-primary',
     destructive: 'text-destructive',
-    success: 'text-emerald-400',
-    warning: 'text-amber-400',
+    success: 'text-success',
+    warning: 'text-warning',
 };
 
 interface CalendarMarkers {
@@ -788,7 +779,9 @@ function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
                                                 <div
                                                     className={cn(
                                                         'aspect-square rounded-sm',
-                                                        HEAT_LEVELS[cell.level],
+                                                        HEAT_LEVEL_CLASS[
+                                                            cell.level
+                                                        ],
                                                     )}
                                                 />
                                             </TooltipTrigger>
@@ -813,7 +806,7 @@ function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
                 </div>
                 <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
                     <span>Less</span>
-                    {HEAT_LEVELS.map((c, index) => (
+                    {HEAT_LEVEL_CLASS.map((c, index) => (
                         <span
                             className={cn('size-3 rounded-sm', c)}
                             key={index}
@@ -893,9 +886,9 @@ function buildHeatmap(goals: GoalRow[]): HeatmapGrid {
 function CalendarLegend() {
     return (
         <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] text-muted-foreground">
-            <LegendDot className="bg-emerald-500/60" label="Achieved" />
-            <LegendDot className="bg-amber-500/60" label="Target upcoming" />
-            <LegendDot className="bg-rose-500/60" label="Target overdue" />
+            <LegendDot className="bg-success/60" label="Achieved" />
+            <LegendDot className="bg-warning/60" label="Target upcoming" />
+            <LegendDot className="bg-destructive/60" label="Target overdue" />
         </div>
     );
 }
@@ -921,21 +914,21 @@ function GoalActions({
                         <IconAction
                             disabled={busy}
                             icon={Check}
-                            iconClass="text-emerald-400"
+                            iconClass="text-success"
                             label="Mark achieved"
                             onClick={() => onAchieve(goal.id)}
                         />
                         <IconAction
                             disabled={busy}
                             icon={Pause}
-                            iconClass="text-amber-400"
+                            iconClass="text-warning"
                             label="Pause"
                             onClick={() => onStatus(goal, GOAL_STATUS.PAUSED)}
                         />
                         <IconAction
                             disabled={busy}
                             icon={Flag}
-                            iconClass="text-rose-400"
+                            iconClass="text-destructive"
                             label="Mark failed"
                             onClick={() => onStatus(goal, GOAL_STATUS.FAILED)}
                         />
@@ -945,7 +938,7 @@ function GoalActions({
                     <IconAction
                         disabled={busy}
                         icon={Play}
-                        iconClass="text-emerald-400"
+                        iconClass="text-success"
                         label="Resume"
                         onClick={() => onStatus(goal, GOAL_STATUS.ACTIVE)}
                     />
@@ -1062,7 +1055,7 @@ function StatCard({
                         {label}
                     </span>
                 </div>
-                <p className="mt-2 text-2xl font-bold text-white tabular-nums">
+                <p className="mt-2 text-2xl font-bold text-foreground tabular-nums">
                     {value}
                 </p>
                 {sub && (
@@ -1096,9 +1089,9 @@ function TargetDateCell({
     const diff = differenceInCalendarDays(date, today);
     const tone =
         diff < 0
-            ? 'text-rose-400'
+            ? 'text-destructive'
             : diff <= 7
-              ? 'text-amber-400'
+              ? 'text-warning'
               : 'text-muted-foreground';
     const label =
         diff === 0

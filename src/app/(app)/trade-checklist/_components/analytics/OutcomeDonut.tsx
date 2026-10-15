@@ -11,10 +11,10 @@ import {
 import { cn } from '~/lib/utilities';
 
 const COLORS: Record<string, string> = {
-    breakeven: 'hsl(45 93% 47%)',
-    loss: 'hsl(0 84% 60%)',
-    'no-trade': 'hsl(0 0% 50%)',
-    win: 'hsl(142 71% 45%)',
+    breakeven: 'var(--warning)',
+    loss: 'var(--destructive)',
+    'no-trade': 'var(--muted-foreground)',
+    win: 'var(--success)',
 };
 
 const LABELS: Record<string, string> = {

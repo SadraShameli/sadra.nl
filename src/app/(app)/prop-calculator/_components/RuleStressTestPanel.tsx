@@ -82,7 +82,7 @@ export default function RuleStressTestPanel({
                             {row.original.label}
                         </span>
                         {row.original.isNoOp && (
-                            <span className="flex items-center gap-1 text-[10px] text-amber-400">
+                            <span className="flex items-center gap-1 text-[10px] text-warning">
                                 <TriangleAlert className="size-3" />
                                 no DLL on this plan, so no effect
                             </span>
@@ -202,7 +202,7 @@ function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
 
 function deltaClass(delta: number): string {
     if (Math.abs(delta) < 1e-9) return 'text-muted-foreground';
-    return delta > 0 ? 'text-emerald-400' : 'text-rose-400';
+    return delta > 0 ? 'text-success' : 'text-destructive';
 }
 
 function formatSignedCurrency(n: number): string {

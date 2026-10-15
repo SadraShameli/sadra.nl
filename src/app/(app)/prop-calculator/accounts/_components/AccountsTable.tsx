@@ -219,7 +219,7 @@ export function AccountsTableWithValues({
             className="app-prop-accounts__list flex flex-col gap-4"
         >
             <h2
-                className="text-lg font-semibold tracking-tight text-white"
+                className="text-lg font-semibold tracking-tight text-foreground"
                 id="prop-accounts-list-heading"
             >
                 Accounts
@@ -605,7 +605,7 @@ function AccountRow({
                     </Badge>
                 )}
                 {row.planIssue !== null && (
-                    <p className="mt-1 flex items-start gap-1 text-xs text-amber-400">
+                    <p className="mt-1 flex items-start gap-1 text-xs text-warning">
                         <TriangleAlert className="mt-0.5 size-3 shrink-0" />
                         <span>{row.planIssue}. Read-only.</span>
                         {row.readOnlyNotice !== null && (

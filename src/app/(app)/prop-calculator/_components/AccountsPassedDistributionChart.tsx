@@ -21,7 +21,7 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    p: { color: 'hsl(217 91% 60%)', label: 'Probability' },
+    p: { color: 'var(--info)', label: 'Probability' },
 };
 
 const DEFAULT_CAPTION = '# accounts passed';
@@ -74,11 +74,11 @@ export default function AccountsPassedDistributionChart({
                     {halfThreshold && halfK > 0 && halfK <= N && (
                         <ReferenceLine
                             label={{
-                                fill: 'hsl(45 100% 60%)',
+                                fill: 'var(--warning)',
                                 fontSize: 9,
                                 value: `≥${halfK}`,
                             }}
-                            stroke="hsl(45 100% 60%)"
+                            stroke="var(--warning)"
                             strokeDasharray="3 3"
                             x={halfK}
                         />
@@ -96,10 +96,10 @@ export default function AccountsPassedDistributionChart({
                             } = properties as BarShapeProperties;
                             const fill =
                                 index === 0
-                                    ? 'hsl(0 80% 60%)'
+                                    ? 'var(--destructive)'
                                     : index === N
-                                      ? 'hsl(142 76% 45%)'
-                                      : 'hsl(217 91% 60%)';
+                                      ? 'var(--success)'
+                                      : 'var(--info)';
                             return (
                                 <rect
                                     fill={fill}

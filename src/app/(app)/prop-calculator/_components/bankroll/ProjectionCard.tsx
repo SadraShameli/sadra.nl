@@ -61,8 +61,11 @@ interface ProjectionCardProperties {
 }
 
 const monthEndChartConfig: ChartConfig = {
-    band: { color: 'hsl(142 76% 45% / 0.18)', label: 'P10 to P90' },
-    median: { color: 'hsl(142 76% 45%)', label: 'Median bankroll' },
+    band: {
+        color: 'color-mix(in oklab, var(--success) 18%, transparent)',
+        label: 'P10 to P90',
+    },
+    median: { color: 'var(--success)', label: 'Median bankroll' },
 };
 
 export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
@@ -287,7 +290,7 @@ function MonthEndBands({
     }));
     return (
         <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-white">
+            <h3 className="text-sm font-semibold text-foreground">
                 Bankroll at each month end (P10 to P90)
             </h3>
             <ChartContainer
@@ -337,7 +340,7 @@ function MonthEndBands({
                     />
                     <Area
                         dataKey="range"
-                        fill="hsl(142 76% 45%)"
+                        fill="var(--success)"
                         fillOpacity={0.18}
                         isAnimationActive={false}
                         legendType="none"
@@ -348,7 +351,7 @@ function MonthEndBands({
                         dataKey="median"
                         dot={false}
                         isAnimationActive={false}
-                        stroke="hsl(142 76% 45%)"
+                        stroke="var(--success)"
                         strokeWidth={2.5}
                         type="monotone"
                     />

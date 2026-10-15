@@ -22,8 +22,8 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    median: { color: 'hsl(0 84% 60%)', label: 'Median drawdown' },
-    sample: { color: 'hsl(0 84% 60%)', label: 'Sample drawdown' },
+    median: { color: 'var(--destructive)', label: 'Median drawdown' },
+    sample: { color: 'var(--destructive)', label: 'Sample drawdown' },
 };
 
 export default function DrawdownCurveChartView({ result }: Properties) {
@@ -76,12 +76,12 @@ export default function DrawdownCurveChartView({ result }: Properties) {
                 />
                 <ReferenceLine
                     label={{
-                        fill: 'hsl(0 84% 60%)',
+                        fill: 'var(--destructive)',
                         fontSize: 11,
                         position: 'right',
                         value: 'Bust limit',
                     }}
-                    stroke="hsl(0 84% 60%)"
+                    stroke="var(--destructive)"
                     strokeDasharray="4 4"
                     y={drawdownLimit}
                 />

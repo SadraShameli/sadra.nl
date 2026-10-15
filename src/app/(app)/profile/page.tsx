@@ -16,6 +16,7 @@ import { account, db } from '~/server/db';
 import { api, HydrateClient } from '~/trpc/server';
 
 import { AccountManagement } from './_components/AccountManagement';
+import { AppearanceTab } from './_components/appearance/AppearanceTab';
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
 import { LiftingHub } from './_components/lifting/LiftingHub';
 import { ProfileNav } from './_components/ProfileNav';
@@ -38,6 +39,7 @@ export const metadata: Metadata = {
 
 const TAB_TITLES: Record<ProfileTabValue, string> = {
     account: 'Account',
+    appearance: 'Appearance',
     lifting: 'Lifting',
     'sensor-hub': 'Sensor Hub',
     trading: 'Trading',
@@ -181,7 +183,7 @@ async function ProfileContent({
                             <p className="text-sm font-medium text-destructive">
                                 Delete account
                             </p>
-                            <p className="mt-0.5 text-xs text-white/50">
+                            <p className="mt-0.5 text-xs text-foreground/50">
                                 Permanently remove your account and all data.
                             </p>
                         </div>
@@ -193,14 +195,39 @@ async function ProfileContent({
     );
 
     let content: ReactNode = accountTab;
-    if (activeTab === 'users' && isAdmin)
-        content = <AccountManagement callerRole={role} />;
-    else if (activeTab === 'sensor-hub' && isAdmin) content = <SensorHubTab />;
-    else if (activeTab === 'trading')
-        content = <TradingPlanTab plans={plans} />;
-    else if (activeTab === 'lifting') {
-        const liftingSettings = await api.lifting.settings.get();
-        content = <LiftingHub initialSettings={liftingSettings} />;
+    switch (activeTab) {
+        case 'account': {
+            break;
+        }
+        case 'appearance': {
+            await Promise.all([
+                api.user.theme.current.prefetch(),
+                api.user.theme.catalog.prefetch({
+                    page: 1,
+                    search: '',
+                    source: null,
+                }),
+            ]);
+            content = <AppearanceTab />;
+            break;
+        }
+        case 'lifting': {
+            const liftingSettings = await api.lifting.settings.get();
+            content = <LiftingHub initialSettings={liftingSettings} />;
+            break;
+        }
+        case 'sensor-hub': {
+            if (isAdmin) content = <SensorHubTab />;
+            break;
+        }
+        case 'trading': {
+            content = <TradingPlanTab plans={plans} />;
+            break;
+        }
+        case 'users': {
+            if (isAdmin) content = <AccountManagement callerRole={role} />;
+            break;
+        }
     }
 
     return (

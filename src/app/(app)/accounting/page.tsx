@@ -24,7 +24,7 @@ export default function AccountingPage() {
                 )}
             >
                 <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                         Accounting Importer
                     </h1>
                 </header>

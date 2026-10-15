@@ -203,8 +203,8 @@ export function BookingsTable({
                     <span
                         className={
                             row.original.direction === 'IN'
-                                ? 'font-mono text-xs text-emerald-300'
-                                : 'font-mono text-xs text-rose-300'
+                                ? 'font-mono text-xs text-success'
+                                : 'font-mono text-xs text-destructive'
                         }
                     >
                         {formatEur(row.original.amountEur)}
@@ -233,7 +233,7 @@ export function BookingsTable({
             {
                 accessorKey: 'txnId',
                 cell: ({ row }) => (
-                    <span className="font-mono text-[10px] text-sky-300">
+                    <span className="font-mono text-[10px] text-info">
                         {row.original.txnId}
                     </span>
                 ),
@@ -384,7 +384,7 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
             {
                 accessorKey: 'totalEur',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-emerald-300">
+                    <span className="font-mono text-xs text-success">
                         {formatEur(row.original.totalEur)}
                     </span>
                 ),
@@ -490,7 +490,7 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
             {
                 accessorKey: 'total',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-emerald-300">
+                    <span className="font-mono text-xs text-success">
                         {formatEur(row.original.total)}
                     </span>
                 ),
@@ -546,9 +546,9 @@ export function Tile({
                 <div
                     className={cn(
                         'mt-1 font-mono text-sm font-semibold wrap-break-word sm:text-base',
-                        tone === 'in' && 'text-emerald-300',
-                        tone === 'out' && 'text-rose-300',
-                        tone === 'warn' && 'text-amber-300',
+                        tone === 'in' && 'text-success',
+                        tone === 'out' && 'text-destructive',
+                        tone === 'warn' && 'text-warning',
                         tone === 'default' && 'text-foreground',
                     )}
                 >
@@ -647,7 +647,7 @@ export function UnknownsTable({
             {
                 accessorKey: 'rawName',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-amber-300">
+                    <span className="font-mono text-xs text-warning">
                         {row.original.rawName}
                     </span>
                 ),

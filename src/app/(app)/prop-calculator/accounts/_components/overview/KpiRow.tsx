@@ -28,7 +28,7 @@ function subOf(kpi: OverviewKpi): string | undefined {
 function toneClassName(tone: KpiTone): string | undefined {
     switch (tone) {
         case KpiTone.Negative: {
-            return 'text-red-400';
+            return 'text-destructive';
         }
         case KpiTone.Neutral: {
             return undefined;
@@ -37,7 +37,7 @@ function toneClassName(tone: KpiTone): string | undefined {
             return 'text-muted-foreground';
         }
         case KpiTone.Positive: {
-            return 'text-emerald-400';
+            return 'text-success';
         }
     }
 }

@@ -176,7 +176,7 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                         )}
                         {warning !== undefined && (
                             <FieldDescription
-                                className="text-amber-400"
+                                className="text-warning"
                                 id={warningId}
                             >
                                 {warning}

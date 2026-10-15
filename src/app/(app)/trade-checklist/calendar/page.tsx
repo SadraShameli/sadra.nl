@@ -30,7 +30,7 @@ export default function TradeCalendarPage({
                 )}
             >
                 <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                         Calendar
                     </h1>
                     <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">

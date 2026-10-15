@@ -85,7 +85,7 @@ export function PlateVisualizer({
                         </div>
                     ))}
                     <div className="h-3 flex-1 rounded-full bg-muted-foreground/60" />
-                    <div className="flex h-10 w-3 items-center justify-center bg-muted-foreground/80 text-[10px] font-bold text-black">
+                    <div className="flex h-10 w-3 items-center justify-center bg-muted-foreground/80 text-[10px] font-bold text-background">
                         |
                     </div>
                     <div className="h-3 flex-1 rounded-full bg-muted-foreground/60" />

@@ -173,7 +173,7 @@ export function BodyView() {
 }
 
 const TREND_CHART_CONFIG = {
-    value: { color: '#a3a3a3', label: 'Value' },
+    value: { color: 'var(--muted-foreground)', label: 'Value' },
 } as const;
 
 function AddMeasurementCard({
@@ -398,8 +398,8 @@ function BodyStatsCards({ stats }: { stats: Stats }) {
         stats.weightDelta30d === null
             ? 'text-muted-foreground'
             : stats.weightDelta30d > 0
-              ? 'text-amber-400'
-              : 'text-emerald-400';
+              ? 'text-warning'
+              : 'text-success';
 
     return (
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">

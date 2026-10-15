@@ -120,7 +120,7 @@ function ProjectionDetail({ row }: { readonly row: ProjectionRow }) {
         <div className="flex flex-col gap-2">
             {row.result !== null && (
                 <>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-foreground">
                         {row.plan}: net cash by month, P10 to P90 band and
                         median
                     </p>
@@ -136,7 +136,7 @@ function ProjectionDetail({ row }: { readonly row: ProjectionRow }) {
             {row.notHonoured.length > 0 && (
                 <ul
                     aria-label={`Policy fields the timeline does not honour for ${row.plan}`}
-                    className="flex list-disc flex-col gap-1 pl-5 text-xs text-amber-400"
+                    className="flex list-disc flex-col gap-1 pl-5 text-xs text-warning"
                 >
                     {row.notHonoured.map((text) => (
                         <li key={text}>{text}</li>

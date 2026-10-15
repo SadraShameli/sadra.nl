@@ -99,7 +99,7 @@ export function SessionsList() {
                     const { label } = describeUserAgent(row.original.userAgent);
                     return (
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-white">
+                            <span className="font-medium text-foreground">
                                 {label}
                             </span>
                             {row.original.current && (

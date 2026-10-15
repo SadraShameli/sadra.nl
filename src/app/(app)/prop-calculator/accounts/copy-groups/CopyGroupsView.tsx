@@ -150,7 +150,7 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
         <>
             <header className="mb-8">
                 <h1
-                    className="text-3xl font-bold tracking-tight text-white outline-none sm:text-4xl"
+                    className="text-3xl font-bold tracking-tight text-foreground outline-none sm:text-4xl"
                     ref={headingReference}
                     tabIndex={-1}
                 >

@@ -49,7 +49,7 @@ function RepeatabilityGroup({
 }) {
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-white">{label}</h3>
+            <h3 className="text-sm font-medium text-foreground">{label}</h3>
             {stats === null ? (
                 <p className="text-sm text-muted-foreground">
                     No complete month yet.

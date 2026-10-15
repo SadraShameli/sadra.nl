@@ -44,15 +44,15 @@ export function RecordingList({
             )}
         >
             <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-medium tracking-[0.2em] text-neutral-500 uppercase">
+                <p className="text-[10px] font-medium tracking-[0.2em] text-muted-foreground/70 uppercase">
                     Up Next
                 </p>
                 <div className="relative w-40 sm:w-48">
-                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3 -translate-y-1/2 text-neutral-500" />
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3 -translate-y-1/2 text-muted-foreground/70" />
                     <input
                         className={cn(
                             'app-recording__list-search',
-                            'w-full rounded-full bg-white/4 py-1.5 pr-3 pl-7 text-xs text-white transition outline-none placeholder:text-neutral-500 focus:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40',
+                            'w-full rounded-full bg-foreground/4 py-1.5 pr-3 pl-7 text-xs text-foreground transition outline-none placeholder:text-muted-foreground/70 focus:bg-foreground/8 disabled:cursor-not-allowed disabled:opacity-40',
                         )}
                         disabled={!recordings?.length}
                         onChange={(event) => setSearchQuery(event.target.value)}
@@ -105,7 +105,7 @@ export function RecordingList({
                                                 'group flex w-full items-center gap-3 rounded-md p-2 text-left text-sm transition',
                                                 isCurrent
                                                     ? 'text-foreground'
-                                                    : 'text-neutral-400 hover:bg-white/3 hover:text-foreground',
+                                                    : 'text-muted-foreground hover:bg-foreground/3 hover:text-foreground',
                                             )}
                                             data-state={
                                                 isCurrent
@@ -133,8 +133,8 @@ export function RecordingList({
                                                     className={cn(
                                                         'shrink-0 text-xs tabular-nums',
                                                         isCurrent
-                                                            ? 'text-neutral-300'
-                                                            : 'text-neutral-500',
+                                                            ? 'text-foreground/80'
+                                                            : 'text-muted-foreground/70',
                                                     )}
                                                 >
                                                     {DurationFormat.seconds(

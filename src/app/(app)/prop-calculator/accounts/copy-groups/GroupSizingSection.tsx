@@ -212,7 +212,7 @@ function ReadyGroupSizing({
                         <>
                             {result.payoutCountBlocks.map((block) => (
                                 <p
-                                    className="font-medium text-amber-400"
+                                    className="font-medium text-warning"
                                     key={block.firm}
                                 >
                                     {copyGroupPayoutCountBlockText(
@@ -235,7 +235,7 @@ function ReadyGroupSizing({
                         <p
                             className={
                                 result.contractPlacement.isRefused
-                                    ? 'font-medium text-amber-400'
+                                    ? 'font-medium text-warning'
                                     : undefined
                             }
                         >

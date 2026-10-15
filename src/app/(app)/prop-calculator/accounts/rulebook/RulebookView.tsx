@@ -1214,7 +1214,7 @@ function RulebookForm({
                         Discard changes
                     </Button>
                     {form.formState.isDirty && (
-                        <p className="text-sm text-amber-400" role="status">
+                        <p className="text-sm text-warning" role="status">
                             Unsaved changes
                         </p>
                     )}
@@ -1367,7 +1367,7 @@ function StrategyCard({ control }: { control: Control<RulebookFormValues> }) {
             <TextField control={control} name="strategy.winrate" />
             <TextField control={control} name="strategy.rr" />
             <TextField control={control} name="strategy.tradesPerDayMax" />
-            <p className="text-xs text-amber-400" role="status">
+            <p className="text-xs text-warning" role="status">
                 {note ?? ''}
             </p>
         </SectionCard>

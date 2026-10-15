@@ -249,7 +249,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                             'EEEE · MMMM d, y · HH:mm',
                         )}
                     </p>
-                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                         {w.name ?? 'Workout'}
                     </h1>
                     <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">

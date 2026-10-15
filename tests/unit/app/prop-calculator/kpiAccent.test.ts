@@ -59,9 +59,9 @@ describe('KpiAccent', () => {
 describe('KPI_ACCENT_TEXT_CLASS', () => {
     it('renders a neutral accent in the foreground color, not green', () => {
         expect(KPI_ACCENT_TEXT_CLASS).toEqual({
-            [KpiAccent.Negative]: 'text-rose-400',
+            [KpiAccent.Negative]: 'text-destructive',
             [KpiAccent.Neutral]: 'text-foreground',
-            [KpiAccent.Positive]: 'text-emerald-400',
+            [KpiAccent.Positive]: 'text-success',
         });
     });
 });

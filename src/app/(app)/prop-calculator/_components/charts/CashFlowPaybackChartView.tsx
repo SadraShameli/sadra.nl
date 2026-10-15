@@ -19,8 +19,8 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    payout: { color: 'hsl(142 76% 45%)', label: 'Cumulative payout' },
-    spend: { color: 'hsl(0 84% 60%)', label: 'Cumulative spend' },
+    payout: { color: 'var(--success)', label: 'Cumulative payout' },
+    spend: { color: 'var(--destructive)', label: 'Cumulative spend' },
 };
 
 export default function CashFlowPaybackChartView({ result }: Properties) {
@@ -74,7 +74,7 @@ export default function CashFlowPaybackChartView({ result }: Properties) {
                     dataKey="spend"
                     dot={false}
                     isAnimationActive={false}
-                    stroke="hsl(0 84% 60%)"
+                    stroke="var(--destructive)"
                     strokeWidth={2}
                     type="monotone"
                 />
@@ -82,7 +82,7 @@ export default function CashFlowPaybackChartView({ result }: Properties) {
                     dataKey="payout"
                     dot={false}
                     isAnimationActive={false}
-                    stroke="hsl(142 76% 45%)"
+                    stroke="var(--success)"
                     strokeWidth={2}
                     type="monotone"
                 />

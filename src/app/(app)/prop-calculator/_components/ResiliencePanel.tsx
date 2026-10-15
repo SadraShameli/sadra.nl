@@ -171,8 +171,8 @@ function ResilienceTable({ rows }: { rows: ResilienceRow[] }) {
                 cn(
                     !r.survives &&
                         r.prob > 0.05 &&
-                        'bg-rose-500/10 text-rose-400',
-                    !r.survives && r.prob <= 0.05 && 'text-amber-400',
+                        'bg-destructive/10 text-destructive',
+                    !r.survives && r.prob <= 0.05 && 'text-warning',
                     r.isTolerance && 'font-semibold',
                 )
             }

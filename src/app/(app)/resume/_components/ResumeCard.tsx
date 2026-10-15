@@ -62,7 +62,7 @@ export default function ResumeCard({
             <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
                 {resume.title}
             </p>
-            <p className="mt-1 text-base font-semibold text-white">
+            <p className="mt-1 text-base font-semibold text-foreground">
                 {resume.role}
             </p>
 

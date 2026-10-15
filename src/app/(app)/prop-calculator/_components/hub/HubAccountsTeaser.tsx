@@ -226,7 +226,7 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
                     label="Net"
                     value={formatUsdCents(summary.net)}
                     valueClassName={
-                        summary.net < 0 ? 'text-red-400' : 'text-emerald-400'
+                        summary.net < 0 ? 'text-destructive' : 'text-success'
                     }
                 />
                 <StatCard
@@ -242,7 +242,7 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
                     }
                     valueClassName={
                         summary.alertCount !== null && summary.alertCount > 0
-                            ? 'text-amber-400'
+                            ? 'text-warning'
                             : undefined
                     }
                 />
@@ -292,7 +292,7 @@ function TeaserFrame({
             <Card className={cn('app-prop-calculator__accounts-teaser')}>
                 <CardHeader>
                     <h2
-                        className="flex items-center gap-2 text-lg font-semibold tracking-tight text-white"
+                        className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground"
                         id="hub-accounts-teaser"
                     >
                         <Wallet aria-hidden className="size-4 text-primary" />

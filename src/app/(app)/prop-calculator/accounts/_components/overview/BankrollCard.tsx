@@ -68,7 +68,7 @@ function LossRiskBlock({
     }
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-white">
+            <h3 className="text-sm font-medium text-foreground">
                 Realized loss risk
             </h3>
             <dl className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">

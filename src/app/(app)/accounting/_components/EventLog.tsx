@@ -34,7 +34,7 @@ export function EventLog({
         <div
             className={cn(
                 'app-accounting__event-log',
-                'overflow-y-auto rounded-md border border-border/40 bg-black/40 p-3 font-mono text-[11px] leading-relaxed',
+                'overflow-y-auto rounded-md border border-border/40 bg-background/40 p-3 font-mono text-[11px] leading-relaxed',
                 maxHeight,
                 className,
             )}
@@ -52,9 +52,9 @@ export function EventLog({
                         <li
                             className={cn(
                                 'flex items-start gap-2',
-                                l.level === 'error' && 'text-red-400',
-                                l.level === 'warn' && 'text-amber-300',
-                                l.level === 'info' && 'text-slate-200',
+                                l.level === 'error' && 'text-destructive',
+                                l.level === 'warn' && 'text-warning',
+                                l.level === 'info' && 'text-foreground/90',
                             )}
                             key={index}
                         >

@@ -38,7 +38,7 @@ export function HubRecentTools() {
             className="mb-10 flex flex-col gap-3"
         >
             <h2
-                className="text-lg font-semibold tracking-tight text-white"
+                className="text-lg font-semibold tracking-tight text-foreground"
                 id="hub-recent-tools"
             >
                 Recently used

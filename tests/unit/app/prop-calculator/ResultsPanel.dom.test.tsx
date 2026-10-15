@@ -259,7 +259,7 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
         );
         const card = evLabel?.closest('[data-slot="card"]');
         const valueSpan = card?.querySelector('.font-mono.text-2xl');
-        expect(valueSpan?.className).toContain('text-rose-400');
+        expect(valueSpan?.className).toContain('text-destructive');
     });
 
     it('colors EV per attempt positive when the value is positive, like other signed KPIs', () => {
@@ -285,7 +285,7 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
         );
         const card = evLabel?.closest('[data-slot="card"]');
         const valueSpan = card?.querySelector('.font-mono.text-2xl');
-        expect(valueSpan?.className).toContain('text-emerald-400');
+        expect(valueSpan?.className).toContain('text-success');
     });
 });
 

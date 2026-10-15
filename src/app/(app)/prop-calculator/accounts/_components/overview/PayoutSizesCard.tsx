@@ -171,7 +171,7 @@ function PayoutSizeTable({
     if (rows.length === 0) return null;
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-white">{title}</h3>
+            <h3 className="text-sm font-medium text-foreground">{title}</h3>
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -220,7 +220,7 @@ function Stat({
     return (
         <div>
             <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="text-lg font-semibold text-white tabular-nums">
+            <dd className="text-lg font-semibold text-foreground tabular-nums">
                 {value}
             </dd>
         </div>

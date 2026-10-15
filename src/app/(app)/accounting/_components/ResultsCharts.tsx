@@ -21,21 +21,16 @@ const formatEur = (n: number) =>
     }).format(n);
 
 const COLORS = [
-    'hsl(199 89% 60%)',
-    'hsl(262 83% 65%)',
-    'hsl(142 76% 45%)',
-    'hsl(45 100% 60%)',
-    'hsl(0 80% 65%)',
-    'hsl(217 91% 60%)',
-    'hsl(330 81% 65%)',
-    'hsl(24 95% 60%)',
-    'hsl(220 9% 60%)',
-    'hsl(60 95% 60%)',
+    'var(--chart-1)',
+    'var(--chart-2)',
+    'var(--chart-3)',
+    'var(--chart-4)',
+    'var(--chart-5)',
 ];
 
 const perDayConfig = {
-    in: { color: 'hsl(142 76% 45%)', label: 'IN' },
-    out: { color: 'hsl(0 80% 65%)', label: 'OUT' },
+    in: { color: 'var(--success)', label: 'IN' },
+    out: { color: 'var(--destructive)', label: 'OUT' },
 } satisfies ChartConfig;
 
 export function ResultsCharts({ result }: { result: ConversionResult }) {
@@ -194,7 +189,7 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
                                 nameKey="name"
                                 outerRadius={80}
                                 paddingAngle={2}
-                                stroke="hsl(220 26% 8%)"
+                                stroke="var(--card)"
                             />
                         </PieChart>
                     </ChartContainer>

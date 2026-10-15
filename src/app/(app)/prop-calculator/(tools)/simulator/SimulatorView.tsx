@@ -178,7 +178,7 @@ export function SimulatorView() {
                     id="value"
                 >
                     <h2
-                        className="text-lg font-semibold tracking-tight text-white"
+                        className="text-lg font-semibold tracking-tight text-foreground"
                         id="value-heading"
                     >
                         Value

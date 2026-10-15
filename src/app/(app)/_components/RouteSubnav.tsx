@@ -72,7 +72,7 @@ function RouteSubnavPortal({
         <nav
             aria-label={ariaLabel}
             className={cn(
-                'border-b border-border/40 bg-black/50 backdrop-blur-xl',
+                'border-b border-border/40 bg-background/50 backdrop-blur-xl',
                 className,
             )}
         >

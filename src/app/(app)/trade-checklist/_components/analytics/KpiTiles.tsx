@@ -49,9 +49,9 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
         {
             cls:
                 stats.cumR > 0
-                    ? 'text-emerald-400'
+                    ? 'text-success'
                     : stats.cumR < 0
-                      ? 'text-rose-400'
+                      ? 'text-destructive'
                       : '',
             hint: 'across all graded outcomes',
             label: 'Cumulative R',
@@ -60,9 +60,9 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
         {
             cls:
                 stats.currentWin > 0
-                    ? 'text-emerald-400'
+                    ? 'text-success'
                     : stats.currentLoss > 0
-                      ? 'text-rose-400'
+                      ? 'text-destructive'
                       : '',
             hint:
                 stats.currentWin > 0
@@ -81,9 +81,9 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
         {
             cls:
                 stats.expectancy > 0
-                    ? 'text-emerald-400'
+                    ? 'text-success'
                     : stats.expectancy < 0
-                      ? 'text-rose-400'
+                      ? 'text-destructive'
                       : '',
             hint: 'avg R per graded trade',
             label: 'Expectancy',
@@ -105,7 +105,7 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
                     </p>
                     <p
                         className={cn(
-                            'mt-1 font-mono text-2xl font-bold text-white',
+                            'mt-1 font-mono text-2xl font-bold text-foreground',
                             t.cls,
                         )}
                     >

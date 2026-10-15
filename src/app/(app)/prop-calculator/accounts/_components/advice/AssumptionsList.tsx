@@ -42,7 +42,7 @@ export function AssumptionsList({
                                     'text-xs tracking-wide uppercase',
                                     assumption.bias ===
                                         AssumptionBias.Optimistic &&
-                                        'text-amber-500',
+                                        'text-warning',
                                     assumption.bias ===
                                         AssumptionBias.Conservative &&
                                         'text-muted-foreground',

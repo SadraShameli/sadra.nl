@@ -15,11 +15,11 @@ export function classifyMetric<T>(
 }
 
 const PTDD_BANDS: readonly MetricBand<string>[] = [
-    { min: 2, value: 'text-rose-400' },
-    { min: 1.5, value: 'text-amber-400' },
+    { min: 2, value: 'text-destructive' },
+    { min: 1.5, value: 'text-warning' },
     { min: 1, value: 'text-foreground' },
 ];
 
 export function ptddColor(ratio: number): string {
-    return classifyMetric(ratio, PTDD_BANDS, 'text-emerald-400');
+    return classifyMetric(ratio, PTDD_BANDS, 'text-success');
 }

@@ -76,7 +76,7 @@ export const ExpectedNetCard = memo(function ExpectedNetCard({
                             <TableCell>
                                 {row.plan}
                                 {row.policySensitiveNote !== null && (
-                                    <span className="block text-xs text-amber-400">
+                                    <span className="block text-xs text-warning">
                                         {row.policySensitiveNote}
                                     </span>
                                 )}

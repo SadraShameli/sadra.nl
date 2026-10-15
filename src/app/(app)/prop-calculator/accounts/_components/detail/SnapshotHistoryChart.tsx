@@ -16,8 +16,8 @@ import { cn } from '~/lib/utilities';
 import { type SnapshotSeries } from './snapshotSeries';
 
 const chartConfig: ChartConfig = {
-    balance: { color: 'hsl(160 84% 45%)', label: 'Balance' },
-    event: { color: 'hsl(38 92% 55%)', label: 'Event' },
+    balance: { color: 'var(--success)', label: 'Balance' },
+    event: { color: 'var(--warning)', label: 'Event' },
 };
 
 export function SnapshotHistoryChart({

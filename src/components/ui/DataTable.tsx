@@ -300,7 +300,7 @@ export function DataTable<TData extends RowData>({
                                             {header.isPlaceholder ? null : isSortable ? (
                                                 <button
                                                     className={cn(
-                                                        'flex items-center gap-1 text-left transition-colors hover:text-white',
+                                                        'flex items-center gap-1 text-left transition-colors hover:text-foreground',
                                                         align ===
                                                             DataTableAlign.End &&
                                                             'w-full justify-end',
@@ -473,7 +473,7 @@ export function dataTableExpanderColumn<
         cell: ({ row }) =>
             row.getCanExpand() && (
                 <button
-                    className="flex size-6 items-center justify-center text-muted-foreground transition-colors hover:text-white"
+                    className="flex size-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                     onClick={row.getToggleExpandedHandler()}
                     type="button"
                 >

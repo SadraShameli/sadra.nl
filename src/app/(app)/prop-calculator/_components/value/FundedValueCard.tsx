@@ -102,7 +102,7 @@ export function FundedValueCard({
             className="flex flex-col gap-4"
         >
             <h3
-                className="text-base font-semibold text-white"
+                className="text-base font-semibold text-foreground"
                 id="funded-value-heading"
             >
                 Funded value
@@ -138,7 +138,7 @@ export function FundedValueCard({
                 ) : null}
                 {isSampleSizeInvalid ? (
                     <p
-                        className="text-xs text-rose-400"
+                        className="text-xs text-destructive"
                         id={SAMPLE_SIZE_ERROR_ID}
                     >
                         {SAMPLE_SIZE_ERROR_TEXT}

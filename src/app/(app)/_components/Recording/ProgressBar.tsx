@@ -31,7 +31,7 @@ export function ProgressBar({
                 value={[time]}
             />
 
-            <div className="flex items-center justify-between text-[11px] font-medium text-neutral-400 tabular-nums">
+            <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground tabular-nums">
                 <span>{DurationFormat.seconds(time)}</span>
                 <span>{DurationFormat.seconds(duration)}</span>
             </div>

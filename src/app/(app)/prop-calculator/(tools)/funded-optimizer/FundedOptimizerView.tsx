@@ -100,7 +100,7 @@ export function FundedOptimizerView() {
                     className="flex flex-col gap-4"
                 >
                     <h2
-                        className="text-lg font-semibold tracking-tight text-white"
+                        className="text-lg font-semibold tracking-tight text-foreground"
                         id={RESULT_HEADING_ID}
                     >
                         {ranking.heading}

@@ -74,7 +74,7 @@ export default function PercentileBar({
                 />
                 {referenceLine && (
                     <div
-                        className="absolute top-0 h-full w-px border-l border-dashed border-emerald-400/70"
+                        className="absolute top-0 h-full w-px border-l border-dashed border-success/70"
                         style={{ left: `${pct(referenceLine.value)}%` }}
                         title={`${referenceLine.label}: ${formatValue(referenceLine.value)}`}
                     />

@@ -16,7 +16,7 @@ export default function CursorBlinkerAnimation() {
     return (
         <motion.div
             animate="blinking"
-            className="ml-2 inline-block h-3/4 w-[1.5px] translate-y-1 bg-white opacity-0"
+            className="ml-2 inline-block h-3/4 w-[1.5px] translate-y-1 bg-foreground opacity-0"
             variants={defaultVariants}
         />
     );

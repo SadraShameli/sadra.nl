@@ -297,7 +297,7 @@ export function PayoutPlannerView() {
                     className="flex flex-col gap-4"
                 >
                     <h2
-                        className="text-lg font-semibold tracking-tight text-white"
+                        className="text-lg font-semibold tracking-tight text-foreground"
                         id={INPUTS_HEADING_ID}
                     >
                         Account
@@ -315,7 +315,7 @@ export function PayoutPlannerView() {
                         className="flex flex-col gap-4"
                     >
                         <h2
-                            className="text-lg font-semibold tracking-tight text-white"
+                            className="text-lg font-semibold tracking-tight text-foreground"
                             id={READINESS_HEADING_ID}
                         >
                             Readiness
@@ -330,7 +330,7 @@ export function PayoutPlannerView() {
                                 result={result}
                             />
                         ) : (
-                            <p className="text-sm text-amber-400">
+                            <p className="text-sm text-warning">
                                 {FIX_FIELD_TEXT}
                             </p>
                         )}
@@ -340,7 +340,7 @@ export function PayoutPlannerView() {
                         className="flex flex-col gap-4"
                     >
                         <h2
-                            className="text-lg font-semibold tracking-tight text-white"
+                            className="text-lg font-semibold tracking-tight text-foreground"
                             id={OUTLOOK_HEADING_ID}
                         >
                             Path to payout
@@ -355,7 +355,7 @@ export function PayoutPlannerView() {
                                 result={result}
                             />
                         ) : (
-                            <p className="text-sm text-amber-400">
+                            <p className="text-sm text-warning">
                                 {FIX_FIELD_TEXT}
                             </p>
                         )}
@@ -365,7 +365,7 @@ export function PayoutPlannerView() {
                         className="flex flex-col gap-4"
                     >
                         <h2
-                            className="text-lg font-semibold tracking-tight text-white"
+                            className="text-lg font-semibold tracking-tight text-foreground"
                             id={SWEEP_HEADING_ID}
                         >
                             Payout-size sweep
@@ -385,7 +385,7 @@ export function PayoutPlannerView() {
                                 task={sweepTask}
                             />
                         ) : (
-                            <p className="text-sm text-amber-400">
+                            <p className="text-sm text-warning">
                                 {FIX_FIELD_TEXT}
                             </p>
                         )}
@@ -396,7 +396,7 @@ export function PayoutPlannerView() {
                             className="flex flex-col gap-3"
                         >
                             <h2
-                                className="text-lg font-semibold tracking-tight text-white"
+                                className="text-lg font-semibold tracking-tight text-foreground"
                                 id={ASSUMPTIONS_HEADING_ID}
                             >
                                 Assumptions
@@ -859,7 +859,7 @@ function PayoutPlannerOutlookOffThread({
     task: WorkerTaskState<never, PayoutOutlookResult>;
 }) {
     if (task.phase === WorkerTaskPhase.Failed) {
-        return <p className="text-sm text-amber-400">{task.reason}</p>;
+        return <p className="text-sm text-warning">{task.reason}</p>;
     }
     if (task.phase !== WorkerTaskPhase.Done) {
         return <PanelSkeleton />;
@@ -958,12 +958,12 @@ function PayoutPlannerOutlookSection({
                         {step.satisfied ? (
                             <CircleCheck
                                 aria-hidden="true"
-                                className="mt-0.5 size-4 shrink-0 text-emerald-500"
+                                className="mt-0.5 size-4 shrink-0 text-success"
                             />
                         ) : (
                             <CircleAlert
                                 aria-hidden="true"
-                                className="mt-0.5 size-4 shrink-0 text-amber-400"
+                                className="mt-0.5 size-4 shrink-0 text-warning"
                             />
                         )}
                         <span className="first-letter:uppercase">
@@ -995,7 +995,7 @@ function PayoutPlannerReadinessSummary({
                         {result.waitText}
                     </p>
                     {result.firmMinimumNotice !== null && (
-                        <p className="text-amber-400">
+                        <p className="text-warning">
                             {payoutFirmMinimumMessage(result.firmMinimumNotice)}
                         </p>
                     )}
@@ -1016,7 +1016,7 @@ function PayoutPlannerReadinessSummary({
             return (
                 <div className="flex flex-col gap-2">
                     {result.issues.map((issue) => (
-                        <p className="text-sm text-amber-400" key={issue.field}>
+                        <p className="text-sm text-warning" key={issue.field}>
                             {issue.message}
                         </p>
                     ))}
@@ -1034,7 +1034,7 @@ function PayoutPlannerReadinessSummary({
                         <div className="text-xs text-muted-foreground">
                             Payout request
                         </div>
-                        <div className="text-2xl font-semibold text-white tabular-nums">
+                        <div className="text-2xl font-semibold text-foreground tabular-nums">
                             {requested}
                         </div>
                     </div>
@@ -1042,7 +1042,7 @@ function PayoutPlannerReadinessSummary({
                         <div className="text-xs text-muted-foreground">
                             Net after the payout split on {requested}
                         </div>
-                        <div className="text-lg font-medium text-white tabular-nums">
+                        <div className="text-lg font-medium text-foreground tabular-nums">
                             {formatGateCurrency(result.netAfterSplit)}
                         </div>
                     </div>
@@ -1054,19 +1054,19 @@ function PayoutPlannerReadinessSummary({
                         </p>
                         {cushion.amount <
                             HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS && (
-                            <p className="text-amber-400">
+                            <p className="text-warning">
                                 This is below {MIN_RETAINED_CUSHION_TEXT}: your
                                 rulebook waives it.
                             </p>
                         )}
                         {isPeakAssumedForState && (
-                            <p className="text-amber-400">
+                            <p className="text-warning">
                                 {PEAK_ASSUMED_VIEW.text}
                             </p>
                         )}
                     </div>
                     {result.firmMinimumNotice !== null && (
-                        <p className="text-amber-400">
+                        <p className="text-warning">
                             {payoutFirmMinimumMessage(result.firmMinimumNotice)}
                         </p>
                     )}
@@ -1091,7 +1091,7 @@ function PayoutPlannerReadinessSummary({
         }
         case PayoutPlannerResultKind.Unreadable: {
             return (
-                <p className="text-sm text-amber-400">
+                <p className="text-sm text-warning">
                     The snapshot could not be rebuilt: {result.reason}
                 </p>
             );
@@ -1172,14 +1172,14 @@ function PayoutSweepOutcome({
     task: WorkerTaskState<never, PayoutSweepResult>;
 }) {
     if (task.phase === WorkerTaskPhase.Failed) {
-        return <p className="text-sm text-amber-400">{task.reason}</p>;
+        return <p className="text-sm text-warning">{task.reason}</p>;
     }
     if (task.phase !== WorkerTaskPhase.Done) {
         return <PanelSkeleton />;
     }
     const { result } = task;
     if (result.kind === PayoutSizeSweepResultKind.NoOptimum) {
-        return <p className="text-sm text-amber-400">{result.issue}</p>;
+        return <p className="text-sm text-warning">{result.issue}</p>;
     }
     const { optimum } = result;
     const documentedSize = effectivePayoutRequest(
@@ -1223,7 +1223,7 @@ function PayoutSweepOutcome({
                         <TableRow
                             className={
                                 row.requestSize === documentedSize
-                                    ? 'font-semibold text-white'
+                                    ? 'font-semibold text-foreground'
                                     : 'text-muted-foreground'
                             }
                             key={row.requestSize}
@@ -1377,7 +1377,7 @@ function PersonalPayoutOverrideNote({
                     : ` (effective ${formatGateCurrency(override.row.requestSize)})`}
             </p>
             {firmMinimumAboveRequest === null ? null : (
-                <p className="text-amber-400">
+                <p className="text-warning">
                     firm minimum{' '}
                     {formatGateCurrency(firmMinimumAboveRequest.minimum)} is
                     above your{' '}
@@ -1386,7 +1386,7 @@ function PersonalPayoutOverrideNote({
                 </p>
             )}
             {override.warning === null ? null : (
-                <p className="text-amber-400">
+                <p className="text-warning">
                     Outside the safe band:{' '}
                     {personalPayoutOverrideWarningText(override.warning)}
                 </p>
@@ -1424,7 +1424,7 @@ function RulebookStatusNotice({
         <p
             className={
                 status === ToolRulebookStatus.Failed
-                    ? 'text-sm text-amber-400'
+                    ? 'text-sm text-warning'
                     : 'text-sm text-muted-foreground'
             }
         >

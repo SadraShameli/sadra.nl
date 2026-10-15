@@ -10,7 +10,7 @@ export function AccountLink({ signedIn }: { signedIn: boolean }) {
             aria-label={signedIn ? 'Profile' : 'Sign in'}
             className={cn(
                 'app-shell__account-link',
-                'flex size-5 items-center justify-center text-white transition hover:opacity-60',
+                'flex size-5 items-center justify-center text-foreground transition hover:opacity-60',
             )}
             href={signedIn ? routes.profile : routes.auth.login}
         >

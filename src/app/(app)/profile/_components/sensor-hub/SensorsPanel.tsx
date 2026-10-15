@@ -391,7 +391,7 @@ function UnitRowEditor({
     if (!editing) {
         return (
             <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-3 py-2">
-                <span className="font-mono text-sm text-white">
+                <span className="font-mono text-sm text-foreground">
                     {unit.value}
                 </span>
                 <div className="flex items-center gap-1">

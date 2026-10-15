@@ -1,22 +1,7 @@
 'use client';
 
-import type { Grade } from '~/lib/trading/types';
-
+import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
 import { Badge } from '~/components/ui/Badge';
-
-const gradeColor: Partial<Record<Grade, string>> = {
-    A: 'text-emerald-400',
-    'A+': 'text-emerald-400',
-    'A-': 'text-emerald-300',
-    B: 'text-amber-300',
-    'B+': 'text-emerald-300',
-    'B-': 'text-amber-300',
-    C: 'text-orange-400',
-    'C+': 'text-amber-400',
-    'C-': 'text-orange-400',
-    D: 'text-rose-500',
-    F: 'text-rose-500',
-};
 
 const outcomeMeta: Record<
     string,
@@ -49,9 +34,7 @@ export function JournalRowBody({ row }: { row: JournalRowData }) {
         <div className="flex items-start gap-3">
             <div className="flex w-14 flex-col items-center">
                 <span
-                    className={`font-orbitron text-lg font-bold ${
-                        gradeColor[row.grade as Grade] ?? 'text-white'
-                    }`}
+                    className={`font-orbitron text-lg font-bold ${gradeTextClass(row.grade)}`}
                 >
                     {row.grade}
                 </span>

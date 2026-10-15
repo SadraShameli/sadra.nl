@@ -55,10 +55,13 @@ const MAX_BUDGETS = 10;
 const TOO_MANY_BUDGETS_TEXT = `Enter at most ${String(MAX_BUDGETS)} budgets.`;
 
 const chartConfig: ChartConfig = {
-    band: { color: 'hsl(217 91% 60% / 0.18)', label: 'Net P10 to P90' },
-    expectedNet: { color: 'hsl(217 91% 60%)', label: 'Expected net' },
-    expectedPayouts: { color: 'hsl(142 76% 45%)', label: 'Expected payouts' },
-    expectedSpend: { color: 'hsl(0 84% 60%)', label: 'Expected spend' },
+    band: {
+        color: 'color-mix(in oklab, var(--info) 18%, transparent)',
+        label: 'Net P10 to P90',
+    },
+    expectedNet: { color: 'var(--info)', label: 'Expected net' },
+    expectedPayouts: { color: 'var(--success)', label: 'Expected payouts' },
+    expectedSpend: { color: 'var(--destructive)', label: 'Expected spend' },
 };
 
 export function SpendPayoutCurveCard() {
@@ -191,7 +194,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     position="top"
                 />
                 <ReferenceLine
-                    stroke="hsl(0 0% 70%)"
+                    stroke="var(--muted-foreground)"
                     strokeDasharray="4 4"
                     y={0}
                 />
@@ -205,7 +208,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                 />
                 <Area
                     dataKey="range"
-                    fill="hsl(217 91% 60%)"
+                    fill="var(--info)"
                     fillOpacity={0.18}
                     isAnimationActive={false}
                     legendType="none"
@@ -216,7 +219,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     dataKey="expectedSpend"
                     dot
                     isAnimationActive={false}
-                    stroke="hsl(0 84% 60%)"
+                    stroke="var(--destructive)"
                     strokeWidth={2}
                     type="monotone"
                 />
@@ -224,7 +227,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     dataKey="expectedPayouts"
                     dot
                     isAnimationActive={false}
-                    stroke="hsl(142 76% 45%)"
+                    stroke="var(--success)"
                     strokeWidth={2}
                     type="monotone"
                 />
@@ -232,7 +235,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     dataKey="expectedNet"
                     dot
                     isAnimationActive={false}
-                    stroke="hsl(217 91% 60%)"
+                    stroke="var(--info)"
                     strokeWidth={2.5}
                     type="monotone"
                 />
@@ -262,7 +265,7 @@ function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                         <TableCell>{formatGateCurrency(row.budget)}</TableCell>
                         {row.figures === null ? (
                             <TableCell
-                                className="font-sans text-amber-400"
+                                className="font-sans text-warning"
                                 colSpan={7}
                             >
                                 {NOT_APPLICABLE}

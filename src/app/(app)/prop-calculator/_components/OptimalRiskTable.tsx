@@ -150,7 +150,7 @@ export default function OptimalRiskTable({
                         </span>
                         {starred.has(row.original) &&
                             row.original.riskPct !== closestRiskPct && (
-                                <span className="ml-1 text-emerald-400">★</span>
+                                <span className="ml-1 text-success">★</span>
                             )}
                     </>
                 ),

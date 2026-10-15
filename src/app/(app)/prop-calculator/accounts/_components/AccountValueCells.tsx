@@ -89,7 +89,7 @@ export function NextPayoutFigure({
             <span
                 className={cn(
                     isMuted && 'text-muted-foreground',
-                    nextPayout.isSoon && 'font-medium text-emerald-400',
+                    nextPayout.isSoon && 'font-medium text-success',
                 )}
                 data-soon={nextPayout.isSoon ? 'true' : undefined}
             >

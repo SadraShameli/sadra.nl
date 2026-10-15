@@ -295,7 +295,7 @@ function OverviewSection({
             <Card>
                 <CardHeader>
                     <h2
-                        className="text-lg font-semibold tracking-tight text-white"
+                        className="text-lg font-semibold tracking-tight text-foreground"
                         id={headingId}
                     >
                         {OVERVIEW_SECTION_TITLE[section]}

@@ -462,7 +462,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             >
                                 <div className="flex items-center justify-between">
                                     <Label className="text-sm">{label}</Label>
-                                    <span className="font-mono text-sm text-white">
+                                    <span className="font-mono text-sm text-foreground">
                                         {config.weights[key]}
                                     </span>
                                 </div>

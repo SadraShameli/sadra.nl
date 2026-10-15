@@ -24,12 +24,12 @@ export default function FinalBalanceHistogramView({ result }: Properties) {
             emptyMessage="No simulation data yet."
             referenceLines={[
                 {
-                    color: 'hsl(0 0% 70%)',
+                    color: 'var(--muted-foreground)',
                     label: 'Start',
                     x: startingBalance,
                 },
                 {
-                    color: 'hsl(142 76% 45%)',
+                    color: 'var(--success)',
                     label: 'Target',
                     x: targetBalance,
                 },

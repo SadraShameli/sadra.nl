@@ -32,7 +32,7 @@ export function VolumeControls({
         <div
             className={cn(
                 'app-recording__volume-controls',
-                'flex items-center justify-between gap-x-3 text-neutral-400',
+                'flex items-center justify-between gap-x-3 text-muted-foreground',
             )}
         >
             <SpeedControl
@@ -45,7 +45,7 @@ export function VolumeControls({
                 <Button
                     aria-label="Auto Play"
                     className={cn(
-                        'app-recording__autoplay size-8 rounded-full p-0 text-neutral-400 transition hover:bg-white/5 hover:text-foreground',
+                        'app-recording__autoplay size-8 rounded-full p-0 text-muted-foreground transition hover:bg-foreground/5 hover:text-foreground',
                         isAutoPlay && 'text-foreground',
                     )}
                     data-state={isAutoPlay ? 'on' : 'off'}
@@ -59,7 +59,7 @@ export function VolumeControls({
 
                 <Button
                     aria-label="Volume"
-                    className="app-recording__mute size-8 rounded-full p-0 text-neutral-400 transition hover:bg-white/5 hover:text-foreground"
+                    className="app-recording__mute size-8 rounded-full p-0 text-muted-foreground transition hover:bg-foreground/5 hover:text-foreground"
                     data-state={volume === 0 ? 'muted' : 'on'}
                     disabled={!hasRecordings}
                     onClick={onMute}

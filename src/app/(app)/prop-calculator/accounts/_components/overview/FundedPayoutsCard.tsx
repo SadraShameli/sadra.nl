@@ -73,7 +73,7 @@ export const FundedPayoutsCard = memo(function FundedPayoutsCard({
                                 <TableCell className="text-right text-muted-foreground tabular-nums">
                                     {row.modeledFundedValue}
                                     {row.fundedValueFlag !== null && (
-                                        <span className="block text-xs text-amber-400">
+                                        <span className="block text-xs text-warning">
                                             {row.fundedValueFlag}
                                         </span>
                                     )}
@@ -122,7 +122,7 @@ function DistributionPair({
 }) {
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-white">
+            <h3 className="text-sm font-medium text-foreground">
                 {row.plan}: payout-count distribution
             </h3>
             <div className="grid gap-4 md:grid-cols-2">

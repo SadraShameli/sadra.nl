@@ -14,7 +14,7 @@ export default function DaysToPassHistogramView({ result }: Properties) {
     return (
         <HistogramChartView
             aspectClassName="aspect-16/7 min-h-125 w-full"
-            barColor="hsl(142 76% 45%)"
+            barColor="var(--success)"
             barLabel="Passing trials"
             binCount={wholeDayBinCount(result.daysToPassValues)}
             emptyMessage="No passing trials yet."

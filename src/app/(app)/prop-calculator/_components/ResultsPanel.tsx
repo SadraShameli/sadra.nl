@@ -639,9 +639,9 @@ function Kpi({
     const accentClass = KPI_ACCENT_TEXT_CLASS[accent];
     const deltaClass =
         delta?.positive === true
-            ? 'text-emerald-400'
+            ? 'text-success'
             : delta?.positive === false
-              ? 'text-rose-400'
+              ? 'text-destructive'
               : 'text-muted-foreground';
     return (
         <Card className="gap-1 px-5 py-4">

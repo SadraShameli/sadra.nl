@@ -62,7 +62,7 @@ export function PerWindowChart({
                 <Bar dataKey="winRate" isAnimationActive={false}>
                     <LabelList
                         dataKey="count"
-                        fill="hsl(0 0% 70%)"
+                        fill="var(--muted-foreground)"
                         fontSize={11}
                         formatter={(v: unknown) =>
                             typeof v === 'number' ? `n=${v}` : ''
@@ -71,7 +71,7 @@ export function PerWindowChart({
                     />
                     <LabelList
                         dataKey="winRate"
-                        fill="hsl(0 0% 95%)"
+                        fill="var(--foreground)"
                         fontSize={11}
                         formatter={(v: unknown) =>
                             typeof v === 'number' ? formatPercent(v, 0) : ''

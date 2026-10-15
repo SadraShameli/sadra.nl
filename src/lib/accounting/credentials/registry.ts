@@ -92,11 +92,11 @@ export class CredentialRegistry {
 }
 
 const TONE_CLASS: Record<CredentialTone, string> = {
-    [CredentialTone.Amber]: 'bg-amber-500/10 text-amber-200',
-    [CredentialTone.Emerald]: 'bg-emerald-500/10 text-emerald-200',
-    [CredentialTone.Rose]: 'bg-rose-500/10 text-rose-200',
-    [CredentialTone.Sky]: 'bg-sky-500/10 text-sky-200',
-    [CredentialTone.Violet]: 'bg-violet-500/10 text-violet-200',
+    [CredentialTone.Amber]: 'bg-warning/10 text-warning',
+    [CredentialTone.Emerald]: 'bg-success/10 text-success',
+    [CredentialTone.Rose]: 'bg-destructive/10 text-destructive',
+    [CredentialTone.Sky]: 'bg-info/10 text-info',
+    [CredentialTone.Violet]: 'bg-primary/10 text-primary',
 };
 
 export function toneClass(tone: CredentialTone): string {
@@ -104,11 +104,11 @@ export function toneClass(tone: CredentialTone): string {
 }
 
 const TONE_ACCENT: Record<CredentialTone, string> = {
-    [CredentialTone.Amber]: 'text-amber-300',
-    [CredentialTone.Emerald]: 'text-emerald-300',
-    [CredentialTone.Rose]: 'text-rose-300',
-    [CredentialTone.Sky]: 'text-sky-300',
-    [CredentialTone.Violet]: 'text-violet-300',
+    [CredentialTone.Amber]: 'text-warning',
+    [CredentialTone.Emerald]: 'text-success',
+    [CredentialTone.Rose]: 'text-destructive',
+    [CredentialTone.Sky]: 'text-info',
+    [CredentialTone.Violet]: 'text-primary',
 };
 
 export function toneAccent(tone: CredentialTone): string {

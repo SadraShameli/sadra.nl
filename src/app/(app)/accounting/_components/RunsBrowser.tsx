@@ -99,7 +99,7 @@ export function RunsBrowser() {
                 accessorKey: 'createdAt',
                 cell: ({ row }) => (
                     <Link
-                        className="font-mono text-xs text-white hover:underline"
+                        className="font-mono text-xs text-foreground hover:underline"
                         href={routes.accounting.run(row.original.id)}
                         prefetch
                     >
@@ -164,7 +164,7 @@ export function RunsBrowser() {
                     <span
                         className={
                             row.original.summary.unknownsCount > 0
-                                ? 'font-mono text-xs text-amber-300'
+                                ? 'font-mono text-xs text-warning'
                                 : 'font-mono text-xs text-muted-foreground'
                         }
                     >

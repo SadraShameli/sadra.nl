@@ -263,8 +263,8 @@ export default function StrategyAnalysis({
                             value={`${formatSignedPercent(breakdown.yearlyPct, 2)} a year`}
                             valueClass={
                                 breakdown.yearlyPct > 0
-                                    ? 'text-emerald-400'
-                                    : 'text-rose-400'
+                                    ? 'text-success'
+                                    : 'text-destructive'
                             }
                         />
                         <Metric
@@ -304,9 +304,9 @@ export default function StrategyAnalysis({
                             }
                             valueClass={
                                 breakdown.sumR > 0
-                                    ? 'text-emerald-400'
+                                    ? 'text-success'
                                     : breakdown.sumR < 0
-                                      ? 'text-rose-400'
+                                      ? 'text-destructive'
                                       : undefined
                             }
                         />
@@ -382,8 +382,8 @@ export default function StrategyAnalysis({
                             value={ratios.recovery.toFixed(2)}
                             valueClassName={
                                 ratios.recovery > 1
-                                    ? 'text-emerald-400'
-                                    : 'text-rose-400'
+                                    ? 'text-success'
+                                    : 'text-destructive'
                             }
                         />
                         <StatCard
@@ -443,8 +443,8 @@ export default function StrategyAnalysis({
                                 value={formatR(result.expectancyR)}
                                 valueClass={
                                     result.expectancyR > 0
-                                        ? 'text-emerald-400'
-                                        : 'text-rose-400'
+                                        ? 'text-success'
+                                        : 'text-destructive'
                                 }
                             />
                             <Metric
@@ -452,8 +452,8 @@ export default function StrategyAnalysis({
                                 value={formatCurrency(result.expectancyDollars)}
                                 valueClass={
                                     result.expectancyDollars > 0
-                                        ? 'text-emerald-400'
-                                        : 'text-rose-400'
+                                        ? 'text-success'
+                                        : 'text-destructive'
                                 }
                             />
                             <Metric
@@ -465,8 +465,8 @@ export default function StrategyAnalysis({
                                 value={`${edge.edgeMargin > 0 ? '+' : ''}${(edge.edgeMargin * 100).toFixed(1)}pp`}
                                 valueClass={
                                     edge.edgeMargin > 0
-                                        ? 'text-emerald-400'
-                                        : 'text-rose-400'
+                                        ? 'text-success'
+                                        : 'text-destructive'
                                 }
                             />
                             <Metric
@@ -481,8 +481,8 @@ export default function StrategyAnalysis({
                                     edgeLeverage === null
                                         ? 'text-muted-foreground'
                                         : edgeLeverage > 0
-                                          ? 'text-emerald-400'
-                                          : 'text-rose-400'
+                                          ? 'text-success'
+                                          : 'text-destructive'
                                 }
                             />
                             <Metric
@@ -601,15 +601,13 @@ function calmarBench(v: number): string {
 }
 
 function calmarColor(v: number): string {
-    if (v > 3) return 'text-emerald-400';
-    if (v > 2) return 'text-green-400';
-    return v > 1 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 3 || v > 2) return 'text-success';
+    return v > 1 ? 'text-warning' : 'text-destructive';
 }
 
 function gainToPainColor(v: number): string {
-    if (v > 3) return 'text-emerald-400';
-    if (v > 1.5) return 'text-green-400';
-    return v > 1 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 3 || v > 1.5) return 'text-success';
+    return v > 1 ? 'text-warning' : 'text-destructive';
 }
 
 function KellyIndexMetric({
@@ -678,16 +676,16 @@ function omegaBench(v: number): string {
     return v > 1 ? 'acceptable' : 'losing';
 }
 function omegaColor(v: number): string {
-    if (v > 2) return 'text-emerald-400';
-    return v > 1 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 2) return 'text-success';
+    return v > 1 ? 'text-warning' : 'text-destructive';
 }
 function pfBench(v: number): string {
     if (v > 1.5) return 'healthy';
     return v > 1 ? 'marginal' : 'losing';
 }
 function pfColor(v: number): string {
-    if (v > 1.5) return 'text-emerald-400';
-    return v > 1 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 1.5) return 'text-success';
+    return v > 1 ? 'text-warning' : 'text-destructive';
 }
 function riskAdjustedRatioBench(v: number): string {
     if (v > 2) return 'excellent';
@@ -695,9 +693,8 @@ function riskAdjustedRatioBench(v: number): string {
     return v > 0.5 ? 'acceptable' : 'poor';
 }
 function riskAdjustedRatioColor(v: number): string {
-    if (v > 2) return 'text-emerald-400';
-    if (v > 1) return 'text-green-400';
-    return v > 0.5 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 2 || v > 1) return 'text-success';
+    return v > 0.5 ? 'text-warning' : 'text-destructive';
 }
 function SectionHeader({
     description,
@@ -714,12 +711,12 @@ function SectionHeader({
     );
 }
 function ulcerColor(v: number): string {
-    if (v < 3) return 'text-emerald-400';
-    return v < 8 ? 'text-amber-400' : 'text-rose-400';
+    if (v < 3) return 'text-success';
+    return v < 8 ? 'text-warning' : 'text-destructive';
 }
 function zColor(z: number): string {
-    if (z >= 1.645) return 'text-emerald-400';
-    return z >= 1.28 ? 'text-amber-400' : 'text-rose-400';
+    if (z >= 1.645) return 'text-success';
+    return z >= 1.28 ? 'text-warning' : 'text-destructive';
 }
 
 function zLabel(z: number): string {

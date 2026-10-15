@@ -73,7 +73,7 @@ export function RestTimerOverlay({
                 <motion.div
                     animate={{ opacity: 1, y: 0 }}
                     className={cn(
-                        'fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-xl',
+                        'fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-xl',
                     )}
                     exit={{ opacity: 0, y: 40 }}
                     initial={{ opacity: 0, y: 40 }}
@@ -81,7 +81,7 @@ export function RestTimerOverlay({
                 >
                     <Button
                         aria-label="Dismiss timer"
-                        className="absolute top-4 right-4 size-10 rounded-full p-0 text-muted-foreground hover:bg-white/10"
+                        className="absolute top-4 right-4 size-10 rounded-full p-0 text-muted-foreground hover:bg-foreground/10"
                         onClick={onClose}
                         type="button"
                         variant="ghost"
@@ -94,7 +94,7 @@ export function RestTimerOverlay({
                     <span
                         className={cn(
                             'mt-2 text-[120px] leading-none font-bold tabular-nums',
-                            isOverrun ? 'text-emerald-400' : 'text-foreground',
+                            isOverrun ? 'text-success' : 'text-foreground',
                         )}
                     >
                         {DurationFormat.seconds(remaining)}
@@ -102,15 +102,15 @@ export function RestTimerOverlay({
                     <span className="mt-2 text-sm text-muted-foreground tabular-nums">
                         Target {DurationFormat.seconds(seconds)}
                         {isOverrun && (
-                            <span className="ml-2 text-emerald-400">
+                            <span className="ml-2 text-success">
                                 +{DurationFormat.seconds(elapsed - seconds)}
                             </span>
                         )}
                     </span>
                     <Progress
                         className={cn(
-                            'mt-8 h-1.5 w-[min(80vw,420px)] bg-white/5',
-                            isOverrun && '*:data-state:bg-emerald-400',
+                            'mt-8 h-1.5 w-[min(80vw,420px)] bg-foreground/5',
+                            isOverrun && '*:data-state:bg-success',
                         )}
                         value={progressPct}
                     />

@@ -87,7 +87,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 accessorKey: 'name',
                 cell: ({ row }) => (
                     <Link
-                        className="font-medium text-white hover:underline"
+                        className="font-medium text-foreground hover:underline"
                         href={routes.lifting.workout(row.original.id)}
                     >
                         {row.original.name ?? 'Workout'}

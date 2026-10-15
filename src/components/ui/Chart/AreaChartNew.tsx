@@ -36,13 +36,13 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
                     <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
                         <stop
                             offset="5%"
-                            stopColor="#525151"
-                            stopOpacity={0.5}
+                            stopColor="var(--muted-foreground)"
+                            stopOpacity={0.2}
                         />
 
                         <stop
                             offset="95%"
-                            stopColor="#525151"
+                            stopColor="var(--muted-foreground)"
                             stopOpacity={0}
                         />
                     </linearGradient>
@@ -65,7 +65,7 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
                     dataKey={properties.area.dataKey}
                     fill={`url(#${id})`}
                     fillOpacity={1}
-                    stroke="#a3a3a3"
+                    stroke="var(--muted-foreground)"
                     type="monotone"
                 />
 

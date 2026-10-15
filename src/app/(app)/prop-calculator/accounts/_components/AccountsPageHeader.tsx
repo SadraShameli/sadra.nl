@@ -12,7 +12,7 @@ export function AccountsPageHeader({
     return (
         <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                     {title}
                 </h1>
                 {description !== undefined && (

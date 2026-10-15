@@ -29,7 +29,7 @@ export function ToolSection({
             className={
                 srOnlyHeading
                     ? 'sr-only'
-                    : 'text-lg font-semibold tracking-tight text-white'
+                    : 'text-lg font-semibold tracking-tight text-foreground'
             }
             id={headingId}
         >

@@ -61,7 +61,7 @@ export function CalendarHeatmap({
                                             {dayNumber}
                                         </span>
                                         {cell.bestGrade && (
-                                            <span className="font-orbitron text-xs font-bold text-white">
+                                            <span className="font-orbitron text-xs font-bold text-foreground">
                                                 {cell.bestGrade}
                                             </span>
                                         )}
@@ -77,7 +77,7 @@ export function CalendarHeatmap({
                                                     { length: cell.wins },
                                                     (_, index) => (
                                                         <span
-                                                            className="size-1.5 rounded-full bg-emerald-400"
+                                                            className="size-1.5 rounded-full bg-success"
                                                             key={`w${index}`}
                                                         />
                                                     ),
@@ -86,7 +86,7 @@ export function CalendarHeatmap({
                                                     { length: cell.losses },
                                                     (_, index) => (
                                                         <span
-                                                            className="size-1.5 rounded-full bg-rose-500"
+                                                            className="size-1.5 rounded-full bg-destructive"
                                                             key={`l${index}`}
                                                         />
                                                     ),
@@ -97,7 +97,7 @@ export function CalendarHeatmap({
                                                     },
                                                     (_, index) => (
                                                         <span
-                                                            className="size-1.5 rounded-full bg-amber-400"
+                                                            className="size-1.5 rounded-full bg-warning"
                                                             key={`b${index}`}
                                                         />
                                                     ),
@@ -133,10 +133,9 @@ export function CalendarHeatmap({
 
 function cellTone(bestGrade: null | string, total: number): string {
     if (total === 0 || !bestGrade) return 'bg-card/30 border-border/20';
-    if (bestGrade.startsWith('A'))
-        return 'bg-emerald-500/20 border-emerald-500/40';
-    if (bestGrade.startsWith('B')) return 'bg-amber-500/20 border-amber-500/40';
+    if (bestGrade.startsWith('A')) return 'bg-success/20 border-success/40';
+    if (bestGrade.startsWith('B')) return 'bg-warning/20 border-warning/40';
     return bestGrade.startsWith('C')
-        ? 'bg-orange-500/20 border-orange-500/40'
-        : 'bg-rose-500/20 border-rose-500/40';
+        ? 'bg-warning/20 border-warning/40'
+        : 'bg-destructive/20 border-destructive/40';
 }

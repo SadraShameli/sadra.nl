@@ -4,6 +4,7 @@ import { eachDayOfInterval, format, getDay, subMonths } from 'date-fns';
 import { CalendarRange } from 'lucide-react';
 import { type ReactNode, useMemo } from 'react';
 
+import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { EmptyState } from '~/components/ui/EmptyState';
@@ -164,14 +165,6 @@ function HeatmapSkeleton() {
     return <Skeleton className="h-24 w-full rounded-md" />;
 }
 
-const LEVEL_CLASS = [
-    'bg-muted/40',
-    'bg-emerald-500/25',
-    'bg-emerald-500/50',
-    'bg-emerald-500/75',
-    'bg-emerald-500',
-] as const;
-
 const DAY_LABELS = ['Mon', 'Wed', 'Fri'] as const;
 
 function FrequencyHeatmap({
@@ -263,7 +256,9 @@ function FrequencyHeatmap({
                                                 <div
                                                     className={cn(
                                                         'aspect-square rounded-sm',
-                                                        LEVEL_CLASS[cell.level],
+                                                        HEAT_LEVEL_CLASS[
+                                                            cell.level
+                                                        ],
                                                     )}
                                                 />
                                             </TooltipTrigger>
@@ -291,7 +286,7 @@ function FrequencyHeatmap({
                 </div>
                 <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
                     <span>Less</span>
-                    {LEVEL_CLASS.map((c, index) => (
+                    {HEAT_LEVEL_CLASS.map((c, index) => (
                         <span
                             className={cn('size-3 rounded-sm', c)}
                             key={index}

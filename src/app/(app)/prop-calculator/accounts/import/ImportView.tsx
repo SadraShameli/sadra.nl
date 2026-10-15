@@ -441,7 +441,7 @@ function CsvImportPanel<Column extends string, Value>({
             )}
         >
             <h2
-                className="text-lg font-semibold tracking-tight text-white"
+                className="text-lg font-semibold tracking-tight text-foreground"
                 id={`${baseId}-heading`}
             >
                 Import {noun.plural}
@@ -659,7 +659,7 @@ function PreviewTable<Column extends string, Value>({
                 aria-live="polite"
                 className={cn(
                     'text-sm',
-                    issueCount === 0 ? 'text-emerald-400' : 'text-amber-400',
+                    issueCount === 0 ? 'text-success' : 'text-warning',
                 )}
             >
                 {preview.rows.length} rows read;{' '}
@@ -698,7 +698,7 @@ function PreviewTable<Column extends string, Value>({
                             <TableCell className="align-top">
                                 {row.issues.length === 0 ? (
                                     <div className="flex flex-col gap-1">
-                                        <span className="flex items-center gap-1 text-emerald-400">
+                                        <span className="flex items-center gap-1 text-success">
                                             <CircleCheck className="size-4" />
                                             Ready
                                         </span>
@@ -711,7 +711,7 @@ function PreviewTable<Column extends string, Value>({
                                         />
                                     </div>
                                 ) : (
-                                    <ul className="flex flex-col gap-1 text-amber-400">
+                                    <ul className="flex flex-col gap-1 text-warning">
                                         {row.issues.map((issue, index) => (
                                             <li key={index}>
                                                 {describeIssue(issue)}
@@ -731,7 +731,7 @@ function PreviewTable<Column extends string, Value>({
 function RowWarnings({ warnings }: { warnings: readonly CsvIssue[] }) {
     if (warnings.length === 0) return null;
     return (
-        <ul className="flex flex-col gap-1 text-amber-400">
+        <ul className="flex flex-col gap-1 text-warning">
             {warnings.map((warning, index) => (
                 <li key={index}>Check {describeIssue(warning)}</li>
             ))}

@@ -155,9 +155,7 @@ export function DevicesPanel() {
                         );
                     }
                     return d.has_token && d.token_created_at ? (
-                        <MutedCell className="text-emerald-400">
-                            issued
-                        </MutedCell>
+                        <MutedCell className="text-success">issued</MutedCell>
                     ) : (
                         <MutedCell>none</MutedCell>
                     );

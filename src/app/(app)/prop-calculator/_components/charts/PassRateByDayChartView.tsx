@@ -13,7 +13,7 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    passRate: { color: 'hsl(142 76% 45%)', label: 'Cumulative pass %' },
+    passRate: { color: 'var(--success)', label: 'Cumulative pass %' },
 };
 
 interface ChartRow {

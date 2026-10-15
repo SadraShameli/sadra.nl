@@ -179,7 +179,7 @@ export function WizardStepper({
                     </div>
 
                     <div>
-                        <h2 className="text-xl font-semibold text-white">
+                        <h2 className="text-xl font-semibold text-foreground">
                             {stepMeta[stepId].title}
                         </h2>
                         <p className="mt-1 text-sm text-muted-foreground">
@@ -230,7 +230,7 @@ export function WizardStepper({
                             <Button
                                 className={cn(
                                     'app-trade-checklist__wizard-submit',
-                                    'bg-emerald-500 text-emerald-50 hover:bg-emerald-500/90',
+                                    'bg-success text-success-foreground hover:bg-success/90',
                                 )}
                                 onClick={submit}
                                 type="button"
@@ -274,13 +274,13 @@ function BiasRow({
                 value={value}
             >
                 <ToggleGroupItem
-                    className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
+                    className="data-[state=on]:bg-success/20 data-[state=on]:text-success"
                     value="bullish"
                 >
                     Bull
                 </ToggleGroupItem>
                 <ToggleGroupItem
-                    className="data-[state=on]:bg-rose-500/20 data-[state=on]:text-rose-500"
+                    className="data-[state=on]:bg-destructive/20 data-[state=on]:text-destructive"
                     value="bearish"
                 >
                     Bear
@@ -314,7 +314,7 @@ function BiasStep() {
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-4">
                 <div className="flex items-center justify-between">
                     <Label className="text-sm">Bias conviction</Label>
-                    <span className="font-mono text-sm text-white">
+                    <span className="font-mono text-sm text-foreground">
                         {conviction}/10
                     </span>
                 </div>
@@ -413,7 +413,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                     ))}
                 </ToggleGroup>
                 {!windowId && (
-                    <p className="mt-2 text-xs text-rose-500">
+                    <p className="mt-2 text-xs text-destructive">
                         Outside macro window: knockout active.
                     </p>
                 )}
@@ -468,7 +468,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                 htmlFor="context-window-quota-used"
             >
                 <div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-foreground">
                         Already used this window&apos;s quota?
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -516,7 +516,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                 >
                     {plan.config.setup.allowedDolTypes.map((t) => (
                         <ToggleGroupItem
-                            className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
+                            className="data-[state=on]:bg-success/20 data-[state=on]:text-success"
                             key={t}
                             value={t}
                         >
@@ -530,7 +530,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                 className="flex cursor-pointer items-center justify-between rounded-lg border border-border/60 p-4 transition select-none hover:border-border"
                 htmlFor="dol-singular"
             >
-                <span className="text-sm text-white">
+                <span className="text-sm text-foreground">
                     Singular and clearly defined DOL
                 </span>
                 <Switch
@@ -577,7 +577,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                     Distance to DOL (in R)
                 </Label>
                 <Input
-                    className="mt-2 text-white"
+                    className="mt-2 text-foreground"
                     id="distanceR"
                     onChange={(event) => {
                         const n = Number(event.target.value);
@@ -726,7 +726,7 @@ function FinalsStep() {
                 htmlFor="finals-over-extended"
             >
                 <div>
-                    <p className="text-sm text-white">
+                    <p className="text-sm text-foreground">
                         Market already expanded too far
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -807,7 +807,7 @@ function MentalStep() {
                             }
                         />
                         <div className="flex-1">
-                            <p className="text-sm font-medium text-white">
+                            <p className="text-sm font-medium text-foreground">
                                 {r.title}
                             </p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
@@ -837,7 +837,7 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
         <div className="flex flex-col gap-4">
             <div className="rounded-lg border border-border/60 p-4">
                 <Eyebrow as="p">Risk this trade</Eyebrow>
-                <p className="mt-1 font-mono text-2xl text-white">
+                <p className="mt-1 font-mono text-2xl text-foreground">
                     ${dollars.toLocaleString()}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -851,7 +851,7 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
                         Target R
                     </Label>
                     <Input
-                        className="mt-2 text-white"
+                        className="mt-2 text-foreground"
                         id="targetR"
                         onChange={(event) => {
                             const n = Number(event.target.value);
@@ -872,7 +872,7 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
                         Expected slippage (R)
                     </Label>
                     <Input
-                        className="mt-2 text-white"
+                        className="mt-2 text-foreground"
                         id="slippageR"
                         onChange={(event) => {
                             const n = Number(event.target.value);
@@ -960,7 +960,7 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
                                 }
                             />
                             <div>
-                                <p className="text-sm font-medium text-white">
+                                <p className="text-sm font-medium text-foreground">
                                     {r.label}
                                 </p>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1002,7 +1002,7 @@ function StateStep() {
                 htmlFor="state-opposing-sweep"
             >
                 <div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-foreground">
                         Recent sweep of opposing liquidity
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1038,13 +1038,13 @@ function StateStep() {
                     value={displacement}
                 >
                     <ToggleGroupItem
-                        className="data-[state=on]:bg-emerald-500/20 data-[state=on]:text-emerald-500"
+                        className="data-[state=on]:bg-success/20 data-[state=on]:text-success"
                         value="toward"
                     >
                         Toward DOL
                     </ToggleGroupItem>
                     <ToggleGroupItem
-                        className="data-[state=on]:bg-rose-500/20 data-[state=on]:text-rose-500"
+                        className="data-[state=on]:bg-destructive/20 data-[state=on]:text-destructive"
                         value="away"
                     >
                         Away

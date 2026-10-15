@@ -65,7 +65,7 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
             className="flex flex-col gap-4"
         >
             <h3
-                className="text-base font-semibold text-white"
+                className="text-base font-semibold text-foreground"
                 id="value-chain-heading"
             >
                 Value chain
@@ -120,7 +120,7 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                                     className="flex flex-col gap-1"
                                     key={step.kind}
                                 >
-                                    <h4 className="text-xs font-semibold text-white">
+                                    <h4 className="text-xs font-semibold text-foreground">
                                         {VALUE_CHAIN_STEP_LABEL[step.kind]}{' '}
                                         hazard
                                     </h4>
@@ -144,7 +144,7 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                                     className="flex flex-col gap-1"
                                     key={step.kind}
                                 >
-                                    <h4 className="text-xs font-semibold text-white">
+                                    <h4 className="text-xs font-semibold text-foreground">
                                         {VALUE_CHAIN_STEP_LABEL[step.kind]}{' '}
                                         cumulative payout trigger
                                     </h4>
@@ -168,7 +168,7 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                                     className="flex flex-col gap-1"
                                     key={step.kind}
                                 >
-                                    <h4 className="text-xs font-semibold text-white">
+                                    <h4 className="text-xs font-semibold text-foreground">
                                         {stepAssumptionsHeading(step.kind)}
                                     </h4>
                                     <ul

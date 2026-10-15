@@ -25,12 +25,12 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    monthlyNet: { color: 'hsl(142 76% 45%)', label: 'Expected monthly net' },
+    monthlyNet: { color: 'var(--success)', label: 'Expected monthly net' },
 };
 
-const BASELINE_FILL = 'hsl(217 91% 60%)';
-const WORSE_FILL = 'hsl(0 84% 60%)';
-const NOT_WORSE_FILL = 'hsl(142 76% 45%)';
+const BASELINE_FILL = 'var(--info)';
+const WORSE_FILL = 'var(--destructive)';
+const NOT_WORSE_FILL = 'var(--success)';
 
 export default function RuleStressBarChartView({ rows }: Properties) {
     return rows.length === 0 ? (
@@ -75,7 +75,7 @@ export default function RuleStressBarChartView({ rows }: Properties) {
                         width={56}
                     />
                     <ReferenceLine
-                        stroke="hsl(0 0% 50%)"
+                        stroke="var(--muted-foreground)"
                         strokeDasharray="3 3"
                         y={0}
                     />
@@ -108,15 +108,15 @@ export default function RuleStressBarChartView({ rows }: Properties) {
                 </BarChart>
             </ChartContainer>
             <p className="text-[11px] text-muted-foreground">
-                <span aria-hidden className="text-blue-500">
+                <span aria-hidden className="text-info">
                     ■
                 </span>{' '}
                 Baseline ·{' '}
-                <span aria-hidden className="text-red-500">
+                <span aria-hidden className="text-destructive">
                     ■
                 </span>{' '}
                 Worse than baseline ·{' '}
-                <span aria-hidden className="text-green-500">
+                <span aria-hidden className="text-success">
                     ■
                 </span>{' '}
                 Same or better

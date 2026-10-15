@@ -26,10 +26,13 @@ export default function SectionEyebrow({
             <span>{label}</span>
             {formattedCount ? (
                 <>
-                    <span aria-hidden="true" className="text-neutral-600">
+                    <span
+                        aria-hidden="true"
+                        className="text-muted-foreground/50"
+                    >
                         ·
                     </span>
-                    <span className="text-neutral-500 tabular-nums">
+                    <span className="text-muted-foreground/70 tabular-nums">
                         {formattedCount}
                     </span>
                 </>

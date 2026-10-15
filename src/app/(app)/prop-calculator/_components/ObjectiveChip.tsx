@@ -108,12 +108,12 @@ export function ObjectiveChip({
                 {sizingObjectiveText(objective)}
             </FieldDescription>
             {note !== null && (
-                <FieldDescription className="text-amber-400">
+                <FieldDescription className="text-warning">
                     {note}
                 </FieldDescription>
             )}
             {choiceNotes.map((choiceNote) => (
-                <FieldDescription className="text-amber-400" key={choiceNote}>
+                <FieldDescription className="text-warning" key={choiceNote}>
                     {choiceNote}
                 </FieldDescription>
             ))}

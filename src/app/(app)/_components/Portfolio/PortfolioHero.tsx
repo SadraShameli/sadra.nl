@@ -32,7 +32,7 @@ export default function PortfolioHero({
             <h1
                 className={cn(
                     'app-portfolio__hero-name',
-                    'font-orbitron text-[2.25rem] leading-[1.05] font-semibold tracking-tight text-white sm:text-[2.75rem] lg:text-[3rem]',
+                    'font-orbitron text-[2.25rem] leading-[1.05] font-semibold tracking-tight text-foreground sm:text-[2.75rem] lg:text-[3rem]',
                 )}
             >
                 Portfolio
@@ -41,7 +41,7 @@ export default function PortfolioHero({
             <p
                 className={cn(
                     'app-portfolio__hero-headline',
-                    'mt-5 max-w-2xl text-base/relaxed text-neutral-300 sm:text-lg',
+                    'mt-5 max-w-2xl text-base/relaxed text-foreground/80 sm:text-lg',
                 )}
             >
                 {headline}

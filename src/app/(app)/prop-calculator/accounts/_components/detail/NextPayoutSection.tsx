@@ -116,7 +116,7 @@ function ChainPosition({ view }: { readonly view: ChainPositionView }) {
                     </p>
                     {eligibleAssumptions === null ? null : (
                         <div className="flex flex-col gap-1">
-                            <h5 className="text-xs font-semibold text-white">
+                            <h5 className="text-xs font-semibold text-foreground">
                                 {eligibleAssumptions.heading}
                             </h5>
                             <ul
@@ -130,7 +130,7 @@ function ChainPosition({ view }: { readonly view: ChainPositionView }) {
                         </div>
                     )}
                     {unavailable.length > 0 && (
-                        <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-amber-400">
+                        <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-warning">
                             {unavailable.map((line) => (
                                 <li key={line}>Not available: {line}</li>
                             ))}

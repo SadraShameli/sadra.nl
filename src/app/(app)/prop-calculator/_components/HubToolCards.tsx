@@ -71,7 +71,7 @@ export function HubToolCards() {
                     key={group}
                 >
                     <h2
-                        className="text-lg font-semibold tracking-tight text-white"
+                        className="text-lg font-semibold tracking-tight text-foreground"
                         id={`hub-group-${group}`}
                     >
                         {label}

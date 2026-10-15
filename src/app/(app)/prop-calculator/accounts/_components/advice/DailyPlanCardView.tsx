@@ -94,7 +94,7 @@ export function DailyPlanCardView({
                     </p>
                 )}
             {isStopSettled && unplacedTrades.length > 0 && (
-                <p className="text-sm font-medium text-amber-400">
+                <p className="text-sm font-medium text-warning">
                     {unplacedTrades.length === 1 ? 'Trade' : 'Trades'}{' '}
                     {formatConjunctionList(unplacedTrades.map(String))} cannot
                     be placed: below one contract at this stop
@@ -216,7 +216,7 @@ function ContractsSizing({
                         <p>{result.inline.siblingText}</p>
                     )}
                     {result.inline.siblingSeverityText !== null && (
-                        <p className="text-amber-400">
+                        <p className="text-warning">
                             {result.inline.siblingSeverityText}
                         </p>
                     )}

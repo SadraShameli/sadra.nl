@@ -74,23 +74,23 @@ export default function EquityCurveChartView({ result }: Properties) {
                 />
                 <ReferenceLine
                     label={{
-                        fill: 'hsl(142 76% 45%)',
+                        fill: 'var(--success)',
                         fontSize: 11,
                         position: 'right',
                         value: 'Target',
                     }}
-                    stroke="hsl(142 76% 45%)"
+                    stroke="var(--success)"
                     strokeDasharray="4 4"
                     y={targetLine}
                 />
                 <ReferenceLine
                     label={{
-                        fill: 'hsl(0 84% 60%)',
+                        fill: 'var(--destructive)',
                         fontSize: 11,
                         position: 'right',
                         value: 'Drawdown',
                     }}
-                    stroke="hsl(0 84% 60%)"
+                    stroke="var(--destructive)"
                     strokeDasharray="4 4"
                     y={drawdownLine}
                 />

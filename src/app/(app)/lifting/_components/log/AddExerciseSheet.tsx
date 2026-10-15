@@ -94,10 +94,10 @@ export function AddExerciseSheet({
                                         >
                                             <div className="flex w-full items-center justify-between">
                                                 <div>
-                                                    <p className="text-sm font-medium text-neutral-200">
+                                                    <p className="text-sm font-medium text-foreground/90">
                                                         {ex.name}
                                                     </p>
-                                                    <p className="text-[11px] text-neutral-500">
+                                                    <p className="text-[11px] text-muted-foreground/70">
                                                         {ex.equipment} ·{' '}
                                                         {ex.primaryMuscle}
                                                     </p>

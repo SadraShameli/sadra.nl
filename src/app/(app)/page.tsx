@@ -61,7 +61,7 @@ export default function HomePage() {
                     />
 
                     <div className="flex flex-col pt-spacing-inner lg:mt-0">
-                        <h1 className="font-orbitron text-5xl font-semibold text-white sm:text-6xl lg:text-8xl lg:font-bold">
+                        <h1 className="font-orbitron text-5xl font-semibold text-foreground sm:text-6xl lg:text-8xl lg:font-bold">
                             {homepageContent.heroTitle}
                         </h1>
 
@@ -155,13 +155,13 @@ function HeroToolChip({ href, label }: { href: string; label: string }) {
             asChild
             className={cn(
                 'app-home__cta-link',
-                'group gap-1 border-white/10 bg-transparent px-3 py-1 text-xs font-medium text-neutral-400 transition hover:border-white/25 hover:bg-white/4 hover:text-white',
+                'group gap-1 border-border bg-transparent px-3 py-1 text-xs font-medium text-muted-foreground transition hover:border-foreground/25 hover:bg-foreground/4 hover:text-foreground',
             )}
             variant="outline"
         >
             <a href={href}>
                 <span>{label}</span>
-                <ArrowUpRight className="size-3 shrink-0 text-neutral-500 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-white" />
+                <ArrowUpRight className="size-3 shrink-0 text-muted-foreground/70 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground" />
             </a>
         </Badge>
     );

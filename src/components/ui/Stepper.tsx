@@ -121,7 +121,7 @@ export function StepperIndicator({
             className={cn(
                 'inline-flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors',
                 state === 'completed' &&
-                    'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
+                    'border-success/40 bg-success/15 text-success',
                 state === 'active' &&
                     'border-primary bg-primary text-primary-foreground',
                 state === 'inactive' &&
@@ -194,7 +194,9 @@ export function StepperTitle({ children, className }: StepperTitleProperties) {
         <span
             className={cn(
                 'text-sm leading-none font-medium',
-                state === 'inactive' ? 'text-muted-foreground' : 'text-white',
+                state === 'inactive'
+                    ? 'text-muted-foreground'
+                    : 'text-foreground',
                 className,
             )}
             data-slot="stepper-title"

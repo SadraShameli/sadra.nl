@@ -68,18 +68,18 @@ export default function RecordingSection({
 
                     <div
                         className={cn(
-                            'relative flex flex-col gap-6 rounded-2xl border border-white/10 bg-white/2 p-6',
+                            'relative flex flex-col gap-6 rounded-2xl border border-border bg-foreground/2 p-6',
                         )}
                     >
                         <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-medium tracking-[0.2em] text-neutral-500 uppercase">
+                                <p className="text-[10px] font-medium tracking-[0.2em] text-muted-foreground/70 uppercase">
                                     Now Playing
                                 </p>
                                 {recordings.isPending ? (
                                     <Skeleton className="mt-1.5 h-6 w-48 max-w-full" />
                                 ) : (
-                                    <p className="mt-1.5 animate-in truncate text-base font-semibold text-neutral-50 duration-300 fade-in">
+                                    <p className="mt-1.5 animate-in truncate text-base font-semibold text-foreground duration-300 fade-in">
                                         {currentRecording?.file_name ?? '-'}
                                     </p>
                                 )}
@@ -88,7 +88,7 @@ export default function RecordingSection({
                                 aria-label="Download recording"
                                 className={cn(
                                     'app-recording__download',
-                                    'size-9 shrink-0 rounded-full text-neutral-400 hover:bg-white/6 hover:text-white',
+                                    'size-9 shrink-0 rounded-full text-muted-foreground hover:bg-foreground/6 hover:text-foreground',
                                 )}
                                 disabled={!hasRecordings}
                                 onClick={() => {
@@ -137,7 +137,7 @@ export default function RecordingSection({
                             volume={volume}
                         />
 
-                        <div className="border-t border-white/6 pt-5">
+                        <div className="border-t border-border/60 pt-5">
                             <RecordingList
                                 currentIdx={currentRecordingIdx}
                                 isLoading={recordings.isPending}

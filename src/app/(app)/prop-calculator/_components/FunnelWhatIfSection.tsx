@@ -204,8 +204,8 @@ export default function FunnelWhatIfSection() {
                             value={formatCompactCurrency(outcome.result.net)}
                             valueClassName={
                                 outcome.result.net >= 0
-                                    ? 'text-emerald-400'
-                                    : 'text-rose-400'
+                                    ? 'text-success'
+                                    : 'text-destructive'
                             }
                         />
                         <StatCard

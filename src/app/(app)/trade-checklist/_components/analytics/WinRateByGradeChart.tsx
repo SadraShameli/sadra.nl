@@ -59,7 +59,7 @@ export function WinRateByGradeChart({
                 <Bar dataKey="winRate" isAnimationActive={false}>
                     <LabelList
                         dataKey="count"
-                        fill="hsl(0 0% 70%)"
+                        fill="var(--muted-foreground)"
                         fontSize={11}
                         formatter={(v: unknown) =>
                             typeof v === 'number' ? `n=${v}` : ''
@@ -68,7 +68,7 @@ export function WinRateByGradeChart({
                     />
                     <LabelList
                         dataKey="winRate"
-                        fill="hsl(0 0% 95%)"
+                        fill="var(--foreground)"
                         fontSize={11}
                         formatter={(v: unknown) =>
                             typeof v === 'number' ? formatPercent(v, 0) : ''
@@ -82,7 +82,7 @@ export function WinRateByGradeChart({
 }
 
 function gradeColor(grade: string): string {
-    if (grade.startsWith('A')) return 'hsl(142 71% 45%)';
-    if (grade.startsWith('B')) return 'hsl(45 93% 47%)';
-    return grade.startsWith('C') ? 'hsl(25 95% 53%)' : 'hsl(0 84% 60%)';
+    if (grade.startsWith('A')) return 'var(--success)';
+    if (grade.startsWith('B')) return 'var(--warning)';
+    return grade.startsWith('C') ? 'var(--warning)' : 'var(--destructive)';
 }

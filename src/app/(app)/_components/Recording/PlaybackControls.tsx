@@ -42,7 +42,7 @@ export function PlaybackControls({
             <Button
                 aria-label="Shuffle"
                 className={cn(
-                    'app-recording__shuffle size-9 rounded-full p-0 text-neutral-400 transition hover:bg-white/5 hover:text-foreground',
+                    'app-recording__shuffle size-9 rounded-full p-0 text-muted-foreground transition hover:bg-foreground/5 hover:text-foreground',
                     isShuffle && 'text-foreground',
                 )}
                 data-state={isShuffle ? 'on' : 'off'}
@@ -56,7 +56,7 @@ export function PlaybackControls({
 
             <Button
                 aria-label="Previous"
-                className="app-recording__previous size-9 rounded-full p-0 text-neutral-300 transition hover:bg-white/5 hover:text-foreground"
+                className="app-recording__previous size-9 rounded-full p-0 text-foreground/80 transition hover:bg-foreground/5 hover:text-foreground"
                 disabled={!hasRecordings || !canGoPrevious}
                 onClick={onPrevious}
                 type="button"
@@ -85,7 +85,7 @@ export function PlaybackControls({
 
             <Button
                 aria-label="Next"
-                className="app-recording__next size-9 rounded-full p-0 text-neutral-300 transition hover:bg-white/5 hover:text-foreground"
+                className="app-recording__next size-9 rounded-full p-0 text-foreground/80 transition hover:bg-foreground/5 hover:text-foreground"
                 disabled={!hasRecordings || !canGoNext}
                 onClick={onNext}
                 type="button"
@@ -97,7 +97,7 @@ export function PlaybackControls({
             <Button
                 aria-label="Repeat"
                 className={cn(
-                    'app-recording__repeat size-9 rounded-full p-0 text-neutral-400 transition hover:bg-white/5 hover:text-foreground',
+                    'app-recording__repeat size-9 rounded-full p-0 text-muted-foreground transition hover:bg-foreground/5 hover:text-foreground',
                     isRepeat && 'text-foreground',
                 )}
                 data-state={isRepeat ? 'on' : 'off'}

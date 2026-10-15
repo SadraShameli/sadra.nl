@@ -488,7 +488,7 @@ function NextRoundCard({
                     .
                 </p>
                 {model.leftOutLabels.length > 0 && (
-                    <p className="text-xs text-amber-600">
+                    <p className="text-xs text-warning">
                         This round also has{' '}
                         {model.leftOutLabels.length === 1
                             ? 'a member'
@@ -564,9 +564,7 @@ function NextRoundOption({
                 <dd className="text-right tabular-nums">{summary.pathRuin}</dd>
             </dl>
             {summary.scaleGateNote !== null && (
-                <p className="text-xs text-amber-600">
-                    {summary.scaleGateNote}
-                </p>
+                <p className="text-xs text-warning">{summary.scaleGateNote}</p>
             )}
         </Card>
     );

@@ -79,10 +79,9 @@ function lastDays(today: string, count: number): string[] {
 function scoreTone(score: null | number): string {
     if (score === null)
         return 'bg-card/40 border-border/20 text-muted-foreground';
-    if (score >= 86)
-        return 'bg-emerald-500/25 border-emerald-500/50 text-emerald-200';
-    if (score >= 57) return 'bg-lime-500/25 border-lime-500/50 text-lime-200';
+    if (score >= 86) return 'bg-success/25 border-success/50 text-success';
+    if (score >= 57) return 'bg-success/10 border-success/30 text-success';
     return score >= 29
-        ? 'bg-amber-500/25 border-amber-500/50 text-amber-200'
-        : 'bg-rose-500/25 border-rose-500/50 text-rose-200';
+        ? 'bg-warning/25 border-warning/50 text-warning'
+        : 'bg-destructive/25 border-destructive/50 text-destructive';
 }

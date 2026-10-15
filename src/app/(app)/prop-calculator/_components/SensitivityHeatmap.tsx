@@ -176,20 +176,20 @@ function cellDisplay(cell: Cell, metric: SensitivityMetric): string {
 function colorForNet(net: number, maxAbs: number): string {
     if (maxAbs <= 0) return 'bg-muted/30';
     const ratio = Math.max(-1, Math.min(1, net / maxAbs));
-    if (ratio >= 0.6) return 'bg-emerald-500/70';
-    if (ratio >= 0.3) return 'bg-emerald-500/45';
-    if (ratio > 0.05) return 'bg-emerald-500/25';
+    if (ratio >= 0.6) return 'bg-success/70';
+    if (ratio >= 0.3) return 'bg-success/45';
+    if (ratio > 0.05) return 'bg-success/25';
     if (ratio >= -0.05) return 'bg-muted/30';
-    if (ratio >= -0.3) return 'bg-rose-500/30';
-    return ratio >= -0.6 ? 'bg-rose-500/45' : 'bg-rose-500/65';
+    if (ratio >= -0.3) return 'bg-destructive/30';
+    return ratio >= -0.6 ? 'bg-destructive/45' : 'bg-destructive/65';
 }
 
 function colorForPass(pass: number): string {
-    if (pass >= 0.8) return 'bg-emerald-500/70';
-    if (pass >= 0.65) return 'bg-emerald-500/45';
-    if (pass >= 0.5) return 'bg-yellow-500/45';
-    if (pass >= 0.35) return 'bg-yellow-500/30';
-    return pass >= 0.2 ? 'bg-rose-500/40' : 'bg-rose-500/60';
+    if (pass >= 0.8) return 'bg-success/70';
+    if (pass >= 0.65) return 'bg-success/45';
+    if (pass >= 0.5) return 'bg-warning/45';
+    if (pass >= 0.35) return 'bg-warning/30';
+    return pass >= 0.2 ? 'bg-destructive/40' : 'bg-destructive/60';
 }
 
 function HeatmapCard({

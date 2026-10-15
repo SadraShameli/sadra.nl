@@ -37,10 +37,10 @@ export default async function ResumePage() {
             <main className="container grid w-full pt-spacing pb-24">
                 <div className="mx-auto w-full max-w-4xl">
                     <header>
-                        <h1 className="font-orbitron text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                        <h1 className="font-orbitron text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
                             Resume
                         </h1>
-                        <p className="mt-3 text-base text-neutral-400">
+                        <p className="mt-3 text-base text-muted-foreground">
                             Formatted as a PDF, view inline or download.
                         </p>
                     </header>

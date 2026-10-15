@@ -644,7 +644,7 @@ export default function TradingInputs({
                     value={[rrRatio]}
                 />
                 <FieldDescription
-                    className="text-amber-400"
+                    className="text-warning"
                     id={PLAUSIBILITY_NOTE_ID}
                     role="status"
                 >

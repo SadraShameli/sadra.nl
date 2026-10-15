@@ -278,7 +278,7 @@ export default function LadderLabPanel({
                     <span className="font-mono">
                         {row.original.ladder.join(' / ')}
                         {row.original.ladder.join(',') === starKey && (
-                            <span className="ml-1 text-emerald-400">★</span>
+                            <span className="ml-1 text-success">★</span>
                         )}
                     </span>
                 ),
@@ -604,13 +604,11 @@ export default function LadderLabPanel({
             </p>
 
             {ignoredInputsNote !== null && (
-                <p className="mt-3 text-xs text-amber-400">
-                    {ignoredInputsNote}
-                </p>
+                <p className="mt-3 text-xs text-warning">{ignoredInputsNote}</p>
             )}
 
             {isAliasingRisk && (
-                <p className="mt-3 text-xs text-amber-400">
+                <p className="mt-3 text-xs text-warning">
                     A max rung above {formatCurrency(aliasingFrom)} is past the
                     point where ladders start aliasing to the same effective
                     strategy on this {formatCurrency(cushion)} cushion. They are
@@ -620,11 +618,11 @@ export default function LadderLabPanel({
             )}
 
             {state.phase === LadderRunPhase.Failed && (
-                <p className="mt-3 text-xs text-rose-400">{state.reason}</p>
+                <p className="mt-3 text-xs text-destructive">{state.reason}</p>
             )}
 
             {view.kind === LadderLabViewKind.Cancelled && (
-                <p className="mt-3 text-xs text-amber-400">{view.notice}</p>
+                <p className="mt-3 text-xs text-warning">{view.notice}</p>
             )}
 
             {scored === null &&
@@ -641,9 +639,7 @@ export default function LadderLabPanel({
             {scored && (
                 <div className="mt-4 flex flex-col gap-5">
                     {scored.kind === LadderLabViewKind.InputsChanged && (
-                        <p className="text-xs text-amber-400">
-                            {scored.notice}
-                        </p>
+                        <p className="text-xs text-warning">{scored.notice}</p>
                     )}
 
                     <p className="text-xs text-muted-foreground">
@@ -660,9 +656,7 @@ export default function LadderLabPanel({
                     </p>
 
                     {unscorableNote !== null && (
-                        <p className="text-xs text-amber-400">
-                            {unscorableNote}
-                        </p>
+                        <p className="text-xs text-warning">{unscorableNote}</p>
                     )}
 
                     <div>
@@ -697,7 +691,7 @@ export default function LadderLabPanel({
                                     activePolicy,
                                     activeRungSizing,
                                 )
-                                    ? 'bg-emerald-500/10'
+                                    ? 'bg-success/10'
                                     : undefined
                             }
                             rowId={(r) => r.ladder.join(',')}

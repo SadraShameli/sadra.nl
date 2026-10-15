@@ -120,8 +120,8 @@ export function TransactionsBrowser() {
                     <span
                         className={
                             row.original.direction === 'IN'
-                                ? 'font-mono text-xs text-emerald-300'
-                                : 'font-mono text-xs text-rose-300'
+                                ? 'font-mono text-xs text-success'
+                                : 'font-mono text-xs text-destructive'
                         }
                     >
                         {amountFormat.format(row.original.sourceAmount)}{' '}
@@ -157,7 +157,7 @@ export function TransactionsBrowser() {
                         </div>
                     ) : (
                         <Badge
-                            className="font-mono text-[10px] text-amber-300"
+                            className="font-mono text-[10px] text-warning"
                             variant="outline"
                         >
                             Unknown

@@ -195,15 +195,13 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                 />
             </Field>
             {calculatorState.maxAttempts > 1 ? (
-                <p className="text-xs text-amber-400">
+                <p className="text-xs text-warning">
                     {`The calculator's max attempts is ${String(calculatorState.maxAttempts)}, but the figures below treat each trial as one attempt. Set it to 1 for per-attempt pricing.`}
                 </p>
             ) : null}
             {summary === null ? null : summary.status ===
               BankrollSetupStatus.NoPositiveEdge ? (
-                <p className="text-sm text-amber-400">
-                    {NO_POSITIVE_EDGE_TEXT}
-                </p>
+                <p className="text-sm text-warning">{NO_POSITIVE_EDGE_TEXT}</p>
             ) : (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     <StatCard
@@ -333,21 +331,21 @@ function RealizedRiskSection({
             const { risk } = realized;
             if (risk.sampleCount === 0) {
                 return (
-                    <p className="text-xs text-amber-400">
+                    <p className="text-xs text-warning">
                         Realized figures: no ended attempts in your ledger yet.
                     </p>
                 );
             }
             return (
                 <div className="flex flex-col gap-3">
-                    <h3 className="text-sm font-semibold text-white">
+                    <h3 className="text-sm font-semibold text-foreground">
                         Realized, from your ledger
                     </h3>
                     <p className="text-xs text-muted-foreground">
                         {`Based on ${String(risk.sampleCount)} ended attempts, priced at this plan's attempt cost.`}
                     </p>
                     {risk.reason === EconomicsReason.NoPositiveEdge ? (
-                        <p className="text-xs text-amber-400">
+                        <p className="text-xs text-warning">
                             Realized: no positive edge in your ended attempts,
                             so no budget makes this safe.
                         </p>

@@ -16,8 +16,8 @@ import { cn } from '~/lib/utilities';
 import { type StatementChartPoint } from './overviewModel';
 
 const chartConfig: ChartConfig = {
-    payouts: { color: 'hsl(142 76% 45%)', label: 'Payouts' },
-    spend: { color: 'hsl(0 84% 60%)', label: 'Spend' },
+    payouts: { color: 'var(--success)', label: 'Payouts' },
+    spend: { color: 'var(--destructive)', label: 'Spend' },
 };
 
 export function MonthlyPayoutChart({
@@ -65,19 +65,19 @@ export function MonthlyPayoutChart({
                 {targetDollars !== null && (
                     <ReferenceLine
                         label="Target"
-                        stroke="hsl(45 93% 58%)"
+                        stroke="var(--warning)"
                         strokeDasharray="3 3"
                         y={targetDollars}
                     />
                 )}
                 <Bar
                     dataKey="spend"
-                    fill="hsl(0 84% 60%)"
+                    fill="var(--destructive)"
                     isAnimationActive={false}
                 />
                 <Bar
                     dataKey="payouts"
-                    fill="hsl(142 76% 45%)"
+                    fill="var(--success)"
                     isAnimationActive={false}
                 />
             </BarChart>

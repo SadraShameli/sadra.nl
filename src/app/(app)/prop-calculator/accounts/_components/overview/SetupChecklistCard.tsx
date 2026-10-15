@@ -169,7 +169,7 @@ function StepIcon({ status }: { readonly status: SetupStepStatus }) {
             return (
                 <CircleCheck
                     aria-hidden
-                    className={cn(className, 'text-emerald-400')}
+                    className={cn(className, 'text-success')}
                 />
             );
         }
@@ -177,7 +177,7 @@ function StepIcon({ status }: { readonly status: SetupStepStatus }) {
             return (
                 <CircleAlert
                     aria-hidden
-                    className={cn(className, 'text-amber-400')}
+                    className={cn(className, 'text-warning')}
                 />
             );
         }

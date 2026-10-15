@@ -61,7 +61,7 @@ export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
                 </Table>
             )}
             {model.caveats.length > 0 && (
-                <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-amber-400">
+                <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-warning">
                     {model.caveats.map((caveat) => (
                         <li key={caveat}>{caveat}</li>
                     ))}

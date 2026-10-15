@@ -36,7 +36,7 @@ export default function GlobalError({ error, retry }: SectionErrorProperties) {
                 <title>Something went wrong</title>
                 <main className="flex flex-1 items-center justify-center px-6 py-16">
                     <Card className="w-full max-w-xl items-center gap-0 px-8 py-12 text-center">
-                        <h1 className="font-orbitron text-3xl font-bold tracking-tight text-white">
+                        <h1 className="font-orbitron text-3xl font-bold tracking-tight text-foreground">
                             Something went wrong
                         </h1>
                         <p className="mt-3 max-w-md text-sm text-muted-foreground">

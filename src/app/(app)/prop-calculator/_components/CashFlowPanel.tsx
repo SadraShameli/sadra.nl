@@ -227,7 +227,7 @@ export default function CashFlowPanel({
                 )}
 
                 {isTradesPerDayCapped && (
-                    <p className="text-[11px] text-amber-400">
+                    <p className="text-[11px] text-warning">
                         Capped at {CASH_FLOW_MAX_TRADES_PER_DAY} effective
                         trades/day for this panel (global setting is{' '}
                         {tradesPerDay}): this simulation runs entirely on the
@@ -244,8 +244,8 @@ export default function CashFlowPanel({
                             value={formatCompactCurrency(finalNet50)}
                             valueClassName={
                                 finalNet50 >= 0
-                                    ? 'text-emerald-400'
-                                    : 'text-rose-400'
+                                    ? 'text-success'
+                                    : 'text-destructive'
                             }
                         />
                         <StatCard
@@ -274,7 +274,7 @@ export default function CashFlowPanel({
                             valueClassName={
                                 medianBreakEvenMonth === null
                                     ? 'text-muted-foreground'
-                                    : 'text-emerald-400'
+                                    : 'text-success'
                             }
                         />
                         <StatCard
@@ -283,8 +283,8 @@ export default function CashFlowPanel({
                             value={formatPercent(pEverBreakEven)}
                             valueClassName={
                                 pEverBreakEven >= 0.5
-                                    ? 'text-emerald-400'
-                                    : 'text-amber-400'
+                                    ? 'text-success'
+                                    : 'text-warning'
                             }
                         />
                         <StatCard
@@ -314,14 +314,14 @@ export default function CashFlowPanel({
                                 </p>
                                 <CashFlowPaybackChartView result={result} />
                                 <p className="text-[11px] text-muted-foreground">
-                                    <span aria-hidden className="text-rose-400">
+                                    <span
+                                        aria-hidden
+                                        className="text-destructive"
+                                    >
                                         ■
                                     </span>{' '}
                                     Cumulative spend ·{' '}
-                                    <span
-                                        aria-hidden
-                                        className="text-emerald-400"
-                                    >
+                                    <span aria-hidden className="text-success">
                                         ■
                                     </span>{' '}
                                     Cumulative payout

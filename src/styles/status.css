@@ -1,0 +1,19 @@
+@layer base {
+    :root {
+        --success: oklch(0.508 0.118 165.612);
+        --success-foreground: oklch(0.985 0 0);
+        --warning: oklch(0.555 0.163 48.998);
+        --warning-foreground: oklch(0.985 0 0);
+        --info: oklch(0.5 0.134 242.749);
+        --info-foreground: oklch(0.985 0 0);
+    }
+
+    .dark {
+        --success: oklch(0.765 0.177 163.223);
+        --success-foreground: oklch(0.262 0.051 172.552);
+        --warning: oklch(0.828 0.189 84.429);
+        --warning-foreground: oklch(0.279 0.077 45.635);
+        --info: oklch(0.746 0.16 232.661);
+        --info-foreground: oklch(0.293 0.066 243.157);
+    }
+}

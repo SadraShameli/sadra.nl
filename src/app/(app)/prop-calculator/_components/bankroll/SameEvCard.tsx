@@ -107,7 +107,7 @@ export function SameEvCard() {
             </div>
             {riskB === null ? null : (
                 <p
-                    className="text-xs text-amber-400"
+                    className="text-xs text-warning"
                     id={RISK_B_CONFLICT_MESSAGE_ID}
                 >
                     Strategy B: {BankrollLeverLabel.ConflictsWithHardRule3}

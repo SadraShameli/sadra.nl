@@ -186,11 +186,11 @@ function PlanHeader({
     };
 
     return (
-        <Card className="bg-black">
+        <Card className="bg-background">
             <CardContent className="flex justify-between">
                 <div>
                     <Eyebrow as="p">Active plan</Eyebrow>
-                    <p className="mt-0.5 text-lg font-semibold text-white">
+                    <p className="mt-0.5 text-lg font-semibold text-foreground">
                         {activePlan.name}
                     </p>
                 </div>

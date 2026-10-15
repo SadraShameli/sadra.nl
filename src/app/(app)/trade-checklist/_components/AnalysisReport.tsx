@@ -21,6 +21,7 @@ import type {
     TradingPlanRow,
 } from '~/lib/trading/types';
 
+import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
 import Eyebrow from '~/components/Eyebrow';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
@@ -33,20 +34,6 @@ import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 
 import { OutcomeDialog } from './OutcomeDialog';
-
-const gradeColor: Record<Grade, string> = {
-    A: 'text-emerald-400',
-    'A+': 'text-emerald-400',
-    'A-': 'text-emerald-300',
-    B: 'text-amber-300',
-    'B+': 'text-emerald-300',
-    'B-': 'text-amber-300',
-    C: 'text-orange-400',
-    'C+': 'text-amber-400',
-    'C-': 'text-orange-400',
-    D: 'text-rose-500',
-    F: 'text-rose-500',
-};
 
 const recoMeta: Record<
     Recommendation,
@@ -134,7 +121,7 @@ export function AnalysisReport({
                     <div className="flex flex-col items-center justify-center">
                         <motion.div
                             animate={{ opacity: 1, scale: 1 }}
-                            className={`font-orbitron text-[6rem] leading-none font-bold tracking-tight ${gradeColor[result.grade]}`}
+                            className={`font-orbitron text-[6rem] leading-none font-bold tracking-tight ${gradeTextClass(result.grade)}`}
                             initial={{ opacity: 0, scale: 0.6 }}
                             transition={{ stiffness: 200, type: 'spring' }}
                         >
@@ -153,7 +140,7 @@ export function AnalysisReport({
                             >
                                 {reco.label}
                             </Badge>
-                            <h2 className="mt-3 text-2xl font-semibold text-white">
+                            <h2 className="mt-3 text-2xl font-semibold text-foreground">
                                 {recommendationHeadline(
                                     result.recommendation,
                                     recommendedDollars,
@@ -248,7 +235,7 @@ export function AnalysisReport({
                                 key={key}
                             >
                                 <div className="flex items-baseline justify-between">
-                                    <p className="text-sm font-medium text-white">
+                                    <p className="text-sm font-medium text-foreground">
                                         {label}
                                     </p>
                                     <p className="font-mono text-xs text-muted-foreground">
@@ -268,7 +255,7 @@ export function AnalysisReport({
             <div className="grid gap-4 md:grid-cols-2">
                 <Card className="border-l-4 border-l-emerald-500">
                     <CardHeader className="flex flex-row items-center justify-start gap-2">
-                        <CheckCircle2 className="size-4 text-emerald-500" />
+                        <CheckCircle2 className="size-4 text-success" />
                         <CardTitle className="text-base">
                             Why to take it
                         </CardTitle>
@@ -287,7 +274,7 @@ export function AnalysisReport({
                                         className="flex items-start gap-2"
                                         key={index}
                                     >
-                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-success" />
                                         <span>{s}</span>
                                     </li>
                                 ))}
@@ -302,7 +289,7 @@ export function AnalysisReport({
 
                 <Card className="border-l-4 border-l-rose-500">
                     <CardHeader className="flex flex-row items-center justify-start gap-2">
-                        <XCircle className="size-4 text-rose-500" />
+                        <XCircle className="size-4 text-destructive" />
                         <CardTitle className="text-base">
                             Why to skip it
                         </CardTitle>
@@ -321,7 +308,7 @@ export function AnalysisReport({
                                         className="flex items-start gap-2"
                                         key={index}
                                     >
-                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-rose-500" />
+                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-destructive" />
                                         <span>{w}</span>
                                     </li>
                                 ))}
@@ -338,7 +325,7 @@ export function AnalysisReport({
             {result.improvements.length > 0 && (
                 <Card className="border-l-4 border-l-sky-500">
                     <CardHeader className="flex flex-row items-center justify-start gap-2">
-                        <Sparkles className="size-4 text-sky-500" />
+                        <Sparkles className="size-4 text-info" />
                         <CardTitle className="text-base">
                             How to upgrade this setup
                         </CardTitle>
@@ -351,7 +338,7 @@ export function AnalysisReport({
                                     className="flex items-start gap-2"
                                     key={index}
                                 >
-                                    <ArrowRight className="mt-0.5 size-4 shrink-0 text-sky-400" />
+                                    <ArrowRight className="mt-0.5 size-4 shrink-0 text-info" />
                                     <span>{imp}</span>
                                 </li>
                             ))}
@@ -510,10 +497,10 @@ function Stat({
 }) {
     const color =
         tone === 'good'
-            ? 'text-emerald-500'
+            ? 'text-success'
             : tone === 'bad'
-              ? 'text-rose-500'
-              : 'text-white';
+              ? 'text-destructive'
+              : 'text-foreground';
 
     return (
         <div className="rounded-lg border border-border/60 p-3">

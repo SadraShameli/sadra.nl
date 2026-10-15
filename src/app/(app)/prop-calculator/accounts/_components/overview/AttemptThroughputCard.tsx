@@ -26,7 +26,7 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium text-white">
+                <h3 className="text-sm font-medium text-foreground">
                     Attempts per month
                 </h3>
                 <p className="text-sm text-muted-foreground">
@@ -61,7 +61,7 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
             </div>
             {model.perFirm.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-white">
+                    <h3 className="text-sm font-medium text-foreground">
                         Attempts per month by firm
                     </h3>
                     <Table>
@@ -103,7 +103,7 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
             )}
             {model.perFirm.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-white">
+                    <h3 className="text-sm font-medium text-foreground">
                         Mean attempts per month by firm
                     </h3>
                     <Table>

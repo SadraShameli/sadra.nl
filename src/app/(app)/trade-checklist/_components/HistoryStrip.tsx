@@ -4,8 +4,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { ClipboardList, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-import type { Grade, TradeAssessmentRow } from '~/lib/trading/types';
+import type { TradeAssessmentRow } from '~/lib/trading/types';
 
+import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -22,20 +23,6 @@ import { Button } from '~/components/ui/Button';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
 import { cn } from '~/lib/utilities';
-
-const gradeColor: Partial<Record<Grade, string>> = {
-    A: 'text-emerald-400',
-    'A+': 'text-emerald-400',
-    'A-': 'text-emerald-300',
-    B: 'text-amber-300',
-    'B+': 'text-emerald-300',
-    'B-': 'text-amber-300',
-    C: 'text-orange-400',
-    'C+': 'text-amber-400',
-    'C-': 'text-orange-400',
-    D: 'text-rose-500',
-    F: 'text-rose-500',
-};
 
 const outcomeBadge: Record<
     string,
@@ -145,9 +132,7 @@ export function HistoryStrip({
                                         <span
                                             className={cn(
                                                 'font-orbitron text-sm font-bold',
-                                                gradeColor[
-                                                    row.grade as Grade
-                                                ] ?? 'text-white',
+                                                gradeTextClass(row.grade),
                                             )}
                                         >
                                             {row.grade}

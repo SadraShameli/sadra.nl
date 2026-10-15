@@ -72,7 +72,7 @@ export function PersonalRulesFields({
                         </FieldDescription>
                         {notice !== null && (
                             <FieldDescription
-                                className="text-amber-400"
+                                className="text-warning"
                                 id={noticeId}
                                 role="note"
                             >

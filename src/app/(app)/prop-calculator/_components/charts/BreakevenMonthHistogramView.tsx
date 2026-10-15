@@ -14,7 +14,7 @@ export default function BreakevenMonthHistogramView({ result }: Properties) {
     return (
         <HistogramChartView
             aspectClassName="aspect-4/3 min-h-90 w-full"
-            barColor="hsl(142 76% 45%)"
+            barColor="var(--success)"
             barLabel="Trials"
             binCount={BIN_COUNT}
             emptyMessage="No trials went cash-flow positive within this horizon."

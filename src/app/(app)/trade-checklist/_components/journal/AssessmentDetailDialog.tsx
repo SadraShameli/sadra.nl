@@ -184,7 +184,7 @@ export function AssessmentDetailDialog({
                                 )}
                             >
                                 <CardHeader className="flex flex-row items-center justify-start gap-2">
-                                    <ShieldAlert className="size-4 text-rose-500" />
+                                    <ShieldAlert className="size-4 text-destructive" />
                                     <CardTitle className="text-base">
                                         Red flags
                                     </CardTitle>
@@ -202,7 +202,7 @@ export function AssessmentDetailDialog({
                                                 className="flex items-start gap-2"
                                                 key={index}
                                             >
-                                                <ArrowRight className="mt-0.5 size-4 shrink-0 text-rose-500" />
+                                                <ArrowRight className="mt-0.5 size-4 shrink-0 text-destructive" />
                                                 <span>{f}</span>
                                             </li>
                                         ))}
@@ -214,7 +214,7 @@ export function AssessmentDetailDialog({
                         {result.strengths.length > 0 && (
                             <Card className="border-l-4 border-l-emerald-500">
                                 <CardHeader className="flex flex-row items-center justify-start gap-2">
-                                    <CheckCircle2 className="size-4 text-emerald-500" />
+                                    <CheckCircle2 className="size-4 text-success" />
                                     <CardTitle className="text-base">
                                         Strengths
                                     </CardTitle>
@@ -227,7 +227,7 @@ export function AssessmentDetailDialog({
                                                 className="flex items-start gap-2"
                                                 key={index}
                                             >
-                                                <ArrowRight className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                                                <ArrowRight className="mt-0.5 size-4 shrink-0 text-success" />
                                                 <span>{s}</span>
                                             </li>
                                         ))}
@@ -239,7 +239,7 @@ export function AssessmentDetailDialog({
                         {result.weaknesses.length > 0 && (
                             <Card className="border-l-4 border-l-amber-500">
                                 <CardHeader className="flex flex-row items-center justify-start gap-2">
-                                    <AlertTriangle className="size-4 text-amber-500" />
+                                    <AlertTriangle className="size-4 text-warning" />
                                     <CardTitle className="text-base">
                                         Weaknesses
                                     </CardTitle>
@@ -252,7 +252,7 @@ export function AssessmentDetailDialog({
                                                 className="flex items-start gap-2"
                                                 key={index}
                                             >
-                                                <ArrowRight className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                                                <ArrowRight className="mt-0.5 size-4 shrink-0 text-warning" />
                                                 <span>{w}</span>
                                             </li>
                                         ))}
@@ -264,7 +264,7 @@ export function AssessmentDetailDialog({
                         {answers.finals.notes && (
                             <Card className="border-l-4 border-l-sky-500">
                                 <CardHeader className="flex flex-row items-center justify-start gap-2">
-                                    <NotebookPen className="size-4 text-sky-500" />
+                                    <NotebookPen className="size-4 text-info" />
                                     <CardTitle className="text-base">
                                         Notes
                                     </CardTitle>

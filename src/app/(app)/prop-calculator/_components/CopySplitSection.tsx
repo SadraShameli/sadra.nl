@@ -143,7 +143,7 @@ export default function CopySplitSection() {
             className="flex flex-col gap-4"
         >
             <h2
-                className="text-lg font-semibold tracking-tight text-white"
+                className="text-lg font-semibold tracking-tight text-foreground"
                 id="copy-split-heading"
             >
                 {header?.title ?? 'Split vs concentrate'}
@@ -251,12 +251,12 @@ export default function CopySplitSection() {
                             ))}
                         </ul>
                         {header.note !== null && (
-                            <p className="text-xs text-amber-400">
+                            <p className="text-xs text-warning">
                                 {header.note}
                             </p>
                         )}
                         {header.noiseNote !== null && (
-                            <p className="text-xs text-amber-400">
+                            <p className="text-xs text-warning">
                                 {header.noiseNote}
                             </p>
                         )}
@@ -283,7 +283,7 @@ export default function CopySplitSection() {
                                     <TableCell>{row.label}</TableCell>
                                     {row.isRefused ? (
                                         <TableCell
-                                            className="font-sans text-amber-400"
+                                            className="font-sans text-warning"
                                             colSpan={8}
                                         >
                                             Refused: {row.refusal}

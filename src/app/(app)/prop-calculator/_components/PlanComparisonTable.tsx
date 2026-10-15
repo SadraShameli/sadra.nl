@@ -204,13 +204,13 @@ export default function PlanComparisonTable({
                 cell: ({ row }) => {
                     const isActive = row.original.plan === activePlan;
                     return (
-                        <span className="text-amber-400">
+                        <span className="text-warning">
                             {'★'.repeat(row.original.score)}
                             <span className="text-muted-foreground">
                                 {'★'.repeat(5 - row.original.score)}
                             </span>
                             {row.original.isBest && !isActive && (
-                                <span className="ml-1 text-emerald-400">★</span>
+                                <span className="ml-1 text-success">★</span>
                             )}
                         </span>
                     );

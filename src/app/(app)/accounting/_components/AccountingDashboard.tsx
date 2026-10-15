@@ -358,7 +358,7 @@ export function AccountingDashboard() {
                                                         {fileContents.has(
                                                             s.id,
                                                         ) && (
-                                                            <span className="flex items-center gap-1 text-[10px] text-emerald-300">
+                                                            <span className="flex items-center gap-1 text-[10px] text-success">
                                                                 <FileCheck className="size-3" />
                                                                 {
                                                                     fileContents.get(

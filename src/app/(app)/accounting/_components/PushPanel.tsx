@@ -163,11 +163,11 @@ export function PushPanel({
                             {progress.current} / {progress.total}
                         </span>
                         <span>
-                            <span className="text-emerald-300">
+                            <span className="text-success">
                                 {postedCount} posted
                             </span>
                             {failedCount > 0 && (
-                                <span className="ml-3 text-rose-300">
+                                <span className="ml-3 text-destructive">
                                     {failedCount} failed
                                 </span>
                             )}
@@ -204,7 +204,7 @@ export function PushPanel({
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex min-w-0 items-center gap-2">
                                         <RowIcon status={row.status} />
-                                        <span className="font-mono text-sky-300">
+                                        <span className="font-mono text-info">
                                             {b.txnId}
                                         </span>
                                         <span className="truncate text-muted-foreground">
@@ -240,9 +240,9 @@ export function PushPanel({
 
 function RowIcon({ status }: { status: PostRowStatus }) {
     if (status === 'posted')
-        return <CheckCircle2 className="size-3.5 text-emerald-400" />;
+        return <CheckCircle2 className="size-3.5 text-success" />;
     return status === 'failed' ? (
-        <XCircle className="size-3.5 text-rose-400" />
+        <XCircle className="size-3.5 text-destructive" />
     ) : (
         <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
     );

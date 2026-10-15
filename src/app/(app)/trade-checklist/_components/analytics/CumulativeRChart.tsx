@@ -62,7 +62,7 @@ export function CumulativeRChart({
                     width={48}
                 />
                 <ReferenceLine
-                    stroke="hsl(0 0% 50%)"
+                    stroke="var(--muted-foreground)"
                     strokeDasharray="4 4"
                     y={0}
                 />

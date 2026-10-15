@@ -40,18 +40,18 @@ export default async function Footer() {
         <footer
             className={cn(
                 'app-shell__footer',
-                'relative mt-24 border-t border-white/5 bg-linear-to-b from-black to-black/95',
+                'relative mt-24 border-t border-border/60 bg-linear-to-b from-background to-background/95',
             )}
         >
             <div
                 aria-hidden
-                className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/15 to-transparent"
+                className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-foreground/15 to-transparent"
             />
             <div className="container mx-auto px-6 pt-16 pb-8">
                 <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(2,1fr)_auto] md:gap-12">
                     <div className="flex flex-col gap-4">
                         <Link
-                            className="font-orbitron text-xl font-semibold tracking-widest text-white transition hover:opacity-70"
+                            className="font-orbitron text-xl font-semibold tracking-widest text-foreground transition hover:opacity-70"
                             href={routes.home}
                         >
                             {navBrand}
@@ -72,7 +72,7 @@ export default async function Footer() {
                                 {col.links.map((link) => (
                                     <li key={link.href}>
                                         <Link
-                                            className="text-sm text-white transition hover:opacity-60"
+                                            className="text-sm text-foreground transition hover:opacity-60"
                                             href={link.href}
                                         >
                                             {link.label}
@@ -90,7 +90,7 @@ export default async function Footer() {
                                 <li key={`${profile.platform}-${profile.url}`}>
                                     <Link
                                         aria-label={profile.platform}
-                                        className="flex size-4 items-center justify-center text-white transition hover:opacity-60 [&_svg]:size-4"
+                                        className="flex size-4 items-center justify-center text-foreground transition hover:opacity-60 [&_svg]:size-4"
                                         href={profile.url}
                                         rel="noreferrer"
                                         target="_blank"
@@ -105,7 +105,7 @@ export default async function Footer() {
                     </div>
                 </div>
 
-                <div className="mt-12 border-t border-white/5 pt-6">
+                <div className="mt-12 border-t border-border/60 pt-6">
                     <p className="text-sm text-muted-foreground">
                         © {year} Sadra Shameli. All rights reserved.
                     </p>

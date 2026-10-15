@@ -327,7 +327,7 @@ export function LedgerView() {
                 className="app-prop-accounts__ledger-list flex flex-col gap-4"
             >
                 <h2
-                    className="text-lg font-semibold tracking-tight text-white"
+                    className="text-lg font-semibold tracking-tight text-foreground"
                     id="prop-ledger-heading"
                 >
                     Payouts and fees
@@ -371,7 +371,7 @@ function DepositsWithdrawalsSection() {
             className="flex flex-col gap-4"
         >
             <h2
-                className="text-lg font-semibold tracking-tight text-white"
+                className="text-lg font-semibold tracking-tight text-foreground"
                 id="prop-bankroll-heading"
             >
                 Deposits and withdrawals
@@ -588,7 +588,7 @@ function FirmReconciliationSection({
             className="flex flex-col gap-4"
         >
             <h2
-                className="text-lg font-semibold tracking-tight text-white"
+                className="text-lg font-semibold tracking-tight text-foreground"
                 id="prop-reconciliation-heading"
             >
                 Firm-reported total reconciliation
@@ -777,9 +777,9 @@ function LedgerTable({ entries }: { entries: readonly LedgerEntry[] }) {
                                 className={cn(
                                     'align-top',
                                     cashFlow === LedgerCashFlow.In &&
-                                        'text-emerald-400',
+                                        'text-success',
                                     cashFlow === LedgerCashFlow.Out &&
-                                        'text-amber-400',
+                                        'text-warning',
                                     cashFlow === LedgerCashFlow.None &&
                                         'text-muted-foreground',
                                 )}
@@ -825,7 +825,7 @@ function LedgerTotals({ entries }: { entries: readonly LedgerEntry[] }) {
                     label="Net in these rows"
                     value={formatUsdCents(cash.net)}
                     valueClassName={
-                        cash.net < 0 ? 'text-amber-400' : 'text-emerald-400'
+                        cash.net < 0 ? 'text-warning' : 'text-success'
                     }
                 />
             </dl>
@@ -855,7 +855,7 @@ function PayoutLagCard({ rows }: { readonly rows: readonly PayoutLagRow[] }) {
     if (rows.every((row) => !row.hasEstimate)) return null;
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-white">
+            <h3 className="text-sm font-medium text-foreground">
                 Payout lag by firm
             </h3>
             <Table>
@@ -918,7 +918,7 @@ function ReconciliationRow({
             <TableCell className="text-right tabular-nums">
                 {formatUsdCents(entry.reportedPayoutCents)}
                 {entry.decreasedFromPrevious && (
-                    <div className="text-xs text-amber-400">
+                    <div className="text-xs text-warning">
                         Down from the previous statement
                     </div>
                 )}
@@ -934,7 +934,7 @@ function ReconciliationRow({
             <TableCell
                 className={cn(
                     'text-right tabular-nums',
-                    !entry.withinTolerance && 'text-amber-400',
+                    !entry.withinTolerance && 'text-warning',
                 )}
             >
                 {formatUsdCents(usdCents(entry.differenceCents))}

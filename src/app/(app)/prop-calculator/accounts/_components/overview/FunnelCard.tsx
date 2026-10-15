@@ -104,7 +104,7 @@ export const FunnelCard = memo(function FunnelCard({
             )}
             {model.stageDollars.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-white">
+                    <h3 className="text-sm font-medium text-foreground">
                         Dollars per stage (fees of the accounts that reached
                         this stage)
                     </h3>
@@ -179,7 +179,7 @@ export const FunnelCard = memo(function FunnelCard({
             {model.diagnosticIssues.length > 0 && (
                 <ul
                     aria-label="Funnel diagnostic issues by plan"
-                    className="flex flex-col gap-1 text-sm text-amber-400"
+                    className="flex flex-col gap-1 text-sm text-warning"
                 >
                     {model.diagnosticIssues.map((issue) => (
                         <li key={issue.key}>

@@ -794,8 +794,8 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 .find((node) => node.textContent === 'P(ends net negative)')
                 ?.closest('.px-3');
             const valueSpan = card?.querySelector('.font-mono');
-            expect(valueSpan?.className).not.toContain('text-rose-400');
-            expect(valueSpan?.className).not.toContain('text-emerald-400');
+            expect(valueSpan?.className).not.toContain('text-destructive');
+            expect(valueSpan?.className).not.toContain('text-success');
         });
 
         describe('the funnel what-if form (PT-62b, F-V11)', () => {

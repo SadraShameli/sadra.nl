@@ -33,7 +33,7 @@ export default function PortfolioEntry({
             <div
                 className={cn(
                     'app-portfolio__entry-meta',
-                    'flex flex-col gap-y-1 text-sm/tight text-neutral-400 md:pt-1',
+                    'flex flex-col gap-y-1 text-sm/tight text-muted-foreground md:pt-1',
                 )}
             >
                 <span className="app-portfolio__entry-date tabular-nums">
@@ -44,7 +44,7 @@ export default function PortfolioEntry({
                         <Link
                             className={cn(
                                 'app-portfolio__entry-location',
-                                'inline-flex min-h-11 w-fit items-center transition hover:text-neutral-200 md:min-h-0',
+                                'inline-flex min-h-11 w-fit items-center transition hover:text-foreground/90 md:min-h-0',
                             )}
                             href={entry.location.url}
                             rel="noreferrer"
@@ -67,7 +67,7 @@ export default function PortfolioEntry({
                             <Link
                                 className={cn(
                                     'app-portfolio__entry-title-link',
-                                    'group inline-flex min-h-11 items-center gap-1 text-xl/tight font-semibold text-white transition md:min-h-0',
+                                    'group inline-flex min-h-11 items-center gap-1 text-xl/tight font-semibold text-foreground transition md:min-h-0',
                                 )}
                                 href={entry.url}
                                 rel="noreferrer"
@@ -78,20 +78,20 @@ export default function PortfolioEntry({
                                 </span>
                                 <ArrowUpRight
                                     aria-hidden="true"
-                                    className="size-4 text-neutral-400 transition group-hover:text-white"
+                                    className="size-4 text-muted-foreground transition group-hover:text-foreground"
                                 />
                             </Link>
                         ) : (
-                            <h3 className="text-xl/tight font-semibold text-white">
+                            <h3 className="text-xl/tight font-semibold text-foreground">
                                 {entry.title}
                             </h3>
                         )}
 
                         {entry.role ? (
-                            <span className="inline-flex items-center gap-2 text-base text-neutral-300">
+                            <span className="inline-flex items-center gap-2 text-base text-foreground/80">
                                 <span
                                     aria-hidden="true"
-                                    className="text-neutral-600"
+                                    className="text-muted-foreground/50"
                                 >
                                     /
                                 </span>
@@ -99,8 +99,8 @@ export default function PortfolioEntry({
                                 {isCurrent ? (
                                     <span className="inline-flex items-center gap-1.5">
                                         <span className="relative inline-flex size-2 items-center justify-center">
-                                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400/70" />
-                                            <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
+                                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-success/70" />
+                                            <span className="relative inline-flex size-2 rounded-full bg-success" />
                                         </span>
                                         <span className="sr-only">
                                             Current role
@@ -134,7 +134,7 @@ export default function PortfolioEntry({
                     <p
                         className={cn(
                             'app-portfolio__entry-summary',
-                            'max-w-prose text-[0.9375rem] leading-relaxed text-neutral-200',
+                            'max-w-prose text-[0.9375rem] leading-relaxed text-foreground/90',
                         )}
                     >
                         {parse(entry.summary)}
@@ -145,7 +145,7 @@ export default function PortfolioEntry({
                     <ul
                         className={cn(
                             'app-portfolio__entry-highlights',
-                            'flex flex-col gap-y-2 text-[0.9375rem] leading-relaxed text-neutral-200',
+                            'flex flex-col gap-y-2 text-[0.9375rem] leading-relaxed text-foreground/90',
                         )}
                     >
                         {entry.highlights.map((highlight, index) => (
@@ -155,7 +155,7 @@ export default function PortfolioEntry({
                             >
                                 <span
                                     aria-hidden="true"
-                                    className="mt-[0.55em] inline-block size-1 shrink-0 rounded-full bg-neutral-500"
+                                    className="mt-[0.55em] inline-block size-1 shrink-0 rounded-full bg-muted-foreground/70"
                                 />
                                 <span>{highlight}</span>
                             </li>

@@ -33,7 +33,7 @@ export default function PropAccountsNextSlotPage() {
                 )}
             >
                 <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                         Next slot
                     </h1>
                     <p className="mt-2 max-w-3xl text-sm text-muted-foreground sm:text-base">

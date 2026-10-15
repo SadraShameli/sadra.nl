@@ -1,47 +1,13 @@
 /* stylelint-disable no-invalid-position-declaration */
 @import 'tailwindcss/utilities' layer(utilities);
 
-@utility bg-gradient-indigo {
-    @apply bg-linear-to-br from-indigo-50 to-indigo-400 bg-clip-text text-transparent;
-}
-
-@utility bg-gradient-emerald {
-    @apply bg-linear-to-br from-emerald-50 to-emerald-900 bg-clip-text text-transparent;
-}
-
-@utility bg-gradient-purple-anim {
-    background: linear-gradient(
-        to right,
-        var(--color-purple-400),
-        var(--color-white),
-        var(--color-purple-400),
-        var(--color-white)
-    );
-    background-size: 300% 300%;
-
-    @apply animate-gradient bg-clip-text text-transparent;
-}
-
-@utility bg-gradient-emerald-anim {
-    background: linear-gradient(
-        to right,
-        var(--color-emerald-700),
-        var(--color-white),
-        var(--color-emerald-700),
-        var(--color-white)
-    );
-    background-size: 300% 300%;
-
-    @apply animate-gradient bg-clip-text text-transparent;
-}
-
 @utility bg-gradient-neutral-anim {
     background: linear-gradient(
         to right,
-        var(--color-neutral-400),
-        var(--color-white),
-        var(--color-neutral-400),
-        var(--color-white)
+        var(--muted-foreground),
+        var(--foreground),
+        var(--muted-foreground),
+        var(--foreground)
     );
     background-size: 300% 300%;
 
@@ -49,7 +15,7 @@
 }
 
 @utility shimmer {
-    @apply relative isolate overflow-hidden transition-opacity duration-500 ease-in-out before:pointer-events-none before:absolute before:inset-0 before:animate-[shimmer_2s_ease-in-out_infinite] before:bg-linear-to-r before:from-transparent before:via-neutral-100/10 before:to-transparent before:opacity-0 before:transition-opacity before:duration-500 data-[loading=true]:opacity-60 data-[loading=true]:before:opacity-100;
+    @apply relative isolate overflow-hidden transition-opacity duration-500 ease-in-out before:pointer-events-none before:absolute before:inset-0 before:animate-[shimmer_2s_ease-in-out_infinite] before:bg-linear-to-r before:from-transparent before:via-foreground/10 before:to-transparent before:opacity-0 before:transition-opacity before:duration-500 data-[loading=true]:opacity-60 data-[loading=true]:before:opacity-100;
 }
 
 @utility pt-spacing {

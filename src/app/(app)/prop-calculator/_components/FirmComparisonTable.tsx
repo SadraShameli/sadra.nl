@@ -126,7 +126,7 @@ export function ComparisonRankingNote({
     ranked: Pick<RankedComparison<unknown>, 'note'>;
 }) {
     return ranked.note === null ? null : (
-        <p className="text-xs text-amber-400">{ranked.note}</p>
+        <p className="text-xs text-warning">{ranked.note}</p>
     );
 }
 
@@ -274,7 +274,7 @@ export default function FirmComparisonTable({
             {
                 accessorFn: (r) => r.score,
                 cell: ({ row }) => (
-                    <span className="text-amber-400">
+                    <span className="text-warning">
                         {'★'.repeat(row.original.score)}
                         <span className="text-muted-foreground">
                             {'★'.repeat(5 - row.original.score)}

@@ -52,7 +52,7 @@ export function ExercisesBrowser() {
                 accessorKey: 'name',
                 cell: ({ row }) => (
                     <Link
-                        className="font-medium text-white hover:underline"
+                        className="font-medium text-foreground hover:underline"
                         href={routes.lifting.exercise(row.original.slug)}
                     >
                         {row.original.name}

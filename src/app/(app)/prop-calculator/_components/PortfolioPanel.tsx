@@ -818,8 +818,8 @@ function PortfolioTable({
                         className={
                             row.original.sim
                                 ? row.original.sim.out.expectedMonthlyNet >= 0
-                                    ? 'text-emerald-400'
-                                    : 'text-rose-400'
+                                    ? 'text-success'
+                                    : 'text-destructive'
                                 : undefined
                         }
                         pending={pending}
