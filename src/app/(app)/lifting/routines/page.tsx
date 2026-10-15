@@ -2,6 +2,7 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { RoutinesViewSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { RoutinesView } from '~/app/(app)/lifting/_components/RoutinesView';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
@@ -25,7 +26,7 @@ export default function LiftingRoutinesPage() {
                     description="Save and replay your favorite workouts."
                     title="Routines"
                 />
-                <Suspense fallback={<RoutinesView />}>
+                <Suspense fallback={<RoutinesViewSkeleton />}>
                     <LiftingRoutinesContent />
                 </Suspense>
             </main>

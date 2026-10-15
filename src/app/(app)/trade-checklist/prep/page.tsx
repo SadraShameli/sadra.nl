@@ -1,6 +1,5 @@
 import { and, desc, eq, gte } from 'drizzle-orm';
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
@@ -8,7 +7,7 @@ import { DefaultTradingPlanSetup } from '~/app/(app)/trade-checklist/_components
 import { PrepView } from '~/app/(app)/trade-checklist/_components/PrepView';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { dailyPreparationRowSchema } from '~/lib/schemas/trading';
 import { routes } from '~/lib/site/routes';
 import { PLAN_TIMEZONE } from '~/lib/trading/defaults';
@@ -50,9 +49,8 @@ export default function PreMarketPrepPage() {
 }
 
 async function PreMarketPrepContent() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    const userId = session.user.id;
+    const user = await requireSessionUser(routes.auth.login);
+    const userId = user.id;
 
     const today = todayInTz();
     const since = thirtyDaysAgo();

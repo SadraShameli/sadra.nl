@@ -1,12 +1,11 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -41,10 +40,9 @@ export default function PropAccountsLedgerPage() {
 }
 
 async function PropAccountsLedgerContent() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.ledger));
-    }
+    await requireSessionUser(
+        loginRedirectFor(routes.propCalculator.accounts.ledger),
+    );
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
     void api.propAccounts.externalFirm.list.prefetch();
     void api.propAccounts.payout.list.prefetch({});

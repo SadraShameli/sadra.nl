@@ -1,10 +1,9 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -46,10 +45,9 @@ export default function PropAccountsReviewPage() {
 }
 
 async function PropAccountsReviewContent() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.review));
-    }
+    await requireSessionUser(
+        loginRedirectFor(routes.propCalculator.accounts.review),
+    );
     void api.propAccounts.account.list.prefetch({});
     void api.propAccounts.snapshot.latestForAll.prefetch();
     void api.propAccounts.decision.latestForAll.prefetch();

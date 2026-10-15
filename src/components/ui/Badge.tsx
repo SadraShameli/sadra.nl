@@ -29,7 +29,7 @@ const badgeVariants = cva(
 
 export interface BadgeProperties
     extends
-        React.HTMLAttributes<HTMLDivElement>,
+        React.HTMLAttributes<HTMLSpanElement>,
         VariantProps<typeof badgeVariants> {
     asChild?: boolean;
 }
@@ -40,7 +40,7 @@ function Badge({
     variant,
     ...properties
 }: BadgeProperties) {
-    const Comp = asChild ? Slot : 'div';
+    const Comp = asChild ? Slot : 'span';
     return (
         <Comp
             className={cn(badgeVariants({ variant }), className)}

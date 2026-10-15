@@ -1,10 +1,9 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -46,10 +45,9 @@ export default function PropAccountsEdgePage() {
 }
 
 async function PropAccountsEdgeContent() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.edge));
-    }
+    await requireSessionUser(
+        loginRedirectFor(routes.propCalculator.accounts.edge),
+    );
     void api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
     return (
         <HydrateClient>

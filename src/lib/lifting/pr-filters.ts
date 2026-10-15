@@ -66,7 +66,7 @@ export const PrFilters = {
     filter<T extends FilterablePr>(
         rows: readonly T[],
         criteria: PrFilterCriteria,
-        now: Date,
+        now: () => Date,
     ): T[] {
         const byKind =
             criteria.kind === PR_KIND_ALL
@@ -83,7 +83,7 @@ export const PrFilters = {
         }
         const days = PrFilters.preset(criteria.range).days;
         if (days === null) return byKind;
-        const since = subDays(now, days);
+        const since = subDays(now(), days);
         return byKind.filter((pr) => new Date(pr.achievedAt) >= since);
     },
 

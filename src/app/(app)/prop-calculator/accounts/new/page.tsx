@@ -1,5 +1,4 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AccountCreator } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
@@ -11,7 +10,7 @@ import {
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -49,15 +48,12 @@ async function NewPropAccountContent({
     searchParams,
 }: Pick<PageProps<'/prop-calculator/accounts/new'>, 'searchParams'>) {
     const prefill = parseAccountPrefill(await searchParams);
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(
-            loginRedirectFor(
-                routes.propCalculator.accounts.new,
-                accountPrefillQuery(prefill),
-            ),
-        );
-    }
+    await requireSessionUser(
+        loginRedirectFor(
+            routes.propCalculator.accounts.new,
+            accountPrefillQuery(prefill),
+        ),
+    );
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
     void api.propAccounts.copyGroup.list.prefetch();
     void api.propAccounts.externalFirm.list.prefetch();

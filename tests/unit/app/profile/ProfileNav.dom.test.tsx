@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProfileNav } from '~/app/(app)/profile/_components/ProfileNav';
 import { routes } from '~/lib/site/routes';
 
-import { stubLocationAssign } from './stubLocationAssign';
+import { stubLocationAssign } from '../stubLocationAssign';
 
 interface Mounted {
     readonly container: HTMLDivElement;

@@ -1,8 +1,5 @@
-import { notFound } from 'next/navigation';
-
 import { PageTransition } from '~/components/PageTransition';
-import { isRoot } from '~/lib/auth/roles';
-import { getServerSession } from '~/lib/auth/server';
+import { requireRootUser } from '~/lib/auth/guards';
 import {
     coverLetters,
     defaultResumeVariantKey,
@@ -20,8 +17,7 @@ const resumes = [
 ];
 
 export default async function ResumePage() {
-    const session = await getServerSession();
-    if (!session?.user.id || !isRoot(session.user.role)) notFound();
+    await requireRootUser();
 
     const variantOptions = Object.values(resumeVariants).map((variant) => ({
         key: variant.key,

@@ -44,7 +44,7 @@ export function usePrFilters<T extends FilterablePr>(
     );
 
     const filteredRows = useMemo(
-        () => PrFilters.filter(rows ?? [], criteria, new Date()),
+        () => PrFilters.filter(rows ?? [], criteria, currentTime),
         [rows, criteria],
     );
 
@@ -75,4 +75,8 @@ export function usePrFilters<T extends FilterablePr>(
         setKind,
         setRange,
     };
+}
+
+function currentTime(): Date {
+    return new Date();
 }

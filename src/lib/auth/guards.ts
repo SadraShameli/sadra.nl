@@ -1,9 +1,11 @@
 import 'server-only';
 import { type Route } from 'next';
 import { notFound, redirect } from 'next/navigation';
+import { connection } from 'next/server';
 
 import { isRoot } from '~/lib/auth/roles';
-import { getServerSession, type Session } from '~/lib/auth/server';
+import { type Session } from '~/lib/auth/server';
+import { readSession } from '~/lib/auth/session';
 import { routes } from '~/lib/site/routes';
 
 export async function requireRootUser(): Promise<Session['user']> {
@@ -15,7 +17,8 @@ export async function requireRootUser(): Promise<Session['user']> {
 export async function requireSessionUser(
     loginRoute: Route = routes.auth.login,
 ): Promise<Session['user']> {
-    const session = await getServerSession();
+    const session = await readSession();
     if (!session?.user.id) redirect(loginRoute);
+    await connection();
     return session.user;
 }

@@ -2,6 +2,7 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { TodayHeroSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
@@ -28,7 +29,7 @@ export default function LiftingTodayPage() {
                     description="A no-friction workout tracker."
                     title="Lifting"
                 />
-                <Suspense fallback={<TodayHero />}>
+                <Suspense fallback={<TodayHeroSkeleton />}>
                     <LiftingTodayContent />
                 </Suspense>
             </main>

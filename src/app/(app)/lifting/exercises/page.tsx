@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 
 import { ExercisesBrowser } from '~/app/(app)/lifting/_components/ExercisesBrowser';
 import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { ExercisesBrowserSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
@@ -25,7 +26,7 @@ export default function LiftingExercisesPage() {
                     description="Browse the library or build your own."
                     title="Exercises"
                 />
-                <Suspense fallback={<ExercisesBrowser />}>
+                <Suspense fallback={<ExercisesBrowserSkeleton />}>
                     <LiftingExercisesContent />
                 </Suspense>
             </main>

@@ -95,6 +95,14 @@ const harness = vi.hoisted(() => {
     };
 });
 
+vi.mock('next/cache', async (importOriginal) => {
+    const stubs = await import('../../nextRequestStubs');
+    return stubs.nextCacheWithoutCacheComponents(importOriginal);
+});
+vi.mock('next/server', async (importOriginal) => {
+    const stubs = await import('../../nextRequestStubs');
+    return stubs.nextServerWithoutConnection(importOriginal);
+});
 vi.mock('next/navigation', () => ({
     redirect: (href: string) => {
         throw new Error(`unexpected redirect to ${href}`);

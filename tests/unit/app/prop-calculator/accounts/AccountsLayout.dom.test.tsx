@@ -17,6 +17,14 @@ const harness = vi.hoisted(() => ({
     session: vi.fn(),
 }));
 
+vi.mock('next/cache', async (importOriginal) => {
+    const stubs = await import('../../nextRequestStubs');
+    return stubs.nextCacheWithoutCacheComponents(importOriginal);
+});
+vi.mock('next/server', async (importOriginal) => {
+    const stubs = await import('../../nextRequestStubs');
+    return stubs.nextServerWithoutConnection(importOriginal);
+});
 vi.mock('~/lib/auth/server', () => ({
     getServerSession: harness.session,
 }));

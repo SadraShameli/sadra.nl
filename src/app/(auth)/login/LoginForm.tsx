@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -21,7 +20,6 @@ import { type LoginInput, loginInputSchema } from '~/lib/schemas/auth';
 import { currentCallbackUrl } from '~/lib/site/privateRoutes';
 
 export function LoginForm() {
-    const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [topError, setTopError] = useState<null | string>(null);
 
@@ -46,8 +44,7 @@ export function LoginForm() {
                 );
                 return;
             }
-            router.push(callbackUrl);
-            router.refresh();
+            window.location.assign(callbackUrl);
         });
     };
 

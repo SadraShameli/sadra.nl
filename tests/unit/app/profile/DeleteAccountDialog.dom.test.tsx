@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeleteAccountDialog } from '~/app/(app)/profile/_components/DeleteAccountDialog';
 import { routes } from '~/lib/site/routes';
 
-import { stubLocationAssign } from './stubLocationAssign';
+import { stubLocationAssign } from '../stubLocationAssign';
 
 interface Mounted {
     readonly container: HTMLDivElement;

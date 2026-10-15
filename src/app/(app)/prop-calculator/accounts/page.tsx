@@ -1,13 +1,12 @@
 import { type Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { Button } from '~/components/ui/Button';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -56,10 +55,9 @@ export default function PropAccountsPage() {
 }
 
 async function PropAccountsContent() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.index));
-    }
+    const user = await requireSessionUser(
+        loginRedirectFor(routes.propCalculator.accounts.index),
+    );
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
     void api.propAccounts.externalFirm.list.prefetch();
     void api.propAccounts.snapshot.latestTwoForAll.prefetch();
@@ -77,7 +75,7 @@ async function PropAccountsContent() {
     void api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
     return (
         <HydrateClient>
-            <OverviewView userId={session.user.id} />
+            <OverviewView userId={user.id} />
         </HydrateClient>
     );
 }

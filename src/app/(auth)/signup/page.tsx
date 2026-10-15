@@ -13,7 +13,7 @@ import {
     CardTitle,
 } from '~/components/ui/Card';
 import { environment } from '~/environment';
-import { getServerSession } from '~/lib/auth/server';
+import { readSession } from '~/lib/auth/session';
 import { signupSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -75,7 +75,7 @@ export default function SignupPage({ searchParams }: SignupPageProperties) {
 }
 
 async function SignupNotices({ searchParams }: SignupPageProperties) {
-    const session = await getServerSession();
+    const session = await readSession();
     if (session?.user.id) redirect(routes.home);
 
     const { error } = signupSearchSchema.parse(await searchParams);

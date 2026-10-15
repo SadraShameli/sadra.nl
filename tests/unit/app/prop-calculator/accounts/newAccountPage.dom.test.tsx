@@ -14,6 +14,14 @@ import { CalculatorUrlParameter, UrlFlag } from '~/lib/schemas/url';
 
 import { resolveServerTree } from '../../resolveServerTree';
 
+vi.mock('next/cache', async (importOriginal) => {
+    const stubs = await import('../../nextRequestStubs');
+    return stubs.nextCacheWithoutCacheComponents(importOriginal);
+});
+vi.mock('next/server', async (importOriginal) => {
+    const stubs = await import('../../nextRequestStubs');
+    return stubs.nextServerWithoutConnection(importOriginal);
+});
 vi.mock('~/lib/auth/server', () => ({
     getServerSession: () => Promise.resolve({ user: { id: 'user-1' } }),
 }));

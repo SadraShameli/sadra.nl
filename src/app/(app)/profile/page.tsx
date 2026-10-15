@@ -1,14 +1,13 @@
 import { and, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
 
 import { PageTransition } from '~/components/PageTransition';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { AutoDismissAlert } from '~/components/ui/AutoDismissAlert';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { isAdminOrAbove, isRoot, resolveRole } from '~/lib/auth/roles';
-import { getServerSession } from '~/lib/auth/server';
 import { profileSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { loadTradingPlans } from '~/lib/trading/loadTradingPlans';
@@ -71,8 +70,7 @@ export default function ProfilePage({ searchParams }: PageProps<'/profile'>) {
 async function ProfileContent({
     searchParams,
 }: Pick<PageProps<'/profile'>, 'searchParams'>) {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+    const user = await requireSessionUser(routes.auth.login);
 
     const rawParameters = await searchParams;
     const { error, success } = profileSearchSchema.parse(rawParameters);
@@ -82,17 +80,17 @@ async function ProfileContent({
         .from(account)
         .where(
             and(
-                eq(account.userId, session.user.id),
+                eq(account.userId, user.id),
                 eq(account.providerId, 'credential'),
             ),
         )
         .limit(1);
     const hasPassword = Boolean(credentialAccount?.password);
 
-    const plans = await loadTradingPlans(session.user.id);
+    const plans = await loadTradingPlans(user.id);
 
-    const { email, name } = session.user;
-    const role = resolveRole(email, session.user.role);
+    const { email, name } = user;
+    const role = resolveRole(email, user.role);
     const isAdmin = isAdminOrAbove(role);
     const isUserIsRoot = isRoot(role);
     const activeTab = normalizeProfileTab(rawParameters.tab, isAdmin);

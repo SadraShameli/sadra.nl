@@ -1,16 +1,8 @@
-import { cacheLife } from 'next/cache';
-
-import { getServerSession } from '~/lib/auth/server';
+import { readSession } from '~/lib/auth/session';
 
 import { AccountLink } from './AccountLink';
 
 export async function SessionAccountLink() {
-    return <AccountLink signedIn={await isSignedIn()} />;
-}
-
-async function isSignedIn(): Promise<boolean> {
-    'use cache: private';
-    cacheLife('minutes');
-    const session = await getServerSession();
-    return Boolean(session?.user.id);
+    const session = await readSession();
+    return <AccountLink signedIn={Boolean(session?.user.id)} />;
 }

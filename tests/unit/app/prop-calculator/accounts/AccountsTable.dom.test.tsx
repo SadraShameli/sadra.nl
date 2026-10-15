@@ -401,7 +401,9 @@ describe('AccountsTable', () => {
             render();
             const alphaRow = rowOf(container, 'Alpha');
             const bravoRow = rowOf(container, 'Bravo');
-            const badges = [...alphaRow.querySelectorAll('div')]
+            const badges = [
+                ...alphaRow.querySelectorAll('[data-slot="badge"], span'),
+            ]
                 .filter((badge) => badge.children.length === 0)
                 .map((badge) => badge.textContent.trim())
                 .filter((text) => text === 'swing' || text === 'apex');

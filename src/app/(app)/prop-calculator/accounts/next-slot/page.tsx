@@ -1,5 +1,4 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
@@ -9,7 +8,7 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -53,10 +52,9 @@ export default function PropAccountsNextSlotPage() {
 }
 
 async function PropAccountsNextSlotContent() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.nextSlot));
-    }
+    const user = await requireSessionUser(
+        loginRedirectFor(routes.propCalculator.accounts.nextSlot),
+    );
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
     void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
     void api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT);
@@ -67,7 +65,7 @@ async function PropAccountsNextSlotContent() {
     void api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
     return (
         <HydrateClient>
-            <NextSlotView userId={session.user.id} />
+            <NextSlotView userId={user.id} />
         </HydrateClient>
     );
 }

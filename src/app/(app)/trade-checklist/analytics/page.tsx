@@ -1,6 +1,5 @@
 import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
@@ -8,7 +7,7 @@ import type { LightAssessment } from '~/lib/trading/analytics';
 import { AnalyticsDashboard } from '~/app/(app)/trade-checklist/_components/AnalyticsDashboard';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
@@ -48,9 +47,8 @@ export default function TradeAnalyticsPage() {
 }
 
 async function TradeAnalyticsContent() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    const userId = session.user.id;
+    const user = await requireSessionUser(routes.auth.login);
+    const userId = user.id;
 
     const plans = await db
         .select({ id: tradingPlans.id, name: tradingPlans.name })

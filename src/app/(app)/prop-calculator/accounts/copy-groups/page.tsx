@@ -1,5 +1,4 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
@@ -9,7 +8,7 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -41,10 +40,9 @@ export default function PropAccountsCopyGroupsPage() {
 }
 
 async function PropAccountsCopyGroupsContent() {
-    const session = await getServerSession();
-    if (!session?.user.id) {
-        redirect(loginRedirectFor(routes.propCalculator.accounts.copyGroups));
-    }
+    const user = await requireSessionUser(
+        loginRedirectFor(routes.propCalculator.accounts.copyGroups),
+    );
     void api.propAccounts.copyGroup.list.prefetch();
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
     void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
@@ -53,7 +51,7 @@ async function PropAccountsCopyGroupsContent() {
     void api.propAccounts.snapshot.latestForAll.prefetch();
     return (
         <HydrateClient>
-            <CopyGroupsView userId={session.user.id} />
+            <CopyGroupsView userId={user.id} />
         </HydrateClient>
     );
 }

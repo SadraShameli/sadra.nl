@@ -15,7 +15,7 @@ import {
     CardTitle,
 } from '~/components/ui/Card';
 import { environment } from '~/environment';
-import { getServerSession } from '~/lib/auth/server';
+import { readSession } from '~/lib/auth/session';
 import { loginSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -119,7 +119,7 @@ async function LoginNotices({
 }
 
 async function RedirectWhenSignedIn() {
-    const session = await getServerSession();
+    const session = await readSession();
     if (session?.user.id) redirect(routes.home);
     return null;
 }

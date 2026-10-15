@@ -2,6 +2,7 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { ProgramsLibrarySkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { ProgramsLibrary } from '~/app/(app)/lifting/_components/ProgramsLibrary';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
@@ -30,11 +31,7 @@ export default async function LiftingProgramsPage() {
                     description="Follow a proven program or build your own."
                     title="Programs"
                 />
-                <Suspense
-                    fallback={
-                        <ProgramsLibrary officialPrograms={officialPrograms} />
-                    }
-                >
+                <Suspense fallback={<ProgramsLibrarySkeleton />}>
                     <LiftingProgramsContent
                         officialPrograms={officialPrograms}
                     />

@@ -1,6 +1,5 @@
 import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
@@ -8,7 +7,7 @@ import type { LightAssessment } from '~/lib/trading/analytics';
 import { CalendarView } from '~/app/(app)/trade-checklist/_components/CalendarView';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments } from '~/server/db';
@@ -59,9 +58,8 @@ function isValidMonth(s: string): boolean {
 async function TradeCalendarContent({
     searchParams,
 }: Pick<PageProps<'/trade-checklist/calendar'>, 'searchParams'>) {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    const userId = session.user.id;
+    const user = await requireSessionUser(routes.auth.login);
+    const userId = user.id;
 
     const { month: requestedMonth } = await searchParams;
     const month =

@@ -1,12 +1,11 @@
 import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
-import { getServerSession } from '~/lib/auth/server';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
 import { routes } from '~/lib/site/routes';
 import { loadTradingPlans } from '~/lib/trading/loadTradingPlans';
@@ -53,9 +52,8 @@ export default function TradeChecklistPage() {
 }
 
 async function TradeChecklistContent() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    const userId = session.user.id;
+    const user = await requireSessionUser(routes.auth.login);
+    const userId = user.id;
 
     const plans = await loadTradingPlans(userId);
 

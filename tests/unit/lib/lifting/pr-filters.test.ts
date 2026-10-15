@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
     PR_FILTER_DEFAULTS,
@@ -42,11 +42,17 @@ function ids(criteria: Partial<PrFilterCriteria>): string[] {
     return PrFilters.filter(
         ROWS,
         { ...PR_FILTER_DEFAULTS, ...criteria },
-        NOW,
+        () => NOW,
     ).map((row) => row.id);
 }
 
 describe('PrFilters.filter', () => {
+    it('reads the clock only when a day-count preset is chosen, so a prerender with all time never reads it', () => {
+        const clock = vi.fn(() => NOW);
+        PrFilters.filter(ROWS, PR_FILTER_DEFAULTS, clock);
+        expect(clock).not.toHaveBeenCalled();
+    });
+
     it('keeps every row with the default criteria', () => {
         expect(ids({})).toEqual(['a', 'b', 'c', 'd', 'e']);
     });

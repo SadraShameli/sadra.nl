@@ -8,6 +8,8 @@ import { LoginForm } from '~/app/(auth)/login/LoginForm';
 import { SignupForm } from '~/app/(auth)/signup/SignupForm';
 import { routes } from '~/lib/site/routes';
 
+import { stubLocationAssign } from '../stubLocationAssign';
+
 type AuthCall = ReturnType<typeof vi.fn>;
 
 interface AuthPath {
@@ -210,6 +212,10 @@ afterEach(async () => {
     }
 });
 
+function doNothing(): void {
+    return;
+}
+
 describe('callbackUrl on every auth path', () => {
     describe.each(AUTH_PATHS)('$name', ({ run, sent }) => {
         it.each(REJECTED_CALLBACK_URLS)(
@@ -231,9 +237,10 @@ describe('callbackUrl on every auth path', () => {
     });
 
     it('navigates after a password sign-in only to the checked callbackUrl', async () => {
+        const assign = stubLocationAssign(doNothing);
         withCallbackUrl('//evil.com');
         await AUTH_PATHS[0]?.run();
-        expect(navigation.push).toHaveBeenCalledWith(routes.home);
-        expect(navigation.push).not.toHaveBeenCalledWith('//evil.com');
+        expect(assign).toHaveBeenCalledWith(routes.home);
+        expect(assign).not.toHaveBeenCalledWith('//evil.com');
     });
 });
