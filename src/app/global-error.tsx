@@ -3,14 +3,13 @@
 import '~/styles/styles.css';
 
 import * as Sentry from '@sentry/nextjs';
-import { GeistSans } from 'geist/font/sans';
 import { RotateCcw } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { type SectionErrorProperties } from '~/components/SectionError';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
-import { orbitron } from '~/fonts';
+import { nunito, orbitron } from '~/fonts';
 import { cn } from '~/lib/utilities';
 
 export default function GlobalError({ error, retry }: SectionErrorProperties) {
@@ -19,13 +18,12 @@ export default function GlobalError({ error, retry }: SectionErrorProperties) {
     }, [error]);
 
     return (
-        <html className="dark antialiased" lang="en">
+        <html className={cn('dark antialiased', nunito.variable)} lang="en">
             <body
                 className={cn(
                     'app-global-error',
                     'flex min-h-screen flex-col bg-background text-foreground',
                     orbitron.variable,
-                    GeistSans.variable,
                 )}
             >
                 <title>Something went wrong</title>

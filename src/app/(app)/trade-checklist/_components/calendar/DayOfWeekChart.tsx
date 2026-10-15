@@ -9,7 +9,7 @@ import { dayOfWeekStats, type LightAssessment } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
-    winRate: { color: 'hsl(var(--chart-1))', label: 'Win rate' },
+    winRate: { color: 'var(--chart-1)', label: 'Win rate' },
 };
 
 export function DayOfWeekChart({
@@ -21,7 +21,7 @@ export function DayOfWeekChart({
         () =>
             dayOfWeekStats(assessments).map((d) => ({
                 ...d,
-                fill: 'hsl(var(--chart-1))',
+                fill: 'var(--chart-1)',
                 fillOpacity: d.count < 3 ? 0.35 : 0.85,
             })),
         [assessments],

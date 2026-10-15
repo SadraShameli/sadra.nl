@@ -18,7 +18,7 @@ export default function FinalBalanceHistogramView({ result }: Properties) {
     return (
         <HistogramChartView
             aspectClassName="aspect-16/7 min-h-125 w-full"
-            barColor="hsl(var(--chart-1))"
+            barColor="var(--chart-1)"
             barLabel="Trials"
             binCount={BIN_COUNT}
             emptyMessage="No simulation data yet."

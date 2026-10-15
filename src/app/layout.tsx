@@ -2,13 +2,12 @@ import '~/styles/styles.css';
 
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { GeistSans } from 'geist/font/sans';
 import { type Metadata, type Viewport } from 'next';
 import { Suspense } from 'react';
 
 import GridBackground from '~/components/ui/GridBg';
 import { Toaster } from '~/components/ui/Sonner';
-import { orbitron } from '~/fonts';
+import { nunito, orbitron } from '~/fonts';
 import { siteContent } from '~/lib/site/content';
 import { SITE_NAME } from '~/lib/site/siteName';
 import { getPublicSiteOrigin } from '~/lib/site/url';
@@ -49,7 +48,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<'/'>) {
     return (
         <html
-            className="dark scroll-smooth antialiased"
+            className={cn('dark scroll-smooth antialiased', nunito.variable)}
             data-scroll-behavior="smooth"
             lang="en"
         >
@@ -58,7 +57,6 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                     'app-shell',
                     'flex min-h-screen flex-col',
                     orbitron.variable,
-                    GeistSans.variable,
                 )}
             >
                 <TRPCReactProvider>

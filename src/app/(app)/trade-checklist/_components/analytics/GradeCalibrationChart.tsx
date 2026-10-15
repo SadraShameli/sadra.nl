@@ -18,7 +18,7 @@ import {
 import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
-    avgR: { color: 'hsl(var(--chart-2))', label: 'Avg outcome R' },
+    avgR: { color: 'var(--chart-2)', label: 'Avg outcome R' },
 };
 
 export function GradeCalibrationChart({

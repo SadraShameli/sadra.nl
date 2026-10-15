@@ -18,7 +18,7 @@ import {
 import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
-    cumR: { color: 'hsl(var(--chart-1))', label: 'Cumulative R' },
+    cumR: { color: 'var(--chart-1)', label: 'Cumulative R' },
 };
 
 export function CumulativeRChart({

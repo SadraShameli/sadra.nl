@@ -1,4 +1,10 @@
-import { Orbitron } from 'next/font/google';
+import { Nunito, Orbitron } from 'next/font/google';
+
+const nunito = Nunito({
+    display: 'swap',
+    subsets: ['latin'],
+    variable: '--font-nunito',
+});
 
 const orbitron = Orbitron({
     display: 'swap',
@@ -6,4 +12,4 @@ const orbitron = Orbitron({
     variable: '--font-orbitron',
 });
 
-export { orbitron };
+export { nunito, orbitron };

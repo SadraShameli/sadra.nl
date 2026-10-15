@@ -9,7 +9,7 @@ import { type LightAssessment, winRateByGrade } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
-    winRate: { color: 'hsl(var(--chart-1))', label: 'Win rate' },
+    winRate: { color: 'var(--chart-1)', label: 'Win rate' },
 };
 
 export function WinRateByGradeChart({

@@ -22,8 +22,8 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    median: { color: 'hsl(var(--chart-1))', label: 'Median path' },
-    sample: { color: 'hsl(var(--chart-2))', label: 'Sample path' },
+    median: { color: 'var(--chart-1)', label: 'Median path' },
+    sample: { color: 'var(--chart-2)', label: 'Sample path' },
 };
 
 export default function EquityCurveChartView({ result }: Properties) {

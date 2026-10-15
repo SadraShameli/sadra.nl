@@ -32,7 +32,7 @@ const CATEGORIES: { key: WeightCategory; label: string }[] = [
 ];
 
 const chartConfig: ChartConfig = {
-    avgR: { color: 'hsl(var(--chart-3))', label: 'Avg outcome R' },
+    avgR: { color: 'var(--chart-3)', label: 'Avg outcome R' },
 };
 
 export function ComponentCorrelationChart({
