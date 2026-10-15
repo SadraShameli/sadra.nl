@@ -37,9 +37,9 @@ Done, each with a test that fails on the old code:
 
 Not done:
 
-- PT-30a2's gate re-run (running on the PC, see below), the DP pins and the N-89 redesign.
+- PT-30a2's gate re-run (not running: the PC queue was stopped and the PC now boots Windows with a broken bun install), the DP pins and the N-89 redesign.
 - Migrations 0007 to 0015 are still not applied.
-- G1, G2 and PT-50 (the santa gates and the final pass) need two independent reviewer agents per item, so they did not run under the no-agent instruction. PT-35 waits for G2 and PT-35b.
+- PT-50's deep trace: 16 of 205 money packages traced (G1 and G2 are done). PT-35 waits for PT-35b.
 
 ## 1. UI paths to check in your dev server
 
