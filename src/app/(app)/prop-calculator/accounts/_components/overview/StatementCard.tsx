@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 
+import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
 import {
     Table,
     TableBody,
@@ -33,10 +34,12 @@ export const StatementCard = memo(function StatementCard({
         </p>
     ) : (
         <div className="flex flex-col gap-3">
-            <MonthlyPayoutChart
-                points={model.chart}
-                targetDollars={model.targetDollars}
-            />
+            <PanelErrorBoundary section="Monthly payout chart">
+                <MonthlyPayoutChart
+                    points={model.chart}
+                    targetDollars={model.targetDollars}
+                />
+            </PanelErrorBoundary>
             <Tabs
                 className="flex flex-col gap-1"
                 defaultValue={StatementView.CashByMonth}
@@ -50,10 +53,14 @@ export const StatementCard = memo(function StatementCard({
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value={StatementView.CashByMonth}>
-                    <CashByMonthTable model={model} />
+                    <PanelErrorBoundary section="Cash by month">
+                        <CashByMonthTable model={model} />
+                    </PanelErrorBoundary>
                 </TabsContent>
                 <TabsContent value={StatementView.ByPurchaseCohort}>
-                    <PurchaseCohortsView rows={model.purchaseCohorts} />
+                    <PanelErrorBoundary section="Purchase cohorts">
+                        <PurchaseCohortsView rows={model.purchaseCohorts} />
+                    </PanelErrorBoundary>
                 </TabsContent>
             </Tabs>
             <p className="text-xs text-muted-foreground">{model.caveat}</p>

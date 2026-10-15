@@ -4,6 +4,7 @@ import { eachDayOfInterval, format, getDay, subMonths } from 'date-fns';
 import { CalendarRange } from 'lucide-react';
 import { type ReactNode, useMemo } from 'react';
 
+import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Progress } from '~/components/ui/Progress';
@@ -75,77 +76,86 @@ function AnalyticsPanels({
 }) {
     return (
         <div className="flex flex-col gap-6">
-            <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <Stat
-                    label="Current streak"
-                    value={consistency && `${consistency.currentStreak} wk`}
-                />
-                <Stat
-                    label="Longest streak"
-                    value={consistency && `${consistency.longestStreak} wk`}
-                />
-                <Stat
-                    label="Sessions / week"
-                    value={consistency?.sessionsPerWeek.toFixed(1)}
-                />
-                <Stat
-                    label="Tonnage (90d)"
-                    value={
-                        volume &&
-                        WeightUnit.format(volume.tonnageKg, unitWeight)
-                    }
-                />
-            </section>
+            <PanelErrorBoundary section="Training stats">
+                <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                    <Stat
+                        label="Current streak"
+                        value={consistency && `${consistency.currentStreak} wk`}
+                    />
+                    <Stat
+                        label="Longest streak"
+                        value={consistency && `${consistency.longestStreak} wk`}
+                    />
+                    <Stat
+                        label="Sessions / week"
+                        value={consistency?.sessionsPerWeek.toFixed(1)}
+                    />
+                    <Stat
+                        label="Tonnage (90d)"
+                        value={
+                            volume &&
+                            WeightUnit.format(volume.tonnageKg, unitWeight)
+                        }
+                    />
+                </section>
+            </PanelErrorBoundary>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        Sets per muscle (last 90 days)
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col gap-2">
-                        {MUSCLE_VALUES.map((m) => {
-                            const sets = volume?.setsPerMuscle[m] ?? 0;
-                            return (
-                                <div
-                                    className="flex items-center gap-3"
-                                    key={m}
-                                >
-                                    <span className="w-24 text-xs text-muted-foreground capitalize">
-                                        {m}
-                                    </span>
-                                    {volume ? (
-                                        <>
-                                            <Progress
-                                                className="h-2 flex-1"
-                                                value={Math.min(100, sets * 5)}
-                                            />
-                                            <span className="w-10 text-right text-xs tabular-nums">
-                                                {sets}
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Skeleton className="h-2 flex-1" />
-                                            <Skeleton className="h-4 w-10" />
-                                        </>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </CardContent>
-            </Card>
+            <PanelErrorBoundary section="Sets per muscle">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                            Sets per muscle (last 90 days)
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col gap-2">
+                            {MUSCLE_VALUES.map((m) => {
+                                const sets = volume?.setsPerMuscle[m] ?? 0;
+                                return (
+                                    <div
+                                        className="flex items-center gap-3"
+                                        key={m}
+                                    >
+                                        <span className="w-24 text-xs text-muted-foreground capitalize">
+                                            {m}
+                                        </span>
+                                        {volume ? (
+                                            <>
+                                                <Progress
+                                                    className="h-2 flex-1"
+                                                    value={Math.min(
+                                                        100,
+                                                        sets * 5,
+                                                    )}
+                                                />
+                                                <span className="w-10 text-right text-xs tabular-nums">
+                                                    {sets}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Skeleton className="h-2 flex-1" />
+                                                <Skeleton className="h-4 w-10" />
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+            </PanelErrorBoundary>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        Frequency heatmap
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>{heatmap}</CardContent>
-            </Card>
+            <PanelErrorBoundary section="Frequency heatmap">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                            Frequency heatmap
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>{heatmap}</CardContent>
+                </Card>
+            </PanelErrorBoundary>
         </div>
     );
 }

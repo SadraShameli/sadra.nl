@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 
 import { useWorkerTask } from '~/app/(app)/prop-calculator/_components/useWorkerTask';
 import {
@@ -134,6 +134,8 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
         never,
         CopyGroupWorkerOutcome
     >(createCopyGroupWorker);
+    const { cancel } = task;
+    useLayoutEffect(() => cancel, [cancel]);
     const [ranKey, setRanKey] = useState<null | string>(null);
     const key = useMemo(
         () => copyGroupRequestCacheKey(plan.request),

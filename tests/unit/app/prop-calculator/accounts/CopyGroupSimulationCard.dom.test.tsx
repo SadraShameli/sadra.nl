@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { act, Activity } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -154,6 +154,16 @@ describe('CopyGroupSimulationCard', () => {
         });
     }
 
+    function renderIn(mode: 'hidden' | 'visible') {
+        act(() => {
+            root.render(
+                <Activity mode={mode}>
+                    <CopyGroupSimulationCard plan={READY} />
+                </Activity>,
+            );
+        });
+    }
+
     function runButton(): HTMLButtonElement {
         const found = [...container.querySelectorAll('button')].find(
             (candidate) => /simulat|run/i.test(candidate.textContent),
@@ -205,6 +215,17 @@ describe('CopyGroupSimulationCard', () => {
         ]);
         expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
         expect(runButton().getAttribute('aria-disabled')).toBe('true');
+    });
+
+    it('stops the worker when its route is hidden and offers a fresh run when shown again', () => {
+        renderIn('visible');
+        click(runButton());
+        renderIn('hidden');
+        expect(FakeWorker.instances[0]?.terminated).toBe(true);
+        renderIn('visible');
+        expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+        expect(runButton().getAttribute('aria-disabled')).toBe('false');
+        expect(runButton().textContent).toBe('Run again');
     });
 
     it('keeps the run button focusable while running and starts no second run from it', () => {

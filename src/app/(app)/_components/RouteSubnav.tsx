@@ -13,6 +13,7 @@ import {
     type SubnavLink,
     subnavLinkAttributes,
 } from '~/app/(app)/_components/routeSubnavLinks';
+import { RouteSubnavLinkStatus } from '~/app/(app)/_components/RouteSubnavLinkStatus';
 import { Button } from '~/components/ui/Button';
 import { cn } from '~/lib/utilities';
 
@@ -83,7 +84,7 @@ function RouteSubnavPortal({
                     return (
                         <Button
                             asChild
-                            className="h-auto shrink-0 gap-2 px-3 py-1.5 text-xs font-medium tracking-wide whitespace-nowrap"
+                            className="relative h-auto shrink-0 gap-2 px-3 py-1.5 text-xs font-medium tracking-wide whitespace-nowrap"
                             key={subnavItemKey(item)}
                             size="sm"
                             variant={isActive ? 'secondary' : 'ghost'}
@@ -95,6 +96,7 @@ function RouteSubnavPortal({
                             >
                                 <Icon className="size-3.5" />
                                 {item.label}
+                                <RouteSubnavLinkStatus />
                             </Link>
                         </Button>
                     );

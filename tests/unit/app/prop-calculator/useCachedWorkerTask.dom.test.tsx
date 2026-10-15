@@ -1,4 +1,4 @@
-import { act, StrictMode } from 'react';
+import { act, Activity, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -137,6 +137,21 @@ describe('useCachedWorkerTask', () => {
             root.render(
                 <ComputationCacheContext.Provider value={cache}>
                     <Harness debounceMs={debounceMs} job={current} />
+                </ComputationCacheContext.Provider>,
+            );
+        });
+    }
+
+    function renderIn(
+        mode: 'hidden' | 'visible',
+        current: CachedWorkerJob<TestRequest>,
+    ) {
+        act(() => {
+            root.render(
+                <ComputationCacheContext.Provider value={cache}>
+                    <Activity mode={mode}>
+                        <Harness job={current} />
+                    </Activity>
                 </ComputationCacheContext.Provider>,
             );
         });
@@ -369,5 +384,32 @@ describe('useCachedWorkerTask', () => {
 
         expect(fakeWorker.runSpy).toHaveBeenCalledTimes(1);
         expect(phase()).toBe(WorkerTaskPhase.Done);
+    });
+
+    describe('on a route hidden by Activity', () => {
+        it('tears the worker down while hidden and restarts the unfinished job when shown', () => {
+            const current = job('a');
+            renderIn('visible', current);
+            expect(fakeWorker.liveRunId).toBe(1);
+
+            renderIn('hidden', current);
+            expect(fakeWorker.liveRunId).toBeNull();
+
+            renderIn('visible', current);
+            expect(fakeWorker.runSpy).toHaveBeenCalledTimes(2);
+            expect(phase()).toBe(WorkerTaskPhase.Running);
+        });
+
+        it('serves a job that finished before it was hidden from the cache without a rerun', () => {
+            const current = job('a');
+            renderIn('visible', current);
+            finish(result('a'));
+
+            renderIn('hidden', current);
+            renderIn('visible', current);
+
+            expect(fakeWorker.runSpy).toHaveBeenCalledTimes(1);
+            expect(phase()).toBe(WorkerTaskPhase.Done);
+        });
     });
 });

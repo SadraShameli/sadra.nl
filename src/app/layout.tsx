@@ -10,6 +10,7 @@ import GridBackground from '~/components/ui/GridBg';
 import { Toaster } from '~/components/ui/Sonner';
 import { orbitron } from '~/fonts';
 import { siteContent } from '~/lib/site/content';
+import { SITE_NAME } from '~/lib/site/siteName';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 import { cn } from '~/lib/utilities';
 import { TRPCReactProvider } from '~/trpc/react';
@@ -27,11 +28,10 @@ const siteOrigin = getPublicSiteOrigin();
 
 export const metadata: Metadata = {
     description: siteContent.metaDescription,
-    icons: { icon: '/favicon.ico' },
     metadataBase: new URL(siteOrigin),
     openGraph: {
         description: siteContent.metaDescription,
-        siteName: 'sadra.nl',
+        siteName: SITE_NAME,
         title: siteContent.metaTitle,
         type: 'website',
     },

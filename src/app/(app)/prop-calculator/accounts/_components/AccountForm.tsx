@@ -138,6 +138,7 @@ import {
 } from './snapshotFieldRules';
 import { SnapshotFields } from './SnapshotFields';
 import { type SnapshotPlausibilityContext } from './snapshotPlausibilityIssues';
+import { useUnsavedChangesGuard } from './useUnsavedChangesGuard';
 
 type AccountDraft = z.output<typeof accountCreateSchema>;
 
@@ -550,6 +551,7 @@ function AccountForm({
         (account) => account.id !== stored?.id,
     );
     const submit = useAccountFormSubmit({ form, plan, stored });
+    const confirmLeave = useUnsavedChangesGuard(form.formState.isDirty);
 
     return (
         <Form {...form}>
@@ -611,6 +613,7 @@ function AccountForm({
                                           stored.id,
                                       )
                             }
+                            onNavigate={confirmLeave}
                         >
                             Cancel
                         </Link>
@@ -1820,6 +1823,7 @@ function useAccountFormSubmit({
         } finally {
             await utilities.propAccounts.invalidate();
         }
+        form.reset(values);
         router.push(routes.propCalculator.accounts.index);
     };
 

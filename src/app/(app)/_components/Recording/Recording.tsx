@@ -13,6 +13,7 @@ import { PlaybackControls } from './PlaybackControls';
 import { ProgressBar } from './ProgressBar';
 import { RecordingList } from './RecordingList';
 import { useAudioPlayer } from './useAudioPlayer';
+import { useVisibleAutoplay } from './useVisibleAutoplay';
 import { VolumeControls } from './VolumeControls';
 
 export default function RecordingSection({
@@ -21,6 +22,7 @@ export default function RecordingSection({
     decorVideoUrl: string;
 }) {
     const recordings = api.recording.getRecordingsNoFile.useQuery();
+    const decorVideo = useVisibleAutoplay();
 
     const {
         audioRef,
@@ -65,6 +67,7 @@ export default function RecordingSection({
                         loop
                         muted
                         playsInline
+                        ref={decorVideo}
                     >
                         <source src={decorVideoUrl} type="video/mp4" />
                     </video>

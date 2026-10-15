@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { act, Activity } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -103,6 +103,16 @@ describe('useLadderSearch', () => {
     function phase(): LadderRunPhase {
         const { state }: { state: LadderSearchState } = hook();
         return state.phase;
+    }
+
+    function renderIn(mode: 'hidden' | 'visible') {
+        act(() => {
+            root.render(
+                <Activity mode={mode}>
+                    <Harness />
+                </Activity>,
+            );
+        });
     }
 
     function start() {
@@ -214,5 +224,17 @@ describe('useLadderSearch', () => {
         });
         expect(phase()).toBe(LadderRunPhase.Idle);
         expect(FakeWorker.instances).toHaveLength(0);
+    });
+
+    it('cancels the run when its route is hidden, so it is not stuck running when shown again', () => {
+        renderIn('visible');
+        start();
+        expect(phase()).toBe(LadderRunPhase.Running);
+        renderIn('hidden');
+        expect(FakeWorker.instances.map((worker) => worker.terminated)).toEqual(
+            FakeWorker.instances.map(() => true),
+        );
+        renderIn('visible');
+        expect(phase()).toBe(LadderRunPhase.Cancelled);
     });
 });

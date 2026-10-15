@@ -23,6 +23,7 @@ import type {
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { ImportEvent, Stage } from '~/lib/accounting/runner-types';
 
+import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Calendar } from '~/components/ui/Calendar';
@@ -410,18 +411,20 @@ export function AccountingDashboard() {
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Progress</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    <StageStepper
-                        stages={STAGE_DEFINITIONS}
-                        state={stageState}
-                    />
-                    <EventLog lines={logLines} />
-                </CardContent>
-            </Card>
+            <PanelErrorBoundary section="Progress">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Progress</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-4">
+                        <StageStepper
+                            stages={STAGE_DEFINITIONS}
+                            state={stageState}
+                        />
+                        <EventLog lines={logLines} />
+                    </CardContent>
+                </Card>
+            </PanelErrorBoundary>
 
             {stream.error && (
                 <Card>
@@ -534,114 +537,125 @@ function ResultsView({
 
     return (
         <div className="flex flex-col gap-4">
-            <TotalPanel result={result} />
-            <ResultsCharts result={result} />
+            <PanelErrorBoundary section="Totals">
+                <TotalPanel result={result} />
+            </PanelErrorBoundary>
+            <PanelErrorBoundary section="Charts">
+                <ResultsCharts result={result} />
+            </PanelErrorBoundary>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base">
-                        <span>Preview</span>
-                        <div className="flex items-center gap-2">
-                            {!isPostable && (
-                                <Badge variant="outline">
-                                    pick an accounting credential to post
-                                </Badge>
-                            )}
-                            <Dialog onOpenChange={setPushOpen} open={pushOpen}>
-                                <DialogTrigger asChild>
-                                    <Button
-                                        disabled={
-                                            !isPostable ||
-                                            bookings.length === 0 ||
-                                            !runId
-                                        }
-                                        size="sm"
-                                    >
-                                        <Send className="size-3" /> Post to{' '}
-                                        {targetLabel}
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent
-                                    className={cn('max-w-3xl sm:max-w-3xl')}
+            <PanelErrorBoundary section="Preview">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base">
+                            <span>Preview</span>
+                            <div className="flex items-center gap-2">
+                                {!isPostable && (
+                                    <Badge variant="outline">
+                                        pick an accounting credential to post
+                                    </Badge>
+                                )}
+                                <Dialog
+                                    onOpenChange={setPushOpen}
+                                    open={pushOpen}
                                 >
-                                    <DialogHeader>
-                                        <DialogTitle>
-                                            Push to {targetLabel}
-                                        </DialogTitle>
-                                    </DialogHeader>
-                                    <PushPanel
-                                        accountingCredentialId={
-                                            accountingCredentialId || null
-                                        }
+                                    <DialogTrigger asChild>
+                                        <Button
+                                            disabled={
+                                                !isPostable ||
+                                                bookings.length === 0 ||
+                                                !runId
+                                            }
+                                            size="sm"
+                                        >
+                                            <Send className="size-3" /> Post to{' '}
+                                            {targetLabel}
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent
+                                        className={cn('max-w-3xl sm:max-w-3xl')}
+                                    >
+                                        <DialogHeader>
+                                            <DialogTitle>
+                                                Push to {targetLabel}
+                                            </DialogTitle>
+                                        </DialogHeader>
+                                        <PushPanel
+                                            accountingCredentialId={
+                                                accountingCredentialId || null
+                                            }
+                                            bookings={bookings}
+                                            onCompleted={(s) =>
+                                                void onPushedComplete(s)
+                                            }
+                                            runId={runId}
+                                            targetLabel={targetLabel}
+                                        />
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {bookings.length === 0 ? (
+                            <EmptyState
+                                description="Run completed but no bookings were produced."
+                                title="Nothing to post"
+                            />
+                        ) : (
+                            <Tabs defaultValue="bookings">
+                                <TabsList>
+                                    <TabsTrigger value="bookings">
+                                        Bookings ({bookings.length})
+                                    </TabsTrigger>
+                                    <TabsTrigger value="per-counterpart">
+                                        Per counterpart
+                                    </TabsTrigger>
+                                    <TabsTrigger value="audit">
+                                        Match audit ({result.matches.length})
+                                    </TabsTrigger>
+                                    <TabsTrigger value="unknowns">
+                                        Unknowns ({result.unknowns.length})
+                                    </TabsTrigger>
+                                </TabsList>
+                                <TabsContent className="mt-4" value="bookings">
+                                    <BookingsTable
                                         bookings={bookings}
-                                        onCompleted={(s) =>
-                                            void onPushedComplete(s)
-                                        }
-                                        runId={runId}
-                                        targetLabel={targetLabel}
+                                        credentialId={accountingCredentialId}
+                                        ledgerOptions={ledgerOptions}
+                                        onEdit={editBooking}
+                                        rules={rulesQ.data ?? []}
                                     />
-                                </DialogContent>
-                            </Dialog>
-                        </div>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {bookings.length === 0 ? (
-                        <EmptyState
-                            description="Run completed but no bookings were produced."
-                            title="Nothing to post"
-                        />
-                    ) : (
-                        <Tabs defaultValue="bookings">
-                            <TabsList>
-                                <TabsTrigger value="bookings">
-                                    Bookings ({bookings.length})
-                                </TabsTrigger>
-                                <TabsTrigger value="per-counterpart">
-                                    Per counterpart
-                                </TabsTrigger>
-                                <TabsTrigger value="audit">
-                                    Match audit ({result.matches.length})
-                                </TabsTrigger>
-                                <TabsTrigger value="unknowns">
-                                    Unknowns ({result.unknowns.length})
-                                </TabsTrigger>
-                            </TabsList>
-                            <TabsContent className="mt-4" value="bookings">
-                                <BookingsTable
-                                    bookings={bookings}
-                                    credentialId={accountingCredentialId}
-                                    ledgerOptions={ledgerOptions}
-                                    onEdit={editBooking}
-                                    rules={rulesQ.data ?? []}
-                                />
-                            </TabsContent>
-                            <TabsContent
-                                className="mt-4"
-                                value="per-counterpart"
-                            >
-                                <PerCounterpartTable result={result} />
-                            </TabsContent>
-                            <TabsContent className="mt-4" value="audit">
-                                <MatchAuditTable result={result} />
-                            </TabsContent>
-                            <TabsContent className="mt-4" value="unknowns">
-                                <UnknownsTable
-                                    credentialId={
-                                        isPostable
-                                            ? accountingCredentialId
-                                            : undefined
-                                    }
-                                    ledgerOptions={
-                                        isPostable ? ledgerOptions : undefined
-                                    }
-                                    result={result}
-                                />
-                            </TabsContent>
-                        </Tabs>
-                    )}
-                </CardContent>
-            </Card>
+                                </TabsContent>
+                                <TabsContent
+                                    className="mt-4"
+                                    value="per-counterpart"
+                                >
+                                    <PerCounterpartTable result={result} />
+                                </TabsContent>
+                                <TabsContent className="mt-4" value="audit">
+                                    <MatchAuditTable result={result} />
+                                </TabsContent>
+                                <TabsContent className="mt-4" value="unknowns">
+                                    <UnknownsTable
+                                        credentialId={
+                                            isPostable
+                                                ? accountingCredentialId
+                                                : undefined
+                                        }
+                                        ledgerOptions={
+                                            isPostable
+                                                ? ledgerOptions
+                                                : undefined
+                                        }
+                                        result={result}
+                                    />
+                                </TabsContent>
+                            </Tabs>
+                        )}
+                    </CardContent>
+                </Card>
+            </PanelErrorBoundary>
         </div>
     );
 }

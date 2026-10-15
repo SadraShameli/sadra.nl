@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import {
     type LadderWorkerRequest,
@@ -56,13 +56,6 @@ export function useLadderSearch() {
         workersReference.current = [];
     }, []);
 
-    useEffect(() => {
-        return () => {
-            cancelReference.current = true;
-            teardown();
-        };
-    }, [teardown]);
-
     const cancel = useCallback(() => {
         cancelReference.current = true;
         teardown();
@@ -75,6 +68,8 @@ export function useLadderSearch() {
                 : previous,
         );
     }, [teardown]);
+
+    useLayoutEffect(() => cancel, [cancel]);
 
     const run = useCallback(
         (inputs: LadderSearchInputs) => {
