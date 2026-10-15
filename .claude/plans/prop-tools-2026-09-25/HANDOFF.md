@@ -39,18 +39,18 @@ Done, each with a test that fails on the old code:
 - Alpha Standard speed, measured 2026-10-15: Gauss-Seidel sweeps and reduced-rank extrapolation were both tried and dropped (no gain; the slow part is policy switching under the max, not geometric error). Consistency plans with a best-day grid (Alpha Standard and Zero, Apex EOD, E8 Signature, Tradeify Growth, MFF Builder, FundedNext Rapid Pro) take 10 minutes to hours per gate solve, so they break the 5-minute run limit and stay not validated. Apex EOD also needs about 23 GB at 10 workers.
 
 - UI/UX audit (2026-10-15), every page under `/prop-calculator` and `/prop-calculator/accounts`, in three rounds on a copy of the database:
-  - Round 1: a6651023, 3202fa65, 5b928498, 34715dc1.
-  - Round 2: 0883aa77 accounts, 1c522240 tools.
-  - shadcn round: 8c27b2c1, f022e284, b29ce681. The pages now use shadcn components for selects, tables, disclosures, buttons, form fields, cards, badges and notices. What stays custom: the charts, the info popover, `PercentInput`, `DisclosureTrigger` and `FigureCard`.
-  - Fixes found along the way, each with a test seen failing first:
-    - The CSV import hid a row's other problems behind a bad date.
-    - The event form defaulted to Busted.
-    - Advisor money printed as "$1000.00".
-    - Analysis skipped a heading level (7b44198c).
-    - The account detail page scrolled 94 px sideways on phones, and the payout planner 15 px (1dff319b).
-  - A headless check of all 28 pages on the preview at 1440 and 390 px found no sideways scroll, one h1 per page, no skipped heading levels and no console errors.
-  - The temporary audit account is deleted from production and from the local copy.
-  - The local copy now lives in the compose project `sadra-nl` (d29baadf).
+    - Round 1: a6651023, 3202fa65, 5b928498, 34715dc1.
+    - Round 2: 0883aa77 accounts, 1c522240 tools.
+    - shadcn round: 8c27b2c1, f022e284, b29ce681. The pages now use shadcn components for selects, tables, disclosures, buttons, form fields, cards, badges and notices. What stays custom: the charts, the info popover, `PercentInput`, `DisclosureTrigger` and `FigureCard`.
+    - Fixes found along the way, each with a test seen failing first:
+        - The CSV import hid a row's other problems behind a bad date.
+        - The event form defaulted to Busted.
+        - Advisor money printed as "$1000.00".
+        - Analysis skipped a heading level (7b44198c).
+        - The account detail page scrolled 94 px sideways on phones, and the payout planner 15 px (1dff319b).
+    - A headless check of all 28 pages on the preview at 1440 and 390 px found no sideways scroll, one h1 per page, no skipped heading levels and no console errors.
+    - The temporary audit account is deleted from production and from the local copy.
+    - The local copy now lives in the compose project `sadra-nl` (d29baadf).
 
 - PT-30a2's gate re-run is recorded (`engine-results/2026-10-15-dp-gate.md`, `DP_GATE_RUNS`, `DP_G2_RECORDED_ON` 2026-10-15): 12 plans validated (Alpha Advanced, E8 Zero Max 100 and 80, E8 Zero Starter 100, FTMO Growth, FundedNext Flex and Rapid Daily, MFF Pro, TopStep No-fee Standard and Standard-Standard, Tradeify Select Daily and Select Flex), FTMO Pro fails at 0.43x the best flat, and 20 eligible plans have no result because their solve runs past the 5-minute run limit (the funded-consistency plans and TopStep's DLL variants). `prop advise --dp` reads these verdicts.
 
