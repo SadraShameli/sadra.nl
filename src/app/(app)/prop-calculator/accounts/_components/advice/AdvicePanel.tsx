@@ -349,7 +349,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
 
     if (userId === undefined) {
         return session.error === null ? (
-            <Alert role="status">
+            <Alert>
                 <AlertTitle>Sign in to see the advice</AlertTitle>
                 <AlertDescription>
                     Sign in to compute sizing advice for this account.
@@ -409,7 +409,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
 
     if (built.kind === BuiltKind.NotModeled) {
         return (
-            <Alert role="status">
+            <Alert>
                 <AlertTitle>Advice is not modeled for this account</AlertTitle>
                 <AlertDescription>{built.reason}</AlertDescription>
             </Alert>
@@ -727,7 +727,7 @@ function ComputedAdvice({
                 <h2 className="text-lg font-semibold">Sizing advice</h2>
                 {topAlerts}
                 {inputFailureAlerts}
-                <Alert variant="warning">
+                <Alert role="status" variant="warning">
                     <AlertTitle>This account is suspended</AlertTitle>
                     <AlertDescription>
                         {SUSPENDED_ACCOUNT_TEXT}
@@ -749,7 +749,7 @@ function ComputedAdvice({
                 </h2>
                 {topAlerts}
                 {inputFailureAlerts}
-                <Alert variant="warning">
+                <Alert role="status" variant="warning">
                     <AlertTitle>{view.message}</AlertTitle>
                     <AlertDescription>
                         <ul className="list-disc pl-4">

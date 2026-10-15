@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type ReadinessBoardCardModel } from './overviewModel';
 
-export function ReadinessBoardCard({
+export const ReadinessBoardCard = memo(function ReadinessBoardCard({
     model,
 }: {
     readonly model: ReadinessBoardCardModel;
@@ -83,4 +85,4 @@ export function ReadinessBoardCard({
             )}
         </div>
     );
-}
+});

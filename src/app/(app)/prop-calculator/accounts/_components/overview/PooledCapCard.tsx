@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type PooledCapCardModel } from './overviewModel';
 
-export function PooledCapCard({
+export const PooledCapCard = memo(function PooledCapCard({
     model,
 }: {
     readonly model: PooledCapCardModel;
@@ -85,4 +87,4 @@ export function PooledCapCard({
             )}
         </div>
     );
-}
+});

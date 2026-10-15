@@ -1589,7 +1589,7 @@ describe('buildWeeklyReview stage on the review date', () => {
 describe('buildWeeklyReview headline label', () => {
     it('calls the headline the documented one while the rulebook is the default', () => {
         expect(readyHeadlineLabel(DEFAULT_RULEBOOK)).toBe(
-            'Documented headline',
+            'Risk per trade under your documented rule',
         );
     });
 
@@ -1604,7 +1604,8 @@ describe('buildWeeklyReview headline label', () => {
                 },
             },
         });
-        expect(label).toContain('your custom rule (differs from');
-        expect(label).not.toBe('Documented headline');
+        expect(label).toBe(
+            'Risk per trade under your custom rule (differs from your live account sizing)',
+        );
     });
 });

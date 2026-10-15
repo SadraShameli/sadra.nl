@@ -45,6 +45,29 @@ describe('formatOptionalPercent', () => {
     });
 });
 
+describe('formatCurrency', () => {
+    it.each([
+        [0, 0, '$0'],
+        [1234.56, 0, '$1,235'],
+        [-1234.56, 2, '-$1,234.56'],
+        [250, 2, '$250.00'],
+        [0.0123, 4, '$0.0123'],
+        [1_000_000.5, 1, '$1,000,000.5'],
+        [-0.004, 2, '-$0.00'],
+    ])('formats %s with %s decimals as %s', (value, digits, expected) => {
+        expect(formatCurrency(value, digits)).toBe(expected);
+    });
+
+    it('prints the same text on every call for each number of decimals', () => {
+        const values = [0, 7, -12.345, 9_876_543.21];
+        for (const digits of [0, 1, 2, 4]) {
+            const first = values.map((value) => formatCurrency(value, digits));
+            const again = values.map((value) => formatCurrency(value, digits));
+            expect(again).toEqual(first);
+        }
+    });
+});
+
 describe('formatFiniteCurrency', () => {
     it.each([Infinity, -Infinity, NaN])("prints 'n/a' for %s", (value) => {
         expect(formatFiniteCurrency(value)).toBe(NOT_APPLICABLE);

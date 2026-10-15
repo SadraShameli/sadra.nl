@@ -10,6 +10,7 @@ import {
     type RungTableRow,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/RungTable';
 import { type CopyGroupRow } from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
+import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
 import {
     formatConjunctionList,
     formatCurrency,
@@ -154,7 +155,7 @@ function ReadyGroupSizing({
                             <p>
                                 Documented size for every copy:{' '}
                                 <strong>
-                                    {formatCurrency(firstRung.risk)}
+                                    {formatCurrency(firstRung.risk, 2)}
                                 </strong>
                                 , set by{' '}
                                 {formatConjunctionList(
@@ -196,7 +197,7 @@ function ReadyGroupSizing({
                     )}
                     {result.sizing.sources.length > 0 && (
                         <p className="text-muted-foreground">
-                            Source: {result.sizing.sources.join(', ')}.
+                            Source: {ruleSourceListText(result.sizing.sources)}.
                         </p>
                     )}
                     {result.liveTriggerCoverage !== null && (
@@ -255,7 +256,7 @@ function ReadyGroupSizing({
             {exposure !== null && (
                 <p>
                     Combined exposure: worst-case daily loss of{' '}
-                    {formatCurrency(exposure.maxDailyLoss)} across the group
+                    {formatCurrency(exposure.maxDailyLoss, 2)} across the group
                     {exposure.shareOfCushionAtRisk !== null &&
                         `, ${formatPercent(exposure.shareOfCushionAtRisk)} of its combined cushion`}
                     , the sum of each account&apos;s own documented rung: an

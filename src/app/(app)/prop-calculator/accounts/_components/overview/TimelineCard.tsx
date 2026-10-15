@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,11 @@ import {
 
 import { type TimelineCardModel } from './overviewModel';
 
-export function TimelineCard({ model }: { readonly model: TimelineCardModel }) {
+export const TimelineCard = memo(function TimelineCard({
+    model,
+}: {
+    readonly model: TimelineCardModel;
+}) {
     if (model.entries.length === 0) {
         return (
             <p className="text-sm text-muted-foreground">
@@ -57,4 +63,4 @@ export function TimelineCard({ model }: { readonly model: TimelineCardModel }) {
             )}
         </div>
     );
-}
+});

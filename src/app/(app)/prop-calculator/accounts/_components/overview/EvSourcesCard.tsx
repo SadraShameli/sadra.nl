@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type EvSourcesCardModel } from './overviewModel';
 
-export function EvSourcesCard({
+export const EvSourcesCard = memo(function EvSourcesCard({
     model,
 }: {
     readonly model: EvSourcesCardModel;
@@ -119,4 +121,4 @@ export function EvSourcesCard({
             </ul>
         </div>
     );
-}
+});

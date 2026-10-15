@@ -282,7 +282,7 @@ function EdgeResult({
         sampleThresholds,
     );
     const truncationNotice = truncated && (
-        <Alert variant="warning">
+        <Alert role="status" variant="warning">
             <TriangleAlert />
             <AlertTitle>Only the latest trades are counted</AlertTitle>
             <AlertDescription>

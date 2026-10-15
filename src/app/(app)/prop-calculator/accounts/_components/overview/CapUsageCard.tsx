@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,11 @@ import {
 
 import { type CapUsageCardModel } from './overviewModel';
 
-export function CapUsageCard({ model }: { readonly model: CapUsageCardModel }) {
+export const CapUsageCard = memo(function CapUsageCard({
+    model,
+}: {
+    readonly model: CapUsageCardModel;
+}) {
     return (
         <div className="flex flex-col gap-3">
             {model.rows.length === 0 ? (
@@ -58,4 +64,4 @@ export function CapUsageCard({ model }: { readonly model: CapUsageCardModel }) {
             )}
         </div>
     );
-}
+});

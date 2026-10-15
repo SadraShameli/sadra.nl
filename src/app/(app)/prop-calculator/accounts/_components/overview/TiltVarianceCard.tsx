@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type TiltVarianceCardModel } from './overviewModel';
 
-export function TiltVarianceCard({
+export const TiltVarianceCard = memo(function TiltVarianceCard({
     model,
 }: {
     readonly model: TiltVarianceCardModel;
@@ -62,4 +64,4 @@ export function TiltVarianceCard({
             )}
         </div>
     );
-}
+});

@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type ProfitConcentrationCardModel } from './overviewModel';
 
-export function ProfitConcentrationCard({
+export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
     model,
 }: {
     readonly model: ProfitConcentrationCardModel;
@@ -75,4 +77,4 @@ export function ProfitConcentrationCard({
             </ul>
         </div>
     );
-}
+});

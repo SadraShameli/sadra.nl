@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -10,7 +12,11 @@ import {
 import { type CostCardModel } from './overviewModel';
 import { SampleBadge } from './SampleBadge';
 
-export function CostCard({ model }: { readonly model: CostCardModel }) {
+export const CostCard = memo(function CostCard({
+    model,
+}: {
+    readonly model: CostCardModel;
+}) {
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
@@ -306,7 +312,7 @@ export function CostCard({ model }: { readonly model: CostCardModel }) {
             <Disclosures items={model.disclosures} />
         </div>
     );
-}
+});
 
 function Disclosures({ items }: { readonly items: readonly string[] }) {
     return (

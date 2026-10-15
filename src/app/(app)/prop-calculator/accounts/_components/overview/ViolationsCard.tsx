@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -11,7 +13,7 @@ import { ruleViolationKindLabel } from '~/lib/prop-accounts';
 
 import { type ViolationsCardModel } from './overviewModel';
 
-export function ViolationsCard({
+export const ViolationsCard = memo(function ViolationsCard({
     model,
 }: {
     readonly model: ViolationsCardModel;
@@ -93,4 +95,4 @@ export function ViolationsCard({
             ))}
         </div>
     );
-}
+});

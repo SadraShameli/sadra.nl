@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { type z } from 'zod';
 
 import {
     AccountEventKind,
@@ -43,6 +44,20 @@ import {
     snapshotCreateSchema,
     violationListSchema,
 } from '~/lib/schemas/propAccounts';
+
+function copyGroupMessages(input: unknown): readonly string[] {
+    return issueMessages(copyGroupCreateSchema, input);
+}
+
+function issueMessages(
+    schema: { safeParse: (input: unknown) => z.ZodSafeParseResult<unknown> },
+    input: unknown,
+): readonly string[] {
+    return (
+        schema.safeParse(input).error?.issues.map((issue) => issue.message) ??
+        []
+    );
+}
 
 function registryEntry(isMatch: (plan: Plan) => boolean): {
     firm: TradingFirm;
@@ -1653,6 +1668,36 @@ describe('copy group schemas', () => {
         ).toBe(true);
         expect(
             isAccepted(copyGroupAssignSchema, { accountId: ACCOUNT_ID }),
+        ).toBe(false);
+    });
+});
+
+describe('shared text schema messages', () => {
+    it('says in plain words that a name is empty or too long', () => {
+        expect(copyGroupMessages({ name: '  ' })).toEqual([
+            'must not be empty',
+        ]);
+        expect(copyGroupMessages({ name: 'x'.repeat(65) })).toEqual([
+            'must be 64 characters or fewer',
+        ]);
+        expect(
+            copyGroupMessages({ name: 'A', notes: 'x'.repeat(2001) }),
+        ).toEqual(['must be 2000 characters or fewer']);
+    });
+
+    it('says in plain words that a date is not written as a date', () => {
+        expect(issueMessages(accountDateSchema, 'yesterday')).toEqual([
+            'must be a date written as YYYY-MM-DD',
+        ]);
+    });
+
+    it('never shows a raw Zod size message', () => {
+        const messages = [
+            ...copyGroupMessages({ name: '' }),
+            ...copyGroupMessages({ name: 'x'.repeat(65) }),
+        ];
+        expect(
+            messages.some((message) => /Too (small|big)/u.test(message)),
         ).toBe(false);
     });
 });

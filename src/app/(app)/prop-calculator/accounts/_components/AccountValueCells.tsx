@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import {
     type AccountValueColumns,
     type AtRiskView,
@@ -9,6 +11,8 @@ import {
     NextPayoutKind,
     type NextPayoutView,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountValueColumns';
+import { AccountAction } from '~/lib/prop-calculator/advisor';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
 const MUTED_NEXT_PAYOUT_KINDS: ReadonlySet<NextPayoutKind> = new Set([
@@ -51,7 +55,16 @@ export function NextActionFigure({
     return (
         <>
             <div className="font-medium" data-action={action.action}>
-                {action.text}
+                {action.action === AccountAction.EnterSnapshot ? (
+                    <Link
+                        className="underline underline-offset-4"
+                        href={routes.propCalculator.accounts.review}
+                    >
+                        {action.text}
+                    </Link>
+                ) : (
+                    action.text
+                )}
             </div>
             {action.reason !== null && (
                 <p className="text-xs text-muted-foreground">{action.reason}</p>

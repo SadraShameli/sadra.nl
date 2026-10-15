@@ -473,9 +473,7 @@ export function WeeklyReviewView() {
                 return (
                     <Card key={row.accountId}>
                         <CardHeader>
-                            <CardTitle>
-                                <h2>{row.label}</h2>
-                            </CardTitle>
+                            <CardTitle as="h2">{row.label}</CardTitle>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
                             <SnapshotFields

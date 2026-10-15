@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,11 @@ import {
 
 import { type FunnelCardModel } from './overviewModel';
 
-export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
+export const FunnelCard = memo(function FunnelCard({
+    model,
+}: {
+    readonly model: FunnelCardModel;
+}) {
     return (
         <div className="flex flex-col gap-3">
             {model.rows.length === 0 ? (
@@ -189,4 +195,4 @@ export function FunnelCard({ model }: { readonly model: FunnelCardModel }) {
             </ul>
         </div>
     );
-}
+});

@@ -65,6 +65,7 @@ import {
 import { routes } from '~/lib/site/routes';
 
 import { transfer } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
+import { pickOption } from './pickOption';
 
 interface FakeQuery {
     data: unknown;
@@ -466,25 +467,6 @@ function payout(overrides: Record<string, unknown> = {}) {
         userId: USER_ID,
         ...overrides,
     };
-}
-
-async function pickOption(trigger: HTMLElement, optionText: string) {
-    await act(async () => {
-        trigger.focus();
-        trigger.dispatchEvent(
-            new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
-        );
-    });
-    const option = [
-        ...document.querySelectorAll<HTMLElement>('[role="option"]'),
-    ].find((candidate) => candidate.textContent.trim() === optionText);
-    if (option === undefined) throw new Error(`no option ${optionText}`);
-    await act(async () => {
-        option.focus();
-        option.dispatchEvent(
-            new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
-        );
-    });
 }
 
 function rebuyLagOfLink(anchor: HTMLAnchorElement | undefined): number {
@@ -1011,7 +993,10 @@ describe('AccountDetailView', () => {
         answerEverything();
         render();
         const events = sectionTitled('Events');
-        expect(events.textContent).toContain('Bust cause');
+        expect(events.textContent).not.toContain('Bust cause');
+        expect(inputLabelled(events, 'Event').textContent).toContain(
+            'Choose an event',
+        );
 
         await pickOption(inputLabelled(events, 'Event'), 'Eval passed');
         expect(events.textContent).not.toContain('Bust cause');

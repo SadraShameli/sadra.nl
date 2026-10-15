@@ -71,20 +71,24 @@ const UNSAFE_NOTE_MESSAGE =
 const UNSAFE_SINGLE_LINE_MESSAGE =
     'must be one line without control, bidirectional or invisible characters';
 const UNSAFE_QUERY_MESSAGE = 'must not contain control characters';
+const EMPTY_TEXT_MESSAGE = 'must not be empty';
+const ACCOUNT_DATE_FORMAT_MESSAGE = 'must be a date written as YYYY-MM-DD';
 
 interface Neighbours {
     readonly next: string | undefined;
     readonly previous: string | undefined;
 }
 
-export const accountDateSchema = z.iso.date().refine(isAccountDate, {
-    message: `must be a date from ${MIN_ACCOUNT_DATE_YEAR} through ${MAX_ACCOUNT_DATE_YEAR}`,
-});
+export const accountDateSchema = z.iso
+    .date({ abort: true, message: ACCOUNT_DATE_FORMAT_MESSAGE })
+    .refine(isAccountDate, {
+        message: `must be a date from ${MIN_ACCOUNT_DATE_YEAR} through ${MAX_ACCOUNT_DATE_YEAR}`,
+    });
 
 function controlFreeTextSchema(maxLength: number) {
     return z
         .string()
-        .max(maxLength)
+        .max(maxLength, { message: tooLongMessage(maxLength) })
         .refine((text) => !CONTROL_CHARACTER.test(text), {
             message: UNSAFE_QUERY_MESSAGE,
         });
@@ -170,7 +174,7 @@ function isUnsafeSingleLineCharacter(
 function noteTextSchema(maxLength: number) {
     return z
         .string()
-        .max(maxLength)
+        .max(maxLength, { message: tooLongMessage(maxLength) })
         .refine((text) => hasNoCharacter(text, isUnsafeNoteCharacter), {
             message: UNSAFE_NOTE_MESSAGE,
         });
@@ -180,11 +184,15 @@ function singleLineTextSchema(maxLength: number) {
     return z
         .string()
         .trim()
-        .min(1)
-        .max(maxLength)
+        .min(1, { message: EMPTY_TEXT_MESSAGE })
+        .max(maxLength, { message: tooLongMessage(maxLength) })
         .refine((text) => hasNoCharacter(text, isUnsafeSingleLineCharacter), {
             message: UNSAFE_SINGLE_LINE_MESSAGE,
         });
+}
+
+function tooLongMessage(maxLength: number): string {
+    return `must be ${String(maxLength)} characters or fewer`;
 }
 
 const idSchema = z.uuid().transform((id) => id.toLowerCase());
@@ -196,7 +204,9 @@ const dayCountSchema = z.number().int().min(0).max(MAX_TRADING_DAYS);
 
 export const accountTagsSchema = z
     .array(singleLineTextSchema(MAX_ACCOUNT_TAG_LENGTH))
-    .max(MAX_ACCOUNT_TAGS);
+    .max(MAX_ACCOUNT_TAGS, {
+        message: `must have ${String(MAX_ACCOUNT_TAGS)} tags or fewer`,
+    });
 
 const accountDetailsShape = {
     copyGroupId: idSchema.nullable(),
@@ -314,6 +324,35 @@ export const accountCreateSchema = z
             }
         }
     });
+
+const accountDatesSchema = z
+    .object({
+        firstFundedTradeOn: accountCreateDetailsShape.firstFundedTradeOn,
+        fundedOn: accountCreateDetailsShape.fundedOn,
+        purchasedOn: accountCreateDetailsShape.purchasedOn,
+    })
+    .superRefine(refineAccountDates);
+
+export const ACCOUNT_CREATE_CROSS_FIELD_SCHEMAS: Readonly<
+    Record<AccountTracking, readonly z.ZodType[]>
+> = {
+    [AccountTracking.LedgerOnly]: [
+        accountDatesSchema,
+        z
+            .object({
+                externalFirmId:
+                    ledgerOnlyPlanShape.externalFirmId.default(null),
+                firmId: ledgerOnlyPlanShape.firmId.default(null),
+            })
+            .superRefine(refineExactlyOneFirm),
+    ],
+    [AccountTracking.Modeled]: [
+        accountDatesSchema,
+        z
+            .object({ ...planKeyShape, stage: accountCreateDetailsShape.stage })
+            .superRefine(refineModeledStage),
+    ],
+};
 
 export const accountUpdateSchema = z
     .discriminatedUnion('tracking', [

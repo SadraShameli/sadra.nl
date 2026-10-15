@@ -173,7 +173,9 @@ export function AccountsTableWithValues({
         return (
             <Alert variant="destructive">
                 <TriangleAlert />
-                <AlertTitle>The accounts could not be loaded</AlertTitle>
+                <AlertTitle as="h2">
+                    The accounts could not be loaded
+                </AlertTitle>
                 <AlertDescription>
                     {accountsQuery.error.message}
                 </AlertDescription>

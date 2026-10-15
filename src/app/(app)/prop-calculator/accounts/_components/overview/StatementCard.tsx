@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import {
     Table,
@@ -22,7 +22,7 @@ enum StatementView {
     CashByMonth = 'cash-by-month',
 }
 
-export function StatementCard({
+export const StatementCard = memo(function StatementCard({
     model,
 }: {
     readonly model: StatementCardModel;
@@ -64,7 +64,7 @@ export function StatementCard({
             <p className="text-xs text-muted-foreground">{model.caveat}</p>
         </div>
     );
-}
+});
 
 function CashByMonthTable({ model }: { readonly model: StatementCardModel }) {
     return (

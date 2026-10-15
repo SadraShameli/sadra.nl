@@ -24,7 +24,7 @@ export function PersonalRulesFields({
     values,
 }: PersonalRulesFieldsProperties) {
     return (
-        <div className="app-prop-accounts__personal-rules grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="app-prop-accounts__personal-rules grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {PERSONAL_RULE_FIELDS.map((field) => {
                 const id = `personal-rule-${field.key}`;
                 const hintId = `${id}-hint`;

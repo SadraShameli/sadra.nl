@@ -11,6 +11,7 @@ import {
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { groupFailureOf } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { type OverviewEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     isNextSlotHourKeyAvailable,
@@ -46,6 +47,7 @@ import {
     type MeasuredRebuyLag,
     PAYOUT_POLICY_SENSITIVE_NOTE,
     RebuyLagBasis,
+    RULE_SOURCE_LABEL,
     type RulebookParameters,
     RuleSource,
     SIZING_OBJECTIVE_LABEL,
@@ -54,11 +56,10 @@ import {
 import { chooseObjective } from '~/lib/prop-calculator/advisor/actions';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
-export interface NextSlotListedViewRow {
-    readonly documentedNet: string;
+export interface NextSlotListedFirmGroup {
     readonly firm: string;
     readonly key: string;
-    readonly plan: string;
+    readonly plans: readonly NextSlotListedViewRow[];
     readonly reasons: readonly string[];
 }
 
@@ -70,20 +71,20 @@ export interface NextSlotModel {
     readonly computed: number;
     readonly disclosures: readonly string[];
     readonly engineFailure: null | string;
-    readonly excluded: readonly NextSlotListedViewRow[];
+    readonly excluded: readonly NextSlotListedFirmGroup[];
     readonly isHourKeyAvailable: boolean;
     readonly isProvisional: boolean;
     readonly objective: SizingObjective;
     readonly objectiveChoiceNote: null | string;
     readonly objectiveFallbackNote: null | string;
     readonly objectiveNotAppliedNote: null | string;
-    readonly pending: readonly NextSlotListedViewRow[];
+    readonly pending: readonly NextSlotListedFirmGroup[];
     readonly ranked: readonly NextSlotRankedViewRow[];
-    readonly refused: readonly NextSlotListedViewRow[];
+    readonly refused: readonly NextSlotListedFirmGroup[];
     readonly requested: number;
     readonly sortKey: NextSlotSortKey;
     readonly sortNote: string;
-    readonly unverified: readonly NextSlotListedViewRow[];
+    readonly unverified: readonly NextSlotListedFirmGroup[];
 }
 
 export interface NextSlotModelInputs {
@@ -128,6 +129,20 @@ export interface NextSlotRankedViewRow {
     readonly scaleNote: null | string;
     readonly sizing: string;
 }
+
+interface ListedFirmRows {
+    readonly firmName: string;
+    readonly rows: readonly NextSlotNotRankedRow[];
+}
+
+interface NextSlotListedViewRow {
+    readonly documentedNet: string;
+    readonly key: string;
+    readonly plan: string;
+    readonly reasons: readonly string[];
+}
+
+const SENTENCE_END = /[.!?]$/u;
 
 const REQUEST_KINDS: ReadonlySet<OverviewRequestKind> = new Set([
     OverviewRequestKind.DocumentedRun,
@@ -333,7 +348,7 @@ function assumptionsOf(
         `Strategy from your rulebook: ${formatPercent(strategy.winrate)} win rate, ${String(strategy.rr)} to 1 reward to risk, up to ${String(strategy.tradesPerDayMax)} trades per day in evaluations.`,
         `Funded phase from your rulebook: ${formatCurrency(funded.riskCents / CENTS_PER_DOLLAR)} risked and ${formatCurrency(funded.takeProfitCents / CENTS_PER_DOLLAR)} take profit per trade, up to ${String(funded.tradesPerDayMax)} trades per day, stop rule ${funded.stopRule.kind}.`,
         `Evaluation sizing from your rulebook: ${rulebook.eval.mode}.`,
-        `Payout rule (${RuleSource.PayoutSize}, ${RuleSource.HardRule2}): your rulebook requests ${formatCurrency(payout.requestCents / CENTS_PER_DOLLAR)} as a full request only, with a retained cushion of at least ${formatCurrency(payout.retainedCushionCents / CENTS_PER_DOLLAR)} and never below the plan's own floor; a plan whose firm minimum is above the request runs at that minimum. Hard Rule 2 asks for at least ${formatCurrency(hardRule2MinCushion)}.`,
+        `Payout rule (from ${ruleSourceListText([RuleSource.PayoutSize, RuleSource.HardRule2])}): your rulebook requests ${formatCurrency(payout.requestCents / CENTS_PER_DOLLAR)} as a full request only, with a retained cushion of at least ${formatCurrency(payout.retainedCushionCents / CENTS_PER_DOLLAR)} and never below the plan's own floor; a plan whose firm minimum is above the request runs at that minimum. Hard Rule 2 asks for at least ${formatCurrency(hardRule2MinCushion)}.`,
     ];
     if (first === undefined) return lines;
     const { enginePolicy, run } = first.spec;
@@ -418,26 +433,50 @@ function lifetimeCapLabel(figures: NextSlotFigures): string {
     }
 }
 
+function listedFirmGroupOf(
+    key: string,
+    { firmName, rows }: ListedFirmRows,
+): NextSlotListedFirmGroup {
+    const details = rows.map((row) =>
+        row.reasons.map((reason) => reason.detail),
+    );
+    const shared = new Set(
+        (details[0] ?? []).filter((detail) =>
+            details.every((rowDetails) => rowDetails.includes(detail)),
+        ),
+    );
+    return {
+        firm: firmName,
+        key,
+        plans: rows.map((row, index) => ({
+            documentedNet:
+                row.figures === null
+                    ? NOT_APPLICABLE
+                    : currencyEstimate(row.figures.documented.creditInclusive),
+            key: row.planSerial,
+            plan: row.planLabel,
+            reasons: (details[index] ?? [])
+                .filter((detail) => !shared.has(detail))
+                .map((detail) => sentenceOf(detail)),
+        })),
+        reasons: [...shared].map((detail) => sentenceOf(detail)),
+    };
+}
+
 function listedOf(
     allocation: NextSlotAllocation,
     kind: NextSlotListingKind,
-): readonly NextSlotListedViewRow[] {
-    return allocation.notRanked
-        .filter((row) => row.kind === kind)
-        .map((row) => listedViewRowOf(row));
-}
-
-function listedViewRowOf(row: NextSlotNotRankedRow): NextSlotListedViewRow {
-    return {
-        documentedNet:
-            row.figures === null
-                ? NOT_APPLICABLE
-                : currencyEstimate(row.figures.documented.creditInclusive),
-        firm: row.firmName,
-        key: row.planSerial,
-        plan: row.planLabel,
-        reasons: row.reasons.map((reason) => reason.detail),
-    };
+): readonly NextSlotListedFirmGroup[] {
+    const byFirm = new Map<string, ListedFirmRows>();
+    for (const row of allocation.notRanked) {
+        if (row.kind !== kind) continue;
+        const group = byFirm.get(row.firmId) ?? {
+            firmName: row.firmName,
+            rows: [],
+        };
+        byFirm.set(row.firmId, { ...group, rows: [...group.rows, row] });
+    }
+    return [...byFirm].map(([key, group]) => listedFirmGroupOf(key, group));
 }
 
 function liveTransferNotesOf(
@@ -597,7 +636,7 @@ function rankedViewRowOf(
         notes: [
             ...(figures.isBelowHardRule2
                 ? [
-                      `Retained cushion is below the ${RuleSource.HardRule2} minimum of ${formatCurrency(allocation.hardRule2MinCushion)}.`,
+                      `Retained cushion is below the ${RULE_SOURCE_LABEL[RuleSource.HardRule2]} minimum of ${formatCurrency(allocation.hardRule2MinCushion)}.`,
                   ]
                 : []),
             ...(row.inFlightEvaluations > 0
@@ -687,6 +726,11 @@ function requestsBySerial(
         bySerial.set(request.planSerial, kinds);
     }
     return bySerial;
+}
+
+function sentenceOf(detail: string): string {
+    const capitalized = `${detail.charAt(0).toUpperCase()}${detail.slice(1)}`;
+    return SENTENCE_END.test(capitalized) ? capitalized : `${capitalized}.`;
 }
 
 function sharedRebuyLagOf(ledger: PortfolioLedger): MeasuredRebuyLag | null {

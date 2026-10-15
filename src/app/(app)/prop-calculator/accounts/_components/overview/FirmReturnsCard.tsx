@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import {
     Table,
@@ -32,7 +32,7 @@ type SortKey = keyof Pick<
 
 const DEFAULT_SORT: SortKey = 'firm';
 
-export function FirmReturnsCard({
+export const FirmReturnsCard = memo(function FirmReturnsCard({
     model,
 }: {
     readonly model: FirmReturnsCardModel;
@@ -180,7 +180,7 @@ export function FirmReturnsCard({
             )}
         </div>
     );
-}
+});
 
 function numericValue(row: FirmReturnRow, key: SortKey): number {
     const value = row[key];

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { memo } from 'react';
 
 import { Badge, type BadgeProperties } from '~/components/ui/Badge';
 import { SetupStep, SetupStepStatus } from '~/lib/prop-accounts';
@@ -16,7 +17,7 @@ const NOT_CHECKED_TEXT: Readonly<Record<SetupStep, string>> = {
     [SetupStep.StagesCaptured]: 'Stages: checked on the overview',
 };
 
-export function SetupChecklistCard({
+export const SetupChecklistCard = memo(function SetupChecklistCard({
     model,
 }: {
     readonly model: SetupChecklistCardModel;
@@ -47,7 +48,7 @@ export function SetupChecklistCard({
             </ul>
         </div>
     );
-}
+});
 
 export function SetupChecklistCompact({
     href,

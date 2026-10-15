@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
@@ -16,7 +16,11 @@ import { SampleBadge } from './SampleBadge';
 
 const CANDIDATE_BUDGET_LABEL = 'Candidate monthly budget (dollars)';
 
-export function BankrollCard({ model }: { readonly model: BankrollCardModel }) {
+export const BankrollCard = memo(function BankrollCard({
+    model,
+}: {
+    readonly model: BankrollCardModel;
+}) {
     return (
         <div className="flex flex-col gap-4">
             <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -52,7 +56,7 @@ export function BankrollCard({ model }: { readonly model: BankrollCardModel }) {
             )}
         </div>
     );
-}
+});
 
 function BankrollFigure({
     label,

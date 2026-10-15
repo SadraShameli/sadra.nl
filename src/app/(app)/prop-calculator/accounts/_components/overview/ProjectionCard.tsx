@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import CashFlowBandChartView from '~/app/(app)/prop-calculator/_components/charts/CashFlowBandChartView';
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import {
@@ -15,7 +17,7 @@ import {
     type ProjectionRow,
 } from './overviewModel';
 
-export function ProjectionCard({
+export const ProjectionCard = memo(function ProjectionCard({
     model,
 }: {
     readonly model: ProjectionCardModel;
@@ -111,7 +113,7 @@ export function ProjectionCard({
             </ul>
         </div>
     );
-}
+});
 
 function ProjectionDetail({ row }: { readonly row: ProjectionRow }) {
     return (

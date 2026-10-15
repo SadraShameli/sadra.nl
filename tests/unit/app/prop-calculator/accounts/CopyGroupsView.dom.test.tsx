@@ -10,6 +10,7 @@ import {
     type OverviewAccountRow,
     type OverviewSnapshotRow,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
 import {
     bindingMemberIdsOf,
     copyGroupSizingSectionsOf,
@@ -1129,7 +1130,7 @@ describe('CopyGroupsView', () => {
 
             render();
             const text = groupSection('Main copy').textContent;
-            expect(text).toContain(formatCurrency(groupRisk));
+            expect(text).toContain(formatCurrency(groupRisk, 2));
             expect(text).toContain(TIGHT_ID);
             expect(text).toContain('Combined exposure');
             if (section.exposure === null) {
@@ -1137,7 +1138,7 @@ describe('CopyGroupsView', () => {
             }
 
             expect(text).toContain(
-                formatCurrency(section.exposure.maxDailyLoss),
+                formatCurrency(section.exposure.maxDailyLoss, 2),
             );
             if (section.exposure.shareOfCushionAtRisk !== null) {
                 expect(text).toContain(
@@ -1227,7 +1228,7 @@ describe('CopyGroupsView', () => {
             render();
             const text = groupSection('Main copy').textContent;
             expect(text).toContain(
-                `Combined exposure: worst-case daily loss of ${formatCurrency(baseline.maxDailyLoss)}`,
+                `Combined exposure: worst-case daily loss of ${formatCurrency(baseline.maxDailyLoss, 2)}`,
             );
         });
 
@@ -1301,7 +1302,9 @@ describe('CopyGroupsView', () => {
             for (const assumption of section.result.sizing.assumptions) {
                 expect(text).toContain(SIZING_ASSUMPTION_TEXT[assumption]);
             }
-            expect(text).toContain(section.result.sizing.sources.join(', '));
+            expect(text).toContain(
+                ruleSourceListText(section.result.sizing.sources),
+            );
         });
 
         it('offers the group simulation at the documented group size and starts no worker until it is run', () => {
@@ -1319,7 +1322,7 @@ describe('CopyGroupsView', () => {
                 'Correlated bust risk and payouts',
             );
             expect(group.textContent).toContain(
-                `Every copy trades ${formatCurrency(groupRisk)} per trade`,
+                `Every copy trades ${formatCurrency(groupRisk, 2)} per trade`,
             );
             expect(StubWorker.instances).toHaveLength(0);
 

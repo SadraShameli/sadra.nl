@@ -431,7 +431,7 @@ export function AccountEditor({ id }: { id: string }) {
         return (
             <Alert variant="destructive">
                 <TriangleAlert />
-                <AlertTitle>The account could not be loaded</AlertTitle>
+                <AlertTitle as="h2">The account could not be loaded</AlertTitle>
                 <AlertDescription>
                     {accountQuery.error.message}
                 </AlertDescription>
@@ -452,7 +452,7 @@ export function AccountEditor({ id }: { id: string }) {
         return (
             <Alert variant="destructive">
                 <TriangleAlert />
-                <AlertTitle>Your firms could not be loaded</AlertTitle>
+                <AlertTitle as="h2">Your firms could not be loaded</AlertTitle>
                 <AlertDescription>
                     {externalFirms.error?.message}
                 </AlertDescription>
@@ -1433,7 +1433,7 @@ function ReadOnlyAccount({
     const router = useRouter();
     return (
         <div className="flex flex-col gap-4">
-            <Alert variant="warning">
+            <Alert role="status" variant="warning">
                 <TriangleAlert />
                 <AlertTitle>This account is read-only</AlertTitle>
                 <AlertDescription>{notice}</AlertDescription>

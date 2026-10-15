@@ -75,15 +75,15 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
         (rule) => rule.requirement !== SnapshotFieldRequirement.Hidden,
     );
     return (
-        <div className="app-prop-accounts__snapshot-fields grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="app-prop-accounts__snapshot-fields grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {isLedgerOnly && (
-                <p className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">
+                <p className="text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
                     {LEDGER_ONLY_SNAPSHOT_NOTICE}
                 </p>
             )}
             {formIssues.length > 0 && (
                 <Alert
-                    className="sm:col-span-2 lg:col-span-3"
+                    className="md:col-span-2 lg:col-span-3"
                     variant="destructive"
                 >
                     <TriangleAlert />
@@ -101,7 +101,8 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
             )}
             {formWarnings.length > 0 && (
                 <Alert
-                    className="sm:col-span-2 lg:col-span-3"
+                    className="md:col-span-2 lg:col-span-3"
+                    role="status"
                     variant="warning"
                 >
                     <TriangleAlert />

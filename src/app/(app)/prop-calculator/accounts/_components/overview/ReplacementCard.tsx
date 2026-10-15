@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -10,7 +12,7 @@ import {
 import { type ReplacementCardModel } from './overviewModel';
 import { SampleBadge } from './SampleBadge';
 
-export function ReplacementCard({
+export const ReplacementCard = memo(function ReplacementCard({
     model,
 }: {
     readonly model: ReplacementCardModel;
@@ -64,4 +66,4 @@ export function ReplacementCard({
             </TableBody>
         </Table>
     );
-}
+});

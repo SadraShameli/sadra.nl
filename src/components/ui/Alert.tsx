@@ -4,10 +4,11 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
 
+import { type TitleTag } from '~/components/ui/titleTag';
 import { cn } from '~/lib/utilities';
 
 const alertVariants = cva(
-    'relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground',
+    'relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+[data-slot=alert-description]]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground',
     {
         defaultVariants: {
             variant: 'default',
@@ -32,6 +33,19 @@ type AlertProperties = React.HTMLAttributes<HTMLDivElement> &
         autoDismissMs?: number;
     };
 
+type AlertTitleProperties = React.HTMLAttributes<HTMLHeadingElement> & {
+    as?: TitleTag;
+};
+
+type AlertVariant = NonNullable<AlertProperties['variant']>;
+
+const VARIANT_ROLE: Readonly<Record<AlertVariant, React.AriaRole>> = {
+    default: 'status',
+    destructive: 'alert',
+    success: 'status',
+    warning: 'alert',
+};
+
 const AUTO_DISMISS_PARAMS = ['success', 'error'];
 const FADE_DURATION_MS = 300;
 
@@ -41,6 +55,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
             autoDismiss = false,
             autoDismissMs = 3000,
             className,
+            role,
             variant,
             ...properties
         },
@@ -90,7 +105,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
                     className,
                 )}
                 ref={reference}
-                role="alert"
+                role={role ?? VARIANT_ROLE[variant ?? 'default']}
                 {...properties}
             />
         ) : null;
@@ -98,21 +113,21 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
 );
 Alert.displayName = 'Alert';
 
-const AlertTitle = React.forwardRef<
-    HTMLParagraphElement,
-    React.HTMLAttributes<HTMLHeadingElement>
->(({ children, className, ...properties }, reference) => (
-    <h5
-        className={cn(
-            'mb-1 leading-none font-medium tracking-tight',
-            className,
-        )}
-        ref={reference}
-        {...properties}
-    >
-        {children}
-    </h5>
-));
+const AlertTitle = React.forwardRef<HTMLHeadingElement, AlertTitleProperties>(
+    ({ as: Tag = 'div', children, className, ...properties }, reference) => (
+        <Tag
+            className={cn(
+                'mb-1 leading-none font-medium tracking-tight',
+                className,
+            )}
+            data-slot="alert-title"
+            ref={reference}
+            {...properties}
+        >
+            {children}
+        </Tag>
+    ),
+);
 AlertTitle.displayName = 'AlertTitle';
 
 const AlertDescription = React.forwardRef<
@@ -121,6 +136,7 @@ const AlertDescription = React.forwardRef<
 >(({ className, ...properties }, reference) => (
     <div
         className={cn('text-sm [&_p]:leading-relaxed', className)}
+        data-slot="alert-description"
         ref={reference}
         {...properties}
     />

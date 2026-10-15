@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type CushionBoardCardModel } from './overviewModel';
 
-export function CushionBoardCard({
+export const CushionBoardCard = memo(function CushionBoardCard({
     model,
 }: {
     readonly model: CushionBoardCardModel;
@@ -75,4 +77,4 @@ export function CushionBoardCard({
             )}
         </div>
     );
-}
+});

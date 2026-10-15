@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,11 @@ import {
 
 import { type ExposureCardModel } from './overviewModel';
 
-export function ExposureCard({ model }: { readonly model: ExposureCardModel }) {
+export const ExposureCard = memo(function ExposureCard({
+    model,
+}: {
+    readonly model: ExposureCardModel;
+}) {
     return (
         <div className="flex flex-col gap-3">
             {model.accounts.length === 0 ? (
@@ -118,4 +124,4 @@ export function ExposureCard({ model }: { readonly model: ExposureCardModel }) {
             )}
         </div>
     );
-}
+});

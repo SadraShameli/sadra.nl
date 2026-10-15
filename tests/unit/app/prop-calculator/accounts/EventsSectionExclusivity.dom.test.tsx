@@ -24,6 +24,8 @@ import {
     UnknownCooldown,
 } from '~/lib/prop-calculator';
 
+import { pickOption } from './pickOption';
+
 interface FakeQuery {
     data: unknown;
     error: Error | null;
@@ -173,25 +175,6 @@ function listed(
         tracking: AccountTracking.Modeled,
         ...overrides,
     };
-}
-
-async function pickOption(trigger: HTMLElement, optionText: string) {
-    await act(async () => {
-        trigger.focus();
-        trigger.dispatchEvent(
-            new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
-        );
-    });
-    const option = [
-        ...document.querySelectorAll<HTMLElement>('[role="option"]'),
-    ].find((candidate) => candidate.textContent.trim() === optionText);
-    if (option === undefined) throw new Error(`no option ${optionText}`);
-    await act(async () => {
-        option.focus();
-        option.dispatchEvent(
-            new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
-        );
-    });
 }
 
 function required<T>(value: T | undefined, label: string): T {
@@ -523,6 +506,24 @@ describe('EventsSection live exclusivity preview and confirm', () => {
                 });
                 expect(recordButton().disabled).toBe(false);
             },
+        );
+    });
+
+    it('starts with no event chosen, so one click on Record event records nothing until the user picks one', async () => {
+        render();
+        const trigger = inputLabelled(container);
+        expect(trigger.textContent).toContain('Choose an event');
+        expect(trigger.textContent).not.toContain('Busted');
+        await submitRecord();
+        expect(harness.mutateAsync).not.toHaveBeenCalled();
+        expect(container.textContent).toContain('Choose the event to record.');
+        await pickOption(inputLabelled(container), 'Busted');
+        await submitRecord();
+        expect(harness.mutateAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+                accountId: MOVED_ID,
+                kind: AccountEventKind.Busted,
+            }),
         );
     });
 

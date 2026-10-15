@@ -358,7 +358,7 @@ export function AccountDetailView({
         ) : (
             <Alert variant="destructive">
                 <TriangleAlert />
-                <AlertTitle>The account could not be loaded</AlertTitle>
+                <AlertTitle as="h2">The account could not be loaded</AlertTitle>
                 <AlertDescription>
                     {accountQuery.error.message}
                 </AlertDescription>

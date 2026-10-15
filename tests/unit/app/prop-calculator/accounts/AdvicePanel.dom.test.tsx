@@ -2485,7 +2485,10 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             render();
 
             expect(container.textContent).toContain(
-                'No DP solve is stored for this account.',
+                'No DP solve is saved for this account yet.',
+            );
+            expect(container.textContent).toContain(
+                'To add one, run prop advise --dp --store from the command line.',
             );
         });
 

@@ -338,6 +338,60 @@ describe('previewAccountCsv', () => {
         expect(csvCommitPayload(preview)).toBeNull();
     });
 
+    it('reports every problem in a row, not only the first unreadable cell', () => {
+        const preview = previewAccountCsv(
+            [
+                `${HEADER},tracking`,
+                `${row(EVAL_PLAN, {
+                    [AccountCsvColumn.Label]: 'bad date and plan',
+                    [AccountCsvColumn.Plan]: 'nonsense',
+                    [AccountCsvColumn.PurchasedOn]: '2026-02-30',
+                })},`,
+                `${row(INSTANT_PLAN, {
+                    [AccountCsvColumn.Label]: 'bad date and stage',
+                    [AccountCsvColumn.PurchasedOn]: 'yesterday',
+                })},`,
+                `${row(EVAL_PLAN, {
+                    [AccountCsvColumn.FundedOn]: '2026-08-01',
+                    [AccountCsvColumn.Label]: '',
+                })},`,
+                `${row(EVAL_PLAN, {
+                    [AccountCsvColumn.Firm]: '',
+                    [AccountCsvColumn.Label]: 'ledger bad date',
+                    [AccountCsvColumn.Plan]: 'Own plan',
+                    [AccountCsvColumn.PurchasedOn]: '2026-13-01',
+                })},${AccountTracking.LedgerOnly}`,
+            ].join('\r\n'),
+            [],
+        );
+
+        expect(
+            issuesOf(preview).map((issue) => [issue.rowNumber, issue.column]),
+        ).toEqual([
+            [2, AccountCsvColumn.PurchasedOn],
+            [2, AccountCsvColumn.Plan],
+            [3, AccountCsvColumn.PurchasedOn],
+            [3, AccountCsvColumn.Stage],
+            [4, AccountCsvColumn.Label],
+            [4, AccountCsvColumn.FundedOn],
+            [5, AccountCsvColumn.Firm],
+            [5, AccountCsvColumn.PurchasedOn],
+        ]);
+        expect(
+            issuesOf(preview).find(
+                (issue) =>
+                    issue.rowNumber === 3 &&
+                    issue.column === AccountCsvColumn.Stage,
+            )?.message,
+        ).toBe(
+            describeLifecycleRejection(
+                LifecycleRejection.EvalOnInstantFundedPlan,
+                { facts: INSTANT_PLAN.plan, stage: AccountStage.Eval },
+            ),
+        );
+        expect(csvCommitPayload(preview)).toBeNull();
+    });
+
     it('rejects an opt-in the plan does not offer on that opt-in column, and accepts an offered one', () => {
         const preview = previewAccountCsv(
             csv(

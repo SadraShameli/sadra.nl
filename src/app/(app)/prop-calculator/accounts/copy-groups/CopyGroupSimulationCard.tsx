@@ -153,7 +153,7 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
     return (
         <CardFrame>
             <p className="text-muted-foreground">
-                Every copy trades {formatCurrency(plan.groupRisk)} per trade,
+                Every copy trades {formatCurrency(plan.groupRisk, 2)} per trade,
                 placed within its own plan&apos;s rules, over a{' '}
                 {plan.horizonDays}-day funded horizon and{' '}
                 {plan.request.trials.toLocaleString('en-US')} trials. The

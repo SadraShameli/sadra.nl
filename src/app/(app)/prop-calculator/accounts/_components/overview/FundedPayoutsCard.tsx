@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, memo } from 'react';
 
 import AccountsPassedDistributionChart from '~/app/(app)/prop-calculator/_components/AccountsPassedDistributionChart';
 import {
@@ -14,7 +14,7 @@ import { type FundedPayoutsCardModel } from './overviewModel';
 
 const PAYOUT_COUNT_CAPTION = '# payouts per funded account';
 
-export function FundedPayoutsCard({
+export const FundedPayoutsCard = memo(function FundedPayoutsCard({
     model,
 }: {
     readonly model: FundedPayoutsCardModel;
@@ -113,7 +113,7 @@ export function FundedPayoutsCard({
             </ul>
         </div>
     );
-}
+});
 
 function DistributionPair({
     row,

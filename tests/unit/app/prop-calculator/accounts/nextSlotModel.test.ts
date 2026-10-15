@@ -244,10 +244,22 @@ describe('nextSlotModelOf with an unverified policy', () => {
                 firm.plans.map((plan) => serializePlanId(plan.id)),
             ),
         );
-        for (const row of model.unverified) {
-            expect(planSerials.has(row.key)).toBe(true);
-            expect(row.documentedNet).toContain('$300');
-            expect(row.reasons.join(' ')).toContain('live trigger unverified');
+        const firmKeys = model.unverified.map((group) => group.key);
+        expect(new Set(firmKeys).size).toBe(firmKeys.length);
+        for (const group of model.unverified) {
+            expect(
+                group.reasons.some((reason) =>
+                    reason.startsWith('Live trigger unverified: '),
+                ),
+            ).toBe(true);
+            expect(group.reasons.every((reason) => reason.endsWith('.'))).toBe(
+                true,
+            );
+            for (const row of group.plans) {
+                expect(planSerials.has(row.key)).toBe(true);
+                expect(row.documentedNet).toContain('$300');
+                expect(row.reasons).toEqual([]);
+            }
         }
     });
 
@@ -318,7 +330,10 @@ function listedReasonsOf(model: ReturnType<typeof verifiedModelWith>): string {
         ...model.refused,
         ...model.unverified,
     ]
-        .flatMap((row) => row.reasons)
+        .flatMap((group) => [
+            ...group.reasons,
+            ...group.plans.flatMap((row) => row.reasons),
+        ])
         .join(' ');
 }
 
@@ -361,7 +376,7 @@ describe('nextSlotModelOf when one request group of the overview worker failed',
         );
         expect(model.engineFailure).toBe('the policy worker crashed');
         expect(listedReasonsOf(model)).toContain(
-            'the engine run failed: the policy worker crashed',
+            'The engine run failed: the policy worker crashed.',
         );
     });
 });
@@ -477,9 +492,14 @@ describe('nextSlotModelOf ranked rows', () => {
         });
         expect(broke.ranked).toEqual([]);
         expect(broke.excluded.length).toBeGreaterThan(0);
-        expect(broke.excluded[0]?.reasons.join(' ')).toContain(
-            'above your available bankroll',
-        );
+        expect(
+            broke.excluded
+                .flatMap((group) => [
+                    ...group.reasons,
+                    ...group.plans.flatMap((row) => row.reasons),
+                ])
+                .join(' '),
+        ).toContain('above your available bankroll');
     });
 
     it('notes the daily capacity and limits the slots to fill by it', () => {
@@ -633,9 +653,13 @@ describe('nextSlotModelOf ranked rows', () => {
                       }
                     : answerAll()(request),
         });
-        expect(refusing.refused.map((row) => row.key)).toEqual([serial]);
+        expect(
+            refusing.refused.flatMap((group) =>
+                group.plans.map((row) => row.key),
+            ),
+        ).toEqual([serial]);
         expect(refusing.refused[0]?.reasons).toEqual([
-            'not rankable: the stop is below one tick',
+            'Not rankable: the stop is below one tick.',
         ]);
         expect(refusing.ranked.map((row) => row.key)).not.toContain(serial);
         const paused = modelFor({
@@ -655,7 +679,14 @@ describe('nextSlotModelOf ranked rows', () => {
             }),
         });
         expect(paused.excluded.length).toBeGreaterThan(0);
-        expect(paused.excluded[0]?.reasons[0]).toContain('Paused');
+        const pausedFirm = paused.excluded.filter(
+            (group) => group.firm === EVAL_PLAN.firm.displayName,
+        );
+        expect(pausedFirm).toHaveLength(1);
+        expect(pausedFirm[0]?.reasons[0]).toMatch(/^You marked .* Paused on /u);
+        expect(
+            pausedFirm[0]?.plans.every((row) => row.reasons.length === 0),
+        ).toBe(true);
         expect(
             paused.ranked.some(
                 (row) => row.firm === EVAL_PLAN.firm.displayName,
@@ -1003,7 +1034,7 @@ describe('nextSlotModelOf assumptions', () => {
         expect(text).toContain('Commission is zero, which is optimistic');
         expect(text).toContain('assumed rebuy lag of 0 days');
         expect(text).toContain('Hard Rule 2');
-        expect(text).toContain('PAYOUT SIZING');
+        expect(text).toContain('from your payout sizing and Hard Rule 2');
     });
 
     it('states the measured rebuy lag when the ledger has a replacement', () => {

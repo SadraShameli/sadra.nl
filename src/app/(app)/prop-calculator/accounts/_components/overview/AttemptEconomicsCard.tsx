@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -10,7 +12,7 @@ import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type AttemptEconomicsCardModel } from './overviewModel';
 
-export function AttemptEconomicsCard({
+export const AttemptEconomicsCard = memo(function AttemptEconomicsCard({
     model,
 }: {
     readonly model: AttemptEconomicsCardModel;
@@ -156,4 +158,4 @@ export function AttemptEconomicsCard({
             </ul>
         </div>
     );
-}
+});

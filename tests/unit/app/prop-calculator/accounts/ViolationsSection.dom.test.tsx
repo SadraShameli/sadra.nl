@@ -10,6 +10,8 @@ import {
 } from '~/lib/prop-accounts';
 import { type RouterOutputs } from '~/trpc/react';
 
+import { pickOption } from './pickOption';
+
 type ViolationRow = RouterOutputs['propAccounts']['violation']['list'][number];
 
 const ACCOUNT_ID = 'a1111111-1111-4111-8111-111111111111';
@@ -153,25 +155,6 @@ function inputLabelled(scope: ParentNode, label: string): HTMLElement {
               );
     if (control === null) throw new Error(`no control labelled ${label}`);
     return control;
-}
-
-async function pickOption(trigger: HTMLElement, optionText: string) {
-    await act(async () => {
-        trigger.focus();
-        trigger.dispatchEvent(
-            new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
-        );
-    });
-    const option = [
-        ...document.querySelectorAll<HTMLElement>('[role="option"]'),
-    ].find((candidate) => candidate.textContent.trim() === optionText);
-    if (option === undefined) throw new Error(`no option ${optionText}`);
-    await act(async () => {
-        option.focus();
-        option.dispatchEvent(
-            new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
-        );
-    });
 }
 
 async function submit(scope: ParentNode, label: string) {

@@ -7,8 +7,10 @@ import { type ReactNode, useId, useRef, useState } from 'react';
 import { type Control, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { STICKY_ACTION_BAR_PROPS } from '~/app/(app)/_components/ScrollToTop';
 import { DAY_STOP_KIND_LABELS } from '~/app/(app)/prop-calculator/_components/describeDayStopRule';
 import { AccountsCardHeading } from '~/app/(app)/prop-calculator/accounts/_components/AccountsCardHeading';
+import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import {
     AlertDialog,
@@ -56,6 +58,7 @@ import {
     LadderFractionSource,
     ReviewWeekday,
     RiskDisplayUnit,
+    RULE_SOURCE_LABEL,
     rulebookDeviation,
     type RulebookParameters,
     RuleSource,
@@ -326,15 +329,18 @@ function DeviationCard({ parsed }: { parsed: null | RulebookParameters }) {
                         <ul className="flex flex-wrap gap-2">
                             {deviation.map((source) => (
                                 <li key={source}>
-                                    <Badge variant="warning">{source}</Badge>
+                                    <Badge variant="warning">
+                                        {RULE_SOURCE_LABEL[source]}
+                                    </Badge>
                                 </li>
                             ))}
                         </ul>
                     </>
                 )}
                 <p className="text-xs text-muted-foreground">
-                    Eval risk is not a rulebook value: {RuleSource.HardRule3}{' '}
-                    sizes evals to the maximum allowed by the constraints.
+                    Eval risk is not a rulebook value:{' '}
+                    {RULE_SOURCE_LABEL[RuleSource.HardRule3]} sizes evals to the
+                    maximum allowed by the constraints.
                 </p>
             </CardContent>
         </Card>
@@ -419,10 +425,15 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                             </SelectContent>
                         </Select>
                         <FormDescription>
-                            Skill:{' '}
-                            {mode === EvalSizingMode.Ladder
-                                ? LADDER_SOURCE_OPTIONS[ladderSource].source
-                                : EVAL_MODE_OPTIONS[mode].sources.join(', ')}
+                            Source:{' '}
+                            {ruleSourceListText(
+                                mode === EvalSizingMode.Ladder
+                                    ? [
+                                          LADDER_SOURCE_OPTIONS[ladderSource]
+                                              .source,
+                                      ]
+                                    : EVAL_MODE_OPTIONS[mode].sources,
+                            )}
                             . Default{' '}
                             {EVAL_MODE_OPTIONS[
                                 DEFAULT_RULEBOOK.eval.mode
@@ -462,8 +473,13 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                             </SelectContent>
                         </Select>
                         <FormDescription>
-                            Ladder mode only. Skill:{' '}
-                            {LADDER_SOURCE_OPTIONS[field.value].source}.
+                            Ladder mode only. Source:{' '}
+                            {
+                                RULE_SOURCE_LABEL[
+                                    LADDER_SOURCE_OPTIONS[field.value].source
+                                ]
+                            }
+                            .
                         </FormDescription>
                         <FormMessage />
                     </FormItem>
@@ -481,9 +497,10 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
             <TextField control={control} name="eval.maxRiskDailyCapMultiple" />
             <TextField control={control} name="eval.roundingStepCents" />
             <p className="text-xs text-muted-foreground md:col-span-2">
-                Eval risk is not stored: {RuleSource.HardRule3} sizes evals to
-                the maximum allowed by the constraints, paired with a daily
-                profit cap.
+                Eval risk is not stored:{' '}
+                {RULE_SOURCE_LABEL[RuleSource.HardRule3]} sizes evals to the
+                maximum allowed by the constraints, paired with a daily profit
+                cap.
             </p>
         </SectionCard>
     );
@@ -521,7 +538,8 @@ function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
                             </SelectContent>
                         </Select>
                         <FormDescription>
-                            Skill: {RuleSource.HisNumbers}, default{' '}
+                            Source: {RULE_SOURCE_LABEL[RuleSource.HisNumbers]},
+                            default{' '}
                             {DAY_STOP_KIND_LABELS[
                                 DEFAULT_RULEBOOK.funded.stopRule.kind
                             ].toLowerCase()}
@@ -920,7 +938,7 @@ function PayoutCard({ control }: { control: Control<RulebookFormValues> }) {
                             </FormControl>
                             <FormLabel>
                                 Allow a retained cushion below{' '}
-                                {RuleSource.HardRule2}
+                                {RULE_SOURCE_LABEL[RuleSource.HardRule2]}
                             </FormLabel>
                         </div>
                         <FormMessage />
@@ -930,15 +948,18 @@ function PayoutCard({ control }: { control: Control<RulebookFormValues> }) {
             {isBelowHardRule2Allowed && (
                 <Alert className="md:col-span-2" variant="warning">
                     <TriangleAlert />
-                    <AlertTitle>This breaks {RuleSource.HardRule2}</AlertTitle>
+                    <AlertTitle>
+                        This breaks {RULE_SOURCE_LABEL[RuleSource.HardRule2]}
+                    </AlertTitle>
                     <AlertDescription>
-                        {RuleSource.HardRule2}: never withdraw below{' '}
+                        {RULE_SOURCE_LABEL[RuleSource.HardRule2]}: never
+                        withdraw below{' '}
                         {formatUsdCents(
                             usdCents(HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS),
                         )}{' '}
                         remaining cushion. With the override on, a lower
                         retained cushion is saved and listed as a deviation from{' '}
-                        {RuleSource.HardRule2}.
+                        {RULE_SOURCE_LABEL[RuleSource.HardRule2]}.
                     </AlertDescription>
                 </Alert>
             )}
@@ -1026,7 +1047,9 @@ function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
                             </SelectContent>
                         </Select>
                         <FormDescription>
-                            Skill: {RuleSource.ReassessmentCadence}, default{' '}
+                            Source:{' '}
+                            {RULE_SOURCE_LABEL[RuleSource.ReassessmentCadence]},
+                            default{' '}
                             {WEEKDAY_LABEL[DEFAULT_RULEBOOK.review.weekday]}.
                         </FormDescription>
                         <FormMessage />
@@ -1168,7 +1191,10 @@ function RulebookForm({
                     </p>
                 )}
 
-                <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 py-3 backdrop-blur-sm">
+                <div
+                    className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 py-3 backdrop-blur-sm"
+                    {...STICKY_ACTION_BAR_PROPS}
+                >
                     <Button disabled={isSaving} type="submit">
                         Save rulebook
                     </Button>
@@ -1244,7 +1270,7 @@ function SectionCard({
 
 function settingNote(spec: TextFieldSpec): string {
     if (spec.source !== null) {
-        return `Skill: ${spec.source}, default ${spec.read(DEFAULT_FORM_VALUES)}.`;
+        return `Source: ${RULE_SOURCE_LABEL[spec.source]}, default ${spec.read(DEFAULT_FORM_VALUES)}.`;
     }
     return spec.isOptional
         ? 'Your setting, not a skill rule. Empty means not set.'

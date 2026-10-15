@@ -15,6 +15,7 @@ import {
 import {
     nullIfBlank,
     parsedOrIssues,
+    UNSET_SELECT_VALUE,
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
 import { useRowEditing } from '~/app/(app)/prop-calculator/accounts/_components/detail/useRowEditing';
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
@@ -111,7 +112,6 @@ import { api, type RouterOutputs } from '~/trpc/react';
 
 const ALL = 'all';
 const CSV_MIME_TYPE = 'text/csv;charset=utf-8';
-const UNSET_BASIS = '';
 
 const CASH_FLOW_LABEL: Readonly<Record<LedgerCashFlow, string>> = {
     [LedgerCashFlow.In]: 'In',
@@ -491,7 +491,7 @@ function editingStatementValues(row: StatementRow): StatementFormValues {
 function emptyStatementValues(): StatementFormValues {
     return {
         asOf: todayIsoDate(new Date()),
-        basis: UNSET_BASIS,
+        basis: UNSET_SELECT_VALUE,
         firmValue: '',
         note: '',
         reportedPayoutCents: '',
@@ -1218,7 +1218,7 @@ function StatementForm({
 
 function statementFormSchema(editingId: null | string) {
     return statementFormShape.transform((values, context) => {
-        if (values.basis === UNSET_BASIS) {
+        if (values.basis === UNSET_SELECT_VALUE) {
             context.addIssue({
                 code: 'custom',
                 message: 'Choose whether the reported total is gross or net',
@@ -1263,7 +1263,10 @@ function statementFormSchema(editingId: null | string) {
 
 const statementFormShape = z.object({
     asOf: z.string(),
-    basis: z.union([z.enum(ReportedPayoutBasis), z.literal(UNSET_BASIS)]),
+    basis: z.union([
+        z.enum(ReportedPayoutBasis),
+        z.literal(UNSET_SELECT_VALUE),
+    ]),
     firmValue: z.string(),
     note: z.string(),
     reportedPayoutCents: z.string(),

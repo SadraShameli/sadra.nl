@@ -7,6 +7,8 @@ const CONJUNCTION_LIST = new Intl.ListFormat('en-GB', {
     type: 'conjunction',
 });
 
+const CURRENCY_NUMBER_FORMATS = new Map<number, Intl.NumberFormat>();
+
 export function formatCompactCurrency(n: number): string {
     const abs = Math.abs(n);
     const sign = n < 0 ? '-' : '';
@@ -24,11 +26,7 @@ export function formatConjunctionList(items: readonly string[]): string {
 
 export function formatCurrency(n: number, fractionDigits = 0): string {
     const sign = n < 0 ? '-' : '';
-    const abs = Math.abs(n);
-    return `${sign}$${abs.toLocaleString('en-US', {
-        maximumFractionDigits: fractionDigits,
-        minimumFractionDigits: fractionDigits,
-    })}`;
+    return `${sign}$${currencyNumberFormat(fractionDigits).format(Math.abs(n))}`;
 }
 
 export function formatDays(d: number): string {
@@ -105,4 +103,15 @@ export function formatRatio(ratio: number, digits = 2): string {
 
 export function formatStreak(streak: number): string {
     return String(Math.round(streak));
+}
+
+function currencyNumberFormat(fractionDigits: number): Intl.NumberFormat {
+    const cached = CURRENCY_NUMBER_FORMATS.get(fractionDigits);
+    if (cached !== undefined) return cached;
+    const created = new Intl.NumberFormat('en-US', {
+        maximumFractionDigits: fractionDigits,
+        minimumFractionDigits: fractionDigits,
+    });
+    CURRENCY_NUMBER_FORMATS.set(fractionDigits, created);
+    return created;
 }

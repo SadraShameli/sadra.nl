@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -12,7 +14,7 @@ import {
     type FirmShareRow,
 } from './overviewModel';
 
-export function DiversificationCard({
+export const DiversificationCard = memo(function DiversificationCard({
     model,
 }: {
     readonly model: DiversificationCardModel;
@@ -31,7 +33,7 @@ export function DiversificationCard({
             />
         </div>
     );
-}
+});
 
 function ShareTable({
     emptyMessage,

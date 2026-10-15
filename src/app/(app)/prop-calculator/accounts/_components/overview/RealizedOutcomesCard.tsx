@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type OutcomesCardModel } from './overviewModel';
 
-export function RealizedOutcomesCard({
+export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
     model,
 }: {
     readonly model: OutcomesCardModel;
@@ -91,4 +93,4 @@ export function RealizedOutcomesCard({
             </ul>
         </div>
     );
-}
+});

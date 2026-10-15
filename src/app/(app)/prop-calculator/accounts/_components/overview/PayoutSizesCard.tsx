@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
 import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
@@ -20,7 +21,7 @@ const histogramConfig: ChartConfig = {
     count: { color: 'var(--chart-1)', label: 'Payouts' },
 };
 
-export function PayoutSizesCard({
+export const PayoutSizesCard = memo(function PayoutSizesCard({
     model,
 }: {
     readonly model: PayoutSizesCardModel;
@@ -95,7 +96,7 @@ export function PayoutSizesCard({
             )}
         </div>
     );
-}
+});
 
 function PayoutHistogram({ bins }: { readonly bins: readonly HistogramBin[] }) {
     const data = bins.map((bin) => ({

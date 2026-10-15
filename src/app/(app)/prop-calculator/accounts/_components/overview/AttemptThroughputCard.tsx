@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type AttemptThroughputCardModel } from './overviewModel';
 
-export function AttemptThroughputCard({
+export const AttemptThroughputCard = memo(function AttemptThroughputCard({
     model,
 }: {
     readonly model: AttemptThroughputCardModel;
@@ -131,4 +133,4 @@ export function AttemptThroughputCard({
             </p>
         </div>
     );
-}
+});

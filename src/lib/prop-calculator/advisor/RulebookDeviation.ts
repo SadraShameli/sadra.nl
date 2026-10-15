@@ -5,7 +5,7 @@ import {
     LadderFractionSource,
     type RulebookParameters,
 } from './Rulebook';
-import { RuleSource } from './RuleSource';
+import { RULE_SOURCE_LABEL, RuleSource } from './RuleSource';
 
 interface ParameterCheck {
     readonly isActive: (rulebook: RulebookParameters) => boolean;
@@ -86,7 +86,7 @@ const CHECKS_BY_SOURCE: Readonly<
 export function documentedRuleLabel(deviation: readonly RuleSource[]): string {
     return deviation.length === 0
         ? 'your documented rule'
-        : `your custom rule (differs from ${deviation.join(', ')})`;
+        : `your custom rule (differs from ${deviation.map((source) => RULE_SOURCE_LABEL[source]).join(', ')})`;
 }
 
 export function rulebookDeviation(

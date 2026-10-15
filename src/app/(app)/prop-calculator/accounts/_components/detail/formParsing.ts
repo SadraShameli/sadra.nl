@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const UNSET_SELECT_VALUE = '';
+
 export function nullIfBlank(text: string): null | string {
     return text.trim() === '' ? null : text;
 }

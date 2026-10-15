@@ -17,6 +17,7 @@ import {
 } from '~/lib/prop-accounts/core';
 import { FirmId, type PlanOptIns } from '~/lib/prop-calculator';
 import {
+    ACCOUNT_CREATE_CROSS_FIELD_SCHEMAS,
     accountCreateSchema,
     MAX_IMPORT_ROWS,
 } from '~/lib/schemas/propAccounts';
@@ -289,6 +290,13 @@ function readAccountRow(
     const parsed = accountCreateSchema.safeParse(candidate);
     if (parsed.success) return parsed.data;
     reader.addSchemaIssues(parsed.error.issues, SCHEMA_PATH_COLUMNS);
+    const crossFieldSchemas = ACCOUNT_CREATE_CROSS_FIELD_SCHEMAS[tracking];
+    for (const schema of crossFieldSchemas) {
+        const part = schema.safeParse(candidate);
+        if (!part.success) {
+            reader.addSchemaIssues(part.error.issues, SCHEMA_PATH_COLUMNS);
+        }
+    }
     return undefined;
 }
 

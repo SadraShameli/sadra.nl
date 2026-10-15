@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import {
     Table,
@@ -22,7 +24,7 @@ const NOT_AVAILABLE_TEXT = 'Not available';
 const NOT_FUNDED_TEXT = 'Not funded yet';
 const PENDING_TEXT = 'Pending';
 
-export function NextPayoutCard({
+export const NextPayoutCard = memo(function NextPayoutCard({
     model,
 }: {
     readonly model: NextPayoutCardModel;
@@ -71,7 +73,7 @@ export function NextPayoutCard({
             </ul>
         </div>
     );
-}
+});
 
 function cellsOf(row: NextPayoutCardRow): {
     readonly creditFree: string;

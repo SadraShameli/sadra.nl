@@ -15,6 +15,8 @@ import {
     SnapshotField,
 } from '~/lib/prop-accounts';
 
+import { pickOption } from './pickOption';
+
 const ACCOUNT_ID = 'a1111111-1111-4111-8111-111111111111';
 const FIRST_DAY = '2026-09-26';
 const NEXT_DAY = '2026-09-27';
@@ -206,6 +208,9 @@ const CASES: readonly FormCase[] = [
         create: 'propAccounts.event.record',
         date: (container) => inputLabelled(container, 'Date'),
         dateKey: 'occurredOn',
+        fill: async (container) => {
+            await pickOption(inputLabelled(container, 'Event'), 'Busted');
+        },
         name: 'the event form',
         render: (root) => {
             root.render(

@@ -471,7 +471,7 @@ export {
     ruleContextSchema,
     tighterOf,
 } from './RuleContext';
-export { RuleSource } from './RuleSource';
+export { RULE_SOURCE_LABEL, RuleSource } from './RuleSource';
 export { DEFAULT_FUNDED_HORIZON_DAYS, SizingAdvisor } from './SizingAdvisor';
 export {
     assertSizingInvariant,

@@ -235,9 +235,7 @@ export function FirmsView() {
             />
             <Card>
                 <CardHeader>
-                    <CardTitle>
-                        <h2>Firm roster</h2>
-                    </CardTitle>
+                    <CardTitle as="h2">Firm roster</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {model.roster.firms.length === 0 ? (

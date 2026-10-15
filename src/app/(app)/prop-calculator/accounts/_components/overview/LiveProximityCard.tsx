@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type LiveProximityCardModel } from './overviewModel';
 
-export function LiveProximityCard({
+export const LiveProximityCard = memo(function LiveProximityCard({
     model,
 }: {
     readonly model: LiveProximityCardModel;
@@ -151,4 +153,4 @@ export function LiveProximityCard({
             )}
         </div>
     );
-}
+});

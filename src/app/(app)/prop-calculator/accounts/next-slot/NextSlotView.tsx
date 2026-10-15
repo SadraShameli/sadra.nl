@@ -27,7 +27,7 @@ import { type SizingObjective } from '~/lib/prop-calculator/advisor';
 import { api } from '~/trpc/react';
 
 import {
-    type NextSlotListedViewRow,
+    type NextSlotListedFirmGroup,
     type NextSlotModel,
     nextSlotModelOf,
     type NextSlotRankedViewRow,
@@ -164,26 +164,26 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
             </Section>
             <ListedSection
                 description="A firm with an unverified cap scope or live trigger is listed here with its optimistic figures and never ranked."
+                groups={model.unverified}
                 id="unverified"
-                rows={model.unverified}
                 title="Listed, not ranked: unverified"
             />
             <ListedSection
                 description="Plans the engine refused, or whose run failed."
+                groups={model.refused}
                 id="not-rankable"
-                rows={model.refused}
                 title="Not rankable"
             />
             <ListedSection
                 description="Plans whose engine run has not finished."
+                groups={model.pending}
                 id="pending"
-                rows={model.pending}
                 title="Still computing"
             />
             <ListedSection
                 description="Plans left out of the ranking, each with its reason."
+                groups={model.excluded}
                 id="excluded"
-                rows={model.excluded}
                 title="Excluded"
             />
             <Section id="assumptions" title="Assumptions">
@@ -201,48 +201,52 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
 
 function ListedSection({
     description,
+    groups,
     id,
-    rows,
     title,
 }: {
     readonly description: string;
+    readonly groups: readonly NextSlotListedFirmGroup[];
     readonly id: string;
-    readonly rows: readonly NextSlotListedViewRow[];
     readonly title: string;
 }) {
-    if (rows.length === 0) return null;
+    if (groups.length === 0) return null;
     return (
         <Section id={id} title={title}>
             <p className="mb-3 text-sm text-muted-foreground">{description}</p>
             <Table {...namedScrollRegion(`next-slot-${id}`)}>
                 <TableHeader>
                     <TableRow>
-                        <TableHead scope="col">Firm</TableHead>
                         <TableHead scope="col">Plan</TableHead>
                         <TableHead className="text-right" scope="col">
                             Documented monthly net, credit-inclusive
                         </TableHead>
-                        <TableHead scope="col">Reason</TableHead>
+                        <TableHead scope="col">Plan reason</TableHead>
                     </TableRow>
                 </TableHeader>
-                <TableBody>
-                    {rows.map((row) => (
-                        <TableRow key={row.key}>
-                            <TableCell>{row.firm}</TableCell>
-                            <TableCell>{row.plan}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.documentedNet}
-                            </TableCell>
-                            <TableCell>
-                                <ul className="flex flex-col gap-1 text-xs">
-                                    {row.reasons.map((reason) => (
-                                        <li key={reason}>{reason}</li>
-                                    ))}
-                                </ul>
-                            </TableCell>
+                {groups.map((group) => (
+                    <TableBody key={group.key}>
+                        <TableRow className="border-t bg-muted/30">
+                            <TableHead colSpan={3} scope="rowgroup">
+                                <span className="block font-semibold text-foreground">
+                                    {group.firm}
+                                </span>
+                                <ReasonList reasons={group.reasons} />
+                            </TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
+                        {group.plans.map((row) => (
+                            <TableRow key={row.key}>
+                                <TableCell>{row.plan}</TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {row.documentedNet}
+                                </TableCell>
+                                <TableCell>
+                                    <ReasonList reasons={row.reasons} />
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                ))}
             </Table>
         </Section>
     );
@@ -464,6 +468,17 @@ function RankedTable({
                 </>
             )}
         </div>
+    );
+}
+
+function ReasonList({ reasons }: { readonly reasons: readonly string[] }) {
+    if (reasons.length === 0) return null;
+    return (
+        <ul className="flex flex-col gap-1 text-xs font-normal text-muted-foreground">
+            {reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+            ))}
+        </ul>
     );
 }
 

@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -15,7 +17,7 @@ import { SampleBadge } from './SampleBadge';
 
 const PAYOUT_TIMING_LABEL = 'Payout timing per plan';
 
-export function PayoutTimingCard({
+export const PayoutTimingCard = memo(function PayoutTimingCard({
     model,
 }: {
     readonly model: PayoutTimingCardModel;
@@ -71,7 +73,7 @@ export function PayoutTimingCard({
             </Table>
         </div>
     );
-}
+});
 
 function Figure({ figure }: { readonly figure: PayoutTimingFigure }) {
     return (

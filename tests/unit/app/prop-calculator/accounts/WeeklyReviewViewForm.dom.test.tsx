@@ -520,7 +520,7 @@ describe('WeeklyReviewView form', () => {
 
     it('drops an accept tick when the row stops being ready and does not bring it back at a different size', async () => {
         const headline = () =>
-            /Documented headline: \$[\d,]+/.exec(
+            /Risk per trade under your documented rule: \$[\d,]+/.exec(
                 cardOf('Eval one').textContent,
             )?.[0];
         typeInto(
@@ -634,7 +634,7 @@ describe('WeeklyReviewView form', () => {
             '5',
         );
         const text = cardOf('Eval one').textContent;
-        expect(text).toContain('Documented headline:');
+        expect(text).toContain('Risk per trade under your documented rule:');
         expect(text).toContain(
             'Assumes no payout is pending and does not check the live triggers',
         );
@@ -663,7 +663,7 @@ describe('WeeklyReviewView form', () => {
         );
         const text = cardOf('Eval one').textContent;
         expect(text).toContain('your custom rule (differs from');
-        expect(text).not.toContain('Documented headline:');
+        expect(text).not.toContain('your documented rule:');
     });
 
     it('asks for the fields of the stage the account had on the review date, as the server will check them', () => {

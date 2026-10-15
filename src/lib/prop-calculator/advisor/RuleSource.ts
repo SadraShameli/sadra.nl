@@ -14,3 +14,20 @@ export enum RuleSource {
     PayoutSize = 'PAYOUT SIZING',
     ReassessmentCadence = 'Reassessment cadence',
 }
+
+export const RULE_SOURCE_LABEL: Readonly<Record<RuleSource, string>> = {
+    [RuleSource.EvalLadder]: 'your evaluation ladder',
+    [RuleSource.GeneralDerivation]: 'the general sizing derivation',
+    [RuleSource.HardRule1]: 'Hard Rule 1',
+    [RuleSource.HardRule2]: 'Hard Rule 2',
+    [RuleSource.HardRule3]: 'Hard Rule 3',
+    [RuleSource.HardRule4]: 'Hard Rule 4',
+    [RuleSource.HardRule5]: 'Hard Rule 5',
+    [RuleSource.HardRule6]: 'Hard Rule 6',
+    [RuleSource.HardRule7]: 'Hard Rule 7',
+    [RuleSource.HardRule8]: 'Hard Rule 8',
+    [RuleSource.HisNumbers]: 'your tested edge',
+    [RuleSource.LiveSizing]: 'your live account sizing',
+    [RuleSource.PayoutSize]: 'your payout sizing',
+    [RuleSource.ReassessmentCadence]: 'your reassessment cadence',
+};

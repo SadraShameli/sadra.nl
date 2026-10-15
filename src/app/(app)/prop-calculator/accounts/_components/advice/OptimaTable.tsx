@@ -26,7 +26,10 @@ export interface DpAdviceQuery {
 }
 
 const NO_DP_ADVICE_TEXT =
-    'No DP solve is stored for this account. Run prop advise --dp --store from the CLI to add one.';
+    'No DP solve is saved for this account yet. A DP solve is an exact search for the best risk on each trade from this account’s balance and rules; it takes too long to run in the browser, so it is computed ahead of time and shown here once saved.';
+
+const NO_DP_ADVICE_HINT =
+    'To add one, run prop advise --dp --store from the command line.';
 
 export function DpAdviceSection({ query }: { readonly query: DpAdviceQuery }) {
     if (query.isError) {
@@ -46,7 +49,10 @@ export function DpAdviceSection({ query }: { readonly query: DpAdviceQuery }) {
     }
     const view = dpAdviceRowViewsOf(query.data);
     return view.rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{NO_DP_ADVICE_TEXT}</p>
+        <div className="flex flex-col gap-1 rounded-md border border-dashed p-3">
+            <p className="text-sm">{NO_DP_ADVICE_TEXT}</p>
+            <p className="text-xs text-muted-foreground">{NO_DP_ADVICE_HINT}</p>
+        </div>
     ) : (
         <DpAdviceRows view={view} />
     );

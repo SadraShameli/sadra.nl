@@ -254,8 +254,6 @@ interface WeeklyReviewSnapshotSubmitEntry extends Omit<
 
 const WEEK_DAYS = 7;
 
-const DOCUMENTED_HEADLINE_LABEL = 'Documented headline';
-
 interface ReviewEntry {
     readonly draft: WeeklyReviewSnapshotValues;
     readonly entryKind: WeeklyReviewEntryKind;
@@ -512,10 +510,7 @@ function entryOf(
 }
 
 function headlineLabelOf(rulebook: RulebookParameters): string {
-    const deviation = rulebookDeviation(rulebook);
-    return deviation.length === 0
-        ? DOCUMENTED_HEADLINE_LABEL
-        : `Headline from ${documentedRuleLabel(deviation)}`;
+    return `Risk per trade under ${documentedRuleLabel(rulebookDeviation(rulebook))}`;
 }
 
 function isActiveLedgerOnly(account: WeeklyReviewAccountInput): boolean {

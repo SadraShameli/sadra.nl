@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import {
     Table,
     TableBody,
@@ -9,7 +11,7 @@ import {
 
 import { type ExpectedNetCardModel, ExpectedNetStatus } from './overviewModel';
 
-export function ExpectedNetCard({
+export const ExpectedNetCard = memo(function ExpectedNetCard({
     model,
 }: {
     readonly model: ExpectedNetCardModel;
@@ -159,4 +161,4 @@ export function ExpectedNetCard({
             </ul>
         </div>
     );
-}
+});

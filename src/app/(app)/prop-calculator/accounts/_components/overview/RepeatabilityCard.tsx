@@ -1,10 +1,12 @@
+import { memo } from 'react';
+
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type RepeatabilityCardModel } from './overviewModel';
 
 type RepeatabilityStatsRow = NonNullable<RepeatabilityCardModel['overall']>;
 
-export function RepeatabilityCard({
+export const RepeatabilityCard = memo(function RepeatabilityCard({
     model,
 }: {
     readonly model: RepeatabilityCardModel;
@@ -36,7 +38,7 @@ export function RepeatabilityCard({
             )}
         </div>
     );
-}
+});
 
 function RepeatabilityGroup({
     label,

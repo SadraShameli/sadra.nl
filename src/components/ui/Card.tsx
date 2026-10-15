@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { type TitleTag } from '~/components/ui/titleTag';
 import { cn } from '~/lib/utilities';
 
 function Card({ className, ...properties }: React.ComponentProps<'div'>) {
@@ -77,9 +78,13 @@ function CardHeader({ className, ...properties }: React.ComponentProps<'div'>) {
     );
 }
 
-function CardTitle({ className, ...properties }: React.ComponentProps<'div'>) {
+function CardTitle({
+    as: Tag = 'div',
+    className,
+    ...properties
+}: React.HTMLAttributes<HTMLElement> & { readonly as?: TitleTag }) {
     return (
-        <div
+        <Tag
             className={cn('leading-none font-semibold', className)}
             data-slot="card-title"
             {...properties}

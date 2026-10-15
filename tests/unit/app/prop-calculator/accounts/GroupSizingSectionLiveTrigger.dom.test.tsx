@@ -228,7 +228,7 @@ describe('the copy-group sizing view words a verified live trigger and a sub-con
         render(verifiedSingleDay);
 
         expect(container.textContent).toContain(
-            `Documented size for every copy: ${formatCurrency(100)}`,
+            `Documented size for every copy: ${formatCurrency(100, 2)}`,
         );
         expect(container.textContent).toContain(
             COPY_GROUP_LIVE_TRIGGERS_ENFORCED_TEXT,

@@ -63,7 +63,7 @@ import {
     type EventPreviewer,
     NO_EVENT_PREVIEW,
 } from './eventOptions';
-import { nullIfBlank, parsedOrIssues } from './formParsing';
+import { nullIfBlank, parsedOrIssues, UNSET_SELECT_VALUE } from './formParsing';
 import { liveExclusivityPreviewOf } from './liveExclusivityPreview';
 
 type AccountFirmColumns = Pick<
@@ -80,12 +80,14 @@ type EventRow =
 
 const eventFormShape = z.object({
     bustCause: z.enum(BustCause),
-    kind: z.enum(AccountEventKind),
+    kind: z.union([z.enum(AccountEventKind), z.literal(UNSET_SELECT_VALUE)]),
     note: z.string(),
     occurredOn: z.string(),
 });
 
 type EventFormValues = z.input<typeof eventFormShape>;
+
+const EVENT_KIND_REQUIRED_MESSAGE = 'Choose the event to record.';
 
 const LEDGER_ONLY_EVENTS_NOTE =
     'This account is ledger only, so no plan rules check its events: record a bust, a closure or its conclusion here to keep its status current. A funded reset needs a modeled plan; record the firm reinstating the account as a bust reversal with a note.';
@@ -108,7 +110,6 @@ export function EventsSection({
     readonly tracking: AccountTracking;
 }) {
     const options = plan === null ? [] : eventOptions(plan, state);
-    const [first] = options;
     const rows = query.data;
     const accountQuery = api.propAccounts.account.get.useQuery({
         id: accountId,
@@ -168,17 +169,16 @@ export function EventsSection({
                     read again.
                 </p>
             )}
-            {plan !== null && first === undefined && (
+            {plan !== null && options.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                     No lifecycle event applies to this account now.
                 </p>
             )}
-            {first !== undefined && (
+            {options.length > 0 && (
                 <EventForm
                     accountId={accountId}
                     accounts={accountsQuery.data}
                     accountsFailed={accountsQuery.isError}
-                    first={first}
                     key={options.map((option) => option.kind).join(',')}
                     onFailure={onFailure}
                     onRecorded={(kind, occurredOn) => {
@@ -210,7 +210,6 @@ function EventForm({
     accountId,
     accounts,
     accountsFailed,
-    first,
     onFailure,
     onRecorded,
     options,
@@ -219,7 +218,6 @@ function EventForm({
     readonly accountId: string;
     readonly accounts: readonly AccountListAccount[] | undefined;
     readonly accountsFailed: boolean;
-    readonly first: EventOption;
     readonly onFailure: (error: unknown) => void;
     readonly onRecorded: (kind: AccountEventKind, occurredOn: string) => void;
     readonly options: readonly EventOption[];
@@ -232,7 +230,7 @@ function EventForm({
     const form = useForm<EventFormValues>({
         defaultValues: {
             bustCause: BustCause.Unknown,
-            kind: first.kind,
+            kind: UNSET_SELECT_VALUE,
             note: '',
             occurredOn: today,
         },
@@ -309,7 +307,7 @@ function EventForm({
             onRecorded(parsed.data.kind, parsed.data.occurredOn);
             form.reset({
                 bustCause: BustCause.Unknown,
-                kind: first.kind,
+                kind: UNSET_SELECT_VALUE,
                 note: '',
                 occurredOn: today,
             });
@@ -352,8 +350,8 @@ function EventForm({
                                 value={field.value}
                             >
                                 <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue />
+                                    <SelectTrigger ref={field.ref}>
+                                        <SelectValue placeholder="Choose an event" />
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
@@ -554,6 +552,14 @@ function EventForm({
 
 function eventFormSchema(accountId: string) {
     return eventFormShape.transform((values, context) => {
+        if (values.kind === UNSET_SELECT_VALUE) {
+            context.addIssue({
+                code: 'custom',
+                message: EVENT_KIND_REQUIRED_MESSAGE,
+                path: ['kind'],
+            });
+            return z.NEVER;
+        }
         const parsed = eventRecordSchema.safeParse({
             accountId,
             bustCause:

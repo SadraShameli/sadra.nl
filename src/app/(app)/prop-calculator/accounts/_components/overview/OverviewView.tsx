@@ -1,8 +1,9 @@
 'use client';
 
+import { replaceEqualDeep } from '@tanstack/react-query';
 import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
-import { type ReactNode, useMemo } from 'react';
+import { memo, type ReactNode, useMemo, useState } from 'react';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
@@ -98,24 +99,29 @@ export function OverviewView({ userId }: { readonly userId: string }) {
         extraRequests: engineRequests,
         userId,
     });
-    const model = useMemo(
-        () =>
-            buildOverview({
-                engine,
-                externalFirms: externalFirms ?? [],
-                load,
-                today,
-                userId,
-            }),
-        [engine, externalFirms, load, today, userId],
+    const model = useStructuralSharing(
+        useMemo(
+            () =>
+                buildOverview({
+                    engine,
+                    externalFirms: externalFirms ?? [],
+                    load,
+                    today,
+                    userId,
+                }),
+            [engine, externalFirms, load, today, userId],
+        ),
     );
-    const accountsTable = (
-        <div
-            className="scroll-mt-32"
-            id={overviewSectionAnchor(OverviewSectionId.Accounts)}
-        >
-            <AccountsTableWithValues values={values} />
-        </div>
+    const accountsTable = useMemo(
+        () => (
+            <div
+                className="scroll-mt-32"
+                id={overviewSectionAnchor(OverviewSectionId.Accounts)}
+            >
+                <AccountsTableWithValues values={values} />
+            </div>
+        ),
+        [values],
     );
     return (
         <>
@@ -293,7 +299,7 @@ function OverviewSection({
     );
 }
 
-function OverviewSections({
+const OverviewSections = memo(function OverviewSections({
     accountsTable,
     load,
     model,
@@ -354,7 +360,7 @@ function OverviewSections({
             );
         }
     }
-}
+});
 
 function PageSkeleton() {
     return (
@@ -745,6 +751,16 @@ function useOverviewPortfolioData(): PortfolioLoad {
             }),
         [firmStatements, firmStatementsError, queries, rounds, roundsError],
     );
+}
+
+function useStructuralSharing<Value>(value: Value): Value {
+    const [shared, setShared] = useState(value);
+    const next = useMemo(
+        () => replaceEqualDeep(shared, value),
+        [shared, value],
+    );
+    if (next !== shared) setShared(next);
+    return next;
 }
 
 function ViolationsSummarySection({

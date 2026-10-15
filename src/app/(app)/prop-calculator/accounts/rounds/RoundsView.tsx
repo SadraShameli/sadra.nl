@@ -262,9 +262,7 @@ export function RoundsView() {
             {(model.perFirm.length > 0 || model.unassignedRoundCount > 0) && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>
-                            <h2>Rounds by firm</h2>
-                        </CardTitle>
+                        <CardTitle as="h2">Rounds by firm</CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3">
                         {model.perFirm.length > 0 && (
@@ -344,9 +342,7 @@ export function RoundsView() {
             )}
             <Card>
                 <CardHeader>
-                    <CardTitle>
-                        <h2>Your rounds</h2>
-                    </CardTitle>
+                    <CardTitle as="h2">Your rounds</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {model.rounds.length === 0 ? (
@@ -474,9 +470,7 @@ function NextRoundCard({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>
-                    <h2>Next round</h2>
-                </CardTitle>
+                <CardTitle as="h2">Next round</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
                 <p className="text-sm text-muted-foreground">
@@ -640,9 +634,7 @@ function RoundForm({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>
-                    <h2>New round</h2>
-                </CardTitle>
+                <CardTitle as="h2">New round</CardTitle>
             </CardHeader>
             <CardContent>
                 <Form {...form}>

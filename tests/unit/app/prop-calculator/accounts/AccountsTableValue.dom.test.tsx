@@ -659,6 +659,18 @@ describe('account list and detail header lead with value and next action (PT-68)
                 "Enter today's balance",
             );
             expect(rowOf('No snapshot').textContent).toContain('Not valued');
+            const enterLink = [
+                ...rowOf('Stale funded').querySelectorAll('a'),
+            ].find((link) => link.textContent === "Enter today's balance");
+            expect(enterLink?.getAttribute('href')).toBe(
+                '/prop-calculator/accounts/review',
+            );
+            expect(
+                [...rowOf('Fresh funded').querySelectorAll('a')].some(
+                    (link) =>
+                        link.textContent === 'Trade at the documented rung',
+                ),
+            ).toBe(false);
             expect(container.textContent).not.toContain('Retire this account');
         });
 

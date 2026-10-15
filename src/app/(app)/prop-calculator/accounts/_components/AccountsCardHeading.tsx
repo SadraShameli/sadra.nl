@@ -7,9 +7,5 @@ export function AccountsCardHeading({
 }: {
     readonly children: ReactNode;
 }) {
-    return (
-        <CardTitle aria-level={2} role="heading">
-            {children}
-        </CardTitle>
-    );
+    return <CardTitle as="h2">{children}</CardTitle>;
 }
