@@ -126,35 +126,35 @@ export function OverviewView({ userId }: { readonly userId: string }) {
         [values],
     );
     return (
-            <div className="flex flex-col gap-8">
-                <LoadIssues issues={load.failures} variant="destructive" />
-                <LoadIssues issues={load.stale} variant="warning" />
-                {externalFirmsQuery.isError && (
-                    <Alert variant="warning">
-                        <TriangleAlert />
-                        <AlertTitle>Your firms could not be loaded</AlertTitle>
-                        <AlertDescription>
-                            {externalFirmsQuery.error.message} Accounts at a
-                            firm you added show it as an unlisted firm in the
-                            cards below until your firms load.
-                        </AlertDescription>
-                    </Alert>
-                )}
-                {load.accounts.status === OverviewSectionStatus.Pending && (
-                    <PageSkeleton />
-                )}
-                {model.hasAccounts ? (
-                    <OverviewSections
-                        accountsTable={accountsTable}
-                        load={load}
-                        model={model}
-                        userId={userId}
-                    />
-                ) : (
-                    load.accounts.status === OverviewSectionStatus.Ready &&
-                    accountsTable
-                )}
-            </div>
+        <div className="flex flex-col gap-8">
+            <LoadIssues issues={load.failures} variant="destructive" />
+            <LoadIssues issues={load.stale} variant="warning" />
+            {externalFirmsQuery.isError && (
+                <Alert variant="warning">
+                    <TriangleAlert />
+                    <AlertTitle>Your firms could not be loaded</AlertTitle>
+                    <AlertDescription>
+                        {externalFirmsQuery.error.message} Accounts at a firm
+                        you added show it as an unlisted firm in the cards below
+                        until your firms load.
+                    </AlertDescription>
+                </Alert>
+            )}
+            {load.accounts.status === OverviewSectionStatus.Pending && (
+                <PageSkeleton />
+            )}
+            {model.hasAccounts ? (
+                <OverviewSections
+                    accountsTable={accountsTable}
+                    load={load}
+                    model={model}
+                    userId={userId}
+                />
+            ) : (
+                load.accounts.status === OverviewSectionStatus.Ready &&
+                accountsTable
+            )}
+        </div>
     );
 }
 

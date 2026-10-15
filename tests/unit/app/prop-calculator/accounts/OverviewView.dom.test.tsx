@@ -1,4 +1,4 @@
-import { act, StrictMode } from 'react';
+import { act, type ReactNode, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,6 +18,7 @@ import {
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { type AccountListAccount } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { OverviewView } from '~/app/(app)/prop-calculator/accounts/_components/overview/OverviewView';
+import PropAccountsPage from '~/app/(app)/prop-calculator/accounts/page';
 import {
     AccountEventKind,
     AccountStage,
@@ -51,6 +52,7 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
 
+import { resolveServerTree } from '../../resolveServerTree';
 import { openDisclosure } from './openDisclosure';
 
 interface FakeQuery {
@@ -94,10 +96,29 @@ const harness = vi.hoisted(() => {
 });
 
 vi.mock('next/navigation', () => ({
+    redirect: (href: string) => {
+        throw new Error(`unexpected redirect to ${href}`);
+    },
     usePathname: () => '/prop-calculator/accounts',
     useRouter: () => ({ replace: vi.fn() }),
     useSearchParams: () => new URLSearchParams(),
 }));
+
+vi.mock('~/lib/auth/server', () => ({
+    getServerSession: () => Promise.resolve({ user: { id: 'user-a' } }),
+}));
+
+vi.mock('~/trpc/server', () => {
+    const recorder = (): unknown =>
+        new Proxy(vi.fn(), {
+            get: (_target, key) =>
+                key === 'prefetch' ? () => Promise.resolve() : recorder(),
+        });
+    return {
+        api: recorder(),
+        HydrateClient: ({ children }: { children: ReactNode }) => children,
+    };
+});
 
 vi.mock('~/trpc/react', () => ({
     api: {
@@ -465,6 +486,13 @@ describe('OverviewView', () => {
         });
     }
 
+    async function renderPage() {
+        const page = await resolveServerTree(PropAccountsPage());
+        act(() => {
+            root.render(page);
+        });
+    }
+
     function labelledSections(): HTMLElement[] {
         return [
             ...container.querySelectorAll<HTMLElement>(
@@ -506,12 +534,12 @@ describe('OverviewView', () => {
         vi.unstubAllGlobals();
     });
 
-    it('renders one h1 and an h2 per card, each section labelled by its heading, with the accounts table as the accounts section', () => {
+    it('renders one h1 and an h2 per card, each section labelled by its heading, with the accounts table as the accounts section', async () => {
         answerEverything([
             overviewAccount('alpha'),
             overviewAccount('unknown', { planSerial: 'no-such-plan' }),
         ]);
-        render();
+        await renderPage();
         expect(container.querySelectorAll('h1')).toHaveLength(1);
         expect(container.querySelector('h1')?.textContent).toBe(
             'Prop accounts',
@@ -918,10 +946,10 @@ describe('OverviewView', () => {
         expect(container.textContent).toContain('above your 30.0% threshold');
     });
 
-    it('shows one readable error and no table error or skeleton when the accounts cannot be loaded', () => {
+    it('shows one readable error and no table error or skeleton when the accounts cannot be loaded', async () => {
         answerEverything([]);
         harness.queries.set('account.list', failure('Failed to fetch'));
-        render();
+        await renderPage();
         expect(container.querySelectorAll('h1')).toHaveLength(1);
         expect(container.textContent).toContain(
             'Your accounts could not be loaded',
@@ -1065,9 +1093,9 @@ describe('OverviewView', () => {
         expect(alerts).toHaveLength(2);
     });
 
-    it('shows no card and the accounts table empty state when there are no accounts', () => {
+    it('shows no card and the accounts table empty state when there are no accounts', async () => {
         answerEverything([]);
-        render();
+        await renderPage();
         expect(container.querySelectorAll('h1')).toHaveLength(1);
         expect(
             labelledSections().map(
@@ -1093,8 +1121,8 @@ describe('OverviewView', () => {
         expect(titles).not.toContain('Costs');
     });
 
-    it('shows a loading placeholder and no cards while the data is pending', () => {
-        render();
+    it('shows a loading placeholder and no cards while the data is pending', async () => {
+        await renderPage();
         expect(container.querySelectorAll('h1')).toHaveLength(1);
         expect(
             container

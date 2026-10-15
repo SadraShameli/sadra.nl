@@ -1734,7 +1734,8 @@ const CUSHION_BASIS_LABEL: Readonly<Record<CushionRatioBasis, string>> = {
     [CushionRatioBasis.Live]: 'Live',
 };
 
-const EXPECTED_NET_SECTION_HREF = `${routes.propCalculator.accounts.index}#prop-overview-expected-net-heading` as const;
+const EXPECTED_NET_SECTION_HREF =
+    `${routes.propCalculator.accounts.index}#prop-overview-expected-net-heading` as const;
 
 const SETUP_STEP_LABEL: Readonly<Record<SetupStep, string>> = {
     [SetupStep.BudgetSet]: 'Budget set',
@@ -5165,6 +5166,12 @@ function latestSnapshotBalanceOf(
     };
 }
 
+function latestSnapshotsOf(context: AlertContext): readonly AlertSnapshotRow[] {
+    return context.accounts.flatMap(
+        (monitored) => monitored.latestSnapshot ?? [],
+    );
+}
+
 function ledgerCards(
     ledger: PortfolioLedger,
     today: string,
@@ -6781,7 +6788,10 @@ function setupFor(
             engineRequestsOfLedger(ledger, load.rulebook),
             load.rulebook,
         );
-        const staleAlerts = new StaleSnapshotRule().evaluate(context);
+        const staleSnapshotNotes = staleSnapshotNotesOf(
+            new StaleSnapshotRule().evaluate(context),
+            latestSnapshotsOf(context),
+        );
         return setupChecklistCardOf(
             setupChecklistOf({
                 expectedValuePlanSerials: expectedValuePlanSerialsOf(
@@ -6790,12 +6800,7 @@ function setupFor(
                 ),
                 ledger,
                 rulebook: ready.alerts.rulebook,
-                staleSnapshotNotes: staleSnapshotNotesOf(
-                    staleAlerts,
-                    context.accounts.flatMap(
-                        (monitored) => monitored.latestSnapshot ?? [],
-                    ),
-                ),
+                staleSnapshotNotes,
             }),
         );
     });

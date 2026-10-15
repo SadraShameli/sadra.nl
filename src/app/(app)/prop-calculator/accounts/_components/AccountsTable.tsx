@@ -15,18 +15,12 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
+import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { EmptyState } from '~/components/ui/EmptyState';
-import { Field, FieldLabel } from '~/components/ui/Field';
+import { FilterSelect } from '~/components/ui/FilterSelect';
+import { FilterToggle } from '~/components/ui/FilterToggle';
 import InfoPopover from '~/components/ui/InfoPopover';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
-import { Switch } from '~/components/ui/Switch';
 import {
     Table,
     TableBody,
@@ -35,6 +29,7 @@ import {
     TableHeader,
     TableRow,
 } from '~/components/ui/Table';
+import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import {
     AccountStage,
     accountStageLabel,
@@ -84,8 +79,6 @@ import {
     expectedValuesOf,
     hasPendingValues,
 } from './useAccountValues';
-
-const ALL = 'all';
 
 const OPTION_PREFIX = 'option:';
 
@@ -391,6 +384,39 @@ export function ArchiveAccountButton({
     );
 }
 
+function AccountFilterSelect({
+    label,
+    onChange,
+    options,
+    placeholder,
+    value,
+}: {
+    label: string;
+    onChange: (value: null | string) => void;
+    options: readonly FilterOption[];
+    placeholder: string;
+    value: null | string;
+}) {
+    return (
+        <FilterSelect
+            label={label}
+            onValueChange={(next) => {
+                onChange(
+                    next === undefined
+                        ? null
+                        : next.slice(OPTION_PREFIX.length),
+                );
+            }}
+            options={options.map((option) => ({
+                label: option.label,
+                value: encodeOption(option.value),
+            }))}
+            placeholder={placeholder}
+            value={value === null ? undefined : encodeOption(value)}
+        />
+    );
+}
+
 function AccountListFilterBar({
     filters,
     onFiltersChange,
@@ -405,132 +431,122 @@ function AccountListFilterBar({
     sort: AccountListSort;
 }) {
     return (
-        <>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
-                <FilterSelect
-                    id="accounts-filter-firm"
-                    label="Firm"
-                    onChange={(value) => {
-                        onFiltersChange({
-                            ...filters,
-                            firmKey:
-                                value === null
-                                    ? null
-                                    : firmKeyOfOption(options.firms, value),
-                        });
+        <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+            <AccountFilterSelect
+                label="Firm"
+                onChange={(value) => {
+                    onFiltersChange({
+                        ...filters,
+                        firmKey:
+                            value === null
+                                ? null
+                                : firmKeyOfOption(options.firms, value),
+                    });
+                }}
+                options={options.firms}
+                placeholder="All firms"
+                value={
+                    filters.firmKey === null ? null : firmKeyId(filters.firmKey)
+                }
+            />
+            <AccountFilterSelect
+                label="Stage"
+                onChange={(value) => {
+                    onFiltersChange({
+                        ...filters,
+                        stage: parseEnum(AccountStage, value),
+                    });
+                }}
+                options={options.stages}
+                placeholder="All stages"
+                value={filters.stage}
+            />
+            <AccountFilterSelect
+                label="Status"
+                onChange={(value) => {
+                    onFiltersChange({
+                        ...filters,
+                        status: parseEnum(AccountStatus, value),
+                    });
+                }}
+                options={options.statuses}
+                placeholder="All statuses"
+                value={filters.status}
+            />
+            <AccountFilterSelect
+                label="Copy group"
+                onChange={(value) => {
+                    onFiltersChange({ ...filters, copyGroupId: value });
+                }}
+                options={options.groups}
+                placeholder="All copy groups"
+                value={filters.copyGroupId}
+            />
+            <AccountFilterSelect
+                label="Tag"
+                onChange={(value) => {
+                    onFiltersChange({ ...filters, tag: value });
+                }}
+                options={options.tags}
+                placeholder="All tags"
+                value={filters.tag}
+            />
+            <div className="flex gap-2">
+                <ToolbarSelect
+                    label="Sort by"
+                    onValueChange={(value) => {
+                        const key = parseEnum(AccountSortKey, value);
+                        if (key !== null) onSortChange({ ...sort, key });
                     }}
-                    options={options.firms}
-                    value={
-                        filters.firmKey === null
-                            ? null
-                            : firmKeyId(filters.firmKey)
+                    options={Object.values(AccountSortKey).map((key) => ({
+                        label: SORT_LABEL[key],
+                        value: key,
+                    }))}
+                    value={sort.key}
+                />
+                <Button
+                    aria-label={
+                        sort.direction === SortDirection.Ascending
+                            ? 'Sorted ascending, switch to descending'
+                            : 'Sorted descending, switch to ascending'
                     }
-                />
-                <FilterSelect
-                    id="accounts-filter-stage"
-                    label="Stage"
-                    onChange={(value) => {
-                        onFiltersChange({
-                            ...filters,
-                            stage: parseEnum(AccountStage, value),
-                        });
-                    }}
-                    options={options.stages}
-                    value={filters.stage}
-                />
-                <FilterSelect
-                    id="accounts-filter-status"
-                    label="Status"
-                    onChange={(value) => {
-                        onFiltersChange({
-                            ...filters,
-                            status: parseEnum(AccountStatus, value),
-                        });
-                    }}
-                    options={options.statuses}
-                    value={filters.status}
-                />
-                <FilterSelect
-                    id="accounts-filter-group"
-                    label="Copy group"
-                    onChange={(value) => {
-                        onFiltersChange({ ...filters, copyGroupId: value });
-                    }}
-                    options={options.groups}
-                    value={filters.copyGroupId}
-                />
-                <FilterSelect
-                    id="accounts-filter-tag"
-                    label="Tag"
-                    onChange={(value) => {
-                        onFiltersChange({ ...filters, tag: value });
-                    }}
-                    options={options.tags}
-                    value={filters.tag}
-                />
-                <Field>
-                    <FieldLabel htmlFor="accounts-sort">Sort by</FieldLabel>
-                    <div className="flex gap-2">
-                        <Select
-                            onValueChange={(value) => {
-                                const key = parseEnum(AccountSortKey, value);
-                                if (key !== null)
-                                    onSortChange({ ...sort, key });
-                            }}
-                            value={sort.key}
-                        >
-                            <SelectTrigger id="accounts-sort">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {Object.values(AccountSortKey).map((key) => (
-                                    <SelectItem key={key} value={key}>
-                                        {SORT_LABEL[key]}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Button
-                            aria-label={
+                    onClick={() => {
+                        onSortChange({
+                            ...sort,
+                            direction:
                                 sort.direction === SortDirection.Ascending
-                                    ? 'Sorted ascending, switch to descending'
-                                    : 'Sorted descending, switch to ascending'
-                            }
-                            onClick={() => {
-                                onSortChange({
-                                    ...sort,
-                                    direction:
-                                        sort.direction ===
-                                        SortDirection.Ascending
-                                            ? SortDirection.Descending
-                                            : SortDirection.Ascending,
-                                });
-                            }}
-                            size="icon"
-                            type="button"
-                            variant="outline"
-                        >
-                            <ArrowDownUp />
-                        </Button>
-                    </div>
-                </Field>
-            </div>
-            <Field orientation="horizontal">
-                <Switch
-                    checked={filters.includeArchived}
-                    id="accounts-show-archived"
-                    onCheckedChange={(checked) => {
-                        onFiltersChange({
-                            ...filters,
-                            includeArchived: checked,
+                                    ? SortDirection.Descending
+                                    : SortDirection.Ascending,
                         });
                     }}
-                />
-                <FieldLabel htmlFor="accounts-show-archived">
-                    Show archived accounts
-                </FieldLabel>
-            </Field>
-        </>
+                    size="icon-sm"
+                    type="button"
+                    variant="outline"
+                >
+                    <ArrowDownUp />
+                </Button>
+            </div>
+            <FilterToggle
+                isPressed={filters.includeArchived}
+                label="Show archived accounts"
+                onPressedChange={(pressed) => {
+                    onFiltersChange({ ...filters, includeArchived: pressed });
+                }}
+            />
+            <ClearFiltersButton
+                active={
+                    filters.firmKey !== null ||
+                    filters.stage !== null ||
+                    filters.status !== null ||
+                    filters.copyGroupId !== null ||
+                    filters.tag !== null ||
+                    filters.includeArchived
+                }
+                onReset={() => {
+                    onFiltersChange(DEFAULT_ACCOUNT_LIST_FILTERS);
+                }}
+            />
+        </div>
     );
 }
 
@@ -670,49 +686,6 @@ function AccountRow({
 
 function encodeOption(value: string): string {
     return `${OPTION_PREFIX}${value}`;
-}
-
-function FilterSelect({
-    id,
-    label,
-    onChange,
-    options,
-    value,
-}: {
-    id: string;
-    label: string;
-    onChange: (value: null | string) => void;
-    options: readonly FilterOption[];
-    value: null | string;
-}) {
-    return (
-        <Field>
-            <FieldLabel htmlFor={id}>{label}</FieldLabel>
-            <Select
-                onValueChange={(next) => {
-                    onChange(
-                        next === ALL ? null : next.slice(OPTION_PREFIX.length),
-                    );
-                }}
-                value={value === null ? ALL : encodeOption(value)}
-            >
-                <SelectTrigger id={id}>
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value={ALL}>All</SelectItem>
-                    {options.map((option) => (
-                        <SelectItem
-                            key={option.value}
-                            value={encodeOption(option.value)}
-                        >
-                            {option.label}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        </Field>
-    );
 }
 
 function parseEnum<T extends string>(

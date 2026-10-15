@@ -29,6 +29,7 @@ import {
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 
+import { ariaLabelledSelect } from '../labelledControl';
 import {
     chosenObjective,
     objectiveOptionTexts,
@@ -272,17 +273,7 @@ describe('NextSlotView', () => {
     }
 
     function sortTrigger(): HTMLButtonElement {
-        const label = [...container.querySelectorAll('label')].find(
-            (candidate) => candidate.textContent.trim() === 'Sort by',
-        );
-        const trigger =
-            label === undefined
-                ? null
-                : container.querySelector<HTMLButtonElement>(
-                      `#${CSS.escape(label.htmlFor)}`,
-                  );
-        if (trigger === null) throw new Error('no Sort by select');
-        return trigger;
+        return ariaLabelledSelect(container, 'Sort by');
     }
 
     function headings(): string[] {

@@ -58,10 +58,8 @@ describe('SetupAccountsTable', () => {
 
     function firstColumn(): readonly string[] {
         return [
-            ...container.querySelectorAll('tbody tr:not([aria-hidden])'),
-        ].map(
-            (row) => row.querySelector(':scope > td')?.textContent ?? '',
-        );
+            ...container.querySelectorAll(':scope tbody tr:not([aria-hidden])'),
+        ].map((row) => row.querySelector(':scope > td')?.textContent ?? '');
     }
 
     function button(label: string): HTMLButtonElement {
@@ -81,7 +79,7 @@ describe('SetupAccountsTable', () => {
             'Stage',
             'Purchased',
         ]);
-        const row = container.querySelector('tbody > tr');
+        const row = container.querySelector(':scope tbody > tr');
         expect(row?.textContent).toContain('Tradeify');
         expect(row?.textContent).toContain('Pro 50K');
         expect(row?.textContent).toContain('Evaluation');
@@ -125,7 +123,7 @@ describe('SetupAccountsTable', () => {
             'Account 03',
             'Account 05',
         ]);
-        expect(container.querySelectorAll('tbody tr')).toHaveLength(6);
+        expect(container.querySelectorAll(':scope tbody tr')).toHaveLength(6);
         act(() => {
             button('Clear filters').click();
         });

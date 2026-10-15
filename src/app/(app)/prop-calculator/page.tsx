@@ -15,7 +15,10 @@ export default function PropertyCalculatorPage() {
     return (
         <PageTransition>
             <main
-                className={cn('app-prop-calculator', 'container pt-spacing pb-24')}
+                className={cn(
+                    'app-prop-calculator',
+                    'container pt-spacing pb-24',
+                )}
             >
                 <HubLegacySectionRedirect />
                 <header className="mb-10">
@@ -23,11 +26,11 @@ export default function PropertyCalculatorPage() {
                         Futures Prop Firm Calculator
                     </h1>
                     <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                        Pick a tool. The simulations run a Monte Carlo against each
-                        firm&apos;s real drawdown, daily-loss, and consistency
-                        rules. Your inputs carry over between tools; pinned
-                        scenarios and lab results reset when you leave the tools and
-                        come back here.
+                        Pick a tool. The simulations run a Monte Carlo against
+                        each firm&apos;s real drawdown, daily-loss, and
+                        consistency rules. Your inputs carry over between tools;
+                        pinned scenarios and lab results reset when you leave
+                        the tools and come back here.
                     </p>
                 </header>
 

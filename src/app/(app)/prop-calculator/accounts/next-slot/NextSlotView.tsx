@@ -12,14 +12,6 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useOverviewWorker } from '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
-import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
 import { Skeleton } from '~/components/ui/Skeleton';
 import {
     Table,
@@ -29,6 +21,7 @@ import {
     TableHeader,
     TableRow,
 } from '~/components/ui/Table';
+import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import { NextSlotSortKey, PortfolioLedger } from '~/lib/prop-accounts';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { type SizingObjective } from '~/lib/prop-calculator/advisor';
@@ -524,30 +517,19 @@ function SortKeySelect({
     readonly sortKey: NextSlotSortKey;
 }) {
     return (
-        <div className="flex flex-wrap items-center gap-2">
-            <Label className="text-muted-foreground" htmlFor={SORT_SELECT_ID}>
-                Sort by
-            </Label>
-            <Select
-                disabled={!isHourKeyAvailable}
-                onValueChange={(value) => {
-                    const chosen = sortKeySchema.safeParse(value);
-                    if (chosen.success) onChange(chosen.data);
-                }}
-                value={sortKey}
-            >
-                <SelectTrigger className="w-auto" id={SORT_SELECT_ID}>
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value={NextSlotSortKey.Objective}>
-                        Objective
-                    </SelectItem>
-                    <SelectItem value={NextSlotSortKey.Hour}>
-                        Net per screen hour
-                    </SelectItem>
-                </SelectContent>
-            </Select>
-        </div>
+        <ToolbarSelect
+            disabled={!isHourKeyAvailable}
+            id={SORT_SELECT_ID}
+            label="Sort by"
+            onValueChange={(value) => {
+                const chosen = sortKeySchema.safeParse(value);
+                if (chosen.success) onChange(chosen.data);
+            }}
+            options={[
+                { label: 'Objective', value: NextSlotSortKey.Objective },
+                { label: 'Net per screen hour', value: NextSlotSortKey.Hour },
+            ]}
+            value={sortKey}
+        />
     );
 }

@@ -5,6 +5,8 @@ import {
     type SectionErrorProperties,
 } from '~/components/SectionError';
 
-export default function PropCalculatorError(properties: SectionErrorProperties) {
+export default function PropCalculatorError(
+    properties: SectionErrorProperties,
+) {
     return <SectionError {...properties} section="The prop calculator" />;
 }

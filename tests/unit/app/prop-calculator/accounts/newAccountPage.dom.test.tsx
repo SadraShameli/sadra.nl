@@ -13,6 +13,8 @@ import {
 } from '~/lib/prop-calculator';
 import { CalculatorUrlParameter, UrlFlag } from '~/lib/schemas/url';
 
+import { resolveServerTree } from '../../resolveServerTree';
+
 vi.mock('~/lib/auth/server', () => ({
     getServerSession: () => Promise.resolve({ user: { id: 'user-1' } }),
 }));
@@ -63,9 +65,11 @@ describe('new account page prefill', () => {
     let root: Root;
 
     async function render(parameters: AccountPrefillParameters) {
-        const page = await NewPropAccountPage({
-            searchParams: Promise.resolve(parameters),
-        });
+        const page = await resolveServerTree(
+            NewPropAccountPage({
+                searchParams: Promise.resolve(parameters),
+            }),
+        );
         act(() => {
             root.render(page);
         });

@@ -31,8 +31,10 @@ import {
     firmSelectOptions,
 } from '~/app/(app)/prop-calculator/accounts/rounds/roundsModel';
 import { Button } from '~/components/ui/Button';
+import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { EmptyState } from '~/components/ui/EmptyState';
-import { Field, FieldLabel } from '~/components/ui/Field';
+import { FilterIsoDateRange } from '~/components/ui/FilterIsoDateRange';
+import { FilterSelect } from '~/components/ui/FilterSelect';
 import {
     Form,
     FormControl,
@@ -111,7 +113,6 @@ import {
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-const ALL = 'all';
 const CSV_MIME_TYPE = 'text/csv;charset=utf-8';
 
 const CASH_FLOW_LABEL: Readonly<Record<LedgerCashFlow, string>> = {
@@ -674,93 +675,54 @@ function LedgerFilterBar({
         filters.from !== DEFAULT_LEDGER_FILTERS.from ||
         filters.to !== DEFAULT_LEDGER_FILTERS.to;
     return (
-        <div className="flex flex-wrap items-end gap-3">
-            <Field className="w-auto min-w-48">
-                <FieldLabel htmlFor="ledger-filter-account">Account</FieldLabel>
-                <Select
-                    onValueChange={(value) => {
-                        onChange({
-                            ...filters,
-                            accountId: value === ALL ? null : value,
-                        });
-                    }}
-                    value={filters.accountId ?? ALL}
-                >
-                    <SelectTrigger id="ledger-filter-account">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value={ALL}>All accounts</SelectItem>
-                        {accountOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </Field>
-            <Field className="w-auto min-w-44">
-                <FieldLabel htmlFor="ledger-filter-entries">Entries</FieldLabel>
-                <Select
-                    onValueChange={(value) => {
-                        const entries = ENTRY_FILTERS.get(value);
-                        if (entries !== undefined) {
-                            onChange({ ...filters, entries });
-                        }
-                    }}
-                    value={filters.entries}
-                >
-                    <SelectTrigger id="ledger-filter-entries">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {Object.values(LedgerEntryFilter).map((member) => (
-                            <SelectItem key={member} value={member}>
-                                {ENTRY_FILTER_LABEL[member]}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </Field>
-            <Field className="w-auto">
-                <FieldLabel htmlFor="ledger-filter-from">From</FieldLabel>
-                <Input
-                    id="ledger-filter-from"
-                    onChange={(event) => {
-                        onChange({
-                            ...filters,
-                            from: event.target.value || null,
-                        });
-                    }}
-                    type="date"
-                    value={filters.from ?? ''}
-                />
-            </Field>
-            <Field className="w-auto">
-                <FieldLabel htmlFor="ledger-filter-to">To</FieldLabel>
-                <Input
-                    id="ledger-filter-to"
-                    onChange={(event) => {
-                        onChange({
-                            ...filters,
-                            to: event.target.value || null,
-                        });
-                    }}
-                    type="date"
-                    value={filters.to ?? ''}
-                />
-            </Field>
-            {isFiltered && (
-                <Button
-                    onClick={() => {
-                        onChange(DEFAULT_LEDGER_FILTERS);
-                    }}
-                    type="button"
-                    variant="ghost"
-                >
-                    Clear filters
-                </Button>
-            )}
+        <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+            <FilterSelect
+                label="Account"
+                onValueChange={(value) => {
+                    onChange({ ...filters, accountId: value ?? null });
+                }}
+                options={accountOptions}
+                placeholder="All accounts"
+                value={filters.accountId ?? undefined}
+            />
+            <FilterSelect
+                label="Entries"
+                onValueChange={(value) => {
+                    const entries =
+                        value === undefined
+                            ? LedgerEntryFilter.All
+                            : ENTRY_FILTERS.get(value);
+                    if (entries !== undefined) {
+                        onChange({ ...filters, entries });
+                    }
+                }}
+                options={Object.values(LedgerEntryFilter)
+                    .filter((member) => member !== LedgerEntryFilter.All)
+                    .map((member) => ({
+                        label: ENTRY_FILTER_LABEL[member],
+                        value: member,
+                    }))}
+                placeholder={ENTRY_FILTER_LABEL[LedgerEntryFilter.All]}
+                value={
+                    filters.entries === LedgerEntryFilter.All
+                        ? undefined
+                        : filters.entries
+                }
+            />
+            <FilterIsoDateRange
+                label="Entry date"
+                onChange={(range) => {
+                    onChange({ ...filters, from: range.from, to: range.to });
+                }}
+                placeholder="Any date"
+                value={{ from: filters.from, to: filters.to }}
+            />
+            <ClearFiltersButton
+                active={isFiltered}
+                onReset={() => {
+                    onChange(DEFAULT_LEDGER_FILTERS);
+                }}
+            />
         </div>
     );
 }

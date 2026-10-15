@@ -1,10 +1,10 @@
 import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
-import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { AccountEditor } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { openAccountPage } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountIdParameter';
 import { PageTransition } from '~/components/PageTransition';
 import { routes } from '~/lib/site/routes';

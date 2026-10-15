@@ -12,18 +12,6 @@ export type ToolPageHeadingProperties =
     | { ownQuery: string; toolId: OwnCodecToolId }
     | { ownQuery?: never; toolId: Exclude<ToolId, OwnCodecToolId> };
 
-export function ToolPageHeading({
-    ownQuery,
-    toolId,
-}: ToolPageHeadingProperties) {
-    const entry = toolCatalogEntry(toolId);
-    return (
-        <ToolHeaderFrame toolbar={entry.sharesState && <CalculatorToolbar ownQuery={ownQuery} />}>
-            <ToolHeadingText entry={entry} />
-        </ToolHeaderFrame>
-    );
-}
-
 export function ToolHeaderFrame({
     children,
     toolbar,
@@ -39,7 +27,11 @@ export function ToolHeaderFrame({
     );
 }
 
-export function ToolHeadingText({ entry }: { readonly entry: ToolCatalogEntry }) {
+export function ToolHeadingText({
+    entry,
+}: {
+    readonly entry: ToolCatalogEntry;
+}) {
     return (
         <div>
             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
@@ -49,5 +41,21 @@ export function ToolHeadingText({ entry }: { readonly entry: ToolCatalogEntry })
                 {entry.blurb}
             </p>
         </div>
+    );
+}
+
+export function ToolPageHeading({
+    ownQuery,
+    toolId,
+}: ToolPageHeadingProperties) {
+    const entry = toolCatalogEntry(toolId);
+    return (
+        <ToolHeaderFrame
+            toolbar={
+                entry.sharesState && <CalculatorToolbar ownQuery={ownQuery} />
+            }
+        >
+            <ToolHeadingText entry={entry} />
+        </ToolHeaderFrame>
     );
 }

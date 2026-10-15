@@ -1,7 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
-
 import {
     RouteSubnav,
     type RouteSubnavItem,
@@ -13,20 +11,18 @@ import { withPageStateBlobsOnly } from './urlState';
 
 export function PropCalculatorSubnav() {
     const { debouncedQuery } = useCalculatorInputs();
-    const items = useMemo<readonly RouteSubnavItem[]>(
-        () =>
-            LINKED_TOOL_CATALOG.map((entry) => ({
-                carriesQuery: entry.usesCalculatorInputs,
-                href: entry.route,
-                icon: entry.icon,
-                label: entry.label,
-                prefetch: false,
-                query: withPageStateBlobsOnly(
-                    debouncedQuery,
-                    pageStateBlobsOf(entry.id),
-                ),
-            })),
-        [debouncedQuery],
+    const items: readonly RouteSubnavItem[] = LINKED_TOOL_CATALOG.map(
+        (entry) => ({
+            carriesQuery: entry.usesCalculatorInputs,
+            href: entry.route,
+            icon: entry.icon,
+            label: entry.label,
+            prefetch: false,
+            query: withPageStateBlobsOnly(
+                debouncedQuery,
+                pageStateBlobsOf(entry.id),
+            ),
+        }),
     );
     return (
         <RouteSubnav

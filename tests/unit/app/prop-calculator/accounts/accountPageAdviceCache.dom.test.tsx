@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type ComputationCache } from '~/app/(app)/prop-calculator/_components/computationCache';
 import { ComputationCacheContext } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 
+import { resolveServerTree } from '../../resolveServerTree';
+
 const ACCOUNT_ID = '3f0c1a52-8b6e-4c8f-9d2a-5e1b7a9c4d10';
 
 const probe = vi.hoisted(() => ({
@@ -82,14 +84,14 @@ describe('the accounts pages share one computation cache (PT-34c, PT-21c)', () =
     let root: Root;
 
     async function renderInLayout(children: ReactNode) {
-        const tree = await PropAccountsLayout({ children });
+        const tree = await resolveServerTree(PropAccountsLayout({ children }));
         act(() => {
             root.render(tree);
         });
     }
 
     async function renderPage() {
-        const page = await PropAccountDetailPage({
+        const page = PropAccountDetailPage({
             params: Promise.resolve({ id: ACCOUNT_ID }),
         });
         await renderInLayout(page);

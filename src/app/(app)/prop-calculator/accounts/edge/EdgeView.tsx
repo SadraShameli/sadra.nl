@@ -18,9 +18,9 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
+import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { EmptyState } from '~/components/ui/EmptyState';
-import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { FilterIsoDateRange } from '~/components/ui/FilterIsoDateRange';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { formatPercent, formatR } from '~/lib/format';
 import {
@@ -103,32 +103,39 @@ export function EdgeView() {
                     {MIN_EXPECTED_WINS_AND_LOSSES} losses at that win rate.
                 </AlertDescription>
             </Alert>
-            <div className="flex flex-wrap items-end gap-4">
-                <EdgeDateField
-                    id="prop-accounts-edge-from"
-                    issue={rangeCheck.issues.get('from')}
-                    label="From"
-                    onChange={setFrom}
-                    value={from}
-                />
-                <EdgeDateField
-                    id="prop-accounts-edge-to"
-                    issue={rangeCheck.issues.get('to')}
-                    label="To"
-                    onChange={setTo}
-                    value={to}
-                />
-                {(from !== '' || to !== '') && (
-                    <Button
-                        onClick={() => {
+            <div className="flex flex-col gap-2">
+                <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+                    <FilterIsoDateRange
+                        label="Journal days"
+                        max={LATEST_DATE}
+                        min={EARLIEST_DATE}
+                        onChange={(next) => {
+                            setFrom(next.from ?? '');
+                            setTo(next.to ?? '');
+                        }}
+                        placeholder="All journal days"
+                        value={{
+                            from: from === '' ? null : from,
+                            to: to === '' ? null : to,
+                        }}
+                    />
+                    <ClearFiltersButton
+                        active={from !== '' || to !== ''}
+                        onReset={() => {
                             setFrom('');
                             setTo('');
                         }}
-                        variant="outline"
+                    />
+                </div>
+                {[...rangeCheck.issues].map(([field, issue]) => (
+                    <p
+                        className="text-xs text-destructive first-letter:uppercase"
+                        key={field}
+                        role="alert"
                     >
-                        All journal days
-                    </Button>
-                )}
+                        {issue}
+                    </p>
+                ))}
             </div>
             {rangeCheck.isValid && summaryQuery.isPending && (
                 <Skeleton className="h-48 w-full" />
@@ -151,44 +158,6 @@ export function EdgeView() {
                 />
             )}
         </section>
-    );
-}
-
-function EdgeDateField({
-    id,
-    issue,
-    label,
-    onChange,
-    value,
-}: {
-    readonly id: string;
-    readonly issue: string | undefined;
-    readonly label: string;
-    readonly onChange: (value: string) => void;
-    readonly value: string;
-}) {
-    const issueId = `${id}-issue`;
-    return (
-        <Field data-invalid={issue !== undefined}>
-            <FieldLabel htmlFor={id}>{label}</FieldLabel>
-            <Input
-                aria-describedby={issue === undefined ? undefined : issueId}
-                aria-invalid={issue !== undefined}
-                id={id}
-                max={LATEST_DATE}
-                min={EARLIEST_DATE}
-                onChange={(event) => {
-                    onChange(event.target.value);
-                }}
-                type="date"
-                value={value}
-            />
-            {issue !== undefined && (
-                <FieldError className="first-letter:uppercase" id={issueId}>
-                    {issue}
-                </FieldError>
-            )}
-        </Field>
     );
 }
 

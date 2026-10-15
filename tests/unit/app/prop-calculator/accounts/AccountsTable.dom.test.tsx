@@ -21,6 +21,7 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
 
+import { ariaLabelledSelect } from '../labelledControl';
 import { AccountsTable } from './AccountsTableWithData';
 
 interface FakeQuery {
@@ -128,10 +129,15 @@ function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };
 }
 
-function element(scope: ParentNode, selector: string): HTMLElement {
-    const found = scope.querySelector<HTMLElement>(selector);
-    if (found === null) throw new Error(`nothing matches ${selector}`);
-    return found;
+function archivedToggle(scope: ParentNode): HTMLButtonElement {
+    const toggle = [
+        ...scope.querySelectorAll<HTMLButtonElement>('button[aria-pressed]'),
+    ].find(
+        (candidate) =>
+            candidate.textContent.trim() === 'Show archived accounts',
+    );
+    if (toggle === undefined) throw new Error('no show archived toggle');
+    return toggle;
 }
 
 function ledgerAccount(id: string, label: string, externalFirmId: string) {
@@ -333,7 +339,7 @@ describe('AccountsTable', () => {
             answer([account(ALPHA_ID, 'Alpha')]),
         );
         render();
-        const trigger = element(container, '#accounts-filter-firm');
+        const trigger = ariaLabelledSelect(container, 'Firm');
         await openListbox(trigger);
         expect(offeredOptionTexts()).toContain('Hola Prime');
     });
@@ -352,7 +358,7 @@ describe('AccountsTable', () => {
             ]),
         );
         render();
-        const trigger = element(container, '#accounts-filter-firm');
+        const trigger = ariaLabelledSelect(container, 'Firm');
         await pickOption(trigger, 'Hola Prime');
         expect(container.textContent).toContain('Bravo');
         expect(container.textContent).not.toContain('Alpha');
@@ -367,12 +373,12 @@ describe('AccountsTable', () => {
             ]),
         );
         render();
-        const trigger = element(container, '#accounts-filter-tag');
+        const trigger = ariaLabelledSelect(container, 'Tag');
         await openListbox(trigger);
-        expect(offeredOptionTexts()).toEqual(['All', 'all', 'swing']);
+        expect(offeredOptionTexts()).toEqual(['All tags', 'all', 'swing']);
         await pickOption(trigger, 'all');
         expect(rowLabelsOf(container)).toEqual(['Alpha']);
-        await pickOption(trigger, 'All');
+        await pickOption(trigger, 'All tags');
         expect(rowLabelsOf(container).toSorted(byText)).toEqual([
             'Alpha',
             'Bravo',
@@ -419,9 +425,15 @@ describe('AccountsTable', () => {
             );
             render();
             expect(rowLabelsOf(container)).toEqual(['Alpha']);
+            expect(archivedToggle(container).getAttribute('aria-pressed')).toBe(
+                'false',
+            );
             act(() => {
-                element(container, '#accounts-show-archived').click();
+                archivedToggle(container).click();
             });
+            expect(archivedToggle(container).getAttribute('aria-pressed')).toBe(
+                'true',
+            );
             expect(rowLabelsOf(container).toSorted(byText)).toEqual([
                 'Alpha',
                 'Bravo',
@@ -442,10 +454,7 @@ describe('AccountsTable', () => {
                 ]),
             );
             render();
-            await pickOption(
-                element(container, '#accounts-filter-stage'),
-                'Funded',
-            );
+            await pickOption(ariaLabelledSelect(container, 'Stage'), 'Funded');
             expect(rowLabelsOf(container)).toEqual(['Bravo']);
         });
 
@@ -461,10 +470,7 @@ describe('AccountsTable', () => {
                 ]),
             );
             render();
-            await pickOption(
-                element(container, '#accounts-filter-status'),
-                'Busted',
-            );
+            await pickOption(ariaLabelledSelect(container, 'Status'), 'Busted');
             expect(rowLabelsOf(container)).toEqual(['Bravo']);
         });
 
@@ -483,7 +489,7 @@ describe('AccountsTable', () => {
             );
             render();
             await pickOption(
-                element(container, '#accounts-filter-group'),
+                ariaLabelledSelect(container, 'Copy group'),
                 'Morning group',
             );
             expect(rowLabelsOf(container)).toEqual(['Bravo']);
@@ -510,7 +516,7 @@ describe('AccountsTable', () => {
         it('sorts by label A to Z in one direction and the exact reverse in the other', async () => {
             threeAccounts();
             render();
-            await pickOption(element(container, '#accounts-sort'), 'Label');
+            await pickOption(ariaLabelledSelect(container, 'Sort by'), 'Label');
             const beforeToggle = rowLabelsOf(container);
             toggleDirection(container);
             const afterToggle = rowLabelsOf(container);
@@ -533,7 +539,10 @@ describe('AccountsTable', () => {
                 ]),
             );
             render();
-            await pickOption(element(container, '#accounts-sort'), 'Cushion');
+            await pickOption(
+                ariaLabelledSelect(container, 'Sort by'),
+                'Cushion',
+            );
             expect(rowLabelsOf(container)).toEqual([
                 'Charlie',
                 'Alpha',
@@ -595,7 +604,7 @@ describe('AccountsTable', () => {
             harness.values = { boards, columns: new Map(), notice: null };
             render();
             await pickOption(
-                element(container, '#accounts-sort'),
+                ariaLabelledSelect(container, 'Sort by'),
                 'Payout readiness',
             );
             const beforeToggle = rowLabelsOf(container);
