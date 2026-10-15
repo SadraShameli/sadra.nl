@@ -123,7 +123,7 @@ export default function FunnelWhatIfSection() {
             <p className="text-xs font-medium text-muted-foreground">
                 What-if funnel (attempts, pass rate, payout rate, payout, fee)
             </p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 <WhatIfField
                     id="cash-flow-what-if-attempts"
                     invalid={isInvalid}
@@ -162,9 +162,16 @@ export default function FunnelWhatIfSection() {
                 >
                     {WHAT_IF_VALIDATION_MESSAGE}
                 </p>
-            ) : outcome === null ? null : (
+            ) : outcome === null ? (
+                isFilled ? null : (
+                    <p className="text-[11px] text-muted-foreground">
+                        Fill in all five fields to see how many attempts pass
+                        and get paid, and the net after fees.
+                    </p>
+                )
+            ) : (
                 <>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                         <StatCard
                             label="Passed"
                             value={outcome.result.passed.toFixed(1)}

@@ -67,7 +67,7 @@ export function HubToolCards() {
                     >
                         {label}
                     </h2>
-                    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {tools.map((entry) => {
                             const Icon = entry.icon;
                             return (

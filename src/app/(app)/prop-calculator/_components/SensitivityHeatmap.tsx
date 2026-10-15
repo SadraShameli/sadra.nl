@@ -297,7 +297,7 @@ function HeatmapCells({
                     return (
                         <span
                             className={cn(
-                                'flex h-9 w-14 items-center justify-center rounded-sm text-foreground transition-colors',
+                                'flex h-9 w-12 items-center justify-center rounded-sm text-foreground transition-colors',
                                 colorClass,
                                 isCurrent &&
                                     'outline-2 -outline-offset-2 outline-primary',

@@ -130,7 +130,7 @@ const TOOL_DEFINITIONS = {
         route: routes.propCalculator.compare,
     }),
     [ToolId.FundedOptimizer]: calculatorTool({
-        blurb: 'Ranks the funded-stage candidates of the CLI funded optimizer under your retained cushion and payout request, in the CLI order and columns.',
+        blurb: 'Ranks funded-stage candidates under your retained cushion and payout request, in the same order and columns as the command-line funded optimizer.',
         group: ToolGroup.Plan,
         hasPage: true,
         icon: Target,

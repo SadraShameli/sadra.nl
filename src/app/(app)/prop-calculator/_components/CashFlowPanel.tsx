@@ -131,9 +131,9 @@ export default function CashFlowPanel({
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
-                        Cash Flow Over Time
+                        Cash flow over time
                     </h3>
-                    <InfoPopover title="Cash Flow Over Time">
+                    <InfoPopover title="Cash flow over time">
                         {panelDescriptions.cashFlow}
                     </InfoPopover>
                 </div>
@@ -236,7 +236,7 @@ export default function CashFlowPanel({
                 )}
 
                 {error === null ? (
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
                         <StatCard
                             label="Median final net"
                             sub={`through ${horizon.label}`}
@@ -313,9 +313,16 @@ export default function CashFlowPanel({
                                 </p>
                                 <CashFlowPaybackChartView result={result} />
                                 <p className="text-[11px] text-muted-foreground">
-                                    <span className="text-rose-400">■</span>{' '}
+                                    <span aria-hidden className="text-rose-400">
+                                        ■
+                                    </span>{' '}
                                     Cumulative spend ·{' '}
-                                    <span className="text-emerald-400">■</span>{' '}
+                                    <span
+                                        aria-hidden
+                                        className="text-emerald-400"
+                                    >
+                                        ■
+                                    </span>{' '}
                                     Cumulative payout
                                 </p>
                             </div>

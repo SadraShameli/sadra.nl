@@ -83,7 +83,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                     label={{
                         fill: 'hsl(0 0% 70%)',
                         fontSize: 11,
-                        position: 'right',
+                        position: 'insideBottomLeft',
                         value: 'Break-even',
                     }}
                     stroke="hsl(0 0% 70%)"

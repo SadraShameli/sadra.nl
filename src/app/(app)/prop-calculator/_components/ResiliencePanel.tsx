@@ -70,14 +70,14 @@ export default function ResiliencePanel({
         <Card className={cn('app-prop-calculator__resilience', 'px-5 py-4')}>
             <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">
-                    Streak &amp; Drawdown Resilience
+                    Streak and drawdown resilience
                 </h3>
-                <InfoPopover title="Streak & drawdown resilience">
+                <InfoPopover title="Streak and drawdown resilience">
                     {panelDescriptions.resilience}
                 </InfoPopover>
             </div>
 
-            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
                 <Card className="gap-1 py-2">
                     <CardContent className="px-3">
                         <div className="text-[11px] text-muted-foreground">

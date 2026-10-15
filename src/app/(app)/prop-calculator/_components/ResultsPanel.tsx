@@ -251,7 +251,11 @@ export default function ResultsPanel({
                             title: 'Avg days to pass',
                         }}
                         label="Avg days to pass"
-                        sub={`min ${plan.minTradingDays} required`}
+                        sub={
+                            plan.minTradingDays === 0
+                                ? 'no minimum days'
+                                : `min ${plan.minTradingDays} required`
+                        }
                         value={formatDays(result.expectedDaysToPass)}
                     />
                     <Kpi

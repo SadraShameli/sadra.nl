@@ -23,12 +23,12 @@ export function InputsSummary({
     const summaryReference = useRef<HTMLDivElement>(null);
     return (
         <Card
-            className="app-prop-calculator__inputs-summary flex flex-col gap-3 px-5 py-4 outline-none"
+            className="app-prop-calculator__inputs-summary flex scroll-mt-26 flex-col gap-3 px-5 py-4 outline-none"
             ref={summaryReference}
             tabIndex={-1}
         >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <dl className="grid flex-1 grid-cols-2 gap-x-6 gap-y-2 text-xs md:grid-cols-4">
                     {inputsSummaryRows(state).map((row) => (
                         <div className="flex flex-col" key={row.field}>
                             <dt className="text-muted-foreground">

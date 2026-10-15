@@ -115,6 +115,7 @@ export function FundedValueCard({
                         isSampleSizeInvalid ? SAMPLE_SIZE_ERROR_ID : undefined
                     }
                     aria-invalid={isSampleSizeInvalid}
+                    className="max-w-40"
                     disabled={isRefused}
                     id="funded-value-sample-size"
                     inputMode="numeric"
@@ -155,7 +156,7 @@ export function FundedValueCard({
                     </p>
                 )}
                 {result === null ? null : (
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         <StatCard
                             label="Expected payout per funded account"
                             sub={`${String(result.trials)} trials`}

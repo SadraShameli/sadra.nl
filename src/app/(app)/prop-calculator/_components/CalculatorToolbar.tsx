@@ -16,7 +16,7 @@ export function CalculatorToolbar({ ownQuery }: CalculatorToolbarProperties) {
     return ownQuery === undefined ? (
         <CalculatorStateToolbar />
     ) : (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
             <ShareLinkButton
                 buildLink={(origin, pathname) =>
                     shareLinkForQuery(origin, pathname, ownQuery)
@@ -30,7 +30,7 @@ function CalculatorStateToolbar() {
     const { encodeOptions, firms, state } = useCalculatorInputs();
     const { applyState } = useCalculatorActions();
     return (
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
             <ShareLinkButton
                 buildLink={(origin, pathname) =>
                     buildShareLink(origin, pathname, state, encodeOptions)

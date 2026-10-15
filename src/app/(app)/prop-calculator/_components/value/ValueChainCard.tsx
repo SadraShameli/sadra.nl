@@ -98,7 +98,7 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                             credit-free value minus the previous built step's,
                             with the two standard errors combined in quadrature.
                         </p>
-                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                             {cardSteps.map((step) => (
                                 <StatCard
                                     key={step.kind}

@@ -98,9 +98,9 @@ export default function DrawdownDurationPanel({
         <Card className={cn('app-prop-calculator__drawdown-duration', 'p-5')}>
             <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">
-                    Drawdown Duration & Recovery
+                    Drawdown duration and recovery
                 </h3>
-                <InfoPopover title="Drawdown Duration & Recovery">
+                <InfoPopover title="Drawdown duration and recovery">
                     Analyses the 50 sampled equity paths to measure how long
                     drawdown episodes last and how quickly they recover. Time
                     underwater is the share of trading days spent below a prior

@@ -45,7 +45,7 @@ export function AppliedEvalLadderNotice({
         ? describeNonDefaultRungSizing(state.rungSizing)
         : null;
     return (
-        <div className="app-prop-calculator__applied-eval-ladder flex flex-col gap-2 rounded-md border border-border/60 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+        <div className="app-prop-calculator__applied-eval-ladder flex flex-col gap-2 rounded-md border border-border/60 px-3 py-2 text-xs md:flex-row md:items-center md:justify-between">
             <div className="flex flex-col gap-1">
                 <p>
                     <span className="text-muted-foreground">

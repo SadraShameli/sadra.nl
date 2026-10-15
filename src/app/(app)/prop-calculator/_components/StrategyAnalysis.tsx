@@ -248,7 +248,7 @@ export default function StrategyAnalysis({
     return (
         <Card className={cn('app-prop-calculator__strategy-analysis', 'p-5')}>
             <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">Strategy Analysis</h3>
+                <h3 className="text-sm font-semibold">Strategy analysis</h3>
                 <InfoPopover title="Strategy analysis">
                     {panelDescriptions.strategyAnalysis}
                 </InfoPopover>
@@ -260,7 +260,7 @@ export default function StrategyAnalysis({
                 >
                     <SectionHeader
                         description={panelDescriptions.returnsBreakdown}
-                        title="Returns Breakdown"
+                        title="Returns breakdown"
                     />
                     <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                         <Metric
@@ -338,7 +338,7 @@ export default function StrategyAnalysis({
                 >
                     <SectionHeader
                         description={panelDescriptions.riskReturn}
-                        title="Risk-Adjusted Returns"
+                        title="Risk-adjusted returns"
                     />
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                         <StatCard
@@ -439,7 +439,7 @@ export default function StrategyAnalysis({
                         description={panelDescriptions.strategyDNA}
                         title="Edge"
                     />
-                    <div className="grid gap-6 sm:grid-cols-3">
+                    <div className="grid gap-6 md:grid-cols-3">
                         <div className="flex flex-col gap-3">
                             <p className="text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
                                 Expectancy

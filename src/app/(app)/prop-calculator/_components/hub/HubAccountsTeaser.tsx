@@ -202,7 +202,7 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
 
     return (
         <TeaserFrame>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
                 <StatCard label="Spend" value={formatUsdCents(summary.spend)} />
                 <StatCard
                     label="Payouts received"
