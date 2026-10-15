@@ -117,7 +117,10 @@ describe('the accounts area guard (F-56)', () => {
 
     it('renders the layout shell without reading the session', async () => {
         const tree = await resolveServerTree(
-            PropAccountsLayout({ children: null }),
+            PropAccountsLayout({
+                children: null,
+                params: Promise.resolve({}),
+            }),
         );
         expect(tree).toBeTruthy();
         expect(harness.session).not.toHaveBeenCalled();

@@ -78,8 +78,14 @@ const STATUS_VARIANT: Record<
     paused: 'warning',
 };
 
-export function ProgramsLibrary() {
-    const official = api.lifting.program.listOfficial.useQuery();
+export function ProgramsLibrary({
+    officialPrograms,
+}: {
+    readonly officialPrograms: OfficialProgram[];
+}) {
+    const official = api.lifting.program.listOfficial.useQuery(undefined, {
+        initialData: officialPrograms,
+    });
     const mine = api.lifting.program.listMine.useQuery();
 
     const [search, setSearch] = useState('');
@@ -109,7 +115,7 @@ export function ProgramsLibrary() {
 
     const programsById = useMemo(() => {
         const map = new Map<string, ProgramReference>();
-        const officialPrograms = official.data ?? [];
+        const officialPrograms = official.data;
         const ownedPrograms = mine.data?.owned ?? [];
         for (const p of officialPrograms) map.set(p.id, p);
         for (const p of ownedPrograms) map.set(p.id, p);
@@ -117,7 +123,7 @@ export function ProgramsLibrary() {
     }, [official.data, mine.data?.owned]);
 
     const filtered = useMemo(() => {
-        const rows = official.data ?? [];
+        const rows = official.data;
         const q = debouncedSearch.trim().toLowerCase();
         const out = rows.filter((p) => {
             if (
@@ -154,7 +160,7 @@ export function ProgramsLibrary() {
 
     const totalEnrollments = mine.data?.enrollments.length ?? 0;
     const ownedCount = mine.data?.owned.length ?? 0;
-    const officialCount = official.data?.length ?? 0;
+    const officialCount = official.data.length;
 
     return (
         <div className="flex flex-col gap-6">
@@ -229,11 +235,9 @@ export function ProgramsLibrary() {
                 <CardHeader>
                     <CardTitle className="flex flex-wrap items-baseline justify-between gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
                         <span>Browse programs</span>
-                        {official.data && (
-                            <span className="text-[10px] font-normal tabular-nums">
-                                {filtered.length} of {official.data.length}
-                            </span>
-                        )}
+                        <span className="text-[10px] font-normal tabular-nums">
+                            {filtered.length} of {officialCount}
+                        </span>
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
@@ -314,18 +318,7 @@ export function ProgramsLibrary() {
                         </div>
                     </div>
 
-                    {official.isLoading && (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {Array.from({ length: 6 }, (_, index) => (
-                                <Skeleton
-                                    className="h-36 w-full rounded-2xl"
-                                    key={index}
-                                />
-                            ))}
-                        </div>
-                    )}
-
-                    {!official.isLoading && filtered.length === 0 && (
+                    {filtered.length === 0 && (
                         <EmptyState
                             description={
                                 isFiltersActive
@@ -337,7 +330,7 @@ export function ProgramsLibrary() {
                         />
                     )}
 
-                    {!official.isLoading && filtered.length > 0 && (
+                    {filtered.length > 0 && (
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                             {filtered.map((p) => (
                                 <OfficialProgramCard

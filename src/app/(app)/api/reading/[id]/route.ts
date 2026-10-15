@@ -5,7 +5,7 @@ import { api } from '~/trpc/server';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> },
+    { params }: RouteContext<'/api/reading/[id]'>,
 ) {
     const parsed = parseRouteParameters(idPathParameterSchema, await params);
     if (parsed.response) return parsed.response;

@@ -101,6 +101,7 @@ export function RunsBrowser() {
                     <Link
                         className="font-mono text-xs text-white hover:underline"
                         href={routes.accounting.run(row.original.id)}
+                        prefetch
                     >
                         {format(row.original.createdAt, 'PPp')}
                     </Link>

@@ -15,9 +15,12 @@ import {
     type IssuedQuery,
 } from '../fakeDatabase';
 
-const current = vi.hoisted((): { api: Record<string, unknown> } => ({
-    api: {},
-}));
+const current = vi.hoisted(
+    (): { api: Record<string, unknown>; caller: null | TestCaller } => ({
+        api: {},
+        caller: null,
+    }),
+);
 
 vi.mock('~/environment', () => ({ environment: { NODE_ENV: 'test' } }));
 vi.mock('~/server/db', () => ({ db: {} }));
@@ -33,6 +36,12 @@ vi.mock('~/trpc/server', () => ({
             get: (_target, key: string) => current.api[key],
         },
     ),
+}));
+vi.mock('~/server/iot/IotPublicReads', () => ({
+    readPublicDeviceReadings: (input: DeviceReadingsInput) =>
+        readers().device.getDeviceReadings(input),
+    readPublicLocationReadings: (input: LocationReadingsInput) =>
+        readers().location.getLocationReadings(input),
 }));
 
 const LOCATION_ROW: FakeRow = {
@@ -56,6 +65,28 @@ const DEVICE_ROW: FakeRow = {
     token_revoked_at: null,
 };
 
+type DeviceReadingsInput = Parameters<
+    TestCaller['device']['getDeviceReadings']
+>[0];
+
+type LocationReadingsInput = Parameters<
+    TestCaller['location']['getLocationReadings']
+>[0];
+
+type TestCaller = ReturnType<typeof createTestCaller>;
+
+function createTestCaller(
+    database: ReturnType<typeof createFakeDatabase>['database'],
+) {
+    return createCallerFactory(
+        createTRPCRouter({
+            device: deviceRouter,
+            location: locationRouter,
+            reading: readingRouter,
+        }),
+    )({ db: database, headers: new Headers(), session: null });
+}
+
 function expectNewestFirst(query: IssuedQuery): void {
     expect(query.text).toMatch(/order by (?:"\w+"\.)?"id" desc/i);
 }
@@ -64,12 +95,15 @@ function limitOf(query: IssuedQuery): unknown {
     const match = /\blimit \$(\d+)/i.exec(query.text);
     return match?.[1] ? query.params[Number(match[1]) - 1] : undefined;
 }
-
 function onlyReadingQuery(queries: IssuedQuery[]): IssuedQuery {
     const [match, ...rest] = readingQueries(queries);
     expect(rest).toHaveLength(0);
     if (!match) throw new Error('Expected exactly one reading query');
     return match;
+}
+function readers(): TestCaller {
+    if (!current.caller) throw new Error('setup() must run before a route');
+    return current.caller;
 }
 
 function readingQueries(queries: IssuedQuery[]): IssuedQuery[] {
@@ -84,19 +118,15 @@ function respond(query: IssuedQuery): FakeRow[] {
 
 function setup() {
     const { database, queries } = createFakeDatabase(respond);
-    const caller = createCallerFactory(
-        createTRPCRouter({
-            device: deviceRouter,
-            location: locationRouter,
-            reading: readingRouter,
-        }),
-    )({ db: database, headers: new Headers(), session: null });
+    const caller = createTestCaller(database);
     current.api = caller;
+    current.caller = caller;
     return { caller, queries };
 }
 
 beforeEach(() => {
     current.api = {};
+    current.caller = null;
 });
 
 describe('reading.getReadings bounds', () => {

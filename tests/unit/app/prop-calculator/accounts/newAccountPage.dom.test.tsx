@@ -2,7 +2,6 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { type AccountPrefillParameters } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
 import NewPropAccountPage from '~/app/(app)/prop-calculator/accounts/new/page';
 import {
     ALL_FIRMS,
@@ -64,7 +63,11 @@ describe('new account page prefill', () => {
     let container: HTMLDivElement;
     let root: Root;
 
-    async function render(parameters: AccountPrefillParameters) {
+    async function render(
+        parameters: Awaited<
+            PageProps<'/prop-calculator/accounts/new'>['searchParams']
+        >,
+    ) {
         const page = await resolveServerTree(
             NewPropAccountPage({
                 searchParams: Promise.resolve(parameters),

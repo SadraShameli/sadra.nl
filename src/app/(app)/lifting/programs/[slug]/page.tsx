@@ -1,21 +1,28 @@
 import { type Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
+import { type ReactNode, Suspense } from 'react';
 
+import { LiftingDetailHeader } from '~/app/(app)/lifting/_components/LiftingDetailHeader';
 import { LiftingDetailSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
-import { ProgramDetail } from '~/app/(app)/lifting/_components/ProgramDetail';
+import { LiftingUserSection } from '~/app/(app)/lifting/_components/LiftingUserSection';
+import { ProgramEnrollCard } from '~/app/(app)/lifting/_components/ProgramEnrollCard';
+import { ProgramScheduleTabs } from '~/app/(app)/lifting/_components/ProgramScheduleTabs';
+import { TitledCardSkeleton } from '~/components/PageSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
+import {
+    loadOfficialProgram,
+    loadOfficialPrograms,
+    type ProgramRow,
+} from '~/lib/lifting/OfficialCatalog';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { loadOrNotFound } from '~/trpc/loadOrNotFound';
+import { api } from '~/trpc/server';
 
-interface PageProperties {
-    params: Promise<{ slug: string }>;
-}
+type ProgramPageProperties = PageProps<'/lifting/programs/[slug]'>;
 
 export async function generateMetadata({
     params,
-}: PageProperties): Promise<Metadata> {
+}: ProgramPageProperties): Promise<Metadata> {
     const { slug } = await params;
     return {
         description: 'Program detail and enrollment.',
@@ -23,7 +30,14 @@ export async function generateMetadata({
     };
 }
 
-export default function LiftingProgramDetailPage({ params }: PageProperties) {
+export async function generateStaticParams() {
+    const programs = await loadOfficialPrograms();
+    return programs.map(({ slug }) => ({ slug }));
+}
+
+export default function LiftingProgramDetailPage({
+    params,
+}: ProgramPageProperties) {
     return (
         <PageTransition>
             <main
@@ -40,22 +54,54 @@ export default function LiftingProgramDetailPage({ params }: PageProperties) {
     );
 }
 
-async function LiftingProgramDetailContent({ params }: PageProperties) {
+async function CustomProgramDetail({ slug }: { readonly slug: string }) {
     await requireSessionUser();
-    const { slug } = await params;
-    const program = await loadLiftingProgramDetail(slug);
-    void api.lifting.settings.get.prefetch();
+    const program = await loadOrNotFound(() =>
+        api.lifting.program.get({ slug }),
+    );
     return (
-        <HydrateClient>
-            <ProgramDetail program={program} />
-        </HydrateClient>
+        <LiftingUserSection>
+            <ProgramOverview program={program}>
+                <ProgramEnrollCard program={program} />
+            </ProgramOverview>
+        </LiftingUserSection>
     );
 }
 
-async function loadLiftingProgramDetail(slug: string) {
-    try {
-        return await api.lifting.program.get({ slug });
-    } catch {
-        notFound();
-    }
+async function LiftingProgramDetailContent({
+    params,
+}: Pick<ProgramPageProperties, 'params'>) {
+    const { slug } = await params;
+    const official = await loadOfficialProgram(slug);
+    return official ? (
+        <ProgramOverview program={official}>
+            <Suspense fallback={<TitledCardSkeleton title="Enroll" />}>
+                <LiftingUserSection>
+                    <ProgramEnrollCard program={official} />
+                </LiftingUserSection>
+            </Suspense>
+        </ProgramOverview>
+    ) : (
+        <CustomProgramDetail slug={slug} />
+    );
+}
+
+function ProgramOverview({
+    children,
+    program,
+}: {
+    readonly children: ReactNode;
+    readonly program: ProgramRow;
+}) {
+    return (
+        <div className="flex flex-col gap-8">
+            <LiftingDetailHeader
+                description={program.description}
+                eyebrow={`${program.category} · ${String(program.daysPerWeek)}× / week · ${String(program.lengthWeeks)} weeks`}
+                title={program.name}
+            />
+            {children}
+            <ProgramScheduleTabs schedule={program.schedule} />
+        </div>
+    );
 }

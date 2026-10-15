@@ -1,12 +1,11 @@
 import 'server-only';
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, isNull } from 'drizzle-orm';
-import { cacheLife, cacheTag } from 'next/cache';
+import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { ProgramSchedule } from '~/lib/lifting/types';
 
-import { LiftingCacheTag } from '~/lib/lifting/cacheTags';
+import { loadOfficialPrograms } from '~/lib/lifting/OfficialCatalog';
 import {
     enrollProgramInputSchema,
     exerciseSlugActionSchema,
@@ -16,23 +15,7 @@ import {
 } from '~/lib/lifting/schemas';
 import { USER_PROGRAM_STATUS } from '~/lib/lifting/types';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
-import { db, liftingProgram, liftingUserProgram } from '~/server/db';
-
-const loadOfficialPrograms = async () => {
-    'use cache';
-    cacheLife('days');
-    cacheTag(LiftingCacheTag.OfficialPrograms);
-    return db
-        .select()
-        .from(liftingProgram)
-        .where(
-            and(
-                eq(liftingProgram.isOfficial, true),
-                isNull(liftingProgram.ownerId),
-            ),
-        )
-        .orderBy(asc(liftingProgram.name));
-};
+import { liftingProgram, liftingUserProgram } from '~/server/db';
 
 const customProgramInputSchema = z.object({
     category: programCategorySchema,

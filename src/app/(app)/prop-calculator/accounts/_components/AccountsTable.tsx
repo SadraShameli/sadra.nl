@@ -570,6 +570,7 @@ function AccountRow({
                 <Link
                     className="font-medium underline-offset-4 hover:underline"
                     href={routes.propCalculator.accounts.detail(account.id)}
+                    prefetch
                 >
                     {account.label}
                 </Link>

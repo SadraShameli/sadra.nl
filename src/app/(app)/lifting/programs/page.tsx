@@ -5,6 +5,10 @@ import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHe
 import { ProgramsLibrary } from '~/app/(app)/lifting/_components/ProgramsLibrary';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
+import {
+    loadOfficialPrograms,
+    type ProgramRow,
+} from '~/lib/lifting/OfficialCatalog';
 import { cn } from '~/lib/utilities';
 
 export const metadata: Metadata = {
@@ -12,7 +16,8 @@ export const metadata: Metadata = {
     title: 'Programs',
 };
 
-export default function LiftingProgramsPage() {
+export default async function LiftingProgramsPage() {
+    const officialPrograms = await loadOfficialPrograms();
     return (
         <PageTransition>
             <main
@@ -25,15 +30,25 @@ export default function LiftingProgramsPage() {
                     description="Follow a proven program or build your own."
                     title="Programs"
                 />
-                <Suspense fallback={<ProgramsLibrary />}>
-                    <LiftingProgramsContent />
+                <Suspense
+                    fallback={
+                        <ProgramsLibrary officialPrograms={officialPrograms} />
+                    }
+                >
+                    <LiftingProgramsContent
+                        officialPrograms={officialPrograms}
+                    />
                 </Suspense>
             </main>
         </PageTransition>
     );
 }
 
-async function LiftingProgramsContent() {
+async function LiftingProgramsContent({
+    officialPrograms,
+}: {
+    readonly officialPrograms: ProgramRow[];
+}) {
     await requireSessionUser();
-    return <ProgramsLibrary />;
+    return <ProgramsLibrary officialPrograms={officialPrograms} />;
 }

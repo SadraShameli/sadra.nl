@@ -1,9 +1,11 @@
 import 'server-only';
 import { TRPCError } from '@trpc/server';
-import { and, eq, isNull } from 'drizzle-orm';
-import { cacheLife, cacheTag } from 'next/cache';
+import { and, eq } from 'drizzle-orm';
 
-import { LiftingCacheTag } from '~/lib/lifting/cacheTags';
+import {
+    type ExerciseRow,
+    loadOfficialExercises,
+} from '~/lib/lifting/OfficialCatalog';
 import {
     customExerciseInputSchema,
     exerciseIdActionSchema,
@@ -12,35 +14,7 @@ import {
     updateCustomExerciseInputSchema,
 } from '~/lib/lifting/schemas';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
-import { db, liftingExercise, liftingExerciseAlias } from '~/server/db';
-
-type ExerciseRow = typeof liftingExercise.$inferSelect;
-
-const loadOfficialExercises = async (): Promise<{
-    aliases: Record<string, string[]>;
-    rows: ExerciseRow[];
-}> => {
-    'use cache';
-    cacheLife('days');
-    cacheTag(LiftingCacheTag.OfficialExercises);
-    const rows = await db
-        .select()
-        .from(liftingExercise)
-        .where(isNull(liftingExercise.ownerId));
-    const aliasRows = await db
-        .select({
-            alias: liftingExerciseAlias.alias,
-            exerciseId: liftingExerciseAlias.exerciseId,
-        })
-        .from(liftingExerciseAlias);
-    const aliases: Record<string, string[]> = {};
-    for (const a of aliasRows) {
-        const list = aliases[a.exerciseId] ?? [];
-        list.push(a.alias.toLowerCase());
-        aliases[a.exerciseId] = list;
-    }
-    return { aliases, rows };
-};
+import { liftingExercise } from '~/server/db';
 
 function slugify(value: string): string {
     return value

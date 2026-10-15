@@ -56,7 +56,7 @@ describe('prop calculator tools layout', () => {
         harness.pathname = pathname;
         act(() => {
             root.render(
-                <PropCalculatorToolsLayout>
+                <PropCalculatorToolsLayout params={Promise.resolve({})}>
                     <p className="tool-page-under-test">tool page</p>
                 </PropCalculatorToolsLayout>,
             );

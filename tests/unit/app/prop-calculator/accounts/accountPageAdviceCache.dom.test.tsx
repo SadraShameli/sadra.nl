@@ -84,7 +84,9 @@ describe('the accounts pages share one computation cache (PT-34c, PT-21c)', () =
     let root: Root;
 
     async function renderInLayout(children: ReactNode) {
-        const tree = await resolveServerTree(PropAccountsLayout({ children }));
+        const tree = await resolveServerTree(
+            PropAccountsLayout({ children, params: Promise.resolve({}) }),
+        );
         act(() => {
             root.render(tree);
         });

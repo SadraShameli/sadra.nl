@@ -23,9 +23,7 @@ export const metadata: Metadata = {
 
 export default function PropAccountDetailPage({
     params,
-}: {
-    params: Promise<{ id: string }>;
-}) {
+}: Pick<PageProps<'/prop-calculator/accounts/[id]'>, 'params'>) {
     return (
         <PageTransition>
             <main
@@ -44,9 +42,7 @@ export default function PropAccountDetailPage({
 
 async function PropAccountDetailContent({
     params,
-}: {
-    params: Promise<{ id: string }>;
-}) {
+}: Pick<PageProps<'/prop-calculator/accounts/[id]'>, 'params'>) {
     const { id, userId } = await openAccountPage(
         params,
         routes.propCalculator.accounts.detail,

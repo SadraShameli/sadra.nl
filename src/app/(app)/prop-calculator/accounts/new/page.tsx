@@ -5,7 +5,6 @@ import { Suspense } from 'react';
 import { AccountCreator } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
-    type AccountPrefillParameters,
     accountPrefillQuery,
     parseAccountPrefill,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
@@ -25,9 +24,7 @@ export const metadata: Metadata = {
 
 export default function NewPropAccountPage({
     searchParams,
-}: {
-    searchParams: Promise<AccountPrefillParameters>;
-}) {
+}: Pick<PageProps<'/prop-calculator/accounts/new'>, 'searchParams'>) {
     return (
         <PageTransition>
             <main
@@ -50,9 +47,7 @@ export default function NewPropAccountPage({
 
 async function NewPropAccountContent({
     searchParams,
-}: {
-    searchParams: Promise<AccountPrefillParameters>;
-}) {
+}: Pick<PageProps<'/prop-calculator/accounts/new'>, 'searchParams'>) {
     const prefill = parseAccountPrefill(await searchParams);
     const session = await getServerSession();
     if (!session?.user.id) {

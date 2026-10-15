@@ -1,5 +1,4 @@
-import { type Metadata } from 'next';
-import { type ReactNode } from 'react';
+import { type Instant, type Metadata } from 'next';
 
 import { cn } from '~/lib/utilities';
 
@@ -11,11 +10,11 @@ export const metadata: Metadata = {
     title: 'Prop accounts',
 };
 
+export const instant: Instant = true;
+
 export default function PropAccountsLayout({
     children,
-}: {
-    children: ReactNode;
-}) {
+}: LayoutProps<'/prop-calculator/accounts'>) {
     return (
         <div className={cn('app-prop-accounts')}>
             <AccountsSubnav />

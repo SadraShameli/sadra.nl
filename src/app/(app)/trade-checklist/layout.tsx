@@ -1,14 +1,14 @@
-import type { ReactNode } from 'react';
+import { type Instant } from 'next';
 
 import { cn } from '~/lib/utilities';
 
 import { TradeChecklistSubnav } from './_components/TradeChecklistSubnav';
 
+export const instant: Instant = true;
+
 export default function TradeChecklistLayout({
     children,
-}: {
-    children: ReactNode;
-}) {
+}: LayoutProps<'/trade-checklist'>) {
     return (
         <div className={cn('app-trade-checklist')}>
             <TradeChecklistSubnav />

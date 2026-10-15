@@ -33,7 +33,7 @@ const cvShow: Record<
 
 export async function GET(
     request: Request,
-    { params }: { params: Promise<{ name: string }> },
+    { params }: RouteContext<'/resume/[name]/pdf'>,
 ) {
     const parsed = resumeNameSchema.safeParse(await params);
     if (!parsed.success) notFound();

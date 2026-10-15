@@ -114,7 +114,7 @@ describe('a refused ds, dp or pf link parameter reaches every tool page (PT-53g)
         window.history.replaceState(null, '', `/?${query}`);
         act(() => {
             root.render(
-                <PropCalculatorToolsLayout>
+                <PropCalculatorToolsLayout params={Promise.resolve({})}>
                     <UserActions />
                 </PropCalculatorToolsLayout>,
             );

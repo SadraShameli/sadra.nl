@@ -24,9 +24,7 @@ const errorMessages: Record<string, string> = {
     taken: 'An account with that email already exists.',
 };
 
-interface SignupPageProperties {
-    searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
+type SignupPageProperties = Pick<PageProps<'/signup'>, 'searchParams'>;
 
 export default function SignupPage({ searchParams }: SignupPageProperties) {
     return (

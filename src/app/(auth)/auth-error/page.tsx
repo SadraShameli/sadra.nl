@@ -34,9 +34,7 @@ const errorMessages: Record<string, string> = {
 
 const FALLBACK_MESSAGE = 'Something went wrong. Try again.';
 
-interface AuthErrorPageProperties {
-    searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
+type AuthErrorPageProperties = Pick<PageProps<'/auth-error'>, 'searchParams'>;
 
 export default function AuthErrorPage({
     searchParams,

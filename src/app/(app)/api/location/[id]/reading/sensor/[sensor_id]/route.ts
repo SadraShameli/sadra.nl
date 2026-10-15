@@ -6,11 +6,11 @@ import {
     parseSearchParameters,
     readingsPageQuerySchema,
 } from '~/lib/schemas/api';
-import { api } from '~/trpc/server';
+import { readPublicLocationReadings } from '~/server/iot/IotPublicReads';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string; sensor_id: string }> },
+    { params }: RouteContext<'/api/location/[id]/reading/sensor/[sensor_id]'>,
 ) {
     const parsed = parseRouteParameters(
         idSensorPathParameterSchema,
@@ -20,7 +20,7 @@ export async function GET(
     const page = parseSearchParameters(readingsPageQuerySchema, request);
     if (page.response) return page.response;
 
-    const result = await api.location.getLocationReadings({
+    const result = await readPublicLocationReadings({
         ...page.data,
         location: { location_id: parsed.data.id },
         sensor_id: parsed.data.sensor_id,

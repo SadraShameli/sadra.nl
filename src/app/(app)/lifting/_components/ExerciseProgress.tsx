@@ -1,13 +1,12 @@
 'use client';
 
 import { format, subDays, subMonths } from 'date-fns';
-import { ExternalLink, TrendingUp, Trophy } from 'lucide-react';
+import { TrendingUp, Trophy } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { PrFiltersToolbar } from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
 import { usePrFilters } from '~/app/(app)/lifting/_components/shared/usePrFilters';
 import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
 import {
@@ -21,9 +20,8 @@ import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import { WeightUnit } from '~/lib/lifting/format';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-type Exercise = RouterOutputs['lifting']['exercise']['get'];
-interface ExerciseDetailProperties {
-    exercise: Exercise;
+interface ExerciseProgressProperties {
+    exerciseId: string;
 }
 
 type PrRow = RouterOutputs['lifting']['analytics']['prTimeline'][number];
@@ -41,8 +39,8 @@ const E1RM_RANGE_LABEL: Record<E1rmRange, string> = {
     all: 'All time',
 };
 
-export function ExerciseDetail({ exercise }: ExerciseDetailProperties) {
-    const prs = api.lifting.analytics.prTimeline.useQuery({ id: exercise.id });
+export function ExerciseProgress({ exerciseId }: ExerciseProgressProperties) {
+    const prs = api.lifting.analytics.prTimeline.useQuery({ id: exerciseId });
     const settings = api.lifting.settings.get.useQuery();
     const unitWeight = settings.data?.unitWeight ?? 'kg';
 
@@ -86,39 +84,7 @@ export function ExerciseDetail({ exercise }: ExerciseDetailProperties) {
 
     return (
         <div className="flex flex-col gap-8">
-            <header>
-                <p className="text-xs tracking-wide text-muted-foreground uppercase">
-                    {exercise.equipment} · {exercise.primaryMuscle}
-                </p>
-                <h1 className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    {exercise.name}
-                </h1>
-                {exercise.instructions && (
-                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                        {exercise.instructions}
-                    </p>
-                )}
-            </header>
-
-            {exercise.videoUrl && (
-                <Button
-                    asChild
-                    className="w-fit gap-2"
-                    type="button"
-                    variant="outline"
-                >
-                    <a
-                        href={exercise.videoUrl}
-                        rel="noreferrer"
-                        target="_blank"
-                    >
-                        <ExternalLink className="size-4" />
-                        Watch demo
-                    </a>
-                </Button>
-            )}
-
-            <E1rmTrendChart exerciseId={exercise.id} unitWeight={unitWeight} />
+            <E1rmTrendChart exerciseId={exerciseId} unitWeight={unitWeight} />
 
             <Card>
                 <CardHeader>

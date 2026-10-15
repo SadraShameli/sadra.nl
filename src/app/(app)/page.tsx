@@ -3,6 +3,7 @@ import { type Metadata } from 'next';
 import Image from 'next/image';
 import { Suspense } from 'react';
 
+import { AutoplayVideo } from '~/components/AutoplayVideo';
 import { PageTransition } from '~/components/PageTransition';
 import SectionDescription from '~/components/SectionDescription';
 import SectionTitle from '~/components/SectionTitle';
@@ -34,6 +35,8 @@ export const metadata: Metadata = {
     },
 };
 
+export const ensureStatic = 'prefetch';
+
 export default function HomePage() {
     const { gallery, heroImage } = homepageContent;
     return (
@@ -52,7 +55,7 @@ export default function HomePage() {
                             'aspect-square rounded-2xl object-cover',
                         )}
                         height={800}
-                        priority
+                        preload
                         src={heroImage}
                         width={800}
                     />
@@ -99,21 +102,13 @@ export default function HomePage() {
                         text={homepageContent.sensorHubDescription}
                     />
 
-                    <video
-                        autoPlay
+                    <AutoplayVideo
                         className={cn(
                             'app-home__sensor-hub-video',
                             'rounded-2xl pt-spacing-inner',
                         )}
-                        loop
-                        muted
-                        playsInline
-                    >
-                        <source
-                            src={homepageContent.sensorHubVideo}
-                            type="video/mp4"
-                        />
-                    </video>
+                        video={homepageContent.sensorHubVideo}
+                    />
                 </section>
 
                 <section

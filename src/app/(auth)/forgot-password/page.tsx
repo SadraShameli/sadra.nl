@@ -16,9 +16,10 @@ import { cn } from '~/lib/utilities';
 
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 
-interface ForgotPasswordPageProperties {
-    searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
+type ForgotPasswordPageProperties = Pick<
+    PageProps<'/forgot-password'>,
+    'searchParams'
+>;
 
 export default function ForgotPasswordPage({
     searchParams,

@@ -13,9 +13,7 @@ export const metadata = {
 
 export default function AccountingLayout({
     children,
-}: {
-    children: ReactNode;
-}) {
+}: LayoutProps<'/accounting'>) {
     return (
         <div className={cn('app-accounting')}>
             <Suspense fallback={<AccountingPageSkeleton />}>

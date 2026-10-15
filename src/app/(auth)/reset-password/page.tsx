@@ -16,9 +16,10 @@ const errorMessages: Record<string, string> = {
         'This reset link has expired or already been used. Request a new one.',
 };
 
-interface ResetPasswordPageProperties {
-    searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
+type ResetPasswordPageProperties = Pick<
+    PageProps<'/reset-password'>,
+    'searchParams'
+>;
 
 export default function ResetPasswordPage({
     searchParams,

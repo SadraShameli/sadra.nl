@@ -11,7 +11,7 @@ export interface ProxyRedirect {
     status: number;
 }
 
-export default function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
     const { pathname, search } = request.nextUrl;
     const redirect = proxyRedirect(
         pathname,

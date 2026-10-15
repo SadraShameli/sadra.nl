@@ -10,6 +10,8 @@ export const metadata: Metadata = {
     title: 'Contact',
 };
 
+export const ensureStatic = 'prefetch';
+
 export default function ContactPage() {
     return (
         <PageTransition>

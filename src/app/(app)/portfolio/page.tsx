@@ -19,6 +19,8 @@ export const metadata: Metadata = {
     title: portfolioContent.metaTitle,
 };
 
+export const ensureStatic = 'prefetch';
+
 export default function PortfolioPage() {
     return (
         <PageTransition>

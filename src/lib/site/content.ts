@@ -16,6 +16,11 @@ import SensorHubImage from '~/assets/images/units.jpg';
 
 export type ExternalUrl = `https://${string}`;
 
+export interface LoopingVideo {
+    readonly poster: string;
+    readonly src: string;
+}
+
 export type PortfolioSectionView = {
     date: string;
     highlights?: string[];
@@ -42,7 +47,7 @@ type HomepageData = {
     recordingsTitle: string;
     sensorHubDescription: string;
     sensorHubTitle: string;
-    sensorHubVideo: string;
+    sensorHubVideo: LoopingVideo;
 };
 
 type PortfolioData = {
@@ -139,7 +144,10 @@ export const homepageContent: HomepageData = {
     sensorHubDescription:
         'Devices made by me, designed to record and register various climate telemetry and noise pollution data.',
     sensorHubTitle: 'This is Sensor Hub',
-    sensorHubVideo: '/sensorUnit.mp4',
+    sensorHubVideo: {
+        poster: '/sensorUnit-poster.jpg',
+        src: '/sensorUnit.mp4',
+    },
 };
 
 export const experienceNobears: PortfolioSectionView = {
