@@ -8,6 +8,7 @@ import {
     type PersonalRuleKey,
     type PersonalRulesText,
 } from './accountPlanOptions';
+import { FieldRequirementMark } from './FieldRequirementMark';
 
 interface PersonalRulesFieldsProperties {
     readonly errors: Partial<Record<PersonalRuleKey, string>>;
@@ -46,9 +47,7 @@ export function PersonalRulesFields({
                         <Label htmlFor={id}>
                             {field.label}
                             {field.isMoney && ' ($)'}
-                            <span className="ml-1 text-xs font-normal text-muted-foreground">
-                                (optional)
-                            </span>
+                            <FieldRequirementMark text="optional" />
                         </Label>
                         <Input
                             aria-describedby={describedBy}

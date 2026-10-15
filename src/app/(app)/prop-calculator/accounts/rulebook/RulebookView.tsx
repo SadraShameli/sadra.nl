@@ -8,6 +8,7 @@ import { type Control, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { DAY_STOP_KIND_LABELS } from '~/app/(app)/prop-calculator/_components/describeDayStopRule';
+import { AccountsCardHeading } from '~/app/(app)/prop-calculator/accounts/_components/AccountsCardHeading';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import {
     AlertDialog,
@@ -22,7 +23,7 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Card, CardContent, CardHeader } from '~/components/ui/Card';
 import {
     Form,
     FormControl,
@@ -215,7 +216,15 @@ export function RulebookView({
     ) {
         return <OverwriteRulebook tradingPlan={tradingPlan} />;
     }
-    if (rulebookQuery.isPending) return <Skeleton className="h-96 w-full" />;
+    if (rulebookQuery.isPending) {
+        return (
+            <Skeleton
+                aria-label="Loading your rulebook"
+                className="h-96 w-full"
+                role="status"
+            />
+        );
+    }
     if (!isInvalidStoredRecord(rulebookQuery.error, PropRecord.Rulebook)) {
         return <RulebookLoadError message={rulebookQuery.error.message} />;
     }
@@ -290,7 +299,9 @@ function DeviationCard({ parsed }: { parsed: null | RulebookParameters }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Deviations from the skill</CardTitle>
+                <AccountsCardHeading>
+                    Deviations from the skill
+                </AccountsCardHeading>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-sm">
                 {deviation === null && (
@@ -590,7 +601,9 @@ function ImportCard({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Import from your trade checklist</CardTitle>
+                <AccountsCardHeading>
+                    Import from your trade checklist
+                </AccountsCardHeading>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-sm">
                 {tradingPlan.kind === TradingPlanSourceKind.Missing && (
@@ -1155,7 +1168,7 @@ function RulebookForm({
                     </p>
                 )}
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 py-3 backdrop-blur-sm">
                     <Button disabled={isSaving} type="submit">
                         Save rulebook
                     </Button>
@@ -1169,6 +1182,13 @@ function RulebookForm({
                     >
                         Discard changes
                     </Button>
+                    {form.formState.isDirty && (
+                        <p className="text-sm text-amber-400" role="status">
+                            Unsaved changes
+                        </p>
+                    )}
+                </div>
+                <div>
                     <ResetRulebookDialog
                         disabled={isSaving}
                         onConfirm={() => {
@@ -1213,7 +1233,7 @@ function SectionCard({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>{title}</CardTitle>
+                <AccountsCardHeading>{title}</AccountsCardHeading>
             </CardHeader>
             <CardContent className={cn('grid gap-4 md:grid-cols-2')}>
                 {children}

@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Card, CardContent, CardHeader } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
 import {
     Form,
@@ -67,7 +67,10 @@ import {
     type PlanOptIns,
     serializePlanId,
 } from '~/lib/prop-calculator';
-import { accountCreateSchema } from '~/lib/schemas/propAccounts';
+import {
+    accountCreateSchema,
+    MAX_ACCOUNT_LABEL_LENGTH,
+} from '~/lib/schemas/propAccounts';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -101,6 +104,7 @@ import {
     usdCentsToText,
 } from './accountPlanOptions';
 import { AccountPlanPicker } from './AccountPlanPicker';
+import { AccountsCardHeading } from './AccountsCardHeading';
 import { ArchiveAccountButton } from './AccountsTable';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
 import { nullIfBlank, parsedOrIssues } from './detail/formParsing';
@@ -109,6 +113,7 @@ import {
     type CreateExternalFirm,
     ExternalFirmPicker,
 } from './ExternalFirmPicker';
+import { FieldRequirementMark } from './FieldRequirementMark';
 import { PersonalRulesFields } from './PersonalRulesFields';
 import {
     emptySnapshotFormValues,
@@ -153,6 +158,11 @@ const LEDGER_ISSUE_PATHS: Readonly<Record<string, string>> = {
     externalFirmId: 'ledgerFirmId',
     firmId: 'ledgerFirmId',
 };
+
+const LABEL_REQUIRED_MESSAGE =
+    'Enter a label to tell this account apart, such as “Apex 50K 1”.';
+
+const TOO_LONG_MESSAGE = `Keep it to ${String(MAX_ACCOUNT_LABEL_LENGTH)} characters or fewer.`;
 
 const NO_SNAPSHOT_WARNINGS: SnapshotDraftWarnings = {
     fieldWarnings: [],
@@ -211,6 +221,13 @@ const accountFormSchema = z
         tracking: z.enum(AccountTracking),
     })
     .transform((values, context) => {
+        for (const issue of singleLineTextIssues(values)) {
+            context.addIssue({
+                code: 'custom',
+                message: issue.message,
+                path: [issue.field],
+            });
+        }
         const liveStart = parseMoneyText(values.liveStartBalanceCents);
         if (liveStart.kind === EntryTextKind.Invalid) {
             context.addIssue({
@@ -327,6 +344,16 @@ interface ExternalFirmSource {
     readonly isPending: boolean;
 }
 
+type SingleLineField = Extract<
+    keyof AccountFormValues,
+    'externalAlias' | 'label'
+>;
+
+interface SingleLineIssue {
+    readonly field: SingleLineField;
+    readonly message: string;
+}
+
 export function AccountCreator({
     initialFirm,
     initialOptIns,
@@ -392,7 +419,14 @@ export function AccountCreator({
 export function AccountEditor({ id }: { id: string }) {
     const accountQuery = api.propAccounts.account.get.useQuery({ id });
     const externalFirms = useExternalFirms();
-    if (accountQuery.isPending) return <Skeleton className="h-96 w-full" />;
+    if (accountQuery.isPending)
+        return (
+            <Skeleton
+                aria-label="Loading the account"
+                className="h-96 w-full"
+                role="status"
+            />
+        );
     if (accountQuery.isError) {
         return (
             <Alert variant="destructive">
@@ -406,7 +440,13 @@ export function AccountEditor({ id }: { id: string }) {
     }
     const account = trackedAccountOf(accountQuery.data);
     if (externalFirms.isPending && account.externalFirmId !== null) {
-        return <Skeleton className="h-96 w-full" />;
+        return (
+            <Skeleton
+                aria-label="Loading the account"
+                className="h-96 w-full"
+                role="status"
+            />
+        );
     }
     if (externalFirms.isError && account.externalFirmId !== null) {
         return (
@@ -532,7 +572,9 @@ function AccountForm({
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Personal stricter rules</CardTitle>
+                        <AccountsCardHeading>
+                            Personal stricter rules
+                        </AccountsCardHeading>
                     </CardHeader>
                     <CardContent>
                         <PersonalRulesFields
@@ -556,7 +598,15 @@ function AccountForm({
                         {isCreate ? 'Add account' : 'Save changes'}
                     </Button>
                     <Button asChild type="button" variant="ghost">
-                        <Link href={routes.propCalculator.accounts.index}>
+                        <Link
+                            href={
+                                stored === null
+                                    ? routes.propCalculator.accounts.index
+                                    : routes.propCalculator.accounts.detail(
+                                          stored.id,
+                                      )
+                            }
+                        >
                             Cancel
                         </Link>
                     </Button>
@@ -610,10 +660,12 @@ function DashboardConventionField({
 
 function DateField({
     control,
+    isOptional = false,
     label,
     name,
 }: {
     control: Control<AccountFormValues>;
+    isOptional?: boolean;
     label: string;
     name: 'firstFundedTradeOn' | 'fundedOn' | 'purchasedOn';
 }) {
@@ -623,7 +675,10 @@ function DateField({
             name={name}
             render={({ field }) => (
                 <FormItem>
-                    <FormLabel>{label}</FormLabel>
+                    <FormLabel>
+                        {label}
+                        {isOptional && <FieldRequirementMark text="optional" />}
+                    </FormLabel>
                     <FormControl>
                         <Input type="date" {...field} />
                     </FormControl>
@@ -654,7 +709,7 @@ function DetailsCard({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Details</CardTitle>
+                <AccountsCardHeading>Details</AccountsCardHeading>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
                 <FormField
@@ -675,7 +730,10 @@ function DetailsCard({
                     name="externalAlias"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Alias (optional)</FormLabel>
+                            <FormLabel>
+                                Alias
+                                <FieldRequirementMark text="optional" />
+                            </FormLabel>
                             <FormControl>
                                 <Input autoComplete="off" {...field} />
                             </FormControl>
@@ -695,12 +753,14 @@ function DetailsCard({
                 />
                 <DateField
                     control={control}
-                    label="Funded on (optional)"
+                    isOptional
+                    label="Funded on"
                     name="fundedOn"
                 />
                 <DateField
                     control={control}
-                    label="First funded trade on (optional)"
+                    isOptional
+                    label="First funded trade on"
                     name="firstFundedTradeOn"
                 />
                 {!isLedgerOnly && (
@@ -851,7 +911,10 @@ function DetailsCard({
                     name="tags"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Tags (optional)</FormLabel>
+                            <FormLabel>
+                                Tags
+                                <FieldRequirementMark text="optional" />
+                            </FormLabel>
                             <FormControl>
                                 <Input {...field} />
                             </FormControl>
@@ -867,7 +930,10 @@ function DetailsCard({
                     name="notes"
                     render={({ field }) => (
                         <FormItem className="md:col-span-2">
-                            <FormLabel>Notes (optional)</FormLabel>
+                            <FormLabel>
+                                Notes
+                                <FieldRequirementMark text="optional" />
+                            </FormLabel>
                             <FormControl>
                                 <Textarea rows={3} {...field} />
                             </FormControl>
@@ -891,7 +957,7 @@ function InitialSnapshotCard({ submit }: { submit: AccountFormSubmit }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Initial snapshot</CardTitle>
+                <AccountsCardHeading>Initial snapshot</AccountsCardHeading>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
                 <div className="flex items-center gap-2">
@@ -1279,7 +1345,7 @@ function PlanCard({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Firm and plan</CardTitle>
+                <AccountsCardHeading>Firm and plan</AccountsCardHeading>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
                 <LedgerOnlySwitch
@@ -1421,6 +1487,24 @@ function ReadOnlyAccount({
             </div>
         </div>
     );
+}
+
+function singleLineTextIssues({
+    externalAlias,
+    label,
+}: Pick<AccountFormValues, SingleLineField>): readonly SingleLineIssue[] {
+    const issues: SingleLineIssue[] = [];
+    const trimmedLabel = label.trim();
+    if (trimmedLabel === '') {
+        issues.push({ field: 'label', message: LABEL_REQUIRED_MESSAGE });
+    }
+    if (trimmedLabel.length > MAX_ACCOUNT_LABEL_LENGTH) {
+        issues.push({ field: 'label', message: TOO_LONG_MESSAGE });
+    }
+    if (externalAlias.trim().length > MAX_ACCOUNT_LABEL_LENGTH) {
+        issues.push({ field: 'externalAlias', message: TOO_LONG_MESSAGE });
+    }
+    return issues;
 }
 
 function StageField({

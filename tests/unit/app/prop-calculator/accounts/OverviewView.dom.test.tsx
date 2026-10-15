@@ -139,12 +139,13 @@ vi.mock('~/trpc/react', () => ({
 
 const { firm, plan } = firstEvalPlan();
 
-const CARD_HEADINGS = [
+const SECTION_HEADINGS = [
     'Setup checklist',
     'Key figures',
+    'Alerts',
+    'Accounts',
     'Bankroll',
     'Firms',
-    'Alerts',
     'Cushion board',
     'Payout readiness',
     'Exposure',
@@ -519,17 +520,35 @@ describe('OverviewView', () => {
             true,
         );
         expect(container.querySelectorAll('h2')).toHaveLength(sections.length);
-        expect(headings.map((heading) => heading?.textContent)).toEqual([
-            ...CARD_HEADINGS,
-            'Accounts',
-        ]);
-        expect(sections.at(-1)?.getAttribute('aria-labelledby')).toBe(
-            'prop-accounts-list-heading',
+        expect(headings.map((heading) => heading?.textContent)).toEqual(
+            SECTION_HEADINGS,
         );
+        expect(
+            sections[SECTION_HEADINGS.indexOf('Accounts')]?.getAttribute(
+                'aria-labelledby',
+            ),
+        ).toBe('prop-accounts-list-heading');
         expect(container.textContent).toContain(
             'Account events are loaded for the last 3 years only',
         );
         expect(container.textContent).toContain('Unresolvable plan');
+    });
+
+    it('lists every shown section in the jump navigation, in page order, each linking to its section', () => {
+        answerEverything([overviewAccount('alpha')]);
+        render();
+        const links = [
+            ...container.querySelectorAll<HTMLAnchorElement>(
+                ':scope nav[aria-label="Overview sections"] a',
+            ),
+        ];
+        expect(links.map((link) => link.textContent)).toEqual(SECTION_HEADINGS);
+        for (const link of links) {
+            const target = container.querySelector(
+                `#${CSS.escape(link.getAttribute('href')?.slice(1) ?? '')}`,
+            );
+            expect(target?.textContent).toContain(link.textContent);
+        }
     });
 
     it('mounts the payout timing card after the repeatability card, as a named focusable region with its rows', () => {
@@ -937,7 +956,7 @@ describe('OverviewView', () => {
             labelledSections().map(
                 (section) => headingOf(section)?.textContent,
             ),
-        ).toEqual([...CARD_HEADINGS, 'Accounts']);
+        ).toEqual(SECTION_HEADINGS);
     });
 
     it('links no rulebook repair page when the rulebook fails for another reason', () => {
@@ -1001,7 +1020,7 @@ describe('OverviewView', () => {
             labelledSections().map(
                 (section) => headingOf(section)?.textContent,
             ),
-        ).toEqual(['Alerts', 'Rule violations', 'Accounts']);
+        ).toEqual(['Alerts', 'Accounts', 'Rule violations']);
     });
 
     it('keeps every card after a failed refetch and says which data is stale', () => {
@@ -1022,8 +1041,8 @@ describe('OverviewView', () => {
         expect(
             labelledSections()
                 .map((section) => headingOf(section)?.textContent)
-                .slice(0, CARD_HEADINGS.length),
-        ).toEqual(CARD_HEADINGS);
+                .slice(0, SECTION_HEADINGS.length),
+        ).toEqual(SECTION_HEADINGS);
     });
 
     it('warns instead of silently naming firms of your own unlisted when the firm list fails to load', () => {

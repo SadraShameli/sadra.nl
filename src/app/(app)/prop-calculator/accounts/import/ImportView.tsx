@@ -1,7 +1,14 @@
 'use client';
 
 import { CircleCheck, FileUp, TriangleAlert } from 'lucide-react';
-import { useDeferredValue, useId, useMemo, useRef, useState } from 'react';
+import {
+    type ReactNode,
+    useDeferredValue,
+    useId,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { toast } from 'sonner';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
@@ -79,6 +86,7 @@ interface ImportPanelProperties<Column extends string, Value> {
     readonly onTextChange: (text: string) => void;
     readonly preview: CsvPreview<Column, Value> | null;
     readonly previewIsCurrent: boolean;
+    readonly reference?: ReactNode;
     readonly required: readonly Column[];
     readonly shownColumns: readonly Column[];
     readonly text: string;
@@ -196,7 +204,11 @@ export function ImportView() {
                 </AlertDescription>
             </Alert>
         ) : (
-            <Skeleton className="h-64 w-full" />
+            <Skeleton
+                aria-label="Loading your accounts"
+                className="h-64 w-full"
+                role="status"
+            />
         );
     }
 
@@ -279,12 +291,12 @@ function AccountImport({
                 }}
                 preview={preview}
                 previewIsCurrent={deferredText === text}
+                reference={<PlanReference />}
                 required={REQUIRED_ACCOUNT_CSV_COLUMNS}
                 shownColumns={ACCOUNT_SHOWN_COLUMNS}
                 text={text}
                 warnings={NO_CSV_WARNINGS}
             />
-            <PlanReference />
         </div>
     );
 }
@@ -313,7 +325,11 @@ function AccountImportTab({
             </AlertDescription>
         </Alert>
     ) : (
-        <Skeleton className="h-64 w-full" />
+        <Skeleton
+            aria-label="Loading your firms"
+            className="h-64 w-full"
+            role="status"
+        />
     );
 }
 
@@ -367,6 +383,7 @@ function CsvImportPanel<Column extends string, Value>({
     onTextChange,
     preview,
     previewIsCurrent,
+    reference,
     required,
     shownColumns,
     text,
@@ -411,7 +428,10 @@ function CsvImportPanel<Column extends string, Value>({
                 'flex flex-col gap-4',
             )}
         >
-            <h2 className="text-xl font-semibold" id={`${baseId}-heading`}>
+            <h2
+                className="text-lg font-semibold tracking-tight text-white"
+                id={`${baseId}-heading`}
+            >
                 Import {noun.plural}
             </h2>
             <ColumnReference
@@ -419,6 +439,7 @@ function CsvImportPanel<Column extends string, Value>({
                 describeColumn={describeColumn}
                 required={required}
             />
+            {reference}
             <div className="flex flex-col gap-2">
                 <Label htmlFor={textId}>CSV text</Label>
                 <Textarea
@@ -743,7 +764,11 @@ function SnapshotImport({
                 </AlertDescription>
             </Alert>
         ) : (
-            <Skeleton className="h-64 w-full" />
+            <Skeleton
+                aria-label="Loading your latest snapshots"
+                className="h-64 w-full"
+                role="status"
+            />
         );
     }
 

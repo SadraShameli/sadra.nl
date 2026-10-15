@@ -2,6 +2,7 @@ import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -26,6 +27,8 @@ export default async function PropAccountsLedgerPage() {
     void api.propAccounts.externalFirm.list.prefetch();
     void api.propAccounts.payout.list.prefetch({});
     void api.propAccounts.fee.list.prefetch({});
+    void api.propAccounts.bankroll.list.prefetch();
+    void api.propAccounts.firmStatement.list.prefetch();
     return (
         <HydrateClient>
             <main
@@ -34,15 +37,10 @@ export default async function PropAccountsLedgerPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Ledger
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        Every payout and fee across your accounts. Filter it and
-                        export exactly what you see as CSV.
-                    </p>
-                </header>
+                <AccountsPageHeader
+                    description="Every payout and fee across your accounts. Filter it and export exactly what you see as CSV."
+                    title="Ledger"
+                />
                 <LedgerView />
             </main>
         </HydrateClient>

@@ -228,7 +228,7 @@ export function LedgerView() {
         return <PayoutLagCard rows={payoutLagRows} />;
     }
 
-    function payoutsAndFeesSection() {
+    function payoutsAndFeesBody() {
         const failed = [accountsQuery, payoutsQuery, feesQuery].find(
             (query) => query.isError,
         );
@@ -245,7 +245,13 @@ export function LedgerView() {
             payoutsQuery.isPending ||
             feesQuery.isPending
         ) {
-            return <Skeleton className="h-64 w-full" />;
+            return (
+                <Skeleton
+                    aria-label="Loading your payouts and fees"
+                    className="h-64 w-full"
+                    role="status"
+                />
+            );
         }
         if (entries.length === 0) {
             return (
@@ -258,13 +264,7 @@ export function LedgerView() {
         }
 
         return (
-            <section
-                aria-labelledby="prop-ledger-heading"
-                className="app-prop-accounts__ledger-list flex flex-col gap-4"
-            >
-                <h2 className="sr-only" id="prop-ledger-heading">
-                    Payouts and fees
-                </h2>
+            <>
                 <LedgerFilterBar
                     accountOptions={accountOptions}
                     filters={filters}
@@ -314,15 +314,26 @@ export function LedgerView() {
                     <LedgerTable entries={visible} />
                 )}
                 {payoutLagSection()}
-            </section>
+            </>
         );
     }
 
     return (
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-10">
+            <section
+                aria-labelledby="prop-ledger-heading"
+                className="app-prop-accounts__ledger-list flex flex-col gap-4"
+            >
+                <h2
+                    className="text-lg font-semibold tracking-tight text-white"
+                    id="prop-ledger-heading"
+                >
+                    Payouts and fees
+                </h2>
+                {payoutsAndFeesBody()}
+            </section>
             <DepositsWithdrawalsSection />
             <FirmReconciliationSection externalFirms={externalFirms ?? []} />
-            {payoutsAndFeesSection()}
         </div>
     );
 }
@@ -1081,7 +1092,7 @@ function StatementForm({
                                 >
                                     <FormControl>
                                         <SelectTrigger ref={field.ref}>
-                                            <SelectValue />
+                                            <SelectValue placeholder="Choose a firm" />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>

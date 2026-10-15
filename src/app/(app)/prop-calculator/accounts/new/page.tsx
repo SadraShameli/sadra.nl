@@ -8,6 +8,7 @@ import {
     accountPrefillQuery,
     parseAccountPrefill,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -39,6 +40,7 @@ export default async function NewPropAccountPage({
     void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
     void api.propAccounts.copyGroup.list.prefetch();
     void api.propAccounts.externalFirm.list.prefetch();
+    void api.propAccounts.round.list.prefetch();
     return (
         <HydrateClient>
             <main
@@ -47,15 +49,10 @@ export default async function NewPropAccountPage({
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Add account
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        Pick the firm and plan, then enter what the firm
-                        dashboard shows today.
-                    </p>
-                </header>
+                <AccountsPageHeader
+                    description="Pick the firm and plan, then enter what the firm dashboard shows today."
+                    title="Add account"
+                />
                 <AccountCreator
                     initialFirm={prefill.firmId}
                     initialOptIns={prefill.optIns}

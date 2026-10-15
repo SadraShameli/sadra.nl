@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
@@ -41,17 +42,12 @@ import {
     buildOverview,
     overviewAccountRequestsOf,
     type OverviewAlerts,
-    type OverviewBoards,
-    type OverviewConcentration,
     overviewEngineRequestsOf,
-    type OverviewEvSources,
-    type OverviewExposure,
     type OverviewLedgerCards,
     type OverviewModel,
-    type OverviewNextPayout,
     type OverviewNotice,
-    type OverviewProjection,
     overviewProjectionRequestsOf,
+    type OverviewSectionGap,
     OverviewSectionStatus,
     type OverviewSetup,
     overviewValueRequestsOf,
@@ -61,6 +57,13 @@ import {
     type PortfolioLoadIssue,
     PortfolioSource,
 } from './overviewModel';
+import {
+    OVERVIEW_READY_LAYOUT,
+    OVERVIEW_SECTION_TITLE,
+    overviewSectionAnchor,
+    overviewSectionHeadingId,
+    OverviewSectionId,
+} from './overviewSections';
 import { PayoutSizesCard } from './PayoutSizesCard';
 import { PayoutTimingCard } from './PayoutTimingCard';
 import { PooledCapCard } from './PooledCapCard';
@@ -106,25 +109,27 @@ export function OverviewView({ userId }: { readonly userId: string }) {
             }),
         [engine, externalFirms, load, today, userId],
     );
+    const accountsTable = (
+        <div
+            className="scroll-mt-32"
+            id={overviewSectionAnchor(OverviewSectionId.Accounts)}
+        >
+            <AccountsTableWithValues values={values} />
+        </div>
+    );
     return (
         <>
-            <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Prop accounts
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        Spend, payouts received and net across every account you
-                        hold, with alerts and each account&apos;s stage and
-                        latest balance.
-                    </p>
-                </div>
-                <Button asChild>
-                    <Link href={routes.propCalculator.accounts.new}>
-                        Add account
-                    </Link>
-                </Button>
-            </header>
+            <AccountsPageHeader
+                action={
+                    <Button asChild>
+                        <Link href={routes.propCalculator.accounts.new}>
+                            Add account
+                        </Link>
+                    </Button>
+                }
+                description="Spend, payouts received and net across every account you hold, with alerts and each account's stage and latest balance."
+                title="Prop accounts"
+            />
             <div className="flex flex-col gap-8">
                 <LoadIssues issues={load.failures} variant="destructive" />
                 <LoadIssues issues={load.stale} variant="warning" />
@@ -140,17 +145,18 @@ export function OverviewView({ userId }: { readonly userId: string }) {
                     </Alert>
                 )}
                 {load.accounts.status === OverviewSectionStatus.Pending && (
-                    <SectionSkeleton label="Loading your overview" />
+                    <PageSkeleton />
                 )}
-                {model.hasAccounts && (
+                {model.hasAccounts ? (
                     <OverviewSections
+                        accountsTable={accountsTable}
                         load={load}
                         model={model}
                         userId={userId}
                     />
-                )}
-                {load.accounts.status === OverviewSectionStatus.Ready && (
-                    <AccountsTableWithValues values={values} />
+                ) : (
+                    load.accounts.status === OverviewSectionStatus.Ready &&
+                    accountsTable
                 )}
             </div>
         </>
@@ -159,8 +165,8 @@ export function OverviewView({ userId }: { readonly userId: string }) {
 
 function AlertsSection({ alerts }: { readonly alerts: OverviewAlerts }) {
     return (
-        <OverviewSection id="alerts" title="Alerts">
-            {alerts.kind === OverviewSectionStatus.Ready && (
+        <OverviewSection section={OverviewSectionId.Alerts}>
+            {alerts.kind === OverviewSectionStatus.Ready ? (
                 <>
                     {alerts.accountStatesCaveat !== null && (
                         <p className="mb-3 text-sm text-muted-foreground">
@@ -169,235 +175,52 @@ function AlertsSection({ alerts }: { readonly alerts: OverviewAlerts }) {
                     )}
                     <AlertsCenter alerts={alerts.alerts} />
                 </>
-            )}
-            {alerts.kind === OverviewSectionStatus.Pending && (
-                <SectionSkeleton label="Loading the alerts" />
-            )}
-            {alerts.kind === OverviewSectionStatus.Failed && (
-                <p className="text-sm text-destructive">{alerts.message}</p>
+            ) : (
+                <SectionGap gap={alerts} loadingLabel="Loading the alerts" />
             )}
         </OverviewSection>
     );
 }
 
-function BoardsSections({ boards }: { readonly boards: OverviewBoards }) {
-    switch (boards.kind) {
+function isSetupShown(setup: OverviewSetup): boolean {
+    switch (setup.kind) {
         case OverviewSectionStatus.Failed: {
-            return (
-                <>
-                    <OverviewSection id="cushion-board" title="Cushion board">
-                        <p className="text-sm text-destructive">
-                            {boards.message}
-                        </p>
-                    </OverviewSection>
-                    <OverviewSection
-                        id="readiness-board"
-                        title="Payout readiness"
-                    >
-                        <p className="text-sm text-destructive">
-                            {boards.message}
-                        </p>
-                    </OverviewSection>
-                </>
-            );
+            return true;
         }
         case OverviewSectionStatus.Pending: {
-            return (
-                <>
-                    <OverviewSection id="cushion-board" title="Cushion board">
-                        <SectionSkeleton label="Loading the cushion board" />
-                    </OverviewSection>
-                    <OverviewSection
-                        id="readiness-board"
-                        title="Payout readiness"
-                    >
-                        <SectionSkeleton label="Loading the payout readiness board" />
-                    </OverviewSection>
-                </>
-            );
+            return false;
         }
         case OverviewSectionStatus.Ready: {
-            return (
-                <>
-                    <OverviewSection id="cushion-board" title="Cushion board">
-                        <CushionBoardCard model={boards.cushion} />
-                    </OverviewSection>
-                    <OverviewSection
-                        id="readiness-board"
-                        title="Payout readiness"
-                    >
-                        <ReadinessBoardCard model={boards.readiness} />
-                    </OverviewSection>
-                </>
-            );
+            return !setup.model.isComplete;
         }
     }
 }
 
-function ConcentrationSection({
-    concentration,
+function JumpNav({
+    sections,
 }: {
-    readonly concentration: OverviewConcentration;
+    readonly sections: readonly OverviewSectionId[];
 }) {
     return (
-        <OverviewSection id="profit-concentration" title="Profit concentration">
-            {concentration.kind === OverviewSectionStatus.Ready && (
-                <ProfitConcentrationCard model={concentration.model} />
-            )}
-            {concentration.kind === OverviewSectionStatus.Pending && (
-                <SectionSkeleton label="Loading the profit concentration" />
-            )}
-            {concentration.kind === OverviewSectionStatus.Failed && (
-                <p className="text-sm text-destructive">
-                    {concentration.message}
-                </p>
-            )}
-        </OverviewSection>
-    );
-}
-
-function ExposureSection({
-    exposure,
-}: {
-    readonly exposure: OverviewExposure;
-}) {
-    return (
-        <OverviewSection id="exposure" title="Exposure">
-            {exposure.kind === OverviewSectionStatus.Ready && (
-                <ExposureCard model={exposure.model} />
-            )}
-            {exposure.kind === OverviewSectionStatus.Pending && (
-                <SectionSkeleton label="Loading the exposure" />
-            )}
-            {exposure.kind === OverviewSectionStatus.Failed && (
-                <p className="text-sm text-destructive">{exposure.message}</p>
-            )}
-        </OverviewSection>
-    );
-}
-
-function LedgerSections({
-    cards,
-    evSources,
-    nextPayout,
-    projection,
-}: {
-    readonly cards: OverviewLedgerCards;
-    readonly evSources: OverviewEvSources;
-    readonly nextPayout: OverviewNextPayout;
-    readonly projection: OverviewProjection;
-}) {
-    return (
-        <>
-            <OverviewSection id="expected-net" title="Expected net">
-                <ExpectedNetCard model={cards.expectedNet} />
-            </OverviewSection>
-            <OverviewSection id="ev-sources" title="Where EV comes from">
-                {evSources.kind === OverviewSectionStatus.Ready && (
-                    <EvSourcesCard model={evSources.model} />
-                )}
-                {evSources.kind === OverviewSectionStatus.Pending && (
-                    <SectionSkeleton label="Loading where EV comes from" />
-                )}
-                {evSources.kind === OverviewSectionStatus.Failed && (
-                    <p className="text-sm text-destructive">
-                        {evSources.message}
-                    </p>
-                )}
-            </OverviewSection>
-            <OverviewSection
-                id="fresh-start-projection"
-                title="Fresh-start projection"
-            >
-                {projection.kind === OverviewSectionStatus.Ready && (
-                    <ProjectionCard model={projection.model} />
-                )}
-                {projection.kind === OverviewSectionStatus.Pending && (
-                    <SectionSkeleton label="Loading the fresh-start projection" />
-                )}
-                {projection.kind === OverviewSectionStatus.Failed && (
-                    <p className="text-sm text-destructive">
-                        {projection.message}
-                    </p>
-                )}
-            </OverviewSection>
-            <OverviewSection
-                id="next-payout"
-                title="Next payout and value from today's state"
-            >
-                {nextPayout.kind === OverviewSectionStatus.Ready && (
-                    <NextPayoutCard model={nextPayout.model} />
-                )}
-                {nextPayout.kind === OverviewSectionStatus.Pending && (
-                    <SectionSkeleton label="Loading the figures from each account's own state" />
-                )}
-                {nextPayout.kind === OverviewSectionStatus.Failed && (
-                    <p className="text-sm text-destructive">
-                        {nextPayout.message}
-                    </p>
-                )}
-            </OverviewSection>
-            <OverviewSection id="cap-usage" title="Plan cap usage">
-                <CapUsageCard model={cards.capUsage} />
-            </OverviewSection>
-            <OverviewSection id="pooled-caps" title="Pooled caps">
-                <PooledCapCard model={cards.pooledCaps} />
-            </OverviewSection>
-            <OverviewSection id="live-proximity" title="Live proximity">
-                <LiveProximityCard model={cards.liveProximity} />
-            </OverviewSection>
-            <OverviewSection id="funnel" title="Stage funnel">
-                <FunnelCard model={cards.funnel} />
-            </OverviewSection>
-            <OverviewSection id="tilt-variance" title="Tilt vs variance">
-                <TiltVarianceCard model={cards.tiltVariance} />
-            </OverviewSection>
-            <OverviewSection id="diversification" title="Diversification">
-                <DiversificationCard model={cards.diversification} />
-            </OverviewSection>
-            <OverviewSection id="costs" title="Costs">
-                <CostCard model={cards.cost} />
-            </OverviewSection>
-            <OverviewSection id="firm-returns" title="Firm returns">
-                <FirmReturnsCard model={cards.firmReturns} />
-            </OverviewSection>
-            <OverviewSection id="outcomes" title="Realized outcomes">
-                <RealizedOutcomesCard model={cards.outcomes} />
-            </OverviewSection>
-            <OverviewSection id="payout-sizes" title="Payout sizes">
-                <PayoutSizesCard model={cards.payoutSizes} />
-            </OverviewSection>
-            <OverviewSection
-                id="funded-payouts"
-                title="Payouts per funded account"
-            >
-                <FundedPayoutsCard model={cards.fundedPayouts} />
-            </OverviewSection>
-            <OverviewSection
-                id="attempt-economics"
-                title="Your attempt economics"
-            >
-                <AttemptEconomicsCard model={cards.attemptEconomics} />
-            </OverviewSection>
-            <OverviewSection id="replacement" title="Replacement">
-                <ReplacementCard model={cards.replacement} />
-            </OverviewSection>
-            <OverviewSection id="statement" title="Monthly statement">
-                <StatementCard model={cards.statement} />
-            </OverviewSection>
-            <OverviewSection id="attempt-throughput" title="Attempt throughput">
-                <AttemptThroughputCard model={cards.attemptThroughput} />
-            </OverviewSection>
-            <OverviewSection id="repeatability" title="Repeatability">
-                <RepeatabilityCard model={cards.repeatability} />
-            </OverviewSection>
-            <OverviewSection id="payout-timing" title="Payout timing">
-                <PayoutTimingCard model={cards.payoutTiming} />
-            </OverviewSection>
-            <OverviewSection id="timeline" title="Timeline">
-                <TimelineCard model={cards.timeline} />
-            </OverviewSection>
-        </>
+        <nav aria-label="Overview sections">
+            <details className="group rounded-md border border-border p-4 text-sm">
+                <summary className="cursor-pointer font-medium">
+                    Jump to a section ({String(sections.length)})
+                </summary>
+                <ul className="mt-3 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
+                    {sections.map((section) => (
+                        <li key={section}>
+                            <a
+                                className="inline-block py-1 text-muted-foreground underline-offset-4 hover:text-white hover:underline"
+                                href={`#${overviewSectionAnchor(section)}`}
+                            >
+                                {OVERVIEW_SECTION_TITLE[section]}
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            </details>
+        </nav>
     );
 }
 
@@ -443,18 +266,17 @@ function NoticeList({
 
 function OverviewSection({
     children,
-    id,
-    title,
+    section,
 }: {
     readonly children: ReactNode;
-    readonly id: string;
-    readonly title: string;
+    readonly section: OverviewSectionId;
 }) {
-    const headingId = `prop-overview-${id}-heading`;
+    const headingId = overviewSectionHeadingId(section);
     return (
         <section
             aria-labelledby={headingId}
-            className={cn('app-prop-accounts__overview-card')}
+            className={cn('app-prop-accounts__overview-card', 'scroll-mt-32')}
+            id={overviewSectionAnchor(section)}
         >
             <Card>
                 <CardHeader>
@@ -462,7 +284,7 @@ function OverviewSection({
                         className="text-lg font-semibold tracking-tight text-white"
                         id={headingId}
                     >
-                        {title}
+                        {OVERVIEW_SECTION_TITLE[section]}
                     </h2>
                 </CardHeader>
                 <CardContent>{children}</CardContent>
@@ -472,10 +294,12 @@ function OverviewSection({
 }
 
 function OverviewSections({
+    accountsTable,
     load,
     model,
     userId,
 }: {
+    readonly accountsTable: ReactNode;
     readonly load: PortfolioLoad;
     readonly model: OverviewModel;
     readonly userId: string;
@@ -486,6 +310,7 @@ function OverviewSections({
             return (
                 <>
                     <AlertsSection alerts={model.alerts} />
+                    {accountsTable}
                     <ViolationsSummarySection violations={model.violations} />
                     <Alert variant="destructive">
                         <TriangleAlert />
@@ -499,40 +324,344 @@ function OverviewSections({
             return (
                 <>
                     <AlertsSection alerts={model.alerts} />
+                    {accountsTable}
                     <ViolationsSummarySection violations={model.violations} />
                     <SectionSkeleton label="Loading the ledger cards" />
                 </>
             );
         }
         case OverviewSectionStatus.Ready: {
+            const sections = OVERVIEW_READY_LAYOUT.filter(
+                (section) =>
+                    section !== OverviewSectionId.Setup ||
+                    isSetupShown(model.setup),
+            );
             return (
                 <>
-                    <SetupSection setup={model.setup} />
-                    <OverviewSection id="kpis" title="Key figures">
-                        <KpiRow kpis={ledger.kpis} />
-                    </OverviewSection>
-                    <OverviewSection id="bankroll" title="Bankroll">
-                        <BankrollCard model={ledger.bankroll} />
-                    </OverviewSection>
-                    <OverviewSection id="firms" title="Firms">
-                        <FirmsTile load={load} userId={userId} />
-                    </OverviewSection>
-                    <AlertsSection alerts={model.alerts} />
-                    <BoardsSections boards={model.boards} />
-                    <ExposureSection exposure={model.exposure} />
-                    <ConcentrationSection concentration={model.concentration} />
-                    <ViolationsSummarySection violations={model.violations} />
-                    <OverviewSection id="notes" title="Data notes">
-                        <NoticeList notices={ledger.notices} />
-                    </OverviewSection>
-                    <LedgerSections
-                        cards={ledger}
-                        evSources={model.evSources}
-                        nextPayout={model.nextPayout}
-                        projection={model.projection}
-                    />
+                    <JumpNav sections={sections} />
+                    {sections.map((section) => (
+                        <ReadySection
+                            accountsTable={accountsTable}
+                            cards={ledger}
+                            key={section}
+                            load={load}
+                            model={model}
+                            section={section}
+                            userId={userId}
+                        />
+                    ))}
                 </>
             );
+        }
+    }
+}
+
+function PageSkeleton() {
+    return (
+        <div
+            aria-busy="true"
+            aria-label="Loading your overview"
+            className="min-h-screen"
+            role="status"
+        >
+            <Skeleton className="h-screen w-full" />
+        </div>
+    );
+}
+
+function ReadySection({
+    accountsTable,
+    cards,
+    load,
+    model,
+    section,
+    userId,
+}: {
+    readonly accountsTable: ReactNode;
+    readonly cards: OverviewLedgerCards;
+    readonly load: PortfolioLoad;
+    readonly model: OverviewModel;
+    readonly section: OverviewSectionId;
+    readonly userId: string;
+}) {
+    switch (section) {
+        case OverviewSectionId.Accounts: {
+            return accountsTable;
+        }
+        case OverviewSectionId.Alerts: {
+            return <AlertsSection alerts={model.alerts} />;
+        }
+        case OverviewSectionId.AttemptEconomics: {
+            return (
+                <OverviewSection section={section}>
+                    <AttemptEconomicsCard model={cards.attemptEconomics} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.AttemptThroughput: {
+            return (
+                <OverviewSection section={section}>
+                    <AttemptThroughputCard model={cards.attemptThroughput} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Bankroll: {
+            return (
+                <OverviewSection section={section}>
+                    <BankrollCard model={cards.bankroll} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.CapUsage: {
+            return (
+                <OverviewSection section={section}>
+                    <CapUsageCard model={cards.capUsage} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Costs: {
+            return (
+                <OverviewSection section={section}>
+                    <CostCard model={cards.cost} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.CushionBoard: {
+            const { boards } = model;
+            return (
+                <OverviewSection section={section}>
+                    {boards.kind === OverviewSectionStatus.Ready ? (
+                        <CushionBoardCard model={boards.cushion} />
+                    ) : (
+                        <SectionGap
+                            gap={boards}
+                            loadingLabel="Loading the cushion board"
+                        />
+                    )}
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.DataNotes: {
+            return (
+                <OverviewSection section={section}>
+                    <NoticeList notices={cards.notices} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Diversification: {
+            return (
+                <OverviewSection section={section}>
+                    <DiversificationCard model={cards.diversification} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.EvSources: {
+            const { evSources } = model;
+            return (
+                <OverviewSection section={section}>
+                    {evSources.kind === OverviewSectionStatus.Ready ? (
+                        <EvSourcesCard model={evSources.model} />
+                    ) : (
+                        <SectionGap
+                            gap={evSources}
+                            loadingLabel="Loading where EV comes from"
+                        />
+                    )}
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.ExpectedNet: {
+            return (
+                <OverviewSection section={section}>
+                    <ExpectedNetCard model={cards.expectedNet} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Exposure: {
+            const { exposure } = model;
+            return (
+                <OverviewSection section={section}>
+                    {exposure.kind === OverviewSectionStatus.Ready ? (
+                        <ExposureCard model={exposure.model} />
+                    ) : (
+                        <SectionGap
+                            gap={exposure}
+                            loadingLabel="Loading the exposure"
+                        />
+                    )}
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.FirmReturns: {
+            return (
+                <OverviewSection section={section}>
+                    <FirmReturnsCard model={cards.firmReturns} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Firms: {
+            return (
+                <OverviewSection section={section}>
+                    <FirmsTile load={load} userId={userId} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.FreshStartProjection: {
+            const { projection } = model;
+            return (
+                <OverviewSection section={section}>
+                    {projection.kind === OverviewSectionStatus.Ready ? (
+                        <ProjectionCard model={projection.model} />
+                    ) : (
+                        <SectionGap
+                            gap={projection}
+                            loadingLabel="Loading the fresh-start projection"
+                        />
+                    )}
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.FundedPayouts: {
+            return (
+                <OverviewSection section={section}>
+                    <FundedPayoutsCard model={cards.fundedPayouts} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Funnel: {
+            return (
+                <OverviewSection section={section}>
+                    <FunnelCard model={cards.funnel} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Kpis: {
+            return (
+                <OverviewSection section={section}>
+                    <KpiRow kpis={cards.kpis} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.LiveProximity: {
+            return (
+                <OverviewSection section={section}>
+                    <LiveProximityCard model={cards.liveProximity} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.NextPayout: {
+            const { nextPayout } = model;
+            return (
+                <OverviewSection section={section}>
+                    {nextPayout.kind === OverviewSectionStatus.Ready ? (
+                        <NextPayoutCard model={nextPayout.model} />
+                    ) : (
+                        <SectionGap
+                            gap={nextPayout}
+                            loadingLabel="Loading the figures from each account's own state"
+                        />
+                    )}
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Outcomes: {
+            return (
+                <OverviewSection section={section}>
+                    <RealizedOutcomesCard model={cards.outcomes} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.PayoutSizes: {
+            return (
+                <OverviewSection section={section}>
+                    <PayoutSizesCard model={cards.payoutSizes} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.PayoutTiming: {
+            return (
+                <OverviewSection section={section}>
+                    <PayoutTimingCard model={cards.payoutTiming} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.PooledCaps: {
+            return (
+                <OverviewSection section={section}>
+                    <PooledCapCard model={cards.pooledCaps} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.ProfitConcentration: {
+            const { concentration } = model;
+            return (
+                <OverviewSection section={section}>
+                    {concentration.kind === OverviewSectionStatus.Ready ? (
+                        <ProfitConcentrationCard model={concentration.model} />
+                    ) : (
+                        <SectionGap
+                            gap={concentration}
+                            loadingLabel="Loading the profit concentration"
+                        />
+                    )}
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.ReadinessBoard: {
+            const { boards } = model;
+            return (
+                <OverviewSection section={section}>
+                    {boards.kind === OverviewSectionStatus.Ready ? (
+                        <ReadinessBoardCard model={boards.readiness} />
+                    ) : (
+                        <SectionGap
+                            gap={boards}
+                            loadingLabel="Loading the payout readiness board"
+                        />
+                    )}
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Repeatability: {
+            return (
+                <OverviewSection section={section}>
+                    <RepeatabilityCard model={cards.repeatability} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Replacement: {
+            return (
+                <OverviewSection section={section}>
+                    <ReplacementCard model={cards.replacement} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Setup: {
+            return <SetupSection setup={model.setup} />;
+        }
+        case OverviewSectionId.Statement: {
+            return (
+                <OverviewSection section={section}>
+                    <StatementCard model={cards.statement} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.TiltVariance: {
+            return (
+                <OverviewSection section={section}>
+                    <TiltVarianceCard model={cards.tiltVariance} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Timeline: {
+            return (
+                <OverviewSection section={section}>
+                    <TimelineCard model={cards.timeline} />
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionId.Violations: {
+            return <ViolationsSummarySection violations={model.violations} />;
         }
     }
 }
@@ -551,33 +680,51 @@ function RulebookRepairLink() {
     );
 }
 
+function SectionGap({
+    gap,
+    loadingLabel,
+}: {
+    readonly gap: OverviewSectionGap;
+    readonly loadingLabel: string;
+}) {
+    switch (gap.kind) {
+        case OverviewSectionStatus.Failed: {
+            return <p className="text-sm text-destructive">{gap.message}</p>;
+        }
+        case OverviewSectionStatus.Pending: {
+            return <SectionSkeleton label={loadingLabel} />;
+        }
+    }
+}
+
 function SectionSkeleton({ label }: { readonly label: string }) {
     return (
-        <div aria-busy="true" aria-label={label}>
+        <div aria-busy="true" aria-label={label} role="status">
             <Skeleton className="h-64 w-full" />
         </div>
     );
 }
 
 function SetupSection({ setup }: { readonly setup: OverviewSetup }) {
-    if (setup.kind === OverviewSectionStatus.Failed) {
-        return (
-            <OverviewSection id="setup" title="Setup checklist">
-                <p className="text-sm text-destructive">{setup.message}</p>
-            </OverviewSection>
-        );
+    switch (setup.kind) {
+        case OverviewSectionStatus.Failed: {
+            return (
+                <OverviewSection section={OverviewSectionId.Setup}>
+                    <p className="text-sm text-destructive">{setup.message}</p>
+                </OverviewSection>
+            );
+        }
+        case OverviewSectionStatus.Pending: {
+            return null;
+        }
+        case OverviewSectionStatus.Ready: {
+            return setup.model.isComplete ? null : (
+                <OverviewSection section={OverviewSectionId.Setup}>
+                    <SetupChecklistCard model={setup.model} />
+                </OverviewSection>
+            );
+        }
     }
-    if (
-        setup.kind === OverviewSectionStatus.Pending ||
-        setup.model.isComplete
-    ) {
-        return null;
-    }
-    return (
-        <OverviewSection id="setup" title="Setup checklist">
-            <SetupChecklistCard model={setup.model} />
-        </OverviewSection>
-    );
 }
 
 function useOverviewPortfolioData(): PortfolioLoad {
@@ -606,15 +753,14 @@ function ViolationsSummarySection({
     readonly violations: OverviewViolations;
 }) {
     return (
-        <OverviewSection id="violations" title="Rule violations">
-            {violations.kind === OverviewSectionStatus.Ready && (
+        <OverviewSection section={OverviewSectionId.Violations}>
+            {violations.kind === OverviewSectionStatus.Ready ? (
                 <ViolationsCard model={violations.model} />
-            )}
-            {violations.kind === OverviewSectionStatus.Pending && (
-                <SectionSkeleton label="Loading your rule violations" />
-            )}
-            {violations.kind === OverviewSectionStatus.Failed && (
-                <p className="text-sm text-destructive">{violations.message}</p>
+            ) : (
+                <SectionGap
+                    gap={violations}
+                    loadingLabel="Loading your rule violations"
+                />
             )}
         </OverviewSection>
     );

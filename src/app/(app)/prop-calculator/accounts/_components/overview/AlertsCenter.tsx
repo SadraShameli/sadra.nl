@@ -1,6 +1,6 @@
 import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
 
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { AlertSeverity } from '~/lib/prop-accounts';
 
 import { type OverviewAlert } from './overviewModel';
@@ -46,9 +46,9 @@ function AlertItem({ alert }: { readonly alert: OverviewAlert }) {
     return (
         <Alert variant={alertVariant(alert.severity)}>
             <AlertIcon severity={alert.severity} />
-            <AlertTitle>
+            <h3 className="mb-1 leading-none font-medium tracking-tight">
                 {alert.kindLabel}: {alert.subjectLabel}
-            </AlertTitle>
+            </h3>
             <AlertDescription>
                 <p>{alert.message}</p>
                 {alert.disclosures.map((disclosure) => (

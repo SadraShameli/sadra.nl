@@ -61,11 +61,14 @@ export function NextActionFigure({
 }
 
 export function NextPayoutFigure({
+    isNoteCollapsed = false,
     nextPayout,
 }: {
+    readonly isNoteCollapsed?: boolean;
     readonly nextPayout: NextPayoutView;
 }) {
     const isMuted = MUTED_NEXT_PAYOUT_KINDS.has(nextPayout.kind);
+    const isNoteFolded = isNoteCollapsed && !isMuted;
     return (
         <>
             <span
@@ -77,11 +80,19 @@ export function NextPayoutFigure({
             >
                 {nextPayout.text}
             </span>
-            {nextPayout.note !== null && (
-                <p className="text-xs text-muted-foreground">
-                    {nextPayout.note}
-                </p>
-            )}
+            {nextPayout.note !== null &&
+                (isNoteFolded ? (
+                    <details className="text-xs text-muted-foreground">
+                        <summary className="cursor-pointer py-1 select-none">
+                            How this is estimated
+                        </summary>
+                        <p>{nextPayout.note}</p>
+                    </details>
+                ) : (
+                    <p className="text-xs text-muted-foreground">
+                        {nextPayout.note}
+                    </p>
+                ))}
         </>
     );
 }

@@ -2,6 +2,7 @@ import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 import { getServerSession } from '~/lib/auth/server';
+import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -35,6 +36,13 @@ export default async function PropAccountsPage() {
     void api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT);
     void api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT);
     void api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT);
+    void api.propAccounts.decision.list.prefetch(LEDGER_LIST_INPUT);
+    void api.propAccounts.violation.list.prefetch(LEDGER_LIST_INPUT);
+    void api.propAccounts.bankroll.list.prefetch();
+    void api.propAccounts.firmStatement.list.prefetch();
+    void api.propAccounts.round.list.prefetch();
+    void api.propAccounts.firmEngagement.list.prefetch();
+    void api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
     return (
         <HydrateClient>
             <main

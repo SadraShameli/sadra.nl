@@ -28,6 +28,7 @@ import {
     LiveApplicabilityKind,
     livePlanApplicability,
 } from '~/lib/prop-calculator/firms';
+import { MAX_ACCOUNT_LABEL_LENGTH } from '~/lib/schemas/propAccounts';
 
 const harness = vi.hoisted(() => ({
     create: vi.fn(() => Promise.resolve({ id: 'created-account' })),
@@ -746,5 +747,85 @@ describe('AccountEditor live start on a funded account', () => {
                 liveStartBalanceCents: Math.round(livePlan.lowestStart * 100),
             }),
         );
+    });
+});
+
+describe('AccountCreator label validation', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    function labelInput(): HTMLInputElement {
+        return inputIn(container, 'input[name="label"]');
+    }
+
+    function labelMessage(): null | string {
+        const describedBy = labelInput().getAttribute('aria-describedby') ?? '';
+        const messageId = describedBy
+            .split(' ')
+            .find((id) => id.endsWith('-form-item-message'));
+        return messageId === undefined
+            ? null
+            : (container.querySelector(`#${CSS.escape(messageId)}`)
+                  ?.textContent ?? null);
+    }
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.create.mockClear();
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+        act(() => {
+            root.render(
+                <AccountCreator
+                    initialFirm={fiftyKEval.firm.id}
+                    initialOptIns={NO_PLAN_OPT_INS}
+                    initialPlan={serializePlanId(fiftyKEval.plan.id)}
+                />,
+            );
+        });
+        typeInto(
+            inputIn(container, `#snapshot-${SnapshotField.Balance}`),
+            '50,000',
+        );
+        typeInto(
+            inputIn(container, `#snapshot-${SnapshotField.HighestEodBalance}`),
+            '50,000',
+        );
+        typeInto(
+            inputIn(container, `#snapshot-${SnapshotField.TradingDays}`),
+            '0',
+        );
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        document.body.replaceChildren();
+        vi.unstubAllGlobals();
+    });
+
+    it('asks for a label in plain words, not a raw schema message, and saves nothing', async () => {
+        await submitForm(container);
+
+        expect(labelInput().getAttribute('aria-invalid')).toBe('true');
+        expect(labelMessage()).toBe(
+            'Enter a label to tell this account apart, such as “Apex 50K 1”.',
+        );
+        expect(container.textContent).not.toContain('Too small');
+        expect(harness.create).not.toHaveBeenCalled();
+    });
+
+    it('names the length limit in plain words for a label that is too long, and saves nothing', async () => {
+        typeInto(labelInput(), 'x'.repeat(MAX_ACCOUNT_LABEL_LENGTH + 1));
+
+        await submitForm(container);
+
+        expect(labelMessage()).toBe(
+            `Keep it to ${String(MAX_ACCOUNT_LABEL_LENGTH)} characters or fewer.`,
+        );
+        expect(container.textContent).not.toContain('Too big');
+        expect(harness.create).not.toHaveBeenCalled();
     });
 });

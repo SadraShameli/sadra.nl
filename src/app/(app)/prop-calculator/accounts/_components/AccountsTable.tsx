@@ -161,7 +161,13 @@ export function AccountsTableWithValues({
     );
 
     if (accountsQuery.isPending) {
-        return <Skeleton className="h-64 w-full" />;
+        return (
+            <Skeleton
+                aria-label="Loading your accounts"
+                className="h-64 w-full"
+                role="status"
+            />
+        );
     }
     if (accounts === undefined) {
         return (
@@ -217,7 +223,10 @@ export function AccountsTableWithValues({
             aria-labelledby="prop-accounts-list-heading"
             className="app-prop-accounts__list flex flex-col gap-4"
         >
-            <h2 className="sr-only" id="prop-accounts-list-heading">
+            <h2
+                className="text-lg font-semibold tracking-tight text-white"
+                id="prop-accounts-list-heading"
+            >
                 Accounts
             </h2>
             {isComputing && (
@@ -756,7 +765,10 @@ function ValueCells({
                 <ValueDetailLines columns={columns} />
             </TableCell>
             <TableCell className="text-right align-top tabular-nums">
-                <NextPayoutFigure nextPayout={columns.nextPayout} />
+                <NextPayoutFigure
+                    isNoteCollapsed
+                    nextPayout={columns.nextPayout}
+                />
             </TableCell>
         </>
     );

@@ -625,31 +625,9 @@ export type OverviewAlerts =
           readonly kind: OverviewSectionStatus.Ready;
       };
 
-export type OverviewBoards =
-    | OverviewSectionGap
-    | {
-          readonly cushion: CushionBoardCardModel;
-          readonly kind: OverviewSectionStatus.Ready;
-          readonly readiness: ReadinessBoardCardModel;
-      };
-
-export type OverviewConcentration =
-    | OverviewSectionGap
-    | {
-          readonly kind: OverviewSectionStatus.Ready;
-          readonly model: ProfitConcentrationCardModel;
-      };
-
 export type OverviewDecisionRow = AlertDecisionRow;
 
 export type OverviewEngine = SlotEngine;
-
-export type OverviewEvSources =
-    | OverviewSectionGap
-    | {
-          readonly kind: OverviewSectionStatus.Ready;
-          readonly model: EvSourcesCardModel;
-      };
 
 export type OverviewExposure =
     | OverviewSectionGap
@@ -1254,6 +1232,28 @@ interface OutcomesRow {
     readonly sessionsToFunded: string;
 }
 
+type OverviewBoards =
+    | OverviewSectionGap
+    | {
+          readonly cushion: CushionBoardCardModel;
+          readonly kind: OverviewSectionStatus.Ready;
+          readonly readiness: ReadinessBoardCardModel;
+      };
+
+type OverviewConcentration =
+    | OverviewSectionGap
+    | {
+          readonly kind: OverviewSectionStatus.Ready;
+          readonly model: ProfitConcentrationCardModel;
+      };
+
+type OverviewEvSources =
+    | OverviewSectionGap
+    | {
+          readonly kind: OverviewSectionStatus.Ready;
+          readonly model: EvSourcesCardModel;
+      };
+
 interface PayoutSizeBalanceRow {
     readonly count: string;
     readonly key: PayoutBalanceBandKey;
@@ -1794,6 +1794,10 @@ const LEDGER_SOURCES = [
     PortfolioSource.Transfers,
 ] as const;
 
+export type OverviewSectionGap =
+    | { readonly kind: OverviewSectionStatus.Failed; readonly message: string }
+    | { readonly kind: OverviewSectionStatus.Pending };
+
 interface AccountFromStateEntry {
     readonly accountId: string;
     readonly isFunded: boolean;
@@ -1848,10 +1852,6 @@ interface MonthlyNetFigures {
     readonly expectedMonthlyNet: UncertainValue;
     readonly expectedMonthlyRealizedNet: UncertainValue;
 }
-
-type OverviewSectionGap =
-    | { readonly kind: OverviewSectionStatus.Failed; readonly message: string }
-    | { readonly kind: OverviewSectionStatus.Pending };
 
 interface PlanEngine {
     readonly documented: EngineSlot<DocumentedRunFigures>;

@@ -1,6 +1,7 @@
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { getServerSession } from '~/lib/auth/server';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
@@ -36,17 +37,10 @@ export default async function PropRulebookPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Rulebook
-                    </h1>
-                    <p className="mt-2 max-w-3xl text-sm text-muted-foreground sm:text-base">
-                        The documented rules the sizing suggester will use as
-                        its headline. Every value that differs from the skill is
-                        listed, with a preview of the custom rule label that
-                        headline will carry.
-                    </p>
-                </header>
+                <AccountsPageHeader
+                    description="The documented rules the sizing suggester will use as its headline. Every value that differs from the skill is listed, with a preview of the custom rule label that headline will carry."
+                    title="Rulebook"
+                />
                 <RulebookView tradingPlan={tradingPlan} />
             </main>
         </HydrateClient>

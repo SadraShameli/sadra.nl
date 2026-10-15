@@ -1,6 +1,8 @@
 import { type Metadata } from 'next';
 
 import { AccountEditor } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { openAccountPage } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountIdParameter';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -22,8 +24,11 @@ export default async function EditPropAccountPage({
         params,
         routes.propCalculator.accounts.edit,
     );
+    void api.propAccounts.account.get.prefetch({ id });
+    void api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT);
     void api.propAccounts.copyGroup.list.prefetch();
     void api.propAccounts.externalFirm.list.prefetch();
+    void api.propAccounts.round.list.prefetch();
     return (
         <HydrateClient>
             <main
@@ -32,11 +37,10 @@ export default async function EditPropAccountPage({
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Edit account
-                    </h1>
-                </header>
+                <AccountsPageHeader
+                    description="Change this account's plan, details and personal rules."
+                    title="Edit account"
+                />
                 <AccountEditor id={id} />
             </main>
         </HydrateClient>

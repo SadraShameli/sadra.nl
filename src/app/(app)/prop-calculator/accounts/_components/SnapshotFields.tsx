@@ -13,6 +13,7 @@ import {
     SnapshotInputKind,
 } from '~/lib/prop-accounts';
 
+import { FieldRequirementMark } from './FieldRequirementMark';
 import {
     LEDGER_ONLY_SNAPSHOT_NOTICE,
     ledgerOnlySnapshotRules,
@@ -133,9 +134,9 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                         <Label htmlFor={id}>
                             {rule.label}
                             {rule.input === SnapshotInputKind.Money && ' ($)'}
-                            <span className="ml-1 text-xs font-normal text-muted-foreground">
-                                ({REQUIREMENT_NOTE[rule.requirement]})
-                            </span>
+                            <FieldRequirementMark
+                                text={REQUIREMENT_NOTE[rule.requirement]}
+                            />
                         </Label>
                         <Input
                             aria-describedby={

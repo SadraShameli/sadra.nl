@@ -29,6 +29,7 @@ vi.mock('~/trpc/server', () => ({
             account: { list: { prefetch: () => Promise.resolve() } },
             copyGroup: { list: { prefetch: () => Promise.resolve() } },
             externalFirm: { list: { prefetch: () => Promise.resolve() } },
+            round: { list: { prefetch: () => Promise.resolve() } },
         },
     },
     HydrateClient: ({ children }: { children: ReactNode }) => children,
