@@ -13,8 +13,10 @@ import {
 import {
     InstrumentSymbol,
     PayoutRequestPolicy,
+    serializePlanId,
 } from '~/lib/prop-calculator/core';
 import { RateSearchStatus } from '~/lib/prop-calculator/core/AverageRewardSolver';
+import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
 const LEDGER_ROOT = path.join(
     process.cwd(),
@@ -111,10 +113,25 @@ describe('dpValidationFor', () => {
         });
     });
 
-    it('reads every plan as not validated from the shipped table until a post-G2 gate run is recorded', () => {
-        expect(DP_G2_RECORDED_ON).toBeNull();
-        expect(DP_GATE_RUNS).toEqual([]);
-        expect(dpValidationFor('topstep:50000:no-fee-standard')).toEqual({
+    it('ships the 2026-10-15 gate re-run: one post-G2 run per registry plan, each plan judged by its own row (PT-30a2)', () => {
+        const registrySerials = new Set(
+            ALL_FIRMS.flatMap((firm) => firm.plans).map((plan) =>
+                serializePlanId(plan.id),
+            ),
+        );
+        const serials = DP_GATE_RUNS.map((gateRun) => gateRun.planSerial);
+
+        expect(DP_G2_RECORDED_ON).toBe('2026-10-15');
+        expect(DP_GATE_RUNS.length).toBeGreaterThan(0);
+        expect(new Set(serials).size).toBe(serials.length);
+        for (const gateRun of DP_GATE_RUNS) {
+            expect(registrySerials.has(gateRun.planSerial)).toBe(true);
+            expect(gateRun.ranOn > '2026-10-15').toBe(true);
+            expect(dpValidationFor(gateRun.planSerial).citation).toEqual(
+                gateRun.citation,
+            );
+        }
+        expect(dpValidationFor('plan-not-in-the-table')).toEqual({
             citation: null,
             failure: DpGateFailureCode.NoGateRun,
             result: null,
