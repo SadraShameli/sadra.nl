@@ -143,6 +143,40 @@ describe('fundedValueEstimate (F-V17, PT-65b step 6)', () => {
         );
     });
 
+    it('gives the payout-count range from the uncapped per-account spread, the mean plus or minus 1.96 x SE x sqrt(trials) / sqrt(n), never from the histogram that lumps 10 or more payouts into one bucket (PT-50 escalation on PT-65)', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan, 200);
+
+        const result = fundedValueEstimate(plan, spec, 25);
+        const { meanPayoutsPerAccount, sampleRange } = result;
+        if (!sampleRange || !meanPayoutsPerAccount.standardError) {
+            throw new Error('expected a payout-count range');
+        }
+
+        const halfWidth =
+            NINETY_FIVE_PERCENT_Z *
+            ((meanPayoutsPerAccount.standardError * Math.sqrt(result.trials)) /
+                Math.sqrt(25));
+        expect(sampleRange.lower).toBeCloseTo(
+            meanPayoutsPerAccount.value - halfWidth,
+            6,
+        );
+        expect(sampleRange.upper).toBeCloseTo(
+            meanPayoutsPerAccount.value + halfWidth,
+            6,
+        );
+    });
+
+    it('gives no payout-count range when too few funded trials exist for a standard error', () => {
+        const plan = rapidEodPlan();
+        const spec = specFor(plan, 1);
+
+        const result = fundedValueEstimate(plan, spec, 10);
+
+        expect(result.meanPayoutsPerAccount.standardError).toBeNull();
+        expect(result.sampleRange).toBeNull();
+    });
+
     it('widens the dollar range as n shrinks', () => {
         const plan = rapidEodPlan();
         const spec = specFor(plan, 200);

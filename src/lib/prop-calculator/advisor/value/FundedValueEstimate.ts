@@ -65,7 +65,7 @@ export function fundedValueEstimate(
     };
     const out = simulateFromState(inputs);
     const distribution = out.fundedPayoutCountDistribution;
-    const mean = out.estimates.payoutsPerFundedAccount.value;
+    const payoutsPerAccount = out.estimates.payoutsPerFundedAccount;
     const fundedValue = out.estimates.expectedPayoutPerFundedAccount;
     const anyPayoutGivenFunded = out.estimates.anyPayoutGivenFundedProbability;
     const liveTransfer = liveTransferAssumptionOf(
@@ -87,18 +87,19 @@ export function fundedValueEstimate(
                   ),
         fundedValue,
         ...(liveTransfer !== undefined && { liveTransfer }),
-        meanPayoutsPerAccount: out.estimates.payoutsPerFundedAccount,
+        meanPayoutsPerAccount: payoutsPerAccount,
         payoutCountDistribution: distribution,
         probabilityZeroPayouts: {
             standardError: anyPayoutGivenFunded.standardError,
             value: 1 - anyPayoutGivenFunded.value,
         },
         sampleRange:
-            sampleSize === null
+            sampleSize === null || payoutsPerAccount.standardError === null
                 ? null
                 : sampleRangeFor(
-                      mean,
-                      standardDeviationOfDistribution(distribution, mean),
+                      payoutsPerAccount.value,
+                      payoutsPerAccount.standardError *
+                          Math.sqrt(spec.run.trials),
                       sampleSize,
                   ),
         seed: spec.run.seed,
@@ -108,28 +109,15 @@ export function fundedValueEstimate(
 
 function sampleRangeFor(
     mean: number,
-    standardDeviationOfDistribution: number,
+    standardDeviation: number,
     sampleSize: number,
 ): FundedValueSampleRange {
     const halfWidth =
-        NINETY_FIVE_PERCENT_Z *
-        (standardDeviationOfDistribution / Math.sqrt(sampleSize));
+        NINETY_FIVE_PERCENT_Z * (standardDeviation / Math.sqrt(sampleSize));
     return {
         label: FUNDED_VALUE_SAMPLE_RANGE_LABEL,
         lower: mean - halfWidth,
         sampleSize,
         upper: mean + halfWidth,
     };
-}
-
-function standardDeviationOfDistribution(
-    distribution: readonly number[],
-    mean: number,
-): number {
-    const variance = distribution.reduce(
-        (accumulator, probability, payoutCount) =>
-            accumulator + probability * (payoutCount - mean) ** 2,
-        0,
-    );
-    return Math.sqrt(Math.max(0, variance));
 }
