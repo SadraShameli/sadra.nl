@@ -7,6 +7,10 @@ const group = defineCommand({
         name: 'prop',
     },
     subCommands: {
+        accounts: async () => {
+            const commandModule = await import('./accounts/group');
+            return commandModule.default;
+        },
         advise: async () => {
             const commandModule = await import('./advise/command');
             return commandModule.default;

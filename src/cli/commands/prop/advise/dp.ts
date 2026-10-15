@@ -1,5 +1,4 @@
 import { type ArgsDef } from 'citty';
-import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { DpAdviceRepo, PropDatabase } from '~/lib/prop-accounts/server';
@@ -14,6 +13,10 @@ import {
     readPositiveInteger,
     readPositiveNumber,
 } from '~/cli/commands/prop/shared';
+import {
+    findUserByEmail,
+    readUserEmail,
+} from '~/cli/commands/prop/userByEmail';
 import { ui } from '~/cli/ui';
 import {
     AccountStateKind,
@@ -102,7 +105,6 @@ import {
     withRegistryPlanOptIns,
 } from '~/lib/prop-calculator/core/FundedStateValue';
 import { planRulesFingerprint } from '~/lib/prop-calculator/describe';
-import { user } from '~/server/db/schemas/auth';
 
 import { dpValueSamplesOf } from './dpValueSamples';
 
@@ -517,7 +519,8 @@ export async function runDpDatabase(
         if (userEmail === null) {
             throw new Error('--account and --all need --user-email');
         }
-        const userId = await resolveUserId(db, userEmail);
+        const owner = await findUserByEmail(db, userEmail);
+        const userId = owner.id;
         const targets = await loadDpDatabaseTargets({
             accountId,
             database: db,
@@ -884,21 +887,6 @@ function readDpSettings(arguments_: DpSettingsArguments): DpSettings {
                 : readNonNegativeNumber(startRate, 'start-rate'),
         valuesOutput: valuesOutputOf(arguments_),
     };
-}
-
-async function resolveUserId(
-    database: PropDatabase,
-    email: string,
-): Promise<string> {
-    const [row] = await database
-        .select({ id: user.id })
-        .from(user)
-        .where(eq(sql`lower(${user.email})`, email.toLowerCase()))
-        .limit(1);
-    if (row === undefined) {
-        throw new Error(`No user found for the email "${email}"`);
-    }
-    return row.id;
 }
 
 async function runDpAdvice(input: DpRunInput): Promise<void> {
@@ -1389,15 +1377,6 @@ function readAccountId(raw: string | undefined): null | string {
     const parsed = z.uuid().safeParse(raw.trim());
     if (!parsed.success) {
         throw new Error(`--account must be an account id (UUID), got "${raw}"`);
-    }
-    return parsed.data;
-}
-
-function readUserEmail(raw: string | undefined): null | string {
-    if (raw === undefined) return null;
-    const parsed = z.email().safeParse(raw.trim());
-    if (!parsed.success) {
-        throw new Error(`--user-email must be an email address, got "${raw}"`);
     }
     return parsed.data;
 }
