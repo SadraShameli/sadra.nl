@@ -199,9 +199,10 @@ describe('readCallbackUrl', () => {
                 path.join(process.cwd(), 'src', 'app', '(auth)', file),
                 'utf8',
             );
-            expect(source, file).toMatch(/readCallbackUrl\(searchParameters\)/);
+            expect(source, file).toMatch(/currentCallbackUrl\(\)/);
             expect(source, file).not.toMatch(/callbackUrlSchema/);
             expect(source, file).not.toMatch(/get\('callbackUrl'\)/);
+            expect(source, file).not.toMatch(/useSearchParams/);
         }
     });
 });

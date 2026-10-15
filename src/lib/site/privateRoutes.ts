@@ -7,7 +7,12 @@ import {
     withQuery,
 } from '~/lib/site/routes';
 
-export const callbackUrlSchema = sameOriginRouteSchema;
+const CALLBACK_URL_MAX_LENGTH = 512;
+
+export const callbackUrlSchema = sameOriginRouteSchema.refine(
+    (route) => route.length <= CALLBACK_URL_MAX_LENGTH,
+    'Callback URL is too long',
+);
 
 export const PRIVATE_PREFIXES: readonly string[] = [
     routes.accounting.index,
@@ -16,6 +21,10 @@ export const PRIVATE_PREFIXES: readonly string[] = [
     routes.tradeChecklist.index,
     routes.propCalculator.accounts.index,
 ];
+
+export function currentCallbackUrl(): Route {
+    return readCallbackUrl(new URLSearchParams(window.location.search));
+}
 
 export function isPrivatePath(pathname: string): boolean {
     return PRIVATE_PREFIXES.some(
@@ -42,8 +51,4 @@ export function readCallbackUrl(
     return callbackUrlSchema
         .catch(routes.home)
         .parse(searchParameters.get('callbackUrl'));
-}
-
-export function currentCallbackUrl(): Route {
-    return readCallbackUrl(new URLSearchParams(window.location.search));
 }

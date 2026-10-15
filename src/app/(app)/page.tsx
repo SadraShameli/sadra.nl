@@ -1,6 +1,7 @@
 import { ArrowUpRight } from 'lucide-react';
 import { type Metadata } from 'next';
 import Image from 'next/image';
+import { Suspense } from 'react';
 
 import { PageTransition } from '~/components/PageTransition';
 import SectionDescription from '~/components/SectionDescription';
@@ -12,6 +13,7 @@ import { cn } from '~/lib/utilities';
 
 import AboutSection from './_components/About';
 import ReadingSection from './_components/Reading/Reading';
+import ReadingSkeleton from './_components/Reading/ReadingSkeleton';
 import RecordingSection from './_components/Recording/Recording';
 
 export const metadata: Metadata = {
@@ -32,7 +34,7 @@ export const metadata: Metadata = {
     },
 };
 
-export default async function HomePage() {
+export default function HomePage() {
     const { gallery, heroImage } = homepageContent;
     return (
         <PageTransition>
@@ -86,7 +88,10 @@ export default async function HomePage() {
                 </section>
 
                 <section
-                    className={cn('app-home__sensor-hub', 'container py-spacing')}
+                    className={cn(
+                        'app-home__sensor-hub',
+                        'container py-spacing',
+                    )}
                 >
                     <SectionTitle text={homepageContent.sensorHubTitle} />
 
@@ -112,7 +117,10 @@ export default async function HomePage() {
                 </section>
 
                 <section
-                    className={cn('app-home__recordings', 'container py-spacing')}
+                    className={cn(
+                        'app-home__recordings',
+                        'container py-spacing',
+                    )}
                 >
                     <SectionTitle text={homepageContent.recordingsTitle} />
                     <SectionDescription
@@ -130,10 +138,14 @@ export default async function HomePage() {
                     <SectionDescription
                         text={homepageContent.readingsDescription}
                     />
-                    <ReadingSection />
+                    <Suspense fallback={<ReadingSkeleton />}>
+                        <ReadingSection />
+                    </Suspense>
                 </section>
 
-                <section className={cn('app-home__about', 'container pt-spacing')}>
+                <section
+                    className={cn('app-home__about', 'container pt-spacing')}
+                >
                     <SectionTitle text={homepageContent.aboutSectionTitle} />
                     <AboutSection gallery={gallery} />
                 </section>

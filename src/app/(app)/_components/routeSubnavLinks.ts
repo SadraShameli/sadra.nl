@@ -57,10 +57,7 @@ export function isSubnavItemActive(
 export function subnavHref(item: SubnavLink, query: string): Route {
     const itemQuery = item.query ?? query;
     const bare = itemQuery.startsWith('?') ? itemQuery.slice(1) : itemQuery;
-    return sameOriginRoute(
-        item.href,
-        item.carriesQuery === true ? bare : '',
-    );
+    return sameOriginRoute(item.href, item.carriesQuery === true ? bare : '');
 }
 
 export function subnavItemKey(item: SubnavLink): string {

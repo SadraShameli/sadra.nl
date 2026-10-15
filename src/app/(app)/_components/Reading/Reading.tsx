@@ -4,10 +4,7 @@ import { keepPreviousData, skipToken } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import {
     AreaChart as ChartIcon,
-    Cpu,
     Download,
-    MapPin,
-    SlidersHorizontal,
     ThermometerSnowflake,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -16,17 +13,12 @@ import { type DateRange } from 'react-day-picker';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
-import { DateRangePicker } from '~/components/ui/DatePicker';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuRadioGroup,
-    DropdownMenuRadioItem,
-    DropdownMenuTrigger,
-} from '~/components/ui/DropDown';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { FilterDateRange } from '~/components/ui/FilterDateRange';
+import { FilterSelect } from '~/components/ui/FilterSelect';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import {
     finestGranularityForRange,
     type Granularity,
@@ -106,9 +98,6 @@ export default function ReadingSection() {
         setCurrentDevice(undefined);
     }, [currentLocation]);
 
-    const currentGranularityLabel =
-        GRANULARITIES.find((g) => g.value === granularity)?.label ?? 'Raw';
-
     return (
         <div className={cn('app-reading', 'pt-spacing-inner')}>
             <Card className="container flex min-h-100 flex-col sm:min-h-[538.81px]">
@@ -124,9 +113,9 @@ export default function ReadingSection() {
                                 !currentReading.data?.data && 'justify-end',
                             )}
                         >
-                            <div className="flex flex-wrap items-center gap-2">
-                                <DateRangePicker
-                                    className="app-reading__date-picker"
+                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                                <FilterDateRange
+                                    label="Reading date"
                                     maxDate={new Date()}
                                     minDate={addDays(
                                         Date.now() -
@@ -152,145 +141,69 @@ export default function ReadingSection() {
                                     value={date}
                                 />
 
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger
-                                        asChild
-                                        disabled={!locations.data?.data}
-                                    >
-                                        <Button
-                                            className={cn(
-                                                'app-reading__location-picker',
-                                                'w-fit',
-                                            )}
-                                            variant="outline"
-                                        >
-                                            <MapPin className="mr-1 size-5" />
-                                            Locations
-                                        </Button>
-                                    </DropdownMenuTrigger>
+                                <ToolbarSelect
+                                    disabled={!locations.data?.data}
+                                    label="Location"
+                                    onValueChange={(value) => {
+                                        const loc = locations.data?.data.find(
+                                            (l) => l.location_name === value,
+                                        );
+                                        setCurrentLocation(loc);
+                                    }}
+                                    options={(locations.data?.data ?? []).map(
+                                        (loc) => ({
+                                            label: loc.location_name,
+                                            value: loc.location_name,
+                                        }),
+                                    )}
+                                    value={
+                                        currentLocation
+                                            ? currentLocation.location_name
+                                            : (locations.data?.data.at(-1)
+                                                  ?.location_name ?? '')
+                                    }
+                                />
 
-                                    <DropdownMenuContent>
-                                        <DropdownMenuRadioGroup
-                                            onValueChange={(value) => {
-                                                const loc =
-                                                    locations.data?.data.find(
-                                                        (l) =>
-                                                            l.location_name ===
-                                                            value,
-                                                    );
-                                                setCurrentLocation(loc);
-                                            }}
-                                            value={
-                                                currentLocation
-                                                    ? currentLocation.location_name
-                                                    : locations.data?.data.at(
-                                                          -1,
-                                                      )?.location_name
-                                            }
-                                        >
-                                            {locations.data?.data.map((loc) => (
-                                                <DropdownMenuRadioItem
-                                                    key={loc.location_name}
-                                                    value={loc.location_name}
-                                                >
-                                                    {loc.location_name}
-                                                </DropdownMenuRadioItem>
-                                            ))}
-                                        </DropdownMenuRadioGroup>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <FilterSelect
+                                    disabled={deviceList.length === 0}
+                                    label="Device"
+                                    onValueChange={(value) => {
+                                        setCurrentDevice(
+                                            value === undefined
+                                                ? undefined
+                                                : deviceList.find(
+                                                      (x) => x.name === value,
+                                                  ),
+                                        );
+                                    }}
+                                    options={deviceList.map((d) => ({
+                                        label: d.name,
+                                        value: d.name,
+                                    }))}
+                                    placeholder="All devices"
+                                    value={currentDevice?.name}
+                                />
 
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger
-                                        asChild
-                                        disabled={deviceList.length === 0}
-                                    >
-                                        <Button
-                                            className={cn(
-                                                'app-reading__device-picker',
-                                                'w-fit',
-                                            )}
-                                            variant="outline"
-                                        >
-                                            <Cpu className="mr-1 size-5" />
-                                            {currentDevice?.name ??
-                                                'All devices'}
-                                        </Button>
-                                    </DropdownMenuTrigger>
-
-                                    <DropdownMenuContent>
-                                        <DropdownMenuRadioGroup
-                                            onValueChange={(value) => {
-                                                if (value === '__all__') {
-                                                    setCurrentDevice(undefined);
-                                                    return;
-                                                }
-                                                const d = deviceList.find(
-                                                    (x) => x.name === value,
-                                                );
-                                                setCurrentDevice(d);
-                                            }}
-                                            value={
-                                                currentDevice?.name ?? '__all__'
-                                            }
-                                        >
-                                            <DropdownMenuRadioItem value="__all__">
-                                                All devices
-                                            </DropdownMenuRadioItem>
-                                            {deviceList.map((d) => (
-                                                <DropdownMenuRadioItem
-                                                    key={d.device_id}
-                                                    value={d.name}
-                                                >
-                                                    {d.name}
-                                                </DropdownMenuRadioItem>
-                                            ))}
-                                        </DropdownMenuRadioGroup>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger
-                                        asChild
-                                        disabled={!currentReading.data?.data}
-                                    >
-                                        <Button
-                                            className={cn(
-                                                'app-reading__granularity-picker',
-                                                'w-fit',
-                                            )}
-                                            variant="outline"
-                                        >
-                                            <SlidersHorizontal className="mr-1 size-4" />
-                                            {currentGranularityLabel}
-                                        </Button>
-                                    </DropdownMenuTrigger>
-
-                                    <DropdownMenuContent>
-                                        <DropdownMenuRadioGroup
-                                            onValueChange={(v) =>
-                                                setGranularity(v as Granularity)
-                                            }
-                                            value={granularity}
-                                        >
-                                            {GRANULARITIES.map((g) => (
-                                                <DropdownMenuRadioItem
-                                                    disabled={
-                                                        !isReadingsSpanWithinCap(
-                                                            g.value,
-                                                            date?.from,
-                                                            date?.to,
-                                                        )
-                                                    }
-                                                    key={g.value}
-                                                    value={g.value}
-                                                >
-                                                    {g.label}
-                                                </DropdownMenuRadioItem>
-                                            ))}
-                                        </DropdownMenuRadioGroup>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <ToolbarSelect
+                                    disabled={!currentReading.data?.data}
+                                    label="Granularity"
+                                    onValueChange={(value) => {
+                                        const next = GRANULARITIES.find(
+                                            (g) => g.value === value,
+                                        );
+                                        if (next) setGranularity(next.value);
+                                    }}
+                                    options={GRANULARITIES.map((g) => ({
+                                        disabled: !isReadingsSpanWithinCap(
+                                            g.value,
+                                            date?.from,
+                                            date?.to,
+                                        ),
+                                        label: g.label,
+                                        value: g.value,
+                                    }))}
+                                    value={granularity}
+                                />
 
                                 <Button
                                     className={cn(
@@ -307,6 +220,7 @@ export default function ReadingSection() {
                                             currentLocation?.location_name,
                                         );
                                     }}
+                                    size="sm"
                                     variant="outline"
                                 >
                                     <Download className="mr-1 size-4" />

@@ -38,7 +38,9 @@ export default function ForgotPasswordPage({
                         </CardHeader>
                         <CardContent className="flex flex-col gap-3">
                             <Suspense fallback={<ForgotPasswordIntro />}>
-                                <ForgotPasswordNotice searchParams={searchParams} />
+                                <ForgotPasswordNotice
+                                    searchParams={searchParams}
+                                />
                             </Suspense>
                             <ForgotPasswordForm />
                         </CardContent>
@@ -59,6 +61,14 @@ export default function ForgotPasswordPage({
     );
 }
 
+function ForgotPasswordIntro() {
+    return (
+        <p className="text-sm text-muted-foreground">
+            Enter your email and we&apos;ll send you a reset link.
+        </p>
+    );
+}
+
 async function ForgotPasswordNotice({
     searchParams,
 }: ForgotPasswordPageProperties) {
@@ -66,19 +76,10 @@ async function ForgotPasswordNotice({
     return sent ? (
         <Alert variant="success">
             <AlertDescription>
-                If an account exists for that email, a reset link has been
-                sent.
+                If an account exists for that email, a reset link has been sent.
             </AlertDescription>
         </Alert>
     ) : (
         <ForgotPasswordIntro />
-    );
-}
-
-function ForgotPasswordIntro() {
-    return (
-        <p className="text-sm text-muted-foreground">
-            Enter your email and we&apos;ll send you a reset link.
-        </p>
     );
 }

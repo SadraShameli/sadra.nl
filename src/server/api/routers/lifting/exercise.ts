@@ -1,7 +1,9 @@
 import 'server-only';
 import { TRPCError } from '@trpc/server';
 import { and, eq, isNull } from 'drizzle-orm';
+import { cacheLife, cacheTag } from 'next/cache';
 
+import { LiftingCacheTag } from '~/lib/lifting/cacheTags';
 import {
     customExerciseInputSchema,
     exerciseIdActionSchema,
@@ -18,6 +20,9 @@ const loadOfficialExercises = async (): Promise<{
     aliases: Record<string, string[]>;
     rows: ExerciseRow[];
 }> => {
+    'use cache';
+    cacheLife('days');
+    cacheTag(LiftingCacheTag.OfficialExercises);
     const rows = await db
         .select()
         .from(liftingExercise)

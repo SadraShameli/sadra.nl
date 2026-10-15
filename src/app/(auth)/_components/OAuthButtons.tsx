@@ -21,12 +21,6 @@ export function OAuthButtons({
 
     if (!hasGoogle && !hasGithub) return null;
 
-    const signInWith = (provider: 'github' | 'google') =>
-        authClient.signIn.social({
-            callbackURL: currentCallbackUrl(),
-            provider,
-        });
-
     return (
         <div className={cn('app-auth__oauth-buttons', 'flex flex-col gap-2')}>
             {hasGoogle && (
@@ -68,4 +62,11 @@ export function OAuthButtons({
             </div>
         </div>
     );
+}
+
+function signInWith(provider: 'github' | 'google') {
+    return authClient.signIn.social({
+        callbackURL: currentCallbackUrl(),
+        provider,
+    });
 }

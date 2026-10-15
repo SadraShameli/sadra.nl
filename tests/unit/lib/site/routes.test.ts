@@ -8,6 +8,7 @@ import {
     indexableRoutes,
     profileTabs,
     routes,
+    sameOriginRoute,
     withQuery,
 } from '~/lib/site/routes';
 
@@ -221,5 +222,19 @@ describe('withQuery', () => {
         expect(withQuery('/foo', { error: undefined, success: null })).toBe(
             '/foo',
         );
+    });
+});
+
+describe('sameOriginRoute', () => {
+    it('builds an in-app route whose query outgrows the callback URL cap', () => {
+        const query = `lab=${'a'.repeat(1200)}`;
+        expect(sameOriginRoute(routes.propCalculator.strategyLab, query)).toBe(
+            `${routes.propCalculator.strategyLab}?${query}`,
+        );
+    });
+
+    it('rejects a path that would leave the origin', () => {
+        expect(() => sameOriginRoute('//evil.com', '')).toThrow();
+        expect(() => sameOriginRoute(String.raw`/\evil.com`, '')).toThrow();
     });
 });

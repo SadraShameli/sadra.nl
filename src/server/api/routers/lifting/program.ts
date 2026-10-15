@@ -1,10 +1,12 @@
 import 'server-only';
 import { TRPCError } from '@trpc/server';
 import { and, asc, eq, isNull } from 'drizzle-orm';
+import { cacheLife, cacheTag } from 'next/cache';
 import { z } from 'zod';
 
 import type { ProgramSchedule } from '~/lib/lifting/types';
 
+import { LiftingCacheTag } from '~/lib/lifting/cacheTags';
 import {
     enrollProgramInputSchema,
     exerciseSlugActionSchema,
@@ -17,6 +19,9 @@ import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
 import { db, liftingProgram, liftingUserProgram } from '~/server/db';
 
 const loadOfficialPrograms = async () => {
+    'use cache';
+    cacheLife('days');
+    cacheTag(LiftingCacheTag.OfficialPrograms);
     return db
         .select()
         .from(liftingProgram)

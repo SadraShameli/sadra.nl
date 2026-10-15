@@ -2,8 +2,6 @@ import Link from 'next/link';
 
 import { PageTransition } from '~/components/PageTransition';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 import {
     Card,
     CardContent,
@@ -11,6 +9,8 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
+import { routes } from '~/lib/site/routes';
+import { cn } from '~/lib/utilities';
 
 export default function VerifyRequestPage() {
     return (
@@ -29,8 +29,8 @@ export default function VerifyRequestPage() {
                         <CardContent>
                             <Alert variant="success">
                                 <AlertDescription>
-                                    We&apos;ve sent you a sign-in link. Click it to
-                                    continue. The link expires in 24 hours.
+                                    We&apos;ve sent you a sign-in link. Click it
+                                    to continue. The link expires in 24 hours.
                                 </AlertDescription>
                             </Alert>
                         </CardContent>

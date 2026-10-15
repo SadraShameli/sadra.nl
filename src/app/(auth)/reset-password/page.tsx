@@ -52,7 +52,9 @@ export default function ResetPasswordPage({
     );
 }
 
-async function ResetPasswordBody({ searchParams }: ResetPasswordPageProperties) {
+async function ResetPasswordBody({
+    searchParams,
+}: ResetPasswordPageProperties) {
     const { error, token } = resetPasswordSearchSchema.parse(
         await searchParams,
     );
@@ -62,9 +64,7 @@ async function ResetPasswordBody({ searchParams }: ResetPasswordPageProperties) 
     return error === 'expired' ? (
         <CardContent className="flex flex-col gap-4">
             <Alert variant="destructive">
-                <AlertDescription>
-                    {errorMessages.expired}
-                </AlertDescription>
+                <AlertDescription>{errorMessages.expired}</AlertDescription>
             </Alert>
             <Link
                 className="text-sm underline underline-offset-4 hover:opacity-70"

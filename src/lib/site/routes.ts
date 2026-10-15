@@ -1,14 +1,10 @@
 import { type Route } from 'next';
 import { z } from 'zod';
 
-const SAME_ORIGIN_ROUTE_MAX_LENGTH = 512;
 const SAME_ORIGIN_PATH = /^\/(?![/\\])[^\\\p{Cc}]*$/u;
 
 export const sameOriginRouteSchema = z.custom<Route>(
-    (value) =>
-        typeof value === 'string' &&
-        value.length <= SAME_ORIGIN_ROUTE_MAX_LENGTH &&
-        SAME_ORIGIN_PATH.test(value),
+    (value) => typeof value === 'string' && SAME_ORIGIN_PATH.test(value),
     'Must be a same-origin path',
 );
 
@@ -177,12 +173,12 @@ export function parseSameOriginRoute(path: string): Route {
     return sameOriginRouteSchema.parse(path);
 }
 
+export function profileTabUrl(tab: string): PathWithQuery<'/profile'> {
+    return withQuery(routes.profile, { tab });
+}
+
 export function sameOriginRoute(pathname: string, query: string): Route {
     return parseSameOriginRoute(
         query === '' ? pathname : `${pathname}?${query}`,
     );
-}
-
-export function profileTabUrl(tab: string): PathWithQuery<'/profile'> {
-    return withQuery(routes.profile, { tab });
 }

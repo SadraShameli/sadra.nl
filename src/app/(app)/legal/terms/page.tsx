@@ -17,28 +17,29 @@ export default function TermsPage() {
                 <p>
                     sadra.nl is a personal site. The Trade Checklist and Prop
                     Calculator are offered as analytical tools for personal
-                    research; they are not financial advice. Any decision you make
-                    from the output of these tools is your own.
+                    research; they are not financial advice. Any decision you
+                    make from the output of these tools is your own.
                 </p>
 
                 <h2>Sensor Hub</h2>
                 <p>
-                    Devices that ingest into the Sensor Hub backend must use a token
-                    issued from the admin UI. Anonymous ingest is not supported.
+                    Devices that ingest into the Sensor Hub backend must use a
+                    token issued from the admin UI. Anonymous ingest is not
+                    supported.
                 </p>
 
                 <h2>Disclaimer</h2>
                 <p>
-                    The site is provided &ldquo;as is&rdquo; without warranty. No
-                    liability is accepted for trading losses, missed readings, or
-                    downtime.
+                    The site is provided &ldquo;as is&rdquo; without warranty.
+                    No liability is accepted for trading losses, missed
+                    readings, or downtime.
                 </p>
 
                 <h2>Acceptable use</h2>
                 <p>
-                    Don&apos;t attempt to circumvent authentication, scrape data you
-                    don&apos;t own, or upload content you don&apos;t have the rights
-                    to.
+                    Don&apos;t attempt to circumvent authentication, scrape data
+                    you don&apos;t own, or upload content you don&apos;t have
+                    the rights to.
                 </p>
             </article>
         </PageTransition>

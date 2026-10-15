@@ -57,8 +57,14 @@ export default function AuthErrorPage({
                         <CardContent>
                             <Alert variant="destructive">
                                 <AlertDescription>
-                                    <Suspense fallback={<Skeleton className="h-5 w-full" />}>
-                                        <AuthErrorMessage searchParams={searchParams} />
+                                    <Suspense
+                                        fallback={
+                                            <Skeleton className="h-5 w-full" />
+                                        }
+                                    >
+                                        <AuthErrorMessage
+                                            searchParams={searchParams}
+                                        />
                                     </Suspense>
                                 </AlertDescription>
                             </Alert>

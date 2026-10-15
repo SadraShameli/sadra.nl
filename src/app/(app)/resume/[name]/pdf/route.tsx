@@ -31,7 +31,6 @@ const cvShow: Record<
     projectSummaries: false,
 };
 
-export const runtime = 'nodejs';
 export async function GET(
     request: Request,
     { params }: { params: Promise<{ name: string }> },

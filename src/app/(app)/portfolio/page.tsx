@@ -38,7 +38,9 @@ export default function PortfolioPage() {
                         name={siteContent.manifest.name}
                         profiles={siteContent.profiles}
                         projects={portfolioContent.projects}
-                        projectsSectionTitle={portfolioContent.projectsSectionTitle}
+                        projectsSectionTitle={
+                            portfolioContent.projectsSectionTitle
+                        }
                         resumeLink={
                             <Suspense fallback={null}>
                                 <RootResumeLink />

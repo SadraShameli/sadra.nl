@@ -1,9 +1,12 @@
 import { type MetadataRoute } from 'next';
+import { cacheLife } from 'next/cache';
 
 import { indexableRoutes, routes } from '~/lib/site/routes';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+    'use cache';
+    cacheLife('days');
     const base = getPublicSiteOrigin();
     const lastModified = new Date();
     return indexableRoutes.map((path) => ({

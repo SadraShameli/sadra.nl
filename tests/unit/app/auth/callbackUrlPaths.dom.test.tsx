@@ -28,7 +28,6 @@ interface RejectedCallbackUrl {
 
 const navigation = vi.hoisted(() => ({
     push: vi.fn(),
-    query: { current: new URLSearchParams() },
     refresh: vi.fn(),
 }));
 
@@ -41,7 +40,6 @@ const auth = vi.hoisted(() => ({
 
 vi.mock('next/navigation', () => ({
     useRouter: () => ({ push: navigation.push, refresh: navigation.refresh }),
-    useSearchParams: () => navigation.query.current,
 }));
 
 vi.mock('~/lib/auth/client', () => ({
@@ -142,10 +140,16 @@ async function typeInto(name: string, value: string): Promise<void> {
 }
 
 function withCallbackUrl(callbackUrl: null | string): void {
-    navigation.query.current =
+    const query =
         callbackUrl === null
             ? new URLSearchParams()
             : new URLSearchParams({ callbackUrl });
+    const search = query.toString();
+    globalThis.history.replaceState(
+        null,
+        '',
+        search === '' ? routes.auth.login : `${routes.auth.login}?${search}`,
+    );
 }
 
 const AUTH_PATHS: readonly AuthPath[] = [
@@ -196,6 +200,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+    withCallbackUrl(null);
     for (const { container, root } of mounted.splice(0)) {
         await act(async () => {
             root.unmount();
