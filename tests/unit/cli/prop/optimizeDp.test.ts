@@ -1952,12 +1952,16 @@ describe('optimize dp prices the empirical cross-check like the DP (N-62)', () =
             ...base,
             expectedHorizonCredit: 3 * 400,
             expectedMonthlyNet: 3 * 1000,
+            expectedMonthlyRealizedNet: 3 * 900,
         };
         const lines = empiricalSummaryLines(threeCopies, 1000, 3);
         expect(lines).toContain(
             'expected monthly net per account slot: $1,000',
         );
         expect(lines).toContain('expected horizon credit per cycle: $400');
+        expect(lines).toContain(
+            'expected monthly net per account slot without the horizon credit: $900',
+        );
         expect(lines).toContain('gap vs DP-predicted monthly rate: $0');
     });
 });

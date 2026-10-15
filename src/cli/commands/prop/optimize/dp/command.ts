@@ -316,6 +316,7 @@ export function empiricalSummaryLines(
         `funded survive: ${formatPercent(out.fundedSurvivalProbability)}`,
         `funded bust probability: ${formatPercent(out.fundedBustProbability)}`,
         `expected monthly net per account slot: ${formatCurrency(monthlyNetPerSlot)}`,
+        `expected monthly net per account slot without the horizon credit: ${formatCurrency(out.expectedMonthlyRealizedNet / copyAccounts)}`,
         `expected horizon credit per cycle: ${formatCurrency(out.expectedHorizonCredit / copyAccounts)}`,
     ];
     if (predictedMonthlyRate !== null) {
