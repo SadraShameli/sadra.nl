@@ -43,7 +43,7 @@ export function PlateVisualizer({
 
     const perSideString =
         load.perSide.length === 0
-            ? '—'
+            ? '-'
             : load.perSide.map((p) => p.toString()).join(' · ');
 
     return (

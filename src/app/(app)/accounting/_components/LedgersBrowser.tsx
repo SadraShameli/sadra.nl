@@ -98,7 +98,7 @@ export function LedgersBrowser() {
                 accessorKey: 'group',
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground">
-                        {row.original.group ?? '—'}
+                        {row.original.group ?? '-'}
                     </span>
                 ),
                 header: 'Group',

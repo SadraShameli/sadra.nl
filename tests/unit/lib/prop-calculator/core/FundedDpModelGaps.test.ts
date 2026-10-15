@@ -103,7 +103,7 @@ describe('fundedDpModelGaps', () => {
         expect(fundedDpModelGaps(apexIntradayPlan())).toStrictEqual([]);
     });
 
-    it('is empty for E8 Signature 50K: its PayoutCountTieredPayoutCap tiers start at payouts 0, 2 and 4, and its maxLifetimePayouts is 5 -- both comfortably inside the regime cap of 6', () => {
+    it('is empty for E8 Signature 50K: its PayoutCountTieredPayoutCap tiers start at payouts 0, 2 and 4, and its maxLifetimePayouts is 5, both comfortably inside the regime cap of 6', () => {
         expect(fundedDpModelGaps(findE8SignaturePlan())).toStrictEqual([]);
     });
 

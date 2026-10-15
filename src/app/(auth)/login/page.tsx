@@ -44,7 +44,7 @@ export default async function LoginPage({
                         {success === 'reset' && (
                             <AutoDismissAlert variant="success">
                                 <AlertDescription>
-                                    Password reset — sign in with your new
+                                    Password reset. Sign in with your new
                                     password.
                                 </AlertDescription>
                             </AutoDismissAlert>
@@ -52,7 +52,7 @@ export default async function LoginPage({
                         {success === 'created' && (
                             <AutoDismissAlert variant="success">
                                 <AlertDescription>
-                                    Account created — sign in to continue.
+                                    Account created. Sign in to continue.
                                 </AlertDescription>
                             </AutoDismissAlert>
                         )}

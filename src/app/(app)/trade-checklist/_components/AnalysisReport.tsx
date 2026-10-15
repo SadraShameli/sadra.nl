@@ -480,12 +480,12 @@ function recommendationHeadline(
 ): string {
     switch (rec) {
         case 'hard-skip': {
-            return 'Hard skip — do not trade.';
+            return 'Hard skip: do not trade.';
         }
         case 'marginal': {
             return sized === 0
                 ? 'Sit this one out.'
-                : `Marginal setup — consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
+                : `Marginal setup: consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
         }
         case 'skip': {
             return 'Skip this setup.';

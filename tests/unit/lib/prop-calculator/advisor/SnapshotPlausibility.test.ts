@@ -42,11 +42,11 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
+import { EM_DASH } from '../../../proseDashes';
+
 type InputOverrides = Partial<z.input<typeof accountSnapshotInputSchema>>;
 
 const ACCOUNT_SIZE = 50_000;
-
-const EM_DASH = String.fromCodePoint(0x20_14);
 
 function registryPlan(id: PlanId): Plan {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === id.firm);

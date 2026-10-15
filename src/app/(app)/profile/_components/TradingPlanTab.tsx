@@ -294,7 +294,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                         <DialogHeader>
                             <DialogTitle>New trading plan</DialogTitle>
                             <DialogDescription>
-                                Starts from the default config — you can tune it
+                                Starts from the default config; you can tune it
                                 after.
                             </DialogDescription>
                         </DialogHeader>
@@ -451,8 +451,8 @@ function SortablePlanRow({
                             </AlertDialogTitle>
                             <AlertDialogDescription>
                                 Saved assessments referencing this plan keep
-                                their snapshotted config — only the plan
-                                template is removed.
+                                their snapshotted config. Only the plan template
+                                is removed.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

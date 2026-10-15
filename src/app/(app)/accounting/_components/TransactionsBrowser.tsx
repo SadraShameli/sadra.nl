@@ -147,7 +147,7 @@ export function TransactionsBrowser() {
                                 row.original.sourceCurrency}
                         </span>
                     ) : (
-                        '—'
+                        '-'
                     ),
                 header: 'Fee',
             },

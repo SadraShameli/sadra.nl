@@ -43,7 +43,7 @@ const CHECK_META: Record<PrepCheckKey, { hint: string; label: string }> = {
         label: 'Account risk reset',
     },
     economicEventsChecked: {
-        hint: 'Reviewed today’s news calendar — flagged times to avoid.',
+        hint: 'Reviewed today’s news calendar and flagged times to avoid.',
         label: 'Economic events checked',
     },
     htfBiasConfirmed: {

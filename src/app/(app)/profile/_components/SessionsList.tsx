@@ -276,7 +276,7 @@ function describeUserAgent(ua: null | string | undefined): {
 }
 
 function maskIp(ip: null | string | undefined): string {
-    if (!ip) return '—';
+    if (!ip) return '-';
     if (ip === '::1' || ip === '127.0.0.1') return 'localhost';
     if (ip.includes(':')) {
         const groups = ip.split(':');

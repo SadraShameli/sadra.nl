@@ -13,6 +13,7 @@ import {
 } from '~/lib/prop-accounts/alerts';
 import { AccountStage, IsoDateError } from '~/lib/prop-accounts/core';
 
+import { EM_DASH } from '../../../proseDashes';
 import {
     accountFor,
     ANY_EVAL_PLAN,
@@ -188,7 +189,7 @@ describe('alertKindLabel', () => {
             expect(label, kind).not.toBe(kind);
             expect(label, kind).toMatch(/^[A-Z]/);
             expect(label, kind).not.toBe(String(label).toUpperCase());
-            expect(label, kind).not.toContain('—');
+            expect(label, kind).not.toContain(EM_DASH);
         }
         expect(new Set(labels.map(([, label]) => label)).size).toBe(
             labels.length,

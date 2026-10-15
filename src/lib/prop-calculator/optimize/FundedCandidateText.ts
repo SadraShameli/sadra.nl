@@ -121,7 +121,7 @@ export function fundedSortDescription(
 }
 
 export function fundedSurvivorsNote(trials: number): string {
-    return `  survivors = trials (out of ${trials}) that passed eval and never busted funded (reached the horizon or the account concluded) -- a result backed by very few survivors is driven by a small, noisy sample and should not be trusted at face value\n`;
+    return `  survivors = trials (out of ${trials}) that passed eval and never busted funded (reached the horizon or the account concluded); a result backed by very few survivors is driven by a small, noisy sample and should not be trusted at face value\n`;
 }
 
 export function ladderRungsBelowOneContractText(

@@ -419,7 +419,7 @@ The combination of my trading experience, trading bot, professional experience a
 Kind regards,
 Sadra Shameli`,
         key: 'flowtraders',
-        label: 'Flow Traders — Digital Assets Trader',
+        label: 'Flow Traders, Digital Assets Trader',
     },
     {
         body: `Rijswijk, 21 juni 2024
@@ -445,7 +445,7 @@ Hartelijk dank voor uw tijd en aandacht.
 Met vriendelijke groet,
 Sadra Shameli`,
         key: 'coolblue',
-        label: 'Coolblue — Banner Developer',
+        label: 'Coolblue, Banner Developer',
     },
 ];
 

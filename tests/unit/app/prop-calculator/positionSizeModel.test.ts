@@ -50,6 +50,8 @@ import {
 } from '~/lib/prop-calculator/economics';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 
+import { EM_DASH } from '../../proseDashes';
+
 const ALL_PLANS: readonly Plan[] = ALL_FIRMS.flatMap((firm) => firm.plans);
 const DEFAULT_PLAN = defaultCalculatorState().plan;
 const GRID_RISKS = [
@@ -770,7 +772,7 @@ describe('positionSizeFor: fee-equivalent risk and the eval bust line (F-V16)', 
         expect(text).toContain('At risk if busted');
         expect(text).toContain(formatGateCurrency(dollars(fee)));
         expect(text).toContain('fresh eval');
-        expect(text).not.toContain('—');
+        expect(text).not.toContain(EM_DASH);
     });
 
     it.each([

@@ -34,8 +34,8 @@ export class ReadingCreatedEmail extends EmailMessage {
 }
 
 function ReadingCreatedTemplate({
-    deviceName = '—',
-    locationName = '—',
+    deviceName = '-',
+    locationName = '-',
     sensorReadings,
 }: ReadingCreatedTemplateProperties) {
     return (

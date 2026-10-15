@@ -36,7 +36,7 @@ describe('DeviceCreatedEmail', () => {
             locationName: undefined,
         });
         const html = await email.render();
-        expect(html).toContain('—');
+        expect(html).toContain('>-</p>');
     });
 });
 
@@ -93,7 +93,7 @@ describe('LoudnessAlertEmail', () => {
             value: 90,
         });
         const html = await email.render();
-        expect(html.match(/—/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+        expect(html.match(/>-<\/p>/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
     });
 });
 

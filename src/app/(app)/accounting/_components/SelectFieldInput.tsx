@@ -88,9 +88,9 @@ export function SelectFieldInput({
         !hasOptions && stringValue !== EMPTY && stringValue.length > 0;
 
     const placeholderLabel = hasOptions
-        ? '— pick one —'
+        ? 'Pick one'
         : isShowSavedAsOption
-          ? '— clear selection —'
+          ? 'Clear selection'
           : 'Load options first';
 
     return (

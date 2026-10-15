@@ -52,7 +52,7 @@ export function ProgramDetail({ program }: ProgramDetailProperties) {
     const enroll = api.lifting.program.enroll.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
-            toast.success('Enrolled — start your first session.');
+            toast.success('Enrolled. Start your first session.');
             await utilities.lifting.program.listMine.invalidate();
         },
     });

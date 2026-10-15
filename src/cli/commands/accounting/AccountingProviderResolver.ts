@@ -48,7 +48,7 @@ export const AccountingProviderResolver = {
                 : undefined;
             if (!match) {
                 ui.fail(
-                    'Multiple accounting credentials found — pass --credential <id|label>:',
+                    'Multiple accounting credentials found; pass --credential <id|label>:',
                 );
                 for (const r of rows) ui.note(`${r.label}  (${r.id})`);
                 return null;

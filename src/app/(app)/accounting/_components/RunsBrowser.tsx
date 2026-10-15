@@ -138,7 +138,7 @@ export function RunsBrowser() {
                     const id = row.original.accountingCredentialId;
                     return (
                         <span className="text-xs text-muted-foreground">
-                            {id ? (labelByCredentialId.get(id) ?? id) : '—'}
+                            {id ? (labelByCredentialId.get(id) ?? id) : '-'}
                         </span>
                     );
                 },

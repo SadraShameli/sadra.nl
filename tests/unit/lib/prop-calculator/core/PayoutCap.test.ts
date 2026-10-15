@@ -471,7 +471,7 @@ describe('FundedNext Legacy: two-regime payout cap (live-verified: 50% / $6,000 
         'the retained-cushion floor (now the full funded drawdown by default, ' +
             "not the old 10%) already dominates this plan's payout cap at real " +
             'trading parameters, so removing the cap no longer changes Monte Carlo ' +
-            "survival -- the cap's own marginal effect is still directly verified " +
+            "survival; the cap's own marginal effect is still directly verified " +
             'by the two tryPayout-level tests above (a large early payout ' +
             'against a locked, non-trailing threshold, where cushionRoom is not ' +
             'floor-bound)',

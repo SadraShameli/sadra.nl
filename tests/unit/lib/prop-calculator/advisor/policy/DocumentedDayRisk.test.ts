@@ -33,9 +33,8 @@ import {
 } from '~/lib/prop-calculator/advisor/policy';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
+import { EM_DASH } from '../../../../proseDashes';
 import { withFreshFundedCycle } from '../../freshFundedCycle';
-
-const EM_DASH = String.fromCodePoint(0x20_14);
 
 function registryPlan(id: PlanId): Plan {
     const firm = ALL_FIRMS.find((candidate) => candidate.id === id.firm);

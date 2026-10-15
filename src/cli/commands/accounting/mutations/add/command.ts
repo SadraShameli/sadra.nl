@@ -51,7 +51,7 @@ const command = defineCommand({
         },
         ledger: {
             description:
-                'Top-level ledger id — the account being credited (e.g. a private/equity ledger for personally-funded expenses)',
+                'Top-level ledger id: the account being credited (e.g. a private/equity ledger for personally-funded expenses)',
             required: true,
             type: 'string',
         },
@@ -64,7 +64,7 @@ const command = defineCommand({
             type: 'string',
         },
         rowLedger: {
-            description: 'Row ledger id — the expense account being debited',
+            description: 'Row ledger id: the expense account being debited',
             required: true,
             type: 'string',
         },
@@ -114,13 +114,13 @@ const command = defineCommand({
             const payload = buildManualMutationPayload(parsed.data);
 
             ui.heading(
-                `Mutation to post — credential "${credentialRow.label}"`,
+                `Mutation to post for credential "${credentialRow.label}"`,
             );
             for (const line of formatMutationPayload(payload)) ui.note(line);
 
             if (!context.args.yes) {
                 ui.warn(
-                    'Dry run — nothing was posted. Re-run with --yes to create this mutation in eBoekhouden.',
+                    'Dry run: nothing was posted. Re-run with --yes to create this mutation in eBoekhouden.',
                 );
                 return;
             }

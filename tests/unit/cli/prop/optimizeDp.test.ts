@@ -102,6 +102,7 @@ import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFuture
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { TakeProfitTrader } from '~/lib/prop-calculator/firms/tpt/TakeProfitTrader';
 
+import { SPACED_DOUBLE_HYPHEN } from '../../proseDashes';
 import { cheapDpSolverConfig } from './cheapDpSolverConfig';
 import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 import { flagsNamedButNotAccepted } from './helpFlags';
@@ -905,7 +906,7 @@ function resolvedDpPlan(argv: string[]): Plan {
 }
 
 describe('optimize dp prose uses no double-hyphen dash (WP24)', () => {
-    it('writes the funded gap warnings and every flag description it owns without a -- dash', async () => {
+    it('writes the funded gap warnings and every flag description it owns without a spaced double hyphen', async () => {
         const arguments_ = await resolveArguments();
         const texts = [
             fundedDpModelGapWarning(mffProPlan()) ?? '',
@@ -916,7 +917,7 @@ describe('optimize dp prose uses no double-hyphen dash (WP24)', () => {
 
         expect(texts[0]).not.toBe('');
         for (const text of texts) {
-            expect(text).not.toContain(' -- ');
+            expect(text).not.toContain(SPACED_DOUBLE_HYPHEN);
             expect(text).not.toContain('\u{2014}');
         }
     });

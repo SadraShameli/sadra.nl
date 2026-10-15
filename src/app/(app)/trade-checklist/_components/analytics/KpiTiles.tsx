@@ -44,7 +44,7 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
         {
             hint: `n=${stats.sample}`,
             label: 'Win rate',
-            value: stats.sample > 0 ? formatPercent(stats.winRate, 0) : '—',
+            value: stats.sample > 0 ? formatPercent(stats.winRate, 0) : '-',
         },
         {
             cls:
@@ -55,7 +55,7 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
                       : '',
             hint: 'across all graded outcomes',
             label: 'Cumulative R',
-            value: stats.sample > 0 ? formatR(stats.cumR, 1) : '—',
+            value: stats.sample > 0 ? formatR(stats.cumR, 1) : '-',
         },
         {
             cls:
@@ -87,7 +87,7 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
                       : '',
             hint: 'avg R per graded trade',
             label: 'Expectancy',
-            value: stats.sample > 0 ? formatR(stats.expectancy) : '—',
+            value: stats.sample > 0 ? formatR(stats.expectancy) : '-',
         },
     ];
 

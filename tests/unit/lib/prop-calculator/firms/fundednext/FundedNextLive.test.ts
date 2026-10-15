@@ -20,7 +20,7 @@ describe('buildFundedNextLivePlan', () => {
         expect(() => buildFundedNextLivePlan()).not.toThrow();
     });
 
-    it("starts at the 50K tier's confirmed $2,000 deposit, with the drawdown floor at $0 -- not $0 balance like Apex/Tradeify/TPT", () => {
+    it("starts at the 50K tier's confirmed $2,000 deposit, with the drawdown floor at $0, not $0 balance like Apex/Tradeify/TPT", () => {
         const plan = buildFundedNextLivePlan();
         const state = plan.initialState();
 
@@ -30,7 +30,7 @@ describe('buildFundedNextLivePlan', () => {
         expect(state.thresholdLocked).toBe(false);
     });
 
-    it('does not lock yet at $1,000 profit (balance $3,000) -- the lock trigger is profit equal to the starting balance, not the $1,000 offset', () => {
+    it('does not lock yet at $1,000 profit (balance $3,000): the lock trigger is profit equal to the starting balance, not the $1,000 offset', () => {
         const plan = buildFundedNextLivePlan();
         const state = plan.initialState();
         state.balance = 3000;
@@ -40,7 +40,7 @@ describe('buildFundedNextLivePlan', () => {
         expect(state.thresholdLocked).toBe(false);
     });
 
-    it('locks the threshold $1,000 BELOW the starting balance once profit reaches the starting balance itself (balance $4,000) -- the opposite lock direction from every other confirmed live firm', () => {
+    it('locks the threshold $1,000 BELOW the starting balance once profit reaches the starting balance itself (balance $4,000), the opposite lock direction from every other confirmed live firm', () => {
         const plan = buildFundedNextLivePlan();
         const state = plan.initialState();
         state.balance = 4000;

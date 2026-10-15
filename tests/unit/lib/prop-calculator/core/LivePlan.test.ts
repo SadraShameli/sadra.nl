@@ -271,7 +271,7 @@ describe('LivePlan constructor invariants (mirroring Plan.ts)', () => {
         expect(
             () => new LivePlan(lucidLikeInit({ payoutFloor: dollars(500) })),
         ).toThrow(
-            "Test Lucid Live: payoutFloor and a non-None payoutFloorEffect cannot both be set -- withdraw() would move the threshold to the effect's floor while withdrawableAmount() had already capped the withdrawal at the payoutFloor override, letting balance fall below the effect's floor",
+            "Test Lucid Live: payoutFloor and a non-None payoutFloorEffect cannot both be set: withdraw() would move the threshold to the effect's floor while withdrawableAmount() had already capped the withdrawal at the payoutFloor override, letting balance fall below the effect's floor",
         );
         expect(
             () =>
@@ -517,7 +517,7 @@ describe('LivePlan.withdrawableAmount', () => {
         ).toBe(0);
     });
 
-    it('is balance-minus-startingBalance for a daily-loss-limit-shaped plan, with no lock gate at all -- there is no floor to protect', () => {
+    it('is balance-minus-startingBalance for a daily-loss-limit-shaped plan, with no lock gate at all, since there is no floor to protect', () => {
         const plan = new LivePlan(
             dllLikeInit({ startingBalance: dollars(10_000) }),
         );

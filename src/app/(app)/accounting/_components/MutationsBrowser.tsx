@@ -143,14 +143,14 @@ export function MutationsBrowser() {
             },
             {
                 accessorKey: 'description',
-                cell: ({ row }) => row.original.description ?? '—',
+                cell: ({ row }) => row.original.description ?? '-',
                 header: 'Description',
             },
             {
                 accessorKey: 'paymentReference',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs text-muted-foreground">
-                        {row.original.paymentReference ?? '—'}
+                        {row.original.paymentReference ?? '-'}
                     </span>
                 ),
                 header: 'Reference',

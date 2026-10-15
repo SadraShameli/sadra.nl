@@ -17,6 +17,8 @@ import {
 } from '~/lib/prop-calculator/firms';
 import { LIVE_TRANSFER_NOTE_TEXT } from '~/lib/prop-calculator/simulator';
 
+import { EM_DASH } from '../../../../proseDashes';
+
 const TOPSTEP_INERT: LiveTransitionPreview = {
     approximation: LiveStateApproximation.ReserveAndLfaProgressDefaulted,
     isApproximation: true,
@@ -103,7 +105,7 @@ describe('liveTransitionPreviewCardOf (PT-37, F-90)', () => {
             });
             expect(model.kind).toBe(LiveTransitionPreviewCardKind.NotModeled);
             expect(model.headline.length).toBeGreaterThan(10);
-            expect(model.headline).not.toContain('—');
+            expect(model.headline).not.toContain(EM_DASH);
             expect(model.headline).not.toContain('undefined');
             texts.add(model.headline);
         }

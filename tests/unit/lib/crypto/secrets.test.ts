@@ -18,7 +18,7 @@ describe('seal/open round-trip', () => {
     });
 
     it('round-trips a long Unicode secret', async () => {
-        const plain = 'töken—🔐—' + 'x'.repeat(256);
+        const plain = 'töken€🔐€' + 'x'.repeat(256);
         const sealed = await sealSecret(plain);
         expect(await openSecret(sealed)).toBe(plain);
     });

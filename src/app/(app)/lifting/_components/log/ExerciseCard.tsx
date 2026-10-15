@@ -143,12 +143,12 @@ export function ExerciseCard({
                         <p className="text-xs text-muted-foreground tabular-nums">
                             Last set:{' '}
                             {lastSet.weightKg === null
-                                ? '—'
+                                ? '-'
                                 : WeightUnit.format(
                                       lastSet.weightKg,
                                       unitWeight,
                                   )}{' '}
-                            × {lastSet.reps ?? '—'}
+                            × {lastSet.reps ?? '-'}
                         </p>
                     )}
                 </div>

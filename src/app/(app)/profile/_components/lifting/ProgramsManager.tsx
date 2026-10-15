@@ -217,7 +217,7 @@ export function ProgramsManager() {
                     const d = toDate(row.original.startDate);
                     return (
                         <span className="text-xs text-muted-foreground">
-                            {d ? format(d, 'MMM d, y') : '—'}
+                            {d ? format(d, 'MMM d, y') : '-'}
                         </span>
                     );
                 },
@@ -283,7 +283,7 @@ export function ProgramsManager() {
                         </h3>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                             Programs you&apos;ve created. Use the programs page
-                            to build new ones — the structure is multi-week and
+                            to build new ones: the structure is multi-week and
                             doesn&apos;t fit in a simple dialog.
                         </p>
                     </div>

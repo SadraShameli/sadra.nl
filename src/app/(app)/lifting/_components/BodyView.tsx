@@ -429,7 +429,7 @@ function AddMeasurementCard({
 function BodyStatsCards({ stats }: { stats: Stats }) {
     const deltaLabel =
         stats.weightDelta30d === null
-            ? '—'
+            ? '-'
             : `${stats.weightDelta30d >= 0 ? '+' : ''}${stats.weightDelta30d.toFixed(1)}`;
     const deltaClass =
         stats.weightDelta30d === null
@@ -451,7 +451,7 @@ function BodyStatsCards({ stats }: { stats: Stats }) {
                 value={
                     stats.weight
                         ? `${stats.weight.valueNumeric} ${stats.weight.unit}`
-                        : '—'
+                        : '-'
                 }
             />
             <StatCard
@@ -464,7 +464,7 @@ function BodyStatsCards({ stats }: { stats: Stats }) {
                 value={
                     stats.bodyfat
                         ? `${stats.bodyfat.valueNumeric} ${stats.bodyfat.unit}`
-                        : '—'
+                        : '-'
                 }
             />
             <StatCard
@@ -546,7 +546,7 @@ function MeasurementsHistoryTable({
                         </span>
                     ) : (
                         <span className="text-xs text-muted-foreground/50">
-                            —
+                            -
                         </span>
                     ),
                 header: 'Notes',

@@ -140,7 +140,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 cell: ({ row }) => (
                     <span className="font-semibold tabular-nums">
                         {row.original.weightKg === null
-                            ? '—'
+                            ? '-'
                             : WeightUnit.format(
                                   row.original.weightKg,
                                   unitWeight,
@@ -153,7 +153,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 accessorKey: 'reps',
                 cell: ({ row }) => (
                     <span className="font-semibold tabular-nums">
-                        × {row.original.reps ?? '—'}
+                        × {row.original.reps ?? '-'}
                     </span>
                 ),
                 header: 'Reps',
@@ -162,7 +162,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 accessorKey: 'rpe',
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.rpe ?? '—'}
+                        {row.original.rpe ?? '-'}
                     </span>
                 ),
                 header: 'RPE',
@@ -171,7 +171,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 accessorKey: 'rir',
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.rir ?? '—'}
+                        {row.original.rir ?? '-'}
                     </span>
                 ),
                 header: 'RIR',
@@ -180,7 +180,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 accessorKey: 'tempo',
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.tempo ?? '—'}
+                        {row.original.tempo ?? '-'}
                     </span>
                 ),
                 enableSorting: false,
@@ -191,7 +191,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
                         {row.original.distanceM === null
-                            ? '—'
+                            ? '-'
                             : `${DistanceUnit.toDisplay(
                                   row.original.distanceM,
                                   unitDistance,
@@ -207,7 +207,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
                         {row.original.durationS === null
-                            ? '—'
+                            ? '-'
                             : DurationFormat.seconds(row.original.durationS)}
                     </span>
                 ),
@@ -328,7 +328,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                     value={
                         stats.volumeKg > 0
                             ? WeightUnit.format(stats.volumeKg, unitWeight)
-                            : '—'
+                            : '-'
                     }
                 />
                 <StatCard label="PRs" value={stats.prs.toString()} />

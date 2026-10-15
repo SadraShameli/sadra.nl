@@ -19,6 +19,8 @@ import {
     SnapshotField,
 } from '~/lib/prop-accounts';
 
+import { EM_DASH } from '../../../proseDashes';
+
 describe('LEDGER_ONLY_SNAPSHOT_FIELDS', () => {
     it('holds the balance, the dashboard floor and the payout totals, in form order', () => {
         expect(LEDGER_ONLY_SNAPSHOT_FIELDS).toEqual([
@@ -111,7 +113,7 @@ describe('describeLedgerOnlyLifecycleRejection', () => {
         expect(text).toMatch(/ledger-only/);
         expect(text).toMatch(/bust reversal/);
         expect(text).not.toMatch(/This plan/);
-        expect(text).not.toContain('—');
+        expect(text).not.toContain(EM_DASH);
     });
 
     it.each(

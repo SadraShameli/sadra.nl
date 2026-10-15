@@ -175,7 +175,7 @@ describe('runLiveDay on Apex numbers ($0 start, $3,000 EOD trailing, 5% pre-lock
         expect(state.threshold).toBe(100);
     });
 
-    it('applies the 10% post-lock rate -- double the 5% pre-lock rate -- to the cushion once locked: 61 MNQ micros at $5 place exactly 10% of the $3,050 cushion', () => {
+    it('applies the 10% post-lock rate (double the 5% pre-lock rate) to the cushion once locked: 61 MNQ micros at $5 place exactly 10% of the $3,050 cushion', () => {
         const plan = buildApexLivePlan();
         const state = plan.initialState();
         runDays(state, 21, alwaysWins, 1, APEX_MNQ_AT_5, 1);
@@ -755,7 +755,7 @@ describe('runLiveHorizon on Lucid Live numbers (payout request locks the $100 ML
         expect(result.daysToBust).toBeNull();
     });
 
-    it('still locks at $100 via the other trigger -- live profit reaching the $2,000 starting drawdown -- after 20 winning days with no payout request at all', () => {
+    it('still locks at $100 via the other trigger (live profit reaching the $2,000 starting drawdown) after 20 winning days with no payout request at all', () => {
         const plan = buildLucidLivePlan();
         const state = plan.initialState();
 
@@ -884,7 +884,7 @@ describe('runLiveHorizon at the D4 default cushion pays out for every live plan'
 });
 
 describe("runLiveHorizon with a transitionPayout (LucidDaily's one-time capped sim-profit-above-buffer credit)", () => {
-    it("pays the capped credit out before day 1 has even traded -- it is already-earned sim profit released at the moment of transition, not capital the trader still has to win -- so 90% of $15,000 is $13,500 withdrawn at daysToFirstWithdrawal 0, while day 1's own $100 of live profit sits exactly on the $100 lock target and stays unwithdrawable", () => {
+    it("pays the capped credit out before day 1 has even traded (it is already-earned sim profit released at the moment of transition, not capital the trader still has to win), so 90% of $15,000 is $13,500 withdrawn at daysToFirstWithdrawal 0, while day 1's own $100 of live profit sits exactly on the $100 lock target and stays unwithdrawable", () => {
         const result = runLiveHorizon({
             commission: dollars(0),
             horizonDays: 1,

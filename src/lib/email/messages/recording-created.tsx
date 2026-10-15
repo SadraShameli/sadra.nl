@@ -33,10 +33,10 @@ function formatDuration(seconds: null | number | undefined): string {
 }
 
 function RecordingCreatedTemplate({
-    deviceName = '—',
+    deviceName = '-',
     durationSeconds,
     fileName,
-    locationName = '—',
+    locationName = '-',
 }: RecordingCreatedTemplateProperties) {
     return (
         <BaseEmail preview={`New recording: ${fileName}`}>

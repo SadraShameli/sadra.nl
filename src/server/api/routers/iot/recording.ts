@@ -101,7 +101,7 @@ export const recordingsRouter = createTRPCRouter({
             const { durationSeconds } = applyAudioFilters(buffer);
             if (durationSeconds === null) {
                 throw new Error(
-                    'Could not read WAV header — file may be corrupted or not a PCM WAV.',
+                    'Could not read WAV header; the file may be corrupted or not a PCM WAV.',
                 );
             }
             const fileName = input.fileName ?? getRecordingFileName(new Date());

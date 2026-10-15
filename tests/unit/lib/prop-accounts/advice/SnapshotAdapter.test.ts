@@ -41,6 +41,8 @@ import {
     PendingPayoutCountsStatus,
 } from '~/lib/prop-calculator/advisor';
 
+import { EM_DASH } from '../../../proseDashes';
+
 function accountRow(): ModeledAccountRow<SnapshotAccountRow> {
     return {
         accountSize: 50_000,
@@ -685,7 +687,7 @@ describe('snapshotInputFrom: an unknown firm count travels as a typed assumption
             resultFor(PENDING_PAYOUT_COUNTS_NOT_CHECKED),
         ).map((assumption) => assumptionText(assumption));
         expect(texts).toEqual([expect.stringContaining('other accounts')]);
-        expect(texts.join(' ')).not.toContain('—');
+        expect(texts.join(' ')).not.toContain(EM_DASH);
     });
 });
 

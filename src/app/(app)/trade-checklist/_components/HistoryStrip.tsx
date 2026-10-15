@@ -46,7 +46,7 @@ const outcomeBadge: Record<
 > = {
     breakeven: { label: 'BE', variant: 'secondary' },
     loss: { label: 'L', variant: 'destructive' },
-    'no-trade': { label: '—', variant: 'outline' },
+    'no-trade': { label: '-', variant: 'outline' },
     win: { label: 'W', variant: 'default' },
 };
 

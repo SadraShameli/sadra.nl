@@ -21,10 +21,10 @@ import {
     violationSourceLabel,
 } from '~/lib/prop-accounts/core';
 
+import { EM_DASH } from '../../../proseDashes';
+
 const STORED_ENUM_LENGTH = 32;
 const KEBAB_CASE = /^[a-z]+(?:-[a-z]+)*$/;
-const EM_DASH = '\u{2014}';
-
 interface EnumCase {
     readonly enumName: string;
     readonly label: (value: never) => string;

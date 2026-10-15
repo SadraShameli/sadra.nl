@@ -29,6 +29,8 @@ import {
     RungSizing,
 } from '~/lib/prop-calculator';
 
+import { EM_DASH } from '../../proseDashes';
+
 interface NoticeHarness {
     setEvalDayPolicy: Mock<(policy: DayPolicy | null) => void>;
     setRungSizing: Mock<(rungSizing: RungSizing) => void>;
@@ -160,12 +162,12 @@ describe('AppliedEvalLadderNotice', () => {
 
     it('has no em dash', () => {
         render(stateWith(LADDER, RungSizing.SkipIfUnaffordable));
-        expect(container.textContent).not.toContain('—');
+        expect(container.textContent).not.toContain(EM_DASH);
         render(
             stateWith(LADDER, RungSizing.SkipIfUnaffordable),
             <AppliedEvalLadderNotice scope={EvalLadderScope.NotUsedHere} />,
         );
-        expect(container.textContent).not.toContain('—');
+        expect(container.textContent).not.toContain(EM_DASH);
     });
 
     it('says the results do not use the ladder where the page ignores it', () => {

@@ -47,7 +47,7 @@ export function AnalyticsDashboard() {
                     value={
                         consistency.data
                             ? `${consistency.data.currentStreak} wk`
-                            : '—'
+                            : '-'
                     }
                 />
                 <Stat
@@ -55,7 +55,7 @@ export function AnalyticsDashboard() {
                     value={
                         consistency.data
                             ? `${consistency.data.longestStreak} wk`
-                            : '—'
+                            : '-'
                     }
                 />
                 <Stat
@@ -63,7 +63,7 @@ export function AnalyticsDashboard() {
                     value={
                         consistency.data
                             ? consistency.data.sessionsPerWeek.toFixed(1)
-                            : '—'
+                            : '-'
                     }
                 />
                 <Stat
@@ -74,7 +74,7 @@ export function AnalyticsDashboard() {
                                   volume.data.tonnageKg,
                                   unitWeight,
                               )
-                            : '—'
+                            : '-'
                     }
                 />
             </section>

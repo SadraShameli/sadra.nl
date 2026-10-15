@@ -49,7 +49,7 @@ export const EboekhoudenCredentialResolver = {
                 : undefined;
             if (!match) {
                 ui.fail(
-                    'Multiple eBoekhouden credentials found — pass --credential <id|label>:',
+                    'Multiple eBoekhouden credentials found; pass --credential <id|label>:',
                 );
                 for (const r of rows) ui.note(`${r.label}  (${r.id})`);
                 return null;

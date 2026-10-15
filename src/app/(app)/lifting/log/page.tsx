@@ -8,7 +8,7 @@ import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/server';
 
 export const metadata: Metadata = {
-    description: 'Log a workout — one tap per set.',
+    description: 'Log a workout, one tap per set.',
     title: 'Log',
 };
 

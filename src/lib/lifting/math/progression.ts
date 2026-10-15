@@ -83,7 +83,7 @@ export class DoubleProgression extends ProgressionRule {
         }
         return topSet.reps >= this.config.maxReps
             ? {
-                  rationale: `Hit top of rep range — bump weight by ${this.config.incrementKg} kg.`,
+                  rationale: `Hit top of rep range: bump weight by ${this.config.incrementKg} kg.`,
                   reps: this.config.minReps,
                   weightKg: topSet.weightKg + this.config.incrementKg,
               }
@@ -123,13 +123,13 @@ export class LinearProgression extends ProgressionRule {
         }
         return last.allCompleted
             ? {
-                  rationale: `Cleared all sets last session — add ${this.config.incrementKg} kg.`,
+                  rationale: `Cleared all sets last session: add ${this.config.incrementKg} kg.`,
                   reps: this.config.targetReps,
                   weightKg: baseline.weightKg + this.config.incrementKg,
               }
             : {
                   rationale:
-                      'Missed reps last session — repeat the same weight.',
+                      'Missed reps last session: repeat the same weight.',
                   reps: this.config.targetReps,
                   weightKg: baseline.weightKg,
               };

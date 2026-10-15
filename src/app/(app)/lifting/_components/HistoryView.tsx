@@ -152,7 +152,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
                     const dur = durationSeconds(row.original);
                     return (
                         <span className="text-muted-foreground tabular-nums">
-                            {dur === null ? '—' : DurationFormat.seconds(dur)}
+                            {dur === null ? '-' : DurationFormat.seconds(dur)}
                         </span>
                     );
                 },

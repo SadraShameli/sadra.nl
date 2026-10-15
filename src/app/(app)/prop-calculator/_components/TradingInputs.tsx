@@ -422,9 +422,9 @@ export default function TradingInputs({
                                     {formatCurrency(
                                         plan.defaultRetainedCushion(),
                                     )}
-                                    ) -- no real trader drains cushion to the
-                                    edge on every withdrawal, so a lower value
-                                    is clamped up to this floor.
+                                    ). No real trader drains cushion to the edge
+                                    on every withdrawal, so a lower value is
+                                    clamped up to this floor.
                                 </FieldDescription>
                             </Field>
                             <Field>

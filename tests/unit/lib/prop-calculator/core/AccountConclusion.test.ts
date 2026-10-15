@@ -86,8 +86,8 @@ describe('account conclusion', () => {
     });
 
     it(
-        'closes a capped-ladder plan on an explicit lifetime payout cap instead of the ladder -- synthetic, since no real Lucid plan combines a capsAtLastStep ladder with a real ' +
-            'maxLifetimePayouts any more: LucidPro used to be exactly this shape until its own maxLifetimePayouts=5 was found to be an unconfirmed carryover from LucidFlex and removed',
+        'closes a capped-ladder plan on an explicit lifetime payout cap instead of the ladder (synthetic, since no real Lucid plan combines a capsAtLastStep ladder with a real ' +
+            'maxLifetimePayouts any more: LucidPro used to be exactly this shape until its own maxLifetimePayouts=5 was found to be an unconfirmed carryover from LucidFlex and removed)',
         () => {
             const cappedAtFive = lucidPlan(LucidVariant.Pro).withOverrides({
                 maxLifetimePayouts: 5,

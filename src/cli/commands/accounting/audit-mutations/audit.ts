@@ -194,7 +194,7 @@ export function auditMutations(input: {
         if (actual === expected) continue;
         issues.push({
             codes: [actual, expected],
-            message: `Rule "${display}" is configured for ${describeCombo(expected, ledgerById)}, but all ${group.length} matched mutation(s) are consistently booked as ${describeCombo(actual, ledgerById)} instead (e.g. mutation ${representative.mutation.id}) — the rule's ledger/VAT reference looks stale.`,
+            message: `Rule "${display}" is configured for ${describeCombo(expected, ledgerById)}, but all ${group.length} matched mutation(s) are consistently booked as ${describeCombo(actual, ledgerById)} instead (e.g. mutation ${representative.mutation.id}), so the rule's ledger/VAT reference looks stale.`,
             mutationIds: group.map((c) => c.mutation.id),
             severity: 'warning',
             type: 'rule-drift',
@@ -326,8 +326,8 @@ function classifyMutations(
     return classified;
 }
 
-function comboKey(ledgerId: LedgerId | null, vatCode = '—'): string {
-    return `${ledgerId?.toString() ?? '—'}::${vatCode}`;
+function comboKey(ledgerId: LedgerId | null, vatCode = '-'): string {
+    return `${ledgerId?.toString() ?? '-'}::${vatCode}`;
 }
 
 function describeCombo(
@@ -336,9 +336,9 @@ function describeCombo(
 ): string {
     const [ledgerIdRaw, vatCode] = key.split('::', 2);
     const ledgerLabel =
-        ledgerIdRaw && ledgerIdRaw !== '—'
+        ledgerIdRaw && ledgerIdRaw !== '-'
             ? ledgerCode(ledgerById, ledgerIdRaw as LedgerId)
-            : '—';
+            : '-';
     return `${ledgerLabel} / ${vatCode}`;
 }
 
@@ -360,7 +360,7 @@ function findDuplicateCandidates(mutations: MutationResponse[]): AuditIssue[] {
             .toSorted((a, b) => Number(a) - Number(b));
         issues.push({
             codes: ids,
-            message: `${group.length} mutation(s) on ${first.date} share the exact same description "${first.description}" and amount €${rowsTotal(first).toFixed(2)}: ${ids.map((id) => `#${id}`).join(', ')} — check for a duplicate booking.`,
+            message: `${group.length} mutation(s) on ${first.date} share the exact same description "${first.description}" and amount €${rowsTotal(first).toFixed(2)}: ${ids.map((id) => `#${id}`).join(', ')}. Check for a duplicate booking.`,
             mutationIds: ids,
             severity: 'warning',
             type: 'possible-duplicate',

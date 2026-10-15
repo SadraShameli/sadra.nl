@@ -198,7 +198,7 @@ export function AccountingDashboard() {
                     message:
                         event.status === 'started'
                             ? `▶ ${event.stage} ${event.message ?? ''}`
-                            : `✓ ${event.stage}${event.message ? ` — ${event.message}` : ''}${
+                            : `✓ ${event.stage}${event.message ? `: ${event.message}` : ''}${
                                   event.durationMs
                                       ? ` (${DurationFormat.ms(event.durationMs)})`
                                       : ''

@@ -57,7 +57,7 @@ function tradeifyPlan(variant: TradeifyVariant) {
 }
 
 describe("Tradeify's confirmed 5-account bulk discount", () => {
-    it('is wired onto Growth, Select Flex and Select Daily -- the confirmed-eligible plans -- but not Lightning, which the research explicitly excludes', () => {
+    it('is wired onto Growth, Select Flex and Select Daily (the confirmed-eligible plans) but not Lightning, which the research explicitly excludes', () => {
         const eligible = { minAccounts: 5, percent: fraction(0.05) };
 
         expect(tradeifyPlan(TradeifyVariant.Growth).bulkDiscount).toStrictEqual(
@@ -226,7 +226,7 @@ describe('bundle discount on the cost breakdown lines', () => {
         );
     });
 
-    it('gives no discount at all at 4 copies -- minAccounts is a hard floor of 5, not a rounding boundary', () => {
+    it('gives no discount at all at 4 copies: minAccounts is a hard floor of 5, not a rounding boundary', () => {
         const basePlan = tradeifyPlan(TradeifyVariant.Growth);
         const plan = basePlan.withOverrides({
             fees: { ...basePlan.fees, activation: dollars(50) },

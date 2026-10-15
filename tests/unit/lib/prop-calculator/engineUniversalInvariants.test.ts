@@ -250,7 +250,7 @@ describe.each(ALL_PLANS)(
     '$label: inactivity closure fires if and only if the plan declares the ' +
         'rule for that phase (driven per-phase via runDay directly, not ' +
         'simulate(), because an all-idle run can never trade its way past ' +
-        'eval to reach a funded-only rule -- idleDayProbability:1 from day ' +
+        'eval to reach a funded-only rule: idleDayProbability:1 from day ' +
         'one means the eval profit target is never hit, so simulate() ' +
         'would time out during eval before a funded-only rule ever gets ' +
         'a chance to fire)',
@@ -411,7 +411,7 @@ describe.each(ALL_PLANS)(
         it(
             'varying riskPerTrade/tradesPerDay leaves output byte-identical once ' +
                 'evalDayPolicy is set, PROVIDED fundedRiskPerTrade/fundedTradesPerDay ' +
-                'are pinned separately -- both scalars are also the funded-phase ' +
+                'are pinned separately: both scalars are also the funded-phase ' +
                 'fallback default (day.ts:37,52), so leaving them unpinned would ' +
                 'let a real funded-side effect masquerade as an eval-side leak. ' +
                 'expectancyR is included: it divides by the realized average ' +

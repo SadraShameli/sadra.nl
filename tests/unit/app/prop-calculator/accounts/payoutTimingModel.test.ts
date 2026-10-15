@@ -19,6 +19,7 @@ import {
     payout,
     purchased,
 } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
+import { EM_DASH } from '../../../proseDashes';
 
 const TODAY = '2026-06-01';
 
@@ -201,7 +202,7 @@ describe('payoutTimingCardOf', () => {
         const { explanation } = cardOf(twoPaidAccountsRows());
         expect(explanation).toContain('first payout');
         expect(explanation).toContain('later payouts');
-        expect(explanation).not.toContain('—');
+        expect(explanation).not.toContain(EM_DASH);
         expect(explanation).not.toContain('\n');
     });
 

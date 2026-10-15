@@ -171,7 +171,7 @@ export function RecordingsPanel() {
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
                         {row.original.duration_seconds == null
-                            ? '—'
+                            ? '-'
                             : DurationFormat.seconds(
                                   row.original.duration_seconds,
                               )}

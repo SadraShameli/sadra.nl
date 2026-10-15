@@ -29,8 +29,8 @@ export class LoudnessAlertEmail extends EmailMessage {
 }
 
 function LoudnessAlertTemplate({
-    deviceName = '—',
-    locationName = '—',
+    deviceName = '-',
+    locationName = '-',
     threshold,
     value,
 }: LoudnessAlertTemplateProperties) {

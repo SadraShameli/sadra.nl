@@ -79,7 +79,7 @@ export default function RecordingSection({
                                     Now Playing
                                 </p>
                                 <p className="mt-1.5 truncate text-base font-semibold text-neutral-50">
-                                    {currentRecording?.file_name ?? '—'}
+                                    {currentRecording?.file_name ?? '-'}
                                 </p>
                             </div>
                             <Button

@@ -65,7 +65,7 @@ const command = defineCommand({
             }
 
             ui.heading(
-                `Auditing eBoekhouden mutations — credential "${credentialRow.label}"`,
+                `Auditing eBoekhouden mutations for credential "${credentialRow.label}"`,
             );
 
             const client =

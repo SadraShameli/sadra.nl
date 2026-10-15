@@ -19,6 +19,8 @@ import {
 import { E8Futures } from '~/lib/prop-calculator/firms/e8futures/E8Futures';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
+import { SPACED_DOUBLE_HYPHEN } from '../../../proseDashes';
+
 class NotesLessFirm extends TradingFirm {
     readonly displayName = 'NotesLessFirm';
     readonly id = FirmId.TopStep;
@@ -716,7 +718,7 @@ describe('firm notes match the current engine (WP26 notes audit)', () => {
         expect(note).toContain(
             'LivePlan itself accepts a liveDailyLossLimit alongside liveDrawdown',
         );
-        expect(note).not.toContain(' -- ');
+        expect(note).not.toContain(SPACED_DOUBLE_HYPHEN);
     });
 
     it('Alpha Futures DIRECT35 note calls it a third typed code applied to no list price', () => {
@@ -734,7 +736,7 @@ describe('firm notes match the current engine (WP26 notes audit)', () => {
             "E8 Zero's Performance-stage drawdown (fundedDrawdown) locks",
         );
         expect(note).toContain('the Challenge-stage drawdown never locks');
-        expect(note).not.toContain(' -- ');
+        expect(note).not.toContain(SPACED_DOUBLE_HYPHEN);
     });
 
     it('FTMO retry note names plan.retryFee and the reset-or-re-buy choice, not fees.reset alone', () => {

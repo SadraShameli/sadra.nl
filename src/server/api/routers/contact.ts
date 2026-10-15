@@ -34,7 +34,7 @@ export const contactRouter = createTRPCRouter({
             if (!isOkEmail || !isOkIp) {
                 throw new TRPCError({
                     code: 'TOO_MANY_REQUESTS',
-                    message: 'Too many messages — try again later.',
+                    message: 'Too many messages. Try again later.',
                 });
             }
 

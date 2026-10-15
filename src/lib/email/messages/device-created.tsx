@@ -30,7 +30,7 @@ export class DeviceCreatedEmail extends EmailMessage {
 function DeviceCreatedTemplate({
     deviceId,
     deviceName,
-    locationName = '—',
+    locationName = '-',
 }: DeviceCreatedTemplateProperties) {
     return (
         <BaseEmail preview={`New device registered: ${deviceName}`}>

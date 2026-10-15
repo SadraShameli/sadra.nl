@@ -36,6 +36,8 @@ import { evalStartAccount } from '~/lib/prop-calculator/advisor/value';
 import { CalculatorUrlParameter } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 
+import { EM_DASH } from '../../../proseDashes';
+
 interface FirmPlan {
     readonly firm: TradingFirm;
     readonly plan: Plan;
@@ -323,6 +325,6 @@ describe('calculatorLinkForAccount', () => {
     });
 
     it('does not use any em dash in its label', () => {
-        expect(linkOf(MFF_PRO).label).not.toContain('—');
+        expect(linkOf(MFF_PRO).label).not.toContain(EM_DASH);
     });
 });

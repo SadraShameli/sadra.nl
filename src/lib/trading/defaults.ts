@@ -12,7 +12,7 @@ export const WEIGHT_CATEGORIES: {
     label: string;
 }[] = [
     {
-        hint: 'Clean execution mindset — no hesitation, boredom, revenge or distraction.',
+        hint: 'Clean execution mindset: no hesitation, boredom, revenge or distraction.',
         key: 'mental',
         label: 'Mental state',
     },

@@ -6,6 +6,8 @@ import { EVAL_DISCOUNT_REBUY_NOTE } from '~/app/(app)/prop-calculator/_component
 import { tradingInputBounds } from '~/app/(app)/prop-calculator/_components/tradingInputBounds';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 
+import { EM_DASH } from '../../proseDashes';
+
 const COMPONENTS_ROOT = path.join(
     process.cwd(),
     'src',
@@ -174,7 +176,7 @@ describe('Eval fee discount re-buy note (decision T9)', () => {
     });
 
     it('has no em dash', () => {
-        expect(EVAL_DISCOUNT_REBUY_NOTE).not.toContain('—');
+        expect(EVAL_DISCOUNT_REBUY_NOTE).not.toContain(EM_DASH);
     });
 
     it('renders next to the Eval fee discount input', () => {

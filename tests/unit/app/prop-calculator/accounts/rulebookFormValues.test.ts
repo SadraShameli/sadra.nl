@@ -44,8 +44,8 @@ import {
     ledger,
     payout,
 } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
+import { EM_DASH } from '../../../proseDashes';
 
-const EM_DASH = String.fromCodePoint(0x20_14);
 const VIDEO_AUTHOR_LABEL = "the video author's choice, not a default";
 
 const OPTIONAL_FIELDS: readonly TextFieldName[] = [

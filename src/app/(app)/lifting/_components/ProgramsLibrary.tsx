@@ -442,7 +442,7 @@ function ActiveEnrollmentCard({
                         </h3>
                         <p className="text-xs text-muted-foreground tabular-nums">
                             Week {enrollment.currentWeek} of{' '}
-                            {program?.lengthWeeks ?? '—'} · Day{' '}
+                            {program?.lengthWeeks ?? '-'} · Day{' '}
                             {enrollment.currentDay}
                         </p>
                     </div>
@@ -643,7 +643,7 @@ function EnrollmentCard({
                     </span>
                 </div>
                 <h3 className="text-sm font-semibold">
-                    {program?.name ?? '—'}
+                    {program?.name ?? '-'}
                 </h3>
                 <Progress className="h-1.5" value={pct} />
                 <div className="flex flex-wrap gap-2">

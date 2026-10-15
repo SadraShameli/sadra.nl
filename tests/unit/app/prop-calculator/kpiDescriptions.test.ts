@@ -33,7 +33,8 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
-const EM_DASH = '\u{2014}';
+import { EM_DASH } from '../../proseDashes';
+
 const PROP_CALCULATOR_WEB_ROOT = path.join(
     process.cwd(),
     'src',

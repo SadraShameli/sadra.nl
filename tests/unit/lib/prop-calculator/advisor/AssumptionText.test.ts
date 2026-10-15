@@ -31,6 +31,8 @@ import {
     liveTransferContinuationNotes,
 } from '~/lib/prop-calculator/simulator';
 
+import { EM_DASH } from '../../../proseDashes';
+
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
 const TEXT_FILE = path.join(
     'lib',
@@ -257,7 +259,7 @@ describe('the priced cumulative live trigger travels inside its typed assumption
         expect(text).toContain('https://example.test/policy');
         expect(text).toContain('2026-09-01');
         expect(text).toContain('a synthetic test quote');
-        expect(text).not.toContain('—');
+        expect(text).not.toContain(EM_DASH);
     });
 
     it('says how the simulator counts the amount and that the payout which reaches it is still paid', () => {
@@ -314,7 +316,7 @@ describe('one assumption text table for the CLI and the web (PT-24e, F-133)', ()
         );
 
         expect(text.length).toBeGreaterThan(10);
-        expect(text).not.toContain('—');
+        expect(text).not.toContain(EM_DASH);
     });
 
     it('says the widened step from the assumption itself', () => {

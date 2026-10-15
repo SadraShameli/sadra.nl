@@ -4,6 +4,8 @@ import { ApexVariant, FirmId } from '~/lib/prop-calculator/core';
 import { isFundedDpEligible } from '~/lib/prop-calculator/core/FundedStateValue';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 
+import { SPACED_DOUBLE_HYPHEN } from '../../../../proseDashes';
+
 const notes = new ApexTraderFunding().notes;
 
 const FEE_NOTE_MARKER = 'Apex 50K fees are the no-code';
@@ -142,7 +144,7 @@ describe('Apex notes match the current engine (WP26 notes audit)', () => {
         expect(note).toContain(
             "Apex does not set Plan's evalMaxConsecutiveIdleDays override",
         );
-        expect(note).not.toContain(' -- ');
+        expect(note).not.toContain(SPACED_DOUBLE_HYPHEN);
     });
 
     it('describes the payoutFloor floor rule and names the live plans that set it', () => {

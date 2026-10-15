@@ -244,7 +244,7 @@ export class LivePlan {
             this.payoutFloorEffect !== PayoutFloorEffect.None
         ) {
             throw new Error(
-                `${this.label}: payoutFloor and a non-None payoutFloorEffect cannot both be set -- withdraw() would move the threshold to the effect's floor while withdrawableAmount() had already capped the withdrawal at the payoutFloor override, letting balance fall below the effect's floor`,
+                `${this.label}: payoutFloor and a non-None payoutFloorEffect cannot both be set: withdraw() would move the threshold to the effect's floor while withdrawableAmount() had already capped the withdrawal at the payoutFloor override, letting balance fall below the effect's floor`,
             );
         }
         this.payoutTiers = init.payoutTiers;

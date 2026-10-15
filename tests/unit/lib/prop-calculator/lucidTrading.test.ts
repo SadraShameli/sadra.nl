@@ -272,7 +272,7 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
         ).toStrictEqual({ kind: DailyLossLimitShape.None });
     });
 
-    it("ProNoDll has no funded DLL at all, even once the drawdown floor locks -- pro.md's own Sim Funded table states the Off configuration's Daily Loss Limit as 'Off: none' with no post-lock-scaling clause, unlike the On configuration which keeps Pro's 60%-of-peak LucidScale DLL", () => {
+    it("ProNoDll has no funded DLL at all, even once the drawdown floor locks: pro.md's own Sim Funded table states the Off configuration's Daily Loss Limit as 'Off: none' with no post-lock-scaling clause, unlike the On configuration which keeps Pro's 60%-of-peak LucidScale DLL", () => {
         expect(
             describeDailyLossLimit(proNoDll.fundedDailyLossLimit),
         ).toStrictEqual({ kind: DailyLossLimitShape.None });
@@ -317,7 +317,7 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
         ).toStrictEqual({ amount: 1200, kind: DailyLossLimitShape.Fixed });
     });
 
-    it('FlexDll has no LucidScale scaling component, unlike Pro/ProNoDll -- the funded DLL inherits the same flat $1,200 rule the whole time', () => {
+    it('FlexDll has no LucidScale scaling component, unlike Pro/ProNoDll; the funded DLL inherits the same flat $1,200 rule the whole time', () => {
         expect(flexDll.fundedDailyLossLimit.kind).toBe(DailyLossLimitKind.Flat);
         expect(
             describeDailyLossLimit(flexDll.fundedDailyLossLimit),

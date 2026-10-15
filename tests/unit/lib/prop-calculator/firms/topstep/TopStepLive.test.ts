@@ -50,7 +50,7 @@ describe('computeTopStepLiveStartingBalance', () => {
         ).toBe(20_000);
     });
 
-    it('is always exactly $10,000 at the 50K tier, regardless of reserve balance -- 20% of the $50K cap already equals the floor', () => {
+    it('is always exactly $10,000 at the 50K tier, regardless of reserve balance: 20% of the $50K cap already equals the floor', () => {
         expect(
             computeTopStepLiveStartingBalance(dollars(20_000), dollars(50_000)),
         ).toBe(10_000);

@@ -23,6 +23,7 @@ import {
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { simulate } from '~/lib/prop-calculator/simulator';
 
+import { EM_DASH } from '../../../proseDashes';
 import { toyDpConfig, toyPlan } from '../evalStateValueToy';
 
 const HORIZON_DAYS = 2;
@@ -255,7 +256,7 @@ describe('computeEvalStateValue riskAtReachedState tells a solved state from one
         expect(() => result.riskAtReachedState(state, 0)).toThrow(
             /elapsedDays/,
         );
-        expect(() => result.riskAtReachedState(state, 0)).not.toThrow(/—/);
+        expect(() => result.riskAtReachedState(state, 0)).not.toThrow(EM_DASH);
     });
 
     it.each([-1, 0.5, NaN, Infinity])(

@@ -713,7 +713,7 @@ export const edgeModelArguments = {
     },
     'edge-model': {
         default: EdgeModelKind.Fixed,
-        description: `How the win rate used to rank --rr-candidates is derived: ${EdgeModelKind.Fixed} (default) keeps --winrate fixed at every rr and cannot rank take-profit multiples; ${EdgeModelKind.Drift} fits a Brownian-motion-with-drift model to --winrate at --edge-anchor-rr and derives a different win rate at each candidate rr, labelled a what-if that differs from your fixed 1:2 -- never used by the headline, the rulebook or advice`,
+        description: `How the win rate used to rank --rr-candidates is derived: ${EdgeModelKind.Fixed} (default) keeps --winrate fixed at every rr and cannot rank take-profit multiples; ${EdgeModelKind.Drift} fits a Brownian-motion-with-drift model to --winrate at --edge-anchor-rr and derives a different win rate at each candidate rr, labelled a what-if that differs from your fixed 1:2 and never used by the headline, the rulebook or advice`,
         options: Object.values(EdgeModelKind),
         type: 'enum',
     },
@@ -789,7 +789,7 @@ export const tradingArguments = {
     },
     'max-lifetime-payouts': {
         description:
-            "Override the plan's lifetime payout cap for this run -- a number, or 'unlimited'/'none' to remove it entirely (also neutralizes an unflagged payout-ladder exhaustion, a second, independent cap some plans carry alongside maxLifetimePayouts). Omit to use the plan's own real cap.",
+            "Override the plan's lifetime payout cap for this run: a number, or 'unlimited'/'none' to remove it entirely (also neutralizes an unflagged payout-ladder exhaustion, a second, independent cap some plans carry alongside maxLifetimePayouts). Omit to use the plan's own real cap.",
         type: 'string',
     },
     ...rebuyLagDaysArgument,

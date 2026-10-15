@@ -54,7 +54,7 @@ describe('MFFU Pro 50K (live-verified 2026-09-14 against myfundedfutures.com/pla
     });
 
     it(
-        'requires 14 days after passing before the first payout, not 10 -- ' +
+        'requires 14 days after passing before the first payout, not 10, ' +
             "matching the live page's own initialWithdrawalDays:14 field and its " +
             "rendered 'Payout Timing: 14 days from first trade + buffer cleared' row",
         () => {

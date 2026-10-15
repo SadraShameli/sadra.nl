@@ -81,7 +81,7 @@ const command = defineCommand({
                 }
             }
             const total = ((performance.now() - startedAll) / 1000).toFixed(2);
-            ui.success(`Done — ${selected.length} seeder(s) in ${total}s`);
+            ui.success(`Done: ${selected.length} seeder(s) in ${total}s`);
         } finally {
             await endDb();
         }

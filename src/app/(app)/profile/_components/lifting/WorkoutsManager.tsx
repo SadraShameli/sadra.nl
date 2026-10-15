@@ -171,7 +171,7 @@ export function WorkoutsManager() {
                     const dur = durationSeconds(row.original);
                     return (
                         <span className="text-xs text-muted-foreground tabular-nums">
-                            {dur === null ? '—' : DurationFormat.seconds(dur)}
+                            {dur === null ? '-' : DurationFormat.seconds(dur)}
                         </span>
                     );
                 },

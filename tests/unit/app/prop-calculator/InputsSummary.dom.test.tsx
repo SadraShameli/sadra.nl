@@ -29,6 +29,8 @@ import {
     RungSizing,
 } from '~/lib/prop-calculator';
 
+import { EM_DASH } from '../../proseDashes';
+
 interface SummaryHarness {
     dialogScope: EvalLadderScope | undefined;
     setEvalDayPolicy: Mock<(policy: DayPolicy | null) => void>;
@@ -130,7 +132,9 @@ describe('describeAppliedEvalLadder', () => {
     );
 
     it('has no em dash', () => {
-        expect(describeAppliedEvalLadder(stateWith(LADDER))).not.toContain('—');
+        expect(describeAppliedEvalLadder(stateWith(LADDER))).not.toContain(
+            EM_DASH,
+        );
     });
 });
 

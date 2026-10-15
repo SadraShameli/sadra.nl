@@ -14,6 +14,8 @@ import {
     kellyGrowthPerTrade,
 } from '~/lib/prop-calculator/economics';
 
+import { EM_DASH } from '../../proseDashes';
+
 const COMPONENTS_ROOT = path.join(
     process.cwd(),
     'src',
@@ -71,7 +73,7 @@ describe('tradingEdgePlausibilityNote (F-V22)', () => {
 
     it('has no em dash', () => {
         const note = tradingEdgePlausibilityNote(0.9, 2);
-        expect(note).not.toContain('—');
+        expect(note).not.toContain(EM_DASH);
     });
 
     it('is what TradingInputs renders next to the reward-to-risk slider', () => {

@@ -26,7 +26,7 @@ export function printBreakdown(rows: VendorBreakdownRow[]): void {
     ui.heading(`Full vendor/rule breakdown (${rows.length} group(s))`);
     for (const row of rows) {
         const tag = row.matched ? '' : ' [no matching rule]';
-        ui.note(`${row.display}${tag} — ${row.total} mutation(s)`);
+        ui.note(`${row.display}${tag}: ${row.total} mutation(s)`);
         for (const combo of row.combos) {
             ui.muted(
                 `    ${combo.label} × ${combo.count} (e.g. mutation ${combo.exampleId})`,
@@ -52,7 +52,7 @@ export function printReport(report: AuditReport): void {
         (index) => index.severity === 'warning',
     );
     ui.warn(
-        `${report.issues.length} issue(s) found — ${errors.length} error(s), ${warnings.length} warning(s)`,
+        `${report.issues.length} issue(s) found: ${errors.length} error(s), ${warnings.length} warning(s)`,
     );
 
     const byType = Map.groupBy(report.issues, (issue) => issue.type);

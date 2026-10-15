@@ -15,6 +15,8 @@ import {
 } from '~/lib/prop-accounts';
 import { ALL_FIRMS, type Plan } from '~/lib/prop-calculator';
 
+import { EM_DASH } from '../../../proseDashes';
+
 const PLANS: readonly Plan[] = ALL_FIRMS.flatMap((firm) => firm.plans);
 
 function accepted(
@@ -702,7 +704,7 @@ describe('describeLifecycleRejection', () => {
             );
             for (const text of texts) {
                 expect(text.length).toBeGreaterThan(0);
-                expect(text).not.toContain('—');
+                expect(text).not.toContain(EM_DASH);
             }
             expect(new Set(texts).size).toBe(texts.length);
         }

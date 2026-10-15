@@ -80,7 +80,7 @@ const stepMeta: Record<StepId, { subtitle: string; title: string }> = {
     },
     mental: {
         subtitle:
-            'Knockouts. Any flag here means stand down — execution risk outweighs setup quality.',
+            'Knockouts. Any flag here means stand down: execution risk outweighs setup quality.',
         title: 'Pre-flight: mental state',
     },
     rr: {
@@ -414,7 +414,7 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                 </ToggleGroup>
                 {!windowId && (
                     <p className="mt-2 text-xs text-rose-500">
-                        Outside macro window — knockout active.
+                        Outside macro window: knockout active.
                     </p>
                 )}
             </div>
@@ -436,11 +436,11 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                 >
                     {[
                         {
-                            label: `Funded — $${plan.config.risk.fundedDollars}`,
+                            label: `Funded: $${plan.config.risk.fundedDollars}`,
                             v: 'funded',
                         },
                         {
-                            label: `Eval — $${plan.config.risk.evalDollars}`,
+                            label: `Eval: $${plan.config.risk.evalDollars}`,
                             v: 'eval',
                         },
                     ].map((opt) => (
@@ -557,7 +557,7 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
                             Both-sided liquidity?
                         </p>
                         <AlertDescription className="mt-0.5 text-xs">
-                            Knockout if on — sit out until one side is taken.
+                            Knockout if on: sit out until one side is taken.
                         </AlertDescription>
                     </div>
                     <Switch
@@ -730,7 +730,7 @@ function FinalsStep() {
                         Market already expanded too far
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                        Soft flag — late entries get penalized in scoring.
+                        Soft flag: late entries get penalized in scoring.
                     </p>
                 </div>
                 <Switch
@@ -768,7 +768,7 @@ function MentalStep() {
     }[] = [
         {
             name: 'hesitation',
-            rule: 'If technicals are met — execute. Don’t wait for extra confirmation from fear.',
+            rule: 'If technicals are met, execute. Don’t wait for extra confirmation from fear.',
             title: 'Am I scared but the setup is valid?',
         },
         {
@@ -783,7 +783,7 @@ function MentalStep() {
         },
         {
             name: 'distracted',
-            rule: 'If full focus isn’t possible — do not trade.',
+            rule: 'If full focus isn’t possible, do not trade.',
             title: 'Distracted by anything?',
         },
     ];
@@ -899,8 +899,8 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
                 <AlertDescription>
                     Expected net: {expected.toFixed(2)}R{' '}
                     {expected >= plan.config.setup.minRR
-                        ? '— meets minimum'
-                        : `— below plan minimum of ${plan.config.setup.minRR}R`}
+                        ? '(meets minimum)'
+                        : `(below plan minimum of ${plan.config.setup.minRR}R)`}
                 </AlertDescription>
             </Alert>
         </div>
@@ -977,7 +977,7 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
             >
                 <AlertDescription>
                     {count}/{required} PD arrays protecting the stop
-                    {!isOk && ' — knockout active'}
+                    {!isOk && ': knockout active'}
                 </AlertDescription>
             </Alert>
         </div>

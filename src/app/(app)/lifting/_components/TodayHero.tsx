@@ -144,7 +144,7 @@ export function TodayHero() {
                         <Activity className="size-4" />
                         <AlertTitle>Active workout</AlertTitle>
                         <AlertDescription>
-                            {active.data.name ?? 'Workout'} — resume
+                            {active.data.name ?? 'Workout'}: resume
                         </AlertDescription>
                     </Alert>
                 </Link>
@@ -155,7 +155,7 @@ export function TodayHero() {
                     icon={<Flame className="size-4" />}
                     label="Current streak"
                     value={
-                        summary.data ? `${summary.data.currentStreak} wk` : '—'
+                        summary.data ? `${summary.data.currentStreak} wk` : '-'
                     }
                 />
                 <Stat
@@ -164,7 +164,7 @@ export function TodayHero() {
                     value={
                         summary.data
                             ? summary.data.sessionsThisWeek.toFixed(0)
-                            : '—'
+                            : '-'
                     }
                 />
                 <Stat
@@ -173,7 +173,7 @@ export function TodayHero() {
                     value={
                         summary.data
                             ? summary.data.recentPrs.length.toString()
-                            : '—'
+                            : '-'
                     }
                 />
             </div>

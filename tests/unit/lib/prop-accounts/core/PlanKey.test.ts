@@ -31,6 +31,8 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
+import { EM_DASH } from '../../../proseDashes';
+
 interface RegistryEntry {
     readonly firm: TradingFirm;
     readonly plan: Plan;
@@ -445,7 +447,7 @@ describe('describeUnresolvedPlan', () => {
         for (const reason of Object.values(UnresolvedPlanReason)) {
             const text = describeUnresolvedPlan(key, reason);
             expect(text.length).toBeGreaterThan(0);
-            expect(text).not.toContain('—');
+            expect(text).not.toContain(EM_DASH);
         }
         expect(
             describeUnresolvedPlan(key, UnresolvedPlanReason.UnknownPlanSerial),
@@ -522,7 +524,7 @@ describe('describeAccountReadIssue', () => {
             kind: AccountReadIssueKind.CorruptPersonalRules,
         });
         expect(text).toMatch(/personal rules/i);
-        expect(text).not.toContain('—');
+        expect(text).not.toContain(EM_DASH);
     });
 });
 

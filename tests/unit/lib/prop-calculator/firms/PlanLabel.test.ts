@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { planLabel } from '~/lib/prop-calculator/firms/shared';
 
-const EM_DASH = '\u{2014}';
+import { EM_DASH } from '../../../proseDashes';
 
 describe('planLabel (WP21b: no em dash in any plan label)', () => {
     it('joins the account size and the suffix with the middle dot the UI already uses', () => {

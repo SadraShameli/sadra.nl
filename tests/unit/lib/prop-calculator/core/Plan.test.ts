@@ -57,7 +57,7 @@ if (!lucidDirect) throw new Error('LucidDirect 50K plan not found');
 
 describe('Plan.withMaxLifetimePayouts', () => {
     it(
-        'a synthetic 5-step payoutLadder with no capsAtLastStep -- confirms the ' +
+        'a synthetic 5-step payoutLadder with no capsAtLastStep confirms the ' +
             'real trap this method exists to close: clearing only ' +
             'maxLifetimePayouts is NOT enough to uncap the plan. LucidDirect used ' +
             'to be exactly this shape until capsAtLastStep: true was added to its ' +

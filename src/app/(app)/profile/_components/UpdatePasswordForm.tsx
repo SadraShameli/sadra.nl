@@ -42,7 +42,7 @@ export function UpdatePasswordForm({
     if (!hasPassword && !hasEmail) {
         return (
             <p className="text-sm text-muted-foreground">
-                Set an email address above before adding a password — passwords
+                Set an email address above before adding a password: passwords
                 require an email to sign in with.
             </p>
         );
@@ -70,7 +70,7 @@ export function UpdatePasswordForm({
             <div className="flex flex-col gap-3">
                 <p className="text-sm text-muted-foreground">
                     You don&apos;t have a password yet. Send yourself a secure
-                    link to set one — it&apos;ll arrive at {email}.
+                    link to set one; it&apos;ll arrive at {email}.
                 </p>
                 <Button
                     className="self-start"

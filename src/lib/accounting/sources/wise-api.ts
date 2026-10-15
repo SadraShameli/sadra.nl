@@ -24,7 +24,7 @@ class WiseApiSource extends ApiSourceBase {
                 : null;
         if (profileId === null) {
             throw new Error(
-                'Wise credential is missing profileId — open Connections and pick a profile.',
+                'Wise credential is missing profileId. Open Connections and pick a profile.',
             );
         }
 

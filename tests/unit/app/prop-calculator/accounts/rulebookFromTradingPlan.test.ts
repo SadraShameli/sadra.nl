@@ -36,7 +36,7 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import { DEFAULT_PLAN } from '~/lib/trading/defaults';
 
-const EM_DASH = String.fromCodePoint(0x20_14);
+import { EM_DASH } from '../../../proseDashes';
 
 function changeOf(
     changes: readonly TradingPlanImportChange[],

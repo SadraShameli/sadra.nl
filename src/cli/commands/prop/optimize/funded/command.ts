@@ -123,7 +123,7 @@ const command = defineCommand({
         },
         'funded-ladder': {
             description:
-                'Funded-phase risk ladder to test as one extra candidate, comma separated (e.g. 400,600,800,200) -- unlike --ladder (eval-only), this sizes trade 1/2/3/4 of each funded-phase day instead of a flat $/trade or %-of-cushion amount. With --stop-points each rung is placed in whole contracts like the flat and percent rows, and a rung below one contract is refused. Omit to test only flat/percent, as before.',
+                'Funded-phase risk ladder to test as one extra candidate, comma separated (e.g. 400,600,800,200). Unlike --ladder (eval-only), this sizes trade 1/2/3/4 of each funded-phase day instead of a flat $/trade or %-of-cushion amount. With --stop-points each rung is placed in whole contracts like the flat and percent rows, and a rung below one contract is refused. Omit to test only flat/percent, as before.',
             type: 'string',
         },
         percent: {
@@ -137,7 +137,7 @@ const command = defineCommand({
         },
         sort: {
             default: FundedSortKey.Monthly,
-            description: `monthly (default): steady-state expected net per month for one account slot, or for the --copy-accounts slots together when that is above 1 ((per-run net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / expected days per run, where the days per run include --rebuy-lag-days of empty slot time per eval attempt and the slot is refilled after every failed eval, funded bust or horizon end; the 'monthly ex-credit' column leaves the credit out) -- the only key valid for ranking plans. cycle: expected net from THIS ONE simulated run only (whatever --eval-days/--funded-days bound it to) -- use this for a short, fixed-horizon goal you do not intend to repeat indefinitely. With --copy-accounts above 1, the per-cycle net, horizon credit and monthly figures are summed over the copy-traded account slots (one slot x --copy-accounts).`,
+            description: `monthly (default): steady-state expected net per month for one account slot, or for the --copy-accounts slots together when that is above 1 ((per-run net + horizon credit) x ${TRADING_DAYS_PER_MONTH} / expected days per run, where the days per run include --rebuy-lag-days of empty slot time per eval attempt and the slot is refilled after every failed eval, funded bust or horizon end; the 'monthly ex-credit' column leaves the credit out). This is the only key valid for ranking plans. cycle: expected net from THIS ONE simulated run only (whatever --eval-days/--funded-days bound it to); use this for a short, fixed-horizon goal you do not intend to repeat indefinitely. With --copy-accounts above 1, the per-cycle net, horizon credit and monthly figures are summed over the copy-traded account slots (one slot x --copy-accounts).`,
             options: [...FUNDED_SORT_KEYS],
             type: 'enum',
         },

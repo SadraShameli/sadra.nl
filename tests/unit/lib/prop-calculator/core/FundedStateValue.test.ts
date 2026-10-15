@@ -790,7 +790,7 @@ describe('isFundedDpEligible scope cut', () => {
             'as a lifetime cumulative count in Plan.resolvedPayoutCap. The ' +
             'DP instead tracks qualifyingDays as a bounded, per-cycle ' +
             "gate that resets on payout, so Legacy's post-30-day " +
-            'uncapped regime is unreachable inside it -- the DP would ' +
+            'uncapped regime is unreachable inside it: the DP would ' +
             'silently value every payout under the capped, ' +
             'before-milestone regime',
         () => {
@@ -810,7 +810,7 @@ describe('isFundedDpEligible scope cut', () => {
     it(
         'keeps a plan DP-eligible when its payoutCapOverride is a ' +
             'PayoutCountTieredPayoutCap (keyed on payoutsIssued, not ' +
-            'cumulative qualifying days) -- only ' +
+            'cumulative qualifying days); only ' +
             'QualifyingDaysMilestonePayoutCap is excluded, not every ' +
             'payoutCapOverride',
         () => {
@@ -885,7 +885,7 @@ describe(
 );
 
 describe(
-    'FundedStateValueConfig.dayCost / meanHorizonDays -- a geometric ' +
+    'FundedStateValueConfig.dayCost / meanHorizonDays: a geometric ' +
         'end-of-horizon hazard q=1/meanHorizonDays and a per-day charge, ' +
         "wired into the funded DP's day-settlement function the same way " +
         "change 3's rebuyLagDays wired into the engine, and reusing " +
@@ -981,7 +981,7 @@ describe(
         it(
             'omitting both dayCost and meanHorizonDays leaves the existing ' +
                 'one-payout toy pin (V(initial)=50) byte-identical, since ' +
-                'dayCost defaults to 0 and horizonHazard defaults to 0 -- ' +
+                'dayCost defaults to 0 and horizonHazard defaults to 0, ' +
                 'a true no-op on both the finalTable subtraction and the ' +
                 'dayCloseValue continuing branch',
             () => {
@@ -1005,7 +1005,7 @@ describe(
 );
 
 describe(
-    'default maxIterationsPerLevel under a horizon hazard -- the per-level ' +
+    'default maxIterationsPerLevel under a horizon hazard: the per-level ' +
         'sweep cap must scale with the hazard so a genuinely convergent ' +
         'level is never mistaken for a non-convergent one just because it ' +
         'needs more than the flat 200-sweep default that ignores ' +
@@ -1412,7 +1412,7 @@ describe('cycleBestDayProfit DP state dimension', () => {
 describe('findRegistryPlanId (worker-thread pool safety gate)', () => {
     it(
         'resolves every real registry plan back to its own id, under ' +
-            'whatever runtime is executing this test -- a regression for ' +
+            'whatever runtime is executing this test, a regression for ' +
             "the parallel path's registry lookup silently degrading to " +
             'the sequential fallback forever if this ever stops resolving ' +
             '(e.g. the firms module gets moved or renamed)',

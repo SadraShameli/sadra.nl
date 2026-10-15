@@ -204,7 +204,7 @@ export function GoalsView() {
     const markAchieved = api.lifting.goal.markAchieved.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: () => {
-            toast.success('Goal achieved — nice work.');
+            toast.success('Goal achieved, nice work.');
             void invalidate();
         },
     });
@@ -325,7 +325,7 @@ export function GoalsView() {
                             {row.original.exerciseName}
                         </Link>
                     ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                     ),
                 enableSorting: false,
                 filterFn: DataTableFilterFunction.Equals,
@@ -381,7 +381,7 @@ export function GoalsView() {
                             )}
                         </span>
                     ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                     ),
                 header: 'Achieved',
                 id: 'achieved',
@@ -1140,7 +1140,7 @@ function TargetDateCell({
     targetDate: null | string;
 }) {
     if (!targetDate)
-        return <span className="text-xs text-muted-foreground">—</span>;
+        return <span className="text-xs text-muted-foreground">-</span>;
     if (status !== GOAL_STATUS.ACTIVE) {
         return (
             <span className="text-xs text-muted-foreground tabular-nums">

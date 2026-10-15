@@ -128,7 +128,7 @@ describe.each(ALL_PLANS)(
                 expect(floor).toBeGreaterThan(state.threshold);
             });
         } else {
-            it('payoutBalanceFloor equals the bust threshold exactly, since this plan models no retained cushion at all -- protection against a self-bust payout must come from its own payout caps, tested separately by the never-self-busts case above', () => {
+            it('payoutBalanceFloor equals the bust threshold exactly, since this plan models no retained cushion at all, so protection against a self-bust payout must come from its own payout caps, tested separately by the never-self-busts case above', () => {
                 const { state } = fullyQualifiedFundedAccount(plan, 0);
                 const floor = plan.payoutBalanceFloor(
                     state,
@@ -273,7 +273,7 @@ describe.each(
 )(
     '$label: the natural (onDayClose/onTrade) lock trigger always snaps the ' +
         'threshold to exactly the documented locked value, even when the ' +
-        'same call’s ratchet already carried it higher -- confirmed against ' +
+        'same call’s ratchet already carried it higher, confirmed against ' +
         "DrawdownTransitions.test.ts's own synthetic case " +
         "('locks at the documented floor even when the qualifying day " +
         "overshoots the trigger'); forceLock's separate never-lower guard " +

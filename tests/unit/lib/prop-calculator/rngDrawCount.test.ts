@@ -92,7 +92,7 @@ describe('rng draw counts', () => {
     });
 
     it(
-        'pins a full eval-plus-funded draw count -- 142, not the pre-fix 118, ' +
+        'pins a full eval-plus-funded draw count of 142, not the pre-fix 118, ' +
             "now that LucidPro's own unconfirmed maxLifetimePayouts: 5 carryover " +
             'is removed and the 60-day funded horizon no longer concludes early ' +
             'after the 5th payout',

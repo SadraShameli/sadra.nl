@@ -23,7 +23,7 @@ export class ContactFormEmail extends EmailMessage {
         private readonly message: string,
     ) {
         super();
-        this.subject = `Contact form — ${name}`;
+        this.subject = `Contact form: ${name}`;
         this.to = to;
     }
 
