@@ -3,7 +3,7 @@ import {
     costAnalytics,
     fundedSince,
     isCohortEndedAttempt,
-    paidCountWithinHorizon,
+    paidCountByDate,
     payoutTiming,
     perAttemptNetCents,
     type PortfolioLedger,
@@ -193,7 +193,7 @@ function pooledAttemptPaysRate(
         const funded = fundedSince(entry);
         if (
             funded !== null &&
-            paidCountWithinHorizon(entry, funded.on, horizonDays) > 0
+            paidCountByDate(entry, funded.on, asOfDate) > 0
         ) {
             successes += 1;
         }

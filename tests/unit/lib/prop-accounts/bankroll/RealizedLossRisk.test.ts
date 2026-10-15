@@ -271,6 +271,47 @@ describe('realizedLossRisk pays rate counts every attempt (PT-80)', () => {
         expect(result.attemptPaysRate?.n).toBe(2);
         expect(result.attemptPaysRate?.value).toBe(0.5);
     });
+
+    it('counts an ended attempt as paying when its first payout came after the mean days to first payout (PT-50 escalation on PT-80)', () => {
+        const paidOnDates = [
+            '2026-01-11',
+            '2026-01-21',
+            '2026-01-31',
+            '2026-03-02',
+        ];
+        const accounts = paidOnDates.map(() =>
+            account(EVAL_PLAN, { stage: AccountStage.Funded }),
+        );
+        const result = realizedLossRisk({
+            asOfDate: '2026-06-01',
+            attemptCostCents: 10_000,
+            availableCents: 100_000,
+            draws: 500,
+            ledger: ledger({
+                accounts,
+                events: accounts.flatMap((entry) => [
+                    event(entry, AccountEventKind.Purchased, '2026-01-01'),
+                    event(entry, AccountEventKind.EvalPassed, '2026-01-01'),
+                    event(entry, AccountEventKind.Busted, '2026-04-01'),
+                ]),
+                fees: accounts.map((entry) =>
+                    fee(entry, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
+                ),
+                payouts: accounts.map((entry, index) =>
+                    payout(entry, 50_000, {
+                        netCents: 50_000,
+                        paidOn: paidOnDates[index] ?? '2026-01-11',
+                    }),
+                ),
+            }),
+            lossRiskThreshold: null,
+            seed: 1,
+            toFirstPayoutFallbackDays: 30,
+        });
+        expect(result.toFirstPayoutDays).toBeLessThan(60);
+        expect(result.attemptPaysRate?.n).toBe(4);
+        expect(result.attemptPaysRate?.value).toBe(1);
+    });
 });
 
 function firstPayoutResultFor(rows: Parameters<typeof ledger>[0]) {

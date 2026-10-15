@@ -73,6 +73,18 @@ export function isHorizonMaturedCohort(
     );
 }
 
+export function paidCountByDate(
+    entry: LedgerAccount,
+    fundedOn: string,
+    asOfDate: string,
+): number {
+    return paidCountWithinHorizon(
+        entry,
+        fundedOn,
+        isoDaysBetween(fundedOn, asOfDate),
+    );
+}
+
 export function paidCountWithinHorizon(
     entry: LedgerAccount,
     fundedOn: string,

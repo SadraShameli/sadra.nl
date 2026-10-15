@@ -117,6 +117,7 @@ export {
     type FundedPayoutDistribution,
     fundedPayoutDistribution,
     isHorizonMaturedCohort,
+    paidCountByDate,
     paidCountWithinHorizon,
     PAYOUT_COUNT_CAP,
     type PlanPayoutCountDistribution,
