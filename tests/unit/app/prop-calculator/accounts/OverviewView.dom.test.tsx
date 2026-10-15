@@ -1140,16 +1140,16 @@ describe('OverviewView', () => {
         );
         expect(headings[0]).toBe('Setup checklist');
         const setup = sectionNamed('Setup checklist');
-        expect(setup?.textContent).toContain('2 of 5 steps done.');
+        expect(setup?.textContent).toContain('2 of 5 steps done');
         const linkTo = (label: string): null | string =>
             [...(setup?.querySelectorAll('a') ?? [])]
                 .find((anchor) => anchor.textContent === label)
                 ?.getAttribute('href') ?? null;
-        expect(linkTo('Budget set')).toBe(
+        expect(linkTo('Add a deposit')).toBe(
             routes.propCalculator.accounts.ledger,
         );
-        expect(linkTo('Firm rules verified')).toBe(routes.propCalculator.rules);
-        expect(linkTo('Stages captured')).toBe(
+        expect(setup?.textContent).toContain('Done: Firm rules verified');
+        expect(linkTo('Enter balances')).toBe(
             routes.propCalculator.accounts.review,
         );
         expect(linkTo('alpha')).toBe(

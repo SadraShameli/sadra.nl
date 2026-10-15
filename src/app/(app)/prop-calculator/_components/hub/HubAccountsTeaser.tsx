@@ -1,6 +1,6 @@
 'use client';
 
-import { Wallet } from 'lucide-react';
+import { ArrowRight, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
 
@@ -19,7 +19,12 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SetupChecklistCompact } from '~/app/(app)/prop-calculator/accounts/_components/overview/SetupChecklistCard';
 import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader } from '~/components/ui/Card';
+import {
+    Card,
+    CardAction,
+    CardContent,
+    CardHeader,
+} from '~/components/ui/Card';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { useSession } from '~/lib/auth/client';
 import { NOT_APPLICABLE } from '~/lib/format';
@@ -201,7 +206,16 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
     if (summary === null) return <TeaserSkeleton />;
 
     return (
-        <TeaserFrame>
+        <TeaserFrame
+            action={
+                <Button asChild size="sm" variant="outline">
+                    <Link href={routes.propCalculator.accounts.index}>
+                        Open your accounts
+                        <ArrowRight aria-hidden />
+                    </Link>
+                </Button>
+            }
+        >
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
                 <StatCard label="Spend" value={formatUsdCents(summary.spend)} />
                 <StatCard
@@ -240,16 +254,8 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
             )}
             <GrossOnlyPayoutsNote count={summary.grossOnlyPayouts} />
             {summary.setup !== null && !summary.setup.isComplete && (
-                <SetupChecklistCompact
-                    href={routes.propCalculator.accounts.index}
-                    model={summary.setup}
-                />
+                <SetupChecklistCompact model={summary.setup} />
             )}
-            <Button asChild className="self-start" size="sm" variant="outline">
-                <Link href={routes.propCalculator.accounts.index}>
-                    Open your accounts
-                </Link>
-            </Button>
         </TeaserFrame>
     );
 }
@@ -274,7 +280,13 @@ function SignInCallToAction() {
     );
 }
 
-function TeaserFrame({ children }: { children: ReactNode }) {
+function TeaserFrame({
+    action,
+    children,
+}: {
+    readonly action?: ReactNode;
+    readonly children: ReactNode;
+}) {
     return (
         <section aria-labelledby="hub-accounts-teaser" className="mt-10">
             <Card className={cn('app-prop-calculator__accounts-teaser')}>
@@ -286,8 +298,9 @@ function TeaserFrame({ children }: { children: ReactNode }) {
                         <Wallet aria-hidden className="size-4 text-primary" />
                         My accounts
                     </h2>
+                    {action !== undefined && <CardAction>{action}</CardAction>}
                 </CardHeader>
-                <CardContent className="flex flex-col gap-4">
+                <CardContent className="flex flex-col gap-6">
                     {children}
                 </CardContent>
             </Card>

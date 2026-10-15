@@ -583,57 +583,51 @@ describe('HubAccountsTeaser', () => {
             expect(withEvent).toBe(withoutEvent - 1);
         });
 
-        it('shows a compact setup checklist with the done count and a link to the overview once the ledger rows are loaded (PT-69, F-V28)', () => {
+        it('shows a compact setup checklist with the done count, a progress bar and one row per step once the ledger rows are loaded (PT-69, F-V28)', () => {
             harness.queries.set('event.list', answer([]));
             render();
-            expect(container.textContent).toContain(
-                'Setup: 1 of 4 steps done.',
+            const checklist = container.querySelector(
+                '[aria-labelledby="setup-checklist-compact"]',
             );
-            expect(container.textContent).toContain('Budget set: Missing');
-            expect(container.textContent).not.toContain(
-                'Expected value computed: Not checked yet',
-            );
-            expect(container.textContent).toContain(
-                'Expected value: checked on the overview',
-            );
-            expect(container.textContent).toContain(
-                'The count leaves out the steps checked on the overview.',
-            );
+            expect(checklist?.textContent).toContain('Finish the setup');
+            expect(checklist?.textContent).toContain('1 of 4 steps done');
             expect(
-                [...container.querySelectorAll('a')]
-                    .find((anchor) => anchor.textContent === 'Finish the setup')
-                    ?.getAttribute('href'),
-            ).toBe(routes.propCalculator.accounts.index);
+                checklist?.querySelector('[aria-label="Setup progress"]'),
+            ).not.toBeNull();
+            expect(checklist?.textContent).toContain('Missing: Budget set');
+            expect(checklist?.textContent).toContain(
+                'Waiting for the engine: Expected value computed',
+            );
+            expect(checklist?.textContent).toContain(
+                'not counted in the done total',
+            );
         });
 
-        it('links each setup step to the overview target and each missing item to its fix (PT-89, F-V28)', () => {
+        it('gives each open setup step one action to its fix and links each missing item (PT-89, F-V28)', () => {
             harness.queries.set('event.list', answer([]));
             render();
-            const hrefs = [...container.querySelectorAll('a')].map((anchor) =>
-                anchor.getAttribute('href'),
-            );
-            expect(hrefs).toContain(routes.propCalculator.accounts.ledger);
-            expect(hrefs).toContain(routes.propCalculator.rules);
-            expect(hrefs).toContain(routes.propCalculator.accounts.review);
-            const budget = [...container.querySelectorAll('a')].find(
-                (anchor) => anchor.textContent === 'Budget set',
+            const anchors = [...container.querySelectorAll('a')];
+            const budget = anchors.find(
+                (anchor) => anchor.textContent === 'Add a deposit',
             );
             expect(budget?.getAttribute('href')).toBe(
                 routes.propCalculator.accounts.ledger,
             );
-            const evLink = [...container.querySelectorAll('a')].find(
-                (anchor) =>
-                    anchor.textContent ===
-                    'Expected value: checked on the overview',
+            const evLink = anchors.find(
+                (anchor) => anchor.textContent === 'See expected net',
             );
             expect(evLink?.getAttribute('href')).toContain(
                 routes.propCalculator.accounts.index,
             );
+            const open = anchors.find(
+                (anchor) => anchor.textContent === 'Open your accounts',
+            );
+            expect(open?.closest('[data-slot="card-action"]')).not.toBeNull();
         });
 
         it('shows no setup checklist until the events are loaded, and still shows the totals', () => {
             render();
-            expect(container.textContent).not.toContain('Setup:');
+            expect(container.textContent).not.toContain('Finish the setup');
             expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
         });
 

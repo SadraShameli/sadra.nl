@@ -11,9 +11,12 @@ import {
     SetupChecklistCompact,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/SetupChecklistCard';
 import { BankrollTransferKind, FeeKind } from '~/lib/prop-accounts/core';
-import { setupChecklistOf, SetupStep } from '~/lib/prop-accounts/metrics';
+import {
+    setupChecklistOf,
+    SetupStep,
+    SetupStepStatus,
+} from '~/lib/prop-accounts/metrics';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
-import { routes } from '~/lib/site/routes';
 
 import {
     account,
@@ -22,8 +25,6 @@ import {
     ledger,
     transfer,
 } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
-
-const COMPACT_HREF = routes.propCalculator.accounts.index;
 
 function hrefsOf(container: HTMLElement): readonly string[] {
     return [...container.querySelectorAll('a')].map(
@@ -80,47 +81,50 @@ describe('SetupChecklistCard', () => {
     });
 
     describe('SetupChecklistCompact', () => {
-        it('links every step to the target the overview card uses', () => {
-            const model = modelOf({ hub: true, withCosts: true });
-            render(<SetupChecklistCompact href={COMPACT_HREF} model={model} />);
-            const hrefs = hrefsOf(container);
-            for (const step of model.steps) {
-                expect(hrefs).toContain(step.href);
+        it('gives every open step one action to the target the overview card uses', () => {
+            const model = modelOf({ hub: true, withCosts: false });
+            render(<SetupChecklistCompact model={model} />);
+            const anchors = [...container.querySelectorAll('a')];
+            const openSteps = model.steps.filter(
+                (candidate) =>
+                    candidate.status === SetupStepStatus.Missing ||
+                    candidate.status === SetupStepStatus.NotChecked,
+            );
+            expect(openSteps.length).toBeGreaterThan(0);
+            for (const step of openSteps) {
+                const action = anchors.find(
+                    (anchor) => anchor.textContent === step.actionLabel,
+                );
+                expect(action?.getAttribute('href')).toBe(step.href);
             }
         });
 
-        it('shows the expected value step as checked on the overview instead of dropping it', () => {
+        it('keeps the expected value step as its own row instead of dropping it, and says it is not counted yet', () => {
             const model = modelOf({ hub: true, withCosts: true });
             const evStep = model.steps.find(
                 (step) => step.key === SetupStep.ExpectedValueComputed,
             );
-            render(<SetupChecklistCompact href={COMPACT_HREF} model={model} />);
+            render(<SetupChecklistCompact model={model} />);
             expect(container.textContent).toContain(
-                'Expected value: checked on the overview',
+                `${evStep?.statusLabel ?? ''}: ${evStep?.label ?? ''}`,
             );
-            const anchor = [...container.querySelectorAll('a')].find(
-                (candidate) =>
-                    candidate.textContent ===
-                    'Expected value: checked on the overview',
+            expect(container.textContent).toContain(
+                'not counted in the done total',
             );
-            expect(anchor?.getAttribute('href')).toBe(evStep?.href);
         });
 
-        it('says which steps the done count leaves out', () => {
+        it('shows the done count and a progress bar at the done share', () => {
             const model = modelOf({ hub: true, withCosts: true });
-            render(<SetupChecklistCompact href={COMPACT_HREF} model={model} />);
+            render(<SetupChecklistCompact model={model} />);
             expect(container.textContent).toContain(
-                `Setup: ${String(model.doneCount)} of ${String(model.totalSteps)} steps done.`,
+                `${String(model.doneCount)} of ${String(model.totalSteps)} steps done`,
             );
-            expect(container.textContent).toContain(
-                'The count leaves out the steps checked on the overview.',
+            const bar = container.querySelector(
+                '[aria-label="Setup progress"]',
             );
-        });
-
-        it('does not add the leaves-out note when every step is counted', () => {
-            const model = modelOf({ hub: false, withCosts: true });
-            render(<SetupChecklistCompact href={COMPACT_HREF} model={model} />);
-            expect(container.textContent).not.toContain('leaves out');
+            expect(bar?.getAttribute('aria-valuenow')).toBe(
+                String((model.doneCount / model.totalSteps) * 100),
+            );
         });
 
         it('links each missing item to its fix, as the overview card does', () => {
@@ -129,7 +133,7 @@ describe('SetupChecklistCard', () => {
                 (step) => step.key === SetupStep.CostsEntered,
             );
             expect(costs?.items.length).toBeGreaterThan(0);
-            render(<SetupChecklistCompact href={COMPACT_HREF} model={model} />);
+            render(<SetupChecklistCompact model={model} />);
             const items = costs?.items ?? [];
             for (const item of items) {
                 const anchor = [...container.querySelectorAll('a')].find(
@@ -140,30 +144,23 @@ describe('SetupChecklistCard', () => {
                 expect(anchor).toBeDefined();
             }
         });
-
-        it('keeps the finish link to the overview', () => {
-            const model = modelOf({ hub: true, withCosts: true });
-            render(<SetupChecklistCompact href={COMPACT_HREF} model={model} />);
-            const finish = [...container.querySelectorAll('a')].find(
-                (anchor) => anchor.textContent === 'Finish the setup',
-            );
-            expect(finish?.getAttribute('href')).toBe(COMPACT_HREF);
-        });
     });
 
     describe('SetupChecklistCard', () => {
-        it('renders the same step links and item links as before', () => {
+        it('renders the action links and item links for every open step', () => {
             const model = modelOf({ hub: false, withCosts: false });
             render(<SetupChecklistCard model={model} />);
             const hrefs = hrefsOf(container);
             for (const step of model.steps) {
-                expect(hrefs).toContain(step.href);
+                if (step.status === SetupStepStatus.Missing) {
+                    expect(hrefs).toContain(step.href);
+                }
                 for (const item of step.items) {
                     expect(hrefs).toContain(item.href);
                 }
             }
             expect(container.textContent).toContain(
-                `${String(model.doneCount)} of ${String(model.totalSteps)} steps done.`,
+                `${String(model.doneCount)} of ${String(model.totalSteps)} steps done`,
             );
         });
     });

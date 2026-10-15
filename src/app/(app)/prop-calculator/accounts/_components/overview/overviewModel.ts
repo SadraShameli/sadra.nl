@@ -1406,6 +1406,7 @@ interface SetupItemRow {
 }
 
 interface SetupStepRow {
+    readonly actionLabel: string;
     readonly detail: null | string;
     readonly href: string;
     readonly items: readonly SetupItemRow[];
@@ -1728,6 +1729,14 @@ const SETUP_STEP_LABEL: Readonly<Record<SetupStep, string>> = {
     [SetupStep.ExpectedValueComputed]: 'Expected value computed',
     [SetupStep.FirmRulesVerified]: 'Firm rules verified',
     [SetupStep.StagesCaptured]: 'Stages captured',
+};
+
+const SETUP_STEP_ACTION: Readonly<Record<SetupStep, string>> = {
+    [SetupStep.BudgetSet]: 'Add a deposit',
+    [SetupStep.CostsEntered]: 'Add fees',
+    [SetupStep.ExpectedValueComputed]: 'See expected net',
+    [SetupStep.FirmRulesVerified]: 'Check the rules',
+    [SetupStep.StagesCaptured]: 'Enter balances',
 };
 
 const SETUP_STEP_HREF: Readonly<Record<SetupStep, string>> = {
@@ -2400,6 +2409,7 @@ export function setupChecklistCardOf(
         doneCount: checklist.doneCount,
         isComplete: checklist.isComplete,
         steps: checklist.steps.map((result) => ({
+            actionLabel: SETUP_STEP_ACTION[result.step],
             detail: setupStepDetail(result),
             href: SETUP_STEP_HREF[result.step],
             items: result.missing.flatMap(setupItemRows),
@@ -4275,7 +4285,7 @@ function firmDateText(entry: FirmVerificationDate): string {
         { firmId: entry.firmId, kind: FirmKeyKind.Modeled },
         [],
     );
-    return `${label} ${entry.verifiedOn}`;
+    return `${label} on ${entry.verifiedOn}`;
 }
 
 function firmDiscountRow(
@@ -6797,33 +6807,33 @@ function setupStepDetail(result: SetupStepResult): null | string {
     switch (result.step) {
         case SetupStep.BudgetSet: {
             return status === SetupStepStatus.Missing
-                ? 'Add a bankroll deposit, or set a bankroll limit in the rulebook, so the budget figures have a base.'
+                ? 'Add a bankroll deposit or set a bankroll limit in the rulebook.'
                 : null;
         }
         case SetupStep.CostsEntered: {
             return status === SetupStepStatus.Missing
-                ? 'These active accounts have no purchase fee recorded: an evaluation purchase, or the activation fee for an instant-funded plan.'
+                ? 'No purchase or activation fee recorded yet for these accounts.'
                 : null;
         }
         case SetupStep.ExpectedValueComputed: {
             if (status === SetupStepStatus.Missing) {
-                return 'The engine has no expected net for these plans.';
+                return 'No expected net yet for these plans.';
             }
             return status === SetupStepStatus.NotChecked
-                ? 'Computed on the overview once the engine has answered.'
+                ? 'Computed once the engine has answered, and not counted in the done total until then.'
                 : null;
         }
         case SetupStep.FirmRulesVerified: {
             if (status === SetupStepStatus.Done) {
-                return `Verified on: ${result.firmDates.map(firmDateText).join(', ')}`;
+                return `Verified: ${result.firmDates.map(firmDateText).join(', ')}`;
             }
             return status === SetupStepStatus.Missing
-                ? 'These firms have no verification date for their rules.'
+                ? 'No verification date yet for these firms.'
                 : null;
         }
         case SetupStep.StagesCaptured: {
             return status === SetupStepStatus.Missing
-                ? 'These active accounts have no snapshot the stale-snapshot check accepts; enter their current balance.'
+                ? 'Enter the current balance for these accounts.'
                 : null;
         }
     }
