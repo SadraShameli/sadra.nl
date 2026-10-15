@@ -23,7 +23,9 @@ function overviewAlertOf(alert: AccountAlert): OverviewAlert {
     const subject = alertSubjectView(alert);
     return {
         disclosures: [],
+        href: null,
         key: subject.key,
+        kind: alert.kind,
         kindLabel: alertKindLabel(alert.kind),
         message: alert.message,
         severity: alert.severity,
@@ -74,7 +76,8 @@ describe('AlertsCenter keys (PT-69b)', () => {
         act(() => {
             root.render(<AlertsCenter alerts={alerts} />);
         });
-        expect(container.querySelectorAll('li')).toHaveLength(3);
+        expect(container.querySelectorAll(':scope li')).toHaveLength(1);
+        expect(container.querySelectorAll(':scope tbody tr')).toHaveLength(3);
         expect(new Set(alerts.map((alert) => alert.key)).size).toBe(3);
         const duplicateKeyWarnings = errors.mock.calls.filter((call) =>
             String(call[0]).includes('same key'),

@@ -613,7 +613,11 @@ export type OverviewAccountRow = AlertAccountRow &
 
 export interface OverviewAlert {
     readonly disclosures: readonly string[];
+    readonly href: null | ReturnType<
+        typeof routes.propCalculator.accounts.detail
+    >;
     readonly key: string;
+    readonly kind: AlertKind;
     readonly kindLabel: string;
     readonly message: string;
     readonly severity: AlertSeverity;
@@ -5874,7 +5878,12 @@ function overviewAlert(alert: AccountAlert): OverviewAlert {
         disclosures: alert.disclosures.map(
             (disclosure) => ALERT_DISCLOSURE_TEXT[disclosure],
         ),
+        href:
+            alert.subject.kind === AlertSubjectKind.Account
+                ? routes.propCalculator.accounts.detail(alert.subject.accountId)
+                : null,
         key: subject.key,
+        kind: alert.kind,
         kindLabel: alertKindLabel(alert.kind),
         message: alert.message,
         severity: alert.severity,
