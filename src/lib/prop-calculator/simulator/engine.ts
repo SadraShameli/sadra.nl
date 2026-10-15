@@ -519,6 +519,12 @@ export function simulatePortfolio(
             if (r.maxLosingStreak > trialMaxStreak)
                 trialMaxStreak = r.maxLosingStreak;
         }
+        if (remainingLifetimeBudget !== null) {
+            trialCredit = Math.min(
+                trialCredit,
+                Math.max(0, remainingLifetimeBudget),
+            );
+        }
 
         distribution[trialPasses] = (distribution[trialPasses] ?? 0) + 1;
         survivalDistribution[trialSurvivals] =
@@ -1131,14 +1137,24 @@ function pooledLifetimeCapAcrossCopies(
         return trialResults;
     }
     return trialResults.map((r) => {
-        const rawCombinedPayout = r.grossPayout * accountMultiplier;
-        if (rawCombinedPayout <= pooledLifetimeCap) return r;
-        const perCopyPayout = pooledLifetimeCap / accountMultiplier;
-        const payoutReduction = r.grossPayout - perCopyPayout;
+        const combinedPayout = Math.min(
+            r.grossPayout * accountMultiplier,
+            pooledLifetimeCap,
+        );
+        const perCopyPayout = combinedPayout / accountMultiplier;
+        const perCopyCreditCeiling =
+            (pooledLifetimeCap - combinedPayout) / accountMultiplier;
+        if (
+            perCopyPayout === r.grossPayout &&
+            r.horizonCredit <= perCopyCreditCeiling
+        ) {
+            return r;
+        }
         return {
             ...r,
             grossPayout: perCopyPayout,
-            net: r.net - payoutReduction,
+            horizonCredit: Math.min(r.horizonCredit, perCopyCreditCeiling),
+            net: r.net - (r.grossPayout - perCopyPayout),
         };
     });
 }

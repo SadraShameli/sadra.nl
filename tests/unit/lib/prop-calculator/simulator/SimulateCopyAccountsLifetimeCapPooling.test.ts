@@ -40,6 +40,13 @@ describe('simulate(): copied MFF Pro accounts share the per-user lifetime cap (P
         }
     });
 
+    it('keeps the combined payouts plus horizon credit of 3 copies within the per-user cap (PT-50 escalation on PT-12l)', () => {
+        const out = simulate({ ...ALWAYS_WINS, copyAccounts: 3, plan: mffPro });
+        expect(
+            out.expectedGrossPayout + out.expectedHorizonCredit,
+        ).toBeLessThanOrEqual(CAP);
+    });
+
     it('keeps a per-account scope toy plan unpooled: 3 copies can combine past the per-account cap', () => {
         const perAccountPlan = mffPro.withOverrides({
             lifetimeDollarCapScope: LifetimeCapScope.PerAccount,
