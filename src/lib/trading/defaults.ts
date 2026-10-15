@@ -64,6 +64,8 @@ export const DEFAULT_DOL_TYPES = [...DOL_TYPE_VALUES];
 
 export const PLAN_TIMEZONE = 'America/New_York';
 
+export const DEFAULT_PLAN_NAME = 'My trading plan';
+
 export const DEFAULT_PLAN: TradingPlanConfig = {
     knockouts: {
         boredomHunt: true,

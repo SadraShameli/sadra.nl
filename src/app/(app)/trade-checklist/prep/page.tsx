@@ -4,16 +4,17 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
+import { DefaultTradingPlanSetup } from '~/app/(app)/trade-checklist/_components/DefaultTradingPlanSetup';
 import { PrepView } from '~/app/(app)/trade-checklist/_components/PrepView';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { dailyPreparationRowSchema } from '~/lib/schemas/trading';
 import { routes } from '~/lib/site/routes';
-import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { PLAN_TIMEZONE } from '~/lib/trading/defaults';
+import { loadActiveTradingPlan } from '~/lib/trading/loadActiveTradingPlan';
 import { cn } from '~/lib/utilities';
-import { dailyPreparations, db, tradingPlans } from '~/server/db';
+import { dailyPreparations, db } from '~/server/db';
 
 export const metadata: Metadata = {
     description:
@@ -53,8 +54,6 @@ async function PreMarketPrepContent() {
     if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
 
-    await ensureUserHasPlan();
-
     const today = todayInTz();
     const since = thirtyDaysAgo();
 
@@ -63,11 +62,8 @@ async function PreMarketPrepContent() {
         gte(dailyPreparations.date, since),
     );
 
-    const [plans, recent] = await Promise.all([
-        db
-            .select({ id: tradingPlans.id, name: tradingPlans.name })
-            .from(tradingPlans)
-            .where(eq(tradingPlans.userId, userId)),
+    const [activePlan, recent] = await Promise.all([
+        loadActiveTradingPlan(userId),
         db
             .select()
             .from(dailyPreparations)
@@ -75,11 +71,16 @@ async function PreMarketPrepContent() {
             .orderBy(desc(dailyPreparations.date)),
     ]);
 
+    if (!activePlan) return <DefaultTradingPlanSetup />;
+
     const history = z.array(dailyPreparationRowSchema).parse(recent);
-    const activePlanId = plans[0]?.id ?? null;
 
     return (
-        <PrepView activePlanId={activePlanId} history={history} today={today} />
+        <PrepView
+            activePlanId={activePlan.id}
+            history={history}
+            today={today}
+        />
     );
 }
 

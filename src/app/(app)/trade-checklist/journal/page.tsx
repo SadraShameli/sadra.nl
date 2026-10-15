@@ -10,7 +10,6 @@ import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
 import { routes } from '~/lib/site/routes';
-import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
 
@@ -51,8 +50,6 @@ async function TradeJournalContent() {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
-
-    await ensureUserHasPlan();
 
     const plans = await db
         .select({ id: tradingPlans.id, name: tradingPlans.name })

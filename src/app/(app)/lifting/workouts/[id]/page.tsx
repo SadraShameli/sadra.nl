@@ -1,5 +1,4 @@
 import { type Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { LiftingDetailSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
@@ -7,15 +6,12 @@ import { WorkoutDetailView } from '~/app/(app)/lifting/_components/WorkoutDetail
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
+import { loadOrNotFound, routeIdOrNotFound } from '~/trpc/loadOrNotFound';
 import { api, HydrateClient } from '~/trpc/server';
-
-interface PageProperties {
-    params: Promise<{ id: string }>;
-}
 
 export async function generateMetadata({
     params,
-}: PageProperties): Promise<Metadata> {
+}: PageProps<'/lifting/workouts/[id]'>): Promise<Metadata> {
     const { id } = await params;
     return {
         description: 'Workout detail and history.',
@@ -23,7 +19,9 @@ export async function generateMetadata({
     };
 }
 
-export default function LiftingWorkoutDetailPage({ params }: PageProperties) {
+export default function LiftingWorkoutDetailPage({
+    params,
+}: PageProps<'/lifting/workouts/[id]'>) {
     return (
         <PageTransition>
             <main
@@ -40,22 +38,18 @@ export default function LiftingWorkoutDetailPage({ params }: PageProperties) {
     );
 }
 
-async function LiftingWorkoutDetailContent({ params }: PageProperties) {
+async function LiftingWorkoutDetailContent({
+    params,
+}: Pick<PageProps<'/lifting/workouts/[id]'>, 'params'>) {
     await requireSessionUser();
     const { id } = await params;
-    const workout = await loadLiftingWorkoutDetail(id);
+    const workout = await loadOrNotFound(() =>
+        api.lifting.workout.get({ id: routeIdOrNotFound(id) }),
+    );
     void api.lifting.settings.get.prefetch();
     return (
         <HydrateClient>
             <WorkoutDetailView initial={workout} />
         </HydrateClient>
     );
-}
-
-async function loadLiftingWorkoutDetail(id: string) {
-    try {
-        return await api.lifting.workout.get({ id });
-    } catch {
-        notFound();
-    }
 }

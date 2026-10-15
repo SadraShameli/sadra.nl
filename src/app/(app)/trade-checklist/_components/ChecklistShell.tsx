@@ -2,7 +2,6 @@
 
 import { Check, ChevronDown, History, Pencil, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import type {
@@ -53,7 +52,6 @@ export function ChecklistShell({
     history: TradeAssessmentRow[];
     plans: TradingPlanRow[];
 }) {
-    const router = useRouter();
     const [submission, setSubmission] = useState<SubmissionState>({
         status: 'editing',
     });
@@ -74,7 +72,6 @@ export function ChecklistShell({
             if (submission.status === 'graded' && submission.savedId === id) {
                 setSubmission({ status: 'editing' });
             }
-            router.refresh();
         });
     };
 
@@ -84,7 +81,6 @@ export function ChecklistShell({
             if (submission.status === 'graded') {
                 setSubmission({ status: 'editing' });
             }
-            router.refresh();
         });
     };
 
@@ -122,7 +118,6 @@ export function ChecklistShell({
                                     ? { ...s, savedId: id }
                                     : s,
                             );
-                            router.refresh();
                         }}
                         plan={activePlan}
                         result={submission.result}
@@ -181,14 +176,12 @@ function PlanHeader({
     activePlan: TradingPlanRow;
     plans: TradingPlanRow[];
 }) {
-    const router = useRouter();
     const [pending, startTransition] = useTransition();
 
     const switchPlan = (planId: string) => {
         if (planId === activePlan.id) return;
         startTransition(async () => {
             await setActiveTradingPlan({ planId });
-            router.refresh();
         });
     };
 

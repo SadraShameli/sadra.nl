@@ -10,13 +10,8 @@ import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_compone
 import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { routes } from '~/lib/site/routes';
-import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments } from '~/server/db';
-
-interface CalendarPageProperties {
-    searchParams: Promise<{ month?: string }>;
-}
 
 export const metadata: Metadata = {
     description:
@@ -26,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function TradeCalendarPage({
     searchParams,
-}: CalendarPageProperties) {
+}: PageProps<'/trade-checklist/calendar'>) {
     return (
         <PageTransition>
             <main
@@ -61,16 +56,18 @@ function isValidMonth(s: string): boolean {
     return /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 }
 
-async function TradeCalendarContent({ searchParams }: CalendarPageProperties) {
+async function TradeCalendarContent({
+    searchParams,
+}: Pick<PageProps<'/trade-checklist/calendar'>, 'searchParams'>) {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
 
-    await ensureUserHasPlan();
-
-    const sp = await searchParams;
+    const { month: requestedMonth } = await searchParams;
     const month =
-        sp.month && isValidMonth(sp.month) ? sp.month : defaultMonth();
+        typeof requestedMonth === 'string' && isValidMonth(requestedMonth)
+            ? requestedMonth
+            : defaultMonth();
 
     const rows = await db
         .select({

@@ -1,5 +1,4 @@
 import { type Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AccountingDataSkeleton } from '~/app/(app)/accounting/_components/AccountingDataSkeleton';
@@ -7,13 +6,12 @@ import { RunDetail } from '~/app/(app)/accounting/_components/RunDetail';
 import { PageTransition } from '~/components/PageTransition';
 import { requireRootUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
+import { loadOrNotFound, routeIdOrNotFound } from '~/trpc/loadOrNotFound';
 import { api, HydrateClient } from '~/trpc/server';
 
-interface PageProperties {
-    params: Promise<{ id: string }>;
-}
-
-export default function AccountingRunDetailPage({ params }: PageProperties) {
+export default function AccountingRunDetailPage({
+    params,
+}: PageProps<'/accounting/runs/[id]'>) {
     return (
         <PageTransition>
             <main
@@ -37,7 +35,7 @@ export default function AccountingRunDetailPage({ params }: PageProperties) {
 
 export async function generateMetadata({
     params,
-}: PageProperties): Promise<Metadata> {
+}: PageProps<'/accounting/runs/[id]'>): Promise<Metadata> {
     const { id } = await params;
     return {
         robots: { follow: false, index: false },
@@ -45,22 +43,18 @@ export async function generateMetadata({
     };
 }
 
-async function AccountingRunDetailContent({ params }: PageProperties) {
+async function AccountingRunDetailContent({
+    params,
+}: Pick<PageProps<'/accounting/runs/[id]'>, 'params'>) {
     await requireRootUser();
     const { id } = await params;
-    const run = await loadRun(id);
+    const run = await loadOrNotFound(() =>
+        api.accounting.runs.get({ id: routeIdOrNotFound(id) }),
+    );
     void api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
             <RunDetail initial={run} />
         </HydrateClient>
     );
-}
-
-async function loadRun(id: string) {
-    try {
-        return await api.accounting.runs.get({ id });
-    } catch {
-        notFound();
-    }
 }

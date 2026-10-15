@@ -1,6 +1,7 @@
 'use server';
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { refresh } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { getServerSession } from '~/lib/auth/server';
@@ -25,7 +26,7 @@ import {
     updateTradingPlanInputSchema,
 } from '~/lib/schemas/trading';
 import { profileTabs, routes, withQuery } from '~/lib/site/routes';
-import { DEFAULT_PLAN } from '~/lib/trading/defaults';
+import { DEFAULT_PLAN, DEFAULT_PLAN_NAME } from '~/lib/trading/defaults';
 import { PREP_CHECK_KEYS } from '~/lib/trading/types';
 import {
     dailyPreparations,
@@ -33,6 +34,8 @@ import {
     tradeAssessments,
     tradingPlans,
 } from '~/server/db';
+
+const DEFAULT_PLAN_LOCK_PREFIX = 'trading-default-plan:';
 
 export async function cloneTradingPlan(
     input: PlanIdActionInput,
@@ -77,6 +80,28 @@ export async function cloneTradingPlan(
     );
 }
 
+export async function createDefaultTradingPlan(): Promise<void> {
+    const userId = await requireUserId();
+    await db.transaction(async (tx) => {
+        await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtextextended(${`${DEFAULT_PLAN_LOCK_PREFIX}${userId}`}, 0))`,
+        );
+        const [existing] = await tx
+            .select({ id: tradingPlans.id })
+            .from(tradingPlans)
+            .where(eq(tradingPlans.userId, userId))
+            .limit(1);
+        if (existing) return;
+        await tx.insert(tradingPlans).values({
+            config: DEFAULT_PLAN,
+            isActive: true,
+            name: DEFAULT_PLAN_NAME,
+            userId,
+        });
+    });
+    refresh();
+}
+
 export async function createTradingPlan(
     input: CreateTradingPlanInput,
 ): Promise<void> {
@@ -115,6 +140,7 @@ export async function deleteAllAssessments(): Promise<void> {
     await db
         .delete(tradeAssessments)
         .where(eq(tradeAssessments.userId, userId));
+    refresh();
 }
 
 export async function deleteAssessment(
@@ -130,6 +156,7 @@ export async function deleteAssessment(
                 eq(tradeAssessments.userId, userId),
             ),
         );
+    refresh();
 }
 
 export async function deletePrep(input: DeletePrepInput): Promise<void> {
@@ -143,6 +170,7 @@ export async function deletePrep(input: DeletePrepInput): Promise<void> {
                 eq(dailyPreparations.date, data.date),
             ),
         );
+    refresh();
 }
 
 export async function deleteTradingPlan(
@@ -199,36 +227,6 @@ export async function deleteTradingPlan(
     );
 }
 
-export async function ensureUserHasPlan(): Promise<{
-    created: boolean;
-    planId: string;
-}> {
-    const userId = await requireUserId();
-    const existing = await db
-        .select({ id: tradingPlans.id, isActive: tradingPlans.isActive })
-        .from(tradingPlans)
-        .where(eq(tradingPlans.userId, userId))
-        .orderBy(desc(tradingPlans.isActive), desc(tradingPlans.updatedAt));
-
-    const [first] = existing;
-    if (first) {
-        return { created: false, planId: first.id };
-    }
-
-    const [created] = await db
-        .insert(tradingPlans)
-        .values({
-            config: DEFAULT_PLAN,
-            isActive: true,
-            name: 'My trading plan',
-            userId,
-        })
-        .returning({ id: tradingPlans.id });
-
-    if (!created) throw new Error('Failed to create trading plan');
-    return { created: true, planId: created.id };
-}
-
 export async function recordAssessmentOutcome(
     input: RecordAssessmentOutcomeInput,
 ): Promise<void> {
@@ -255,6 +253,7 @@ export async function recordAssessmentOutcome(
     if (updated.length === 0) {
         throw new Error('Assessment not found or access denied');
     }
+    refresh();
 }
 
 export async function reorderTradingPlans(
@@ -275,6 +274,7 @@ export async function reorderTradingPlans(
                 );
         }
     });
+    refresh();
 }
 
 export async function saveAssessment(
@@ -296,6 +296,7 @@ export async function saveAssessment(
         })
         .returning({ id: tradeAssessments.id });
     if (!row) throw new Error('Failed to record assessment');
+    refresh();
     return { id: row.id };
 }
 
@@ -324,6 +325,7 @@ export async function savePrep(input: SavePrepInput): Promise<void> {
             },
             target: [dailyPreparations.userId, dailyPreparations.date],
         });
+    refresh();
 }
 
 export async function setActiveTradingPlan(
@@ -346,6 +348,7 @@ export async function setActiveTradingPlan(
                 ),
             );
     });
+    refresh();
 }
 
 export async function updateTradingPlan(

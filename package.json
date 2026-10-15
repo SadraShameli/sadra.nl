@@ -11,7 +11,7 @@
         "fix": "bun run format && bun run lint:fix && bun run stylelint:fix",
         "check": "bun run --parallel typecheck lint stylelint format:check knip",
         "verify": "bun run fix && bun run check",
-        "typecheck": "tsc --noEmit",
+        "typecheck": "next typegen && tsc --noEmit",
         "lint": "eslint . --cache --cache-strategy content --cache-location node_modules/.cache/eslint/",
         "lint:fix": "bun run lint --fix",
         "format": "prettier --write --log-level warn --cache --cache-strategy content --cache-location node_modules/.cache/prettier/ .",

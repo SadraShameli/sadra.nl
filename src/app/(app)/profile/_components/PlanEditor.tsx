@@ -31,6 +31,7 @@ import type {
 } from '~/lib/trading/types';
 
 import Eyebrow from '~/components/Eyebrow';
+import { useBlockNavigationWhile } from '~/components/NavigationBlocker';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -69,6 +70,8 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
         },
         resolver: zodResolver(updateTradingPlanInputSchema),
     });
+
+    useBlockNavigationWhile(form.formState.isDirty);
 
     const name = form.watch('name');
     const config = form.watch('config');
@@ -122,8 +125,10 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
             toast.error('Weights must sum to 100.');
             return;
         }
+        const saved = { ...values, name: values.name.trim() };
+        form.reset(saved);
         startTransition(async () => {
-            await updateTradingPlan({ ...values, name: values.name.trim() });
+            await updateTradingPlan(saved);
         });
     });
 

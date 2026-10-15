@@ -8,12 +8,13 @@ import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_compone
 import { PageTransition } from '~/components/PageTransition';
 import { getServerSession } from '~/lib/auth/server';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
-import { profileTabs, routes, withQuery } from '~/lib/site/routes';
-import { ensureUserHasPlan } from '~/lib/trading/actions';
+import { routes } from '~/lib/site/routes';
+import { loadTradingPlans } from '~/lib/trading/loadTradingPlans';
 import { cn } from '~/lib/utilities';
-import { db, tradeAssessments, tradingPlans } from '~/server/db';
+import { db, tradeAssessments } from '~/server/db';
 
 import { ChecklistShell } from './_components/ChecklistShell';
+import { DefaultTradingPlanSetup } from './_components/DefaultTradingPlanSetup';
 
 export const metadata: Metadata = {
     description:
@@ -56,13 +57,7 @@ async function TradeChecklistContent() {
     if (!session?.user.id) redirect(routes.auth.login);
     const userId = session.user.id;
 
-    await ensureUserHasPlan();
-
-    const plans = await db
-        .select()
-        .from(tradingPlans)
-        .where(eq(tradingPlans.userId, userId))
-        .orderBy(tradingPlans.sortOrder, desc(tradingPlans.updatedAt));
+    const plans = await loadTradingPlans(userId);
 
     const historyRows = await db
         .select()
@@ -74,10 +69,9 @@ async function TradeChecklistContent() {
     const history = z.array(tradeAssessmentRowSchema).parse(historyRows);
 
     const active = plans.find((p) => p.isActive) ?? plans[0];
-    if (!active)
-        redirect(withQuery(routes.profile, { tab: profileTabs.tradingPlan }));
-
-    return (
+    return active ? (
         <ChecklistShell activePlan={active} history={history} plans={plans} />
+    ) : (
+        <DefaultTradingPlanSetup />
     );
 }

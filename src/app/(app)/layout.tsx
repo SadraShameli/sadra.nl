@@ -1,4 +1,6 @@
+import { NavigationBlockerProvider } from '~/components/NavigationBlocker';
 import { siteContent } from '~/lib/site/content';
+import { serializeJsonLd } from '~/lib/site/jsonLd';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 
 import ScrollToTop from './_components/ScrollToTop';
@@ -13,19 +15,19 @@ const personJsonLd = {
     url: getPublicSiteOrigin(),
 };
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: LayoutProps<'/'>) {
     return (
         <>
             <script
                 dangerouslySetInnerHTML={{
-                    __html: JSON.stringify(personJsonLd),
+                    __html: serializeJsonLd(personJsonLd),
                 }}
                 type="application/ld+json"
             />
             <a className="skip-link" href="#main-content">
                 Skip to content
             </a>
-            {children}
+            <NavigationBlockerProvider>{children}</NavigationBlockerProvider>
             <ScrollToTop />
         </>
     );

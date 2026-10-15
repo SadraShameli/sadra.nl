@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
@@ -11,9 +11,9 @@ import { isAdminOrAbove, isRoot, resolveRole } from '~/lib/auth/roles';
 import { getServerSession } from '~/lib/auth/server';
 import { profileSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
-import { ensureUserHasPlan } from '~/lib/trading/actions';
+import { loadTradingPlans } from '~/lib/trading/loadTradingPlans';
 import { cn } from '~/lib/utilities';
-import { account, db, tradingPlans } from '~/server/db';
+import { account, db } from '~/server/db';
 import { api, HydrateClient } from '~/trpc/server';
 
 import { AccountManagement } from './_components/AccountManagement';
@@ -51,11 +51,7 @@ const PW_MESSAGES: Record<string, string> = {
     pw_wrong: 'Current password is incorrect.',
 };
 
-interface ProfilePageProperties {
-    searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-export default function ProfilePage({ searchParams }: ProfilePageProperties) {
+export default function ProfilePage({ searchParams }: PageProps<'/profile'>) {
     return (
         <main
             className={cn(
@@ -72,7 +68,9 @@ export default function ProfilePage({ searchParams }: ProfilePageProperties) {
     );
 }
 
-async function ProfileContent({ searchParams }: ProfilePageProperties) {
+async function ProfileContent({
+    searchParams,
+}: Pick<PageProps<'/profile'>, 'searchParams'>) {
     const session = await getServerSession();
     if (!session?.user.id) redirect(routes.auth.login);
 
@@ -91,13 +89,7 @@ async function ProfileContent({ searchParams }: ProfilePageProperties) {
         .limit(1);
     const hasPassword = Boolean(credentialAccount?.password);
 
-    await ensureUserHasPlan();
-
-    const plans = await db
-        .select()
-        .from(tradingPlans)
-        .where(eq(tradingPlans.userId, session.user.id))
-        .orderBy(tradingPlans.sortOrder, desc(tradingPlans.updatedAt));
+    const plans = await loadTradingPlans(session.user.id);
 
     const { email, name } = session.user;
     const role = resolveRole(email, session.user.role);
