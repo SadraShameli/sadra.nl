@@ -23,13 +23,18 @@ import {
     fundedRetainedCushionResolution,
 } from '~/lib/prop-calculator/advisor';
 import { dpValidationFor } from '~/lib/prop-calculator/advisor/dp/DpValidatedPlans';
-import { PayoutRequestPolicy } from '~/lib/prop-calculator/core';
+import {
+    type DpTradeValue,
+    type DpValueReading,
+    PayoutRequestPolicy,
+} from '~/lib/prop-calculator/core';
 import {
     type AverageRewardConfig,
     type AverageRewardSolution,
     RateSearchStatus,
     solveAverageRewardPolicy,
 } from '~/lib/prop-calculator/core/AverageRewardSolver';
+import { DpValueStateKind } from '~/lib/schemas/propAccountOutputs';
 
 import {
     assertInsertedForUser,
@@ -365,19 +370,47 @@ function storedRow(configKey: string): FakeRow {
     };
 }
 
+const STUB_TRADE_VALUE: DpTradeValue = {
+    rewardRisk: 400,
+    risk: 400,
+    value: 1200,
+    valueAfterLoss: 900,
+    valueAfterWin: 1650,
+};
+
+const STUB_READING: DpValueReading = {
+    bestRisk: 400,
+    noTradeValue: 1000,
+    requested: [STUB_TRADE_VALUE],
+    trades: [STUB_TRADE_VALUE],
+    value: 1200,
+};
+
 function stubSolution(options: StubOptions = {}): AverageRewardSolution {
+    const valueLookups = {
+        evalResult: {
+            initialValue: 300,
+            valuesAtReachedState: () => STUB_READING,
+        },
+        fundedResult: {
+            isGridSaturated: () => false,
+            valuesAt: () => STUB_READING,
+        },
+    };
     const solution = {
         evalResult: {
+            ...valueLookups.evalResult,
             dayPolicy: { ladder: [1, 1] },
             riskAtReachedState: () => 500,
         },
         fundedResult: {
+            ...valueLookups.fundedResult,
             cushionGrid: { lockedTopDollars: 10_000 },
             dayPolicy: { computeRisk: () => 400, ladder: [0, 0, 0, 0] },
-            isGridSaturated: () => false,
             unconvergedLevelCount: options.unconvergedLevelCount ?? 0,
         },
         ratePerDay: 1,
+        rateZero: valueLookups,
         status: options.status ?? RateSearchStatus.Converged,
         trace: [],
     };
@@ -931,5 +964,105 @@ describe('prop advise --dp --store --all (PT-30c step 14)', () => {
         for (const select of propSelects(run.queries)) {
             assertUserScopedWhere(select, USER_ID);
         }
+    });
+});
+
+describe('prop advise --dp --values --candidates (PT-30c, F-V17)', () => {
+    it('prints the value at your state, your documented rung after a win and after a loss, and the four value-chain states', async () => {
+        const run = await runAdvise([
+            ...FUNDED_MFF_RAPID_EOD,
+            '--dp',
+            '--eval-days',
+            '2',
+            '--values',
+        ]);
+
+        expect(run.stderr).toBe('');
+        expect(run.exitCode).toBeUndefined();
+        expect(run.stdout).toContain(
+            'DP values (funded, solved rate $1.00 a day',
+        );
+        expect(run.stdout).toContain(
+            'Your state: $1,200.00 cash, $1,200.00 net of the rate',
+        );
+        expect(run.stdout).toContain(
+            'after a win $1,650.00 cash, $1,650.00 net of the rate; after a loss $900.00 cash, $900.00 net of the rate',
+        );
+        expect(run.stdout).toContain(
+            'Eval start: $300.00 cash, $300.00 net of the rate',
+        );
+        expect(run.stdout).toContain('Fresh funded:');
+        expect(run.stdout).toContain('First payout eligible:');
+        expect(run.stdout).toContain('Post first payout:');
+        expect(run.stdout).not.toContain('Candidate risk');
+    });
+
+    it('lists every candidate risk with --candidates', async () => {
+        const run = await runAdvise([
+            ...FUNDED_MFF_RAPID_EOD,
+            '--dp',
+            '--eval-days',
+            '2',
+            '--values',
+            '--candidates',
+        ]);
+
+        expect(run.stderr).toBe('');
+        expect(run.stdout).toContain(
+            'Candidate risk $400.00: after a win $1,650.00 cash',
+        );
+    });
+
+    it('refuses --candidates without --values and --values without --dp', async () => {
+        const candidatesOnly = await runAdvise([
+            ...FUNDED_MFF_RAPID_EOD,
+            '--dp',
+            '--candidates',
+        ]);
+        const valuesOnly = await runAdvise([
+            ...FUNDED_MFF_RAPID_EOD,
+            '--values',
+        ]);
+
+        expect(candidatesOnly.stderr).toContain('--candidates needs --values');
+        expect(valuesOnly.stderr).toContain('only apply with --dp');
+        expect(solverCalls()).toHaveLength(0);
+    });
+
+    it('stores the value samples with --store: your state, the rung after a win and a loss, and each candidate, cash beside the rate-adjusted value', async () => {
+        const run = await runAdvise(storeArguments(), dbResponder());
+        const [insert] = insertsInto(run.queries, TABLES.dpAdvice);
+        const stored =
+            insert === undefined
+                ? null
+                : String(insertedValue(insert, 'value_samples'));
+
+        expect(run.exitCode).toBeUndefined();
+        expect(stored === null ? null : JSON.parse(stored)).toEqual([
+            {
+                kind: DpValueStateKind.Current,
+                rateAdjustedValueCents: 120_000,
+                riskCents: null,
+                valueCents: 120_000,
+            },
+            {
+                kind: DpValueStateKind.AfterWin,
+                rateAdjustedValueCents: 165_000,
+                riskCents: 40_000,
+                valueCents: 165_000,
+            },
+            {
+                kind: DpValueStateKind.AfterLoss,
+                rateAdjustedValueCents: 90_000,
+                riskCents: 40_000,
+                valueCents: 90_000,
+            },
+            {
+                kind: DpValueStateKind.Candidate,
+                rateAdjustedValueCents: 120_000,
+                riskCents: 40_000,
+                valueCents: 120_000,
+            },
+        ]);
     });
 });

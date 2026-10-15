@@ -34,6 +34,7 @@ export interface AverageRewardSolution {
     readonly evalResult: EvalStateValueResult;
     readonly fundedResult: FundedStateValueResult;
     readonly ratePerDay: number;
+    readonly rateZero: null | RateZeroSolve;
     readonly status: RateSearchStatus;
     readonly trace: readonly AverageRewardTracePoint[];
 }
@@ -97,6 +98,11 @@ export interface RateSearchOutcome<Probe extends RateProbe> {
     readonly best: Probe;
     readonly status: RateSearchStatus;
     readonly trace: readonly RatePoint[];
+}
+
+export interface RateZeroSolve {
+    readonly evalResult: EvalStateValueResult;
+    readonly fundedResult: FundedStateValueResult;
 }
 
 export interface SolvedFundedValues {
@@ -338,6 +344,7 @@ function searchRate(
     }
 
     const recentFundedValues: SolvedFundedValues[] = [];
+    let rateZero: null | RateZeroSolve = null;
 
     function evaluateRate(ratePerDay: number): CycleEvaluation {
         const fundedResult = computeFundedStateValue(
@@ -382,6 +389,7 @@ function searchRate(
             winrate: config.winrate,
         });
         const h = evalResult.initialValue - objective.entryCost(ratePerDay);
+        if (ratePerDay === 0) rateZero = { evalResult, fundedResult };
         return {
             errorBound: fundedResult.valueErrorBound,
             evalResult,
@@ -406,6 +414,7 @@ function searchRate(
         evalResult: best.evalResult,
         fundedResult: best.fundedResult,
         ratePerDay: best.ratePerDay,
+        rateZero,
         status,
         trace: trace.map((point) => ({
             cycleValue: point.h,

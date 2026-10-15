@@ -10,6 +10,7 @@ import {
     assumptionText,
     liveTransferAssumptionLines,
 } from '~/lib/prop-calculator/advisor';
+import { VALUE_CHAIN_STEP_LABEL } from '~/lib/prop-calculator/advisor/value';
 import { stableJson } from '~/lib/stableJson';
 
 import {
@@ -23,10 +24,7 @@ import {
     valueChainCardSteps,
     valueChainToolsRequest,
 } from './valueCardsModel';
-import {
-    stepAssumptionsHeading,
-    VALUE_CHAIN_STEP_LABEL,
-} from './valueChainStepLabels';
+import { stepAssumptionsHeading } from './valueChainStepLabels';
 
 export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
     const settledInput = useDebouncedValue(cards, SIM_DEBOUNCE_MS);

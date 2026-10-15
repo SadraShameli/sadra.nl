@@ -27,16 +27,19 @@ import {
 } from '~/lib/prop-accounts';
 import { todayIsoDate } from '~/lib/prop-accounts/core';
 import {
+    dollars,
     findFirm,
     type FirmAccountPolicy,
     type InstrumentSymbol,
     NO_PLAN_OPT_INS,
     type Plan,
     type PlanOptIns,
+    points,
     serializePlanId,
     TradingPhase,
 } from '~/lib/prop-calculator';
 import {
+    buildEnginePolicy,
     createSizingAdvisor,
     DEFAULT_RULEBOOK,
     differenceReasonText,
@@ -53,6 +56,8 @@ import {
     type DpRiskSample,
     DpSamplesKind,
     DpSampleStage,
+    FUNDED_SWEEP_DEFAULT_SEED,
+    FUNDED_SWEEP_DEFAULT_SIMS,
     InstantFundedEvalAdvisorError,
     isFundedDpModelGap,
     type MeasuredRebuyLag,
@@ -70,13 +75,22 @@ import {
     dpConfigKey,
     dpEligibility,
     type DpEligibility,
+    dpSampleStageOf,
     type DpSolutionView,
     type DpSolveConfig,
     dpSolveConfigFor,
     type DpSolveConfigInput,
+    type DpStateValues,
+    DpStateValuesKind,
+    dpStateValuesOf,
+    type DpTradeValueCents,
     dpValidationFor,
+    type DpValueCents,
+    type DpValuesSolution,
     ineligibleDpAdvice,
 } from '~/lib/prop-calculator/advisor/dp';
+import { type DocumentedPolicySpec } from '~/lib/prop-calculator/advisor/policy';
+import { VALUE_CHAIN_STEP_LABEL } from '~/lib/prop-calculator/advisor/value';
 import {
     type AverageRewardConfig,
     RateSearchStatus,
@@ -119,10 +133,17 @@ enum DpStorage {
     Stored = 'stored',
 }
 
+enum DpValuesOutput {
+    Candidates = 'candidates',
+    Hidden = 'hidden',
+    Values = 'values',
+}
+
 export interface AdviseDpArguments {
     account?: string;
     'action-step-multiple'?: string;
     all?: boolean;
+    candidates?: boolean;
     'copy-accounts': string;
     'cushion-step-multiple'?: string;
     dp?: boolean;
@@ -138,6 +159,7 @@ export interface AdviseDpArguments {
     'tail-cushion-step-multiple'?: string;
     'time-budget-min'?: string;
     'user-email'?: string;
+    values?: boolean;
     workers?: string;
 }
 
@@ -197,6 +219,8 @@ type DpOutcome =
           readonly plan: Plan;
           readonly runtimeMs: number;
           readonly storage: DpStorage;
+          readonly values: DpStateValues | null;
+          readonly valuesOutput: DpValuesOutput;
       }
     | {
           readonly detail: null | string;
@@ -222,6 +246,7 @@ interface DpSettings {
     readonly measuredRebuyLag: MeasuredRebuyLag | null;
     readonly positionSizing: DpSolveConfig['positionSizing'];
     readonly startRatePerDay: null | number;
+    readonly valuesOutput: DpValuesOutput;
 }
 
 interface DpSkip {
@@ -232,6 +257,7 @@ interface DpSkip {
 type DpSolver = (config: AverageRewardConfig) => DpSolverOutput;
 
 type DpSolverOutput = DpSolutionView &
+    DpValuesSolution &
     Readonly<{
         fundedResult: Pick<FundedStateValueResult, 'unconvergedLevelCount'>;
         status: RateSearchStatus;
@@ -243,7 +269,11 @@ interface DpStoreSink {
         configKey: string,
         solverVersion: number,
     ): Promise<boolean>;
-    record(target: DpStoreTarget, row: DpAdviceRow): Promise<DpStorage>;
+    record(
+        target: DpStoreTarget,
+        row: DpAdviceRow,
+        values: DpStateValues | null,
+    ): Promise<DpStorage>;
 }
 
 interface DpStoreTarget {
@@ -267,6 +297,7 @@ const DP_ONLY_FLAGS = [
     'account',
     'action-step-multiple',
     'all',
+    'candidates',
     'copy-accounts',
     'cushion-step-multiple',
     'eval-days',
@@ -281,6 +312,7 @@ const DP_ONLY_FLAGS = [
     'tail-cushion-step-multiple',
     'time-budget-min',
     'user-email',
+    'values',
     'workers',
 ] as const;
 
@@ -342,6 +374,12 @@ export const adviseDpArguments = {
             'Do the same for every active account of --user-email, one solve per distinct plan and config. Needs --dp',
         type: 'boolean',
     },
+    candidates: {
+        default: false,
+        description:
+            'With --values, also list every risk on the DP action grid with its value after a win, after a loss and its expected value. Needs --values',
+        type: 'boolean',
+    },
     'copy-accounts': dpArguments['copy-accounts'],
     'cushion-step-multiple': dpArguments['cushion-step-multiple'],
     dp: {
@@ -379,6 +417,12 @@ export const adviseDpArguments = {
             'The account owner, by email: every read and write is scoped to that user. Needs --account or --all',
         type: 'string',
     },
+    values: {
+        default: false,
+        description:
+            "Print the solved DP's values: your state (expected cash with no charge for time, and net of the solved rate per day), your documented rung after a win and after a loss, and the four value-chain states. Needs --dp",
+        type: 'boolean',
+    },
     workers: dpArguments.workers,
 } satisfies ArgsDef;
 
@@ -401,6 +445,9 @@ export function readDpRequest(
             );
         }
         return null;
+    }
+    if (arguments_.candidates === true && arguments_.values !== true) {
+        throw new Error('--candidates needs --values');
     }
     const accountId = readAccountId(arguments_.account);
     const isAll = arguments_.all === true;
@@ -555,6 +602,7 @@ function dpOutcomeLines(label: string, outcome: DpOutcome): string[] {
             : 'not solved',
         validationLine(advice),
         ...sampleLines(advice),
+        ...valueLines(outcome.values, outcome.valuesOutput),
         ...gapLines(advice.gaps, plan),
         ...advice.reasons.map((reason) => differenceReasonText(reason)),
     ];
@@ -580,7 +628,8 @@ async function dpStoreSinkFor(
     database: PropDatabase,
     userId: string,
 ): Promise<DpStoreSink> {
-    const { DpAdviceRepo } = await import('~/lib/prop-accounts/server');
+    const { DpAdviceRepo, dpValueSamplesOf } =
+        await import('~/lib/prop-accounts/server');
     const repo = new DpAdviceRepo(database, userId);
     const known = new Map<string, Promise<ReadonlySet<string>>>();
     const keysOf = (accountId: string): Promise<ReadonlySet<string>> => {
@@ -598,8 +647,12 @@ async function dpStoreSinkFor(
                 storedKey(target.snapshotId, configKey, solverVersion),
             );
         },
-        async record(target, row) {
-            const stored = await repo.record(target.accountId, row, []);
+        async record(target, row, values) {
+            const stored = await repo.record(
+                target.accountId,
+                row,
+                values === null ? [] : dpValueSamplesOf(values),
+            );
             return stored === null ? DpStorage.AlreadyStored : DpStorage.Stored;
         },
     };
@@ -828,6 +881,7 @@ function readDpSettings(arguments_: DpSettingsArguments): DpSettings {
             startRate === undefined
                 ? null
                 : readNonNegativeNumber(startRate, 'start-rate'),
+        valuesOutput: valuesOutputOf(arguments_),
     };
 }
 
@@ -871,7 +925,7 @@ async function runDpAdvice(input: DpRunInput): Promise<void> {
         const [first] = group.members;
         if (first === undefined) continue;
         if (!first.eligibility.eligible) {
-            await finishGroup(group, null, emit, sink);
+            await finishGroup(group, null, emit, sink, settings);
             continue;
         }
         const pendingMembers = await notYetStored(group, sink);
@@ -950,6 +1004,44 @@ const consoleReporter: DpReporter = (() => {
     };
 })();
 
+function chainSpecOf(
+    target: DpTarget,
+    settings: DpSettings,
+): DocumentedPolicySpec {
+    const { personalRetainedCushion } = target;
+    const { positionSizing } = settings;
+    const { policy } = buildEnginePolicy({
+        accountPolicy: target.accountPolicy,
+        fundedHorizonDays: settings.fundedHorizonDays,
+        measuredRebuyLag: settings.measuredRebuyLag,
+        ...(personalRetainedCushion !== null && {
+            personalRetainedCushion: dollars(personalRetainedCushion),
+        }),
+        plan: target.account.plan,
+        positionSizing:
+            positionSizing === null
+                ? null
+                : {
+                      instrument: positionSizing.instrument,
+                      stopPoints: points(positionSizing.stopPoints),
+                  },
+        rulebook: target.rulebook,
+    });
+    return {
+        enginePolicy: {
+            ...policy,
+            commissionPerRoundTrip: settings.commission,
+            payoutRequestOverride: target.personalPayoutRequest,
+        },
+        rulebook: target.rulebook,
+        run: {
+            maxEvalDays: settings.maxEvalDays,
+            seed: FUNDED_SWEEP_DEFAULT_SEED,
+            trials: FUNDED_SWEEP_DEFAULT_SIMS,
+        },
+    };
+}
+
 function checkConverged(solution: DpSolverOutput): null | string {
     const unconverged = solution.fundedResult.unconvergedLevelCount;
     const parts = [
@@ -1020,6 +1112,13 @@ function dpModeOf(accountId: null | string, isAll: boolean): DpRunMode {
     return isAll ? DpRunMode.AllAccounts : DpRunMode.Snapshot;
 }
 
+function dpValueText(value: DpValueCents): string {
+    const adjusted = `${dpMoney(value.rateAdjustedCents)} net of the rate`;
+    return value.rateZeroCashCents === null
+        ? adjusted
+        : `${dpMoney(value.rateZeroCashCents)} cash, ${adjusted}`;
+}
+
 function evalGridOf(
     multiples: DpEvalGridMultiples,
     plan: Plan,
@@ -1046,10 +1145,14 @@ async function finishGroup(
     },
     emit: DpRunInput['emit'],
     sink: DpStoreSink | null,
+    settings: DpSettings,
 ): Promise<void> {
     for (const member of group.members) {
         try {
-            emit(member.target.label, await outcomeFor(member, solved, sink));
+            emit(
+                member.target.label,
+                await outcomeFor(member, solved, sink, settings),
+            );
         } catch (error) {
             emit(
                 member.target.label,
@@ -1156,10 +1259,12 @@ async function outcomeFor(
         readonly solution: DpSolverOutput;
     },
     sink: DpStoreSink | null,
+    settings: DpSettings,
 ): Promise<DpOutcome> {
     const { config, eligibility, target } = member;
     const { plan } = target.account;
-    const stage = stageOf(target.account);
+    const stage = dpSampleStageOf(target.account);
+    const { valuesOutput } = settings;
     if (!eligibility.eligible) {
         const advice = ineligibleDpAdvice({
             config,
@@ -1176,7 +1281,10 @@ async function outcomeFor(
                 config,
                 ineligibleReason: eligibility.reason,
                 runtimeMs: 0,
+                values: null,
             }),
+            values: null,
+            valuesOutput,
         };
     }
     if (solved === null) {
@@ -1197,6 +1305,16 @@ async function outcomeFor(
         solution: solved.solution,
         validation: dpValidationFor(config.planSerial),
     });
+    const isStoring = sink !== null && target.store !== null;
+    const values =
+        !isStoring && valuesOutput === DpValuesOutput.Hidden
+            ? null
+            : dpStateValuesOf({
+                  account: target.account,
+                  chainSpec: chainSpecOf(target, settings),
+                  documentedRungDollars: rungDollars,
+                  solution: solved.solution,
+              });
     return {
         advice,
         kind: DpOutcomeKind.Advised,
@@ -1207,7 +1325,10 @@ async function outcomeFor(
             config,
             ineligibleReason: null,
             runtimeMs: Math.round(solved.runtimeMs),
+            values,
         }),
+        values,
+        valuesOutput,
     };
 }
 
@@ -1250,7 +1371,9 @@ function preflightSkip(item: DpPlanned): DpSkip | null {
     if (documentedRungOf(item.target) === null) {
         return { detail: null, reason: DpSkipReason.NoDocumentedSizing };
     }
-    if (stageOf(item.target.account) !== DpSampleStage.Eval) return null;
+    if (dpSampleStageOf(item.target.account) !== DpSampleStage.Eval) {
+        return null;
+    }
     const validation = dpValidationFor(item.config.planSerial);
     return validation.validated
         ? null
@@ -1352,6 +1475,7 @@ async function solveGroup(
         { runtimeMs, solution },
         emit,
         sink,
+        settings,
     );
 }
 
@@ -1363,12 +1487,6 @@ function solverPlanOf(plan: Plan, optIns: PlanOptIns): Plan {
         throw new Error(`${plan.label} is not a registered plan`);
     }
     return withRegistryPlanOptIns(base, optIns);
-}
-
-function stageOf(account: DpAdviceAccount): DpSampleStage {
-    return account.kind === TradingPhase.Eval
-        ? DpSampleStage.Eval
-        : DpSampleStage.Funded;
 }
 
 function storedKey(
@@ -1403,34 +1521,45 @@ async function storeRow(
         readonly config: DpSolveConfig;
         readonly ineligibleReason: null | string;
         readonly runtimeMs: number;
+        readonly values: DpStateValues | null;
     },
 ): Promise<DpStorage> {
     const { store } = target;
     if (sink === null || store === null) return DpStorage.NotRequested;
-    const { advice, config } = input;
+    const { advice, config, values } = input;
     const assumedSizing =
         input.ineligibleReason === null ? config.positionSizing : null;
-    return sink.record(store, {
-        assumedInstrument: assumedSizing?.instrument ?? null,
-        assumedStopPoints: assumedSizing?.stopPoints ?? null,
-        configKey: advice.configKey,
-        eligible: input.ineligibleReason === null,
-        gaps: advice.gaps,
-        gateFailure:
-            advice.notValidated === null ? null : advice.notValidated.failure,
-        gateResult: advice.notValidated?.result ?? null,
-        ineligibleReason: input.ineligibleReason,
-        objective: advice.objective,
-        planRulesFingerprint: config.planRulesFingerprint,
-        planSerial: config.planSerial,
-        runtimeMs: input.runtimeMs,
-        samples: advice.samples,
-        snapshotId: store.snapshotId,
-        solvedAt: new Date().toISOString(),
-        solverVersion: advice.solverVersion,
-        validated: advice.validated,
-        validationRef: advice.validationRef,
-    });
+    return sink.record(
+        store,
+        {
+            assumedInstrument: assumedSizing?.instrument ?? null,
+            assumedStopPoints: assumedSizing?.stopPoints ?? null,
+            configKey: advice.configKey,
+            eligible: input.ineligibleReason === null,
+            gaps: advice.gaps,
+            gateFailure:
+                advice.notValidated === null
+                    ? null
+                    : advice.notValidated.failure,
+            gateResult: advice.notValidated?.result ?? null,
+            ineligibleReason: input.ineligibleReason,
+            objective: advice.objective,
+            planRulesFingerprint: config.planRulesFingerprint,
+            planSerial: config.planSerial,
+            runtimeMs: input.runtimeMs,
+            samples: advice.samples,
+            snapshotId: store.snapshotId,
+            solvedAt: new Date().toISOString(),
+            solverVersion: advice.solverVersion,
+            validated: advice.validated,
+            validationRef: advice.validationRef,
+        },
+        values,
+    );
+}
+
+function tradeValueText(trade: DpTradeValueCents): string {
+    return `after a win ${dpValueText(trade.afterWin)}; after a loss ${dpValueText(trade.afterLoss)}; expected ${dpValueText(trade.expected)}`;
 }
 
 function validationLine(advice: DpAdvice): string {
@@ -1448,4 +1577,56 @@ function validationLine(advice: DpAdvice): string {
         notValidated.result,
     );
     return `DP not validated: ${failure}${cited}. Treat these figures as an unvalidated estimate, never as the sizing rule`;
+}
+
+function valueLines(
+    values: DpStateValues | null,
+    output: DpValuesOutput,
+): string[] {
+    if (values === null || output === DpValuesOutput.Hidden) return [];
+    const rate = dpMoney(values.ratePerDayCents);
+    const stage = values.stage === DpSampleStage.Eval ? 'eval' : 'funded';
+    const chain = values.chain.map((entry) =>
+        'value' in entry
+            ? `${VALUE_CHAIN_STEP_LABEL[entry.kind]}: ${dpValueText(entry.value)}`
+            : `${VALUE_CHAIN_STEP_LABEL[entry.kind]}: not available, ${entry.reason}`,
+    );
+    const heading = `DP values (${stage}, solved rate ${rate} a day; cash is the expected cash with no charge for time, net of the rate subtracts ${rate} for every day):`;
+    if (values.state.kind === DpStateValuesKind.Unavailable) {
+        return [
+            heading,
+            `Your state: not shown, ${DP_SAMPLES_UNAVAILABLE_TEXT[values.state.reason]}`,
+            ...chain,
+        ];
+    }
+    const { report } = values.state;
+    const rung = report.documentedRung;
+    return [
+        heading,
+        `Your state: ${dpValueText(report.value)}; the DP's next risk ${dpMoney(report.bestRiskCents)}; no trade now ${dpValueText(report.noTrade)}`,
+        ...(report.isBeyondGrid
+            ? [
+                  'Your state is at or above the top of the DP grid, so these values are read at the grid edge',
+              ]
+            : []),
+        ...(rung === null
+            ? []
+            : [
+                  `Your documented rung ${dpMoney(rung.intendedRiskCents)} (placed ${dpMoney(rung.riskCents)}): ${tradeValueText(rung)}`,
+              ]),
+        ...chain,
+        ...(output === DpValuesOutput.Candidates
+            ? report.candidates.map(
+                  (candidate) =>
+                      `Candidate risk ${dpMoney(candidate.riskCents)}: ${tradeValueText(candidate)}`,
+              )
+            : []),
+    ];
+}
+
+function valuesOutputOf(arguments_: AdviseDpArguments): DpValuesOutput {
+    if (arguments_.candidates === true) return DpValuesOutput.Candidates;
+    return arguments_.values === true
+        ? DpValuesOutput.Values
+        : DpValuesOutput.Hidden;
 }

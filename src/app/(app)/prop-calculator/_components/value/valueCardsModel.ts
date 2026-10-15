@@ -32,14 +32,13 @@ import {
 import {
     CreditBasis,
     type FundedValueSampleRange,
+    VALUE_CHAIN_STEP_LABEL,
     VALUE_CHAIN_STEP_ORDER,
     type ValueChainResult,
     type ValueChainStepKind,
     valueGap,
 } from '~/lib/prop-calculator/advisor/value';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
-
-import { VALUE_CHAIN_STEP_LABEL } from './valueChainStepLabels';
 
 export enum ValueCardsInputKind {
     Ready = 'ready',

@@ -259,6 +259,8 @@ export {
     runFundedFromStateSweep,
 } from './FundedFromStateSweep';
 export {
+    FUNDED_SWEEP_DEFAULT_SEED,
+    FUNDED_SWEEP_DEFAULT_SIMS,
     FundedSizingAdvisor,
     type FundedSizingAdvisorInput,
 } from './FundedSizingAdvisor';

@@ -18,6 +18,7 @@ import {
     type RungSizing,
     shouldStopDay,
 } from './DayPolicy';
+import { type DpTradeValue, type DpValueReading } from './DpValueReading';
 import { DrawdownKind } from './DrawdownStrategy';
 import {
     centsOf,
@@ -74,6 +75,11 @@ export interface EvalStateValueResult {
         state: AccountState,
         tradeIndexToday: number,
     ) => null | number;
+    readonly valuesAtReachedState: (
+        state: AccountState,
+        tradeIndexToday: number,
+        intendedRisks?: readonly number[],
+    ) => DpValueReading | null;
 }
 
 interface DayBuffers {
@@ -344,21 +350,29 @@ function solveEvalDp(
         return computed;
     }
 
+    function affordableBudgetAt(
+        dayStartState: AccountState,
+        cushionNow: number,
+        pnlSoFarNow: number,
+    ): number {
+        return plan.affordableRisk(
+            scratchStateAt(
+                dayStartState,
+                dayStartState.threshold + cushionNow,
+                pnlSoFarNow,
+            ),
+            TradingPhase.Eval,
+            commission,
+        );
+    }
+
     function risksAt(
         dayStartState: AccountState,
         cushionNow: number,
         pnlSoFarNow: number,
     ): readonly number[] {
         return candidateRisks(
-            plan.affordableRisk(
-                scratchStateAt(
-                    dayStartState,
-                    dayStartState.threshold + cushionNow,
-                    pnlSoFarNow,
-                ),
-                TradingPhase.Eval,
-                commission,
-            ),
+            affordableBudgetAt(dayStartState, cushionNow, pnlSoFarNow),
         );
     }
 
@@ -558,6 +572,26 @@ function solveEvalDp(
         tradeIndex: number,
         recursion: DayRecursion,
     ): number {
+        return tradeValueOfRisk(
+            risk,
+            cushionNow,
+            pnlSoFarNow,
+            dayStartState,
+            day,
+            tradeIndex,
+            recursion,
+        ).value;
+    }
+
+    function tradeValueOfRisk(
+        risk: number,
+        cushionNow: number,
+        pnlSoFarNow: number,
+        dayStartState: AccountState,
+        day: number,
+        tradeIndex: number,
+        recursion: DayRecursion,
+    ): DpTradeValue {
         const pnlWin = rrRatio * risk - commission;
         const valueWin = continuationValue(
             cushionNow + pnlWin,
@@ -580,7 +614,13 @@ function solveEvalDp(
             tradeIndex + 1,
             recursion,
         );
-        return winrate * valueWin + (1 - winrate) * valueLose;
+        return {
+            rewardRisk: risk,
+            risk,
+            value: winrate * valueWin + (1 - winrate) * valueLose,
+            valueAfterLoss: valueLose,
+            valueAfterWin: valueWin,
+        };
     }
 
     function bestActionAt(
@@ -800,6 +840,104 @@ function solveEvalDp(
         ).bestAction;
     }
 
+    function valuesAtReplayedState(
+        outerState: OuterState,
+        tradeIndexToday: number,
+        cushionNow: number,
+        pnlSoFarNow: number,
+        intendedRisks: readonly number[],
+    ): DpValueReading | null {
+        if (tradeIndexToday >= slots || outerState.day >= dayCap) return null;
+        const { dayStartState, recursion } = replayDayOf(outerState);
+        const { day } = outerState;
+        const noTradeValue = exactStopAt(
+            cushionNow,
+            pnlSoFarNow,
+            tradeIndexToday === 0,
+            dayStartState,
+            day,
+            recursion,
+        );
+        const tradeValueAt = (risk: number): DpTradeValue =>
+            tradeValueOfRisk(
+                risk,
+                cushionNow,
+                pnlSoFarNow,
+                dayStartState,
+                day,
+                tradeIndexToday,
+                recursion,
+            );
+        const trades: DpTradeValue[] = [];
+        let bestValue = -Infinity;
+        let bestRisk = 0;
+        for (const risk of risksAt(dayStartState, cushionNow, pnlSoFarNow)) {
+            let value = noTradeValue;
+            if (risk > 0) {
+                const traded = tradeValueAt(risk);
+                trades.push(traded);
+                value = traded.value;
+            }
+            if (value <= bestValue) continue;
+            bestValue = value;
+            bestRisk = risk;
+        }
+        const budget = affordableBudgetAt(
+            dayStartState,
+            cushionNow,
+            pnlSoFarNow,
+        );
+        const requested = intendedRisks.map((intendedRisk): DpTradeValue => {
+            const risk = Math.max(
+                0,
+                resolveTradeRisk(
+                    applyContractCap(intendedRisk),
+                    budget,
+                    rungSizing,
+                ),
+            );
+            return risk > 0
+                ? tradeValueAt(risk)
+                : {
+                      rewardRisk: 0,
+                      risk: 0,
+                      value: noTradeValue,
+                      valueAfterLoss: noTradeValue,
+                      valueAfterWin: noTradeValue,
+                  };
+        });
+        const charge = dayCost(day);
+        const charged = (trade: DpTradeValue): DpTradeValue => ({
+            ...trade,
+            value: trade.value - charge,
+            valueAfterLoss: trade.valueAfterLoss - charge,
+            valueAfterWin: trade.valueAfterWin - charge,
+        });
+        return {
+            bestRisk,
+            noTradeValue: noTradeValue - charge,
+            requested: requested.map(charged),
+            trades: trades.map(charged),
+            value: bestValue - charge,
+        };
+    }
+
+    function valuesAtReachedState(
+        state: AccountState,
+        tradeIndexToday: number,
+        intendedRisks: readonly number[] = [],
+    ): DpValueReading | null {
+        if (!isReachedStateLive(state, tradeIndexToday)) return null;
+        const day = state.elapsedDays ?? 0;
+        return valuesAtReplayedState(
+            trackedOuterState(lastDayCloseOf(state), day, false),
+            tradeIndexToday,
+            state.balance - state.threshold,
+            state.todayPnL,
+            intendedRisks,
+        );
+    }
+
     function computeRisk(state: AccountState, tradeIndexToday: number): number {
         const day = state.elapsedDays ?? 0;
         const dayStart = lastDayCloseOf(state);
@@ -815,6 +953,15 @@ function solveEvalDp(
         state: AccountState,
         tradeIndexToday: number,
     ): null | number {
+        return isReachedStateLive(state, tradeIndexToday)
+            ? computeRisk(state, tradeIndexToday)
+            : null;
+    }
+
+    function isReachedStateLive(
+        state: AccountState,
+        tradeIndexToday: number,
+    ): boolean {
         const day = state.elapsedDays;
         if (day === undefined || !Number.isSafeInteger(day) || day < 0) {
             throw new Error(
@@ -826,11 +973,11 @@ function solveEvalDp(
                 `${plan.label}: riskAtReachedState needs a non-negative integer trade index, got ${String(tradeIndexToday)}`,
             );
         }
-        return plan.isBust(state, TradingPhase.Eval) ||
+        return !(
+            plan.isBust(state, TradingPhase.Eval) ||
             plan.isPassed(lastDayCloseOf(state)) ||
             day >= dayCap
-            ? null
-            : computeRisk(state, tradeIndexToday);
+        );
     }
 
     let policyPassValue: number | undefined;
@@ -862,5 +1009,6 @@ function solveEvalDp(
         policyPassProbability,
         reachedStateCount: memo.size,
         riskAtReachedState,
+        valuesAtReachedState,
     };
 }

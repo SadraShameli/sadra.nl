@@ -1,8 +1,5 @@
 import { payoutPathStepText } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
-import {
-    stepAssumptionsHeading,
-    VALUE_CHAIN_STEP_LABEL,
-} from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
+import { stepAssumptionsHeading } from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
 import {
     overviewPlanOptInsOf,
     type OverviewRequest,
@@ -42,6 +39,7 @@ import {
     resolveDocumentedRetainedCushion,
     type RulebookParameters,
 } from '~/lib/prop-calculator/advisor';
+import { VALUE_CHAIN_STEP_LABEL } from '~/lib/prop-calculator/advisor/value';
 import {
     RetireComparisonBasis,
     RetireComparisonReason,

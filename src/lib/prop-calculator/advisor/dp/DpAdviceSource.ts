@@ -147,7 +147,7 @@ const SAMPLE_RUNG_OFFSETS = [-2, -1, 0, 1, 2] as const;
 
 export function dpAdviceFor(input: DpAdviceInput): DpAdvice {
     const { account, config, validation } = input;
-    const stage = stageOf(account);
+    const stage = dpSampleStageOf(account);
     const reasons: DifferenceReasonDetail[] = [];
     if (!validation.validated) {
         const cause = dpNotValidatedCauseOf(validation.failure);
@@ -230,6 +230,17 @@ export function dpEvalDayIndex(state: AccountState): null | number {
         : null;
 }
 
+export function dpSampleStageOf(account: DpAdviceAccount): DpSampleStage {
+    switch (account.kind) {
+        case TradingPhase.Eval: {
+            return DpSampleStage.Eval;
+        }
+        case TradingPhase.Funded: {
+            return DpSampleStage.Funded;
+        }
+    }
+}
+
 export function dpSolveConfigFor(input: DpSolveConfigInput): DpSolveConfig {
     const {
         fundedGrid,
@@ -256,6 +267,18 @@ export function dpSolveConfigFor(input: DpSolveConfigInput): DpSolveConfig {
         },
         planSerial: serializePlanId(plan.id),
     };
+}
+
+export function fundedFailureReason(
+    error: unknown,
+): DpSamplesUnavailableReason | null {
+    const message = error instanceof Error ? error.message : '';
+    if (message.includes(CAUSE_LEVEL_UNREACHABLE)) {
+        return DpSamplesUnavailableReason.FundedLevelUnreachable;
+    }
+    return message.includes(CAUSE_COUNTS_INVALID)
+        ? DpSamplesUnavailableReason.FundedCycleCountsInvalid
+        : null;
 }
 
 export function ineligibleDpAdvice(input: {
@@ -322,18 +345,6 @@ function evalSamples(input: DpAdviceInput): Sampling {
     return hasBaseSample(samples)
         ? sampled(DpSampleStage.Eval, samples)
         : unreached;
-}
-
-function fundedFailureReason(
-    error: unknown,
-): DpSamplesUnavailableReason | null {
-    const message = error instanceof Error ? error.message : '';
-    if (message.includes(CAUSE_LEVEL_UNREACHABLE)) {
-        return DpSamplesUnavailableReason.FundedLevelUnreachable;
-    }
-    return message.includes(CAUSE_COUNTS_INVALID)
-        ? DpSamplesUnavailableReason.FundedCycleCountsInvalid
-        : null;
 }
 
 function fundedSamples(input: DpAdviceInput): Sampling {
@@ -544,17 +555,6 @@ function samplesFor(input: DpAdviceInput, stage: DpSampleStage): Sampling {
         }
         case DpSampleStage.Funded: {
             return fundedSamples(input);
-        }
-    }
-}
-
-function stageOf(account: DpAdviceAccount): DpSampleStage {
-    switch (account.kind) {
-        case TradingPhase.Eval: {
-            return DpSampleStage.Eval;
-        }
-        case TradingPhase.Funded: {
-            return DpSampleStage.Funded;
         }
     }
 }

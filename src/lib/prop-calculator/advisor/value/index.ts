@@ -67,6 +67,7 @@ export {
     requestNowValue,
     type RequestNowValue,
     requireValue,
+    VALUE_CHAIN_STEP_LABEL,
     VALUE_CHAIN_STEP_ORDER,
     valueChain,
     type ValueChainResult,

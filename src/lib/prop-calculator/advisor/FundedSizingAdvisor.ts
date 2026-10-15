@@ -158,8 +158,8 @@ export interface FundedSizingAdvisorInput {
 
 type SweepOptimum = EngineOptimum | FundedFromStateOptimum;
 
-const FUNDED_SWEEP_DEFAULT_SIMS = 4000;
-const FUNDED_SWEEP_DEFAULT_SEED = 42;
+export const FUNDED_SWEEP_DEFAULT_SIMS = 4000;
+export const FUNDED_SWEEP_DEFAULT_SEED = 42;
 const FUNDED_SWEEP_MAX_EVAL_DAYS = 150;
 const DOCUMENTED_RISK_CENT_TOLERANCE = 0.005;
 

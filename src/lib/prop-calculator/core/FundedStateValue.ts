@@ -33,6 +33,7 @@ import {
     type RungSizing,
     type SizedTrade,
 } from './DayPolicy';
+import { type DpTradeValue, type DpValueReading } from './DpValueReading';
 import {
     blendOnCushionGrid,
     isDrawdownDpEligible,
@@ -168,6 +169,12 @@ export interface FundedStateValueResult {
     readonly sweepCount: number;
     readonly unconvergedLevelCount: number;
     readonly valueErrorBound: number;
+    readonly valuesAt: (
+        state: AccountState,
+        tradeIndexToday: number,
+        fundedCycle?: FundedCycleSnapshot,
+        intendedRisks?: readonly number[],
+    ) => DpValueReading | null;
     readonly workerCount: number;
 }
 
@@ -216,6 +223,12 @@ enum FundedDayTreePurpose {
 enum FundedWorkerMessageKind {
     Configure = 'configure',
     Solve = 'solve',
+}
+
+interface ExactCushionReader {
+    readonly noTradeValue: () => number;
+    readonly trades: readonly SizedTrade[];
+    readonly tradeValue: (trade: SizedTrade) => DpTradeValue;
 }
 
 interface FundedContinuationSplit {
@@ -328,6 +341,12 @@ interface FundedPair {
     readonly idleDays: number;
     readonly qualifyingDays: number;
     readonly ratchet: number;
+}
+
+interface FundedPolicyCell {
+    readonly cushionDollars: number;
+    readonly policyDay: FundedPolicyDay;
+    readonly reach: number;
 }
 
 interface FundedPolicyDay {
@@ -1648,6 +1667,63 @@ function decodePair(
     };
 }
 
+function exactCushionReaderOf(
+    policyDay: FundedPolicyDay,
+    reach: number,
+    cushionDollars: number,
+    tradeIndex: number,
+): ExactCushionReader | null {
+    const { idleValues, nextTables, scope } = policyDay;
+    const nextTable = nextTables[tradeIndex];
+    if (
+        nextTable === undefined ||
+        !isExactCushionReadable(policyDay, reach, tradeIndex)
+    ) {
+        return null;
+    }
+    const { context, dayStart, skeleton, workingBucketCount } = scope;
+    const rowOffset = reach * workingBucketCount;
+    const split = splitOntoCushionGrid(
+        cushionDollars,
+        context.cushionGrid,
+        workingBucketCount,
+    );
+    const outcomeValue = (pnl: number): number => {
+        const { outcome, upperWeight } = tradeOutcome(
+            context,
+            skeleton,
+            dayStart,
+            cushionDollars + pnl,
+            reach,
+        );
+        return scopedOutcomeValue(scope, nextTable, outcome, upperWeight);
+    };
+    return {
+        noTradeValue: () =>
+            valueOnCushionGrid(split, (index) =>
+                tradeIndex === 0
+                    ? (idleValues[rowOffset + index] ?? 0)
+                    : scopedStopValue(scope, rowOffset + index),
+            ),
+        trades: tradesAtCushion(context, dayStart, cushionDollars),
+        tradeValue: ({ rewardRisk, risk }) => {
+            const valueAfterWin = outcomeValue(
+                context.rrRatio * rewardRisk - context.commission,
+            );
+            const valueAfterLoss = outcomeValue(-risk - context.commission);
+            return {
+                rewardRisk,
+                risk,
+                value:
+                    context.winrate * valueAfterWin +
+                    (1 - context.winrate) * valueAfterLoss,
+                valueAfterLoss,
+                valueAfterWin,
+            };
+        },
+    };
+}
+
 function exactOutcome(outcome: number): FundedTradeOutcome {
     return { outcome, upperWeight: 0 };
 }
@@ -1781,6 +1857,18 @@ function initialStateKey(context: FundedSolveContext): number {
             context.drawdown.amount,
             context.unlockedCushionBucketCount,
         ),
+    );
+}
+
+function isExactCushionReadable(
+    policyDay: FundedPolicyDay,
+    reach: number,
+    tradeIndex: number,
+): boolean {
+    return (
+        policyDay.nextTables[tradeIndex] !== undefined &&
+        reach >= 0 &&
+        reach < policyDay.scope.skeleton.reachCount
     );
 }
 
@@ -2142,58 +2230,28 @@ function riskAtExactCushion(
     cushionDollars: number,
     tradeIndex: number,
 ): number {
-    const { idleValues, nextTables, risks, scope } = policyDay;
-    const nextTable = nextTables[tradeIndex];
-    if (
-        nextTable === undefined ||
-        reach < 0 ||
-        reach >= scope.skeleton.reachCount
-    ) {
-        return 0;
-    }
+    if (!isExactCushionReadable(policyDay, reach, tradeIndex)) return 0;
+    const { risks } = policyDay;
     const riskKey = `${tradeIndex}:${reach}:${cushionDollars}`;
     const cached = risks.get(riskKey);
     if (cached !== undefined) return cached;
-    const { context, dayStart, skeleton, workingBucketCount } = scope;
-    const rowOffset = reach * workingBucketCount;
-    const split = splitOntoCushionGrid(
+    const reader = exactCushionReaderOf(
+        policyDay,
+        reach,
         cushionDollars,
-        context.cushionGrid,
-        workingBucketCount,
+        tradeIndex,
     );
-    const outcomeValue = (pnl: number): number => {
-        const { outcome, upperWeight } = tradeOutcome(
-            context,
-            skeleton,
-            dayStart,
-            cushionDollars + pnl,
-            reach,
-        );
-        return scopedOutcomeValue(scope, nextTable, outcome, upperWeight);
-    };
+    if (reader === null) return 0;
     let bestValue = -Infinity;
     let bestAction = 0;
-    for (const { rewardRisk, risk } of tradesAtCushion(
-        context,
-        dayStart,
-        cushionDollars,
-    )) {
+    for (const trade of reader.trades) {
         const value =
-            risk <= 0
-                ? valueOnCushionGrid(split, (index) =>
-                      tradeIndex === 0
-                          ? (idleValues[rowOffset + index] ?? 0)
-                          : scopedStopValue(scope, rowOffset + index),
-                  )
-                : context.winrate *
-                      outcomeValue(
-                          context.rrRatio * rewardRisk - context.commission,
-                      ) +
-                  (1 - context.winrate) *
-                      outcomeValue(-risk - context.commission);
+            trade.risk <= 0
+                ? reader.noTradeValue()
+                : reader.tradeValue(trade).value;
         if (value <= bestValue) continue;
         bestValue = value;
-        bestAction = risk;
+        bestAction = trade.risk;
     }
     risks.set(riskKey, bestAction);
     return bestAction;
@@ -2324,6 +2382,38 @@ function scopedStopValue(scope: FundedDaySolveScope, cell: number): number {
     );
     scope.stopValues[cell] = value;
     return value;
+}
+
+function sizedTradesAtCushion<TContext extends FundedSolveContext>(
+    context: TContext,
+    dayStart: FundedDayStart,
+    cushionNow: number,
+    size: (
+        context: TContext,
+        affordable: AffordableRoom,
+        contractLimit: ContractCount | null,
+    ) => readonly SizedTrade[],
+): readonly SizedTrade[] {
+    const { plan, positionSizing } = context;
+    const state = buildState(
+        context,
+        dayStart,
+        dayStart.thresholdDollars + cushionNow,
+        todayPnLOf(context, dayStart, cushionNow),
+        0,
+    );
+    return size(
+        context,
+        plan.affordableRoom(state, TradingPhase.Funded, context.commission),
+        positionSizing === null
+            ? null
+            : contractLimitAt(
+                  plan.contractLimits,
+                  TradingPhase.Funded,
+                  positionSizing.instrument.isMicro,
+                  plan.tierProfitContext(state),
+              ),
+    );
 }
 
 function skeletonRow(
@@ -2951,26 +3041,7 @@ function tradesAtCushion(
     dayStart: FundedDayStart,
     cushionNow: number,
 ): readonly SizedTrade[] {
-    const { plan, positionSizing } = context;
-    const state = buildState(
-        context,
-        dayStart,
-        dayStart.thresholdDollars + cushionNow,
-        todayPnLOf(context, dayStart, cushionNow),
-        0,
-    );
-    return candidateTrades(
-        context,
-        plan.affordableRoom(state, TradingPhase.Funded, context.commission),
-        positionSizing === null
-            ? null
-            : contractLimitAt(
-                  plan.contractLimits,
-                  TradingPhase.Funded,
-                  positionSizing.instrument.isMicro,
-                  plan.tierProfitContext(state),
-              ),
-    );
+    return sizedTradesAtCushion(context, dayStart, cushionNow, candidateTrades);
 }
 
 function tradingDayStartValues(
@@ -3061,6 +3132,56 @@ function valueRangeContaining(
         }
     }
     return null;
+}
+
+function valuesAtExactCushion(
+    policyDay: FundedPolicyDay,
+    reach: number,
+    cushionDollars: number,
+    tradeIndex: number,
+    intendedRisks: readonly number[],
+): DpValueReading | null {
+    const reader = exactCushionReaderOf(
+        policyDay,
+        reach,
+        cushionDollars,
+        tradeIndex,
+    );
+    if (reader === null) return null;
+    const noTradeValue = reader.noTradeValue();
+    const trades: DpTradeValue[] = [];
+    let bestValue = -Infinity;
+    let bestRisk = 0;
+    for (const trade of reader.trades) {
+        let value = noTradeValue;
+        if (trade.risk > 0) {
+            const traded = reader.tradeValue(trade);
+            trades.push(traded);
+            value = traded.value;
+        }
+        if (value <= bestValue) continue;
+        bestValue = value;
+        bestRisk = trade.risk;
+    }
+    const { context, dayStart } = policyDay.scope;
+    const requested = intendedRisks.map((intendedRisk): DpTradeValue => {
+        const [sized] = sizedTradesAtCushion(
+            { ...context, actionGrid: [intendedRisk] },
+            dayStart,
+            cushionDollars,
+            computeCandidateTrades,
+        );
+        return sized === undefined || sized.risk <= 0
+            ? {
+                  rewardRisk: 0,
+                  risk: 0,
+                  value: noTradeValue,
+                  valueAfterLoss: noTradeValue,
+                  valueAfterWin: noTradeValue,
+              }
+            : reader.tradeValue(sized);
+    });
+    return { bestRisk, noTradeValue, requested, trades, value: bestValue };
 }
 
 function warmStartValuesFor(
@@ -3504,11 +3625,10 @@ export function computeFundedStateValue(
               );
     }
 
-    function computeRisk(
+    function policyCellAt(
         state: AccountState,
-        tradeIndexToday: number,
-        fundedCycle?: FundedCycleSnapshot,
-    ): number {
+        fundedCycle: FundedCycleSnapshot | undefined,
+    ): FundedPolicyCell {
         if (fundedCycle !== undefined) {
             assertFundedCycleSnapshotCounts(plan, fundedCycle);
         }
@@ -3604,11 +3724,46 @@ export function computeFundedStateValue(
             );
             layerPolicy.cache.set(cacheKey, policyDay);
         }
+        return {
+            cushionDollars,
+            policyDay,
+            reach: mainContext.peakRatchet.reachBandOf(state) - pair.ratchet,
+        };
+    }
+
+    function computeRisk(
+        state: AccountState,
+        tradeIndexToday: number,
+        fundedCycle?: FundedCycleSnapshot,
+    ): number {
+        const { cushionDollars, policyDay, reach } = policyCellAt(
+            state,
+            fundedCycle,
+        );
         return riskAtExactCushion(
             policyDay,
-            mainContext.peakRatchet.reachBandOf(state) - pair.ratchet,
+            reach,
             cushionDollars,
             tradeIndexToday,
+        );
+    }
+
+    function valuesAt(
+        state: AccountState,
+        tradeIndexToday: number,
+        fundedCycle?: FundedCycleSnapshot,
+        intendedRisks: readonly number[] = [],
+    ): DpValueReading | null {
+        const { cushionDollars, policyDay, reach } = policyCellAt(
+            state,
+            fundedCycle,
+        );
+        return valuesAtExactCushion(
+            policyDay,
+            reach,
+            cushionDollars,
+            tradeIndexToday,
+            intendedRisks,
         );
     }
 
@@ -3645,6 +3800,7 @@ export function computeFundedStateValue(
         sweepCount: levelSolve.sweepCount,
         unconvergedLevelCount: levelSolve.unconvergedLevelCount,
         valueErrorBound: levelSolve.valueErrorBound,
+        valuesAt,
         workerCount: levelSolve.workerCount,
     };
 }

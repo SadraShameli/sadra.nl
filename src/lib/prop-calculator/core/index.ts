@@ -82,6 +82,7 @@ export {
     stopTargetDollarsSchema,
     type WholeContractTradeOptions,
 } from './DayPolicy';
+export { type DpTradeValue, type DpValueReading } from './DpValueReading';
 export {
     DrawdownKind,
     type DrawdownLockConfig,

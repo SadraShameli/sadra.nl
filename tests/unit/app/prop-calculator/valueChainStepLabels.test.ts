@@ -2,15 +2,19 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { stepAssumptionsHeading } from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
 import {
-    stepAssumptionsHeading,
     VALUE_CHAIN_STEP_LABEL,
-} from '~/app/(app)/prop-calculator/_components/value/valueChainStepLabels';
-import { ValueChainStepKind } from '~/lib/prop-calculator/advisor/value';
+    ValueChainStepKind,
+} from '~/lib/prop-calculator/advisor/value';
 
 import { posixPath } from '../../posixPath';
 
 const APP_ROOT = path.resolve(import.meta.dirname, '../../../../src/app');
+const VALUE_CHAIN_FILE = path.resolve(
+    import.meta.dirname,
+    '../../../../src/lib/prop-calculator/advisor/value/ValueChain.ts',
+);
 const LABEL_LEAF =
     '(app)/prop-calculator/_components/value/valueChainStepLabels.ts';
 
@@ -41,7 +45,7 @@ describe('the value chain step labels (PT-37b, F-V18)', () => {
         });
     });
 
-    it('is the only place under src/app that spells the step labels out', () => {
+    it('spells the step labels out only in the value chain library, never under src/app', () => {
         const offenders = readdirSync(APP_ROOT, {
             recursive: true,
             withFileTypes: true,
@@ -54,7 +58,10 @@ describe('the value chain step labels (PT-37b, F-V18)', () => {
                 ),
             )
             .map((file) => posixPath(path.relative(APP_ROOT, file)));
-        expect(offenders).toEqual([LABEL_LEAF]);
+        expect(offenders).toEqual([]);
+        expect(readFileSync(VALUE_CHAIN_FILE, 'utf8')).toContain(
+            "[ValueChainStepKind.FirstPayoutEligible]: 'First payout eligible'",
+        );
     });
 
     it('builds every step assumptions heading in the label leaf only', () => {
