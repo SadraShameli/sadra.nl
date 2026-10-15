@@ -215,7 +215,7 @@ function EdgeMetricCard({
         <Card>
             <CardHeader>
                 <CardTitle className="flex flex-wrap items-center justify-between gap-2">
-                    {title}
+                    <h3>{title}</h3>
                     <Badge variant={badge.variant}>{badge.label}</Badge>
                 </CardTitle>
                 <CardDescription>{description}</CardDescription>

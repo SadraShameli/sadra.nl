@@ -53,8 +53,11 @@ export default async function PropAccountDetailPage({
                     'container pt-spacing pb-24',
                 )}
             >
-                <AccountDetailView id={id} userId={userId} />
-                <AdvicePanel id={id} />
+                <AccountDetailView
+                    advice={<AdvicePanel id={id} />}
+                    id={id}
+                    userId={userId}
+                />
             </main>
         </HydrateClient>
     );

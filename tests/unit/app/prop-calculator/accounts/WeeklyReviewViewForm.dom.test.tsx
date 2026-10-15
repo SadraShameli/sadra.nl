@@ -390,7 +390,7 @@ describe('WeeklyReviewView form', () => {
         typeInto(fieldIn(first, snapshotIdOf(FIRST_ID, 'balanceCents')), 'abc');
         expect(cardOf('Eval one').textContent).toContain(MONEY_ENTRY_MESSAGE);
         expect(cardOf('Eval one').textContent).toContain(
-            'Fix the entry above to size it',
+            'Complete the entry above to size it',
         );
         tick(cardOf('Eval two'), `unchanged-${SECOND_ID}`);
         await submit();
@@ -409,7 +409,7 @@ describe('WeeklyReviewView form', () => {
         const first = cardOf('Eval one');
         typeInto(fieldIn(first, snapshotIdOf(FIRST_ID, 'tradingDays')), '');
         expect(cardOf('Eval one').textContent).toContain(
-            'Fix the entry above to size it',
+            'Complete the entry above to size it',
         );
         tick(cardOf('Eval two'), `unchanged-${SECOND_ID}`);
         await submit();

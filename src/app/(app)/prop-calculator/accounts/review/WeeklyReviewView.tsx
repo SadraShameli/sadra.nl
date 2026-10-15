@@ -85,7 +85,7 @@ type NotReadySizingKind = Exclude<
 const SIZING_LABEL: Readonly<Record<NotReadySizingKind, string>> = {
     [WeeklyReviewSizingKind.NoEvalAdvice]:
         'No eval advice on an instant-funded plan',
-    [WeeklyReviewSizingKind.NotModeled]: 'Fix the entry above to size it',
+    [WeeklyReviewSizingKind.NotModeled]: 'Complete the entry above to size it',
     [WeeklyReviewSizingKind.ReconstructionFailed]:
         'Could not size this account from the entry',
     [WeeklyReviewSizingKind.Stale]: 'Stale; no amount suggested',
@@ -473,7 +473,9 @@ export function WeeklyReviewView() {
                 return (
                     <Card key={row.accountId}>
                         <CardHeader>
-                            <CardTitle>{row.label}</CardTitle>
+                            <CardTitle>
+                                <h2>{row.label}</h2>
+                            </CardTitle>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
                             <SnapshotFields
@@ -519,7 +521,13 @@ export function WeeklyReviewView() {
                                 </p>
                             )}
                             {row.missingFieldLabels.length > 0 && (
-                                <p className="text-sm text-destructive">
+                                <p
+                                    className={
+                                        valuesByAccount.has(row.accountId)
+                                            ? 'text-sm text-destructive'
+                                            : 'text-sm text-muted-foreground'
+                                    }
+                                >
                                     Needs: {row.missingFieldLabels.join('; ')}
                                 </p>
                             )}

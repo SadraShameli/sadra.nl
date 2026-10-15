@@ -89,14 +89,19 @@ export function PlanRulesSummary({
     return (
         <div className="flex flex-col gap-4">
             <PlanStatsBadges plan={plan} />
-            <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
-                {rows.map(([term, value]) => (
-                    <div className="contents" key={term}>
-                        <dt className="text-muted-foreground">{term}</dt>
-                        <dd className="tabular-nums">{value}</dd>
-                    </div>
-                ))}
-            </dl>
+            <details>
+                <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+                    All {rows.length} plan rules
+                </summary>
+                <dl className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_1fr]">
+                    {rows.map(([term, value]) => (
+                        <div className="contents" key={term}>
+                            <dt className="text-muted-foreground">{term}</dt>
+                            <dd className="tabular-nums">{value}</dd>
+                        </div>
+                    ))}
+                </dl>
+            </details>
         </div>
     );
 }

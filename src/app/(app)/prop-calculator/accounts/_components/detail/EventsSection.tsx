@@ -324,7 +324,7 @@ function EventForm({
         <Form {...form}>
             <form
                 aria-label="Record an event"
-                className="grid gap-4 sm:grid-cols-2"
+                className="grid gap-4 md:grid-cols-2"
                 noValidate
                 onSubmit={(event) => {
                     void form.handleSubmit(save)(event);
@@ -433,7 +433,7 @@ function EventForm({
                     control={form.control}
                     name="note"
                     render={({ field }) => (
-                        <FormItem className="sm:col-span-2">
+                        <FormItem className="md:col-span-2">
                             <FormLabel>Note</FormLabel>
                             <FormControl>
                                 <Textarea rows={2} {...field} />
@@ -448,7 +448,7 @@ function EventForm({
                     )}
                 />
                 {shown !== null && (
-                    <Alert className="sm:col-span-2">
+                    <Alert className="md:col-span-2">
                         <Info />
                         <AlertTitle>{shown.title}</AlertTitle>
                         <AlertDescription>
@@ -459,7 +459,7 @@ function EventForm({
                     </Alert>
                 )}
                 {isAwaitingAccounts && (
-                    <Alert className="sm:col-span-2">
+                    <Alert className="md:col-span-2">
                         <Info />
                         <AlertTitle>Loading your other accounts</AlertTitle>
                         <AlertDescription>
@@ -470,7 +470,7 @@ function EventForm({
                     </Alert>
                 )}
                 {isMovedLive && accountsFailed && (
-                    <Alert className="sm:col-span-2" variant="warning">
+                    <Alert className="md:col-span-2" variant="warning">
                         <TriangleAlert />
                         <AlertTitle>Other accounts not loaded</AlertTitle>
                         <AlertDescription>
@@ -483,7 +483,7 @@ function EventForm({
                     </Alert>
                 )}
                 {exclusivity !== null && (
-                    <Alert className="sm:col-span-2">
+                    <Alert className="md:col-span-2">
                         <Info />
                         <AlertTitle>{exclusivity.title}</AlertTitle>
                         <AlertDescription>
@@ -495,7 +495,7 @@ function EventForm({
                 )}
                 {exclusivity !== null &&
                     exclusivity.confirmedAccountIds.length > 0 && (
-                        <div className="flex items-center gap-2 sm:col-span-2">
+                        <div className="flex items-center gap-2 md:col-span-2">
                             <Checkbox
                                 checked={suspendedIds.length > 0}
                                 id={suspendId}
@@ -513,13 +513,13 @@ function EventForm({
                         </div>
                     )}
                 {isAwaitingSuspensions && (
-                    <p className="text-sm text-muted-foreground sm:col-span-2">
+                    <p className="text-sm text-muted-foreground md:col-span-2">
                         Confirm the accounts the firm suspends before recording
                         this move live; recording without them is refused.
                     </p>
                 )}
                 {shown?.requiresConfirmation === true && (
-                    <div className="flex items-center gap-2 sm:col-span-2">
+                    <div className="flex items-center gap-2 md:col-span-2">
                         <Checkbox
                             checked={isConfirmed}
                             id={confirmId}
@@ -534,7 +534,7 @@ function EventForm({
                         </Label>
                     </div>
                 )}
-                <div className="sm:col-span-2">
+                <div className="md:col-span-2">
                     <Button
                         disabled={
                             record.isPending ||

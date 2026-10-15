@@ -50,7 +50,7 @@ export function DetailHeaderFigures({
             <dl
                 aria-busy={hasPendingValues(values)}
                 aria-label="Value and next action"
-                className="grid gap-x-8 gap-y-4 sm:grid-cols-3"
+                className="grid gap-x-8 gap-y-4 md:grid-cols-3"
             >
                 <div>
                     <dt className="text-sm font-medium text-muted-foreground">

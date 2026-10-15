@@ -3,7 +3,7 @@
 import { Pencil, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
@@ -41,6 +41,7 @@ import { useAccountDetailValues } from '~/app/(app)/prop-calculator/accounts/_co
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
+import { Card, CardContent } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
 import { Label } from '~/components/ui/Label';
 import { Skeleton } from '~/components/ui/Skeleton';
@@ -165,9 +166,11 @@ interface StoredRecordIssue {
 type ViolationRow = RouterOutputs['propAccounts']['violation']['list'][number];
 
 export function AccountDetailView({
+    advice,
     id,
     userId,
 }: {
+    readonly advice?: ReactNode;
     readonly id: string;
     readonly userId: string;
 }) {
@@ -402,7 +405,7 @@ export function AccountDetailView({
                 </Alert>
             )}
             {isReadOnly && (
-                <Alert variant="warning">
+                <Alert role="status" variant="warning">
                     <TriangleAlert />
                     <AlertTitle>This account is read-only</AlertTitle>
                     <AlertDescription>
@@ -478,6 +481,13 @@ export function AccountDetailView({
                         today={today}
                     />
                 </DetailSection>
+            )}
+            {advice !== undefined && (
+                <Card className="app-prop-accounts__advice">
+                    <CardContent className="flex flex-col gap-4">
+                        {advice}
+                    </CardContent>
+                </Card>
             )}
             <DetailSection id="alerts" title="Alerts">
                 <AccountAlerts alerts={alerts} />
@@ -591,7 +601,7 @@ function AccountHeader({
         <header className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-col gap-2">
                 <Link
-                    className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+                    className="inline-flex min-h-6 items-center self-start text-sm text-muted-foreground underline-offset-4 hover:underline"
                     href={routes.propCalculator.accounts.index}
                 >
                     All accounts

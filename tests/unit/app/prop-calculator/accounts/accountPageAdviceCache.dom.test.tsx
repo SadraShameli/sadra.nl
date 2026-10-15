@@ -46,7 +46,10 @@ vi.mock('~/trpc/server', () => {
 
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView',
-    () => ({ AccountDetailView: () => null }),
+    () => ({
+        AccountDetailView: ({ advice }: { readonly advice: ReactNode }) =>
+            advice,
+    }),
 );
 
 vi.mock(

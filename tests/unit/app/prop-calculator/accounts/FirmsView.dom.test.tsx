@@ -10,8 +10,6 @@ import {
     AccountStatus,
     AccountTracking,
     DashboardBalanceConvention,
-    firmKeyId,
-    FirmKeyKind,
 } from '~/lib/prop-accounts';
 import {
     ALL_FIRMS,
@@ -46,10 +44,7 @@ const { firm: FIRST_FIRM, plan: FIRST_PLAN } = firstModeledPlan();
 const USER_ID = 'user-a';
 const TODAY = '2026-09-26';
 const ALPHA_ID = '2a4c6e8f-1b3d-4f5a-9c7e-0d2f4a6c8e1b';
-const FIRM_VALUE = firmKeyId({
-    firmId: FIRST_FIRM.id,
-    kind: FirmKeyKind.Modeled,
-});
+const FIRM_FORM_LABEL = `Edit status for ${FIRST_FIRM.displayName}`;
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
@@ -238,8 +233,8 @@ function paidPayoutRow(accountId: string, paidOn: string, id: string) {
     };
 }
 
-async function submitForm(scope: ParentNode, label: string) {
-    const form = element(scope, `form[aria-label="${label}"]`);
+async function submitFirmForm(scope: ParentNode) {
+    const form = element(scope, `form[aria-label="${FIRM_FORM_LABEL}"]`);
     await act(async () => {
         form.dispatchEvent(
             new Event('submit', { bubbles: true, cancelable: true }),
@@ -314,7 +309,7 @@ describe('FirmsView', () => {
         );
         render();
         chooseSelectValue(container, 'paused');
-        await submitForm(container, `Edit status for ${FIRM_VALUE}`);
+        await submitFirmForm(container);
         expect(harness.set).toHaveBeenCalledWith(
             expect.objectContaining({
                 externalFirmId: null,
@@ -334,7 +329,7 @@ describe('FirmsView', () => {
         render();
         chooseSelectValue(container, 'paused');
         chooseSelectValue(container, 'sent-live');
-        await submitForm(container, `Edit status for ${FIRM_VALUE}`);
+        await submitFirmForm(container);
         expect(harness.set).not.toHaveBeenCalled();
         expect(container.textContent).toContain('needs the date');
     });
@@ -366,10 +361,10 @@ describe('FirmsView', () => {
         render();
         const save = element(
             container,
-            `form[aria-label="Edit status for ${FIRM_VALUE}"] button[type="submit"]`,
+            `form[aria-label="${FIRM_FORM_LABEL}"] button[type="submit"]`,
         );
         expect((save as HTMLButtonElement).disabled).toBe(true);
-        await submitForm(container, `Edit status for ${FIRM_VALUE}`);
+        await submitFirmForm(container);
         expect(harness.set).not.toHaveBeenCalled();
     });
 
@@ -384,10 +379,10 @@ describe('FirmsView', () => {
         expect(container.textContent).toContain('still loading');
         const save = element(
             container,
-            `form[aria-label="Edit status for ${FIRM_VALUE}"] button[type="submit"]`,
+            `form[aria-label="${FIRM_FORM_LABEL}"] button[type="submit"]`,
         );
         expect((save as HTMLButtonElement).disabled).toBe(true);
-        await submitForm(container, `Edit status for ${FIRM_VALUE}`);
+        await submitFirmForm(container);
         expect(harness.set).not.toHaveBeenCalled();
     });
 
@@ -401,7 +396,7 @@ describe('FirmsView', () => {
         const statusSelect = () =>
             element(
                 container,
-                `form[aria-label="Edit status for ${FIRM_VALUE}"] select`,
+                `form[aria-label="${FIRM_FORM_LABEL}"] select`,
             ) as HTMLSelectElement;
         expect(statusSelect().value).toBe('active');
 
@@ -412,7 +407,7 @@ describe('FirmsView', () => {
         render();
 
         expect(statusSelect().value).toBe('paused');
-        await submitForm(container, `Edit status for ${FIRM_VALUE}`);
+        await submitFirmForm(container);
         expect(harness.set).toHaveBeenCalledWith(
             expect.objectContaining({ status: 'paused' }),
         );
@@ -427,7 +422,7 @@ describe('FirmsView', () => {
         render();
         const form = element(
             container,
-            `form[aria-label="Edit status for ${FIRM_VALUE}"]`,
+            `form[aria-label="${FIRM_FORM_LABEL}"]`,
         );
 
         const statusSelect = element(form, 'select') as HTMLSelectElement;

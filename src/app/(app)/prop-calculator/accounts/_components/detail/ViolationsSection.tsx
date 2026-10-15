@@ -146,7 +146,7 @@ export function ViolationForm({
         <Form {...form}>
             <form
                 aria-label={formLabelOf(editing, initial)}
-                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
                 noValidate
                 onSubmit={(event) => {
                     void form.handleSubmit(save)(event);
@@ -269,7 +269,7 @@ export function ViolationForm({
                     control={form.control}
                     name="note"
                     render={({ field }) => (
-                        <FormItem className="sm:col-span-2 lg:col-span-3">
+                        <FormItem className="md:col-span-2 lg:col-span-3">
                             <FormLabel>Note</FormLabel>
                             <FormControl>
                                 <Textarea rows={2} {...field} />
@@ -278,7 +278,7 @@ export function ViolationForm({
                         </FormItem>
                     )}
                 />
-                <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-3">
+                <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
                     <Button
                         disabled={create.isPending || update.isPending}
                         type="submit"

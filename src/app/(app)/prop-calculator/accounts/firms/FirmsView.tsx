@@ -235,7 +235,9 @@ export function FirmsView() {
             />
             <Card>
                 <CardHeader>
-                    <CardTitle>Firm roster</CardTitle>
+                    <CardTitle>
+                        <h2>Firm roster</h2>
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                     {model.roster.firms.length === 0 ? (
@@ -307,14 +309,16 @@ function FirmRow({
     readonly externalFirms: readonly ExternalFirmName[];
     readonly transferRate: FirmLiveTransferRate | null;
 }) {
+    const firmLabel = firmKeyLabel(entry.firmKey, externalFirms);
     return (
         <TableRow>
-            <TableCell>{firmKeyLabel(entry.firmKey, externalFirms)}</TableCell>
+            <TableCell>{firmLabel}</TableCell>
             <TableCell>
                 <FirmStatusForm
                     canEditEngagement={canEditEngagement}
                     entry={entry}
                     existingEngagement={existingEngagement}
+                    firmLabel={firmLabel}
                     key={`${firmKeyId(entry.firmKey)}:${String(canEditEngagement)}`}
                 />
             </TableCell>
@@ -355,10 +359,12 @@ function FirmStatusForm({
     canEditEngagement,
     entry,
     existingEngagement,
+    firmLabel,
 }: {
     readonly canEditEngagement: boolean;
     readonly entry: FirmRosterEntry;
     readonly existingEngagement: FirmEngagementRow | null;
+    readonly firmLabel: string;
 }) {
     const utilities = api.useUtils();
     const set = api.propAccounts.firmEngagement.set.useMutation();
@@ -402,7 +408,7 @@ function FirmStatusForm({
     return (
         <Form {...form}>
             <form
-                aria-label={`Edit status for ${firmKeyId(entry.firmKey)}`}
+                aria-label={`Edit status for ${firmLabel}`}
                 className="flex flex-col gap-2"
                 noValidate
                 onSubmit={(event) => {
@@ -418,7 +424,7 @@ function FirmStatusForm({
                     name="status"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Status</FormLabel>
+                            <FormLabel className="sr-only">Status</FormLabel>
                             <Select
                                 disabled={!canEditEngagement}
                                 onValueChange={field.onChange}
@@ -530,8 +536,10 @@ function FirmStatusForm({
                     }
                     size="sm"
                     type="submit"
+                    variant="outline"
                 >
                     Save
+                    <span className="sr-only"> the status of {firmLabel}</span>
                 </Button>
             </form>
         </Form>
@@ -578,7 +586,7 @@ function ScaleGateCard({
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    Scale gate
+                    <h2>Scale gate</h2>
                     {!isLoading && (
                         <Badge
                             variant={

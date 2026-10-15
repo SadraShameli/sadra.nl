@@ -1,6 +1,7 @@
 'use client';
 
 import { Layers, Pencil, Trash2, TriangleAlert, UserMinus } from 'lucide-react';
+import Link from 'next/link';
 import { useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -42,6 +43,7 @@ import {
     PropMutationRejection,
     propRejectionOf,
 } from '~/lib/schemas/propAccountOutputs';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
@@ -243,6 +245,7 @@ function CreateGroupForm() {
 
     return (
         <form
+            aria-label="Create a copy group"
             className="flex flex-wrap items-end gap-3"
             noValidate
             onSubmit={(event) => {
@@ -525,6 +528,7 @@ function GroupSection({
             )}
             {candidates.length > 0 && (
                 <form
+                    aria-label={`Add an account to ${group.name}`}
                     className="flex flex-wrap items-end gap-3"
                     noValidate
                     onSubmit={(event) => {
@@ -639,7 +643,12 @@ function MemberList({
 function MemberSummary({ member }: { readonly member: CopyGroupMember }) {
     return (
         <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{member.label}</span>
+            <Link
+                className="font-medium underline-offset-4 hover:underline"
+                href={routes.propCalculator.accounts.detail(member.id)}
+            >
+                {member.label}
+            </Link>
             <Badge variant="secondary">{member.stageLabel}</Badge>
             <span className="text-xs text-muted-foreground">
                 {member.firmName}

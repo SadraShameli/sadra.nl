@@ -10,7 +10,9 @@ export function HeadlineCard({
     const { documented } = view;
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium">{view.headline}</h3>
+            <h3 className="text-sm font-medium first-letter:uppercase">
+                {view.headline}
+            </h3>
             {documented === null ? (
                 <p className="text-sm text-muted-foreground">
                     No documented sizing applies to this stage right now.

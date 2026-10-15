@@ -349,7 +349,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
 
     if (userId === undefined) {
         return session.error === null ? (
-            <Alert>
+            <Alert role="status">
                 <AlertTitle>Sign in to see the advice</AlertTitle>
                 <AlertDescription>
                     Sign in to compute sizing advice for this account.
@@ -409,7 +409,7 @@ export function AdvicePanel({ id }: { readonly id: string }) {
 
     if (built.kind === BuiltKind.NotModeled) {
         return (
-            <Alert>
+            <Alert role="status">
                 <AlertTitle>Advice is not modeled for this account</AlertTitle>
                 <AlertDescription>{built.reason}</AlertDescription>
             </Alert>
@@ -744,7 +744,9 @@ function ComputedAdvice({
     if (view.kind === AdviceDisplayKind.Stale) {
         return (
             <div className="flex flex-col gap-2">
-                <h2 className="text-lg font-semibold">{view.headline}</h2>
+                <h2 className="text-lg font-semibold first-letter:uppercase">
+                    {view.headline}
+                </h2>
                 {topAlerts}
                 {inputFailureAlerts}
                 <Alert variant="warning">

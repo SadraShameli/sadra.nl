@@ -262,7 +262,9 @@ export function RoundsView() {
             {(model.perFirm.length > 0 || model.unassignedRoundCount > 0) && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Rounds by firm</CardTitle>
+                        <CardTitle>
+                            <h2>Rounds by firm</h2>
+                        </CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3">
                         {model.perFirm.length > 0 && (
@@ -342,7 +344,9 @@ export function RoundsView() {
             )}
             <Card>
                 <CardHeader>
-                    <CardTitle>Rounds</CardTitle>
+                    <CardTitle>
+                        <h2>Your rounds</h2>
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                     {model.rounds.length === 0 ? (
@@ -470,7 +474,9 @@ function NextRoundCard({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Next round</CardTitle>
+                <CardTitle>
+                    <h2>Next round</h2>
+                </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
                 <p className="text-sm text-muted-foreground">
@@ -506,7 +512,7 @@ function NextRoundCard({
                 {result === null ? (
                     <Skeleton className="h-24 w-full" />
                 ) : (
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-2">
                         <NextRoundOption
                             label="Option A: repeat with the same budget"
                             recommended={
@@ -634,13 +640,15 @@ function RoundForm({
     return (
         <Card>
             <CardHeader>
-                <CardTitle>New round</CardTitle>
+                <CardTitle>
+                    <h2>New round</h2>
+                </CardTitle>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
                     <form
                         aria-label="Add a round"
-                        className="grid gap-4 sm:grid-cols-2"
+                        className="grid gap-4 md:grid-cols-2"
                         noValidate
                         onSubmit={(event) => {
                             void form.handleSubmit(save)(event);
@@ -658,7 +666,7 @@ function RoundForm({
                                     >
                                         <FormControl>
                                             <SelectTrigger ref={field.ref}>
-                                                <SelectValue />
+                                                <SelectValue placeholder="Choose a firm" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -722,7 +730,7 @@ function RoundForm({
                                 </FormItem>
                             )}
                         />
-                        <div className="sm:col-span-2">
+                        <div className="md:col-span-2">
                             <Button
                                 disabled={
                                     create.isPending ||
@@ -779,7 +787,7 @@ function SuggestionsCard({
     readonly suggestions: readonly RoundSuggestionRow[];
 }) {
     return (
-        <Alert>
+        <Alert aria-label="Round suggestions" role="region">
             <AlertTitle>Round suggestions</AlertTitle>
             <AlertDescription>
                 <ul className="flex flex-col gap-2">
@@ -790,8 +798,10 @@ function SuggestionsCard({
                         >
                             <span>
                                 {row.memberCount} accounts at {row.firm}{' '}
-                                purchased {row.earliestPurchase} to{' '}
-                                {row.latestPurchase}
+                                purchased{' '}
+                                {row.earliestPurchase === row.latestPurchase
+                                    ? `on ${row.earliestPurchase}`
+                                    : `${row.earliestPurchase} to ${row.latestPurchase}`}
                             </span>
                             <Button
                                 onClick={() => {

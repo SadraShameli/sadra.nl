@@ -72,7 +72,7 @@ export function ProposedRiskCheck({
 
     return (
         <div className="flex flex-col gap-3">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-3">
                 {(Object.keys(FIELD_LABELS) as (keyof RiskCheckInputs)[]).map(
                     (field) => (
                         <div className="flex flex-col gap-1" key={field}>

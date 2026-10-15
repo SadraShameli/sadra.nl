@@ -516,7 +516,7 @@ describe('RoundsView', () => {
         harness.queries.set('externalFirm.list', failed('firms down'));
         render();
         expect(container.textContent).toContain('firms down');
-        expect(container.textContent).toContain('Rounds');
+        expect(container.textContent).toContain('Your rounds');
         expect(container.textContent).toContain('No rounds yet');
     });
 
@@ -524,7 +524,7 @@ describe('RoundsView', () => {
         harness.queries.set('rulebook.get', failed('rulebook down'));
         render();
         expect(container.textContent).toContain('rulebook down');
-        expect(container.textContent).toContain('Rounds');
+        expect(container.textContent).toContain('Your rounds');
         expect(container.textContent).toContain('No rounds yet');
     });
 
@@ -553,7 +553,7 @@ describe('RoundsView', () => {
         harness.queries.set('bankroll.summary', failed('bankroll down'));
         render();
         expect(container.textContent).toContain('bankroll down');
-        expect(container.textContent).toContain('Rounds');
+        expect(container.textContent).toContain('Your rounds');
     });
 
     it('shows no "Next round" card when no round is closed', () => {
