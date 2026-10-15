@@ -72,6 +72,7 @@ export {
     valueChain,
     type ValueChainResult,
     type ValueChainStep,
+    valueChainStepAccount,
     type ValueChainStepFailure,
     ValueChainStepKind,
 } from './ValueChain';

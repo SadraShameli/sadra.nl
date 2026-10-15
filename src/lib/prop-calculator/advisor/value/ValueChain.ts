@@ -439,6 +439,38 @@ export function valueChain(
     };
 }
 
+export function valueChainStepAccount(
+    kind: ValueChainStepKind,
+    plan: Plan,
+    spec: DocumentedPolicySpec,
+): ReconstructedFundedOrEvalAccount {
+    switch (kind) {
+        case ValueChainStepKind.EvalStart: {
+            return evalStartAccount(plan);
+        }
+        case ValueChainStepKind.FirstPayoutEligible: {
+            return firstPayoutEligibleAccount(
+                plan,
+                freshFundedAccount(plan),
+                spec,
+            );
+        }
+        case ValueChainStepKind.FreshFunded: {
+            return freshFundedAccount(plan);
+        }
+        case ValueChainStepKind.PostFirstPayout: {
+            return postFirstPayoutAccount(
+                firstPayoutEligibleAccount(
+                    plan,
+                    freshFundedAccount(plan),
+                    spec,
+                ),
+                spec,
+            );
+        }
+    }
+}
+
 function accountAfterEqualDays(
     freshFunded: ReconstructedFundedOrEvalAccount,
     sessions: number,

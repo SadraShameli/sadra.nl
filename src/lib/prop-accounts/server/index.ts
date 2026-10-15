@@ -5,7 +5,6 @@ export {
     DpAdviceRepo,
     MAX_DP_ADVICE_ROWS_PER_ACCOUNT,
 } from './DpAdviceRepo';
-export { dpValueSamplesOf } from './DpValueSamples';
 export {
     PROP_MUTATION_WINDOW_MS,
     PROP_MUTATIONS_PER_WINDOW,

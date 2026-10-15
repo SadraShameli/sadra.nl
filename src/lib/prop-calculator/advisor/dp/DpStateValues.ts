@@ -1,14 +1,11 @@
-import { type ReconstructedFundedOrEvalAccount } from '~/lib/prop-calculator/advisor';
 import {
     DpSampleStage,
     DpSamplesUnavailableReason,
 } from '~/lib/prop-calculator/advisor/DpAdviceRow';
 import { type DocumentedPolicySpec } from '~/lib/prop-calculator/advisor/policy';
 import {
-    firstPayoutEligibleAccount,
-    freshFundedAccount,
-    postFirstPayoutAccount,
     VALUE_CHAIN_STEP_ORDER,
+    valueChainStepAccount,
     ValueChainStepKind,
 } from '~/lib/prop-calculator/advisor/value';
 import {
@@ -144,17 +141,19 @@ function cashOf(
 function chainOf(input: DpStateValuesInput): DpValueChainEntry[] {
     const { account, chainSpec, solution } = input;
     const { plan } = account;
-    const fresh = freshFundedAccount(plan);
-    let eligible: ReconstructedFundedOrEvalAccount | undefined;
-    const eligibleAccount = (): ReconstructedFundedOrEvalAccount => {
-        eligible ??= firstPayoutEligibleAccount(plan, fresh, chainSpec);
-        return eligible;
-    };
-    const fundedValueAt = (
-        built: () => Pick<DpAdviceAccount, 'fundedTracker' | 'state'>,
-    ): DpValueCents | string => {
+    const valueOfStep = (kind: ValueChainStepKind): DpValueCents | string => {
+        if (kind === ValueChainStepKind.EvalStart) {
+            return (
+                cashOf(solution, (solve) => solve.evalResult.initialValue) ??
+                'the eval DP has no start value'
+            );
+        }
         try {
-            const { fundedTracker, state } = built();
+            const { fundedTracker, state } = valueChainStepAccount(
+                kind,
+                plan,
+                chainSpec,
+            );
             const cycle = fundedTracker?.cycleSnapshot(plan, state);
             return (
                 cashOf(
@@ -171,36 +170,12 @@ function chainOf(input: DpStateValuesInput): DpValueChainEntry[] {
             return error instanceof Error ? error.message : String(error);
         }
     };
-    const entryOf = (kind: ValueChainStepKind): DpValueChainEntry => {
+    return VALUE_CHAIN_STEP_ORDER.map((kind): DpValueChainEntry => {
         const value = valueOfStep(kind);
         return typeof value === 'string'
             ? { kind, reason: value }
             : { kind, value };
-    };
-    const valueOfStep = (kind: ValueChainStepKind): DpValueCents | string => {
-        switch (kind) {
-            case ValueChainStepKind.EvalStart: {
-                return (
-                    cashOf(
-                        solution,
-                        (solve) => solve.evalResult.initialValue,
-                    ) ?? 'the eval DP has no start value'
-                );
-            }
-            case ValueChainStepKind.FirstPayoutEligible: {
-                return fundedValueAt(eligibleAccount);
-            }
-            case ValueChainStepKind.FreshFunded: {
-                return fundedValueAt(() => fresh);
-            }
-            case ValueChainStepKind.PostFirstPayout: {
-                return fundedValueAt(() =>
-                    postFirstPayoutAccount(eligibleAccount(), chainSpec),
-                );
-            }
-        }
-    };
-    return VALUE_CHAIN_STEP_ORDER.map(entryOf);
+    });
 }
 
 function evalReader(state: AccountState, day: number): StageReader {

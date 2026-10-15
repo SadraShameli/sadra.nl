@@ -104,6 +104,8 @@ import {
 import { planRulesFingerprint } from '~/lib/prop-calculator/describe';
 import { user } from '~/server/db/schemas/auth';
 
+import { dpValueSamplesOf } from './dpValueSamples';
+
 export enum DpRunMode {
     Account = 'account',
     AllAccounts = 'all-accounts',
@@ -628,8 +630,7 @@ async function dpStoreSinkFor(
     database: PropDatabase,
     userId: string,
 ): Promise<DpStoreSink> {
-    const { DpAdviceRepo, dpValueSamplesOf } =
-        await import('~/lib/prop-accounts/server');
+    const { DpAdviceRepo } = await import('~/lib/prop-accounts/server');
     const repo = new DpAdviceRepo(database, userId);
     const known = new Map<string, Promise<ReadonlySet<string>>>();
     const keysOf = (accountId: string): Promise<ReadonlySet<string>> => {
