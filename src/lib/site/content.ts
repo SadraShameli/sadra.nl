@@ -42,7 +42,7 @@ type HomepageData = {
     heroTitle: string;
     readingsDescription: string;
     readingsTitle: string;
-    recordingDecorVideo: string;
+    recordingDecorVideo: LoopingVideo;
     recordingsDescription: string;
     recordingsTitle: string;
     sensorHubDescription: string;
@@ -137,7 +137,10 @@ export const homepageContent: HomepageData = {
     readingsDescription:
         'Ever been curious about the temperature, humidity and loudness levels at various locations in real time?',
     readingsTitle: 'Live readings',
-    recordingDecorVideo: '/headphone.mp4',
+    recordingDecorVideo: {
+        poster: '/headphone-poster.jpg',
+        src: '/headphone.mp4',
+    },
     recordingsDescription:
         'Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands.',
     recordingsTitle: 'Noise recordings',

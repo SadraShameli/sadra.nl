@@ -122,7 +122,7 @@ export default function HomePage() {
                         text={homepageContent.recordingsDescription}
                     />
                     <RecordingSection
-                        decorVideoUrl={homepageContent.recordingDecorVideo}
+                        decorVideo={homepageContent.recordingDecorVideo}
                     />
                 </section>
 

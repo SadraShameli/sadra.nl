@@ -2,9 +2,11 @@
 
 import { Download } from 'lucide-react';
 
+import { AutoplayVideo } from '~/components/AutoplayVideo';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
 import { Skeleton } from '~/components/ui/Skeleton';
+import { type LoopingVideo } from '~/lib/site/content';
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
@@ -13,16 +15,14 @@ import { PlaybackControls } from './PlaybackControls';
 import { ProgressBar } from './ProgressBar';
 import { RecordingList } from './RecordingList';
 import { useAudioPlayer } from './useAudioPlayer';
-import { useVisibleAutoplay } from './useVisibleAutoplay';
 import { VolumeControls } from './VolumeControls';
 
 export default function RecordingSection({
-    decorVideoUrl,
+    decorVideo,
 }: {
-    decorVideoUrl: string;
+    decorVideo: LoopingVideo;
 }) {
     const recordings = api.recording.getRecordingsNoFile.useQuery();
-    const decorVideo = useVisibleAutoplay();
 
     const {
         audioRef,
@@ -61,16 +61,10 @@ export default function RecordingSection({
         <section className={cn('app-recording', 'pt-spacing-inner')}>
             <Card className="container">
                 <div className="flex flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-center">
-                    <video
-                        autoPlay
+                    <AutoplayVideo
                         className={cn('app-recording__video')}
-                        loop
-                        muted
-                        playsInline
-                        ref={decorVideo}
-                    >
-                        <source src={decorVideoUrl} type="video/mp4" />
-                    </video>
+                        video={decorVideo}
+                    />
 
                     <div
                         className={cn(

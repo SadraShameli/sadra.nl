@@ -4,7 +4,14 @@ import { useLayoutEffect, useRef } from 'react';
 
 import type { LoopingVideo } from '~/lib/site/content';
 
-const INTERRUPTED_PLAYBACK = new Set(['AbortError', 'NotAllowedError']);
+enum RefusedPlaybackError {
+    Aborted = 'AbortError',
+    NotAllowed = 'NotAllowedError',
+}
+
+const REFUSED_PLAYBACK_ERRORS: ReadonlySet<string> = new Set(
+    Object.values(RefusedPlaybackError),
+);
 
 export function AutoplayVideo({
     className,
@@ -52,11 +59,11 @@ async function playUnlessInterrupted(element: HTMLVideoElement) {
         await element.play();
     } catch (error) {
         if (
-            error instanceof DOMException &&
-            INTERRUPTED_PLAYBACK.has(error.name)
+            !(error instanceof DOMException) ||
+            !REFUSED_PLAYBACK_ERRORS.has(error.name)
         ) {
-            return;
+            throw error;
         }
-        throw error;
+        console.warn('A looping video could not start:', error);
     }
 }
