@@ -47,7 +47,6 @@ const config = {
     cacheComponents: true,
     experimental: {
         optimizePackageImports: ['framer-motion'],
-        turbopackRustReactCompiler: true,
     },
     async headers() {
         return [{ headers: securityHeaders, source: '/:path*' }];

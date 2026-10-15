@@ -512,18 +512,18 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 >
                     <Eyebrow as="h3">Knockout rules</Eyebrow>
                     <div className="grid gap-2 md:grid-cols-2">
-                        {KNOCKOUT_RULES.map(({ key, label }) => (
+                        {KNOCKOUT_RULES.map((rule) => (
                             <label
                                 className="flex cursor-pointer items-center justify-between rounded-md border border-border/60 p-3"
-                                key={key}
+                                key={rule.key}
                             >
-                                <span className="text-sm">{label}</span>
+                                <span className="text-sm">{rule.label}</span>
                                 <Switch
-                                    checked={config.knockouts[key]}
+                                    checked={config.knockouts[rule.key]}
                                     onCheckedChange={(v) =>
                                         updateConfig('knockouts', {
                                             ...config.knockouts,
-                                            [key]: v,
+                                            [rule.key]: v,
                                         })
                                     }
                                 />
