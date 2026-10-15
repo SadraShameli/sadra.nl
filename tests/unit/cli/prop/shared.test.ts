@@ -112,6 +112,8 @@ import {
     liveTransferDisclosureLines,
 } from '~/lib/prop-calculator/simulator';
 
+import { restoreExitCode } from './exitCode';
+
 const ARGS = {
     ...planArguments,
     ...tradingArguments,
@@ -1104,7 +1106,7 @@ async function capturedStdout(run: () => Promise<unknown>): Promise<string> {
         await run();
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return written.join('');
 }

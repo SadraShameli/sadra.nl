@@ -51,6 +51,7 @@ import { simulateBankrollTimeline } from '~/lib/prop-calculator/portfolioTimelin
 import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 const SMALL_PLAN = ['--firm', 'mffu', '--variant', 'rapid-eod'];
+import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 const SMALL_SIM = [
     ...SMALL_PLAN,
     '--trials',
@@ -87,17 +88,17 @@ async function capturedFailure(
             }),
     ];
     const previous = process.exitCode;
-    process.exitCode = undefined;
+    resetExitCode();
     try {
         await command.run?.({ args, cmd: command, rawArgs: argv } as never);
         return {
-            exitCode: process.exitCode,
+            exitCode: capturedExitCode(),
             stderr: stripVTControlCharacters(stderr.join('')),
             stdout: stripVTControlCharacters(stdout.join('')),
         };
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = previous;
+        restoreExitCode(previous);
     }
 }
 
@@ -121,7 +122,7 @@ async function capturedRun(
         await command.run?.({ args, cmd: command, rawArgs: argv } as never);
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return written.join('');
 }

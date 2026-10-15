@@ -30,6 +30,8 @@ import {
     liveTransferContinuationNotes,
 } from '~/lib/prop-calculator/simulator';
 
+import { restoreExitCode } from './exitCode';
+
 const SMALL_PLAN = ['--firm', 'mffu', '--variant', 'rapid-eod'];
 const SMALL_SIM = [
     ...SMALL_PLAN,
@@ -63,7 +65,7 @@ async function capturedRun(
         await command.run?.({ args, cmd: command, rawArgs: argv } as never);
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return written.join('');
 }

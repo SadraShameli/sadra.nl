@@ -56,6 +56,7 @@ import {
     TABLES,
     USER_ID,
 } from '../../server/propAccounts/propRouterHarness';
+import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 
 const holder = vi.hoisted(() => ({ database: {} }));
 
@@ -285,7 +286,7 @@ async function runAdvise(
     const stdout: string[] = [];
     const stderr: string[] = [];
     const previousExitCode = process.exitCode;
-    process.exitCode = undefined;
+    resetExitCode();
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
         stdout.push(String(chunk));
         return true;
@@ -297,13 +298,13 @@ async function runAdvise(
     try {
         await runCommand(advise, { rawArgs: argv });
         return {
-            exitCode: process.exitCode,
+            exitCode: capturedExitCode(),
             queries,
             stderr: stderr.join(''),
             stdout: stdout.join(''),
         };
     } finally {
-        process.exitCode = previousExitCode;
+        restoreExitCode(previousExitCode);
     }
 }
 

@@ -23,6 +23,8 @@ import {
     type SizingAdvisorCreateOptions,
 } from '~/lib/prop-calculator/advisor';
 
+import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
+
 const FRESH_EVAL_APEX_EOD = [
     '--firm',
     'apex',
@@ -117,7 +119,7 @@ async function runAdvise(argv: string[]): Promise<CapturedRun> {
     const stdout: string[] = [];
     const stderr: string[] = [];
     const previousExitCode = process.exitCode;
-    process.exitCode = undefined;
+    resetExitCode();
     vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
         stdout.push(String(chunk));
         return true;
@@ -129,12 +131,12 @@ async function runAdvise(argv: string[]): Promise<CapturedRun> {
     try {
         await runCommand(advise, { rawArgs: argv });
         return {
-            exitCode: process.exitCode,
+            exitCode: capturedExitCode(),
             stderr: stderr.join(''),
             stdout: stdout.join(''),
         };
     } finally {
-        process.exitCode = previousExitCode;
+        restoreExitCode(previousExitCode);
     }
 }
 

@@ -72,6 +72,8 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import { planRulesFingerprint } from '~/lib/prop-calculator/describe';
 
+import { restoreExitCode } from './exitCode';
+
 function instantFundedPlan(): Plan {
     const plan = ALL_FIRMS.flatMap((firm) => firm.plans).find(
         (candidate) => candidate.isInstantFunded,
@@ -1325,7 +1327,7 @@ async function adviseOutput(argv: readonly string[]): Promise<string> {
         });
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = previousExitCode;
+        restoreExitCode(previousExitCode);
     }
     return stripVTControlCharacters(written.join(''));
 }

@@ -84,6 +84,7 @@ import {
     mffProLifetimeCapFixture,
     WINNING_TRADER,
 } from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
+import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
@@ -781,7 +782,7 @@ async function capturedCompare(argv: string[]): Promise<CapturedCompare> {
             }),
     ];
     const previousExitCode = process.exitCode;
-    process.exitCode = undefined;
+    resetExitCode();
     let exitCode: CapturedCompare['exitCode'];
     try {
         await compare.run?.({
@@ -789,10 +790,10 @@ async function capturedCompare(argv: string[]): Promise<CapturedCompare> {
             cmd: compare,
             rawArgs: argv,
         });
-        exitCode = process.exitCode;
+        exitCode = capturedExitCode();
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = previousExitCode;
+        restoreExitCode(previousExitCode);
     }
     return { exitCode, output: written.join('') };
 }

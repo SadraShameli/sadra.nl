@@ -61,6 +61,7 @@ import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFu
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
 import { flagsNamedButNotAccepted } from './helpFlags';
+import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 
 function apexEodPlan(): Plan {
     const plan = new ApexTraderFunding().findPlan({
@@ -791,7 +792,7 @@ async function capturedLadder(argv: string[]) {
             }),
     ];
     const previous = process.exitCode;
-    process.exitCode = undefined;
+    resetExitCode();
     let exitCode: typeof process.exitCode;
     try {
         await ladder.run?.({
@@ -799,10 +800,10 @@ async function capturedLadder(argv: string[]) {
             cmd: ladder,
             rawArgs: argv,
         });
-        exitCode = process.exitCode;
+        exitCode = capturedExitCode();
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = previous;
+        restoreExitCode(previous);
     }
     return { exitCode, output: written.join('') };
 }

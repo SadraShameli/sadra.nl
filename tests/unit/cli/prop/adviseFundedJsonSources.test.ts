@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import advise, { adviseArguments } from '~/cli/commands/prop/advise/command';
 import { AdviceSource } from '~/lib/prop-calculator/advisor';
 
+import { restoreExitCode } from './exitCode';
+
 const FUNDED_APEX_EOD = [
     '--firm',
     'apex',
@@ -56,7 +58,7 @@ async function adviseJson(argv: readonly string[]): Promise<JsonAdvice> {
         });
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = previousExitCode;
+        restoreExitCode(previousExitCode);
     }
     const advice = JSON.parse(written.join('')) as JsonAdvice;
     JSON_CACHE.set(key, advice);

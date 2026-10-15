@@ -103,6 +103,7 @@ import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 import { TakeProfitTrader } from '~/lib/prop-calculator/firms/tpt/TakeProfitTrader';
 
 import { cheapDpSolverConfig } from './cheapDpSolverConfig';
+import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 import { flagsNamedButNotAccepted } from './helpFlags';
 
 vi.mock(
@@ -973,7 +974,7 @@ describe('optimize dp --funded-reset names the plan reset terms (N-34)', () => {
             });
         } finally {
             for (const spy of writeSpies) spy.mockRestore();
-            process.exitCode = exitCode;
+            restoreExitCode(exitCode);
         }
 
         const note = fundedResetModelNote(resolvedDpPlan(argv));
@@ -2069,7 +2070,7 @@ async function capturedRun(argv: string[]): Promise<{
     ];
     const exitCode = process.exitCode;
     let runExitCode: typeof process.exitCode;
-    process.exitCode = undefined;
+    resetExitCode();
     try {
         await optimizeDp.run?.({
             args: parseArgs<typeof dpArguments>(argv, dpArguments),
@@ -2077,9 +2078,9 @@ async function capturedRun(argv: string[]): Promise<{
             rawArgs: argv,
         });
     } finally {
-        runExitCode = process.exitCode;
+        runExitCode = capturedExitCode();
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return {
         exitCode: runExitCode,
@@ -2573,7 +2574,7 @@ async function capturedDpPreamble(argv: string[]): Promise<string> {
         });
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return written.join('');
 }

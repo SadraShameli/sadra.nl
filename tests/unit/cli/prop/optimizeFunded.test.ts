@@ -60,6 +60,7 @@ import {
 } from '~/lib/prop-calculator/optimize';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 
+import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 async function resolveArguments(): Promise<ArgsDef> {
@@ -574,7 +575,7 @@ async function capturedRun(argv: string[]): Promise<{
             }),
     ];
     const exitCode = process.exitCode;
-    process.exitCode = undefined;
+    resetExitCode();
     let runExitCode: number | string | undefined;
     try {
         await optimizeFunded.run?.({
@@ -582,10 +583,10 @@ async function capturedRun(argv: string[]): Promise<{
             cmd: optimizeFunded,
             rawArgs: argv,
         });
-        runExitCode = process.exitCode;
+        runExitCode = capturedExitCode();
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return {
         exitCode: runExitCode,

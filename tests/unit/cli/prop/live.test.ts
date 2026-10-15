@@ -42,6 +42,7 @@ import {
 } from '~/lib/prop-calculator/firms';
 import { LIVE_TRANSFER_NOTE_TEXT } from '~/lib/prop-calculator/simulator';
 
+import { capturedExitCode, resetExitCode, restoreExitCode } from './exitCode';
 import { flagsNamedButNotAccepted } from './helpFlags';
 
 const TOPSTEP_CUSHION = {
@@ -1128,7 +1129,7 @@ async function capturedLiveRun(argv: string[]): Promise<{
     ];
     const exitCode = process.exitCode;
     let runExitCode: typeof process.exitCode;
-    process.exitCode = undefined;
+    resetExitCode();
     try {
         await liveCommand.run?.({
             args: parseArgs<typeof liveArguments>(argv, liveArguments),
@@ -1136,9 +1137,9 @@ async function capturedLiveRun(argv: string[]): Promise<{
             rawArgs: argv,
         });
     } finally {
-        runExitCode = process.exitCode;
+        runExitCode = capturedExitCode();
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return {
         exitCode: runExitCode,

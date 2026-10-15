@@ -15,6 +15,8 @@ import {
     LiveTransferContinuationKind,
 } from '~/lib/prop-calculator/simulator';
 
+import { restoreExitCode } from './exitCode';
+
 const FLEX_NOTE =
     LIVE_TRANSFER_NOTE_TEXT[
         LiveApplicabilityNote.FundedNextFlexTriggerConflict
@@ -101,7 +103,7 @@ async function capturedOptimizeFundedRun(argv: string[]): Promise<string> {
         });
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return written.join('');
 }
@@ -126,7 +128,7 @@ async function capturedSimRun(argv: string[]): Promise<string> {
         });
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return written.join('');
 }

@@ -73,6 +73,7 @@ import {
     mffProLifetimeCapFixture,
     WINNING_TRADER,
 } from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
+import { restoreExitCode } from './exitCode';
 import { acceptedFlags, flagsNamedButNotAccepted } from './helpFlags';
 
 function apexEodPlan(): Plan {
@@ -1351,7 +1352,7 @@ async function capturedSimRun(argv: string[]): Promise<string> {
         });
     } finally {
         for (const spy of writeSpies) spy.mockRestore();
-        process.exitCode = exitCode;
+        restoreExitCode(exitCode);
     }
     return written.join('');
 }
