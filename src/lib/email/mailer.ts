@@ -13,6 +13,7 @@ export class Mailer {
         ]);
         await this.provider.send({
             from: EMAIL_FROM,
+            headers: message.headers(),
             html,
             subject: message.subject,
             text,

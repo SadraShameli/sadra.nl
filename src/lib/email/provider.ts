@@ -5,6 +5,7 @@ import { captureError } from '~/lib/observability/logger';
 
 export interface EmailSendArguments {
     from: string;
+    headers: Readonly<Record<string, string>>;
     html: string;
     subject: string;
     text: string;
@@ -60,6 +61,7 @@ export class LettermintProvider extends EmailProvider {
         const client = new Lettermint({ sendingToken: this.token });
         await client.emails.send({
             from: arguments_.from,
+            headers: { ...arguments_.headers },
             html: arguments_.html,
             subject: arguments_.subject,
             text: arguments_.text,
@@ -79,6 +81,7 @@ export class ResendProvider extends EmailProvider {
     override async send(arguments_: EmailSendArguments): Promise<void> {
         const { error } = await this.client.emails.send({
             from: arguments_.from,
+            headers: { ...arguments_.headers },
             html: arguments_.html,
             subject: arguments_.subject,
             text: arguments_.text,

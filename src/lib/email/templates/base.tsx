@@ -15,10 +15,15 @@ import {
 
 interface BaseEmailProperties {
     children: ReactNode;
+    notificationSettingsUrl?: string;
     preview: string;
 }
 
-export function BaseEmail({ children, preview }: BaseEmailProperties) {
+export function BaseEmail({
+    children,
+    notificationSettingsUrl,
+    preview,
+}: BaseEmailProperties) {
     const year = new Date().getFullYear();
 
     return (
@@ -67,6 +72,16 @@ export function BaseEmail({ children, preview }: BaseEmailProperties) {
                                 sadra.nl
                             </Link>
                         </Text>
+                        {notificationSettingsUrl === undefined ? null : (
+                            <Text className="m-0 mt-1 text-center text-xs text-neutral-400">
+                                <Link
+                                    className="text-neutral-400 underline"
+                                    href={notificationSettingsUrl}
+                                >
+                                    Manage notifications
+                                </Link>
+                            </Text>
+                        )}
                     </Container>
                 </Body>
             </Tailwind>

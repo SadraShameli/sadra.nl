@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { Mailer } from '~/lib/email/mailer';
+import { DeviceCreatedEmail } from '~/lib/email/messages/device-created';
 import { PasswordResetEmail } from '~/lib/email/messages/password-reset';
 import { EmailProvider, type EmailSendArguments } from '~/lib/email/provider';
 
@@ -29,5 +30,33 @@ describe('Mailer', () => {
         expect(sent?.text.toLowerCase()).toContain('reset your password');
         expect(sent?.text).toContain(RESET_URL);
         expect(sent?.text).not.toContain('<');
+    });
+
+    it('lets notification recipients unsubscribe from the email', async () => {
+        const provider = new RecordingProvider();
+
+        await new Mailer(provider).send(
+            new DeviceCreatedEmail('jane@example.com', {
+                deviceId: 7,
+                deviceName: 'Garden Sensor',
+                locationName: 'Garden',
+            }),
+        );
+
+        const [sent] = provider.sent;
+        expect(sent?.headers['List-Unsubscribe']).toMatch(
+            /^<https?:\/\/[^>]+\/profile\?tab=sensor-hub>$/u,
+        );
+        expect(sent?.html).toContain('Manage notifications');
+    });
+
+    it('sends account emails without an unsubscribe header', async () => {
+        const provider = new RecordingProvider();
+
+        await new Mailer(provider).send(
+            new PasswordResetEmail('jane@example.com', RESET_URL),
+        );
+
+        expect(provider.sent[0]?.headers).toEqual({});
     });
 });

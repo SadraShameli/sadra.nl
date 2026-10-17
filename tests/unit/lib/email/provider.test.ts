@@ -16,6 +16,7 @@ vi.mock('~/lib/observability/logger', () => captured);
 
 const MESSAGE: EmailSendArguments = {
     from: 'noreply@sadra.nl',
+    headers: {},
     html: '<p>Hi Jane</p>',
     subject: 'Welcome',
     text: 'Hi Jane',
@@ -86,6 +87,7 @@ describe('LettermintProvider', () => {
         );
         expect(JSON.parse(z.string().parse(init?.body))).toEqual({
             from: MESSAGE.from,
+            headers: MESSAGE.headers,
             html: MESSAGE.html,
             subject: MESSAGE.subject,
             text: MESSAGE.text,

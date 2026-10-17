@@ -2,7 +2,10 @@ import type { ReactElement } from 'react';
 
 import { Heading, Text } from '@react-email/components';
 
-import { EmailMessage } from '~/lib/email/message';
+import {
+    NotificationEmail,
+    notificationSettingsUrl,
+} from '~/lib/email/NotificationEmail';
 import { BaseEmail } from '~/lib/email/templates/base';
 
 interface LocationCreatedTemplateProperties {
@@ -10,7 +13,7 @@ interface LocationCreatedTemplateProperties {
     locationName: string;
 }
 
-export class LocationCreatedEmail extends EmailMessage {
+export class LocationCreatedEmail extends NotificationEmail {
     readonly subject = 'New location';
     readonly to: string;
 
@@ -32,7 +35,10 @@ function LocationCreatedTemplate({
     locationName,
 }: LocationCreatedTemplateProperties) {
     return (
-        <BaseEmail preview={`New location created: ${locationName}`}>
+        <BaseEmail
+            notificationSettingsUrl={notificationSettingsUrl()}
+            preview={`New location created: ${locationName}`}
+        >
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
                 New location created
             </Heading>

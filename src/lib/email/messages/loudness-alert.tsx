@@ -2,7 +2,10 @@ import type { ReactElement } from 'react';
 
 import { Heading, Text } from '@react-email/components';
 
-import { EmailMessage } from '~/lib/email/message';
+import {
+    NotificationEmail,
+    notificationSettingsUrl,
+} from '~/lib/email/NotificationEmail';
 import { BaseEmail } from '~/lib/email/templates/base';
 
 interface LoudnessAlertTemplateProperties {
@@ -12,7 +15,7 @@ interface LoudnessAlertTemplateProperties {
     value: number;
 }
 
-export class LoudnessAlertEmail extends EmailMessage {
+export class LoudnessAlertEmail extends NotificationEmail {
     readonly subject = 'Loudness alert';
     readonly to: string;
 
@@ -37,6 +40,7 @@ function LoudnessAlertTemplate({
 }: LoudnessAlertTemplateProperties) {
     return (
         <BaseEmail
+            notificationSettingsUrl={notificationSettingsUrl()}
             preview={`Loudness alert: ${value} exceeded threshold ${threshold}`}
         >
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">

@@ -2,7 +2,10 @@ import type { ReactElement } from 'react';
 
 import { Heading, Text } from '@react-email/components';
 
-import { EmailMessage } from '~/lib/email/message';
+import {
+    NotificationEmail,
+    notificationSettingsUrl,
+} from '~/lib/email/NotificationEmail';
 import { BaseEmail } from '~/lib/email/templates/base';
 
 interface DeviceCreatedTemplateProperties {
@@ -11,7 +14,7 @@ interface DeviceCreatedTemplateProperties {
     locationName?: string;
 }
 
-export class DeviceCreatedEmail extends EmailMessage {
+export class DeviceCreatedEmail extends NotificationEmail {
     readonly subject = 'New device';
     readonly to: string;
 
@@ -34,7 +37,10 @@ function DeviceCreatedTemplate({
     locationName = '-',
 }: DeviceCreatedTemplateProperties) {
     return (
-        <BaseEmail preview={`New device registered: ${deviceName}`}>
+        <BaseEmail
+            notificationSettingsUrl={notificationSettingsUrl()}
+            preview={`New device registered: ${deviceName}`}
+        >
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
                 New device registered
             </Heading>

@@ -2,7 +2,10 @@ import type { ReactElement } from 'react';
 
 import { Heading, Text } from '@react-email/components';
 
-import { EmailMessage } from '~/lib/email/message';
+import {
+    NotificationEmail,
+    notificationSettingsUrl,
+} from '~/lib/email/NotificationEmail';
 import { BaseEmail } from '~/lib/email/templates/base';
 
 interface RecordingCreatedTemplateProperties {
@@ -12,7 +15,7 @@ interface RecordingCreatedTemplateProperties {
     locationName?: string;
 }
 
-export class RecordingCreatedEmail extends EmailMessage {
+export class RecordingCreatedEmail extends NotificationEmail {
     readonly subject = 'New recording';
     readonly to: string;
 
@@ -40,7 +43,10 @@ function RecordingCreatedTemplate({
     locationName = '-',
 }: RecordingCreatedTemplateProperties) {
     return (
-        <BaseEmail preview={`New recording: ${fileName}`}>
+        <BaseEmail
+            notificationSettingsUrl={notificationSettingsUrl()}
+            preview={`New recording: ${fileName}`}
+        >
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
                 New recording
             </Heading>

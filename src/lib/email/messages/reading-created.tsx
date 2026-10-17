@@ -2,7 +2,10 @@ import type { ReactElement } from 'react';
 
 import { Heading, Text } from '@react-email/components';
 
-import { EmailMessage } from '~/lib/email/message';
+import {
+    NotificationEmail,
+    notificationSettingsUrl,
+} from '~/lib/email/NotificationEmail';
 import { BaseEmail } from '~/lib/email/templates/base';
 
 interface ReadingCreatedTemplateProperties {
@@ -17,7 +20,7 @@ interface SensorReading {
     value: number;
 }
 
-export class ReadingCreatedEmail extends EmailMessage {
+export class ReadingCreatedEmail extends NotificationEmail {
     readonly subject = 'New reading';
     readonly to: string;
 
@@ -40,7 +43,10 @@ function ReadingCreatedTemplate({
     sensorReadings,
 }: ReadingCreatedTemplateProperties) {
     return (
-        <BaseEmail preview="New sensor reading received">
+        <BaseEmail
+            notificationSettingsUrl={notificationSettingsUrl()}
+            preview="New sensor reading received"
+        >
             <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
                 New sensor reading
             </Heading>
