@@ -8,6 +8,7 @@ import { after } from 'next/server';
 import { cache } from 'react';
 
 import { environment } from '~/environment';
+import { authAccountOptions } from '~/lib/auth/accountOptions';
 import { authLogger } from '~/lib/auth/authLogger';
 import { authBackgroundTasks } from '~/lib/auth/backgroundTasks';
 import { authEmailAndPasswordOptions } from '~/lib/auth/emailAndPasswordOptions';
@@ -36,13 +37,7 @@ const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const SESSION_UPDATE_INTERVAL_SECONDS = 60 * 60;
 
 export const auth = betterAuth({
-    account: {
-        accountLinking: {
-            enabled: true,
-            requireLocalEmailVerified: true,
-            trustedProviders: ['google', 'github'],
-        },
-    },
+    account: authAccountOptions,
     advanced: {
         backgroundTasks: authBackgroundTasks,
         cookies: {
