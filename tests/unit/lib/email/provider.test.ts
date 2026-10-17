@@ -7,6 +7,7 @@ import {
     type EmailSendArguments,
     FallbackEmailProvider,
     LettermintProvider,
+    ResendProvider,
 } from '~/lib/email/provider';
 
 const MESSAGE: EmailSendArguments = {
@@ -36,6 +37,25 @@ class RecordingProvider extends EmailProvider {
 
 afterEach(() => {
     vi.restoreAllMocks();
+});
+
+describe('ResendProvider', () => {
+    it('rejects when Resend refuses the message', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            Response.json(
+                {
+                    message: 'The to field is invalid',
+                    name: 'validation_error',
+                    statusCode: 422,
+                },
+                { status: 422 },
+            ),
+        );
+
+        await expect(
+            new ResendProvider('re_test_key').send(MESSAGE),
+        ).rejects.toThrow('The to field is invalid');
+    });
 });
 
 describe('LettermintProvider', () => {

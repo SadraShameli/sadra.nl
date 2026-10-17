@@ -10,6 +10,13 @@ export interface EmailSendArguments {
     to: string;
 }
 
+class ResendRejectionError extends Error {
+    constructor(reason: string) {
+        super(`Resend rejected the message: ${reason}`);
+        this.name = 'ResendRejectionError';
+    }
+}
+
 export abstract class EmailProvider {
     abstract send(arguments_: EmailSendArguments): Promise<void>;
 }
@@ -68,11 +75,12 @@ export class ResendProvider extends EmailProvider {
     }
 
     override async send(arguments_: EmailSendArguments): Promise<void> {
-        await this.client.emails.send({
+        const { error } = await this.client.emails.send({
             from: arguments_.from,
             html: arguments_.html,
             subject: arguments_.subject,
             to: arguments_.to,
         });
+        if (error !== null) throw new ResendRejectionError(error.message);
     }
 }
