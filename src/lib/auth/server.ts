@@ -8,6 +8,7 @@ import { after } from 'next/server';
 import { cache } from 'react';
 
 import { environment } from '~/environment';
+import { authEmailAndPasswordOptions } from '~/lib/auth/emailAndPasswordOptions';
 import { EMAIL_LINK_LIFETIME_SECONDS, EmailLink } from '~/lib/auth/EmailLink';
 import { adminPluginOptions } from '~/lib/auth/permissions';
 import { enforceRoleHierarchy } from '~/lib/auth/RoleHierarchy';
@@ -80,14 +81,9 @@ export const auth = betterAuth({
             },
         },
     },
-    emailAndPassword: {
-        enabled: true,
-        minPasswordLength: 12,
-        requireEmailVerification: true,
-        sendResetPassword: async ({ url, user }) => {
-            await mailer.send(new PasswordResetEmail(user.email, url));
-        },
-    },
+    emailAndPassword: authEmailAndPasswordOptions(async (to, url) => {
+        await mailer.send(new PasswordResetEmail(to, url));
+    }),
     emailVerification: {
         autoSignInAfterVerification: true,
         expiresIn: EMAIL_LINK_LIFETIME_SECONDS[EmailLink.Verification],
