@@ -1,13 +1,15 @@
-interface PgError {
-    code?: string;
+import { z } from 'zod';
+
+enum PostgresErrorCode {
+    UniqueViolation = '23505',
 }
 
+const postgresErrorSchema = z.object({ code: z.string() });
+
+const wrappedPostgresErrorSchema = z.object({ cause: postgresErrorSchema });
+
 export function isUniqueViolation(error: unknown): boolean {
-    return (
-        error !== null &&
-        typeof error === 'object' &&
-        (error as PgError).code === '23505'
-    );
+    return postgresErrorCodeOf(error) === PostgresErrorCode.UniqueViolation;
 }
 
 export async function retryOnUniqueViolation<T>(
@@ -24,4 +26,11 @@ export async function retryOnUniqueViolation<T>(
         }
     }
     throw lastError;
+}
+
+function postgresErrorCodeOf(error: unknown): null | string {
+    const direct = postgresErrorSchema.safeParse(error);
+    if (direct.success) return direct.data.code;
+    const wrapped = wrappedPostgresErrorSchema.safeParse(error);
+    return wrapped.success ? wrapped.data.cause.code : null;
 }
