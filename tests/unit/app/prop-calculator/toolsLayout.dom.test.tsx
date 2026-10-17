@@ -40,6 +40,10 @@ vi.mock('next/navigation', async () => {
     };
 });
 
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => ({ data: null, error: null, isPending: false }),
+}));
+
 vi.mock('~/app/(app)/prop-calculator/_components/PropCalculatorSubnav', () => ({
     PropCalculatorSubnav: () => null,
 }));
