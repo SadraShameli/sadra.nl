@@ -8,9 +8,10 @@ import type {
 import type { RateProvider } from '~/lib/accounting/rates/provider';
 
 import { USD_CODE } from '~/lib/accounting/core/currency';
-import { isoDateSchema } from '~/lib/accounting/core/date';
+import { IsoDate, isoDateSchema } from '~/lib/accounting/core/date';
 
 const ECB_BASE = 'https://data-api.ecb.europa.eu/service/data';
+const ECB_CLOSURE_LOOKBACK_DAYS = 14;
 const USER_AGENT = 'sadranl-accounting-importer/0.1';
 
 interface CachedCurrencyRange {
@@ -61,7 +62,10 @@ export class EcbRateProvider implements RateProvider {
         if (this.isCached(currency, range)) return;
 
         const url = new URL(`${ECB_BASE}/EXR/D.${currency}.EUR.SP00.A`);
-        url.searchParams.set('startPeriod', range.start);
+        url.searchParams.set(
+            'startPeriod',
+            IsoDate.addDays(range.start, -ECB_CLOSURE_LOOKBACK_DAYS),
+        );
         url.searchParams.set('endPeriod', range.end);
         url.searchParams.set('format', 'csvdata');
 

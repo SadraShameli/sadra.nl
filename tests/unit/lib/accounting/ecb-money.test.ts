@@ -99,6 +99,46 @@ const GBP_CSV = `KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIO
 "EXR.D.GBP.EUR.SP00.A","D","GBP","EUR","SP00","A","2026-03-03","0.8600"
 `;
 
+const WEEKEND_ROWS = [
+    ['2026-03-06', '0.8400'],
+    ['2026-03-09', '0.8600'],
+] as const;
+
+const startPeriodFetch: typeof fetch = async (input) => {
+    await Promise.resolve();
+    const url = new URL(input instanceof Request ? input.url : input);
+    const startPeriod = url.searchParams.get('startPeriod') ?? '';
+    const rows = WEEKEND_ROWS.filter(([day]) => day >= startPeriod).map(
+        ([day, rate]) =>
+            `"EXR.D.GBP.EUR.SP00.A","D","GBP","EUR","SP00","A","${day}","${rate}"`,
+    );
+    return new Response(
+        [
+            'KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE',
+            ...rows,
+        ].join('\n'),
+    );
+};
+
+describe('EcbRateProvider – range start without an observation', () => {
+    it('uses the preceding business day rate for a weekend first transaction', async () => {
+        const provider = new EcbRateProvider({ fetchImpl: startPeriodFetch });
+
+        await provider.ensureCurrencyRange(GBP, {
+            end: isoDateSchema.parse('2026-03-09'),
+            start: isoDateSchema.parse('2026-03-08'),
+        });
+
+        expect(
+            provider.rate({
+                base: EUR,
+                on: isoDateSchema.parse('2026-03-08'),
+                quote: GBP,
+            }),
+        ).toBe(0.84);
+    });
+});
+
 describe('EcbRateProvider – multi-currency', () => {
     it('fetches and returns GBP rate for a specific date', async () => {
         const mockFetch = vi.fn().mockResolvedValue({
