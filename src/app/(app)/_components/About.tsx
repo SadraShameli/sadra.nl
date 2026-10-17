@@ -19,11 +19,11 @@ export default function AboutSection({ gallery }: { gallery: GalleryItem[] }) {
                         <iframe
                             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                             allowFullScreen
+                            className="rounded-xl"
                             data-testid="embed-iframe"
                             height="152"
                             loading="lazy"
                             src="https://open.spotify.com/embed/track/74Jja0PIrdXE0aK0a6hxPN?utm_source=generator&theme=0"
-                            style={{ borderRadius: '12px' }}
                             title="Spotify embed"
                             width="100%"
                         />

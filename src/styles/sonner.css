@@ -1,0 +1,52 @@
+:root [data-sonner-toaster][data-sonner-theme] {
+    --border-radius: var(--radius);
+    --error-bg: color-mix(in oklab, var(--destructive) 12%, var(--popover));
+    --error-border: color-mix(in oklab, var(--destructive) 35%, var(--popover));
+    --error-text: var(--destructive);
+    --info-bg: color-mix(in oklab, var(--info) 12%, var(--popover));
+    --info-border: color-mix(in oklab, var(--info) 35%, var(--popover));
+    --info-text: var(--info);
+    --normal-bg: var(--popover);
+    --normal-bg-hover: var(--accent);
+    --normal-border: var(--border);
+    --normal-border-hover: var(--ring);
+    --normal-text: var(--popover-foreground);
+    --success-bg: color-mix(in oklab, var(--success) 12%, var(--popover));
+    --success-border: color-mix(in oklab, var(--success) 35%, var(--popover));
+    --success-text: var(--success);
+    --warning-bg: color-mix(in oklab, var(--warning) 12%, var(--popover));
+    --warning-border: color-mix(in oklab, var(--warning) 35%, var(--popover));
+    --warning-text: var(--warning);
+
+    font-family: var(--font-sans);
+    letter-spacing: var(--tracking-normal);
+}
+
+:root [data-sonner-toaster] [data-sonner-toast][data-styled='true'] {
+    box-shadow: var(--shadow-lg);
+    font-size: 0.875rem;
+}
+
+:root
+    [data-sonner-toaster]
+    [data-sonner-toast][data-styled='true']:not([data-rich-colors='true'])
+    [data-description] {
+    color: var(--muted-foreground);
+}
+
+:root
+    [data-sonner-toaster]
+    [data-sonner-toast][data-styled='true']
+    [data-button] {
+    background: var(--primary);
+    border-radius: max(0px, calc(var(--radius) - 4px));
+    color: var(--primary-foreground);
+}
+
+:root
+    [data-sonner-toaster]
+    [data-sonner-toast][data-styled='true']
+    [data-cancel] {
+    background: var(--muted);
+    color: var(--muted-foreground);
+}
