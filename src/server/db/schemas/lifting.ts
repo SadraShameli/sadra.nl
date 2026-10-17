@@ -37,6 +37,7 @@ import type {
     WeekStart,
 } from '~/lib/lifting/types';
 
+import { user } from './auth';
 import { createTable } from './main';
 
 export const liftingExercise = createTable(
@@ -58,7 +59,9 @@ export const liftingExercise = createTable(
             .$type<Mechanic>()
             .notNull(),
         name: varchar('name', { length: 128 }).notNull(),
-        ownerId: text('owner_id'),
+        ownerId: text('owner_id').references(() => user.id, {
+            onDelete: 'cascade',
+        }),
         primaryMuscle: varchar('primary_muscle', { length: 32 })
             .$type<MuscleGroup>()
             .notNull(),
@@ -124,7 +127,9 @@ export const liftingProgram = createTable(
         isPublic: boolean('is_public').notNull().default(false),
         lengthWeeks: integer('length_weeks').notNull(),
         name: varchar('name', { length: 128 }).notNull(),
-        ownerId: text('owner_id'),
+        ownerId: text('owner_id').references(() => user.id, {
+            onDelete: 'cascade',
+        }),
         schedule: jsonb('schedule').$type<ProgramSchedule>().notNull(),
         slug: varchar('slug', { length: 96 }).notNull(),
         updatedAt: timestamp('updated_at', { withTimezone: true })
@@ -166,7 +171,9 @@ export const liftingUserProgram = createTable(
         updatedAt: timestamp('updated_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
     },
     (table) => [
         index('lifting_user_program_user_status_idx').on(
@@ -190,7 +197,9 @@ export const liftingRoutine = createTable(
         updatedAt: timestamp('updated_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
     },
     (table) => [
         index('lifting_routine_user_sort_idx').on(
@@ -221,7 +230,9 @@ export const liftingWorkout = createTable(
         updatedAt: timestamp('updated_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
     },
     (table) => [
         index('lifting_workout_user_started_idx').on(
@@ -300,7 +311,9 @@ export const liftingPersonalRecord = createTable(
         kind: varchar('kind', { length: 24 }).$type<PrKind>().notNull(),
         reps: integer('reps').notNull(),
         setId: uuid('set_id'),
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
         valueNumeric: real('value_numeric').notNull(),
         weightKg: real('weight_kg').notNull(),
     },
@@ -331,7 +344,9 @@ export const liftingMeasurement = createTable(
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
         unit: varchar('unit', { length: 8 }).$type<MeasurementUnit>().notNull(),
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
         valueNumeric: real('value_numeric').notNull(),
     },
     (table) => [
@@ -359,7 +374,9 @@ export const liftingGoal = createTable(
             .default('active'),
         targetDate: varchar('target_date', { length: 10 }),
         targetValue: real('target_value').notNull(),
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
     },
     (table) => [
         index('lifting_goal_user_status_idx').on(table.userId, table.status),
@@ -391,7 +408,9 @@ export const liftingSettings = createTable('lifting_settings', {
     updatedAt: timestamp('updated_at', { withTimezone: true })
         .default(sql`CURRENT_TIMESTAMP`)
         .notNull(),
-    userId: text('user_id').primaryKey(),
+    userId: text('user_id')
+        .primaryKey()
+        .references(() => user.id, { onDelete: 'cascade' }),
     weekStart: varchar('week_start', { length: 3 })
         .$type<WeekStart>()
         .notNull()

@@ -134,6 +134,20 @@
       "when": 1792232756633,
       "tag": "0018_lying_guardsmen",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792233846370,
+      "tag": "0019_delete_orphaned_user_rows",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792233854305,
+      "tag": "0020_exotic_lila_cheney",
+      "breakpoints": true
     }
   ]
 }

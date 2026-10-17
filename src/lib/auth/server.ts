@@ -35,7 +35,6 @@ import { captureError } from '~/lib/observability/logger';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 import { db } from '~/server/db';
 import { user as userTable } from '~/server/db/schemas/auth';
-import { deleteUserOwnedData } from '~/server/helpers/UserOwnedData';
 
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const SESSION_UPDATE_INTERVAL_SECONDS = 60 * 60;
@@ -81,11 +80,6 @@ export const auth = betterAuth({
                             });
                         }
                     });
-                },
-            },
-            delete: {
-                before: async (deletedUser) => {
-                    await deleteUserOwnedData(db, deletedUser.id);
                 },
             },
         },
