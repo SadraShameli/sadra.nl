@@ -8,6 +8,7 @@ import { after } from 'next/server';
 import { cache } from 'react';
 
 import { environment } from '~/environment';
+import { authLogger } from '~/lib/auth/authLogger';
 import { authBackgroundTasks } from '~/lib/auth/backgroundTasks';
 import { authEmailAndPasswordOptions } from '~/lib/auth/emailAndPasswordOptions';
 import { EMAIL_LINK_LIFETIME_SECONDS, EmailLink } from '~/lib/auth/EmailLink';
@@ -97,6 +98,7 @@ export const auth = betterAuth({
         },
     },
     hooks: { before: enforceRoleHierarchy },
+    logger: authLogger,
     plugins: [
         magicLink({
             expiresIn: EMAIL_LINK_LIFETIME_SECONDS[EmailLink.SignIn],

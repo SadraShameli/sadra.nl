@@ -1,9 +1,12 @@
 import * as Sentry from '@sentry/nextjs';
 
+import { scrubQueryParameters } from '~/lib/observability/QueryParameters';
+
 export async function register(): Promise<void> {
     if (!process.env.SENTRY_DSN) return;
 
     const common = {
+        beforeSend: scrubQueryParameters,
         dsn: process.env.SENTRY_DSN,
         environment: process.env.NODE_ENV,
         tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,

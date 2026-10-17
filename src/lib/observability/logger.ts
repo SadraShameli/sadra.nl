@@ -2,6 +2,8 @@ import 'server-only';
 import * as Sentry from '@sentry/nextjs';
 import pino, { type Logger as PinoLogger } from 'pino';
 
+import { withoutQueryParameters } from '~/lib/observability/QueryParameters';
+
 interface CaptureContext {
     fields?: Fields;
     tag: string;
@@ -102,33 +104,18 @@ export function captureError(error: unknown, context?: CaptureContext): void {
     }
 }
 
-function deepestMessage(error: unknown): string {
-    if (!(error instanceof Error)) return String(error);
-    let cursor: unknown = error;
-    let last: string = error.message;
-    let depth = 0;
-    while (
-        cursor instanceof Error &&
-        cursor.cause !== undefined &&
-        cursor.cause !== null &&
-        depth < MAX_CAUSE_DEPTH
-    ) {
-        cursor = cursor.cause;
-        if (cursor instanceof Error && cursor.message) last = cursor.message;
-        depth += 1;
-    }
-    return last;
-}
-
-function serializeError(
+export function serializeError(
     error: unknown,
     depth = 0,
 ): SerializedError | { value: string } {
     if (!(error instanceof Error)) return { value: String(error) };
     const serialized: SerializedError = {
-        message: error.message,
+        message: withoutQueryParameters(error.message),
         name: error.name,
-        stack: error.stack,
+        stack:
+            error.stack === undefined
+                ? undefined
+                : withoutQueryParameters(error.stack),
     };
     if (
         depth < MAX_CAUSE_DEPTH &&
@@ -139,6 +126,26 @@ function serializeError(
         if ('message' in causeSerialized) serialized.cause = causeSerialized;
     }
     return serialized;
+}
+
+function deepestMessage(error: unknown): string {
+    if (!(error instanceof Error)) return String(error);
+    let cursor: unknown = error;
+    let last: string = withoutQueryParameters(error.message);
+    let depth = 0;
+    while (
+        cursor instanceof Error &&
+        cursor.cause !== undefined &&
+        cursor.cause !== null &&
+        depth < MAX_CAUSE_DEPTH
+    ) {
+        cursor = cursor.cause;
+        if (cursor instanceof Error && cursor.message) {
+            last = withoutQueryParameters(cursor.message);
+        }
+        depth += 1;
+    }
+    return last;
 }
 
 export type { Fields, Level };
