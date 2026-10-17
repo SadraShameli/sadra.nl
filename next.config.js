@@ -11,7 +11,7 @@ const ContentSecurityPolicy = [
     "img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
     "font-src 'self' data:",
     "media-src 'self' blob:",
-    "connect-src 'self' https://vitals.vercel-insights.com https://vercel.live wss://ws-us3.pusher.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+    "connect-src 'self' https://vitals.vercel-insights.com https://vercel.live wss://ws-us3.pusher.com",
     "frame-src 'self' https://open.spotify.com https://www.youtube.com https://vercel.live",
     "object-src 'none'",
     "base-uri 'self'",
@@ -80,6 +80,7 @@ const sentryConfig = withSentryConfig(config, {
     org: process.env.SENTRY_ORG,
     project: process.env.SENTRY_PROJECT,
     silent: !process.env.CI,
+    tunnelRoute: '/monitoring',
 });
 
 export default sentryConfig;
