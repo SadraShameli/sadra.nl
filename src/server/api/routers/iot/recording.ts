@@ -127,12 +127,15 @@ export const recordingsRouter = createTRPCRouter({
                 };
             }
 
+            const { buffer: file, durationSeconds } = applyAudioFilters(
+                input.recording,
+            );
             const fileName = getRecordingFileName(new Date());
 
             const q = ctx.db.insert(recording).values({
                 device_id: ctx.device.id,
-                duration_seconds: input.duration_seconds,
-                file: input.recording,
+                duration_seconds: durationSeconds,
+                file,
                 file_name: fileName,
                 location_id: ctx.device.location_id,
             });
@@ -149,7 +152,7 @@ export const recordingsRouter = createTRPCRouter({
                 (to) =>
                     new RecordingCreatedEmail(to, {
                         deviceName: ctx.device.name,
-                        durationSeconds: input.duration_seconds,
+                        durationSeconds,
                         fileName,
                         locationName: loc?.name ?? undefined,
                     }),

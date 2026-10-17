@@ -1,3 +1,5 @@
+import { TRPCError } from '@trpc/server';
+import { getHTTPStatusCodeFromError } from '@trpc/server/http';
 import { type NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 
@@ -7,7 +9,6 @@ import {
     recordingBlobSchema,
     zodErrorResponse,
 } from '~/lib/schemas/api';
-import { applyAudioFilters } from '~/server/helpers/audio';
 import { markIotRecordingsStale } from '~/server/iot/IotPublicReads';
 import { api } from '~/trpc/server';
 
@@ -66,14 +67,9 @@ export async function POST(
 
     try {
         const blob = recordingBlobSchema.parse(await request.blob());
-        const buffer = Buffer.from(await blob.arrayBuffer());
-        const { buffer: normalizedBuffer, durationSeconds } =
-            applyAudioFilters(buffer);
-
         const result = await api.recording.createRecording({
             device: { device_id: parsed.data.id },
-            duration_seconds: durationSeconds,
-            recording: normalizedBuffer,
+            recording: Buffer.from(await blob.arrayBuffer()),
         });
 
         if (result.status !== 201) {
@@ -82,8 +78,12 @@ export async function POST(
         markIotRecordingsStale();
         return new NextResponse(null, { status: result.status });
     } catch (error) {
-        return error instanceof ZodError
-            ? zodErrorResponse(error)
+        if (error instanceof ZodError) return zodErrorResponse(error);
+        return error instanceof TRPCError
+            ? NextResponse.json(
+                  { error: error.message },
+                  { status: getHTTPStatusCodeFromError(error) },
+              )
             : NextResponse.json({ error: String(error) }, { status: 500 });
     }
 }
