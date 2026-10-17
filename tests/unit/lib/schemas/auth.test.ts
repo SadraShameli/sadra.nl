@@ -1,3 +1,4 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -35,31 +36,57 @@ describe('emailSchema', () => {
 });
 
 describe('passwordSchema', () => {
-    it('rejects passwords under 12 characters', () => {
-        expect(passwordSchema.safeParse('Aa1bcdef').success).toBe(false);
+    it('rejects passwords under 12 characters', async () => {
+        await expect(
+            passwordSchema.safeParseAsync('Aa1bcdef'),
+        ).resolves.toMatchObject({
+            success: false,
+        });
     });
 
-    it('rejects passwords without an uppercase letter', () => {
-        expect(passwordSchema.safeParse('aaaaaaaaaa1!').success).toBe(false);
+    it('rejects passwords without an uppercase letter', async () => {
+        await expect(
+            passwordSchema.safeParseAsync('aaaaaaaaaa1!'),
+        ).resolves.toMatchObject({
+            success: false,
+        });
     });
 
-    it('rejects passwords without a lowercase letter', () => {
-        expect(passwordSchema.safeParse('AAAAAAAAAA1!').success).toBe(false);
+    it('rejects passwords without a lowercase letter', async () => {
+        await expect(
+            passwordSchema.safeParseAsync('AAAAAAAAAA1!'),
+        ).resolves.toMatchObject({
+            success: false,
+        });
     });
 
-    it('rejects passwords without a digit', () => {
-        expect(passwordSchema.safeParse('Aaaaaaaaaaaa').success).toBe(false);
+    it('rejects passwords without a digit', async () => {
+        await expect(
+            passwordSchema.safeParseAsync('Aaaaaaaaaaaa'),
+        ).resolves.toMatchObject({
+            success: false,
+        });
     });
 
-    it('rejects common passwords (case-insensitive)', () => {
-        expect(passwordSchema.safeParse('Password123').success).toBe(false);
-        expect(passwordSchema.safeParse('PASSWORD123').success).toBe(false);
+    it('rejects common passwords (case-insensitive)', async () => {
+        await expect(
+            passwordSchema.safeParseAsync('Password123'),
+        ).resolves.toMatchObject({
+            success: false,
+        });
+        await expect(
+            passwordSchema.safeParseAsync('PASSWORD123'),
+        ).resolves.toMatchObject({
+            success: false,
+        });
     });
 
-    it('accepts a strong password', () => {
-        expect(passwordSchema.safeParse('CorrectHorseBattery9').success).toBe(
-            true,
-        );
+    it('accepts a strong password', async () => {
+        await expect(
+            passwordSchema.safeParseAsync('CorrectHorseBattery9'),
+        ).resolves.toMatchObject({
+            success: true,
+        });
     });
 });
 
@@ -143,8 +170,24 @@ describe('loginInputSchema', () => {
 });
 
 describe('signupInputSchema', () => {
-    it('rejects mismatched passwords', () => {
-        const r = signupInputSchema.safeParse({
+    it('reports a common password through the form resolver', async () => {
+        const result = await zodResolver(signupInputSchema)(
+            {
+                confirm: 'Password1234',
+                email: 'a@b.test',
+                name: 'A',
+                password: 'Password1234',
+            },
+            undefined,
+            { fields: {}, shouldUseNativeValidation: false },
+        );
+        expect(result.errors.password?.message).toBe(
+            'Password is too weak or too common',
+        );
+    });
+
+    it('rejects mismatched passwords', async () => {
+        const r = await signupInputSchema.safeParseAsync({
             confirm: 'CorrectHorseBattery8',
             email: 'a@b.test',
             name: 'A',
@@ -153,8 +196,8 @@ describe('signupInputSchema', () => {
         expect(r.success).toBe(false);
     });
 
-    it('accepts a valid signup payload', () => {
-        const r = signupInputSchema.safeParse({
+    it('accepts a valid signup payload', async () => {
+        const r = await signupInputSchema.safeParseAsync({
             confirm: 'CorrectHorseBattery9',
             email: 'a@b.test',
             name: 'A',
@@ -163,8 +206,8 @@ describe('signupInputSchema', () => {
         expect(r.success).toBe(true);
     });
 
-    it('refuses weak passwords even when confirm matches', () => {
-        const r = signupInputSchema.safeParse({
+    it('refuses weak passwords even when confirm matches', async () => {
+        const r = await signupInputSchema.safeParseAsync({
             confirm: 'password',
             email: 'a@b.test',
             name: 'A',
@@ -215,8 +258,8 @@ describe('magicLinkInputSchema', () => {
 });
 
 describe('resetPasswordInputSchema', () => {
-    it('requires a non-empty token', () => {
-        const r = resetPasswordInputSchema.safeParse({
+    it('requires a non-empty token', async () => {
+        const r = await resetPasswordInputSchema.safeParseAsync({
             confirm: 'CorrectHorseBattery9',
             password: 'CorrectHorseBattery9',
             token: '',
@@ -224,8 +267,8 @@ describe('resetPasswordInputSchema', () => {
         expect(r.success).toBe(false);
     });
 
-    it('rejects mismatched passwords', () => {
-        const r = resetPasswordInputSchema.safeParse({
+    it('rejects mismatched passwords', async () => {
+        const r = await resetPasswordInputSchema.safeParseAsync({
             confirm: 'CorrectHorseBattery8',
             password: 'CorrectHorseBattery9',
             token: 'abc',
@@ -233,8 +276,8 @@ describe('resetPasswordInputSchema', () => {
         expect(r.success).toBe(false);
     });
 
-    it('accepts a valid reset payload', () => {
-        const r = resetPasswordInputSchema.safeParse({
+    it('accepts a valid reset payload', async () => {
+        const r = await resetPasswordInputSchema.safeParseAsync({
             confirm: 'CorrectHorseBattery9',
             password: 'CorrectHorseBattery9',
             token: 'abc',
@@ -244,8 +287,8 @@ describe('resetPasswordInputSchema', () => {
 });
 
 describe('updatePasswordInputSchema', () => {
-    it('requires the current password', () => {
-        const r = updatePasswordInputSchema.safeParse({
+    it('requires the current password', async () => {
+        const r = await updatePasswordInputSchema.safeParseAsync({
             confirm: 'CorrectHorseBattery9',
             current: '',
             password: 'CorrectHorseBattery9',
@@ -253,8 +296,8 @@ describe('updatePasswordInputSchema', () => {
         expect(r.success).toBe(false);
     });
 
-    it('rejects mismatched new passwords', () => {
-        const r = updatePasswordInputSchema.safeParse({
+    it('rejects mismatched new passwords', async () => {
+        const r = await updatePasswordInputSchema.safeParseAsync({
             confirm: 'CorrectHorseBattery8',
             current: 'whatever',
             password: 'CorrectHorseBattery9',
@@ -262,8 +305,8 @@ describe('updatePasswordInputSchema', () => {
         expect(r.success).toBe(false);
     });
 
-    it('accepts a valid change-password payload', () => {
-        const r = updatePasswordInputSchema.safeParse({
+    it('accepts a valid change-password payload', async () => {
+        const r = await updatePasswordInputSchema.safeParseAsync({
             confirm: 'CorrectHorseBattery9',
             current: 'whatever',
             password: 'CorrectHorseBattery9',

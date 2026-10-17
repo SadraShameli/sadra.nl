@@ -223,7 +223,9 @@ describe('callbackUrl on every auth path', () => {
             async ({ url }) => {
                 withCallbackUrl(url);
                 await run();
-                expect(sent).toHaveBeenCalledTimes(1);
+                await vi.waitFor(() => {
+                    expect(sent).toHaveBeenCalledTimes(1);
+                });
                 expect(callbackUrlSentBy(sent)).toBe(routes.home);
             },
         );
@@ -231,7 +233,9 @@ describe('callbackUrl on every auth path', () => {
         it('keeps a same-origin path with a query', async () => {
             withCallbackUrl(ACCEPTED_CALLBACK_URL);
             await run();
-            expect(sent).toHaveBeenCalledTimes(1);
+            await vi.waitFor(() => {
+                expect(sent).toHaveBeenCalledTimes(1);
+            });
             expect(callbackUrlSentBy(sent)).toBe(ACCEPTED_CALLBACK_URL);
         });
     });

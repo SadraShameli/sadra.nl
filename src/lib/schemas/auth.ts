@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import zxcvbn from 'zxcvbn';
 
 import { ROLE_VALUES } from '~/lib/auth/roles';
 import { callbackUrlSchema } from '~/lib/site/privateRoutes';
@@ -19,9 +18,13 @@ export const passwordSchema = z
         message: 'Must contain an uppercase letter',
     })
     .refine((p) => /\d/.test(p), { message: 'Must contain a digit' })
-    .refine((p) => zxcvbn(p).score >= 2, {
-        message: 'Password is too weak or too common',
-    });
+    .refine(
+        async (p) => {
+            const { default: zxcvbn } = await import('zxcvbn');
+            return zxcvbn(p).score >= 2;
+        },
+        { message: 'Password is too weak or too common' },
+    );
 
 export const displayNameSchema = z
     .string()
