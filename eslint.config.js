@@ -18,6 +18,7 @@ import tseslint from 'typescript-eslint';
 const config = defineConfig(
     {
         ignores: [
+            '.claude/worktrees',
             '.next',
             'drizzle',
             'public',
@@ -37,7 +38,12 @@ const config = defineConfig(
             prettier,
         ],
         files: ['**/*.ts', '**/*.tsx'],
-        languageOptions: { parserOptions: { projectService: true } },
+        languageOptions: {
+            parserOptions: {
+                projectService: true,
+                tsconfigRootDir: import.meta.dirname,
+            },
+        },
         plugins: {
             '@next/next': nextPlugin,
             drizzle,
