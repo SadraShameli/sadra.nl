@@ -173,6 +173,7 @@ export const liftingUserProgram = createTable(
             table.userId,
             table.status,
         ),
+        index('lifting_user_program_program_id_idx').on(table.programId),
     ],
 );
 
@@ -314,6 +315,7 @@ export const liftingPersonalRecord = createTable(
             table.userId,
             table.achievedAt.desc(),
         ),
+        index('lifting_personal_record_exercise_id_idx').on(table.exerciseId),
     ],
 );
 

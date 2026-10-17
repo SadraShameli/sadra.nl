@@ -120,6 +120,13 @@
       "when": 1792092855105,
       "tag": "0016_far_cammi",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792232651823,
+      "tag": "0017_hot_scarlet_witch",
+      "breakpoints": true
     }
   ]
 }

@@ -140,6 +140,7 @@ export const accountingBankAccount = createTable(
         uniqueIndex(
             'accounting_importer_bank_account_user_credential_currency_idx',
         ).on(t.userId, t.credentialId, t.currency),
+        index('accounting_bank_account_credential_id_idx').on(t.credentialId),
     ],
 );
 
@@ -178,6 +179,9 @@ export const accountingRun = createTable(
         index('accounting_importer_run_user_created_at_idx').on(
             t.userId,
             t.createdAt,
+        ),
+        index('accounting_run_accounting_credential_id_idx').on(
+            t.accountingCredentialId,
         ),
     ],
 );

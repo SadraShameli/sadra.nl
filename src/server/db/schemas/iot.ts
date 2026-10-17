@@ -96,7 +96,11 @@ export const reading = createTable(
     },
     (table) => [
         index('reading_sensor_id_idx').on(table.sensor_id),
-        index('reading_location_id_idx').on(table.location_id),
+        index('reading_location_id_created_at_idx').on(
+            table.location_id,
+            table.created_at,
+        ),
+        index('reading_created_at_idx').on(table.created_at),
         index('reading_device_id_idx').on(table.device_id),
     ],
 );
