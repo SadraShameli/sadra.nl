@@ -1,6 +1,7 @@
 import * as Sentry from '@sentry/nextjs';
 
 import { scrubQueryParameters } from '~/lib/observability/QueryParameters';
+import { sentryBaseOptions } from '~/lib/observability/SentryOptions';
 
 export async function register(): Promise<void> {
     if (!process.env.SENTRY_DSN) return;
@@ -8,8 +9,10 @@ export async function register(): Promise<void> {
     const common = {
         beforeSend: scrubQueryParameters,
         dsn: process.env.SENTRY_DSN,
-        environment: process.env.NODE_ENV,
-        tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,
+        ...sentryBaseOptions({
+            nodeEnvironment: process.env.NODE_ENV,
+            vercelEnvironment: process.env.VERCEL_ENV,
+        }),
     };
 
     if (

@@ -1,10 +1,14 @@
 import * as Sentry from '@sentry/nextjs';
 
+import { sentryBaseOptions } from '~/lib/observability/SentryOptions';
+
 if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     Sentry.init({
         dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-        environment: process.env.NODE_ENV,
-        tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,
+        ...sentryBaseOptions({
+            nodeEnvironment: process.env.NODE_ENV,
+            vercelEnvironment: process.env.NEXT_PUBLIC_VERCEL_ENV,
+        }),
     });
 }
 
