@@ -5,5 +5,5 @@ import { api } from '~/trpc/server';
 export async function GET() {
     const result = await api.recording.getRecordings();
 
-    return NextResponse.json(result.data ?? result, { status: result.status });
+    return NextResponse.json(result.data);
 }

@@ -182,7 +182,7 @@ export const recordingsRouter = createTRPCRouter({
         }),
 
     getRecordings: publicProcedure.query(async ({ ctx }) => {
-        return (await ctx.db.query.recording.findMany({
+        const recordings = await ctx.db.query.recording.findMany({
             columns: {
                 created_at: true,
                 device_id: true,
@@ -190,7 +190,8 @@ export const recordingsRouter = createTRPCRouter({
                 id: true,
                 location_id: true,
             },
-        })) as Result<(typeof recording.$inferSelect)[]>;
+        });
+        return { data: recordings };
     }),
 
     getRecordingsNoFile: publicProcedure.query(async ({ ctx }) => {
