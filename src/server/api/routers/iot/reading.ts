@@ -102,6 +102,17 @@ const PERIOD_BY_GRANULARITY: Record<
     },
 };
 
+enum DeviceFilterKind {
+    AllDevices = 'all-devices',
+    Device = 'device',
+    UnknownDevice = 'unknown-device',
+}
+
+type DeviceFilter =
+    | { id: number; kind: DeviceFilterKind.Device }
+    | { kind: DeviceFilterKind.AllDevices }
+    | { kind: DeviceFilterKind.UnknownDevice };
+
 async function resolveDateRange(
     input: z.infer<typeof readingsQueryProperties>,
     context: ContextType,
@@ -137,20 +148,26 @@ async function resolveDateRange(
     };
 }
 
-async function resolveDeviceFk(
+const NO_READINGS = 'No readings could be found';
+
+async function resolveDeviceFilter(
     locationPkId: number,
     devicePublicId: number | undefined,
     context: ContextType,
-): Promise<number | undefined> {
-    if (!devicePublicId) return undefined;
-    const d = await context.db.query.device.findFirst({
+): Promise<DeviceFilter> {
+    if (devicePublicId === undefined) {
+        return { kind: DeviceFilterKind.AllDevices };
+    }
+    const found = await context.db.query.device.findFirst({
         where: (device) =>
             and(
                 eq(device.device_id, devicePublicId),
                 eq(device.location_id, locationPkId),
             ),
     });
-    return d?.id;
+    return found === undefined
+        ? { kind: DeviceFilterKind.UnknownDevice }
+        : { id: found.id, kind: DeviceFilterKind.Device };
 }
 
 export const readingRouter = createTRPCRouter({
@@ -311,23 +328,26 @@ export const readingRouter = createTRPCRouter({
         .input(readingsQueryInputSchema)
         .query(async ({ ctx, input }): Promise<Result<GetReadingsRecord[]>> => {
             if (!input) {
-                return { error: 'No readings could be found' };
+                return { error: NO_READINGS };
             }
 
-            const { from, to } = await resolveDateRange(input, ctx);
-            const { dateFormat, label: periodLabel } =
-                PERIOD_BY_GRANULARITY[input.granularity];
-            const deviceFk = await resolveDeviceFk(
+            const deviceFilter = await resolveDeviceFilter(
                 input.location_id,
                 input.device_id,
                 ctx,
             );
+            if (deviceFilter.kind === DeviceFilterKind.UnknownDevice) {
+                return { error: NO_READINGS };
+            }
+            const { from, to } = await resolveDateRange(input, ctx);
+            const { dateFormat, label: periodLabel } =
+                PERIOD_BY_GRANULARITY[input.granularity];
 
             const baseWhere = and(
                 eq(reading.location_id, input.location_id),
-                deviceFk === undefined
-                    ? undefined
-                    : eq(reading.device_id, deviceFk),
+                deviceFilter.kind === DeviceFilterKind.Device
+                    ? eq(reading.device_id, deviceFilter.id)
+                    : undefined,
                 gte(reading.created_at, from),
                 lte(reading.created_at, to),
             );
@@ -375,7 +395,7 @@ export const readingRouter = createTRPCRouter({
             }
 
             if (rows.length === 0) {
-                return { error: 'No readings could be found' };
+                return { error: NO_READINGS };
             }
 
             const sensorIds = [...new Set(rows.map((r) => r.sensor_id))];
