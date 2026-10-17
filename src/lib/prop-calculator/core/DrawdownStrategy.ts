@@ -98,6 +98,15 @@ export abstract class DrawdownStrategy {
         state.thresholdLocked = true;
     }
 
+    survivesLossFromStart(startingBalance: number, loss: number): boolean {
+        return !this.isBreached({
+            balance: startingBalance - loss,
+            startingBalance,
+            threshold: this.initialThreshold(startingBalance),
+            thresholdLocked: false,
+        });
+    }
+
     protected maybeLock(
         state: DrawdownState,
         profit: number = state.balance - state.startingBalance,

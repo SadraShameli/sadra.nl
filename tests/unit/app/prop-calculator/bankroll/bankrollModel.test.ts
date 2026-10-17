@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
     BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL,
-    bankrollBatchRequest,
     bankrollBudgetPricing,
     type BankrollCalculatorInputs,
     bankrollCycleDescription,
     bankrollCycleFigures,
     bankrollCycleInput,
+    bankrollDistributionBatchRequest,
     bankrollExplicitBatchRequest,
     bankrollLeversRequest,
     bankrollMinimumBudgetForThreshold,
@@ -179,30 +179,30 @@ describe('bankrollMinimumBudgetForThreshold', () => {
     });
 });
 
-describe('bankrollBatchRequest', () => {
-    it('builds a Batch request sized to the attempts the budget affords', () => {
-        const variant = variantFor();
-        const request = bankrollBatchRequest(
-            variant,
+describe('bankrollDistributionBatchRequest', () => {
+    it('builds a distribution Batch request from the shared result, sized to the attempts the budget affords', () => {
+        const request = bankrollDistributionBatchRequest(
             POSITIVE_EDGE_OUT,
             dollars(5000),
+            7,
             1,
         );
         expect(request).not.toBeNull();
         if (request === null) return;
-        expect(request.kind).toBe(ToolsRequestKind.Batch);
+        expect(request.kind).toBe(ToolsRequestKind.DistributionBatch);
         expect(request.attempts).toBe(
             Math.floor(5000 / POSITIVE_EDGE_OUT.costPerAttempt),
         );
-        expect(request.variant).toBe(variant);
+        expect(request.costPerAttempt).toBe(POSITIVE_EDGE_OUT.costPerAttempt);
+        expect(request.netValues).toBe(POSITIVE_EDGE_OUT.netValues);
+        expect(request.seed).toBe(7);
     });
 
     it('gives null when the budget cannot afford even one attempt', () => {
-        const variant = variantFor();
-        const request = bankrollBatchRequest(
-            variant,
+        const request = bankrollDistributionBatchRequest(
             POSITIVE_EDGE_OUT,
             dollars(1),
+            7,
             1,
         );
         expect(request).toBeNull();

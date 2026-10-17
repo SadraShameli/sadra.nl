@@ -305,7 +305,7 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         const [request] = runSpy.mock.calls.at(-1) as [
             { kind: ToolsRequestKind; runId: number },
         ];
-        expect(request.kind).toBe(ToolsRequestKind.Batch);
+        expect(request.kind).toBe(ToolsRequestKind.DistributionBatch);
 
         act(() => {
             setupInstance?.setState({
@@ -479,6 +479,29 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         );
     });
 
+    it('hides the previous projection once a required input is cleared', () => {
+        act(() => {
+            root.render(<BankrollView />);
+        });
+        enterProjectionInputs();
+        succeedProjection();
+        expect(
+            container.querySelector('table[aria-label="Month-end projection"]'),
+        ).not.toBeNull();
+
+        act(() => {
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-start')),
+                '',
+            );
+        });
+
+        expect(
+            container.querySelector('table[aria-label="Month-end projection"]'),
+        ).toBeNull();
+        expect(container.textContent).not.toContain('$910');
+    });
+
     it('sends the entered round budget in the projection request (PT-82 step 3)', () => {
         act(() => {
             root.render(<BankrollView />);
@@ -502,6 +525,32 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         ];
         expect(request.kind).toBe(ToolsRequestKind.Projection);
         expect(request.bankroll.roundBudget).toBe(1000);
+    });
+
+    it('prices the Setup batch from the shared calculator distribution that sets the affordable attempts', () => {
+        act(() => {
+            root.render(<BankrollView />);
+        });
+        const setupInstance = toolsWorkerBox.instances[0];
+        const runSpy = vi.fn();
+        if (setupInstance) setupInstance.runSpy = runSpy;
+        act(() => {
+            setInputValue(
+                requireInput(container.querySelector('#bankroll-budget')),
+                '5000',
+            );
+        });
+        const shared = fakeSimOutputs();
+        const [request] = runSpy.mock.calls.at(-1) as [
+            {
+                attempts: number;
+                costPerAttempt: number;
+                netValues: readonly number[];
+            },
+        ];
+        expect(request.attempts).toBe(Math.floor(5000 / shared.costPerAttempt));
+        expect(request.costPerAttempt).toBe(shared.costPerAttempt);
+        expect(request.netValues).toEqual(shared.netValues);
     });
 
     it('shows the worker failure reason on the Setup card instead of a bare n/a when the Batch request fails', () => {

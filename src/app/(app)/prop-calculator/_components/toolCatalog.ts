@@ -16,6 +16,7 @@ import {
     Wallet,
 } from 'lucide-react';
 
+import { BankrollUrlParameter } from '~/lib/schemas/bankrollUrlParameter';
 import { routes } from '~/lib/site/routes';
 
 import { panelDescriptions } from './kpiDescriptions';
@@ -259,8 +260,23 @@ const PAGE_STATE_BLOBS: Readonly<
     [ToolId.StrategyLab]: [PageStateBlob.LabScenarios],
 };
 
+const PAGE_OWNED_PARAMETERS: Readonly<
+    Partial<Record<ToolId, readonly string[]>>
+> = {
+    [ToolId.Bankroll]: Object.values(BankrollUrlParameter),
+};
+
 export function isCalculatorInputsPath(pathname: string): boolean {
     return toolForPathname(pathname)?.usesCalculatorInputs ?? false;
+}
+
+export function pageOwnedParametersOf(id: ToolId): readonly string[] {
+    return PAGE_OWNED_PARAMETERS[id] ?? [];
+}
+
+export function pageOwnedParametersOnPath(pathname: string): readonly string[] {
+    const tool = toolForPathname(pathname);
+    return tool === null ? [] : pageOwnedParametersOf(tool.id);
 }
 
 export function pageStateBlobsOf(id: ToolId): readonly PageStateBlob[] {

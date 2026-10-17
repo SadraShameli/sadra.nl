@@ -242,6 +242,17 @@ export function encodeBankrollUrlState(
     return parameters.toString();
 }
 
+export function encodeBankrollViewState(state: BankrollViewState): string {
+    const parameters = new URLSearchParams(encodeBankrollUrlState(state));
+    const projection = new URLSearchParams(
+        encodeBankrollProjectionUrlState(state),
+    );
+    for (const [name, value] of projection) {
+        parameters.set(name, value);
+    }
+    return parameters.toString();
+}
+
 export function parseBankrollDollarsField(raw: string): Dollars | null {
     return parsed(dollarsSchema, raw);
 }

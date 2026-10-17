@@ -209,6 +209,36 @@ describe('computeToolsResult: Batch (thin call into cohortOutcome)', () => {
     });
 });
 
+describe('computeToolsResult: DistributionBatch (prices the distribution it is sent)', () => {
+    it('prices a batch on the supplied net distribution without simulating a plan', () => {
+        const paying = computeToolsResult({
+            attempts: 10,
+            costPerAttempt: 100,
+            kind: ToolsRequestKind.DistributionBatch,
+            netValues: [400, 400, 400],
+            runId: 5,
+            seed: 1,
+        });
+        const losing = computeToolsResult({
+            attempts: 10,
+            costPerAttempt: 100,
+            kind: ToolsRequestKind.DistributionBatch,
+            netValues: [-100, -100, -100],
+            runId: 6,
+            seed: 1,
+        });
+        if (
+            paying.kind !== ToolsResponseKind.Batch ||
+            losing.kind !== ToolsResponseKind.Batch
+        ) {
+            throw new Error('expected Batch results');
+        }
+        expect(paying.result.lossProbability).toBe(0);
+        expect(losing.result.lossProbability).toBe(1);
+        expect(paying.result.fundedValueToAttemptCostRatio).toBeNull();
+    });
+});
+
 describe('computeToolsResult: SameEv (thin call into simulate + LossRisk)', () => {
     it('compares EV and loss risk for two variants at the same bankroll', () => {
         const result = computeToolsResult({

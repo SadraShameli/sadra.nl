@@ -62,6 +62,7 @@ import { dayStopRuleSchema } from '~/lib/schemas/url';
 export enum ToolsRequestKind {
     Batch = 'batch',
     CopySplit = 'copy-split',
+    DistributionBatch = 'distribution-batch',
     FundedValueEstimate = 'funded-value-estimate',
     Lab = 'lab',
     Levers = 'levers',
@@ -147,6 +148,15 @@ export interface CopySplitToolsResult {
     readonly kind: ToolsResponseKind.CopySplit;
     readonly result: CopySplitResult;
     readonly runId: number;
+}
+
+export interface DistributionBatchToolsRequest {
+    readonly attempts: number;
+    readonly costPerAttempt: number;
+    readonly kind: ToolsRequestKind.DistributionBatch;
+    readonly netValues: readonly number[];
+    readonly runId: number;
+    readonly seed: number;
 }
 
 export interface FundedValueEstimateToolsRequest {
@@ -289,6 +299,7 @@ export interface TakeProfitRowSummary {
 export type ToolsWorkerRequest =
     | BatchToolsRequest
     | CopySplitToolsRequest
+    | DistributionBatchToolsRequest
     | FundedValueEstimateToolsRequest
     | LabToolsRequest
     | LeversToolsRequest
@@ -701,6 +712,14 @@ const toolsRequestSchema = z.discriminatedUnion('kind', [
         splits: copySplitCountsSchema,
         totalRisk: positiveNumberSchema,
         variant: bankrollPlanVariantInputsSchema,
+    }),
+    z.object({
+        attempts: z.number().int().positive(),
+        costPerAttempt: finiteNumberSchema.nonnegative(),
+        kind: z.literal(ToolsRequestKind.DistributionBatch),
+        netValues: z.array(finiteNumberSchema),
+        runId: z.number().int(),
+        seed: z.number().int(),
     }),
     z.object({
         kind: z.literal(ToolsRequestKind.FundedValueEstimate),

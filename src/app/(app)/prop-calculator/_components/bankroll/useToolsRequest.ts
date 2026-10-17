@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import {
     type ToolsWorker,
+    ToolsWorkerPhase,
     useToolsWorker,
 } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { type ToolsWorkerRequest } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
@@ -37,5 +38,7 @@ export function useToolsRequest(
         worker.run(request);
     }, [buildRequest, requestKey, worker]);
 
-    return worker;
+    return requestKey === null
+        ? { ...worker, state: { phase: ToolsWorkerPhase.Idle } }
+        : worker;
 }

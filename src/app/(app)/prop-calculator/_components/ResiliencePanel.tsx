@@ -5,62 +5,30 @@ import { useMemo } from 'react';
 import { Alert } from '~/components/ui/Alert';
 import { Card, CardContent } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { formatCurrency, formatPercent } from '~/lib/format';
+import {
+    formatCurrency,
+    formatGateCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
-import { probStreakAtLeast } from './lab/labMath';
+import { resilienceFigures, type ResilienceRow } from './resilienceModel';
 
 interface ResiliencePanelProperties {
     baseInputs: SimInputs;
     result: SimOutputs;
 }
 
-interface ResilienceRow {
-    damage: number;
-    isTolerance: boolean;
-    n: number;
-    prob: number;
-    survives: boolean;
-}
-
-const BASE_STREAKS = [3, 4, 5, 6, 7, 8, 10] as const;
-
 export default function ResiliencePanel({
     baseInputs,
     result,
 }: ResiliencePanelProperties) {
-    const { plan, riskPerTrade, winrate } = baseInputs;
-    const data = useMemo(() => {
-        const dd = plan.drawdown.amount;
-        const accountSize = plan.accountSize;
-        const lossToler = riskPerTrade > 0 ? Math.floor(dd / riskPerTrade) : 0;
-        const p95 = Math.round(result.maxLosingStreakP95);
-        const q = 1 - winrate;
-        const K = Math.round(
-            result.tradesPerSuccessfulAttempt * result.expectedAttempts,
-        );
-
-        const streaks = [...BASE_STREAKS] as number[];
-        if (lossToler > 0 && lossToler <= 20 && !streaks.includes(lossToler)) {
-            streaks.push(lossToler);
-            streaks.sort((a, b) => a - b);
-        }
-
-        const rows = streaks.map((n) => ({
-            damage: Math.min(n * riskPerTrade, dd),
-            isTolerance: n === lossToler,
-            n,
-            prob: probStreakAtLeast(K, n, q),
-            survives: n * riskPerTrade <= dd,
-        }));
-
-        const safeRisk = p95 > 0 ? dd / p95 : 0;
-        const safeRiskPct =
-            accountSize > 0 ? (safeRisk / accountSize) * 100 : 0;
-
-        return { lossToler, p95, rows, safeRisk, safeRiskPct };
-    }, [plan, result, winrate, riskPerTrade]);
+    const data = useMemo(
+        () => resilienceFigures(baseInputs, result),
+        [baseInputs, result],
+    );
 
     const buffer = data.lossToler - data.p95;
 
@@ -114,7 +82,7 @@ export default function ResiliencePanel({
                     To survive your P95 worst streak ({data.p95} losses), max
                     safe risk is{' '}
                     <span className="font-mono font-semibold text-foreground">
-                        {formatCurrency(data.safeRisk)}
+                        {formatGateCurrency(data.safeRisk)}
                     </span>{' '}
                     ({data.safeRiskPct.toFixed(2)}% of account).
                 </p>
@@ -123,7 +91,7 @@ export default function ResiliencePanel({
     );
 }
 
-function ResilienceTable({ rows }: { rows: ResilienceRow[] }) {
+function ResilienceTable({ rows }: { rows: readonly ResilienceRow[] }) {
     const columns = useMemo<DataTableColumn<ResilienceRow>[]>(
         () => [
             {
@@ -142,8 +110,11 @@ function ResilienceTable({ rows }: { rows: ResilienceRow[] }) {
                 id: 'streak',
             },
             {
-                accessorFn: (r) => r.prob,
-                cell: ({ row }) => formatPercent(row.original.prob),
+                accessorFn: (r) => r.prob ?? -1,
+                cell: ({ row }) =>
+                    row.original.prob === null
+                        ? NOT_APPLICABLE
+                        : formatPercent(row.original.prob),
                 header: 'P(occurs in eval)',
                 id: 'prob',
             },
@@ -165,14 +136,14 @@ function ResilienceTable({ rows }: { rows: ResilienceRow[] }) {
     return (
         <DataTable<ResilienceRow>
             columns={columns}
-            data={rows}
+            data={[...rows]}
             pageSize={null}
             rowClassName={(r) =>
                 cn(
                     !r.survives &&
-                        r.prob > 0.05 &&
+                        (r.prob ?? 1) > 0.05 &&
                         'bg-destructive/10 text-destructive',
-                    !r.survives && r.prob <= 0.05 && 'text-warning',
+                    !r.survives && (r.prob ?? 1) <= 0.05 && 'text-warning',
                     r.isTolerance && 'font-semibold',
                 )
             }

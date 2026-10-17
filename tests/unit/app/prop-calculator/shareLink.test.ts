@@ -18,6 +18,24 @@ import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { OBJECTIVE_URL_PARAMETER } from '~/lib/schemas/url';
 
 describe('buildShareLink', () => {
+    it('adds the page inputs the page passes to the shared calculator state', () => {
+        const state = defaultCalculatorState();
+        const link = new URL(
+            buildShareLink(
+                'https://sadra.nl',
+                '/prop-calculator/bankroll',
+                state,
+                {},
+                'bkb=5000&bks=2000',
+            ),
+        );
+        expect(link.searchParams.get('bkb')).toBe('5000');
+        expect(link.searchParams.get('bks')).toBe('2000');
+        expect(link.searchParams.get('wr')).toBe(
+            encodeState(state, { pageBlobs: [] }).get('wr'),
+        );
+    });
+
     it('is origin plus pathname plus the encoded state', () => {
         const state = calculatorReducer(defaultCalculatorState(), {
             type: CalculatorActionType.SetWinrate,

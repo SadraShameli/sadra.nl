@@ -6,6 +6,7 @@ import {
     type BankrollPlanVariantInputs,
     type BatchToolsRequest,
     type BatchToolsSummary,
+    type DistributionBatchToolsRequest,
     type LeversToolsRequest,
     type ProjectionToolsRequest,
     type SameEvToolsRequest,
@@ -135,23 +136,6 @@ export interface BankrollSetupSummary {
     readonly status: BankrollSetupStatus;
 }
 
-export function bankrollBatchRequest(
-    variant: BankrollPlanVariantInputs,
-    out: SimOutputs,
-    budget: Dollars,
-    runId: number,
-): BatchToolsRequest | null {
-    const attempts = bankrollAttempts(out, budget);
-    return attempts === null || attempts < 1
-        ? null
-        : {
-              attempts,
-              kind: ToolsRequestKind.Batch,
-              runId,
-              variant,
-          };
-}
-
 export function bankrollBudgetPricing(
     out: SimOutputs,
     budget: Dollars,
@@ -200,6 +184,25 @@ export function bankrollCycleInput(
     return multiple === null || cycleDays === null
         ? null
         : { cycleDays, multiple };
+}
+
+export function bankrollDistributionBatchRequest(
+    out: SimOutputs,
+    budget: Dollars,
+    seed: number,
+    runId: number,
+): DistributionBatchToolsRequest | null {
+    const attempts = bankrollAttempts(out, budget);
+    return attempts === null || attempts < 1
+        ? null
+        : {
+              attempts,
+              costPerAttempt: out.costPerAttempt,
+              kind: ToolsRequestKind.DistributionBatch,
+              netValues: out.netValues,
+              runId,
+              seed,
+          };
 }
 
 export function bankrollExplicitBatchRequest(

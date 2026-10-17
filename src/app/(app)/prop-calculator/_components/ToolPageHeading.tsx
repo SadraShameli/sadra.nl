@@ -9,8 +9,12 @@ import {
 } from './toolCatalog';
 
 export type ToolPageHeadingProperties =
-    | { ownQuery: string; toolId: OwnCodecToolId }
-    | { ownQuery?: never; toolId: Exclude<ToolId, OwnCodecToolId> };
+    | { ownQuery: string; pageQuery?: never; toolId: OwnCodecToolId }
+    | {
+          ownQuery?: never;
+          pageQuery?: string;
+          toolId: Exclude<ToolId, OwnCodecToolId>;
+      };
 
 export function ToolHeaderFrame({
     children,
@@ -46,13 +50,19 @@ export function ToolHeadingText({
 
 export function ToolPageHeading({
     ownQuery,
+    pageQuery,
     toolId,
 }: ToolPageHeadingProperties) {
     const entry = toolCatalogEntry(toolId);
     return (
         <ToolHeaderFrame
             toolbar={
-                entry.sharesState && <CalculatorToolbar ownQuery={ownQuery} />
+                entry.sharesState && (
+                    <CalculatorToolbar
+                        ownQuery={ownQuery}
+                        pageQuery={pageQuery}
+                    />
+                )
             }
         >
             <ToolHeadingText entry={entry} />

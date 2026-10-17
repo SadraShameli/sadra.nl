@@ -235,6 +235,19 @@ describe('PositionSizeView', () => {
         expect(after).not.toBe(before);
         expect(after).toBe(ownQuery().get(PositionSizeUrlParameter.RetryFee));
     });
+
+    it('shows the position again once a plan switch replaces a cleared retry fee', () => {
+        typeInto(field('position-size-retry-fee'), '');
+        expect(positionSection().textContent).toContain(FIX_TEXT);
+        act(() => {
+            container
+                .querySelector('[data-testid="switch-plan"]')
+                ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+        expect(field('position-size-retry-fee').value).not.toBe('');
+        expect(positionSection().textContent).not.toContain(FIX_TEXT);
+        expect(ownQuery().has(PositionSizeUrlParameter.RetryFee)).toBe(true);
+    });
 });
 
 describe('PositionSizeView in the funded phase', () => {

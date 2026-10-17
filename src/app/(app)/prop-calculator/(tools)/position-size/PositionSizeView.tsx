@@ -112,24 +112,14 @@ export function PositionSizeView() {
         ReadonlySet<PositionSizeUrlParameter>
     >(() => new Set());
     const result = useMemo(() => positionSizeFor(state), [state]);
-    const isInputValid = invalidFields.size === 0;
+    const activeInvalidFields = [...invalidFields].filter((field) =>
+        isActiveField(field, state.phase),
+    );
+    const isInputValid = activeInvalidFields.length === 0;
     const omittedFromLink = [
-        ...invalidFields,
+        ...activeInvalidFields,
         ...(isUnitChosen ? [] : [PositionSizeUrlParameter.Unit]),
     ];
-    const change: PositionSizeChange = (patch) => {
-        if (patch.unit !== undefined) setIsUnitChosen(true);
-        setInputs((current) => {
-            const withPlanRetryFee: Partial<PositionSizeInput> =
-                patch.plan !== undefined && patch.retryFee === undefined
-                    ? { ...patch, retryFee: dollars(patch.plan.retryFee()) }
-                    : patch;
-            return normalizePositionSizeInput({
-                ...current,
-                ...withPlanRetryFee,
-            });
-        });
-    };
     const changeValidity: FieldValidityChange = (field, isValid) => {
         setInvalidFields((current) => {
             if (current.has(field) !== isValid) return current;
@@ -137,6 +127,24 @@ export function PositionSizeView() {
             if (isValid) next.delete(field);
             else next.add(field);
             return next;
+        });
+    };
+    const change: PositionSizeChange = (patch) => {
+        if (patch.unit !== undefined) setIsUnitChosen(true);
+        const isRetryFeeReset =
+            patch.plan !== undefined && patch.retryFee === undefined;
+        if (isRetryFeeReset) {
+            changeValidity(PositionSizeUrlParameter.RetryFee, true);
+        }
+        setInputs((current) => {
+            const withPlanRetryFee: Partial<PositionSizeInput> =
+                isRetryFeeReset && patch.plan !== undefined
+                    ? { ...patch, retryFee: dollars(patch.plan.retryFee()) }
+                    : patch;
+            return normalizePositionSizeInput({
+                ...current,
+                ...withPlanRetryFee,
+            });
         });
     };
 
@@ -186,6 +194,16 @@ export function PositionSizeView() {
                 </section>
             </div>
         </>
+    );
+}
+
+function isActiveField(
+    field: PositionSizeUrlParameter,
+    phase: TradingPhase,
+): boolean {
+    return (
+        field !== PositionSizeUrlParameter.RetryFee ||
+        phase === TradingPhase.Eval
     );
 }
 

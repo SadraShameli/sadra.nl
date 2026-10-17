@@ -7,12 +7,14 @@ export function buildShareLink(
     pathname: string,
     state: CalculatorState,
     options: EncodeStateOptions,
+    pageQuery = '',
 ): string {
-    return shareLinkForQuery(
-        origin,
-        pathname,
-        encodeState(state, pageEncodeOptions(pathname, options)).toString(),
-    );
+    const parameters = encodeState(state, pageEncodeOptions(pathname, options));
+    const pageParameters = new URLSearchParams(pageQuery);
+    for (const [name, value] of pageParameters) {
+        parameters.set(name, value);
+    }
+    return shareLinkForQuery(origin, pathname, parameters.toString());
 }
 
 export function shareLinkForQuery(

@@ -60,6 +60,7 @@ import {
     type BatchToolsRequest,
     type BatchToolsSummary,
     type CopySplitToolsRequest,
+    type DistributionBatchToolsRequest,
     type FundedValueEstimateToolsRequest,
     type LabRunInputs,
     type LabScenarioInputs,
@@ -104,6 +105,9 @@ export function computeToolsResult(rawRequest: unknown): ToolsWorkerResult {
         }
         case ToolsRequestKind.CopySplit: {
             return finishCopySplit(request);
+        }
+        case ToolsRequestKind.DistributionBatch: {
+            return finishDistributionBatch(request);
         }
         case ToolsRequestKind.FundedValueEstimate: {
             return finishFundedValueEstimate(request);
@@ -206,30 +210,24 @@ export function simulateLabScenario(
     };
 }
 
-function computeBatch(request: BatchToolsRequest): BatchToolsSummary | null {
-    const resolved = resolveVariant(request.variant);
-    if (resolved === null) return null;
-    const { simInputs } = resolved;
-    const out = simulate(simInputs);
+function batchSummaryOf(
+    distribution: Omit<DistributionBatchToolsRequest, 'kind' | 'runId'>,
+    fundedValueToAttemptCostRatio: null | number,
+): BatchToolsSummary {
+    const { attempts, costPerAttempt, netValues, seed } = distribution;
     const outcome = bankrollCohortRisk(
-        out.netValues,
-        request.attempts,
+        netValues,
+        attempts,
         LOSS_RISK_DRAWS,
-        simInputs.seed,
+        seed,
     );
-    const decomposition = attemptEconomicsOfRun(
-        out,
-        simInputs.fundedHorizonDays,
-    );
-    const fundedValueToAttemptCostRatio =
-        decomposition.value?.fundedValueToAttemptCost.value?.ratio ?? null;
     const { pAttemptPays, valuePerPayingAttempt } = empiricalPayingStatsOf(
-        out.netValues,
-        out.costPerAttempt,
+        netValues,
+        costPerAttempt,
     );
     const crossCheck = batchLossClosedForm({
-        attemptCost: dollars(out.costPerAttempt),
-        attempts: request.attempts,
+        attemptCost: dollars(costPerAttempt),
+        attempts,
         pAttemptPays,
         valuePerPayingAttempt,
     });
@@ -242,6 +240,26 @@ function computeBatch(request: BatchToolsRequest): BatchToolsSummary | null {
             outcome.value?.lossProbability.standardError ?? null,
         meanNet: outcome.value?.meanNet ?? null,
     };
+}
+
+function computeBatch(request: BatchToolsRequest): BatchToolsSummary | null {
+    const resolved = resolveVariant(request.variant);
+    if (resolved === null) return null;
+    const { simInputs } = resolved;
+    const out = simulate(simInputs);
+    const decomposition = attemptEconomicsOfRun(
+        out,
+        simInputs.fundedHorizonDays,
+    );
+    return batchSummaryOf(
+        {
+            attempts: request.attempts,
+            costPerAttempt: out.costPerAttempt,
+            netValues: out.netValues,
+            seed: simInputs.seed,
+        },
+        decomposition.value?.fundedValueToAttemptCost.value?.ratio ?? null,
+    );
 }
 
 function computeCopySplit(
@@ -427,6 +445,16 @@ function finishCopySplit(request: CopySplitToolsRequest): ToolsWorkerResult {
     return parseToolsResult({
         kind: ToolsResponseKind.CopySplit,
         result,
+        runId: request.runId,
+    });
+}
+
+function finishDistributionBatch(
+    request: DistributionBatchToolsRequest,
+): ToolsWorkerResult {
+    return parseToolsResult({
+        kind: ToolsResponseKind.Batch,
+        result: batchSummaryOf(request, null),
         runId: request.runId,
     });
 }

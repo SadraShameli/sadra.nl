@@ -22,6 +22,7 @@ import { routes } from '~/lib/site/routes';
 
 const {
     analysis,
+    bankroll,
     index,
     planner,
     positionSize,
@@ -325,6 +326,26 @@ describe('nextUrl page-owned state (PT-119)', () => {
         expect(
             writtenParameters(nextUrl(loaded, strategyLab, '', '')).get('lab'),
         ).toBe(encodeState(shared).get('lab'));
+    });
+});
+
+describe('nextUrl bankroll page inputs', () => {
+    it('keeps the bankroll inputs in the bankroll page URL while the calculator inputs change', () => {
+        const state = sharedState();
+        const written = writtenParameters(
+            nextUrl(state, bankroll, '?bkb=5000&bks=2000&wr=0.3', ''),
+        );
+        expect(written.get('bkb')).toBe('5000');
+        expect(written.get('bks')).toBe('2000');
+        expect(written.get('wr')).toBe(encodeState(state).get('wr'));
+    });
+
+    it('drops bankroll inputs from the URL of another calculator page', () => {
+        const state = sharedState();
+        const written = writtenParameters(
+            nextUrl(state, simulator, '?bkb=5000&wr=0.3', ''),
+        );
+        expect(written.has('bkb')).toBe(false);
     });
 });
 

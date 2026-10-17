@@ -38,8 +38,8 @@ import {
     bankrollBudgetShortText,
 } from './bankrollBudgetCheck';
 import {
-    bankrollBatchRequest,
     bankrollBudgetPricing,
+    bankrollDistributionBatchRequest,
     BankrollSetupStatus,
     bankrollSetupSummary,
     NO_POSITIVE_EDGE_TEXT,
@@ -73,7 +73,7 @@ interface SetupCardProperties {
 }
 
 export function SetupCard({ onChange, state }: SetupCardProperties) {
-    const { rulebook, variant } = useBankrollVariant();
+    const { rulebook } = useBankrollVariant();
     const baseResult = useBaseResult();
     const { state: calculatorState } = useCalculatorInputs();
     const session = useSession();
@@ -106,14 +106,29 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
         !baseResult.isPending &&
         budget !== null &&
         summary?.status === BankrollSetupStatus.Priced;
-    const requestKey = canPrice ? stableJson({ budget, variant }) : null;
+    const seed = calculatorState.seed;
+    const distributionKey = useMemo(
+        () =>
+            out === null
+                ? null
+                : stableJson({
+                      costPerAttempt: out.costPerAttempt,
+                      netValues: out.netValues,
+                      seed,
+                  }),
+        [out, seed],
+    );
+    const requestKey =
+        canPrice && distributionKey !== null
+            ? stableJson({ budget, distributionKey })
+            : null;
 
     const buildRequest = useCallback(
         (runId: number) =>
             out === null || budget === null
                 ? null
-                : bankrollBatchRequest(variant, out, budget, runId),
-        [budget, out, variant],
+                : bankrollDistributionBatchRequest(out, budget, seed, runId),
+        [budget, out, seed],
     );
     const worker = useToolsRequest(requestKey, buildRequest);
 
