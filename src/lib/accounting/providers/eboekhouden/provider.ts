@@ -31,6 +31,8 @@ import {
     ProviderSessionBase,
 } from '~/lib/accounting/providers/provider';
 
+const MUTATION_PAGE_SIZE = 2000;
+
 export const adaptLedger = (ledger: LedgerResponse): ProviderLedger => ({
     category: ledger.category,
     code: ledger.code,
@@ -77,10 +79,10 @@ class EBoekhoudenSession extends ProviderSessionBase {
     }
 
     async latestMutationDate(): Promise<null | string> {
-        const PAGE = 2000;
         const mutations = await this.paginate(
-            (offset) => this.mutations.list({ limit: PAGE, offset }),
-            PAGE,
+            (offset) =>
+                this.mutations.list({ limit: MUTATION_PAGE_SIZE, offset }),
+            MUTATION_PAGE_SIZE,
         );
         let latest: null | string = null;
         for (const m of mutations) {
@@ -108,12 +110,19 @@ class EBoekhoudenSession extends ProviderSessionBase {
         options: ListMutationsOptions,
     ): Promise<ProviderMutation[]> {
         const hasDateFilter = Boolean(options.dateFrom ?? options.dateTo);
-        const rawOffset = hasDateFilter ? 0 : (options.offset ?? 0);
-        const rawLimit = hasDateFilter ? 2000 : options.limit;
-        const rows = await this.mutations.list({
-            limit: rawLimit,
-            offset: rawOffset,
-        });
+        const rows = hasDateFilter
+            ? await this.paginate(
+                  (offset) =>
+                      this.mutations.list({
+                          limit: MUTATION_PAGE_SIZE,
+                          offset,
+                      }),
+                  MUTATION_PAGE_SIZE,
+              )
+            : await this.mutations.list({
+                  limit: options.limit,
+                  offset: options.offset ?? 0,
+              });
         let adapted = rows.map((m) => adaptMutation(m));
         if (options.dateFrom) {
             const from = options.dateFrom;
