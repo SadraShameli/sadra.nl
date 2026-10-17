@@ -13,6 +13,7 @@ import {
     planVariant,
     readNonNegativeInteger,
     readNonNegativeNumber,
+    readPlanOptIns,
     readPositiveInteger,
     readPositiveNumber,
 } from '~/cli/commands/prop/shared';
@@ -156,6 +157,7 @@ import {
     valueGap,
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
+import { withRegistryPlanOptIns } from '~/lib/prop-calculator/core/FundedStateValue';
 import {
     firmDataProvenance,
     planRulesFingerprint,
@@ -758,29 +760,31 @@ export function nextTradeRiskReportLines(
 }
 
 export function readAdviseInputs(arguments_: AdviseArguments): AdviseInputs {
-    const plan = planResolver.resolveOne(arguments_);
+    const listedPlan = planResolver.resolveOne(arguments_);
     const stage = readStage(arguments_.stage);
-    const lifecycleRejection = validateStageForPlan(stage, plan);
+    const lifecycleRejection = validateStageForPlan(stage, listedPlan);
     if (lifecycleRejection !== null) {
         throw new Error(
             describeLifecycleRejection(lifecycleRejection, {
-                facts: plan,
+                facts: listedPlan,
                 stage,
             }),
         );
     }
+    const optIns = readPlanOptIns(arguments_);
     checkOptIn(
-        arguments_['funded-reset'] ?? false,
+        optIns.takesFundedReset,
         PlanOptIn.FundedReset,
-        plan,
+        listedPlan,
         'funded-reset',
     );
     checkOptIn(
-        arguments_['early-withdrawal'] ?? false,
+        optIns.takesOneTimeEarlyWithdrawal,
         PlanOptIn.OneTimeEarlyWithdrawal,
-        plan,
+        listedPlan,
         'early-withdrawal',
     );
+    const plan = withRegistryPlanOptIns(listedPlan, optIns);
 
     const draft = readSnapshotDraft(arguments_, stage);
     checkRequiredSnapshotFields(plan, stage, draft);

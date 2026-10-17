@@ -40,6 +40,11 @@ import { percentile } from '~/lib/prop-calculator/stats';
 import { CardChargeCursor } from './DatedChargeCursor';
 import { runEvalToFundedCycle } from './fundedCycle';
 import {
+    drawFromPayoutBudget,
+    pooledLifetimePayoutBudget,
+    type SharedPayoutBudget,
+} from './SharedPayoutBudget';
+import {
     type BankrollPolicy,
     type BankrollTimelineInputs,
     type BankrollTimelineResult,
@@ -93,6 +98,7 @@ interface TrialState {
     monthIndex: number;
     monthSpent: number;
     open: OpenCard[];
+    payoutBudget: null | SharedPayoutBudget;
     pending: PendingCredit[];
     ruined: boolean;
     withdrawn: number;
@@ -136,6 +142,7 @@ export function simulateBankrollTimeline(
     }
     const sizingIssue = simInputsSizingIssue({
         fundedDayPolicy: inputs.fundedDayPolicy,
+        fundedRiskPerTrade: inputs.fundedRiskPerTrade,
         instrument,
         riskPerTrade,
         stopPoints,
@@ -195,6 +202,7 @@ export function simulateBankrollTimeline(
             monthIndex: 0,
             monthSpent: 0,
             open: [],
+            payoutBudget: pooledLifetimePayoutBudget(plan),
             pending: [],
             ruined: false,
             withdrawn: 0,
@@ -383,10 +391,9 @@ function applyOpenCardCharges(
         const event = card.payouts[openCard.payoutCursor];
         openCard.payoutCursor += 1;
         if (event === undefined) continue;
-        state.pending.push({
-            amount: event.amount,
-            day: day + bankroll.payoutLagDays,
-        });
+        const amount = drawFromPayoutBudget(state.payoutBudget, event.amount);
+        if (amount <= 0) continue;
+        state.pending.push({ amount, day: day + bankroll.payoutLagDays });
     }
     if (localDay >= card.totalDays) openCard.ended = true;
 }

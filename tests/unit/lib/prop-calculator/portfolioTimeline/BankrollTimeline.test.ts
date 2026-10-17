@@ -8,6 +8,7 @@ import {
     fraction,
     FundedResetEligibility,
     initialEvalFee,
+    InstrumentSymbol,
     MffuVariant,
     type Plan,
     StaticDrawdown,
@@ -454,5 +455,20 @@ describe('simulateBankrollTimeline (PT-55)', () => {
             }),
         );
         expect(out.cumulativeSpendP50.at(-1)).toBeGreaterThan(230);
+    });
+});
+
+describe('simulateBankrollTimeline: funded risk sizing', () => {
+    it('refuses a funded risk override below one contract even when the eval risk places', () => {
+        expect(() =>
+            simulateBankrollTimeline(
+                baseInputs({
+                    fundedRiskPerTrade: 1,
+                    instrument: InstrumentSymbol.NQ,
+                    riskPerTrade: 100,
+                    stopPoints: 5,
+                }),
+            ),
+        ).toThrow(/fundedRiskPerTrade \$1 is below one NQ contract/);
     });
 });

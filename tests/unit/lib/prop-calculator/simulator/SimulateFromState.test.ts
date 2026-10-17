@@ -562,6 +562,24 @@ describe('simulateFromState: refuses an impossible funded seed (T31 gating valid
         expect(issue).toContain('funded cycle seed is invalid');
         expect(issue).not.toContain('already concluded');
     });
+
+    it('accepts a seed that reset before its first payout and has since been paid', () => {
+        expect(
+            simStartIssue(
+                plan,
+                {
+                    phase: TradingPhase.Funded,
+                    seed: fullFundedSeed({
+                        cumulativePayout: 150,
+                        fundedResetsUsed: 1,
+                        payoutsIssued: 1,
+                    }),
+                    state: fundedSeedState(),
+                },
+                1,
+            ),
+        ).toBeNull();
+    });
 });
 
 function runTieredPayoutToy(seed: FundedCycleSeed, lastPayoutBalance: number) {

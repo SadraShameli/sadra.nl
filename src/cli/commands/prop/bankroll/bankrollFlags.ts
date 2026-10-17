@@ -398,7 +398,7 @@ export function toBankrollTimelineInputs(
         maxEvalDays: inputs.maxEvalDays,
         minRetainedCushion: inputs.minRetainedCushion,
         payoutRequestSize: inputs.payoutRequestSize,
-        plan,
+        plan: inputs.effectivePlan(plan),
         riskPerTrade: inputs.riskPerTrade,
         rrRatio: inputs.rrRatio,
         rungSizing: inputs.rungSizing,

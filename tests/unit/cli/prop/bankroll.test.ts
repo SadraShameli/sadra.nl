@@ -38,6 +38,7 @@ import {
 } from '~/cli/commands/prop/shared';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
+    AlphaFuturesVariant,
     dollars,
     findFirm,
     FirmId,
@@ -362,6 +363,57 @@ describe('toBankrollTimelineInputs refuses an eval ladder loud instead of silent
                 30,
             ),
         ).not.toThrow();
+    });
+});
+
+describe('toBankrollTimelineInputs resolves the same effective plan as toSimInputs', () => {
+    const bankroll = {
+        maxConcurrentAccounts: null,
+        monthlyBudget: null,
+        payoutLagDays: 0,
+        reinvestFraction: fraction(1),
+        roundBudget: null,
+        startingBankroll: dollars(5000),
+    };
+
+    it('applies --early-withdrawal and --max-lifetime-payouts to the projected plan', () => {
+        const inputs = TradingInputs.parse(
+            parseArgs<typeof projectArguments>(
+                [
+                    ...SMALL_SIM,
+                    '--early-withdrawal',
+                    '--max-lifetime-payouts',
+                    '3',
+                ],
+                projectArguments,
+            ),
+        );
+        const plan = findFirm(FirmId.Mffu)?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.Mffu,
+            variant: MffuVariant.Pro,
+        });
+        if (!plan) throw new Error('MFF Pro 50K plan not found');
+        const result = toBankrollTimelineInputs(inputs, plan, bankroll, 60, 30);
+        expect(result.plan.takesOneTimeEarlyWithdrawal).toBe(true);
+        expect(result.plan.maxLifetimePayouts).toBe(3);
+    });
+
+    it('applies --funded-reset to the projected plan', () => {
+        const inputs = TradingInputs.parse(
+            parseArgs<typeof projectArguments>(
+                [...SMALL_SIM, '--funded-reset'],
+                projectArguments,
+            ),
+        );
+        const plan = findFirm(FirmId.AlphaFutures)?.findPlan({
+            accountSize: 50_000,
+            firm: FirmId.AlphaFutures,
+            variant: AlphaFuturesVariant.Standard,
+        });
+        if (!plan) throw new Error('Alpha Futures Standard 50K plan not found');
+        const result = toBankrollTimelineInputs(inputs, plan, bankroll, 60, 30);
+        expect(result.plan.takesFundedReset).toBe(true);
     });
 });
 

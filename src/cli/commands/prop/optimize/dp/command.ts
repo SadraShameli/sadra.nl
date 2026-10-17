@@ -20,6 +20,7 @@ import {
     readLiveTransferHazard,
     readNonNegativeNumber,
     readObjective,
+    readPlanOptIns,
     readPositiveInteger,
     readPositiveNumber,
     readRebuyLagDays,
@@ -509,10 +510,10 @@ export function resolveDpPlan(
     arguments_: Parameters<typeof planResolver.resolveOne>[0] &
         Pick<DpArguments, 'early-withdrawal' | 'funded-reset'>,
 ): Plan {
-    return withRegistryPlanOptIns(planResolver.resolveOne(arguments_), {
-        takesFundedReset: arguments_['funded-reset'] ?? false,
-        takesOneTimeEarlyWithdrawal: arguments_['early-withdrawal'] ?? false,
-    });
+    return withRegistryPlanOptIns(
+        planResolver.resolveOne(arguments_),
+        readPlanOptIns(arguments_),
+    );
 }
 
 export function shareAtOrAboveGridTop(

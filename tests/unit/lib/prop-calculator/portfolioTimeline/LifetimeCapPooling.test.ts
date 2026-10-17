@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    dollars,
     FirmId,
+    fraction,
     LifetimeCapScope,
     MffuVariant,
 } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
 import {
     runAccountTimeline,
+    simulateBankrollTimeline,
     simulatePortfolioTimeline,
 } from '~/lib/prop-calculator/portfolioTimeline';
 import { mulberry32 } from '~/lib/prop-calculator/rng';
@@ -112,5 +115,26 @@ describe('simulatePortfolioTimeline: the per-user lifetime cap pools across acco
             plan: perAccountPlan,
         });
         expect(out.payoutP50.at(-1) ?? 0).toBeGreaterThan(CAP);
+    });
+});
+
+describe('simulateBankrollTimeline: the per-user lifetime cap pools across replacement cards in one trial', () => {
+    it('never credits more than the per-user cap across replacement cards at capacity one', () => {
+        const out = simulateBankrollTimeline({
+            ...NEAR_CERTAIN_PASS,
+            bankroll: {
+                maxConcurrentAccounts: 1,
+                monthlyBudget: null,
+                payoutLagDays: 0,
+                reinvestFraction: fraction(1),
+                roundBudget: null,
+                startingBankroll: dollars(10_000),
+            },
+            dayBudget: 1500,
+            seed: 42,
+            trials: 5,
+        });
+        for (const value of out.payoutP90)
+            expect(value).toBeLessThanOrEqual(CAP);
     });
 });

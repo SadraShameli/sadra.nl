@@ -386,9 +386,7 @@ export class TradingInputs {
                 stopPoints === undefined
                     ? undefined
                     : readPositiveNumber(stopPoints, 'stop-points'),
-            takesFundedReset: arguments_['funded-reset'] ?? false,
-            takesOneTimeEarlyWithdrawal:
-                arguments_['early-withdrawal'] ?? false,
+            ...readPlanOptIns(arguments_),
             tradesPerDay: readPositiveInteger(arguments_.tpd, 'tpd'),
             trials: readPositiveInteger(arguments_.trials, 'trials'),
             winrate: readFraction(arguments_.winrate, 'winrate'),
@@ -477,6 +475,14 @@ export class TradingInputs {
             : undefined;
     }
 
+    effectivePlan(plan: Plan): Plan {
+        const cappedPlan =
+            this.maxLifetimePayoutsOverride === undefined
+                ? plan
+                : plan.withMaxLifetimePayouts(this.maxLifetimePayoutsOverride);
+        return withPlanOptIns(cappedPlan, this.toPlanOptIns());
+    }
+
     toPlanOptIns(): PlanOptIns {
         return {
             takesFundedReset: this.takesFundedReset,
@@ -485,11 +491,6 @@ export class TradingInputs {
     }
 
     toSimInputs(plan: Plan): SimInputs {
-        const cappedPlan =
-            this.maxLifetimePayoutsOverride === undefined
-                ? plan
-                : plan.withMaxLifetimePayouts(this.maxLifetimePayoutsOverride);
-        const resolvedPlan = withPlanOptIns(cappedPlan, this.toPlanOptIns());
         return {
             commissionPerRoundTrip: this.commissionPerRoundTrip,
             copyAccounts: this.copyAccounts,
@@ -508,7 +509,7 @@ export class TradingInputs {
             maxEvalDays: this.maxEvalDays,
             minRetainedCushion: this.minRetainedCushion,
             payoutRequestSize: this.payoutRequestSize,
-            plan: resolvedPlan,
+            plan: this.effectivePlan(plan),
             rebuyLagDays: this.rebuyLagDays,
             riskPerTrade: this.riskPerTrade,
             rrRatio: this.rrRatio,
@@ -1262,6 +1263,16 @@ export function readPercentAsFraction(
     name: string,
 ): Fraction0to1 {
     return fraction(readPercent(raw, name) / 100);
+}
+
+export function readPlanOptIns(arguments_: {
+    'early-withdrawal'?: boolean;
+    'funded-reset'?: boolean;
+}): PlanOptIns {
+    return {
+        takesFundedReset: arguments_['funded-reset'] ?? false,
+        takesOneTimeEarlyWithdrawal: arguments_['early-withdrawal'] ?? false,
+    };
 }
 
 export function readPositiveInteger(raw: unknown, name: string): number {

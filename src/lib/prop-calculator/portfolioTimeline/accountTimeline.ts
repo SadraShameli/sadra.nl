@@ -7,7 +7,6 @@ import {
     policySizingOf,
 } from '~/lib/prop-calculator/core/DayPolicy';
 import { dollars, fraction } from '~/lib/prop-calculator/core/lib/units';
-import { LifetimeCapScope } from '~/lib/prop-calculator/core/Plan';
 import { resolvePositionSizing } from '~/lib/prop-calculator/core/PositionSizing';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import {
@@ -20,16 +19,17 @@ import {
 import { CardChargeCursor } from './DatedChargeCursor';
 import { runEvalToFundedCycle } from './fundedCycle';
 import {
+    drawFromPayoutBudget,
+    pooledLifetimePayoutBudget,
+    type SharedPayoutBudget,
+} from './SharedPayoutBudget';
+import {
     type AccountTimelineInputs,
     type AccountTimelineResult,
     DEFAULT_DAY_BUDGET,
 } from './types';
 
 const MAX_CARDS_PER_TIMELINE = 2000;
-
-export interface SharedPayoutBudget {
-    remaining: number;
-}
 
 export function runAccountTimeline(
     inputs: AccountTimelineInputs,
@@ -145,16 +145,10 @@ export function runAccountTimeline(
                 payoutIndex < card.payouts.length &&
                 card.payouts[payoutIndex]?.dayOffset === d
             ) {
-                const rawAmount = card.payouts[payoutIndex]?.amount ?? 0;
-                const amount =
-                    payoutBudget === null
-                        ? rawAmount
-                        : Math.max(
-                              0,
-                              Math.min(rawAmount, payoutBudget.remaining),
-                          );
-                payoutSoFar += amount;
-                if (payoutBudget !== null) payoutBudget.remaining -= amount;
+                payoutSoFar += drawFromPayoutBudget(
+                    payoutBudget,
+                    card.payouts[payoutIndex]?.amount ?? 0,
+                );
                 payoutIndex += 1;
             }
             const absoluteDay = cardStart + d;
@@ -211,10 +205,6 @@ function resolvePayoutBudget(
     inputs: AccountTimelineInputs,
     sharedPayoutBudget: SharedPayoutBudget | undefined,
 ): null | SharedPayoutBudget {
-    const cap = inputs.plan.maxLifetimePayoutDollars;
-    return cap === null ||
-        inputs.plan.lifetimeConclusion.dollarCapScope !==
-            LifetimeCapScope.PerUserAcrossVariant
-        ? null
-        : (sharedPayoutBudget ?? { remaining: cap });
+    const ownBudget = pooledLifetimePayoutBudget(inputs.plan);
+    return ownBudget === null ? null : (sharedPayoutBudget ?? ownBudget);
 }

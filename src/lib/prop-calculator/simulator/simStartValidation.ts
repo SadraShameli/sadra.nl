@@ -109,11 +109,8 @@ function fundedSimStartIssue(
         return `fundedResetsUsed is ${seed.fundedResetsUsed}, but ${plan.label} has no funded reset`;
     }
     const maxPerAccount = plan.fundedReset?.maxPerAccount ?? 0;
-    if (seed.fundedResetsUsed > maxPerAccount) {
-        return `fundedResetsUsed (${seed.fundedResetsUsed}) is above ${plan.label}'s funded reset maximum of ${maxPerAccount}`;
-    }
-    return seed.fundedResetsUsed > 0 && seed.payoutsIssued > 0
-        ? 'a funded cycle seed cannot combine payoutsIssued > 0 with fundedResetsUsed > 0: a reset restarts the payout count'
+    return seed.fundedResetsUsed > maxPerAccount
+        ? `fundedResetsUsed (${seed.fundedResetsUsed}) is above ${plan.label}'s funded reset maximum of ${maxPerAccount}`
         : null;
 }
 

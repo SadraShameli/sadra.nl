@@ -375,6 +375,31 @@ describe('readAdviseInputs: required-flag failures name the flag (F-133 step 1b)
         expect(() => readAdviseInputs(parseAdvise(argv))).not.toThrow();
     });
 
+    it('enables the accepted --early-withdrawal on the plan the snapshot is advised on', () => {
+        const plan = mffPlan(MffuVariant.Pro);
+        const argv = [
+            '--firm',
+            'mffu',
+            '--variant',
+            'pro',
+            '--stage',
+            'funded',
+            '--balance',
+            String(plan.accountSize),
+            '--highest-eod',
+            String(plan.accountSize),
+            '--trading-days',
+            '5',
+            '--payouts',
+            '0',
+            '--early-withdrawal',
+        ];
+        expect(
+            readAdviseInputs(parseAdvise(argv)).plan
+                .takesOneTimeEarlyWithdrawal,
+        ).toBe(true);
+    });
+
     it('flags a nominal balance that looks zero-based, mapped to --balance', () => {
         const argv = [
             '--firm',

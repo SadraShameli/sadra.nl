@@ -1,5 +1,4 @@
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator/core/constants';
-import { LifetimeCapScope } from '~/lib/prop-calculator/core/Plan';
 import { deriveSubSeed, mulberry32 } from '~/lib/prop-calculator/rng';
 import {
     assertPayoutRequestPolicy,
@@ -8,7 +7,8 @@ import {
 } from '~/lib/prop-calculator/simulator';
 import { percentile } from '~/lib/prop-calculator/stats';
 
-import { runAccountTimeline, type SharedPayoutBudget } from './accountTimeline';
+import { runAccountTimeline } from './accountTimeline';
+import { pooledLifetimePayoutBudget } from './SharedPayoutBudget';
 import {
     DEFAULT_DAY_BUDGET,
     type PortfolioTimelineInputs,
@@ -54,12 +54,6 @@ export function simulatePortfolioTimeline(
 
     const initialPurchaseDiscounts = plan.purchaseDiscounts(discounts, N);
 
-    const pooledLifetimeCap = plan.maxLifetimePayoutDollars;
-    const isPooledScope =
-        pooledLifetimeCap !== null &&
-        plan.lifetimeConclusion.dollarCapScope ===
-            LifetimeCapScope.PerUserAcrossVariant;
-
     const perTrialSpend: Float64Array[] = [];
     const perTrialPayout: Float64Array[] = [];
     const perTrialNet: Float64Array[] = [];
@@ -71,9 +65,8 @@ export function simulatePortfolioTimeline(
         const combinedSpend = new Float64Array(dayBudget + 1);
         const combinedPayout = new Float64Array(dayBudget + 1);
         const combinedNet = new Float64Array(dayBudget + 1);
-        const sharedPayoutBudget: SharedPayoutBudget | undefined = isPooledScope
-            ? { remaining: pooledLifetimeCap }
-            : undefined;
+        const sharedPayoutBudget =
+            pooledLifetimePayoutBudget(plan) ?? undefined;
 
         for (let a = 0; a < N; a++) {
             const accountRng = mulberry32(deriveSubSeed(seed, t, a));
