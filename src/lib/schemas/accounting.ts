@@ -179,5 +179,6 @@ export const bankAccountUpsertSchema = z.object({
     credentialId: z.uuid(),
     currency: currencyCodeSchema,
     ledger: ledgerReferenceSchema,
+    replacesId: z.uuid().optional(),
 });
 export type BankAccountUpsertInput = z.infer<typeof bankAccountUpsertSchema>;

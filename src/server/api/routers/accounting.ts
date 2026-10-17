@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
@@ -312,28 +312,46 @@ export const accountingRouter = createTRPCRouter({
             .input(bankAccountUpsertSchema)
             .mutation(async ({ ctx, input }) => {
                 await loadCredentialOrThrow(input.credentialId, ctx.userId);
-                const q = ctx.db
-                    .insert(accountingBankAccount)
-                    .values({
-                        credentialId: input.credentialId,
-                        currency: input.currency,
-                        ledgerId: input.ledger.id,
-                        ledgerLabel: input.ledger.label,
-                        userId: ctx.userId,
-                    })
-                    .onConflictDoUpdate({
-                        set: {
+                await ctx.db.transaction(async (transaction) => {
+                    await transaction
+                        .insert(accountingBankAccount)
+                        .values({
+                            credentialId: input.credentialId,
+                            currency: input.currency,
                             ledgerId: input.ledger.id,
                             ledgerLabel: input.ledger.label,
-                            updatedAt: new Date(),
-                        },
-                        target: [
-                            accountingBankAccount.userId,
-                            accountingBankAccount.credentialId,
-                            accountingBankAccount.currency,
-                        ],
-                    });
-                await q;
+                            userId: ctx.userId,
+                        })
+                        .onConflictDoUpdate({
+                            set: {
+                                ledgerId: input.ledger.id,
+                                ledgerLabel: input.ledger.label,
+                                updatedAt: new Date(),
+                            },
+                            target: [
+                                accountingBankAccount.userId,
+                                accountingBankAccount.credentialId,
+                                accountingBankAccount.currency,
+                            ],
+                        });
+                    if (input.replacesId === undefined) return;
+                    await transaction
+                        .delete(accountingBankAccount)
+                        .where(
+                            and(
+                                eq(accountingBankAccount.id, input.replacesId),
+                                eq(accountingBankAccount.userId, ctx.userId),
+                                eq(
+                                    accountingBankAccount.credentialId,
+                                    input.credentialId,
+                                ),
+                                ne(
+                                    accountingBankAccount.currency,
+                                    input.currency,
+                                ),
+                            ),
+                        );
+                });
                 return { ok: true };
             }),
     }),

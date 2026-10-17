@@ -47,6 +47,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
+import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
 import { api } from '~/trpc/react';
 
@@ -437,24 +438,28 @@ function BankAccountFormDialog({
             onClose();
         },
     });
-    const del = api.accounting.bankAccounts.delete.useMutation({
-        onError: toastError,
-        onSuccess: invalidate,
-    });
-
     const [currency, setCurrency] = useState(isEdit ? mode.currency : '');
     const [ledger, setLedger] = useState<LedgerReference | null>(
         isEdit ? mode.ledger : null,
     );
 
+    const nextCurrency = currencyCodeSchema.safeParse(
+        currency.trim().toUpperCase(),
+    );
     const canSave =
-        currency.trim().length > 0 && ledger !== null && !upsert.isPending;
+        nextCurrency.success && ledger !== null && !upsert.isPending;
 
     const submit = () => {
-        if (!ledger) return;
-        const next = currency.trim().toUpperCase();
-        if (isEdit && mode.currency !== next) del.mutate({ id: mode.id });
-        upsert.mutate({ credentialId, currency: next, ledger });
+        if (!ledger || !nextCurrency.success) return;
+        upsert.mutate({
+            credentialId,
+            currency: nextCurrency.data,
+            ledger,
+            replacesId:
+                isEdit && mode.currency !== nextCurrency.data
+                    ? mode.id
+                    : undefined,
+        });
     };
 
     return (
