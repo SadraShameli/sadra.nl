@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import {
     formatCompactCurrency,
     formatPercent,

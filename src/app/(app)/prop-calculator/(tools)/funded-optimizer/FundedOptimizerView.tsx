@@ -28,13 +28,13 @@ import {
     type FundedSweepRequest,
     type FundedSweepResult,
 } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
 import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
-} from '~/components/ui/Collapsible';
+} from '~/components/ui/collapsible';
 import {
     Table,
     TableBody,
@@ -42,7 +42,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { LifetimePayoutCapBasis } from '~/lib/prop-calculator/advisor';
 import { type Plan } from '~/lib/prop-calculator/core';
 import {

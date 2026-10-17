@@ -6,7 +6,6 @@ import {
     AlertCircle,
     CheckCircle2,
     KeyRound,
-    Loader2,
     Pencil,
     Star,
     Trash2,
@@ -19,21 +18,22 @@ import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { CredentialKind } from '~/lib/accounting/credentials/registry';
 
 import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     Dialog,
     DialogContent,
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Form } from '~/components/ui/Form';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Form } from '~/components/ui/form';
+import { Skeleton } from '~/components/ui/skeleton';
+import { Spinner } from '~/components/ui/spinner';
 import {
     CredentialRegistry,
     CredentialRole,
@@ -154,7 +154,7 @@ export function ConnectionsManager() {
                             variant="outline"
                         >
                             {isActivating ? (
-                                <Loader2 className="size-3 animate-spin" />
+                                <Spinner className="size-3" />
                             ) : (
                                 <Star className="size-3" />
                             )}
@@ -183,7 +183,7 @@ export function ConnectionsManager() {
                             variant="outline"
                         >
                             {isTesting ? (
-                                <Loader2 className="size-3 animate-spin" />
+                                <Spinner className="size-3" />
                             ) : (
                                 <CheckCircle2 className="size-3" />
                             )}
@@ -220,7 +220,7 @@ export function ConnectionsManager() {
                             variant="ghost"
                         >
                             {isDeleting ? (
-                                <Loader2 className="size-3 animate-spin" />
+                                <Spinner className="size-3" />
                             ) : (
                                 <Trash2 className="size-3" />
                             )}
@@ -436,7 +436,7 @@ function EditCredentialForm({
                         </Button>
                         <Button disabled={updateMut.isPending} type="submit">
                             {updateMut.isPending && (
-                                <Loader2 className="size-3 animate-spin" />
+                                <Spinner className="size-3" />
                             )}
                             Save changes
                         </Button>

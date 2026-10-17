@@ -33,7 +33,7 @@ import {
 } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import { ValueChainCard } from '~/app/(app)/prop-calculator/_components/value/ValueChainCard';
 import { accountPrefillHref } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
 import { cn } from '~/lib/utilities';

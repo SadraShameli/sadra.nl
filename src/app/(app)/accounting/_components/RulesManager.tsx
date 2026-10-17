@@ -20,34 +20,34 @@ import type {
 } from '~/lib/accounting/core/types';
 
 import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { DateRangePicker } from '~/components/ui/DatePicker';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { DateRangePicker } from '~/components/ui/date-picker';
 import {
     Dialog,
     DialogContent,
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
+} from '~/components/ui/dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
 import { api } from '~/trpc/react';

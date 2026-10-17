@@ -1,4 +1,4 @@
-import { Slider } from '~/components/ui/Slider';
+import { Slider } from '~/components/ui/slider';
 import { DurationFormat } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
 

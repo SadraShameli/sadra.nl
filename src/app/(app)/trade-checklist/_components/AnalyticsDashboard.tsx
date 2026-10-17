@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { cn } from '~/lib/utilities';
 
 import { ComponentCorrelationChart } from './analytics/ComponentCorrelationChart';

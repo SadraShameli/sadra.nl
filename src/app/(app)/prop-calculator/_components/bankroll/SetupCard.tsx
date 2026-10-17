@@ -9,10 +9,10 @@ import {
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Field, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import { useSession } from '~/lib/auth/client';
 import {
     formatGateCurrency,

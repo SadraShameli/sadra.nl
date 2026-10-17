@@ -41,7 +41,7 @@ vi.mock('~/trpc/react', () => {
 
 const { ExerciseCard } =
     await import('~/app/(app)/lifting/_components/log/ExerciseCard');
-const { TooltipProvider } = await import('~/components/ui/Tooltip');
+const { TooltipProvider } = await import('~/components/ui/tooltip');
 
 const PENDING_SET_ID = '00000000-0000-4000-8000-000000000041';
 

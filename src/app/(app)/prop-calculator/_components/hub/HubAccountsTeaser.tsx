@@ -19,14 +19,14 @@ import {
     type SetupChecklistCardModel,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SetupChecklistCompact } from '~/app/(app)/prop-calculator/accounts/_components/overview/SetupChecklistCard';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     Card,
     CardAction,
     CardContent,
     CardHeader,
-} from '~/components/ui/Card';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/card';
+import { Skeleton } from '~/components/ui/skeleton';
 import { useSession } from '~/lib/auth/client';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {

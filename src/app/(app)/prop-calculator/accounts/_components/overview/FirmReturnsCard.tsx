@@ -3,7 +3,7 @@
 import { ArrowUpDown } from 'lucide-react';
 import { memo, useMemo, useState } from 'react';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     Table,
     TableBody,
@@ -11,7 +11,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { NOT_APPLICABLE } from '~/lib/format';
 import { compareText } from '~/lib/prop-accounts';
 

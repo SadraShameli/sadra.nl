@@ -5,8 +5,8 @@ import {
     FieldDescription,
     FieldError,
     FieldLabel,
-} from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 
 import {
     PERSONAL_RULE_FIELDS,

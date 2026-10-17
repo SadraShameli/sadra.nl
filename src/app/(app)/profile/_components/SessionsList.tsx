@@ -13,11 +13,11 @@ import {
 import { toast } from 'sonner';
 import { UAParser } from 'ua-parser-js';
 
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { authClient } from '~/lib/auth/client';
 import { cn } from '~/lib/utilities';
 

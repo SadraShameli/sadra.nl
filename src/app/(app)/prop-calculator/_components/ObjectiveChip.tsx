@@ -3,14 +3,14 @@
 import { useId } from 'react';
 import { z } from 'zod';
 
-import { Field, FieldDescription, FieldLabel } from '~/components/ui/Field';
+import { Field, FieldDescription, FieldLabel } from '~/components/ui/field';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { formatCurrency } from '~/lib/format';
 import { CENTS_PER_DOLLAR } from '~/lib/prop-calculator';
 import {

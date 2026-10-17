@@ -39,13 +39,13 @@ import {
     PortfolioSource,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useAccountDetailValues } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import { Checkbox } from '~/components/ui/Checkbox';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import { Checkbox } from '~/components/ui/checkbox';
+import { Field, FieldLabel } from '~/components/ui/field';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     Table,
     TableBody,
@@ -53,7 +53,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { errorMessage } from '~/lib/errorMessage';
 import {
     AccountStage,

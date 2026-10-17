@@ -7,7 +7,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type AttemptEconomicsCardModel } from './overviewModel';

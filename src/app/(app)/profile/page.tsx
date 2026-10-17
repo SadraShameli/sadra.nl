@@ -4,9 +4,9 @@ import { type ReactNode, Suspense } from 'react';
 
 import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
 import { PageTransition } from '~/components/PageTransition';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { AutoDismissAlert } from '~/components/ui/AutoDismissAlert';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { AutoDismissAlert } from '~/components/ui/auto-dismiss-alert';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { isAdminOrAbove, isRoot, resolveRole } from '~/lib/auth/roles';
 import { profileSearchSchema } from '~/lib/schemas/url';

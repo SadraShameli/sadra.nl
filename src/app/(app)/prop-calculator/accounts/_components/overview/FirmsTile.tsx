@@ -5,9 +5,9 @@ import { useMemo } from 'react';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { SCALE_GATE_STATUS_VARIANT } from '~/app/(app)/prop-calculator/accounts/_components/scaleGateBadge';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Skeleton } from '~/components/ui/skeleton';
 import { PortfolioLedger } from '~/lib/prop-accounts';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { routes } from '~/lib/site/routes';

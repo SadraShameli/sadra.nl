@@ -2,14 +2,14 @@
 
 import { useMemo } from 'react';
 
-import { Label } from '~/components/ui/Label';
+import { Label } from '~/components/ui/label';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { api } from '~/trpc/react';
 
 import { useActiveCredentials } from './useActiveCredentials';

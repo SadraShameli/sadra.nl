@@ -15,7 +15,7 @@ import {
     CopyGroupWorkerOutcomeKind,
     type CopyGroupWorkerRequest,
 } from '~/app/(app)/prop-calculator/_workers/copyGroupWorkerMessages';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { formatCurrency } from '~/lib/format';
 import { assumptionText } from '~/lib/prop-calculator/advisor';
 import { CopyGroupSimulationRejectionKind } from '~/lib/prop-calculator/simulator';

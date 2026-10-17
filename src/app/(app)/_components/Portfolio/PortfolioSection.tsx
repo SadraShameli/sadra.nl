@@ -3,7 +3,7 @@ import {
     SectionShell,
     type SectionTone,
 } from '~/app/(app)/_components/SectionShell';
-import StaggerAnimation from '~/components/ui/Animations/Stagger';
+import StaggerAnimation from '~/components/ui/animations/stagger';
 import { type PortfolioSection as PortfolioSectionCopy } from '~/lib/site/content';
 
 import PortfolioEntry from './PortfolioEntry';

@@ -21,27 +21,27 @@ import {
     RowActionLink,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     type DataTableInstance,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { DataTableDateRange } from '~/components/ui/DataTableDateRange';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { Dialog } from '~/components/ui/Dialog';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+} from '~/components/ui/data-table';
+import { DataTableDateRange } from '~/components/ui/data-table-date-range';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { Dialog } from '~/components/ui/dialog';
+import { FilterSelect } from '~/components/ui/filter-select';
 import {
     FormControl,
     FormField,
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Textarea } from '~/components/ui/Textarea';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
+import { Textarea } from '~/components/ui/textarea';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     WORKOUT_DURATION_BUCKETS,

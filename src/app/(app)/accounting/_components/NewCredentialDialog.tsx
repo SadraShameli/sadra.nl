@@ -1,14 +1,14 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Loader2, Plus } from 'lucide-react';
+import { AlertCircle, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -16,8 +16,9 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '~/components/ui/Dialog';
-import { Form } from '~/components/ui/Form';
+} from '~/components/ui/dialog';
+import { Form } from '~/components/ui/form';
+import { Spinner } from '~/components/ui/spinner';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import {
     type CredentialCreateInput,
@@ -185,7 +186,7 @@ export function NewCredentialDialog() {
                                 type="submit"
                             >
                                 {creationMutation.isPending && (
-                                    <Loader2 className="size-3 animate-spin" />
+                                    <Spinner className="size-3" />
                                 )}
                                 Save
                             </Button>

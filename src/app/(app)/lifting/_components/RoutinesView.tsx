@@ -3,11 +3,11 @@
 import { Dumbbell, Play, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Skeleton } from '~/components/ui/skeleton';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 

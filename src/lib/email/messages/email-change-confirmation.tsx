@@ -45,7 +45,7 @@ function EmailChangeConfirmationTemplate({
                 {`Someone signed in to your account asked to change its email address to ${newEmail}. Click the button below to approve it; we then send a verification link to the new address. This link expires in ${emailLinkLifetimeText(EmailLink.Verification)}.`}
             </Text>
             <Button
-                className="block rounded-full bg-camel px-6 py-3 text-center text-sm font-semibold text-on-camel no-underline"
+                className="block rounded-full selected-pill px-6 py-3 text-center text-sm font-semibold no-underline"
                 href={url}
             >
                 Approve change

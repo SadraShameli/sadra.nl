@@ -4,9 +4,9 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { Badge } from '~/components/ui/Badge';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Badge } from '~/components/ui/badge';
+import { Field, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Table,
     TableBody,
@@ -14,7 +14,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import {
     formatDelta,
     formatGateCurrency,

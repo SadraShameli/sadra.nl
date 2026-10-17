@@ -14,11 +14,11 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Card } from '~/components/ui/Card';
-import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Card } from '~/components/ui/card';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Table,
     TableBody,
@@ -26,7 +26,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { CENTS_PER_DOLLAR } from '~/lib/prop-calculator';
 import { type CopySplitFundedSizing } from '~/lib/prop-calculator/advisor/policy';
 import { stableJson } from '~/lib/stableJson';

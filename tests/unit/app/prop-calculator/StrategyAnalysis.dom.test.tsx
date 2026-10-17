@@ -23,7 +23,7 @@ import {
     requiredR,
 } from '~/lib/prop-calculator/economics';
 
-vi.mock('~/components/ui/InfoPopover', () => ({
+vi.mock('~/components/ui/info-popover', () => ({
     default: () => null,
 }));
 

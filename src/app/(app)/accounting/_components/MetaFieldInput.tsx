@@ -4,10 +4,10 @@ import { useId } from 'react';
 
 import type { CredentialMetaField } from '~/lib/accounting/credentials/index';
 
-import { Card, CardContent } from '~/components/ui/Card';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import { Switch } from '~/components/ui/Switch';
+import { Card, CardContent } from '~/components/ui/card';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
+import { Switch } from '~/components/ui/switch';
 import { MetaFieldType } from '~/lib/accounting/credentials/index';
 
 import { CounterpartNameSelect } from './CounterpartNameSelect';

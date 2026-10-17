@@ -30,21 +30,21 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Calendar } from '~/components/ui/Calendar';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Calendar } from '~/components/ui/calendar';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
-} from '~/components/ui/DataTable';
-import { DataTableDateRange } from '~/components/ui/DataTableDateRange';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { DatePicker } from '~/components/ui/DatePicker';
-import { EmptyState } from '~/components/ui/EmptyState';
+} from '~/components/ui/data-table';
+import { DataTableDateRange } from '~/components/ui/data-table-date-range';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { DatePicker } from '~/components/ui/date-picker';
+import { EmptyState } from '~/components/ui/empty-state';
 import {
     Form,
     FormControl,
@@ -52,23 +52,23 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Progress } from '~/components/ui/Progress';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
+import { Progress } from '~/components/ui/progress';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Tabs, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+} from '~/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-} from '~/components/ui/Tooltip';
+} from '~/components/ui/tooltip';
 import { WeightUnit } from '~/lib/lifting/format';
 import { type CreateGoalInput, goalInputSchema } from '~/lib/lifting/schemas';
 import {

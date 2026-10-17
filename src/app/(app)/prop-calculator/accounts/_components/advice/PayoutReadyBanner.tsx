@@ -1,6 +1,6 @@
 import { uncertainCurrencyText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Card } from '~/components/ui/Card';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Card } from '~/components/ui/card';
 import { formatCurrency } from '~/lib/format';
 
 import { PAYOUT_READY_LESSON_TEXT } from './accountActionModel';

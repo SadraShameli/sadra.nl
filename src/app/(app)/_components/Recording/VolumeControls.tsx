@@ -1,7 +1,7 @@
 import { ListEnd, Volume, Volume1, Volume2 } from 'lucide-react';
 
-import { Button } from '~/components/ui/Button';
-import { Slider } from '~/components/ui/Slider';
+import { Button } from '~/components/ui/button';
+import { Slider } from '~/components/ui/slider';
 import { cn } from '~/lib/utilities';
 
 import { SpeedControl } from './SpeedControl';

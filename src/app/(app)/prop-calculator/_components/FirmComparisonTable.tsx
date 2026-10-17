@@ -3,24 +3,24 @@
 import { Building2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
 import {
     Field,
     FieldDescription,
     FieldError,
     FieldLabel,
-} from '~/components/ui/Field';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import {
     formatCurrency,
     formatDays,

@@ -9,7 +9,7 @@ import {
     type ChartConfig,
     ChartContainer,
     ChartSize,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import { formatPercent } from '~/lib/format';
 import { dayOfWeekStats, type LightAssessment } from '~/lib/trading/analytics';
 

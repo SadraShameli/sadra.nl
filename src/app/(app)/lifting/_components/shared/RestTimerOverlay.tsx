@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { Button } from '~/components/ui/Button';
-import { Progress } from '~/components/ui/Progress';
+import { Button } from '~/components/ui/button';
+import { Progress } from '~/components/ui/progress';
 import { DurationFormat } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
 

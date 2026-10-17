@@ -2,7 +2,7 @@
 
 import { SlidersHorizontal } from 'lucide-react';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -10,7 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '~/components/ui/Dialog';
+} from '~/components/ui/dialog';
 
 import { EvalLadderScope } from './AppliedEvalLadderNotice';
 import { CalculatorInputsForm } from './CalculatorInputsForm';

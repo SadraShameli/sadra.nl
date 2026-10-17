@@ -8,13 +8,13 @@ import { type DateRange } from 'react-day-picker';
 
 import type { location } from '~/server/db/schemas/iot';
 
-import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterDateRange } from '~/components/ui/FilterDateRange';
-import { FilterSelect } from '~/components/ui/FilterSelect';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
+import AreaChartNew from '~/components/ui/chart/area-chart-new';
+import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterDateRange } from '~/components/ui/filter-date-range';
+import { FilterSelect } from '~/components/ui/filter-select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     finestGranularityForRange,
     type Granularity,

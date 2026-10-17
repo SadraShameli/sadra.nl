@@ -6,12 +6,12 @@ import { type DateRange } from 'react-day-picker';
 
 import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterDateRange } from '~/components/ui/FilterDateRange';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterDateRange } from '~/components/ui/filter-date-range';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { MutationType } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 

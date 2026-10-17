@@ -19,12 +19,12 @@ import {
     RowActionButton,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
+} from '~/components/ui/data-table';
 import {
     Dialog,
     DialogContent,
@@ -32,7 +32,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '~/components/ui/Dialog';
+} from '~/components/ui/dialog';
 import {
     Form,
     FormControl,
@@ -40,16 +40,16 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/select';
+import { Separator } from '~/components/ui/separator';
 import {
     type SensorCreateInput,
     sensorCreateSchema,

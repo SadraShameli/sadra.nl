@@ -8,20 +8,20 @@ import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/
 import { pageEncodeOptions } from '~/app/(app)/prop-calculator/_components/calculatorUrlSync';
 import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
 import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge, type BadgeProperties } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Badge, type BadgeProperties } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import {
     Card,
     CardContent,
     CardDescription,
     CardHeader,
     CardTitle,
-} from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterIsoDateRange } from '~/components/ui/FilterIsoDateRange';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/card';
+import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterIsoDateRange } from '~/components/ui/filter-iso-date-range';
+import { Skeleton } from '~/components/ui/skeleton';
 import { formatPercent, formatR } from '~/lib/format';
 import {
     MAX_ACCOUNT_DATE_YEAR,

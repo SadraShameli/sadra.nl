@@ -1,23 +1,18 @@
 'use client';
 
-import {
-    AlertCircle,
-    CheckCircle2,
-    Loader2,
-    Send,
-    XCircle,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Send, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ExternalId, RunId } from '~/lib/accounting/core/ids';
 import type { Booking } from '~/lib/accounting/core/types';
 import type { ImportEvent } from '~/lib/accounting/runner-types';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card } from '~/components/ui/Card';
-import { Progress } from '~/components/ui/Progress';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card } from '~/components/ui/card';
+import { Progress } from '~/components/ui/progress';
+import { Spinner } from '~/components/ui/spinner';
 import { apiRoutes } from '~/lib/site/routes';
 import { api } from '~/trpc/react';
 
@@ -149,7 +144,7 @@ export function PushPanel({
                     onClick={handleSend}
                 >
                     {isPending ? (
-                        <Loader2 className="size-3 animate-spin" />
+                        <Spinner className="size-3" />
                     ) : (
                         <Send className="size-3" />
                     )}
@@ -245,6 +240,6 @@ function RowIcon({ status }: { status: PostRowStatus }) {
     return status === 'failed' ? (
         <XCircle className="size-3.5 text-destructive" />
     ) : (
-        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+        <Spinner className="size-3.5 text-muted-foreground" />
     );
 }

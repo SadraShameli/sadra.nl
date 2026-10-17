@@ -7,7 +7,7 @@ import {
     CardDescription,
     CardHeader,
     CardTitle,
-} from '~/components/ui/Card';
+} from '~/components/ui/card';
 
 export function ProfilePanel({
     action,

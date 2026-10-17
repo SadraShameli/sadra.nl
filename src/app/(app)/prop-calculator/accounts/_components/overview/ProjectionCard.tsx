@@ -9,7 +9,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 
 import {
     ExpectedNetStatus,

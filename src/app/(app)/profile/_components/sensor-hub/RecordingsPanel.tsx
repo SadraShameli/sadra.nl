@@ -23,22 +23,22 @@ import {
     RowActionLink,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     dataTableExpanderColumn,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { Dialog, DialogTrigger } from '~/components/ui/Dialog';
+} from '~/components/ui/data-table';
+import { Dialog, DialogTrigger } from '~/components/ui/dialog';
 import {
     FormControl,
     FormField,
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     type RecordingCreateAdminInput,

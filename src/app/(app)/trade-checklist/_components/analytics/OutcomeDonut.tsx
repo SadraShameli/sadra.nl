@@ -7,7 +7,7 @@ import {
     type ChartConfig,
     ChartContainer,
     ChartSize,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import {
     type LightAssessment,
     outcomeDistribution,

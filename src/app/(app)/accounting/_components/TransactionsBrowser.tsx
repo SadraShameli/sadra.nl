@@ -9,17 +9,17 @@ import type {
     TransactionMatch,
 } from '~/lib/accounting/core/types';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent } from '~/components/ui/Card';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterDateRange } from '~/components/ui/FilterDateRange';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+} from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterDateRange } from '~/components/ui/filter-date-range';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { api } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';

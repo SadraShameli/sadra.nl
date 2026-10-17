@@ -13,15 +13,15 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterSelect } from '~/components/ui/FilterSelect';
-import { FilterToggle } from '~/components/ui/FilterToggle';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterSelect } from '~/components/ui/filter-select';
+import { FilterToggle } from '~/components/ui/filter-toggle';
+import InfoPopover from '~/components/ui/info-popover';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     Table,
     TableBody,
@@ -29,8 +29,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
-import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
+} from '~/components/ui/table';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     AccountStage,
     accountStageLabel,

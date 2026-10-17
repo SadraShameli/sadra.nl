@@ -6,9 +6,9 @@ import { useEffect, useState } from 'react';
 
 import { LogShellSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { RestTimerOverlay } from '~/app/(app)/lifting/_components/shared/RestTimerOverlay';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import { EmptyState } from '~/components/ui/EmptyState';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import { EmptyState } from '~/components/ui/empty-state';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     UNIT_DISTANCE_VALUES,

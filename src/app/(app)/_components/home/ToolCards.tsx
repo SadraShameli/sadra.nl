@@ -2,8 +2,8 @@ import { ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { useId } from 'react';
 
-import { CHART_STROKE_WIDTH } from '~/components/ui/Chart';
-import { ChartAreaGradient } from '~/components/ui/Chart/ChartAreaGradient';
+import { CHART_STROKE_WIDTH } from '~/components/ui/chart';
+import { ChartAreaGradient } from '~/components/ui/chart/chart-area-gradient';
 import { type SiteTool, siteTools } from '~/lib/site/content';
 import { cn } from '~/lib/utilities';
 

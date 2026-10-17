@@ -2,9 +2,9 @@
 
 import { useMemo } from 'react';
 
-import { Alert } from '~/components/ui/Alert';
-import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import { Alert } from '~/components/ui/alert';
+import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import {
     formatCurrency,
     formatGateCurrency,

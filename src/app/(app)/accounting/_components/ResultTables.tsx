@@ -13,14 +13,14 @@ import type {
     UnknownMerchant,
 } from '~/lib/accounting/core/types';
 
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import {
     Dialog,
     DialogContent,
@@ -28,23 +28,23 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import { FilterDateRange } from '~/components/ui/FilterDateRange';
+} from '~/components/ui/dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Field, FieldLabel } from '~/components/ui/field';
+import { FilterDateRange } from '~/components/ui/filter-date-range';
 import {
     FilterSelect,
     type FilterSelectOption,
-} from '~/components/ui/FilterSelect';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/filter-select';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Switch } from '~/components/ui/Switch';
+} from '~/components/ui/select';
+import { Switch } from '~/components/ui/switch';
 import { Eur } from '~/lib/accounting/core/money';
 import { cn } from '~/lib/utilities';
 
@@ -846,7 +846,7 @@ function BookingEditDialog({
                     {direction === 'IN' && (
                         <Field>
                             <FieldLabel htmlFor={refundId}>Refund</FieldLabel>
-                            <label className="flex items-center gap-2 text-xs">
+                            <div className="flex items-center gap-2 text-xs">
                                 <Switch
                                     checked={isRefund}
                                     disabled={!purchaseRule}
@@ -858,7 +858,7 @@ function BookingEditDialog({
                                         ? `Reverse the purchase → ${purchaseRule.ledger.label}`
                                         : 'No purchase rule for this counterpart'}
                                 </span>
-                            </label>
+                            </div>
                         </Field>
                     )}
                     <Field>

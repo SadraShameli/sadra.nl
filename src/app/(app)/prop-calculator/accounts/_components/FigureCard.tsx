@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 
-import { Card } from '~/components/ui/Card';
+import { Card } from '~/components/ui/card';
 import { cn } from '~/lib/utilities';
 
 export function FigureCard({

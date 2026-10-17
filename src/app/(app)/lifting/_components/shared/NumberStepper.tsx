@@ -3,7 +3,7 @@
 import { Minus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utilities';
 
 interface NumberStepperProperties {

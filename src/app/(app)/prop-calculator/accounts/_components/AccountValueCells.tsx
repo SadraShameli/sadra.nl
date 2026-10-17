@@ -12,7 +12,7 @@ import {
     type NextPayoutView,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountValueColumns';
 import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
-import { Collapsible, CollapsibleContent } from '~/components/ui/Collapsible';
+import { Collapsible, CollapsibleContent } from '~/components/ui/collapsible';
 import { AccountAction } from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';

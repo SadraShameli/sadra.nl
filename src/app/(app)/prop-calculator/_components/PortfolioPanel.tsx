@@ -4,27 +4,27 @@ import { Tag } from 'lucide-react';
 import { useMemo } from 'react';
 import { z } from 'zod';
 
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { Field, FieldGroup, FieldLabel } from '~/components/ui/Field';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { Input } from '~/components/ui/Input';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { Field, FieldGroup, FieldLabel } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
+import { Input } from '~/components/ui/input';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '~/components/ui/Popover';
+} from '~/components/ui/popover';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Skeleton } from '~/components/ui/Skeleton';
-import { TableCell, TableRow } from '~/components/ui/Table';
-import { Toggle } from '~/components/ui/Toggle';
+} from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
+import { TableCell, TableRow } from '~/components/ui/table';
+import { Toggle } from '~/components/ui/toggle';
 import {
     formatCompactCurrency,
     formatCurrency,

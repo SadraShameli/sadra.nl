@@ -17,7 +17,7 @@ import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useDebouncedComputation } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import { type LiveOutputs, simulateLiveAccount } from '~/lib/prop-calculator';
 

@@ -14,7 +14,7 @@ import {
     ChartContainer,
     ChartTooltip,
     ChartTooltipContent,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import { Eur } from '~/lib/accounting/core/money';
 
 const TOP_COUNTERPART_COUNT = 10;

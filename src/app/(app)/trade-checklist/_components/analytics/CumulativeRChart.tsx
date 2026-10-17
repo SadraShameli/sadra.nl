@@ -10,7 +10,7 @@ import {
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import {
     cumulativeRSeries,
     type LightAssessment,

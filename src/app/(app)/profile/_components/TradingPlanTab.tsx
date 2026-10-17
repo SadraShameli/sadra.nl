@@ -44,10 +44,10 @@ import type { TradingPlanRow } from '~/lib/trading/types';
 
 import { DefaultTradingPlanSetup } from '~/app/(app)/trade-checklist/_components/DefaultTradingPlanSetup';
 import { BlockableLink } from '~/components/NavigationBlocker';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     Dialog,
     DialogContent,
@@ -55,10 +55,10 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/dialog';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
+import { Separator } from '~/components/ui/separator';
 import {
     type TradingPlanCreateInput,
     tradingPlanCreateSchema,

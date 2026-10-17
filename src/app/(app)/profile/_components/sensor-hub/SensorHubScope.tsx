@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { FilterSelect } from '~/components/ui/FilterSelect';
+import { FilterSelect } from '~/components/ui/filter-select';
 
 export type SensorHubScopeController = {
     isActive: boolean;

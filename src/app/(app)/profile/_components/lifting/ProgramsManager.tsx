@@ -16,17 +16,17 @@ import {
     RowActionLink,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     type DataTableInstance,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 

@@ -9,21 +9,21 @@ import { z } from 'zod';
 import type { SetType, UnitDistance, UnitWeight } from '~/lib/lifting/types';
 
 import { NumberStepper } from '~/app/(app)/lifting/_components/shared/NumberStepper';
-import { Button } from '~/components/ui/Button';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Button } from '~/components/ui/button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '~/components/ui/DropDown';
-import { Form, FormControl, FormField, FormItem } from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/dropdown-menu';
+import { Form, FormControl, FormField, FormItem } from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
-} from '~/components/ui/Tooltip';
+} from '~/components/ui/tooltip';
 import { DistanceUnit, WeightUnit } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
 

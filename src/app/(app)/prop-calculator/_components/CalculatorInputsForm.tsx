@@ -2,15 +2,15 @@
 
 import { type ReactNode } from 'react';
 
-import { Card } from '~/components/ui/Card';
+import { Card } from '~/components/ui/card';
 import {
     Field,
     FieldDescription,
     FieldGroup,
     FieldLabel,
-} from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
+import { Separator } from '~/components/ui/separator';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 import { cn } from '~/lib/utilities';
 

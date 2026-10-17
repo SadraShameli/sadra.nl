@@ -3,7 +3,7 @@
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { homepageContent } from '~/lib/site/content';
 import { type HeroShowcaseView } from '~/lib/site/HeroShowcase';
 import { cn } from '~/lib/utilities';

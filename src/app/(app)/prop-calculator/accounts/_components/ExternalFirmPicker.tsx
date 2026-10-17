@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 
-import { Button } from '~/components/ui/Button';
-import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Button } from '~/components/ui/button';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -13,7 +13,7 @@ import {
     SelectLabel,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { errorMessage } from '~/lib/errorMessage';
 import {
     type ExternalFirmName,

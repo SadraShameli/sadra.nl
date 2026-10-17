@@ -7,11 +7,11 @@ import { useState } from 'react';
 import type { TradeAssessmentRow } from '~/lib/trading/types';
 
 import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { cn } from '~/lib/utilities';
 
 const outcomeBadge: Record<

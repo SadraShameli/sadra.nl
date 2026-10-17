@@ -3,9 +3,9 @@
 import { Pin, PinOff } from 'lucide-react';
 
 import Eyebrow from '~/components/Eyebrow';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import InfoPopover from '~/components/ui/InfoPopover';
+import { Card, CardContent } from '~/components/ui/card';
+import InfoPopover from '~/components/ui/info-popover';
+import { Toggle } from '~/components/ui/toggle';
 import {
     formatCompactCurrency,
     formatCurrency,
@@ -150,11 +150,14 @@ export default function ResultsPanel({
                         Pin a scenario to compare deltas
                     </span>
                 )}
-                <Button
-                    className="flex h-7 items-center gap-1.5 px-2 text-xs"
-                    onClick={pinned ? onUnpin : onPin}
+                <Toggle
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onPressedChange={(isPressed) =>
+                        isPressed ? onPin() : onUnpin()
+                    }
+                    pressed={pinned !== null}
                     size="sm"
-                    variant={pinned ? 'default' : 'outline'}
+                    variant="outline"
                 >
                     {pinned ? (
                         <>
@@ -167,7 +170,7 @@ export default function ResultsPanel({
                             Pin scenario
                         </>
                     )}
-                </Button>
+                </Toggle>
             </div>
 
             <div>

@@ -4,19 +4,19 @@ import { Plus, RotateCcw, X } from 'lucide-react';
 import { useMemo } from 'react';
 import { z } from 'zod';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { Input } from '~/components/ui/Input';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import InfoPopover from '~/components/ui/info-popover';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import {
     formatCompactCurrency,
     formatCurrency,

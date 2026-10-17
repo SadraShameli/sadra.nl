@@ -8,7 +8,7 @@ import {
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import { formatCompactCurrency } from '~/lib/format';
 
 import { type BarShapeProperties } from './types';

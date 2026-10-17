@@ -1,8 +1,8 @@
 import { ChevronDown } from 'lucide-react';
 import { type ReactNode } from 'react';
 
-import { Button } from '~/components/ui/Button';
-import { CollapsibleTrigger } from '~/components/ui/Collapsible';
+import { Button } from '~/components/ui/button';
+import { CollapsibleTrigger } from '~/components/ui/collapsible';
 import { cn } from '~/lib/utilities';
 
 export function DisclosureTrigger({

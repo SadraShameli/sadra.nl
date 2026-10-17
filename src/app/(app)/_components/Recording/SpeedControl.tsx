@@ -4,7 +4,7 @@ import {
     DropdownMenuRadioGroup,
     DropdownMenuRadioItem,
     DropdownMenuTrigger,
-} from '~/components/ui/DropDown';
+} from '~/components/ui/dropdown-menu';
 import { cn } from '~/lib/utilities';
 
 import { PLAYBACK_SPEEDS, type PlaybackSpeed } from './types';

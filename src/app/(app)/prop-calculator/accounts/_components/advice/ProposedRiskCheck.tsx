@@ -3,9 +3,9 @@
 import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Button } from '~/components/ui/Button';
-import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Button } from '~/components/ui/button';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatCurrency } from '~/lib/format';
 import { RuleViolationKind } from '~/lib/prop-accounts';

@@ -23,15 +23,15 @@ import {
     ProfileTableEmpty,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { Button } from '~/components/ui/Button';
-import { Checkbox } from '~/components/ui/Checkbox';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Button } from '~/components/ui/button';
+import { Checkbox } from '~/components/ui/checkbox';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     type DataTableColumn,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { Dialog, DialogTrigger } from '~/components/ui/Dialog';
+} from '~/components/ui/data-table';
+import { Dialog, DialogTrigger } from '~/components/ui/dialog';
 import {
     type ReadingCreateAdminInput,
     readingCreateAdminSchema,

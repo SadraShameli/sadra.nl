@@ -12,15 +12,15 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 
 export const ProfileNumberStep = {
     Any: 'any',

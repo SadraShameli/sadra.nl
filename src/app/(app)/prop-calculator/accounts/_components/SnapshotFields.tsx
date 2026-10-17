@@ -2,14 +2,14 @@
 
 import { TriangleAlert } from 'lucide-react';
 
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import {
     Field,
     FieldDescription,
     FieldError,
     FieldLabel,
-} from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     AccountTracking,
     type SnapshotField,

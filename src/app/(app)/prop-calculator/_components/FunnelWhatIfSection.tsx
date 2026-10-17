@@ -11,9 +11,9 @@ import {
     FieldLabel,
     FieldLegend,
     FieldSet,
-} from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
+import { Separator } from '~/components/ui/separator';
 import { formatCompactCurrency, NOT_APPLICABLE } from '~/lib/format';
 import { dollars, floorToWholeCents, fraction } from '~/lib/prop-calculator';
 import {

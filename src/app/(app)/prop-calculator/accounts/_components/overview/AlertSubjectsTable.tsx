@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 
 import { type OverviewAlert } from './overviewModel';
 

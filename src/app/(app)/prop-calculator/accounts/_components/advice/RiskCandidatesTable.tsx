@@ -6,7 +6,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { formatGateCurrency } from '~/lib/format';
 
 import {

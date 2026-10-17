@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge } from '~/components/ui/Badge';
+import { Badge } from '~/components/ui/badge';
 import { type Plan, TradingPhase } from '~/lib/prop-calculator';
 import { DRAWDOWN_KIND_TEXT } from '~/lib/prop-calculator/describe';
 import { cn } from '~/lib/utilities';

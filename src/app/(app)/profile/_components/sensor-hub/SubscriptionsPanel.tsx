@@ -20,8 +20,8 @@ import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
-} from '~/components/ui/DataTable';
-import { Switch } from '~/components/ui/Switch';
+} from '~/components/ui/data-table';
+import { Switch } from '~/components/ui/switch';
 import { EVENT_LABELS, EVENT_TYPES, type EventType } from '~/lib/notify/types';
 import { api } from '~/trpc/react';
 

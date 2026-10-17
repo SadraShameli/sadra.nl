@@ -7,20 +7,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import AreaChartNew from '~/components/ui/chart/area-chart-new';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     type DataTableSlot,
-} from '~/components/ui/DataTable';
-import { DataTableDateRange } from '~/components/ui/DataTableDateRange';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { DatePicker } from '~/components/ui/DatePicker';
-import { EmptyState } from '~/components/ui/EmptyState';
+} from '~/components/ui/data-table';
+import { DataTableDateRange } from '~/components/ui/data-table-date-range';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { DatePicker } from '~/components/ui/date-picker';
+import { EmptyState } from '~/components/ui/empty-state';
 import {
     Form,
     FormControl,
@@ -28,18 +28,18 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Skeleton } from '~/components/ui/Skeleton';
-import { Textarea } from '~/components/ui/Textarea';
-import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
+} from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
+import { Textarea } from '~/components/ui/textarea';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import { MeasurementUnitConversion } from '~/lib/lifting/format';
 import {
     type CreateMeasurementInput,

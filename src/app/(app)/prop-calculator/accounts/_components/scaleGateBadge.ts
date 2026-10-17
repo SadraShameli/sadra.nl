@@ -1,4 +1,4 @@
-import { type BadgeProperties } from '~/components/ui/Badge';
+import { type BadgeProperties } from '~/components/ui/badge';
 import { ScaleGateStatus } from '~/lib/prop-accounts/bankroll';
 
 export const SCALE_GATE_STATUS_VARIANT: Readonly<

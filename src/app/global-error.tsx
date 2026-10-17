@@ -7,8 +7,8 @@ import { RotateCcw } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { type SectionErrorProperties } from '~/components/SectionError';
-import { Button } from '~/components/ui/Button';
-import { Card } from '~/components/ui/Card';
+import { Button } from '~/components/ui/button';
+import { Card } from '~/components/ui/card';
 import { bodoniModa, hankenGrotesk, jetBrainsMono } from '~/fonts';
 import { cn } from '~/lib/utilities';
 

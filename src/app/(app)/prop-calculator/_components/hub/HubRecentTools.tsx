@@ -13,8 +13,8 @@ import {
 import { hubCardHref } from '~/app/(app)/prop-calculator/_components/HubToolCards';
 import { readLastToolQuery } from '~/app/(app)/prop-calculator/_components/lastToolQuery';
 import { type ToolCatalogEntry } from '~/app/(app)/prop-calculator/_components/toolCatalog';
-import { Button } from '~/components/ui/Button';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Button } from '~/components/ui/button';
+import { Skeleton } from '~/components/ui/skeleton';
 
 interface RecentToolsState {
     lastQuery: null | string;

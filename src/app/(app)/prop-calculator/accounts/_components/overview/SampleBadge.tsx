@@ -1,4 +1,4 @@
-import { Badge, type BadgeProperties } from '~/components/ui/Badge';
+import { Badge, type BadgeProperties } from '~/components/ui/badge';
 import { SampleLevel } from '~/lib/prop-accounts/core';
 
 const SAMPLE_BADGE_LABEL: Readonly<Record<SampleLevel, string>> = {

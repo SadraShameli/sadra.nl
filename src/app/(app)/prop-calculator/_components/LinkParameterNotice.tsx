@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 
 import { useCalculatorInputs } from './CalculatorProvider';
 import { LabLinkStatus, LinkParameter } from './types';

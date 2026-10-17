@@ -4,20 +4,20 @@ import { ChevronDown, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { PlateVisualizer } from '~/app/(app)/lifting/_components/shared/PlateVisualizer';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '~/components/ui/DropDown';
+} from '~/components/ui/dropdown-menu';
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
-} from '~/components/ui/Tooltip';
+} from '~/components/ui/tooltip';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
     SET_TYPE_VALUES,

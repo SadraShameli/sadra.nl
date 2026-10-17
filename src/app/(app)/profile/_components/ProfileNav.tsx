@@ -16,8 +16,8 @@ import { type Route } from 'next';
 import Link from 'next/link';
 import { useTransition } from 'react';
 
-import { Avatar, AvatarFallback } from '~/components/ui/Avatar';
-import { Button } from '~/components/ui/Button';
+import { Avatar, AvatarFallback } from '~/components/ui/avatar';
+import { Button } from '~/components/ui/button';
 import { authClient } from '~/lib/auth/client';
 import { profileTabUrl, routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';

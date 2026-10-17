@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 
-import { CardTitle } from '~/components/ui/Card';
+import { CardTitle } from '~/components/ui/card';
 
 export function AccountsCardHeading({
     children,

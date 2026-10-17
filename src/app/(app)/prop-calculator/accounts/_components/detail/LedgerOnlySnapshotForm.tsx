@@ -16,7 +16,7 @@ import {
     type SnapshotFormValues,
 } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import { SnapshotFields } from '~/app/(app)/prop-calculator/accounts/_components/SnapshotFields';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { AccountTracking, SnapshotField } from '~/lib/prop-accounts';
 import { api } from '~/trpc/react';
 

@@ -4,11 +4,11 @@ import { Trash2, TriangleAlert } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader } from '~/components/ui/Card';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
+import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utilities';
 
 export interface ListQuery<Row> {

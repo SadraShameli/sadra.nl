@@ -3,7 +3,7 @@
 import { ArrowUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utilities';
 
 export const STICKY_ACTION_BAR_PROPS = {

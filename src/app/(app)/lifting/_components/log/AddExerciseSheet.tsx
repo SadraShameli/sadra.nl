@@ -3,8 +3,8 @@
 import { Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import {
     CommandDialog,
     CommandEmpty,
@@ -12,9 +12,9 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-} from '~/components/ui/Command';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/command';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Skeleton } from '~/components/ui/skeleton';
 import { api } from '~/trpc/react';
 
 interface AddExerciseSheetProperties {

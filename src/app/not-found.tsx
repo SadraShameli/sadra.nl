@@ -1,8 +1,8 @@
 import { ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card } from '~/components/ui/Card';
+import { Badge } from '~/components/ui/badge';
+import { Card } from '~/components/ui/card';
 import { siteTools } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';

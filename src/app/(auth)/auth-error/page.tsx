@@ -2,15 +2,15 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 
 import { PageTransition } from '~/components/PageTransition';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 import {
     Card,
     CardContent,
     CardFooter,
     CardHeader,
     CardTitle,
-} from '~/components/ui/Card';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/card';
+import { Skeleton } from '~/components/ui/skeleton';
 import { authErrorSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';

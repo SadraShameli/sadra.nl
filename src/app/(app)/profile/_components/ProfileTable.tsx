@@ -7,13 +7,13 @@ import { type Route } from 'next';
 import Link from 'next/link';
 import { type ReactNode } from 'react';
 
-import { Button } from '~/components/ui/Button';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Button } from '~/components/ui/button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTableAlign,
     type DataTableColumn,
-} from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
+} from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
 import { cn } from '~/lib/utilities';
 
 export const ProfileDatePrecision = {

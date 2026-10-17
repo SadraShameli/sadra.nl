@@ -7,10 +7,10 @@ import { useCallback, useMemo, useState } from 'react';
 
 import type { TradeAssessmentRow } from '~/lib/trading/types';
 
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
 import { dateKey, filterAssessments } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
 

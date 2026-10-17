@@ -11,7 +11,7 @@ import {
     CardDescription,
     CardHeader,
     CardTitle,
-} from '~/components/ui/Card';
+} from '~/components/ui/card';
 import { cn } from '~/lib/utilities';
 
 import { readLastToolQuery } from './lastToolQuery';

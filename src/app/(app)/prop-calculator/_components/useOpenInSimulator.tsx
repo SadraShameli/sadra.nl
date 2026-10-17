@@ -4,8 +4,8 @@ import { ArrowUpRight } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { startTransition, useCallback, useEffect, useRef } from 'react';
 
-import { Button } from '~/components/ui/Button';
-import { type DataTableColumn } from '~/components/ui/DataTable';
+import { Button } from '~/components/ui/button';
+import { type DataTableColumn } from '~/components/ui/data-table';
 import {
     type Plan,
     type PlanOptIns,

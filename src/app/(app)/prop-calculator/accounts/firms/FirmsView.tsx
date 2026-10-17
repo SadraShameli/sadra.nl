@@ -19,10 +19,10 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SCALE_GATE_STATUS_VARIANT } from '~/app/(app)/prop-calculator/accounts/_components/scaleGateBadge';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
     Form,
     FormControl,
@@ -30,16 +30,16 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     Table,
     TableBody,
@@ -47,7 +47,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { useSession } from '~/lib/auth/client';
 import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {

@@ -20,7 +20,13 @@ line.
   functions rather than a class (e.g. `core/DailyLossLimit.ts`,
   `core/PayoutTiers.ts`) — the name describes the concept, not the export
   shape. Utilities, hooks, and route files use camelCase (`useCalculator.ts`,
-  `rng.ts`, `stats.ts`).
+  `rng.ts`, `stats.ts`). Exception: everything in `src/components/ui/` uses
+  shadcn's kebab-case names (`button.tsx`, `alert-dialog.tsx`) so the shadcn
+  CLI can detect, diff and update them.
+- **shadcn first.** Check `bunx --bun shadcn@latest search` before writing UI;
+  add components with the CLI. The current registry imports `cn` from the
+  `cn` package and `Slot` from `radix-ui`; rewrite those to
+  `~/lib/utilities` and the `@radix-ui/react-*` package after adding.
 - **Barrel `index.ts` files re-export a module's public surface** (see
   `lib/prop-calculator/core/index.ts`, `lib/prop-calculator/index.ts`) — add
   new exports there; don't make callers reach into internal files directly.

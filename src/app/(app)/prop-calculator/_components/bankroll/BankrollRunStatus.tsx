@@ -2,7 +2,7 @@ import {
     ToolsWorkerPhase,
     type ToolsWorkerState,
 } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 
 interface BankrollRunStatusProperties {
     idleText?: string;

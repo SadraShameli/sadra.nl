@@ -1,6 +1,6 @@
 import { type Instant } from 'next';
 
-import { TooltipProvider } from '~/components/ui/Tooltip';
+import { TooltipProvider } from '~/components/ui/tooltip';
 import { cn } from '~/lib/utilities';
 
 import { LiftingSubnav } from './_components/LiftingSubnav';

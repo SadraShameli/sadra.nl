@@ -9,7 +9,7 @@ import {
     type ChartConfig,
     ChartContainer,
     ChartSize,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import { type SimOutputs } from '~/lib/prop-calculator';
 
 interface Properties {

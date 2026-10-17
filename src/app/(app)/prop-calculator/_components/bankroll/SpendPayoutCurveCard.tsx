@@ -24,9 +24,9 @@ import {
     ChartContainer,
     ChartLegend,
     ChartLegendContent,
-} from '~/components/ui/Chart';
-import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/chart';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Table,
     TableBody,
@@ -34,7 +34,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import {
     formatCompactCurrency,
     formatGateCurrency,

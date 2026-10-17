@@ -9,7 +9,7 @@ import {
     type ChartConfig,
     ChartContainer,
     type ChartSize,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import { histogram } from '~/lib/prop-calculator/stats';
 
 interface HistogramChartViewProperties {

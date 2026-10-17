@@ -6,8 +6,8 @@ import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type SetupAccountRow } from './overviewModel';

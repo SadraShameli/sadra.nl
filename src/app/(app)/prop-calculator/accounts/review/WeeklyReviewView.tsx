@@ -15,12 +15,12 @@ import {
     type SnapshotFormValues,
 } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import { SnapshotFields } from '~/app/(app)/prop-calculator/accounts/_components/SnapshotFields';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Checkbox } from '~/components/ui/Checkbox';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Checkbox } from '~/components/ui/checkbox';
+import { Field, FieldLabel } from '~/components/ui/field';
+import { Skeleton } from '~/components/ui/skeleton';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
     type AccountStage,

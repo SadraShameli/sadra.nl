@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 
 import { ChartType } from './types';
 

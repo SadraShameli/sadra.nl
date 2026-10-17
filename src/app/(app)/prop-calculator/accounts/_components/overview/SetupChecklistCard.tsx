@@ -2,9 +2,9 @@ import { CircleAlert, CircleCheck, CircleDashed } from 'lucide-react';
 import Link from 'next/link';
 import { memo } from 'react';
 
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Progress } from '~/components/ui/Progress';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Progress } from '~/components/ui/progress';
 import { SetupStepStatus } from '~/lib/prop-accounts';
 import { cn } from '~/lib/utilities';
 

@@ -5,14 +5,14 @@ import { useId } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     Field,
     FieldDescription,
     FieldError,
     FieldLabel,
-} from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     DEFAULT_HERO_SHOWCASE,
     type HeroShowcaseInput,

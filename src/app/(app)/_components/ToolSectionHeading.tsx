@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 
-import { type TitleTag } from '~/components/ui/titleTag';
+import { type TitleTag } from '~/components/ui/title-tag';
 import { cn } from '~/lib/utilities';
 
 export function ToolSectionHeading({

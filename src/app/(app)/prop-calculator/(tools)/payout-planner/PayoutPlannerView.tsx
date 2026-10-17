@@ -57,9 +57,9 @@ import {
 import { payoutStakeViewOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
 import { type AssumptionView } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceViewModel';
 import { AssumptionsList } from '~/app/(app)/prop-calculator/accounts/_components/advice/AssumptionsList';
-import { Badge } from '~/components/ui/Badge';
-import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Badge } from '~/components/ui/badge';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Table,
     TableBody,
@@ -68,7 +68,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { formatGateCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_FIRMS,

@@ -7,7 +7,7 @@ import {
     ACCOUNT_CALCULATOR_LINK_FLAG_TEXT,
     calculatorLinkForAccount,
 } from '~/app/(app)/prop-calculator/accounts/_components/calculatorLinkForAccount';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     type Dollars,
     type Plan,

@@ -8,7 +8,7 @@ import { LiftingDetailSkeleton } from '~/app/(app)/lifting/_components/LiftingSk
 import { LiftingUserSection } from '~/app/(app)/lifting/_components/LiftingUserSection';
 import { TitledCardSkeleton } from '~/components/PageSkeleton';
 import { PageTransition } from '~/components/PageTransition';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { requireSessionUser } from '~/lib/auth/guards';
 import {
     type ExerciseRow,

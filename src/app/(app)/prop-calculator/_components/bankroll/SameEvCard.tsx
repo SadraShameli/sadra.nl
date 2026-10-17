@@ -8,8 +8,8 @@ import {
     type SameEvOutcome,
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Field, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     formatGateCurrency,
     formatPercent,

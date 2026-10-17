@@ -16,7 +16,7 @@ import {
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import {
     gradeCalibration,
     type LightAssessment,

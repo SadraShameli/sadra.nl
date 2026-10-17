@@ -21,22 +21,22 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card } from '~/components/ui/Card';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
 import { formatConjunctionList } from '~/lib/format';
 import {
     PropMutationRejection,

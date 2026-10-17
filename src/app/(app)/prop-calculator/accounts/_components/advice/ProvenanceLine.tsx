@@ -1,5 +1,5 @@
 import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
-import { Collapsible, CollapsibleContent } from '~/components/ui/Collapsible';
+import { Collapsible, CollapsibleContent } from '~/components/ui/collapsible';
 import { type FirmId } from '~/lib/prop-calculator';
 import { firmDataProvenance } from '~/lib/prop-calculator/describe';
 

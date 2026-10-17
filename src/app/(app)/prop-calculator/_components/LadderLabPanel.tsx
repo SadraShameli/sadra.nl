@@ -5,21 +5,21 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
-import { Button } from '~/components/ui/Button';
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { Input } from '~/components/ui/Input';
-import { Progress } from '~/components/ui/Progress';
+import { Button } from '~/components/ui/button';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Field, FieldLabel } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
+import { Input } from '~/components/ui/input';
+import { Progress } from '~/components/ui/progress';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import {
     formatCurrency,
     formatGateCurrency,

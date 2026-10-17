@@ -766,7 +766,7 @@ describe.each(PAGES)('the $folder tool page', (spec) => {
         expect(view).toMatch(PANEL_SKELETON_IMPORT);
         expect(view).not.toMatch(/function PanelSkeleton/);
         expect(view).not.toMatch(/<Skeleton[\s/>]/);
-        expect(view).not.toContain("from '~/components/ui/Skeleton'");
+        expect(view).not.toContain("from '~/components/ui/skeleton'");
     });
 
     it('shows the inputs summary with the edit dialog exactly when the catalog says it uses the calculator inputs and the page does not own the form', () => {

@@ -4,7 +4,7 @@ import {
     PageHeaderSkeleton,
     TitledCardSkeleton,
 } from '~/components/PageSkeleton';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Skeleton } from '~/components/ui/skeleton';
 
 const DETAIL_BODY_ROWS = 6;
 const GOAL_STAT_LABELS = ['Active', 'Achieved', 'Failed', 'Paused'] as const;

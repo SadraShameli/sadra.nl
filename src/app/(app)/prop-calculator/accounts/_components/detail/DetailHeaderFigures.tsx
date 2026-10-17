@@ -12,8 +12,8 @@ import {
     type AccountValues,
     hasPendingValues,
 } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Skeleton } from '~/components/ui/skeleton';
 
 import { FROM_STATE_PERSONAL_RULES_NOTE } from './fromStateDetail';
 

@@ -11,17 +11,17 @@ import {
 
 import type { TradeAssessmentRow } from '~/lib/trading/types';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
-import { Progress } from '~/components/ui/Progress';
-import { ScrollArea } from '~/components/ui/ScrollArea';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/dialog';
+import { Progress } from '~/components/ui/progress';
+import { ScrollArea } from '~/components/ui/scroll-area';
+import { Separator } from '~/components/ui/separator';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 

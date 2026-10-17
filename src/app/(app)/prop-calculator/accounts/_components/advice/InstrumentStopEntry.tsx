@@ -5,15 +5,15 @@ import { type ReactNode } from 'react';
 import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import { POSITION_SIZE_INSTRUMENTS } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
 import { parsePositionSizeInstrument } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Field, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { InstrumentSymbol } from '~/lib/prop-calculator';
 
 export const DEFAULT_ENTRY_INSTRUMENT = InstrumentSymbol.NQ;

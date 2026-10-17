@@ -16,10 +16,10 @@ import {
     type AccountListAccount,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { Checkbox } from '~/components/ui/Checkbox';
-import { Field, FieldLabel } from '~/components/ui/Field';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Checkbox } from '~/components/ui/checkbox';
+import { Field, FieldLabel } from '~/components/ui/field';
 import {
     Form,
     FormControl,
@@ -28,16 +28,16 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Textarea } from '~/components/ui/Textarea';
+} from '~/components/ui/select';
+import { Textarea } from '~/components/ui/textarea';
 import {
     AccountEventKind,
     type AccountLifecycleState,

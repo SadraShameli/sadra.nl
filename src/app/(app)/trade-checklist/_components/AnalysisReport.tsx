@@ -23,12 +23,12 @@ import type {
 
 import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
 import Eyebrow from '~/components/Eyebrow';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Progress } from '~/components/ui/Progress';
-import { Separator } from '~/components/ui/Separator';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Progress } from '~/components/ui/progress';
+import { Separator } from '~/components/ui/separator';
 import { saveAssessment } from '~/lib/trading/actions';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';

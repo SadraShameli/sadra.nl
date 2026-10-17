@@ -8,7 +8,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/InstrumentStopEntry';
 import { InstrumentSymbol } from '~/lib/prop-calculator';
 
-vi.mock('~/components/ui/Select', () => ({
+vi.mock('~/components/ui/select', () => ({
     Select: ({
         children,
         onValueChange,

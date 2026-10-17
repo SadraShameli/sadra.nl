@@ -23,14 +23,14 @@ import {
     AccordionContent,
     AccordionItem,
     AccordionTrigger,
-} from '~/components/ui/Accordion';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import { Field, FieldDescription, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/accordion';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import { Field, FieldDescription, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     Table,
     TableBody,
@@ -38,9 +38,9 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
-import { Textarea } from '~/components/ui/Textarea';
+} from '~/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
+import { Textarea } from '~/components/ui/textarea';
 import {
     AccountStage,
     AccountTracking,

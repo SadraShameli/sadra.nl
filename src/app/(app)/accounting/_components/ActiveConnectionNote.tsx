@@ -1,4 +1,4 @@
-import { FILTER_CONTROL_CLASS } from '~/components/ui/filterControl';
+import { FILTER_CONTROL_CLASS } from '~/components/ui/filter-control';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { cn } from '~/lib/utilities';
 

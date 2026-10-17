@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
+import { Card } from '~/components/ui/card';
 import { computeStreaks, type LightAssessment } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
 

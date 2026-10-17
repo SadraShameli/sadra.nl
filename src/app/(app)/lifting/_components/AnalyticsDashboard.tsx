@@ -6,16 +6,16 @@ import { type ReactNode, useMemo } from 'react';
 
 import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Progress } from '~/components/ui/Progress';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Progress } from '~/components/ui/progress';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-} from '~/components/ui/Tooltip';
+} from '~/components/ui/tooltip';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
     MUSCLE_VALUES,

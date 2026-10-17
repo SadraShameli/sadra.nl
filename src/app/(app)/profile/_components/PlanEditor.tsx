@@ -32,16 +32,16 @@ import type {
 
 import Eyebrow from '~/components/Eyebrow';
 import { useBlockNavigationWhile } from '~/components/NavigationBlocker';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Checkbox } from '~/components/ui/Checkbox';
-import { Form } from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import { Slider } from '~/components/ui/Slider';
-import { Switch } from '~/components/ui/Switch';
-import { TimeInput } from '~/components/ui/TimeInput';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Checkbox } from '~/components/ui/checkbox';
+import { Form } from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
+import { Slider } from '~/components/ui/slider';
+import { Switch } from '~/components/ui/switch';
+import { TimeInput } from '~/components/ui/time-input';
 import {
     type UpdateTradingPlanInput,
     updateTradingPlanInputSchema,

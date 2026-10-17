@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 
 import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
-import { Card, CardContent, CardHeader } from '~/components/ui/Card';
+import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import { cn } from '~/lib/utilities';
 
 export function ToolPanel({

@@ -2,8 +2,8 @@
 
 import { toast } from 'sonner';
 
-import { Button } from '~/components/ui/Button';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Button } from '~/components/ui/button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { authClient } from '~/lib/auth/client';
 import { EmailLink, emailLinkSentText } from '~/lib/auth/EmailLink';
 import { routes } from '~/lib/site/routes';

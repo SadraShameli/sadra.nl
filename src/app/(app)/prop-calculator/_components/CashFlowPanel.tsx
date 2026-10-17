@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { Input } from '~/components/ui/Input';
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
+import { Card } from '~/components/ui/card';
+import { Field, FieldLabel } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
+import { Input } from '~/components/ui/input';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import {
     formatCompactCurrency,
     formatPercent,

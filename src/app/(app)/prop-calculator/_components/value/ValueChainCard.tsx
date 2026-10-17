@@ -6,7 +6,7 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 import {
     assumptionText,
     liveTransferAssumptionLines,

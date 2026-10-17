@@ -1,7 +1,7 @@
 import { LogIn, UserRound } from 'lucide-react';
 import Link from 'next/link';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 

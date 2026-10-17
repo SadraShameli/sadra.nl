@@ -6,9 +6,9 @@ import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { badgeVariants } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { FieldLegend, FieldSet } from '~/components/ui/Field';
+import { badgeVariants } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { FieldLegend, FieldSet } from '~/components/ui/field';
 import {
     Form,
     FormControl,
@@ -16,17 +16,17 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/select';
+import { Separator } from '~/components/ui/separator';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
     settingsFormSchema,

@@ -6,7 +6,7 @@ import {
     AccordionContent,
     AccordionItem,
     AccordionTrigger,
-} from '~/components/ui/Accordion';
+} from '~/components/ui/accordion';
 import {
     Table,
     TableBody,
@@ -14,7 +14,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 
 import { AccountFromStateDetails } from './AccountFromStateDetails';
 import {

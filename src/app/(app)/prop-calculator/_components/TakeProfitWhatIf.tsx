@@ -11,9 +11,9 @@ import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDe
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { toolsWorkerPendingText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Card } from '~/components/ui/Card';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Card } from '~/components/ui/card';
 import {
     Table,
     TableBody,
@@ -21,7 +21,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { formatGateCurrency, formatPercent } from '~/lib/format';
 import { stableJson } from '~/lib/stableJson';
 

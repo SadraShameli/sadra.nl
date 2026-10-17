@@ -5,8 +5,8 @@ import Link from 'next/link';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { cn } from '~/lib/utilities';
 
 import { CalendarHeatmap } from './calendar/CalendarHeatmap';

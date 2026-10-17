@@ -1,6 +1,6 @@
 import type { ProgramSchedule } from '~/lib/lifting/types';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 
 import { ProgramDayCard } from './ProgramDayCard';
 

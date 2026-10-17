@@ -8,9 +8,9 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     assumptionText,

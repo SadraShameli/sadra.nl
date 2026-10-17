@@ -3,9 +3,9 @@
 import { TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     type SimInputs,

@@ -1,7 +1,7 @@
 'use client';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
 
 import {
     useCalculatorActions,

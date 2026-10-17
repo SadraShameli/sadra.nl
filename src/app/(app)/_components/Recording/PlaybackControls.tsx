@@ -7,7 +7,7 @@ import {
     SkipForward,
 } from 'lucide-react';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utilities';
 
 import { RECORDER_TOGGLE_ON_CLASS } from './toggleStyles';
@@ -76,7 +76,7 @@ export function PlaybackControls({
             <Button
                 aria-label={isPlaying ? 'Pause' : 'Play'}
                 className={cn(
-                    'app-recording__play-pause size-19 bg-camel p-0 text-on-camel hover:bg-camel hover:text-on-camel active:scale-95 dark:hover:bg-camel',
+                    'app-recording__play-pause size-19 selected-pill p-0 hover:selected-pill active:scale-95 dark:hover:bg-camel',
                 )}
                 data-state={isPlaying ? 'playing' : 'paused'}
                 disabled={!hasRecordings}

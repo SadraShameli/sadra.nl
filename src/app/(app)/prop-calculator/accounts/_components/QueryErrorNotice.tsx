@@ -1,6 +1,6 @@
 import { TriangleAlert } from 'lucide-react';
 
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 
 interface QueryErrorNoticeProperties {
     readonly message: string;

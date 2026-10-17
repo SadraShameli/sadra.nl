@@ -30,7 +30,7 @@ import {
     WINNING_TRADER,
 } from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
 
-vi.mock('~/components/ui/InfoPopover', () => ({
+vi.mock('~/components/ui/info-popover', () => ({
     default: ({ children, title }: { children: ReactNode; title: string }) => (
         <div data-info-title={title}>{children}</div>
     ),

@@ -12,7 +12,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useOverviewWorker } from '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     Table,
     TableBody,
@@ -20,8 +20,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
-import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
+} from '~/components/ui/table';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import { NextSlotSortKey, PortfolioLedger } from '~/lib/prop-accounts';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { type SizingObjective } from '~/lib/prop-calculator/advisor';

@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
-import { Card } from '~/components/ui/Card';
+import { Card } from '~/components/ui/card';
 import { cn } from '~/lib/utilities';
 
 import {

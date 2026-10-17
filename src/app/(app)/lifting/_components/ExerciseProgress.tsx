@@ -6,17 +6,17 @@ import { useMemo, useState } from 'react';
 
 import { PrFiltersToolbar } from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
 import { usePrFilters } from '~/app/(app)/lifting/_components/shared/usePrFilters';
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import AreaChartNew from '~/components/ui/chart/area-chart-new';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
-} from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Skeleton } from '~/components/ui/Skeleton';
-import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
+} from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Skeleton } from '~/components/ui/skeleton';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import { WeightUnit } from '~/lib/lifting/format';
 import { api, type RouterOutputs } from '~/trpc/react';
 

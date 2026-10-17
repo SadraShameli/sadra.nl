@@ -2,7 +2,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { cacheLife } from 'next/cache';
 import Link from 'next/link';
 
-import { SocialIcon } from '~/components/ui/SocialIcon';
+import { SocialIcon } from '~/components/ui/social-icon';
 import { homepageContent, siteContent, siteTools } from '~/lib/site/content';
 import {
     FOOTER_SECTION_NUMBER,
@@ -64,7 +64,7 @@ export default async function Footer() {
                     </p>
                     <div className="flex flex-wrap gap-3">
                         <Link
-                            className="inline-flex h-14.5 items-center gap-3 rounded-full bg-camel px-7 text-base font-semibold text-on-camel focus-camel"
+                            className="inline-flex h-14.5 items-center gap-3 rounded-full selected-pill px-7 text-base font-semibold focus-camel"
                             href={routes.contact}
                         >
                             {contactLabel}

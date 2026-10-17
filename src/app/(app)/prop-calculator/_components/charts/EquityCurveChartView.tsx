@@ -10,7 +10,7 @@ import {
     type ChartConfig,
     ChartContainer,
     ChartSize,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { median } from '~/lib/prop-calculator/stats';

@@ -7,16 +7,16 @@ import { useMemo } from 'react';
 
 import { PrFiltersToolbar } from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
 import { usePrFilters } from '~/app/(app)/lifting/_components/shared/usePrFilters';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
-} from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Skeleton } from '~/components/ui/skeleton';
 import { WeightUnit } from '~/lib/lifting/format';
 import { PrRangePreset } from '~/lib/lifting/pr-filters';
 import { routes } from '~/lib/site/routes';

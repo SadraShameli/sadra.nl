@@ -6,15 +6,16 @@ import { useId, useState } from 'react';
 
 import type { ResumeVariantKey } from '~/lib/site/resume';
 
-import { Button } from '~/components/ui/Button';
-import { Label } from '~/components/ui/Label';
+import { Button } from '~/components/ui/button';
+import { Label } from '~/components/ui/label';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
+import { Separator } from '~/components/ui/separator';
 import { routes, withQuery } from '~/lib/site/routes';
 
 type CoverOption = { key: string; label: string };
@@ -66,7 +67,7 @@ export default function ResumeCard({
                 {resume.role}
             </p>
 
-            <div className="my-5 border-t border-border" />
+            <Separator className="my-5" />
 
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">

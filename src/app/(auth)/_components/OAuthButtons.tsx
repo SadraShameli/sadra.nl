@@ -2,9 +2,9 @@
 
 import { useTransition } from 'react';
 
-import { Button } from '~/components/ui/Button';
-import GithubIcon from '~/components/ui/Icons/Github';
-import GoogleIcon from '~/components/ui/Icons/Google';
+import { Button } from '~/components/ui/button';
+import GithubIcon from '~/components/ui/icons/github';
+import GoogleIcon from '~/components/ui/icons/google';
 import { authClient } from '~/lib/auth/client';
 import { currentCallbackUrl } from '~/lib/site/privateRoutes';
 import { cn } from '~/lib/utilities';

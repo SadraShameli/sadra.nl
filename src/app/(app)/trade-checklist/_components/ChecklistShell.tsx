@@ -12,16 +12,16 @@ import type {
 } from '~/lib/trading/types';
 
 import Eyebrow from '~/components/Eyebrow';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '~/components/ui/Popover';
-import { ScrollArea } from '~/components/ui/ScrollArea';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/popover';
+import { ScrollArea } from '~/components/ui/scroll-area';
+import { Separator } from '~/components/ui/separator';
 import { profileTabs, routes, withQuery } from '~/lib/site/routes';
 import {
     deleteAllAssessments,

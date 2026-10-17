@@ -3,8 +3,8 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { PageTransition } from '~/components/PageTransition';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { resetPasswordSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';

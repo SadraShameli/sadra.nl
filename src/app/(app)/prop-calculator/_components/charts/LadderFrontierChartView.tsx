@@ -9,7 +9,7 @@ import {
     type ChartConfig,
     ChartContainer,
     ChartSize,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import { formatCurrency } from '~/lib/format';
 import { type LadderScore } from '~/lib/prop-calculator';
 

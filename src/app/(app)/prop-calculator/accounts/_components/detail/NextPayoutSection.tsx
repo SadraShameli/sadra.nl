@@ -10,7 +10,7 @@ import {
     accountFromStateViewOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
 import { type SlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     type AccountSnapshotInput,
     type ReconstructedAccount,

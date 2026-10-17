@@ -50,7 +50,7 @@ export default function HomePage() {
                 <section
                     className={cn(
                         'app-home__hero',
-                        'relative overflow-hidden glow-corner lg:-mt-header',
+                        'relative overflow-hidden lg:-mt-header',
                     )}
                 >
                     <div className="relative mx-auto flex max-w-site flex-wrap items-center gap-14 px-6 pt-12 pb-20 lg:pt-37 lg:pb-32">

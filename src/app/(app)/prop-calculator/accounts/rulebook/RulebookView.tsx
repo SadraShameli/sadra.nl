@@ -11,11 +11,11 @@ import { STICKY_ACTION_BAR_PROPS } from '~/app/(app)/_components/ScrollToTop';
 import { DAY_STOP_KIND_LABELS } from '~/app/(app)/prop-calculator/_components/describeDayStopRule';
 import { AccountsCardHeading } from '~/app/(app)/prop-calculator/accounts/_components/AccountsCardHeading';
 import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader } from '~/components/ui/Card';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     Form,
     FormControl,
@@ -24,17 +24,17 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Skeleton } from '~/components/ui/Skeleton';
-import { Switch } from '~/components/ui/Switch';
+} from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
+import { Switch } from '~/components/ui/switch';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatPercent } from '~/lib/format';
 import { formatUsdCents, usdCents } from '~/lib/prop-accounts';

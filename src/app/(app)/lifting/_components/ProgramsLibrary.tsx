@@ -19,18 +19,18 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { SEARCH_FIELD_CLASS } from '~/components/ui/filterControl';
-import { FilterSelect } from '~/components/ui/FilterSelect';
-import { Input } from '~/components/ui/Input';
-import { Progress } from '~/components/ui/Progress';
-import { Skeleton } from '~/components/ui/Skeleton';
-import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
+import { FilterSelect } from '~/components/ui/filter-select';
+import { Input } from '~/components/ui/input';
+import { Progress } from '~/components/ui/progress';
+import { Skeleton } from '~/components/ui/skeleton';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     PROGRAM_CATEGORY_VALUES,
     type ProgramBlock,

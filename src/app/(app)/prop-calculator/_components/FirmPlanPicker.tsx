@@ -1,13 +1,13 @@
 'use client';
 
-import { Field, FieldDescription, FieldLabel } from '~/components/ui/Field';
+import { Field, FieldDescription, FieldLabel } from '~/components/ui/field';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { formatCompactCurrency } from '~/lib/format';
 import {
     parseFirmId,

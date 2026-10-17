@@ -9,16 +9,16 @@ import { type Control, useForm, type UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader } from '~/components/ui/Card';
-import { Checkbox } from '~/components/ui/Checkbox';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader } from '~/components/ui/card';
+import { Checkbox } from '~/components/ui/checkbox';
 import {
     Field,
     FieldContent,
     FieldDescription,
     FieldLabel,
-} from '~/components/ui/Field';
+} from '~/components/ui/field';
 import {
     Form,
     FormControl,
@@ -27,18 +27,18 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Skeleton } from '~/components/ui/Skeleton';
-import { Switch } from '~/components/ui/Switch';
-import { Textarea } from '~/components/ui/Textarea';
+} from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
+import { Switch } from '~/components/ui/switch';
+import { Textarea } from '~/components/ui/textarea';
 import { errorMessage } from '~/lib/errorMessage';
 import {
     AccountStage,

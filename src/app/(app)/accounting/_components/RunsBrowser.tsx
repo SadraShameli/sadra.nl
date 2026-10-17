@@ -6,11 +6,11 @@ import { ChevronRight, History } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { Badge, type BadgeProperties } from '~/components/ui/Badge';
-import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+import { Badge, type BadgeProperties } from '~/components/ui/badge';
+import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { Eur } from '~/lib/accounting/core/money';
 import {
     CredentialRegistry,

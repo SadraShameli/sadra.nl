@@ -39,7 +39,7 @@ vi.mock('~/trpc/react', () => {
 });
 
 const { BodyView } = await import('~/app/(app)/lifting/_components/BodyView');
-const { TooltipProvider } = await import('~/components/ui/Tooltip');
+const { TooltipProvider } = await import('~/components/ui/tooltip');
 
 function statValue(container: HTMLElement, label: string): string {
     const labelSpan = [...container.querySelectorAll('span')].find(

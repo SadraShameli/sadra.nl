@@ -33,7 +33,7 @@ function MagicLinkTemplate({ url }: { url: string }) {
                 {`Click the button below to sign in. This link expires in ${emailLinkLifetimeText(EmailLink.SignIn)}.`}
             </Text>
             <Button
-                className="block rounded-full bg-camel px-6 py-3 text-center text-sm font-semibold text-on-camel no-underline"
+                className="block rounded-full selected-pill px-6 py-3 text-center text-sm font-semibold no-underline"
                 href={url}
             >
                 Sign in

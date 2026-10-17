@@ -20,7 +20,7 @@ import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalcu
 import { formatPercent } from '~/lib/format';
 import { type SimOutputs, simulate } from '~/lib/prop-calculator';
 
-vi.mock('~/components/ui/InfoPopover', () => ({
+vi.mock('~/components/ui/info-popover', () => ({
     default: ({ children, title }: { children: ReactNode; title: string }) => (
         <div data-info-title={title}>{children}</div>
     ),

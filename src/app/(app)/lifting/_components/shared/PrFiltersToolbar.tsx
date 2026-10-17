@@ -1,7 +1,7 @@
 'use client';
 
-import { FilterDateRange } from '~/components/ui/FilterDateRange';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+import { FilterDateRange } from '~/components/ui/filter-date-range';
+import { FilterSelect } from '~/components/ui/filter-select';
 import {
     PR_KIND_ALL,
     PR_RANGE_PRESETS,

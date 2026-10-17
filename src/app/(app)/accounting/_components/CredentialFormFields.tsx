@@ -4,15 +4,15 @@ import { z } from 'zod';
 
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { CredentialKind } from '~/lib/accounting/credentials/registry';
 
 import { MetaFieldInput } from './MetaFieldInput';

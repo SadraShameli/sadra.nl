@@ -1,4 +1,4 @@
-import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 
 interface SimulationFailureNoticeProperties {
     message: null | string;

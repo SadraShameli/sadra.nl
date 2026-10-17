@@ -8,7 +8,7 @@ import {
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import {
     Table,
     TableBody,
@@ -16,7 +16,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { formatCompactCurrency } from '~/lib/format';
 import { type HistogramBin } from '~/lib/prop-calculator/stats';
 

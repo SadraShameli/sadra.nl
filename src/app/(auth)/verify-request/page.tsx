@@ -2,14 +2,14 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 
 import { PageTransition } from '~/components/PageTransition';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 import {
     Card,
     CardContent,
     CardFooter,
     CardHeader,
     CardTitle,
-} from '~/components/ui/Card';
+} from '~/components/ui/card';
 import { emailLinkSentText } from '~/lib/auth/EmailLink';
 import { verifyRequestSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';

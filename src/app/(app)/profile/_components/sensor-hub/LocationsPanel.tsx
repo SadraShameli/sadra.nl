@@ -22,13 +22,13 @@ import {
     RowActionButton,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { Dialog, DialogTrigger } from '~/components/ui/Dialog';
+} from '~/components/ui/data-table';
+import { Dialog, DialogTrigger } from '~/components/ui/dialog';
 import {
     type LocationCreateInput,
     locationCreateSchema,

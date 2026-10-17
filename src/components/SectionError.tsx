@@ -4,8 +4,8 @@ import * as Sentry from '@sentry/nextjs';
 import { RotateCcw, TriangleAlert } from 'lucide-react';
 import { useEffect } from 'react';
 
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utilities';
 
 export enum SectionErrorScope {

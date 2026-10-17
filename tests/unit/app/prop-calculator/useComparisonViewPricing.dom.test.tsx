@@ -19,7 +19,7 @@ vi.mock('~/lib/prop-calculator/economics/RuinFirstRanking', async (load) => {
     };
 });
 
-vi.mock('~/components/ui/InfoPopover', () => ({
+vi.mock('~/components/ui/info-popover', () => ({
     default: () => null,
 }));
 

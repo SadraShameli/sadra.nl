@@ -4,8 +4,8 @@ import { Download } from 'lucide-react';
 
 import { Chip } from '~/app/(app)/_components/home/Chip';
 import { AutoplayVideo } from '~/components/AutoplayVideo';
-import { Button } from '~/components/ui/Button';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Button } from '~/components/ui/button';
+import { Skeleton } from '~/components/ui/skeleton';
 import { type LoopingVideo } from '~/lib/site/content';
 import { DecorativeSeries } from '~/lib/site/DecorativeSeries';
 import { cn } from '~/lib/utilities';

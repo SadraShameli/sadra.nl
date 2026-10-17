@@ -8,8 +8,8 @@ import { toast } from 'sonner';
 
 import type { ProgramBlock } from '~/lib/lifting/types';
 
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
     Form,
     FormControl,
@@ -17,8 +17,8 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
     type EnrollProgramInput,

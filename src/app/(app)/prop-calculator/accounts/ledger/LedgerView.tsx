@@ -31,11 +31,11 @@ import {
     firmColumnsFromSelectValue,
     firmSelectOptions,
 } from '~/app/(app)/prop-calculator/accounts/rounds/roundsModel';
-import { Button } from '~/components/ui/Button';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterIsoDateRange } from '~/components/ui/FilterIsoDateRange';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+import { Button } from '~/components/ui/button';
+import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterIsoDateRange } from '~/components/ui/filter-iso-date-range';
+import { FilterSelect } from '~/components/ui/filter-select';
 import {
     Form,
     FormControl,
@@ -44,16 +44,16 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     Table,
     TableBody,
@@ -61,7 +61,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { useSession } from '~/lib/auth/client';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {

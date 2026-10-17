@@ -42,15 +42,15 @@ import {
     FieldDescription,
     FieldError,
     FieldLabel,
-} from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { formatGateCurrency, NOT_APPLICABLE } from '~/lib/format';
 import {
     ALL_FIRMS,

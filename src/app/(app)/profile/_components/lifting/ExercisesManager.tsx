@@ -18,29 +18,29 @@ import {
     RowActionButton,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { Dialog } from '~/components/ui/Dialog';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { Dialog } from '~/components/ui/dialog';
 import {
     FormControl,
     FormField,
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
+} from '~/components/ui/form';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import {
     type CreateCustomExerciseInput,
     customExerciseInputSchema,

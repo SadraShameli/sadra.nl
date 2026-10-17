@@ -1,7 +1,7 @@
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
-import { Badge } from '~/components/ui/Badge';
-import { Card } from '~/components/ui/Card';
-import { EmptyState } from '~/components/ui/EmptyState';
+import { Badge } from '~/components/ui/badge';
+import { Card } from '~/components/ui/card';
+import { EmptyState } from '~/components/ui/empty-state';
 import {
     Table,
     TableBody,
@@ -9,7 +9,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 
 import {
     type DpAdviceRecordInput,

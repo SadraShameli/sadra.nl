@@ -3,15 +3,15 @@
 import { type ReactNode } from 'react';
 import { type FieldValues, type UseFormReturn } from 'react-hook-form';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     DialogContent,
     DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
-import { Form } from '~/components/ui/Form';
+} from '~/components/ui/dialog';
+import { Form } from '~/components/ui/form';
 
 export function ProfileFormDialog<
     TFieldValues extends FieldValues,

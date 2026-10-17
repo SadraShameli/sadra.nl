@@ -33,7 +33,7 @@ function EmailVerificationTemplate({ url }: { url: string }) {
                 {`Click the button below to verify your email address. This link expires in ${emailLinkLifetimeText(EmailLink.Verification)}.`}
             </Text>
             <Button
-                className="block rounded-full bg-camel px-6 py-3 text-center text-sm font-semibold text-on-camel no-underline"
+                className="block rounded-full selected-pill px-6 py-3 text-center text-sm font-semibold no-underline"
                 href={url}
             >
                 Verify email

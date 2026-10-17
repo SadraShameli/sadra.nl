@@ -31,26 +31,27 @@ import type { ImportEvent, Stage } from '~/lib/accounting/runner-types';
 
 import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Calendar } from '~/components/ui/Calendar';
-import { Checkbox } from '~/components/ui/Checkbox';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Calendar } from '~/components/ui/calendar';
+import { Checkbox } from '~/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FILTER_CONTROL_CLASS } from '~/components/ui/filterControl';
+} from '~/components/ui/dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FILTER_CONTROL_CLASS } from '~/components/ui/filter-control';
+import { Label } from '~/components/ui/label';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '~/components/ui/Popover';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+} from '~/components/ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
     CredentialRegistry,
     CredentialRole,
@@ -330,7 +331,7 @@ export function AccountingDashboard() {
                                             )}
                                             key={s.id}
                                         >
-                                            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-4 py-3 text-sm text-ink">
+                                            <Label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-4 py-3 font-normal text-ink">
                                                 <Checkbox
                                                     checked={isChecked}
                                                     onCheckedChange={(c) =>
@@ -341,7 +342,7 @@ export function AccountingDashboard() {
                                                     }
                                                 />
                                                 {s.label}
-                                            </label>
+                                            </Label>
                                             {isChecked && isFile && (
                                                 <div className="flex items-center gap-3 px-4 py-2 sm:pl-0">
                                                     <input

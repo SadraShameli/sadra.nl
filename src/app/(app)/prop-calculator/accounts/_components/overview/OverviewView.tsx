@@ -11,11 +11,11 @@ import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useToda
 import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
 import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader } from '~/components/ui/Card';
-import { Collapsible, CollapsibleContent } from '~/components/ui/Collapsible';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader } from '~/components/ui/card';
+import { Collapsible, CollapsibleContent } from '~/components/ui/collapsible';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     isInvalidStoredRecord,
     PropRecord,

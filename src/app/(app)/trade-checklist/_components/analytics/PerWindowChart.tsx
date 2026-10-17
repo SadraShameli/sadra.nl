@@ -8,7 +8,7 @@ import {
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
-} from '~/components/ui/Chart';
+} from '~/components/ui/chart';
 import { formatPercent } from '~/lib/format';
 import { type LightAssessment, perWindowStats } from '~/lib/trading/analytics';
 

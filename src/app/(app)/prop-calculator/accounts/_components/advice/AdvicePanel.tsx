@@ -23,9 +23,9 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Skeleton } from '~/components/ui/skeleton';
 import { useSession } from '~/lib/auth/client';
 import {
     type AccountStage,

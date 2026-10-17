@@ -9,18 +9,18 @@ import { z } from 'zod';
 
 import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     Form,
     FormControl,
     FormField,
     FormItem,
     FormLabel,
-} from '~/components/ui/Form';
-import { Label } from '~/components/ui/Label';
-import { Progress } from '~/components/ui/Progress';
-import { Switch } from '~/components/ui/Switch';
-import { Textarea } from '~/components/ui/Textarea';
+} from '~/components/ui/form';
+import { Label } from '~/components/ui/label';
+import { Progress } from '~/components/ui/progress';
+import { Switch } from '~/components/ui/switch';
+import { Textarea } from '~/components/ui/textarea';
 import { prepChecksSchema } from '~/lib/schemas/trading';
 import { deletePrep, savePrep } from '~/lib/trading/actions';
 import {

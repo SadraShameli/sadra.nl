@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 
 import { PageHeaderSkeleton } from '~/components/PageSkeleton';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utilities';
 
 import { PanelSkeleton, PanelSkeletonSize } from './PanelSkeleton';

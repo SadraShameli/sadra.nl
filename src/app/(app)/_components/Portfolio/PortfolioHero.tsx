@@ -4,7 +4,7 @@ import { ArrowDownRight, FileText, Mail, Send } from 'lucide-react';
 import Link from 'next/link';
 
 import { EmphasisTitle } from '~/app/(app)/_components/home/EmphasisTitle';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     type EmphasisHeading,
     type PortfolioSection,

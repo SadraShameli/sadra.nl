@@ -1,6 +1,6 @@
 'use client';
 
-import { ChartSize } from '~/components/ui/Chart';
+import { ChartSize } from '~/components/ui/chart';
 import { type SimOutputs } from '~/lib/prop-calculator';
 
 import HistogramChartView from './HistogramChartView';

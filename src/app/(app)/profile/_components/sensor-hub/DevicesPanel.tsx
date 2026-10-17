@@ -21,15 +21,15 @@ import {
     RowActionButton,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { Button } from '~/components/ui/Button';
-import { Checkbox } from '~/components/ui/Checkbox';
+import { Button } from '~/components/ui/button';
+import { Checkbox } from '~/components/ui/checkbox';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import {
     Dialog,
     DialogContent,
@@ -37,7 +37,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '~/components/ui/Dialog';
+} from '~/components/ui/dialog';
 import {
     type DeviceCreateInput,
     deviceCreateSchema,

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import { Card, CardContent } from '~/components/ui/Card';
+import { Card, CardContent } from '~/components/ui/card';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
     PlateCalculator,

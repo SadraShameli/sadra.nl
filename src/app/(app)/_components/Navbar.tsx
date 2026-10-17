@@ -11,21 +11,21 @@ import {
     AccordionContent,
     AccordionItem,
     AccordionTrigger,
-} from '~/components/ui/Accordion';
-import { Button } from '~/components/ui/Button';
+} from '~/components/ui/accordion';
+import { Button } from '~/components/ui/button';
 import {
     NavigationMenu,
     NavigationMenuContent,
     NavigationMenuItem,
     NavigationMenuList,
     NavigationMenuTrigger,
-} from '~/components/ui/NavigationMenu';
+} from '~/components/ui/navigation-menu';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '~/components/ui/Popover';
-import { SocialIcon } from '~/components/ui/SocialIcon';
+} from '~/components/ui/popover';
+import { SocialIcon } from '~/components/ui/social-icon';
 import { siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';

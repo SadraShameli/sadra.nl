@@ -10,8 +10,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+} from '~/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { MonthlyPayoutChart } from './MonthlyPayoutChart';

@@ -1,7 +1,7 @@
 import PlanStatsBadges from '~/app/(app)/prop-calculator/_components/PlanStatsBadges';
 import { LEDGER_ONLY_STATUS_NOTE } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
 import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
-import { Collapsible, CollapsibleContent } from '~/components/ui/Collapsible';
+import { Collapsible, CollapsibleContent } from '~/components/ui/collapsible';
 import { formatCurrency } from '~/lib/format';
 import {
     describePlanOptIn,

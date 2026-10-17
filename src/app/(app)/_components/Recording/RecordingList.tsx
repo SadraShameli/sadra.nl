@@ -1,9 +1,9 @@
 import { Music2, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { EmptyState } from '~/components/ui/EmptyState';
-import { ScrollArea } from '~/components/ui/ScrollArea';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { EmptyState } from '~/components/ui/empty-state';
+import { ScrollArea } from '~/components/ui/scroll-area';
+import { Skeleton } from '~/components/ui/skeleton';
 import { DurationFormat } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
 

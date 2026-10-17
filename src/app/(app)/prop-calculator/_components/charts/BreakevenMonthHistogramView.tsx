@@ -1,6 +1,6 @@
 'use client';
 
-import { ChartSize } from '~/components/ui/Chart';
+import { ChartSize } from '~/components/ui/chart';
 import { type PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
 
 import HistogramChartView from './HistogramChartView';

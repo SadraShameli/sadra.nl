@@ -1,4 +1,4 @@
-import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 
 import { type RulebookSource, rulebookSourceNotice } from './rulebookSource';
 

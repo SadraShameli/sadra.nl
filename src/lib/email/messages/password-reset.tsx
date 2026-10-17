@@ -33,7 +33,7 @@ function PasswordResetTemplate({ url }: { url: string }) {
                 in 1 hour.
             </Text>
             <Button
-                className="block rounded-full bg-camel px-6 py-3 text-center text-sm font-semibold text-on-camel no-underline"
+                className="block rounded-full selected-pill px-6 py-3 text-center text-sm font-semibold no-underline"
                 href={url}
             >
                 Reset password

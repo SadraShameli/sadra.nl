@@ -5,16 +5,16 @@ import { useMemo } from 'react';
 
 import type { LedgerId } from '~/lib/accounting/core/ids';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent } from '~/components/ui/Card';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     hasActiveTableFilter,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { EmptyState } from '~/components/ui/EmptyState';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { EmptyState } from '~/components/ui/empty-state';
 import { LedgerCategory } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 

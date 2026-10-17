@@ -1,7 +1,7 @@
 'use client';
 
 import { LoginForm } from '~/app/(auth)/login/LoginForm';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { cn } from '~/lib/utilities';
 
 import { MagicLinkForm } from './MagicLinkForm';

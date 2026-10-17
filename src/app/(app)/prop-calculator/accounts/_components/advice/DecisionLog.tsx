@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { Button } from '~/components/ui/Button';
-import { Input } from '~/components/ui/Input';
+import { Button } from '~/components/ui/button';
+import { Input } from '~/components/ui/input';
 import {
     Table,
     TableBody,
@@ -12,7 +12,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatCurrency } from '~/lib/format';
 import {

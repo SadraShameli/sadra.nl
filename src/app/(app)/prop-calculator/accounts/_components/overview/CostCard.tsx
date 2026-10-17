@@ -7,7 +7,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
+} from '~/components/ui/table';
 
 import { type CostCardModel } from './overviewModel';
 import { SampleBadge } from './SampleBadge';

@@ -7,18 +7,18 @@ import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
-} from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterDateRange } from '~/components/ui/FilterDateRange';
-import { FilterSelect } from '~/components/ui/FilterSelect';
+} from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterDateRange } from '~/components/ui/filter-date-range';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     WORKOUT_DURATION_BUCKETS,

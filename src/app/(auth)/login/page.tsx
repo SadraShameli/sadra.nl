@@ -5,15 +5,15 @@ import { Suspense } from 'react';
 import { OAuthButtons } from '~/app/(auth)/_components/OAuthButtons';
 import { SignInMethodTabs } from '~/app/(auth)/_components/SignInMethodTabs';
 import { PageTransition } from '~/components/PageTransition';
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { AutoDismissAlert } from '~/components/ui/AutoDismissAlert';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { AutoDismissAlert } from '~/components/ui/auto-dismiss-alert';
 import {
     Card,
     CardContent,
     CardFooter,
     CardHeader,
     CardTitle,
-} from '~/components/ui/Card';
+} from '~/components/ui/card';
 import { environment } from '~/environment';
 import { readSession } from '~/lib/auth/session';
 import { loginSearchSchema } from '~/lib/schemas/url';

@@ -3,8 +3,8 @@
 import { memo, useState } from 'react';
 
 import { FigureCard } from '~/app/(app)/prop-calculator/accounts/_components/FigureCard';
-import { Field, FieldLabel } from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+import { Field, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import { ScaleAtMultipleKind } from '~/lib/prop-accounts/bankroll';
 
 import {

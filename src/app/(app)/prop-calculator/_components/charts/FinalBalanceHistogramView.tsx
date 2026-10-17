@@ -1,6 +1,6 @@
 'use client';
 
-import { ChartSize } from '~/components/ui/Chart';
+import { ChartSize } from '~/components/ui/chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 

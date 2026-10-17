@@ -7,22 +7,22 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     Form,
     FormControl,
     FormField,
     FormItem,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '~/components/ui/Popover';
+} from '~/components/ui/popover';
 import { useSession } from '~/lib/auth/client';
 import { errorMessage } from '~/lib/errorMessage';
 import { type TradingFirm } from '~/lib/prop-calculator';

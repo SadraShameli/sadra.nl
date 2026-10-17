@@ -4,16 +4,16 @@ import { ChevronRight, Dumbbell } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { FilterToggle } from '~/components/ui/FilterToggle';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterToggle } from '~/components/ui/filter-toggle';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 

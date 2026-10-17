@@ -10,7 +10,7 @@ import {
     vi,
 } from 'vitest';
 
-import type * as DataTableModule from '~/components/ui/DataTable';
+import type * as DataTableModule from '~/components/ui/data-table';
 
 import { type CalculatorAction } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import LadderLabPanel from '~/app/(app)/prop-calculator/_components/LadderLabPanel';
@@ -75,7 +75,7 @@ const harness = vi.hoisted((): PanelHarness => ({
     writeLadderSlot: vi.fn(),
 }));
 
-vi.mock('~/components/ui/DataTable', async (importOriginal) => {
+vi.mock('~/components/ui/data-table', async (importOriginal) => {
     const actual = await importOriginal<typeof DataTableModule>();
     return {
         ...actual,

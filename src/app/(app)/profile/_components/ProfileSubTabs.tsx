@@ -3,7 +3,7 @@
 import { type ReactNode, startTransition, useState } from 'react';
 
 import { PageTransition } from '~/components/PageTransition';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { cn } from '~/lib/utilities';
 
 export type ProfileSubTab<TValue extends string> = {

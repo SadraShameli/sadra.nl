@@ -1,7 +1,7 @@
 'use client';
 
 import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
-import { Badge } from '~/components/ui/Badge';
+import { Badge } from '~/components/ui/badge';
 
 const outcomeMeta: Record<
     string,

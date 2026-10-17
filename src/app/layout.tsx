@@ -7,7 +7,7 @@ import { ThemeProvider } from 'next-themes';
 import { Suspense } from 'react';
 
 import { MeshBackground } from '~/components/MeshBackground';
-import { Toaster } from '~/components/ui/Sonner';
+import { Toaster } from '~/components/ui/sonner';
 import { bodoniModa, hankenGrotesk, jetBrainsMono } from '~/fonts';
 import { siteContent } from '~/lib/site/content';
 import { SITE_NAME } from '~/lib/site/siteName';

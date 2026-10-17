@@ -3,10 +3,10 @@
 import { Target } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import InfoPopover from '~/components/ui/InfoPopover';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import InfoPopover from '~/components/ui/info-popover';
 import {
     formatCurrency,
     formatDays,

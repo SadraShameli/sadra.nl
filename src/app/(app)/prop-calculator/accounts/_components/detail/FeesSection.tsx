@@ -12,7 +12,7 @@ import {
     useTodayIsoDate,
 } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { feeKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     Form,
     FormControl,
@@ -21,15 +21,15 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import {
     Table,
     TableBody,
@@ -37,8 +37,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from '~/components/ui/Table';
-import { Textarea } from '~/components/ui/Textarea';
+} from '~/components/ui/table';
+import { Textarea } from '~/components/ui/textarea';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
     EntryTextKind,

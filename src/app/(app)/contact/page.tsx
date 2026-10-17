@@ -3,7 +3,7 @@ import { type Metadata } from 'next';
 import { CapsulePage } from '~/app/(app)/_components/CapsulePage';
 import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { PageTransition } from '~/components/PageTransition';
-import { Card } from '~/components/ui/Card';
+import { Card } from '~/components/ui/card';
 
 import { ContactForm } from './ContactForm';
 

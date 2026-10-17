@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 
 import type { LogLevel } from '~/lib/accounting/runner-types';
 
-import { EmptyState } from '~/components/ui/EmptyState';
+import { EmptyState } from '~/components/ui/empty-state';
 import { cn } from '~/lib/utilities';
 
 export interface LogLine {
@@ -47,7 +47,7 @@ export function EventLog({
                     title="No events yet"
                 />
             ) : (
-                <ul className="m-0 list-none space-y-1.5 p-0">
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                     {lines.map((l, index) => (
                         <li
                             className={cn(

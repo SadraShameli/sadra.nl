@@ -18,8 +18,8 @@ import {
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
-} from '~/components/ui/Chart';
-import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
+} from '~/components/ui/chart';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     componentScoreCorrelation,
     type LightAssessment,

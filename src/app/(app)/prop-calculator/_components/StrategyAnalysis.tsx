@@ -3,8 +3,9 @@
 import { useMemo } from 'react';
 
 import Eyebrow from '~/components/Eyebrow';
-import { Card } from '~/components/ui/Card';
-import InfoPopover from '~/components/ui/InfoPopover';
+import { Card } from '~/components/ui/card';
+import InfoPopover from '~/components/ui/info-popover';
+import { Separator } from '~/components/ui/separator';
 import {
     formatCompactCurrency,
     formatCurrency,
@@ -323,7 +324,7 @@ export default function StrategyAnalysis({
                     </div>
                 </section>
 
-                <div className="border-t border-border/40" />
+                <Separator className="bg-border/40" />
 
                 <section
                     className={cn(
@@ -426,7 +427,7 @@ export default function StrategyAnalysis({
                     </div>
                 </section>
 
-                <div className="border-t border-border/40" />
+                <Separator className="bg-border/40" />
 
                 <section className={cn('app-prop-calculator__strategy-edge')}>
                     <SectionHeader

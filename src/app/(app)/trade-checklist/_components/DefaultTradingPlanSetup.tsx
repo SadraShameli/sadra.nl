@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useTransition } from 'react';
 
-import { Card, CardContent } from '~/components/ui/Card';
+import { Card, CardContent } from '~/components/ui/card';
 import { createDefaultTradingPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import type { PortfolioSectionView } from '~/lib/site/content';
 
-import { Badge } from '~/components/ui/Badge';
+import { Badge } from '~/components/ui/badge';
 import { cn } from '~/lib/utilities';
 
 const PRESENT_DATE = /\bPresent\s*$/;

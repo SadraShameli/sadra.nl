@@ -2,14 +2,14 @@
 
 import { z } from 'zod';
 
-import { Input } from '~/components/ui/Input';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { type DayStopRule, DayStopRuleKind } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 

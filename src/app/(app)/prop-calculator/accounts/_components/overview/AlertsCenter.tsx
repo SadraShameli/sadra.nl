@@ -1,6 +1,6 @@
 import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
 
-import { Badge } from '~/components/ui/Badge';
+import { Badge } from '~/components/ui/badge';
 import { AlertSeverity } from '~/lib/prop-accounts';
 import { cn } from '~/lib/utilities';
 

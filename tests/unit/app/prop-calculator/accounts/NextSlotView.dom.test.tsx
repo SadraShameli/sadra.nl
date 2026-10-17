@@ -374,7 +374,7 @@ describe('NextSlotView', () => {
             ),
             'utf8',
         );
-        expect(source).toContain("from '~/components/ui/Table'");
+        expect(source).toContain("from '~/components/ui/table'");
         expect(source).toMatch(/<Table\b/u);
         expect(source).not.toContain('ScrollTable');
         expect(source).not.toContain('SCROLL_REGION_TAB_INDEX');

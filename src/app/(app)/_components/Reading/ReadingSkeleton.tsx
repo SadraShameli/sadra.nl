@@ -1,4 +1,4 @@
-import { Skeleton } from '~/components/ui/Skeleton';
+import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utilities';
 
 const STAT_SKELETONS = ['latest', 'high', 'low'] as const;

@@ -13,8 +13,8 @@ import type {
     TradeAssessmentRow,
 } from '~/lib/trading/types';
 
-import { badgeVariants } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
+import { badgeVariants } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -22,19 +22,19 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
+} from '~/components/ui/dialog';
 import {
     Form,
     FormControl,
     FormField,
     FormItem,
     FormLabel,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import { RadioGroup, RadioGroupItem } from '~/components/ui/RadioGroup';
-import { Switch } from '~/components/ui/Switch';
-import { Textarea } from '~/components/ui/Textarea';
+} from '~/components/ui/form';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group';
+import { Switch } from '~/components/ui/switch';
+import { Textarea } from '~/components/ui/textarea';
 import { executionDeviationSchema, outcomeSchema } from '~/lib/schemas/trading';
 import { recordAssessmentOutcome } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';

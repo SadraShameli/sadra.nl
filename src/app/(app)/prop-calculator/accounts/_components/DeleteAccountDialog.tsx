@@ -5,8 +5,8 @@ import { getQueryKey } from '@trpc/react-query';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Button } from '~/components/ui/Button';
-import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
+import { Button } from '~/components/ui/button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { api } from '~/trpc/react';
 
 interface DeleteAccountDialogProperties {

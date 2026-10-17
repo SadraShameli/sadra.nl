@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
 import type { PrepChecks } from '~/lib/trading/types';
 
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { cn } from '~/lib/utilities';
 
 import { PrepChecklist } from './prep/PrepChecklist';

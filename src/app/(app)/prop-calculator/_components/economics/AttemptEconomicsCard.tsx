@@ -1,5 +1,5 @@
-import { Card, CardContent } from '~/components/ui/Card';
-import InfoPopover from '~/components/ui/InfoPopover';
+import { Card, CardContent } from '~/components/ui/card';
+import InfoPopover from '~/components/ui/info-popover';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type AttemptEconomicsCardModel } from './attemptEconomicsModel';

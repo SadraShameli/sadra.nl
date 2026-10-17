@@ -1,21 +1,21 @@
 'use client';
 
-import { Badge } from '~/components/ui/Badge';
-import { Checkbox } from '~/components/ui/Checkbox';
+import { Badge } from '~/components/ui/badge';
+import { Checkbox } from '~/components/ui/checkbox';
 import {
     Field,
     FieldError,
     FieldLabel,
     FieldLegend,
     FieldSet,
-} from '~/components/ui/Field';
+} from '~/components/ui/field';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import {
     findFirm,
     type FirmId,

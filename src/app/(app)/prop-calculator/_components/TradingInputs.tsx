@@ -6,31 +6,31 @@ import { z } from 'zod';
 
 import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import Eyebrow from '~/components/Eyebrow';
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     Field,
     FieldDescription,
     FieldError,
     FieldGroup,
     FieldLabel,
-} from '~/components/ui/Field';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '~/components/ui/Popover';
+} from '~/components/ui/popover';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Separator } from '~/components/ui/Separator';
-import { Slider } from '~/components/ui/Slider';
-import { Toggle } from '~/components/ui/Toggle';
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
+} from '~/components/ui/select';
+import { Separator } from '~/components/ui/separator';
+import { Slider } from '~/components/ui/slider';
+import { Toggle } from '~/components/ui/toggle';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import {
     formatCurrency,
     formatGateCurrency,
@@ -87,6 +87,9 @@ const SIZING_HINT_ID = 'position-sizing-hint';
 const RISK_INPUT_ID = 'risk-per-trade';
 const COUPON_HEADING_ID = 'coupon-heading';
 const INSTRUMENT_NOT_ENFORCED = 'not-enforced';
+const RISK_PERCENT_PRESETS = [0.25, 0.5, 1, 2, 5] as const;
+const RISK_PRESET_TOLERANCE = 0.01;
+const NO_RISK_PRESET = '';
 export const PLAUSIBILITY_NOTE_ID = 'plausibility-note';
 const rungSizingSchema = z.enum(RungSizing);
 const sizingModeSchema = z.enum(SizingMode);
@@ -826,27 +829,25 @@ export default function TradingInputs({
                     />
                 )}
                 <FieldDescription>{otherRepresentation}</FieldDescription>
-                <div className="flex flex-wrap gap-1">
-                    {[0.25, 0.5, 1, 2, 5].map((preset) => {
-                        const isActive =
-                            sizingMode === SizingMode.Percent &&
-                            Math.abs(riskPercent - preset) < 0.01;
-                        return (
-                            <Button
-                                key={preset}
-                                onClick={() => {
-                                    onSizingModeChange(SizingMode.Percent);
-                                    onRiskPercentChange(preset);
-                                }}
-                                size="sm"
-                                type="button"
-                                variant={isActive ? 'default' : 'outline'}
-                            >
-                                {preset}%
-                            </Button>
-                        );
-                    })}
-                </div>
+                <ToggleGroup
+                    aria-label="Risk percent presets"
+                    className="flex-wrap justify-start"
+                    onValueChange={(value: string) => {
+                        if (value === NO_RISK_PRESET) return;
+                        onSizingModeChange(SizingMode.Percent);
+                        onRiskPercentChange(Number(value));
+                    }}
+                    size="sm"
+                    type="single"
+                    value={activeRiskPreset(sizingMode, riskPercent)}
+                    variant="outline"
+                >
+                    {RISK_PERCENT_PRESETS.map((preset) => (
+                        <ToggleGroupItem key={preset} value={String(preset)}>
+                            {preset}%
+                        </ToggleGroupItem>
+                    ))}
+                </ToggleGroup>
             </Field>
             <div className="grid grid-cols-2 gap-3">
                 <Field>
@@ -1056,4 +1057,13 @@ export default function TradingInputs({
             </section>
         </div>
     );
+}
+
+function activeRiskPreset(sizingMode: SizingMode, riskPercent: number): string {
+    if (sizingMode !== SizingMode.Percent) return NO_RISK_PRESET;
+    const preset = RISK_PERCENT_PRESETS.find(
+        (candidate) =>
+            Math.abs(riskPercent - candidate) < RISK_PRESET_TOLERANCE,
+    );
+    return preset === undefined ? NO_RISK_PRESET : String(preset);
 }

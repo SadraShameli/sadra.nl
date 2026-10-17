@@ -2,9 +2,9 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import InfoPopover from '~/components/ui/InfoPopover';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import InfoPopover from '~/components/ui/info-popover';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimInputs, simulate } from '~/lib/prop-calculator';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';

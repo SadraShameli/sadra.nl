@@ -5,13 +5,13 @@ import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import {
     Carousel,
     CarouselContent,
     CarouselItem,
     useCarousel,
-} from '~/components/ui/Carousel';
+} from '~/components/ui/carousel';
 import { useIsReducedMotion } from '~/components/useIsReducedMotion';
 import { type CaptionedPhoto } from '~/lib/site/content';
 import { cn } from '~/lib/utilities';
