@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql, type SQLWrapper } from 'drizzle-orm';
+import { and, asc, desc, eq, ne, sql, type SQLWrapper } from 'drizzle-orm';
 import 'server-only';
 
 import type { Booking } from '~/lib/accounting/core/types';
@@ -66,6 +66,28 @@ export class AccountingRunRepo {
             throw new Error('Could not create accounting run');
         }
         return RunId(row.id);
+    }
+
+    async claimForPosting(
+        id: RunId,
+        userId: UserId,
+    ): Promise<AccountingRun | null> {
+        const [row] = await db
+            .update(accountingRun)
+            .set({
+                errorMessage: null,
+                status: 'posting',
+                updatedAt: new Date(),
+            })
+            .where(
+                and(
+                    eq(accountingRun.id, id),
+                    eq(accountingRun.userId, userId),
+                    ne(accountingRun.status, 'posting'),
+                ),
+            )
+            .returning();
+        return row ? toAccountingRun(row) : null;
     }
 
     async get(id: RunId, userId: UserId): Promise<AccountingRun | null> {
