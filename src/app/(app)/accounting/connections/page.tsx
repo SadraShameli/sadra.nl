@@ -1,7 +1,10 @@
 import { type Metadata } from 'next';
+import { Suspense } from 'react';
 
+import { AccountingDataSkeleton } from '~/app/(app)/accounting/_components/AccountingDataSkeleton';
 import { ConnectionsManager } from '~/app/(app)/accounting/_components/ConnectionsManager';
 import { PageTransition } from '~/components/PageTransition';
+import { requireRootUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 
 export const metadata: Metadata = {
@@ -26,8 +29,15 @@ export default function ConnectionsPage() {
                     </div>
                 </header>
 
-                <ConnectionsManager />
+                <Suspense fallback={<AccountingDataSkeleton />}>
+                    <ConnectionsContent />
+                </Suspense>
             </main>
         </PageTransition>
     );
+}
+
+async function ConnectionsContent() {
+    await requireRootUser();
+    return <ConnectionsManager />;
 }

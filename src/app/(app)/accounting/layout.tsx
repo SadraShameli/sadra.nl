@@ -1,9 +1,7 @@
-import { type ReactNode, Suspense } from 'react';
+import { type Instant } from 'next';
 
-import { requireRootUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 
-import { AccountingPageSkeleton } from './_components/AccountingSkeleton';
 import { AccountingSubnav } from './_components/AccountingSubnav';
 
 export const metadata = {
@@ -11,22 +9,15 @@ export const metadata = {
     title: 'Accounting Importer',
 };
 
+export const instant: Instant = true;
+
 export default function AccountingLayout({
     children,
 }: LayoutProps<'/accounting'>) {
     return (
         <div className={cn('app-accounting')}>
-            <Suspense fallback={<AccountingPageSkeleton />}>
-                <RootOnly>
-                    <AccountingSubnav />
-                    {children}
-                </RootOnly>
-            </Suspense>
+            <AccountingSubnav />
+            {children}
         </div>
     );
-}
-
-async function RootOnly({ children }: { children: ReactNode }) {
-    await requireRootUser();
-    return children;
 }

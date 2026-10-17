@@ -46,6 +46,8 @@ const securityHeaders = [
 const config = {
     cacheComponents: true,
     experimental: {
+        exposeTestingApiInProductionBuild:
+            process.env.EXPOSE_TESTING_API === '1',
         optimizePackageImports: ['framer-motion'],
     },
     async headers() {
