@@ -12,10 +12,19 @@ import { GOAL_STATUS } from '~/lib/lifting/types';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
 import { liftingExercise, liftingGoal } from '~/server/db';
 
+import { assertExerciseVisible, exerciseVisibleTo } from './visibility';
+
 export const liftingGoalRouter = createTRPCRouter({
     create: protectedProcedure
         .input(goalInputSchema)
         .mutation(async ({ ctx, input }) => {
+            if (input.exerciseId) {
+                await assertExerciseVisible(
+                    ctx.db,
+                    ctx.userId,
+                    input.exerciseId,
+                );
+            }
             const [row] = await ctx.db
                 .insert(liftingGoal)
                 .values({
@@ -73,7 +82,10 @@ export const liftingGoalRouter = createTRPCRouter({
                 .from(liftingGoal)
                 .leftJoin(
                     liftingExercise,
-                    eq(liftingExercise.id, liftingGoal.exerciseId),
+                    and(
+                        eq(liftingExercise.id, liftingGoal.exerciseId),
+                        exerciseVisibleTo(ctx.userId),
+                    ),
                 )
                 .where(and(...filters))
                 .orderBy(desc(liftingGoal.createdAt));
@@ -99,6 +111,13 @@ export const liftingGoalRouter = createTRPCRouter({
         .input(updateGoalInputSchema)
         .mutation(async ({ ctx, input }) => {
             const { id, ...rest } = input;
+            if (rest.exerciseId) {
+                await assertExerciseVisible(
+                    ctx.db,
+                    ctx.userId,
+                    rest.exerciseId,
+                );
+            }
             await ctx.db
                 .update(liftingGoal)
                 .set({

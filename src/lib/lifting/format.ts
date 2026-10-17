@@ -1,8 +1,25 @@
-import type { UnitDistance, UnitLength, UnitWeight } from '~/lib/lifting/types';
+import {
+    type MeasurementUnit,
+    UNIT_LENGTH_VALUES,
+    UNIT_WEIGHT_VALUES,
+    type UnitDistance,
+    type UnitLength,
+    type UnitWeight,
+} from '~/lib/lifting/types';
 
 export const KG_PER_LB = 0.45359237;
 export const CM_PER_IN = 2.54;
 export const M_PER_MI = 1609.344;
+
+const UNIT_LENGTHS: ReadonlySet<MeasurementUnit> = new Set(UNIT_LENGTH_VALUES);
+const UNIT_WEIGHTS: ReadonlySet<MeasurementUnit> = new Set(UNIT_WEIGHT_VALUES);
+
+export class IncompatibleMeasurementUnitsError extends Error {
+    constructor(from: MeasurementUnit, to: MeasurementUnit) {
+        super(`A measurement in ${from} cannot be shown in ${to}`);
+        this.name = 'IncompatibleMeasurementUnitsError';
+    }
+}
 
 export const DistanceUnit = {
     fromDisplay(value: number, unit: UnitDistance): number {
@@ -61,6 +78,37 @@ export const LengthUnit = {
     },
 };
 
+export const MeasurementUnitConversion = {
+    canDisplay(from: MeasurementUnit, to: MeasurementUnit): boolean {
+        return (
+            from === to ||
+            (isUnitWeight(from) && isUnitWeight(to)) ||
+            (isUnitLength(from) && isUnitLength(to))
+        );
+    },
+
+    toDisplay(
+        value: number,
+        from: MeasurementUnit,
+        to: MeasurementUnit,
+    ): number {
+        if (from === to) return value;
+        if (isUnitWeight(from) && isUnitWeight(to)) {
+            return WeightUnit.toDisplay(
+                WeightUnit.fromDisplay(value, from),
+                to,
+            );
+        }
+        if (isUnitLength(from) && isUnitLength(to)) {
+            return LengthUnit.toDisplay(
+                LengthUnit.fromDisplay(value, from),
+                to,
+            );
+        }
+        throw new IncompatibleMeasurementUnitsError(from, to);
+    },
+};
+
 export const TonnageFormat = {
     format(tonnageKg: number, unit: UnitWeight): string {
         const display = WeightUnit.toDisplay(tonnageKg, unit);
@@ -88,3 +136,11 @@ export const WeightUnit = {
         return unit === 'kg' ? valueKg : valueKg / KG_PER_LB;
     },
 };
+
+function isUnitLength(unit: MeasurementUnit): unit is UnitLength {
+    return UNIT_LENGTHS.has(unit);
+}
+
+function isUnitWeight(unit: MeasurementUnit): unit is UnitWeight {
+    return UNIT_WEIGHTS.has(unit);
+}

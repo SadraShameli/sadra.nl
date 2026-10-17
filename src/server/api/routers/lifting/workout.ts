@@ -23,6 +23,9 @@ import {
     retryOnUniqueViolation,
 } from '~/server/helpers/pg-errors';
 
+import { PrSyncService } from './pr-sync';
+import { assertExerciseVisible } from './visibility';
+
 export const liftingWorkoutRouter = createTRPCRouter({
     addExercise: protectedProcedure
         .input(exerciseToWorkoutInputSchema)
@@ -40,6 +43,7 @@ export const liftingWorkoutRouter = createTRPCRouter({
                     message: 'Workout not found',
                 });
             }
+            await assertExerciseVisible(ctx.db, ctx.userId, input.exerciseId);
             const row = await retryOnUniqueViolation(async () => {
                 const [previous] = await ctx.db
                     .select({ next: max(liftingWorkoutExercise.order) })
@@ -71,6 +75,21 @@ export const liftingWorkoutRouter = createTRPCRouter({
     delete: protectedProcedure
         .input(idActionSchema)
         .mutation(async ({ ctx, input }) => {
+            const affected = await ctx.db
+                .selectDistinct({
+                    exerciseId: liftingWorkoutExercise.exerciseId,
+                })
+                .from(liftingWorkoutExercise)
+                .innerJoin(
+                    liftingWorkout,
+                    eq(liftingWorkout.id, liftingWorkoutExercise.workoutId),
+                )
+                .where(
+                    and(
+                        eq(liftingWorkout.id, input.id),
+                        eq(liftingWorkout.userId, ctx.userId),
+                    ),
+                );
             await ctx.db
                 .delete(liftingWorkout)
                 .where(
@@ -79,6 +98,12 @@ export const liftingWorkoutRouter = createTRPCRouter({
                         eq(liftingWorkout.userId, ctx.userId),
                     ),
                 );
+            const sync = new PrSyncService(ctx.db);
+            await Promise.all(
+                affected.map(({ exerciseId }) =>
+                    sync.syncExercise(ctx.userId, exerciseId),
+                ),
+            );
             return { ok: true };
         }),
 
@@ -255,6 +280,10 @@ export const liftingWorkoutRouter = createTRPCRouter({
             await ctx.db
                 .delete(liftingWorkoutExercise)
                 .where(eq(liftingWorkoutExercise.id, input.id));
+            await new PrSyncService(ctx.db).syncExercise(
+                ctx.userId,
+                wex.exerciseId,
+            );
             return { ok: true };
         }),
 

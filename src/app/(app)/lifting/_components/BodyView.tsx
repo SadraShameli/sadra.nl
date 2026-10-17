@@ -55,6 +55,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '~/components/ui/Tooltip';
+import { MeasurementUnitConversion } from '~/lib/lifting/format';
 import {
     type CreateMeasurementInput,
     measurementInputSchema,
@@ -112,7 +113,7 @@ export function BodyView() {
     });
 
     const rows = useMemo(() => measurements.data ?? [], [measurements.data]);
-    const stats = useStats(rows);
+    const stats = useStats(rows, unitWeight);
 
     return (
         <div className="flex flex-col gap-6">
@@ -125,7 +126,10 @@ export function BodyView() {
 
             <BodyStatsCards stats={stats} />
 
-            <MeasurementTrendChart />
+            <MeasurementTrendChart
+                unitLength={unitLength}
+                unitWeight={unitWeight}
+            />
 
             <Card>
                 <CardHeader>
@@ -584,23 +588,38 @@ function MeasurementsHistoryTable({
     );
 }
 
-function MeasurementTrendChart() {
+function MeasurementTrendChart({
+    unitLength,
+    unitWeight,
+}: {
+    unitLength: UnitLength;
+    unitWeight: UnitWeight;
+}) {
     const [chartKind, setChartKind] = useState<MeasurementKind>('weight');
 
     const trendData = api.lifting.measurement.list.useQuery({
         kind: chartKind,
     });
 
-    const chartPoints = useMemo(() => {
-        const rows = (trendData.data ?? []).toReversed();
-        return rows.map((r) => ({
-            date: format(new Date(r.takenAt), 'MMM d'),
-            unit: r.unit,
-            value: r.valueNumeric,
-        }));
-    }, [trendData.data]);
+    const displayUnit = defaultUnitFor(chartKind, unitWeight, unitLength);
 
-    const latestUnit = chartPoints.at(-1)?.unit ?? '';
+    const chartPoints = useMemo(
+        () =>
+            (trendData.data ?? [])
+                .toReversed()
+                .filter((r) =>
+                    MeasurementUnitConversion.canDisplay(r.unit, displayUnit),
+                )
+                .map((r) => ({
+                    date: format(new Date(r.takenAt), 'MMM d'),
+                    value: MeasurementUnitConversion.toDisplay(
+                        r.valueNumeric,
+                        r.unit,
+                        displayUnit,
+                    ),
+                })),
+        [displayUnit, trendData.data],
+    );
 
     return (
         <Card>
@@ -648,7 +667,7 @@ function MeasurementTrendChart() {
                             xAxis={{ dataKey: 'date' }}
                             yAxis={{
                                 tickFormatter: (v: number) =>
-                                    `${v} ${latestUnit}`,
+                                    `${v} ${displayUnit}`,
                             }}
                         />
                     </div>
@@ -690,7 +709,7 @@ function StatCard({
     );
 }
 
-function useStats(rows: MeasurementRow[]): Stats {
+function useStats(rows: MeasurementRow[], unitWeight: UnitWeight): Stats {
     return useMemo(() => {
         const latestByKind = new Map<MeasurementKind, MeasurementRow>();
         for (const r of rows) {
@@ -701,17 +720,33 @@ function useStats(rows: MeasurementRow[]): Stats {
         const weight = latestByKind.get('weight');
         const bodyfat = latestByKind.get('bodyfat');
 
+        const inDisplayUnit = (row: MeasurementRow): number =>
+            MeasurementUnitConversion.toDisplay(
+                row.valueNumeric,
+                row.unit,
+                unitWeight,
+            );
         let weightDelta30d: null | number = null;
-        if (weight) {
+        if (
+            weight &&
+            MeasurementUnitConversion.canDisplay(weight.unit, unitWeight)
+        ) {
             const cutoff = subDays(new Date(weight.takenAt), 30);
             const past = rows
-                .filter((r) => r.kind === 'weight')
+                .filter(
+                    (r) =>
+                        r.kind === 'weight' &&
+                        MeasurementUnitConversion.canDisplay(
+                            r.unit,
+                            unitWeight,
+                        ),
+                )
                 .find((r) => new Date(r.takenAt) <= cutoff);
             if (past) {
-                weightDelta30d = weight.valueNumeric - past.valueNumeric;
+                weightDelta30d = inDisplayUnit(weight) - inDisplayUnit(past);
             }
         }
 
         return { bodyfat, total: rows.length, weight, weightDelta30d };
-    }, [rows]);
+    }, [rows, unitWeight]);
 }

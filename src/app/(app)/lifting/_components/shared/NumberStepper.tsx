@@ -38,6 +38,11 @@ export function NumberStepper({
     const intervalReference = useRef<null | ReturnType<typeof setInterval>>(
         null,
     );
+    const valueReference = useRef(value);
+
+    useEffect(() => {
+        valueReference.current = value;
+    }, [value]);
 
     const clamp = useCallback(
         (n: number): number => {
@@ -50,16 +55,26 @@ export function NumberStepper({
 
     const apply = useCallback(
         (direction: -1 | 1, magnitude = 1) => {
-            onChange(clamp(value + direction * step * magnitude));
+            const next = clamp(
+                valueReference.current + direction * step * magnitude,
+            );
+            valueReference.current = next;
+            onChange(next);
         },
-        [clamp, onChange, step, value],
+        [clamp, onChange, step],
     );
+
+    const applyReference = useRef(apply);
+
+    useEffect(() => {
+        applyReference.current = apply;
+    }, [apply]);
 
     const startHold = (direction: -1 | 1) => {
         apply(direction, 1);
         timeoutReference.current = setTimeout(() => {
             intervalReference.current = setInterval(() => {
-                apply(direction, longPressMultiplier);
+                applyReference.current(direction, longPressMultiplier);
             }, REPEAT_MS);
         }, LONG_PRESS_MS);
     };

@@ -366,7 +366,12 @@ function ActiveEnrollmentCard({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Advanced to next day.');
-            await invalidate();
+            await Promise.all([
+                invalidate(),
+                utilities.lifting.program.nextDay.invalidate({
+                    id: enrollment.id,
+                }),
+            ]);
         },
     });
 

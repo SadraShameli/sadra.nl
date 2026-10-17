@@ -75,6 +75,9 @@ export function ExerciseCard({
     const updateSet = api.lifting.set.update.useMutation({
         onSuccess: invalidate,
     });
+    const completeSet = api.lifting.set.complete.useMutation({
+        onSuccess: invalidate,
+    });
     const workoutSetDeletion = api.lifting.set.delete.useMutation({
         onSuccess: invalidate,
     });
@@ -123,6 +126,10 @@ export function ExerciseCard({
                 type: 'working',
                 weightKg: values.weightKg,
             });
+            const isPending =
+                wex.sets.find((candidate) => candidate.id === id)
+                    ?.completedAt === null;
+            if (isPending) await completeSet.mutateAsync({ id });
             onRequestRest(targetRestSeconds);
         } catch {
             return;
@@ -263,7 +270,10 @@ export function ExerciseCard({
                         return (
                             <li key={s.id}>
                                 <SetRow
-                                    busy={updateSet.isPending}
+                                    busy={
+                                        updateSet.isPending ||
+                                        completeSet.isPending
+                                    }
                                     onComplete={handleCompleteSet}
                                     onDelete={(id) =>
                                         workoutSetDeletion.mutate({ id })

@@ -16,6 +16,8 @@ import {
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
 import { liftingExercise } from '~/server/db';
 
+import { exerciseVisibleTo } from './visibility';
+
 function slugify(value: string): string {
     return value
         .toLowerCase()
@@ -80,14 +82,10 @@ export const liftingExerciseRouter = createTRPCRouter({
         .input(exerciseSlugActionSchema)
         .query(async ({ ctx, input }) => {
             const row = await ctx.db.query.liftingExercise.findFirst({
-                where: (fields, { and: a, eq: equals, isNull: n, or: o }) =>
-                    a(
-                        equals(fields.slug, input.slug),
-                        o(
-                            n(fields.ownerId),
-                            equals(fields.ownerId, ctx.userId),
-                        ),
-                    ),
+                where: and(
+                    eq(liftingExercise.slug, input.slug),
+                    exerciseVisibleTo(ctx.userId),
+                ),
             });
             if (!row) {
                 throw new TRPCError({

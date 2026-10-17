@@ -3,28 +3,50 @@ import { TRPCError } from '@trpc/server';
 import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import type { ProgramSchedule } from '~/lib/lifting/types';
-
 import { loadOfficialPrograms } from '~/lib/lifting/OfficialCatalog';
 import {
     enrollProgramInputSchema,
     exerciseSlugActionSchema,
     idActionSchema,
     programCategorySchema,
+    programScheduleSchema,
     updateUserProgramInputSchema,
 } from '~/lib/lifting/schemas';
 import { USER_PROGRAM_STATUS } from '~/lib/lifting/types';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
 import { liftingProgram, liftingUserProgram } from '~/server/db';
 
-const customProgramInputSchema = z.object({
-    category: programCategorySchema,
-    daysPerWeek: z.number().int().min(1).max(7),
-    description: z.string().max(2000).optional(),
-    lengthWeeks: z.number().int().min(1).max(52),
-    name: z.string().trim().min(1).max(128),
-    schedule: z.custom<ProgramSchedule>(),
-});
+import { programVisibleTo } from './visibility';
+
+const customProgramInputSchema = z
+    .object({
+        category: programCategorySchema,
+        daysPerWeek: z.number().int().min(1).max(7),
+        description: z.string().max(2000).optional(),
+        lengthWeeks: z.number().int().min(1).max(52),
+        name: z.string().trim().min(1).max(128),
+        schedule: programScheduleSchema,
+    })
+    .superRefine((input, context) => {
+        if (input.schedule.weeks.length !== input.lengthWeeks) {
+            context.addIssue({
+                code: 'custom',
+                message: `The schedule has ${String(input.schedule.weeks.length)} weeks, but the program is ${String(input.lengthWeeks)} weeks long.`,
+                path: ['schedule', 'weeks'],
+            });
+        }
+        if (
+            input.schedule.weeks.some(
+                (week) => week.days.length > input.daysPerWeek,
+            )
+        ) {
+            context.addIssue({
+                code: 'custom',
+                message: `A schedule week has more than the ${String(input.daysPerWeek)} days per week the program trains.`,
+                path: ['schedule', 'weeks'],
+            });
+        }
+    });
 
 export const liftingProgramRouter = createTRPCRouter({
     advance: protectedProcedure
@@ -79,7 +101,10 @@ export const liftingProgramRouter = createTRPCRouter({
         .input(idActionSchema)
         .mutation(async ({ ctx, input }) => {
             const program = await ctx.db.query.liftingProgram.findFirst({
-                where: (p, { eq: equals }) => equals(p.id, input.id),
+                where: and(
+                    eq(liftingProgram.id, input.id),
+                    programVisibleTo(ctx.userId),
+                ),
             });
             if (!program) {
                 throw new TRPCError({
@@ -170,7 +195,10 @@ export const liftingProgramRouter = createTRPCRouter({
         .input(enrollProgramInputSchema)
         .mutation(async ({ ctx, input }) => {
             const program = await ctx.db.query.liftingProgram.findFirst({
-                where: (p, { eq: equals }) => equals(p.id, input.programId),
+                where: and(
+                    eq(liftingProgram.id, input.programId),
+                    programVisibleTo(ctx.userId),
+                ),
             });
             if (!program) {
                 throw new TRPCError({
@@ -212,11 +240,10 @@ export const liftingProgramRouter = createTRPCRouter({
         .input(exerciseSlugActionSchema)
         .query(async ({ ctx, input }) => {
             const row = await ctx.db.query.liftingProgram.findFirst({
-                where: (p, { and: a, eq: equals, isNull: n, or: o }) =>
-                    a(
-                        equals(p.slug, input.slug),
-                        o(n(p.ownerId), equals(p.ownerId, ctx.userId)),
-                    ),
+                where: and(
+                    eq(liftingProgram.slug, input.slug),
+                    programVisibleTo(ctx.userId),
+                ),
             });
             if (!row) {
                 throw new TRPCError({

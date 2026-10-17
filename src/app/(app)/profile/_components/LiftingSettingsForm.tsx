@@ -55,16 +55,12 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
         },
     });
 
+    const [saved, setSaved] = useState<SettingsFormValues>(() =>
+        settingsFormValuesOf(initial),
+    );
+
     const form = useForm<SettingsFormValues>({
-        defaultValues: {
-            availablePlatesKg: [...initial.availablePlatesKg],
-            barWeightKg: initial.barWeightKg,
-            defaultRestSeconds: initial.defaultRestSeconds,
-            unitDistance: initial.unitDistance,
-            unitLength: initial.unitLength,
-            unitWeight: initial.unitWeight,
-            weekStart: initial.weekStart,
-        },
+        defaultValues: settingsFormValuesOf(initial),
         resolver: zodResolver(settingsFormSchema),
     });
 
@@ -77,34 +73,41 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
     const onSubmit = form.handleSubmit((values) => {
         const isPlatesChanged =
             values.availablePlatesKg.length !==
-                initial.availablePlatesKg.length ||
+                saved.availablePlatesKg.length ||
             values.availablePlatesKg.some(
-                (p, index) => p !== initial.availablePlatesKg[index],
+                (p, index) => p !== saved.availablePlatesKg[index],
             );
         const diff: UpdateSettingsInput = {
-            ...(values.barWeightKg !== initial.barWeightKg && {
+            ...(values.barWeightKg !== saved.barWeightKg && {
                 barWeightKg: values.barWeightKg,
             }),
-            ...(values.defaultRestSeconds !== initial.defaultRestSeconds && {
+            ...(values.defaultRestSeconds !== saved.defaultRestSeconds && {
                 defaultRestSeconds: values.defaultRestSeconds,
             }),
-            ...(values.unitDistance !== initial.unitDistance && {
+            ...(values.unitDistance !== saved.unitDistance && {
                 unitDistance: values.unitDistance,
             }),
-            ...(values.unitLength !== initial.unitLength && {
+            ...(values.unitLength !== saved.unitLength && {
                 unitLength: values.unitLength,
             }),
-            ...(values.unitWeight !== initial.unitWeight && {
+            ...(values.unitWeight !== saved.unitWeight && {
                 unitWeight: values.unitWeight,
             }),
-            ...(values.weekStart !== initial.weekStart && {
+            ...(values.weekStart !== saved.weekStart && {
                 weekStart: values.weekStart,
             }),
             ...(isPlatesChanged && {
                 availablePlatesKg: [...values.availablePlatesKg],
             }),
         };
-        update.mutate(diff);
+        update.mutate(diff, {
+            onSuccess: () => {
+                setSaved({
+                    ...values,
+                    availablePlatesKg: [...values.availablePlatesKg],
+                });
+            },
+        });
     });
 
     const addPlate = () => {
@@ -421,4 +424,16 @@ function Section({
             </div>
         </FieldSet>
     );
+}
+
+function settingsFormValuesOf(settings: Settings): SettingsFormValues {
+    return {
+        availablePlatesKg: [...settings.availablePlatesKg],
+        barWeightKg: settings.barWeightKg,
+        defaultRestSeconds: settings.defaultRestSeconds,
+        unitDistance: settings.unitDistance,
+        unitLength: settings.unitLength,
+        unitWeight: settings.unitWeight,
+        weekStart: settings.weekStart,
+    };
 }
