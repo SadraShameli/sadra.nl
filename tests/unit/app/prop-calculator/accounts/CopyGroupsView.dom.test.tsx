@@ -283,6 +283,9 @@ async function chooseAccount(accountLabel: string) {
     await pickOption(accountSelectTrigger(), (text) =>
         text.startsWith(`${accountLabel} (`),
     );
+    await vi.waitFor(() => {
+        expect(document.activeElement).toBe(accountSelectTrigger());
+    });
 }
 
 function click(target: HTMLButtonElement) {
