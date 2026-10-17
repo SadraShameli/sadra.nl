@@ -36,6 +36,24 @@ describe('rule pattern validation', () => {
         expect(ruleCreateSchema.safeParse(VALID_CREATE).success).toBe(false);
     });
 
+    it.each(['(a+)+$', String.raw`(\w*)*@`, String.raw`^(\d{1,3})+x`])(
+        'refuses %s, whose nested quantifiers can backtrack for minutes',
+        (match) => {
+            expect(
+                ruleCreateSchema.safeParse({ ...VALID_CREATE, match }).success,
+            ).toBe(false);
+        },
+    );
+
+    it('accepts an ordinary merchant regex with a quantified group', () => {
+        expect(
+            ruleCreateSchema.safeParse({
+                ...VALID_CREATE,
+                match: String.raw`^albert\s+heijn (\d{4}|online)?$`,
+            }).success,
+        ).toBe(true);
+    });
+
     it('still accepts a parenthesis as a plain contains pattern', () => {
         expect(
             ruleCreateSchema.safeParse({
