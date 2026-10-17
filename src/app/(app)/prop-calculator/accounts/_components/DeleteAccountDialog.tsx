@@ -5,18 +5,8 @@ import { getQueryKey } from '@trpc/react-query';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { api } from '~/trpc/react';
 
 interface DeleteAccountDialogProperties {
@@ -53,39 +43,22 @@ export function DeleteAccountDialog({
     });
 
     return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button
-                    aria-label={`Delete ${label}`}
-                    disabled={remove.isPending}
-                    size="icon"
-                    variant="ghost"
-                >
-                    <Trash2 />
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>
-                        Delete &ldquo;{label}&rdquo;?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This permanently removes the account with its balances,
-                        payouts, fees, events and sizing decisions. Archive it
-                        instead to keep its history in your totals.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                        onClick={() => {
-                            remove.mutate({ id: accountId });
-                        }}
-                    >
-                        Delete
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <ConfirmDialog
+            confirmLabel="Delete"
+            description="This permanently removes the account with its balances, payouts, fees, events and sizing decisions. Archive it instead to keep its history in your totals."
+            onConfirm={() => {
+                remove.mutate({ id: accountId });
+            }}
+            title={<>Delete &ldquo;{label}&rdquo;?</>}
+        >
+            <Button
+                aria-label={`Delete ${label}`}
+                disabled={remove.isPending}
+                size="icon"
+                variant="ghost"
+            >
+                <Trash2 />
+            </Button>
+        </ConfirmDialog>
     );
 }

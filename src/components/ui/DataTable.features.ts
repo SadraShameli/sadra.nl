@@ -82,7 +82,7 @@ export type DataTableAlign =
 
 export const DATA_TABLE_ALIGN_CLASS_NAME: Record<DataTableAlign, string> = {
     [DataTableAlign.Center]: 'text-center',
-    [DataTableAlign.End]: 'text-right',
+    [DataTableAlign.End]: 'text-right tabular-nums',
     [DataTableAlign.Start]: 'text-left',
 };
 

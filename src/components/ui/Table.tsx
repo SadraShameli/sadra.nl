@@ -55,7 +55,7 @@ function TableCell({ className, ...properties }: React.ComponentProps<'td'>) {
     return (
         <td
             className={cn(
-                'px-3 py-2 align-middle has-[[role=checkbox]]:pr-0',
+                'px-3 py-2.5 align-middle has-[[role=checkbox]]:pr-0',
                 className,
             )}
             data-slot="table-cell"
@@ -71,7 +71,7 @@ function TableFooter({
     return (
         <tfoot
             className={cn(
-                'border-t border-border/60 bg-muted/40 font-medium [&>tr]:last:border-b-0',
+                'border-t border-line bg-surface-sunken font-medium [&>tr]:last:border-b-0',
                 className,
             )}
             data-slot="table-footer"
@@ -84,7 +84,7 @@ function TableHead({ className, ...properties }: React.ComponentProps<'th'>) {
     return (
         <th
             className={cn(
-                'h-9 px-3 text-left align-middle text-xs font-medium text-muted-foreground has-[[role=checkbox]]:pr-0',
+                'h-10 px-3 text-left align-middle type-micro text-ink-muted has-[[role=checkbox]]:pr-0',
                 className,
             )}
             data-slot="table-head"
@@ -99,7 +99,10 @@ function TableHeader({
 }: React.ComponentProps<'thead'>) {
     return (
         <thead
-            className={cn('[&_tr]:border-b [&_tr]:border-border/60', className)}
+            className={cn(
+                '[&_tr]:border-b [&_tr]:border-line [&_tr]:hover:bg-transparent',
+                className,
+            )}
             data-slot="table-header"
             {...properties}
         />
@@ -110,7 +113,7 @@ function TableRow({ className, ...properties }: React.ComponentProps<'tr'>) {
     return (
         <tr
             className={cn(
-                'border-b border-border/60 transition-colors hover:bg-foreground/2 data-[state=selected]:bg-foreground/5',
+                'border-b border-line-faint transition-colors hover:bg-surface data-[state=selected]:bg-surface-high',
                 className,
             )}
             data-slot="table-row"

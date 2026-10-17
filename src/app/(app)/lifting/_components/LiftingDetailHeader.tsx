@@ -1,3 +1,5 @@
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+
 export function LiftingDetailHeader({
     description,
     eyebrow,
@@ -8,18 +10,11 @@ export function LiftingDetailHeader({
     readonly title: string;
 }) {
     return (
-        <header>
-            <p className="text-xs tracking-wide text-muted-foreground uppercase">
-                {eyebrow}
-            </p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                {title}
-            </h1>
-            {description && (
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                    {description}
-                </p>
-            )}
-        </header>
+        <ToolPageHeader
+            className="mb-0"
+            eyebrow={eyebrow}
+            lead={description ?? undefined}
+            title={title}
+        />
     );
 }

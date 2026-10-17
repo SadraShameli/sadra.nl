@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { type ReactNode, Suspense } from 'react';
 
+import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { AutoDismissAlert } from '~/components/ui/AutoDismissAlert';
@@ -39,6 +40,7 @@ export const metadata: Metadata = {
 
 const TAB_TITLES: Record<ProfileTabValue, string> = {
     account: 'Account',
+    contents: 'Contents',
     lifting: 'Lifting',
     'sensor-hub': 'Sensor Hub',
     trading: 'Trading',
@@ -105,8 +107,11 @@ async function ProfileContent({
     const { email, name } = user;
     const role = resolveRole(email, user.role);
     const isUserIsRoot = isRoot(role);
-    const heroShowcase = isUserIsRoot ? await api.site.heroShowcase() : null;
-    const activeTab = normalizeProfileTab(rawParameters.tab, isAdmin);
+    const activeTab = normalizeProfileTab(
+        rawParameters.tab,
+        isAdmin,
+        isUserIsRoot,
+    );
 
     const accountTab: ReactNode = (
         <>
@@ -162,17 +167,6 @@ async function ProfileContent({
                 </Card>
             </div>
 
-            {isUserIsRoot && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Homepage figures</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <HeroShowcaseForm initial={heroShowcase} />
-                    </CardContent>
-                </Card>
-            )}
-
             <Card>
                 <CardHeader>
                     <CardTitle>Active sessions</CardTitle>
@@ -208,6 +202,22 @@ async function ProfileContent({
     let content: ReactNode = accountTab;
     switch (activeTab) {
         case 'account': {
+            break;
+        }
+        case 'contents': {
+            if (isUserIsRoot) {
+                const heroShowcase = await api.site.heroShowcase();
+                content = (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Homepage figures</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <HeroShowcaseForm initial={heroShowcase} />
+                        </CardContent>
+                    </Card>
+                );
+            }
             break;
         }
         case 'lifting': {
@@ -246,9 +256,7 @@ async function ProfileContent({
             <Card className="min-w-0 p-0">
                 <PageTransition transitionKey={activeTab}>
                     <section className="flex min-w-0 flex-col gap-6 p-4 md:p-8">
-                        <h1 className="text-2xl font-semibold tracking-tight">
-                            {TAB_TITLES[activeTab]}
-                        </h1>
+                        <ToolPageTitle>{TAB_TITLES[activeTab]}</ToolPageTitle>
                         <div className="flex min-w-0 flex-col gap-6">
                             {content}
                         </div>

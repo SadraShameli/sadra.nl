@@ -3,7 +3,11 @@
 import { useMemo } from 'react';
 import { Pie, PieChart } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    type ChartConfig,
+    ChartContainer,
+    ChartSize,
+} from '~/components/ui/Chart';
 import {
     type LightAssessment,
     outcomeDistribution,
@@ -55,7 +59,11 @@ export function OutcomeDonut({
                 'flex flex-col items-center gap-4',
             )}
         >
-            <ChartContainer className="size-56 shrink-0" config={chartConfig}>
+            <ChartContainer
+                className="size-64 shrink-0"
+                config={chartConfig}
+                size={ChartSize.Compact}
+            >
                 <PieChart>
                     <Pie
                         cx="50%"

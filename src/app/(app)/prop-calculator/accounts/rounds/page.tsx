@@ -2,6 +2,7 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import {
     EVENT_LIST_INPUT,
@@ -31,16 +32,16 @@ export default function PropAccountsRoundsPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Rounds
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        Group your purchases into rounds with an optional
-                        budget, and see spend, payouts and realized multiple per
-                        round.
-                    </p>
-                </header>
+                <AccountsPageHeader
+                    description={
+                        <>
+                            Group your purchases into rounds with an optional
+                            budget, and see spend, payouts and realized multiple
+                            per round.
+                        </>
+                    }
+                    title="Rounds"
+                />
                 <Suspense fallback={<AccountsDataSkeleton />}>
                     <PropAccountsRoundsContent />
                 </Suspense>

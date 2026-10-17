@@ -21,6 +21,11 @@ import { AccountLink } from './(app)/_components/AccountLink';
 import Footer from './(app)/_components/Footer';
 import { MAIN_CONTENT_ID } from './(app)/_components/mainContent';
 import Navbar from './(app)/_components/Navbar';
+import {
+    RootAccountingGroup,
+    RootResumeGroup,
+} from './(app)/_components/navigation/RootNavigationGroups';
+import { NavMenuId } from './(app)/_components/navigation/siteNavigation';
 import { SessionAccountLink } from './(app)/_components/SessionAccountLink';
 
 export const viewport: Viewport = {
@@ -79,6 +84,18 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                                     <SessionAccountLink />
                                 </Suspense>
                             }
+                            menuExtras={{
+                                [NavMenuId.Portfolio]: (
+                                    <Suspense fallback={null}>
+                                        <RootResumeGroup />
+                                    </Suspense>
+                                ),
+                                [NavMenuId.Tools]: (
+                                    <Suspense fallback={null}>
+                                        <RootAccountingGroup />
+                                    </Suspense>
+                                ),
+                            }}
                         />
                         <div
                             className="flex flex-1 flex-col"

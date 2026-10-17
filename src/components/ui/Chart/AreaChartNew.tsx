@@ -2,16 +2,21 @@ import { useId } from 'react';
 import { Area, AreaChart, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_STROKE_WIDTH,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
     ChartTooltip,
     ChartTooltipContent,
 } from '~/components/ui/Chart';
+import { ChartAreaGradient } from '~/components/ui/Chart/ChartAreaGradient';
 
 type AreaChartNewProperties = {
     area: {
         dataKey: string;
     };
+    className?: string;
     config: ChartConfig;
     data: undefined | unknown[];
     tooltip: {
@@ -31,36 +36,23 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
     const id = useId();
 
     return (
-        <ChartContainer className="size-full" config={properties.config}>
+        <ChartContainer
+            className={properties.className}
+            config={properties.config}
+        >
             <AreaChart data={properties.data}>
                 <defs>
-                    <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
-                        <stop
-                            offset="5%"
-                            stopColor="var(--chart-1)"
-                            stopOpacity={0.28}
-                        />
-
-                        <stop
-                            offset="95%"
-                            stopColor="var(--chart-1)"
-                            stopOpacity={0}
-                        />
-                    </linearGradient>
+                    <ChartAreaGradient id={id} />
                 </defs>
 
                 <XAxis
-                    axisLine={false}
+                    {...CHART_X_AXIS_PROPS}
                     dataKey={properties.xAxis.dataKey}
-                    tickLine={false}
-                    tickMargin={10}
                 />
 
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     tickFormatter={properties.yAxis.tickFormatter}
-                    tickLine={false}
-                    width="auto"
                 />
 
                 <Area
@@ -68,7 +60,7 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
                     fill={`url(#${id})`}
                     fillOpacity={1}
                     stroke="var(--chart-1)"
-                    strokeWidth={1.6}
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
 
@@ -81,7 +73,6 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
                             valueFormatter={properties.tooltip.valueFormatter}
                         />
                     }
-                    cursor={{ stroke: 'var(--line-strong)', strokeWidth: 1 }}
                 />
             </AreaChart>
         </ChartContainer>

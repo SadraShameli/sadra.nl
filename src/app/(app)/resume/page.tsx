@@ -1,7 +1,10 @@
 import { type Instant } from 'next';
 
+import { CapsulePage } from '~/app/(app)/_components/CapsulePage';
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { requireRootUser } from '~/lib/auth/guards';
+import { siteContent } from '~/lib/site/content';
 import {
     coverLetters,
     defaultResumeVariantKey,
@@ -34,30 +37,25 @@ export default async function ResumePage() {
 
     return (
         <PageTransition>
-            <main className="container grid w-full pt-spacing pb-24">
-                <div className="mx-auto w-full max-w-4xl">
-                    <header>
-                        <h1 className="font-serif text-4xl font-medium tracking-tight text-foreground sm:text-5xl">
-                            Resume
-                        </h1>
-                        <p className="mt-3 text-base text-muted-foreground">
-                            Formatted as a PDF, view inline or download.
-                        </p>
-                    </header>
+            <CapsulePage>
+                <ToolPageHeader
+                    eyebrow={siteContent.manifest.name}
+                    lead="Formatted as a PDF, view inline or download."
+                    title="Resume"
+                />
 
-                    <div className="mt-12 flex flex-col gap-4">
-                        {resumes.map((resume) => (
-                            <ResumeCard
-                                coverOptions={coverOptions}
-                                defaultVariantKey={defaultResumeVariantKey}
-                                key={resume.name}
-                                resume={resume}
-                                variantOptions={variantOptions}
-                            />
-                        ))}
-                    </div>
+                <div className="flex flex-col gap-4">
+                    {resumes.map((resume) => (
+                        <ResumeCard
+                            coverOptions={coverOptions}
+                            defaultVariantKey={defaultResumeVariantKey}
+                            key={resume.name}
+                            resume={resume}
+                            variantOptions={variantOptions}
+                        />
+                    ))}
                 </div>
-            </main>
+            </CapsulePage>
         </PageTransition>
     );
 }

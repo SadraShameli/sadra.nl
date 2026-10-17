@@ -3,11 +3,13 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { JournalView } from '~/app/(app)/trade-checklist/_components/JournalView';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/tradingRows';
+import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
@@ -27,16 +29,17 @@ export default function TradeJournalPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Journal
-                    </h1>
-                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                        Filter, search, and drill into every assessment you have
-                        ever graded. Filter state lives in the URL so views are
-                        shareable.
-                    </p>
-                </header>
+                <ToolPageHeader
+                    eyebrow={siteToolTitle(ToolTicker.Checklist)}
+                    lead={
+                        <>
+                            Filter, search, and drill into every assessment you
+                            have ever graded. Filter state lives in the URL so
+                            views are shareable.
+                        </>
+                    }
+                    title="Journal"
+                />
                 <Suspense fallback={<TradeChecklistDataSkeleton />}>
                     <TradeJournalContent />
                 </Suspense>

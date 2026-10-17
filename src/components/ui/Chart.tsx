@@ -24,6 +24,12 @@ type ChartContextProperties = {
 
 const ChartContext = React.createContext<ChartContextProperties | null>(null);
 
+export enum ChartSize {
+    Compact = 'compact',
+    Standard = 'standard',
+    Tall = 'tall',
+}
+
 function useChart() {
     const context = React.useContext(ChartContext);
 
@@ -34,6 +40,33 @@ function useChart() {
     return context;
 }
 
+const CHART_SIZE_CLASS: Readonly<Record<ChartSize, string>> = {
+    [ChartSize.Compact]: 'h-56',
+    [ChartSize.Standard]: 'h-64 lg:h-80',
+    [ChartSize.Tall]: 'h-80 lg:h-96',
+};
+
+export const CHART_X_AXIS_PROPS = {
+    axisLine: false,
+    tickLine: false,
+    tickMargin: 10,
+} as const;
+
+export const CHART_Y_AXIS_PROPS = {
+    axisLine: false,
+    tickLine: false,
+    width: 'auto',
+} as const;
+
+export const CHART_REFERENCE_LINE_PROPS = {
+    stroke: 'var(--line-strong)',
+    strokeDasharray: '4 4',
+} as const;
+
+export const CHART_STROKE_WIDTH = 1.6;
+
+export const CHART_BAR_RADIUS: [number, number, number, number] = [3, 3, 0, 0];
+
 const ChartContainer = React.forwardRef<
     HTMLDivElement,
     React.ComponentProps<'div'> & {
@@ -41,39 +74,58 @@ const ChartContainer = React.forwardRef<
             typeof RechartsPrimitive.ResponsiveContainer
         >['children'];
         config: ChartConfig;
+        size?: ChartSize;
     }
->(({ children, className, config, id, ...properties }, reference) => {
-    const uniqueId = React.useId();
-    const chartId = `chart-${id ?? uniqueId.replaceAll(':', '')}`;
-    const [mounted, setMounted] = React.useState(false);
-    React.useEffect(() => setMounted(true), []);
+>(
+    (
+        {
+            children,
+            className,
+            config,
+            id,
+            size = ChartSize.Standard,
+            ...properties
+        },
+        reference,
+    ) => {
+        const uniqueId = React.useId();
+        const chartId = `chart-${id ?? uniqueId.replaceAll(':', '')}`;
+        const [mounted, setMounted] = React.useState(false);
+        React.useEffect(() => setMounted(true), []);
 
-    return (
-        <ChartContext.Provider value={{ config }}>
-            <div
-                className={cn(
-                    "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector]:outline-none [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-none",
-                    className,
-                )}
-                data-chart={chartId}
-                ref={reference}
-                {...properties}
-            >
-                <ChartStyle config={config} id={chartId} />
-                {mounted && (
-                    <RechartsPrimitive.ResponsiveContainer
-                        height="100%"
-                        minHeight={0}
-                        minWidth={0}
-                        width="100%"
+        return (
+            <ChartContext.Provider value={{ config }}>
+                <div
+                    className={cn(
+                        'w-full min-w-0 rounded-md border border-line-faint chart-well p-5',
+                        CHART_SIZE_CLASS[size],
+                        className,
+                    )}
+                    data-slot="chart"
+                    ref={reference}
+                    {...properties}
+                >
+                    <div
+                        className="flex size-full justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-ink-muted [&_.recharts-curve.recharts-tooltip-cursor]:stroke-line-strong [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-line [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-surface-sunken [&_.recharts-sector]:outline-none [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-none"
+                        data-chart={chartId}
                     >
-                        {children}
-                    </RechartsPrimitive.ResponsiveContainer>
-                )}
-            </div>
-        </ChartContext.Provider>
-    );
-});
+                        <ChartStyle config={config} id={chartId} />
+                        {mounted && (
+                            <RechartsPrimitive.ResponsiveContainer
+                                height="100%"
+                                minHeight={0}
+                                minWidth={0}
+                                width="100%"
+                            >
+                                {children}
+                            </RechartsPrimitive.ResponsiveContainer>
+                        )}
+                    </div>
+                </div>
+            </ChartContext.Provider>
+        );
+    },
+);
 ChartContainer.displayName = 'Chart';
 
 const CSS_IDENTIFIER = /^[\w-]+$/u;

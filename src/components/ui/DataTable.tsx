@@ -29,6 +29,7 @@ import {
     DataTableServerPaginationControls,
 } from '~/components/ui/DataTablePagination';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { SEARCH_FIELD_CLASS } from '~/components/ui/filterControl';
 import { Input } from '~/components/ui/Input';
 import { Skeleton } from '~/components/ui/Skeleton';
 import {
@@ -219,7 +220,7 @@ export function DataTable<TData extends RowData>({
                         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
                             {showFilter ? (
                                 <Input
-                                    className="h-8 max-w-xs text-xs"
+                                    className={SEARCH_FIELD_CLASS}
                                     onChange={(event) =>
                                         changeSearch(event.target.value)
                                     }
@@ -239,7 +240,7 @@ export function DataTable<TData extends RowData>({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         {showFilter ? (
                             <Input
-                                className="h-8 max-w-xs text-xs"
+                                className={SEARCH_FIELD_CLASS}
                                 onChange={(event) =>
                                     changeSearch(event.target.value)
                                 }
@@ -255,7 +256,7 @@ export function DataTable<TData extends RowData>({
                         </div>
                     </div>
                 ))}
-            <div className="w-full min-w-0 overflow-hidden rounded-lg border border-border/60 bg-background">
+            <div className="w-full min-w-0 overflow-hidden rounded-lg border border-line bg-background">
                 <Table
                     className={cn(
                         'min-w-max whitespace-nowrap',
@@ -300,7 +301,7 @@ export function DataTable<TData extends RowData>({
                                             {header.isPlaceholder ? null : isSortable ? (
                                                 <button
                                                     className={cn(
-                                                        'flex items-center gap-1 text-left transition-colors hover:text-foreground',
+                                                        'flex items-center gap-1 text-left uppercase transition-colors hover:text-foreground',
                                                         align ===
                                                             DataTableAlign.End &&
                                                             'w-full justify-end',

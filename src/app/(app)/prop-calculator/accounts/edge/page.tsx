@@ -1,6 +1,7 @@
 import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
@@ -27,15 +28,16 @@ export default function PropAccountsEdgePage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Journal edge
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        Your journal&apos;s win rate and expectancy next to the
-                        win rate and reward to risk your rulebook assumes.
-                    </p>
-                </header>
+                <AccountsPageHeader
+                    description={
+                        <>
+                            Your journal&apos;s win rate and expectancy next to
+                            the win rate and reward to risk your rulebook
+                            assumes.
+                        </>
+                    }
+                    title="Journal edge"
+                />
                 <Suspense fallback={<AccountsDataSkeleton />}>
                     <PropAccountsEdgeContent />
                 </Suspense>

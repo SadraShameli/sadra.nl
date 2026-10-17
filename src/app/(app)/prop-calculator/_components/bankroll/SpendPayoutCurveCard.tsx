@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
     Area,
-    CartesianGrid,
     ComposedChart,
     Line,
     ReferenceLine,
@@ -17,6 +16,10 @@ import {
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import {
+    CHART_REFERENCE_LINE_PROPS,
+    CHART_STROKE_WIDTH,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
     ChartLegend,
@@ -40,7 +43,6 @@ import {
 } from '~/lib/format';
 import { ECONOMICS_REASON_TEXT } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
-import { cn } from '~/lib/utilities';
 
 import {
     bankrollSpendPayoutCurveRequest,
@@ -151,23 +153,15 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
     if (data.length === 0) return null;
     return (
         <ChartContainer
-            className={cn(
-                'app-prop-calculator__bankroll-spend-payout-chart',
-                'aspect-16/7 min-h-64 w-full',
-            )}
+            className="app-prop-calculator__bankroll-spend-payout-chart"
             config={chartConfig}
         >
             <ComposedChart
                 data={data}
                 margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid
-                    opacity={0.2}
-                    stroke="#ccc"
-                    strokeDasharray="3 3"
-                />
                 <XAxis
-                    axisLine={false}
+                    {...CHART_X_AXIS_PROPS}
                     dataKey="budget"
                     label={{
                         fontSize: 11,
@@ -178,24 +172,20 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     tickFormatter={(value: number) =>
                         formatCompactCurrency(value)
                     }
-                    tickLine={false}
-                    tickMargin={6}
                 />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     tickFormatter={(value: number) =>
                         formatCompactCurrency(value)
                     }
-                    tickLine={false}
-                    width={60}
                 />
                 <ChartLegend
                     content={<ChartLegendContent className="pt-0 pb-2" />}
                     position="top"
                 />
                 <ReferenceLine
+                    {...CHART_REFERENCE_LINE_PROPS}
                     stroke="var(--muted-foreground)"
-                    strokeDasharray="4 4"
                     y={0}
                 />
                 <Area
@@ -220,7 +210,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     dot
                     isAnimationActive={false}
                     stroke="var(--destructive)"
-                    strokeWidth={2}
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
                 <Line
@@ -228,7 +218,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     dot
                     isAnimationActive={false}
                     stroke="var(--success)"
-                    strokeWidth={2}
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
                 <Line
@@ -236,7 +226,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     dot
                     isAnimationActive={false}
                     stroke="var(--info)"
-                    strokeWidth={2.5}
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
             </ComposedChart>

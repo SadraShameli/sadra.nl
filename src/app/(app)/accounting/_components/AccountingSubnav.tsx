@@ -1,59 +1,14 @@
 'use client';
 
-import {
-    ArrowLeftRight,
-    BookOpen,
-    Filter,
-    History,
-    KeyRound,
-    LayoutDashboard,
-    ListChecks,
-} from 'lucide-react';
+import { RouteSubnav } from '~/app/(app)/_components/RouteSubnav';
 
-import {
-    RouteSubnav,
-    type RouteSubnavItem,
-} from '~/app/(app)/_components/RouteSubnav';
-import { routes } from '~/lib/site/routes';
-
-const ITEMS: readonly RouteSubnavItem[] = [
-    {
-        href: routes.accounting.index,
-        icon: LayoutDashboard,
-        label: 'Dashboard',
-    },
-    {
-        href: routes.accounting.connections,
-        icon: KeyRound,
-        label: 'Connections',
-    },
-    {
-        href: routes.accounting.ledgers,
-        icon: BookOpen,
-        label: 'Ledgers',
-    },
-    {
-        href: routes.accounting.rules,
-        icon: Filter,
-        label: 'Booking rules',
-    },
-    {
-        href: routes.accounting.transactions,
-        icon: ArrowLeftRight,
-        label: 'Transactions',
-    },
-    {
-        href: routes.accounting.mutations,
-        icon: ListChecks,
-        label: 'Mutations',
-    },
-    {
-        href: routes.accounting.runs,
-        icon: History,
-        label: 'Runs',
-    },
-];
+import { ACCOUNTING_NAV } from './AccountingSection';
 
 export function AccountingSubnav() {
-    return <RouteSubnav className="app-accounting__subnav" items={ITEMS} />;
+    return (
+        <RouteSubnav
+            className="app-accounting__subnav"
+            items={ACCOUNTING_NAV}
+        />
+    );
 }

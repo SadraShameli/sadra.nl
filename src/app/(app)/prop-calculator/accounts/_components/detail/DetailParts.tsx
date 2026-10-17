@@ -3,20 +3,11 @@
 import { Trash2, TriangleAlert } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { Skeleton } from '~/components/ui/Skeleton';
 import { cn } from '~/lib/utilities';
 
@@ -42,12 +33,9 @@ export function DetailSection({
         >
             <Card>
                 <CardHeader>
-                    <h2
-                        className="text-lg font-semibold tracking-tight text-foreground"
-                        id={headingId}
-                    >
+                    <ToolSectionHeading id={headingId}>
                         {title}
-                    </h2>
+                    </ToolSectionHeading>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
                     {children}
@@ -104,43 +92,28 @@ export function RemoveRecordDialog({
     readonly triggerShowsLabel?: boolean;
 }) {
     return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                {triggerShowsLabel ? (
-                    <Button
-                        disabled={isPending}
-                        type="button"
-                        variant="outline"
-                    >
-                        <Trash2 />
-                        {triggerLabel}
-                    </Button>
-                ) : (
-                    <Button
-                        aria-label={triggerLabel}
-                        disabled={isPending}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                    >
-                        <Trash2 />
-                    </Button>
-                )}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>{title}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {description}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={onConfirm}>
-                        {confirmText}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <ConfirmDialog
+            confirmLabel={confirmText}
+            description={description}
+            onConfirm={onConfirm}
+            title={title}
+        >
+            {triggerShowsLabel ? (
+                <Button disabled={isPending} type="button" variant="outline">
+                    <Trash2 />
+                    {triggerLabel}
+                </Button>
+            ) : (
+                <Button
+                    aria-label={triggerLabel}
+                    disabled={isPending}
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                >
+                    <Trash2 />
+                </Button>
+            )}
+        </ConfirmDialog>
     );
 }

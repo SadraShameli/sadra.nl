@@ -125,7 +125,7 @@ export function StepperIndicator({
                 state === 'active' &&
                     'border-primary bg-primary text-primary-foreground',
                 state === 'inactive' &&
-                    'border-border/60 bg-background text-muted-foreground',
+                    'border-line bg-background text-ink-muted',
                 className,
             )}
             data-slot="stepper-indicator"
@@ -177,7 +177,7 @@ export function StepperSeparator({ className }: StepperSeparatorProperties) {
         <span
             aria-hidden
             className={cn(
-                'shrink-0 bg-border/60',
+                'shrink-0 bg-line',
                 orientation === 'horizontal'
                     ? 'ml-3.5 h-4 w-px sm:ml-0 sm:h-px sm:w-8'
                     : 'ml-3.5 h-4 w-px',

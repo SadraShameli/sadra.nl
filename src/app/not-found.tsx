@@ -3,15 +3,13 @@ import Link from 'next/link';
 
 import { Badge } from '~/components/ui/Badge';
 import { Card } from '~/components/ui/Card';
+import { siteTools } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
 const quickLinks = [
     { href: routes.home, label: 'Home' },
-    { href: routes.portfolio, label: 'Portfolio' },
-    { href: routes.propCalculator.index, label: 'Prop firm calculator' },
-    { href: routes.tradeChecklist.index, label: 'Trade checklist' },
-    { href: routes.lifting.index, label: 'Lifting tracker' },
+    ...siteTools.map((tool) => ({ href: tool.href, label: tool.title })),
 ];
 
 export default function NotFound() {

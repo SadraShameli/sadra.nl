@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import {
     Dumbbell,
+    LayoutTemplate,
     LineChart,
     LogOut,
     type LucideIcon,
@@ -60,6 +61,12 @@ const LIFTING_ITEM: NavItem = {
     label: 'Lifting',
     tab: 'lifting',
 };
+const CONTENTS_ITEM: NavItem = {
+    href: profileTabUrl('contents'),
+    icon: LayoutTemplate,
+    label: 'Contents',
+    tab: 'contents',
+};
 const ACCOUNTING_ITEM: NavItem = {
     href: routes.accounting.index,
     icon: Receipt,
@@ -88,7 +95,7 @@ export function ProfileNav({
         ...(isAdmin ? [USERS_ITEM, SENSOR_HUB_ITEM] : []),
         TRADING_PLAN_ITEM,
         LIFTING_ITEM,
-        ...(isRoot ? [ACCOUNTING_ITEM] : []),
+        ...(isRoot ? [CONTENTS_ITEM, ACCOUNTING_ITEM] : []),
     ];
     const initial = ((name ?? email)[0] ?? '?').toUpperCase();
 

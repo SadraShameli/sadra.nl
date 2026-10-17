@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { useBankrollVariant } from '~/app/(app)/prop-calculator/_components/bankroll/useBankrollVariant';
 import { useToolsRequest } from '~/app/(app)/prop-calculator/_components/bankroll/useToolsRequest';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
@@ -65,12 +66,9 @@ export default function TakeProfitWhatIf() {
             aria-labelledby="take-profit-what-if-heading"
             className="flex flex-col gap-4"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-foreground"
-                id="take-profit-what-if-heading"
-            >
+            <ToolSectionHeading id="take-profit-what-if-heading">
                 Take-profit what-if
-            </h2>
+            </ToolSectionHeading>
             <Card className="gap-4 p-5">
                 <p className="text-xs text-muted-foreground">
                     What-if only: the win rate at each reward multiple is

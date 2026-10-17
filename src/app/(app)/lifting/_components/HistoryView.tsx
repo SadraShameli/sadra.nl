@@ -7,19 +7,9 @@ import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     DataTable,
     DataTableAlign,
@@ -29,11 +19,6 @@ import {
 import { EmptyState } from '~/components/ui/EmptyState';
 import { FilterDateRange } from '~/components/ui/FilterDateRange';
 import { FilterSelect } from '~/components/ui/FilterSelect';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '~/components/ui/Tooltip';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     WORKOUT_DURATION_BUCKETS,
@@ -141,51 +126,34 @@ export function HistoryView({ from }: HistoryViewProperties) {
             {
                 cell: ({ row }) => (
                     <div className="flex justify-end">
-                        <AlertDialog>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <AlertDialogTrigger asChild>
-                                        <Button
-                                            aria-label={`Delete ${row.original.name ?? 'workout'}`}
-                                            className="size-8 p-0 text-muted-foreground hover:text-destructive"
-                                            type="button"
-                                            variant="ghost"
-                                        >
-                                            <Trash2 className="size-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                </TooltipTrigger>
-                                <TooltipContent>Delete workout</TooltipContent>
-                            </Tooltip>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete workout?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        &ldquo;
-                                        {row.original.name ?? 'Workout'}&rdquo;
-                                        and all its sets will be permanently
-                                        removed. This cannot be undone.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        disabled={remove.isPending}
-                                        onClick={() =>
-                                            remove.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                        <ConfirmDialog
+                            confirmLabel="Delete"
+                            description={
+                                <>
+                                    &ldquo;
+                                    {row.original.name ?? 'Workout'}&rdquo; and
+                                    all its sets will be permanently removed.
+                                    This cannot be undone.
+                                </>
+                            }
+                            isPending={remove.isPending}
+                            onConfirm={() =>
+                                remove.mutate({
+                                    id: row.original.id,
+                                })
+                            }
+                            title="Delete workout?"
+                            tooltip="Delete workout"
+                        >
+                            <Button
+                                aria-label={`Delete ${row.original.name ?? 'workout'}`}
+                                className="size-8 p-0 text-muted-foreground hover:text-destructive"
+                                type="button"
+                                variant="ghost"
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
+                        </ConfirmDialog>
                     </div>
                 ),
                 enableSorting: false,

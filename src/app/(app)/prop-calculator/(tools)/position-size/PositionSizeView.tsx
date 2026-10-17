@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import FirmPlanPicker from '~/app/(app)/prop-calculator/_components/FirmPlanPicker';
 import {
     formatPoints,
@@ -159,12 +160,9 @@ export function PositionSizeView() {
                     aria-labelledby={INPUTS_HEADING_ID}
                     className="flex flex-col gap-4"
                 >
-                    <h2
-                        className="text-lg font-semibold tracking-tight text-foreground"
-                        id={INPUTS_HEADING_ID}
-                    >
+                    <ToolSectionHeading id={INPUTS_HEADING_ID}>
                         Trade
-                    </h2>
+                    </ToolSectionHeading>
                     <PositionSizeInputs
                         onChange={change}
                         onValidityChange={changeValidity}
@@ -175,12 +173,9 @@ export function PositionSizeView() {
                     aria-labelledby={RESULT_HEADING_ID}
                     className="flex flex-col gap-4"
                 >
-                    <h2
-                        className="text-lg font-semibold tracking-tight text-foreground"
-                        id={RESULT_HEADING_ID}
-                    >
+                    <ToolSectionHeading id={RESULT_HEADING_ID}>
                         Position
-                    </h2>
+                    </ToolSectionHeading>
                     <p className="sr-only" role="status">
                         {isInputValid
                             ? positionSizeStatusText(state, result)

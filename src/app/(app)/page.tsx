@@ -1,6 +1,7 @@
 import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
+import { SectionTone } from '~/app/(app)/_components/SectionShell';
 import { PageTransition } from '~/components/PageTransition';
 import { homepageContent, siteContent } from '~/lib/site/content';
 import { HomeSectionId } from '~/lib/site/homeSections';
@@ -8,18 +9,15 @@ import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
 import { AboutSection } from './_components/home/AboutSection';
-import { SectionHeading } from './_components/home/EmphasisTitle';
 import { HeroIntro } from './_components/home/HeroIntro';
-import {
-    HomeSectionShell,
-    SectionTone,
-} from './_components/home/HomeSectionShell';
+import { HomeSectionShell } from './_components/home/HomeSectionShell';
 import {
     OwnerHeroCollage,
     PlaceholderHeroCollage,
 } from './_components/home/OwnerHeroCollage';
+import { SectionIntro } from './_components/home/SectionIntro';
 import { SensorHubSection } from './_components/home/SensorHubSection';
-import { ToolsWatchlist } from './_components/home/ToolsWatchlist';
+import { ToolCards } from './_components/home/ToolCards';
 import ReadingSection from './_components/Reading/Reading';
 import ReadingSkeleton from './_components/Reading/ReadingSkeleton';
 import RecordingSection from './_components/Recording/Recording';
@@ -67,26 +65,18 @@ export default function HomePage() {
                     id={HomeSectionId.Tools}
                     tone={SectionTone.Alternate}
                 >
-                    <SectionHeading
-                        className="max-w-205 text-[clamp(42px,5.6vw,80px)] leading-none"
-                        heading={tools.heading}
-                    />
-                    <ToolsWatchlist />
+                    <SectionIntro body={tools.body} heading={tools.heading} />
+                    <ToolCards />
                 </HomeSectionShell>
 
                 <SensorHubSection />
 
                 <HomeSectionShell
                     className="gap-10"
-                    id={HomeSectionId.Live}
+                    id={HomeSectionId.Readings}
                     tone={SectionTone.Ground}
                 >
-                    <div className="flex flex-wrap items-end justify-between gap-6">
-                        <SectionHeading heading={live.heading} />
-                        <p className="m-0 max-w-110 type-body text-ink-muted">
-                            {live.body}
-                        </p>
-                    </div>
+                    <SectionIntro body={live.body} heading={live.heading} />
                     <Suspense fallback={<ReadingSkeleton />}>
                         <ReadingSection />
                     </Suspense>
@@ -96,12 +86,10 @@ export default function HomePage() {
                     id={HomeSectionId.Recordings}
                     tone={SectionTone.Alternate}
                 >
-                    <div className="flex flex-wrap items-end justify-between gap-6">
-                        <SectionHeading heading={recordings.heading} />
-                        <p className="m-0 max-w-110 type-body text-ink-muted">
-                            {recordings.body}
-                        </p>
-                    </div>
+                    <SectionIntro
+                        body={recordings.body}
+                        heading={recordings.heading}
+                    />
                     <RecordingSection
                         decorChip={recordings.decorChip}
                         decorVideo={recordings.decorVideo}

@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useMemo, useState } from 'react';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { bankrollVariantWithFundedRisk } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollModel';
 import { parseBankrollDollarsField } from '~/app/(app)/prop-calculator/_components/bankroll/bankrollUrlState';
 import { copySplitFundedSourceOf } from '~/app/(app)/prop-calculator/_components/bankroll/rulebookSource';
@@ -142,12 +143,9 @@ export default function CopySplitSection() {
             aria-labelledby="copy-split-heading"
             className="flex flex-col gap-4"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-foreground"
-                id="copy-split-heading"
-            >
+            <ToolSectionHeading id="copy-split-heading">
                 {header?.title ?? 'Split vs concentrate'}
-            </h2>
+            </ToolSectionHeading>
             <Card className="gap-4 p-5">
                 <p className="text-xs text-muted-foreground">
                     The same total risk per trade across N copied accounts

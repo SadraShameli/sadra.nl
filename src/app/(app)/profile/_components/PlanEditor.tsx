@@ -41,6 +41,7 @@ import { Input } from '~/components/ui/Input';
 import { Label } from '~/components/ui/Label';
 import { Slider } from '~/components/ui/Slider';
 import { Switch } from '~/components/ui/Switch';
+import { TimeInput } from '~/components/ui/TimeInput';
 import {
     type UpdateTradingPlanInput,
     updateTradingPlanInputSchema,
@@ -611,18 +612,18 @@ function SortableWindowRow({
                 </Button>
             </div>
             <div className="grid grid-cols-2 gap-2 md:contents">
-                <Input
-                    className="justify-center md:w-22 md:flex-none md:justify-start [&::-webkit-calendar-picker-indicator]:ml-0.5 md:[&::-webkit-calendar-picker-indicator]:ml-auto"
+                <TimeInput
+                    aria-label="Start time"
+                    className="md:w-24 md:flex-none"
                     onChange={(event) =>
                         onChange({ start: event.target.value })
                     }
-                    type="time"
                     value={window.start}
                 />
-                <Input
-                    className="justify-center md:w-22 md:flex-none md:justify-start [&::-webkit-calendar-picker-indicator]:ml-0.5 md:[&::-webkit-calendar-picker-indicator]:ml-auto"
+                <TimeInput
+                    aria-label="End time"
+                    className="md:w-24 md:flex-none"
                     onChange={(event) => onChange({ end: event.target.value })}
-                    type="time"
                     value={window.end}
                 />
             </div>

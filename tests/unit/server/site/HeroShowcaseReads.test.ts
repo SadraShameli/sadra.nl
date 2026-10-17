@@ -10,9 +10,9 @@ interface ShowcaseQuery {
     where(): ShowcaseQuery;
 }
 
-const stored = vi.hoisted(
-    (): { rows: readonly HeroShowcaseRecord[] } => ({ rows: [] }),
-);
+const stored = vi.hoisted((): { rows: readonly HeroShowcaseRecord[] } => ({
+    rows: [],
+}));
 
 vi.mock('next/cache', () => ({
     cacheLife: vi.fn(),

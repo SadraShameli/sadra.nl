@@ -1,7 +1,7 @@
 'use client';
 
 import { Pencil, Plus } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { type ReactNode, useId, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
 import type {
@@ -15,7 +15,6 @@ import type {
 
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
 import {
     DataTable,
     type DataTableColumn,
@@ -46,6 +45,7 @@ import {
     SelectValue,
 } from '~/components/ui/Select';
 import { Switch } from '~/components/ui/Switch';
+import { Eur } from '~/lib/accounting/core/money';
 import { cn } from '~/lib/utilities';
 
 import { DirectionBadge } from './DirectionBadge';
@@ -60,46 +60,6 @@ const DIRECTION_OPTIONS: readonly FilterSelectOption[] = [
     { label: 'Incoming', value: 'IN' },
     { label: 'Outgoing', value: 'OUT' },
 ];
-
-function DirectionSelect({
-    onChange,
-    value,
-}: {
-    onChange: (v: DirectionFilter) => void;
-    value: DirectionFilter;
-}) {
-    return (
-        <FilterSelect
-            label="Direction"
-            onValueChange={(v) => onChange((v ?? ALL) as DirectionFilter)}
-            options={DIRECTION_OPTIONS}
-            placeholder="All directions"
-            value={value === ALL ? undefined : value}
-        />
-    );
-}
-
-function isIsoInRange(iso: string, range: DateRange | undefined): boolean {
-    if (!range?.from) return true;
-    const d = new Date(iso);
-    const from = new Date(range.from);
-    from.setHours(0, 0, 0, 0);
-    if (d < from) return false;
-    if (range.to) {
-        const to = new Date(range.to);
-        to.setHours(23, 59, 59, 999);
-        if (d > to) return false;
-    }
-    return true;
-}
-
-const formatEur = (n: number) =>
-    new Intl.NumberFormat('en-US', {
-        currency: 'EUR',
-        maximumFractionDigits: 2,
-        minimumFractionDigits: 2,
-        style: 'currency',
-    }).format(n);
 
 interface PerCounterpartRow {
     count: number;
@@ -207,7 +167,7 @@ export function BookingsTable({
                                 : 'font-mono text-xs text-destructive'
                         }
                     >
-                        {formatEur(row.original.amountEur)}
+                        {Eur.format(row.original.amountEur)}
                     </span>
                 ),
                 header: 'EUR',
@@ -385,7 +345,7 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                 accessorKey: 'totalEur',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs text-success">
-                        {formatEur(row.original.totalEur)}
+                        {Eur.format(row.original.totalEur)}
                     </span>
                 ),
                 header: 'EUR',
@@ -491,7 +451,7 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
                 accessorKey: 'total',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs text-success">
-                        {formatEur(row.original.total)}
+                        {Eur.format(row.original.total)}
                     </span>
                 ),
                 header: 'EUR',
@@ -538,24 +498,40 @@ export function Tile({
     value: string;
 }) {
     return (
-        <Card className="min-w-0 gap-1 py-3">
-            <CardContent className="px-3">
-                <div className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                    {label}
-                </div>
-                <div
-                    className={cn(
-                        'mt-1 font-mono text-sm font-semibold wrap-break-word sm:text-base',
-                        tone === 'in' && 'text-success',
-                        tone === 'out' && 'text-destructive',
-                        tone === 'warn' && 'text-warning',
-                        tone === 'default' && 'text-foreground',
-                    )}
-                >
-                    {value}
-                </div>
-            </CardContent>
-        </Card>
+        <div className="flex min-w-0 flex-col gap-3 bg-card p-5">
+            <span className="type-micro text-ink-muted">{label}</span>
+            <span
+                className={cn(
+                    'type-display-item wrap-break-word tabular-nums',
+                    tone === 'in' && 'text-success',
+                    tone === 'out' && 'text-destructive',
+                    tone === 'warn' && 'text-warning',
+                    tone === 'default' && 'text-ink',
+                )}
+            >
+                {value}
+            </span>
+        </div>
+    );
+}
+
+export function TileGrid({
+    children,
+    className,
+}: {
+    children: ReactNode;
+    className?: string;
+}) {
+    return (
+        <div
+            className={cn(
+                'app-accounting__tiles',
+                'grid gap-px overflow-hidden rounded-xl border border-line bg-line-faint',
+                className,
+            )}
+        >
+            {children}
+        </div>
     );
 }
 
@@ -579,14 +555,14 @@ export function TotalPanel({ result }: { result: ConversionResult }) {
     }, [result]);
 
     return (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <TileGrid className="grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
             <Tile
                 label="Bookings"
                 tone="default"
                 value={totals.bookings.toString()}
             />
-            <Tile label="IN" tone="in" value={formatEur(totals.inEur)} />
-            <Tile label="OUT" tone="out" value={formatEur(totals.outEur)} />
+            <Tile label="IN" tone="in" value={Eur.format(totals.inEur)} />
+            <Tile label="OUT" tone="out" value={Eur.format(totals.outEur)} />
             <Tile
                 label="Unknown txns"
                 tone={totals.unknownCount > 0 ? 'warn' : 'default'}
@@ -597,7 +573,7 @@ export function TotalPanel({ result }: { result: ConversionResult }) {
                 tone={totals.skipped > 0 ? 'warn' : 'default'}
                 value={totals.skipped.toString()}
             />
-        </div>
+        </TileGrid>
     );
 }
 
@@ -842,7 +818,7 @@ function BookingEditDialog({
                 <DialogHeader>
                     <DialogTitle>Edit booking</DialogTitle>
                     <DialogDescription className="font-mono text-xs">
-                        {booking.date} · {formatEur(booking.amountEur)} ·{' '}
+                        {booking.date} · {Eur.format(booking.amountEur)} ·{' '}
                         {booking.txnId}
                     </DialogDescription>
                 </DialogHeader>
@@ -931,4 +907,36 @@ function BookingEditDialog({
             </DialogContent>
         </Dialog>
     );
+}
+
+function DirectionSelect({
+    onChange,
+    value,
+}: {
+    onChange: (v: DirectionFilter) => void;
+    value: DirectionFilter;
+}) {
+    return (
+        <FilterSelect
+            label="Direction"
+            onValueChange={(v) => onChange((v ?? ALL) as DirectionFilter)}
+            options={DIRECTION_OPTIONS}
+            placeholder="All directions"
+            value={value === ALL ? undefined : value}
+        />
+    );
+}
+
+function isIsoInRange(iso: string, range: DateRange | undefined): boolean {
+    if (!range?.from) return true;
+    const d = new Date(iso);
+    const from = new Date(range.from);
+    from.setHours(0, 0, 0, 0);
+    if (d < from) return false;
+    if (range.to) {
+        const to = new Date(range.to);
+        to.setHours(23, 59, 59, 999);
+        if (d > to) return false;
+    }
+    return true;
 }

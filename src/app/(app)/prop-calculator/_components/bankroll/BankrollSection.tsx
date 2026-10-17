@@ -1,5 +1,7 @@
 import { type ReactNode } from 'react';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
+
 interface BankrollSectionProperties {
     children: ReactNode;
     description: ReactNode;
@@ -16,12 +18,7 @@ export function BankrollSection({
     return (
         <section aria-labelledby={headingId} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-                <h2
-                    className="text-lg font-semibold tracking-tight text-foreground"
-                    id={headingId}
-                >
-                    {title}
-                </h2>
+                <ToolSectionHeading id={headingId}>{title}</ToolSectionHeading>
                 <p className="text-sm text-muted-foreground">{description}</p>
             </div>
             {children}

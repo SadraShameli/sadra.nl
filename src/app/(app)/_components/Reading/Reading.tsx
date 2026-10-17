@@ -238,40 +238,37 @@ export default function ReadingSection() {
                                 />
                             </div>
 
-                            <div
+                            <AreaChartNew
+                                area={{
+                                    dataKey: 'value',
+                                }}
                                 className={cn(
                                     'app-reading__chart',
-                                    'm-6 h-64 rounded-md border border-line-faint chart-well p-5 lg:h-80',
+                                    'm-6 w-auto',
                                 )}
-                            >
-                                <AreaChartNew
-                                    area={{
-                                        dataKey: 'value',
-                                    }}
-                                    config={{
-                                        location: {
-                                            label: activeLocation?.location_name,
-                                        },
-                                        sensor: {
-                                            label: activeSensor,
-                                        },
-                                    }}
-                                    data={reading.readings}
-                                    tooltip={{
-                                        labelKey: 'location',
-                                        nameKey: 'sensor',
-                                        valueFormatter: (value) =>
-                                            `${value.toLocaleString()} ${reading.sensor.unit}`,
-                                    }}
-                                    xAxis={{
-                                        dataKey: 'date',
-                                    }}
-                                    yAxis={{
-                                        tickFormatter: (value: number) =>
-                                            `${value} ${unit ?? ''}`,
-                                    }}
-                                />
-                            </div>
+                                config={{
+                                    location: {
+                                        label: activeLocation?.location_name,
+                                    },
+                                    sensor: {
+                                        label: activeSensor,
+                                    },
+                                }}
+                                data={reading.readings}
+                                tooltip={{
+                                    labelKey: 'location',
+                                    nameKey: 'sensor',
+                                    valueFormatter: (value) =>
+                                        `${value.toLocaleString()} ${reading.sensor.unit}`,
+                                }}
+                                xAxis={{
+                                    dataKey: 'date',
+                                }}
+                                yAxis={{
+                                    tickFormatter: (value: number) =>
+                                        `${value} ${unit ?? ''}`,
+                                }}
+                            />
                         </TabsContent>
                     ))}
                 </div>

@@ -3,6 +3,7 @@
 import { Check, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 
+import { Button } from '~/components/ui/Button';
 import { homepageContent } from '~/lib/site/content';
 import { type HeroShowcaseView } from '~/lib/site/HeroShowcase';
 import { cn } from '~/lib/utilities';
@@ -48,12 +49,13 @@ export function HeroCollage({
                         <span className="type-micro tracking-[0.18em] text-ink-muted">
                             {profitAndLoss.label}
                         </span>
-                        <button
+                        <Button
                             aria-label="Show or hide numbers"
                             aria-pressed={revealed}
-                            className="flex size-11 cursor-pointer items-center justify-center rounded-full border border-line-strong bg-transparent text-ink focus-camel transition hover:border-line-hover hover:bg-surface-raised"
                             onClick={() => setRevealed((current) => !current)}
+                            size="icon-tap"
                             type="button"
+                            variant="outline"
                         >
                             {revealed ? (
                                 <EyeOff
@@ -68,7 +70,7 @@ export function HeroCollage({
                                     strokeWidth={1.6}
                                 />
                             )}
-                        </button>
+                        </Button>
                     </div>
                     <span
                         aria-hidden={!revealed}

@@ -4,7 +4,7 @@ import { routes } from './routes';
 
 export enum HomeSectionId {
     About = 'about',
-    Live = 'live',
+    Readings = 'readings',
     Recordings = 'recordings',
     SensorHub = 'sensor-hub',
     Tools = 'tools',
@@ -35,9 +35,9 @@ export const HOME_SECTIONS: readonly HomeSection[] = [
     },
     {
         eyebrow: 'Data',
-        id: HomeSectionId.Live,
+        id: HomeSectionId.Readings,
         indexLabel: 'Live readings',
-        navLabel: 'Live',
+        navLabel: 'Readings',
         number: '03',
     },
     {

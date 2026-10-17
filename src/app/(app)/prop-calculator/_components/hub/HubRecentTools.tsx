@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import {
     readRecentTools,
     recentToolLinks,
@@ -37,12 +38,9 @@ export function HubRecentTools() {
             aria-labelledby="hub-recent-tools"
             className="mb-10 flex flex-col gap-3"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-foreground"
-                id="hub-recent-tools"
-            >
+            <ToolSectionHeading id="hub-recent-tools">
                 Recently used
-            </h2>
+            </ToolSectionHeading>
             {recent === null ? (
                 <div aria-hidden className="flex min-h-9 flex-wrap gap-2">
                     {RECENT_TOOL_PLACEHOLDERS.map((key) => (

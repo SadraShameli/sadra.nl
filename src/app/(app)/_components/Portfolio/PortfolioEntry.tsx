@@ -5,47 +5,31 @@ import Link from 'next/link';
 
 import type { PortfolioSectionView } from '~/lib/site/content';
 
+import { Badge } from '~/components/ui/Badge';
 import { cn } from '~/lib/utilities';
-
-import SkillChip from './SkillChip';
-
-type PortfolioEntryProperties = {
-    entry: PortfolioSectionView;
-    isLeadImage: boolean;
-};
 
 const PRESENT_DATE = /\bPresent\s*$/;
 
 export default function PortfolioEntry({
     entry,
-    isLeadImage,
-}: PortfolioEntryProperties) {
+}: {
+    readonly entry: PortfolioSectionView;
+}) {
     const isCurrent = PRESENT_DATE.test(entry.date);
-    const alt = `${entry.title} workspace`;
 
     return (
         <article
             className={cn(
                 'app-portfolio__entry',
-                'grid grid-cols-1 gap-x-10 gap-y-3 md:grid-cols-[10rem_1fr] lg:grid-cols-[12rem_1fr]',
+                'grid gap-x-12 gap-y-6 lg:grid-cols-[12rem_minmax(0,1fr)] xl:grid-cols-[12rem_minmax(0,1fr)_22rem]',
             )}
         >
-            <div
-                className={cn(
-                    'app-portfolio__entry-meta',
-                    'flex flex-col gap-y-1 text-sm/tight text-muted-foreground md:pt-1',
-                )}
-            >
-                <span className="app-portfolio__entry-date tabular-nums">
-                    {entry.date}
-                </span>
+            <div className="flex flex-col items-start gap-2">
+                <span className="type-micro text-ink-muted">{entry.date}</span>
                 {entry.location ? (
                     entry.location.url ? (
                         <Link
-                            className={cn(
-                                'app-portfolio__entry-location',
-                                'inline-flex min-h-11 w-fit items-center transition hover:text-foreground/90 md:min-h-0',
-                            )}
+                            className="text-sm text-ink-muted transition-colors hover:text-ink"
                             href={entry.location.url}
                             rel="noreferrer"
                             target="_blank"
@@ -53,109 +37,55 @@ export default function PortfolioEntry({
                             {entry.location.title}
                         </Link>
                     ) : (
-                        <span className="app-portfolio__entry-location">
+                        <span className="text-sm text-ink-muted">
                             {entry.location.title}
                         </span>
                     )
                 ) : null}
+                {isCurrent ? <Badge variant="success">Current</Badge> : null}
             </div>
 
-            <div className="app-portfolio__entry-body flex flex-col gap-y-5">
-                <div className="flex flex-col gap-x-6 gap-y-2 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="flex min-w-0 flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                    <h3 className="m-0 type-display-title text-ink">
                         {entry.url ? (
                             <Link
-                                className={cn(
-                                    'app-portfolio__entry-title-link',
-                                    'group inline-flex min-h-11 items-center gap-1 text-xl/tight font-semibold text-foreground transition md:min-h-0',
-                                )}
+                                className="group inline-flex items-center gap-2 transition-colors hover:text-camel"
                                 href={entry.url}
                                 rel="noreferrer"
                                 target="_blank"
                             >
-                                <span className="border-b border-dashed border-transparent transition group-hover:border-current">
-                                    {entry.title}
-                                </span>
+                                {entry.title}
                                 <ArrowUpRight
-                                    aria-hidden="true"
-                                    className="size-4 text-muted-foreground transition group-hover:text-foreground"
+                                    aria-hidden
+                                    className="size-5 text-ink-muted transition-colors group-hover:text-camel"
+                                    strokeWidth={1.6}
                                 />
                             </Link>
                         ) : (
-                            <h3 className="text-xl/tight font-semibold text-foreground">
-                                {entry.title}
-                            </h3>
+                            entry.title
                         )}
-
-                        {entry.role ? (
-                            <span className="inline-flex items-center gap-2 text-base text-foreground/80">
-                                <span
-                                    aria-hidden="true"
-                                    className="text-muted-foreground"
-                                >
-                                    /
-                                </span>
-                                <span>{entry.role}</span>
-                                {isCurrent ? (
-                                    <span className="inline-flex items-center gap-1.5">
-                                        <span className="relative inline-flex size-2 items-center justify-center">
-                                            <span className="absolute inline-flex size-full animate-ping rounded-full bg-success/70" />
-                                            <span className="relative inline-flex size-2 rounded-full bg-success" />
-                                        </span>
-                                        <span className="sr-only">
-                                            Current role
-                                        </span>
-                                    </span>
-                                ) : null}
-                            </span>
-                        ) : null}
-                    </div>
+                    </h3>
+                    {entry.role ? (
+                        <p className="m-0 text-base text-ink-muted">
+                            {entry.role}
+                        </p>
+                    ) : null}
                 </div>
 
-                {entry.imageUrl ? (
-                    <Image
-                        alt={alt}
-                        className={cn(
-                            'app-portfolio__entry-image',
-                            'aspect-16/10 w-full max-w-md rounded-xl object-cover',
-                        )}
-                        decoding="async"
-                        fetchPriority={isLeadImage ? 'high' : 'auto'}
-                        height={500}
-                        loading={isLeadImage ? 'eager' : 'lazy'}
-                        sizes="(min-width: 1024px) 28rem, 100vw"
-                        src={entry.imageUrl}
-                        unoptimized
-                        width={800}
-                    />
-                ) : null}
-
                 {entry.summary ? (
-                    <p
-                        className={cn(
-                            'app-portfolio__entry-summary',
-                            'max-w-prose text-[0.9375rem] leading-relaxed text-foreground/90',
-                        )}
-                    >
+                    <p className="m-0 max-w-prose text-[15px]/relaxed text-ink-soft">
                         {parse(entry.summary)}
                     </p>
                 ) : null}
 
                 {entry.highlights?.length ? (
-                    <ul
-                        className={cn(
-                            'app-portfolio__entry-highlights',
-                            'flex flex-col gap-y-2 text-[0.9375rem] leading-relaxed text-foreground/90',
-                        )}
-                    >
-                        {entry.highlights.map((highlight, index) => (
-                            <li
-                                className="flex max-w-prose gap-x-3"
-                                key={`${index}-${highlight}`}
-                            >
+                    <ul className="m-0 flex max-w-prose list-none flex-col gap-2.5 p-0 text-[15px]/relaxed text-ink-soft">
+                        {entry.highlights.map((highlight) => (
+                            <li className="flex gap-3" key={highlight}>
                                 <span
-                                    aria-hidden="true"
-                                    className="mt-[0.55em] inline-block size-1 shrink-0 rounded-full bg-muted-foreground/70"
+                                    aria-hidden
+                                    className="mt-[0.6em] size-1.5 shrink-0 rounded-full bg-camel"
                                 />
                                 <span>{highlight}</span>
                             </li>
@@ -164,21 +94,28 @@ export default function PortfolioEntry({
                 ) : null}
 
                 {entry.skills?.length ? (
-                    <ul
-                        className={cn(
-                            'app-portfolio__entry-skills',
-                            'flex flex-wrap gap-1.5',
-                        )}
-                    >
-                        {entry.skills.map((skill, index) => (
-                            <SkillChip
-                                key={`${index}-${skill}`}
-                                label={skill}
-                            />
+                    <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+                        {entry.skills.map((skill) => (
+                            <li key={skill}>
+                                <Badge variant="outline">{skill}</Badge>
+                            </li>
                         ))}
                     </ul>
                 ) : null}
             </div>
+
+            {entry.imageUrl ? (
+                <Image
+                    alt={`${entry.title} workspace`}
+                    className="aspect-4/3 w-full rounded-lg border border-line object-cover lg:col-start-2 xl:col-start-3 xl:row-start-1"
+                    height={600}
+                    loading="lazy"
+                    sizes="(min-width: 1280px) 22rem, (min-width: 1024px) 60vw, 100vw"
+                    src={entry.imageUrl}
+                    unoptimized
+                    width={800}
+                />
+            ) : null}
         </article>
     );
 }

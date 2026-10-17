@@ -34,7 +34,7 @@ export function EventLog({
         <div
             className={cn(
                 'app-accounting__event-log',
-                'overflow-y-auto rounded-md border border-border/40 bg-background/40 p-3 font-mono text-[11px] leading-relaxed',
+                'overflow-y-auto rounded-lg border border-line-faint bg-surface-sunken p-4 font-mono text-xs/relaxed',
                 maxHeight,
                 className,
             )}
@@ -47,18 +47,18 @@ export function EventLog({
                     title="No events yet"
                 />
             ) : (
-                <ul className="space-y-1">
+                <ul className="m-0 list-none space-y-1.5 p-0">
                     {lines.map((l, index) => (
                         <li
                             className={cn(
                                 'flex items-start gap-2',
                                 l.level === 'error' && 'text-destructive',
                                 l.level === 'warn' && 'text-warning',
-                                l.level === 'info' && 'text-foreground/90',
+                                l.level === 'info' && 'text-ink-soft',
                             )}
                             key={index}
                         >
-                            <span className="shrink-0 text-muted-foreground">
+                            <span className="shrink-0 text-ink-muted tabular-nums">
                                 {new Date(l.ts).toISOString().slice(11, 19)}
                             </span>
                             <span className="wrap-break-word">{l.message}</span>

@@ -17,18 +17,21 @@ const buttonVariants = cva(
                 icon: 'size-9',
                 'icon-lg': 'size-10',
                 'icon-sm': 'size-8',
+                'icon-tap': "size-11 [&_svg:not([class*='size-'])]:size-4.5",
                 lg: 'h-10 rounded-full px-6 has-[>svg]:px-4',
                 sm: 'h-8 rounded-full gap-1.5 px-3 has-[>svg]:px-2.5',
             },
             variant: {
+                capsule: 'text-ink-nav hover:bg-surface-high hover:text-ink',
                 default:
                     'bg-primary text-primary-foreground hover:bg-primary/90',
                 destructive:
                     'bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
                 ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
+                glass: 'border glass text-ink hover:border-line-hover hover:text-camel',
                 link: 'text-primary underline-offset-4 hover:underline',
                 outline:
-                    'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
+                    'border border-line-strong bg-surface text-ink shadow-xs hover:bg-surface-high',
                 secondary:
                     'bg-secondary text-secondary-foreground hover:bg-secondary/80',
             },

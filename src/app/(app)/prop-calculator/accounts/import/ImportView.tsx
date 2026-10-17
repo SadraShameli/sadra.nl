@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
     accountOptInOptions,
@@ -440,12 +441,9 @@ function CsvImportPanel<Column extends string, Value>({
                 'flex flex-col gap-4',
             )}
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-foreground"
-                id={`${baseId}-heading`}
-            >
+            <ToolSectionHeading id={`${baseId}-heading`}>
                 Import {noun.plural}
-            </h2>
+            </ToolSectionHeading>
             <Card className="py-0">
                 <CardContent>
                     <Accordion type="multiple">

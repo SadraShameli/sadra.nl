@@ -3,26 +3,11 @@
 import { Dumbbell, Play, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Skeleton } from '~/components/ui/Skeleton';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '~/components/ui/Tooltip';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -79,51 +64,32 @@ function RoutinesList({ routines }: { routines: readonly Routine[] }) {
                                     {r.blocks.length} exercises
                                 </p>
                             </div>
-                            <AlertDialog>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <AlertDialogTrigger asChild>
-                                            <Button
-                                                aria-label="Delete routine"
-                                                className="size-8 p-0"
-                                                type="button"
-                                                variant="ghost"
-                                            >
-                                                <Trash2 className="size-4 text-muted-foreground" />
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        Delete routine
-                                    </TooltipContent>
-                                </Tooltip>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Delete routine?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            “{r.name}” will be permanently
-                                            removed. Past workouts created from
-                                            this routine are kept.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                routineDeletion.mutate({
-                                                    id: r.id,
-                                                })
-                                            }
-                                        >
-                                            Delete
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                            <ConfirmDialog
+                                confirmLabel="Delete"
+                                description={
+                                    <>
+                                        “{r.name}” will be permanently removed.
+                                        Past workouts created from this routine
+                                        are kept.
+                                    </>
+                                }
+                                onConfirm={() =>
+                                    routineDeletion.mutate({
+                                        id: r.id,
+                                    })
+                                }
+                                title="Delete routine?"
+                                tooltip="Delete routine"
+                            >
+                                <Button
+                                    aria-label="Delete routine"
+                                    className="size-8 p-0"
+                                    type="button"
+                                    variant="ghost"
+                                >
+                                    <Trash2 className="size-4 text-muted-foreground" />
+                                </Button>
+                            </ConfirmDialog>
                         </CardHeader>
                         <CardContent>
                             <Button

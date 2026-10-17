@@ -152,7 +152,10 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                     id={formId}
                     onSubmit={onSubmit}
                 >
-                    <Section title="Units">
+                    <Section
+                        className="grid-cols-3 md:grid-cols-3"
+                        title="Units"
+                    >
                         <FormField
                             control={form.control}
                             name="unitWeight"
@@ -411,15 +414,22 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
 
 function Section({
     children,
+    className,
     title,
 }: {
     children: React.ReactNode;
+    className?: string;
     title: string;
 }) {
     return (
         <FieldSet className="gap-0">
             <FieldLegend variant="label">{title}</FieldLegend>
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div
+                className={cn(
+                    'grid grid-cols-1 gap-5 md:grid-cols-2',
+                    className,
+                )}
+            >
                 {children}
             </div>
         </FieldSet>

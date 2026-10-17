@@ -1,17 +1,15 @@
 'use client';
 
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    ReferenceLine,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_REFERENCE_LINE_PROPS,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+} from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
-import { cn } from '~/lib/utilities';
 
 import { type BarShapeProperties } from './types';
 
@@ -40,26 +38,16 @@ export default function RuleStressBarChartView({ rows }: Properties) {
     ) : (
         <div className="flex flex-col gap-2">
             <ChartContainer
-                className={cn(
-                    'app-prop-calculator__rule-stress-bar-chart',
-                    'aspect-auto h-80 w-full',
-                )}
+                className="app-prop-calculator__rule-stress-bar-chart"
                 config={chartConfig}
             >
                 <BarChart
                     data={rows}
                     margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
                 >
-                    <CartesianGrid stroke="#ccc" strokeDasharray="3 3" />
-                    <XAxis
-                        axisLine={false}
-                        dataKey="label"
-                        fontSize={11}
-                        tickLine={false}
-                        tickMargin={6}
-                    />
+                    <XAxis {...CHART_X_AXIS_PROPS} dataKey="label" />
                     <YAxis
-                        axisLine={false}
+                        {...CHART_Y_AXIS_PROPS}
                         domain={[
                             (min: number) => Math.min(0, min),
                             (max: number) => Math.max(0, max),
@@ -71,12 +59,10 @@ export default function RuleStressBarChartView({ rows }: Properties) {
                             value: 'Monthly net',
                         }}
                         tickFormatter={(v: number) => formatCompactCurrency(v)}
-                        tickLine={false}
-                        width={56}
                     />
                     <ReferenceLine
+                        {...CHART_REFERENCE_LINE_PROPS}
                         stroke="var(--muted-foreground)"
-                        strokeDasharray="3 3"
                         y={0}
                     />
                     <Bar

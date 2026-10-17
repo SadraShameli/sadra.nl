@@ -1,15 +1,10 @@
 import { type ReactNode } from 'react';
 
-import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
+import {
+    SectionShell,
+    type SectionTone,
+} from '~/app/(app)/_components/SectionShell';
 import { homeSection, type HomeSectionId } from '~/lib/site/homeSections';
-import { cn } from '~/lib/utilities';
-
-import { NumberedEyebrow } from './NumberedEyebrow';
-
-export enum SectionTone {
-    Alternate = 'alternate',
-    Ground = 'ground',
-}
 
 export function HomeSectionShell({
     children,
@@ -24,27 +19,15 @@ export function HomeSectionShell({
 }) {
     const section = homeSection(id);
     return (
-        <section
-            className={cn(
-                'app-home__section',
-                HEADER_SCROLL_MARGIN,
-                'border-t border-line-faint',
-                tone === SectionTone.Alternate && 'bg-ground-alt/85',
-            )}
+        <SectionShell
+            blockClassName="app-home__section"
+            className={className}
+            eyebrow={section.eyebrow}
             id={id}
+            number={section.number}
+            tone={tone}
         >
-            <div
-                className={cn(
-                    'mx-auto flex max-w-site flex-col gap-12 px-6 py-20 lg:py-32',
-                    className,
-                )}
-            >
-                <NumberedEyebrow
-                    label={section.eyebrow}
-                    number={section.number}
-                />
-                {children}
-            </div>
-        </section>
+            {children}
+        </SectionShell>
     );
 }

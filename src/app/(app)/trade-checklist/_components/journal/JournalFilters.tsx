@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import Eyebrow from '~/components/Eyebrow';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { SEARCH_FIELD_CLASS } from '~/components/ui/filterControl';
 import { FilterIsoDateRange } from '~/components/ui/FilterIsoDateRange';
 import { Input } from '~/components/ui/Input';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
@@ -105,7 +106,7 @@ export function JournalFilters({
             <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
                 <Input
                     aria-label="Search notes"
-                    className="h-8 text-xs md:max-w-xs"
+                    className={SEARCH_FIELD_CLASS}
                     onChange={(event) =>
                         onChange({
                             ...state,

@@ -14,21 +14,12 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
+import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { FilterSelect } from '~/components/ui/FilterSelect';
@@ -249,9 +240,9 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                             'EEEE · MMMM d, y · HH:mm',
                         )}
                     </p>
-                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                    <ToolPageTitle className="mt-1">
                         {w.name ?? 'Workout'}
-                    </h1>
+                    </ToolPageTitle>
                     <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                         {durationSeconds !== null && (
                             <span className="inline-flex items-center gap-1 tabular-nums">
@@ -277,38 +268,28 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                     )}
                 </div>
 
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button
-                            aria-label="Delete workout"
-                            className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
-                            type="button"
-                            variant="outline"
-                        >
-                            <Trash2 className="size-4" />
-                            <span className="hidden sm:inline">Delete</span>
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete workout?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                &ldquo;{w.name ?? 'Workout'}&rdquo; and all its
-                                sets will be permanently removed. This cannot be
-                                undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                disabled={remove.isPending}
-                                onClick={() => remove.mutate({ id: w.id })}
-                            >
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <ConfirmDialog
+                    confirmLabel="Delete"
+                    description={
+                        <>
+                            &ldquo;{w.name ?? 'Workout'}&rdquo; and all its sets
+                            will be permanently removed. This cannot be undone.
+                        </>
+                    }
+                    isPending={remove.isPending}
+                    onConfirm={() => remove.mutate({ id: w.id })}
+                    title="Delete workout?"
+                >
+                    <Button
+                        aria-label="Delete workout"
+                        className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
+                        type="button"
+                        variant="outline"
+                    >
+                        <Trash2 className="size-4" />
+                        <span className="hidden sm:inline">Delete</span>
+                    </Button>
+                </ConfirmDialog>
             </header>
 
             <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">

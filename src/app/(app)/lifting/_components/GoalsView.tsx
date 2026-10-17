@@ -30,21 +30,11 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Calendar } from '~/components/ui/Calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     DataTable,
     DataTableAlign,
@@ -953,40 +943,23 @@ function GoalActions({
                         onClick={() => onStatus(goal, GOAL_STATUS.ACTIVE)}
                     />
                 )}
-                <AlertDialog>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    aria-label="Delete goal"
-                                    className="size-8 p-0"
-                                    disabled={busy}
-                                    type="button"
-                                    variant="ghost"
-                                >
-                                    <Trash2 className="size-4 text-destructive" />
-                                </Button>
-                            </AlertDialogTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                    </Tooltip>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete goal?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This goal will be removed permanently.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={() => onDelete(goal.id)}
-                            >
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <ConfirmDialog
+                    confirmLabel="Delete"
+                    description="This goal will be removed permanently."
+                    onConfirm={() => onDelete(goal.id)}
+                    title="Delete goal?"
+                    tooltip="Delete"
+                >
+                    <Button
+                        aria-label="Delete goal"
+                        className="size-8 p-0"
+                        disabled={busy}
+                        type="button"
+                        variant="ghost"
+                    >
+                        <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                </ConfirmDialog>
             </div>
         </TooltipProvider>
     );

@@ -4,18 +4,9 @@ import { ChevronDown, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { PlateVisualizer } from '~/app/(app)/lifting/_components/shared/PlateVisualizer';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -208,35 +199,23 @@ export function ExerciseCard({
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <AlertDialog
+                    <ConfirmDialog
+                        confirmLabel="Remove"
+                        description={
+                            <>
+                                {wex.exercise.name} and all logged sets
+                                underneath it will be removed from this workout.
+                            </>
+                        }
+                        onConfirm={() =>
+                            exerciseRemoval.mutate({
+                                id: wex.id,
+                            })
+                        }
                         onOpenChange={setRemoveOpen}
                         open={isRemoveDialogOpen}
-                    >
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Remove exercise?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    {wex.exercise.name} and all logged sets
-                                    underneath it will be removed from this
-                                    workout.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() =>
-                                        exerciseRemoval.mutate({
-                                            id: wex.id,
-                                        })
-                                    }
-                                >
-                                    Remove
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                        title="Remove exercise?"
+                    />
                 </div>
             </CardHeader>
 

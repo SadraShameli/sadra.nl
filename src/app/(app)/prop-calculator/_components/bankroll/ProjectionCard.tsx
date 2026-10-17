@@ -1,19 +1,18 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import {
-    Area,
-    CartesianGrid,
-    ComposedChart,
-    Line,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Area, ComposedChart, Line, XAxis, YAxis } from 'recharts';
 
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_STROKE_WIDTH,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+} from '~/components/ui/Chart';
 import {
     Table,
     TableBody,
@@ -31,7 +30,6 @@ import {
 import { fraction } from '~/lib/prop-calculator';
 import { type ProjectionMonthEnd } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
-import { cn } from '~/lib/utilities';
 
 import {
     BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL,
@@ -294,23 +292,15 @@ function MonthEndBands({
                 Bankroll at each month end (P10 to P90)
             </h3>
             <ChartContainer
-                className={cn(
-                    'app-prop-calculator__bankroll-month-end-chart',
-                    'aspect-16/7 min-h-64 w-full',
-                )}
+                className="app-prop-calculator__bankroll-month-end-chart"
                 config={monthEndChartConfig}
             >
                 <ComposedChart
                     data={data}
                     margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
                 >
-                    <CartesianGrid
-                        opacity={0.2}
-                        stroke="#ccc"
-                        strokeDasharray="3 3"
-                    />
                     <XAxis
-                        axisLine={false}
+                        {...CHART_X_AXIS_PROPS}
                         dataKey="month"
                         label={{
                             fontSize: 11,
@@ -319,16 +309,12 @@ function MonthEndBands({
                             value: 'Months',
                         }}
                         tickFormatter={(value: number) => `${String(value)}mo`}
-                        tickLine={false}
-                        tickMargin={6}
                     />
                     <YAxis
-                        axisLine={false}
+                        {...CHART_Y_AXIS_PROPS}
                         tickFormatter={(value: number) =>
                             formatCompactCurrency(value)
                         }
-                        tickLine={false}
-                        width={60}
                     />
                     <Area
                         dataKey="low"
@@ -352,7 +338,7 @@ function MonthEndBands({
                         dot={false}
                         isAnimationActive={false}
                         stroke="var(--success)"
-                        strokeWidth={2.5}
+                        strokeWidth={CHART_STROKE_WIDTH}
                         type="monotone"
                     />
                 </ComposedChart>

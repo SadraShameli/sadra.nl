@@ -9,17 +9,8 @@ import { z } from 'zod';
 import type { SetType, UnitDistance, UnitWeight } from '~/lib/lifting/types';
 
 import { NumberStepper } from '~/app/(app)/lifting/_components/shared/NumberStepper';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -410,25 +401,16 @@ export function SetRow({
                     />
                 </div>
 
-                <AlertDialog
+                <ConfirmDialog
+                    confirmLabel="Delete"
+                    description={
+                        <>Set {set.order} will be removed permanently.</>
+                    }
+                    onConfirm={() => onDelete(set.id)}
                     onOpenChange={setDeleteOpen}
                     open={isDeleteDialogOpen}
-                >
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete set?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Set {set.order} will be removed permanently.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onDelete(set.id)}>
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                    title="Delete set?"
+                />
             </form>
         </Form>
     );

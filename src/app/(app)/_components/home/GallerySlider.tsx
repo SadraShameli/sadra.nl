@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
 
-import { CAPSULE_ICON_CLASS } from '~/app/(app)/_components/capsuleStyles';
+import { Button } from '~/components/ui/Button';
 import {
     Carousel,
     CarouselContent,
@@ -100,38 +100,41 @@ function SliderControls({
         useCarousel();
     return (
         <div className="flex items-center gap-1 rounded-full border glass p-1.5">
-            <button
+            <Button
                 aria-label={isPlaying ? 'Pause slideshow' : 'Play slideshow'}
                 aria-pressed={isPlaying}
-                className={CAPSULE_ICON_CLASS}
                 onClick={onTogglePlayback}
+                size="icon-tap"
                 type="button"
+                variant="capsule"
             >
                 {isPlaying ? (
                     <Pause aria-hidden strokeWidth={1.6} />
                 ) : (
                     <Play aria-hidden strokeWidth={1.6} />
                 )}
-            </button>
+            </Button>
             <span aria-hidden className="mx-1 h-6 w-px bg-line" />
-            <button
+            <Button
                 aria-label="Previous photo"
-                className={CAPSULE_ICON_CLASS}
                 disabled={!canScrollPrev}
                 onClick={scrollPrev}
+                size="icon-tap"
                 type="button"
+                variant="capsule"
             >
                 <ArrowLeft aria-hidden strokeWidth={1.6} />
-            </button>
-            <button
+            </Button>
+            <Button
                 aria-label="Next photo"
-                className={CAPSULE_ICON_CLASS}
                 disabled={!canScrollNext}
                 onClick={scrollNext}
+                size="icon-tap"
                 type="button"
+                variant="capsule"
             >
                 <ArrowRight aria-hidden strokeWidth={1.6} />
-            </button>
+            </Button>
         </div>
     );
 }

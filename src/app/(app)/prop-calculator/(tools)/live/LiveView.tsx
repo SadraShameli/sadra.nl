@@ -1,5 +1,6 @@
 'use client';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { EvalLadderScope } from '~/app/(app)/prop-calculator/_components/AppliedEvalLadderNotice';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
@@ -66,12 +67,9 @@ export function LiveView() {
                     aria-labelledby={RESULT_HEADING_ID}
                     className="flex flex-col gap-4"
                 >
-                    <h2
-                        className="text-lg font-semibold tracking-tight text-foreground"
-                        id={RESULT_HEADING_ID}
-                    >
+                    <ToolSectionHeading id={RESULT_HEADING_ID}>
                         Live stage results
-                    </h2>
+                    </ToolSectionHeading>
                     {model.status === LiveToolStatus.Modeled &&
                         model.note !== null && (
                             <p className="text-xs text-muted-foreground">

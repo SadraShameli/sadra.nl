@@ -3,12 +3,14 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { DefaultTradingPlanSetup } from '~/app/(app)/trade-checklist/_components/DefaultTradingPlanSetup';
 import { PrepView } from '~/app/(app)/trade-checklist/_components/PrepView';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { dailyPreparationRowSchema } from '~/lib/schemas/tradingRows';
+import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { PLAN_TIMEZONE } from '~/lib/trading/defaults';
 import { loadActiveTradingPlan } from '~/lib/trading/loadActiveTradingPlan';
@@ -30,16 +32,17 @@ export default function PreMarketPrepPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Pre-market prep
-                    </h1>
-                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                        The discipline gate before you ever pick up the mouse.
-                        Tick off the prep you finished today and let the streak
-                        speak.
-                    </p>
-                </header>
+                <ToolPageHeader
+                    eyebrow={siteToolTitle(ToolTicker.Checklist)}
+                    lead={
+                        <>
+                            The discipline gate before you ever pick up the
+                            mouse. Tick off the prep you finished today and let
+                            the streak speak.
+                        </>
+                    }
+                    title="Pre-market prep"
+                />
                 <Suspense fallback={<TradeChecklistDataSkeleton />}>
                     <PreMarketPrepContent />
                 </Suspense>

@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
     ListQueryStatus,
@@ -326,12 +327,9 @@ export function LedgerView() {
                 aria-labelledby="prop-ledger-heading"
                 className="app-prop-accounts__ledger-list flex flex-col gap-4"
             >
-                <h2
-                    className="text-lg font-semibold tracking-tight text-foreground"
-                    id="prop-ledger-heading"
-                >
+                <ToolSectionHeading id="prop-ledger-heading">
                     Payouts and fees
-                </h2>
+                </ToolSectionHeading>
                 {payoutsAndFeesBody()}
             </section>
             <DepositsWithdrawalsSection />
@@ -370,12 +368,9 @@ function DepositsWithdrawalsSection() {
             aria-labelledby="prop-bankroll-heading"
             className="flex flex-col gap-4"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-foreground"
-                id="prop-bankroll-heading"
-            >
+            <ToolSectionHeading id="prop-bankroll-heading">
                 Deposits and withdrawals
-            </h2>
+            </ToolSectionHeading>
             <ListQueryStatus
                 query={transfersQuery}
                 subject="deposits and withdrawals"
@@ -587,12 +582,9 @@ function FirmReconciliationSection({
             aria-labelledby="prop-reconciliation-heading"
             className="flex flex-col gap-4"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-foreground"
-                id="prop-reconciliation-heading"
-            >
+            <ToolSectionHeading id="prop-reconciliation-heading">
                 Firm-reported total reconciliation
-            </h2>
+            </ToolSectionHeading>
             <ListQueryStatus query={accountsQuery} subject="accounts" />
             <ListQueryStatus query={payoutsQuery} subject="payouts" />
             <ListQueryStatus

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import {
     type CopyGroupMember,
     copyGroupNameError,
@@ -21,20 +22,10 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { Field, FieldError, FieldLabel } from '~/components/ui/Field';
 import { Input } from '~/components/ui/Input';
@@ -148,21 +139,18 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
 
     return (
         <>
-            <header className="mb-8">
-                <h1
-                    className="text-3xl font-bold tracking-tight text-foreground outline-none sm:text-4xl"
-                    ref={headingReference}
-                    tabIndex={-1}
-                >
-                    Copy groups
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm text-muted-foreground sm:text-base">
-                    Accounts you trade together through a trade copier. Every
-                    member of a group must be in one stage, inactive and
-                    archived members included. The active members are sized
-                    together as one correlated bet.
-                </p>
-            </header>
+            <AccountsPageHeader
+                description={
+                    <>
+                        Accounts you trade together through a trade copier.
+                        Every member of a group must be in one stage, inactive
+                        and archived members included. The active members are
+                        sized together as one correlated bet.
+                    </>
+                }
+                title="Copy groups"
+                titleReference={headingReference}
+            />
             <div className="flex flex-col gap-8">
                 <CreateGroupForm />
                 {groupsQuery.isError && groups === undefined && (
@@ -312,57 +300,42 @@ function DeleteGroupDialog({
     });
 
     return (
-        <AlertDialog
+        <ConfirmDialog
+            confirmLabel="Delete group"
+            description={
+                <>
+                    {memberCount === 0
+                        ? 'It has no members. Nothing else is deleted.'
+                        : `Its ${memberCount} ${memberCount === 1 ? 'member leaves' : 'members leave'} the group and stay as accounts. Nothing else is deleted.`}
+                </>
+            }
+            isPending={remove.isPending}
+            onCloseAutoFocus={(event) => {
+                if (!isDeletedReference.current) return;
+                event.preventDefault();
+                onDeleted();
+            }}
+            onConfirm={(event) => {
+                event.preventDefault();
+                remove.mutate({ id: group.id });
+            }}
             onOpenChange={(open) => {
                 if (remove.isPending) return;
                 if (open) isDeletedReference.current = false;
                 setIsOpen(open);
             }}
             open={isOpen}
+            title={<>Delete the copy group &ldquo;{group.name}&rdquo;?</>}
         >
-            <AlertDialogTrigger asChild>
-                <Button
-                    aria-label={`Delete ${group.name}`}
-                    disabled={remove.isPending}
-                    size="icon"
-                    variant="ghost"
-                >
-                    <Trash2 />
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent
-                onCloseAutoFocus={(event) => {
-                    if (!isDeletedReference.current) return;
-                    event.preventDefault();
-                    onDeleted();
-                }}
+            <Button
+                aria-label={`Delete ${group.name}`}
+                disabled={remove.isPending}
+                size="icon"
+                variant="ghost"
             >
-                <AlertDialogHeader>
-                    <AlertDialogTitle>
-                        Delete the copy group &ldquo;{group.name}&rdquo;?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {memberCount === 0
-                            ? 'It has no members. Nothing else is deleted.'
-                            : `Its ${memberCount} ${memberCount === 1 ? 'member leaves' : 'members leave'} the group and stay as accounts. Nothing else is deleted.`}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel disabled={remove.isPending}>
-                        Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                        disabled={remove.isPending}
-                        onClick={(event) => {
-                            event.preventDefault();
-                            remove.mutate({ id: group.id });
-                        }}
-                    >
-                        Delete group
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                <Trash2 />
+            </Button>
+        </ConfirmDialog>
     );
 }
 

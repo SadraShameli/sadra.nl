@@ -1,9 +1,10 @@
+import { SectionTone } from '~/app/(app)/_components/SectionShell';
 import { homepageContent } from '~/lib/site/content';
 import { HomeSectionId } from '~/lib/site/homeSections';
 
 import { SectionHeading } from './EmphasisTitle';
 import { GallerySlider } from './GallerySlider';
-import { HomeSectionShell, SectionTone } from './HomeSectionShell';
+import { HomeSectionShell } from './HomeSectionShell';
 
 export function AboutSection() {
     const { gallery, heading, spotifyEmbedUrl, spotifyLabel } =

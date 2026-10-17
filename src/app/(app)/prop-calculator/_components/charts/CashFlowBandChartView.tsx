@@ -2,7 +2,6 @@
 
 import {
     Area,
-    CartesianGrid,
     ComposedChart,
     Line,
     ReferenceLine,
@@ -10,11 +9,18 @@ import {
     YAxis,
 } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_REFERENCE_LINE_PROPS,
+    CHART_STROKE_WIDTH,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+    ChartSize,
+} from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator';
 import { type PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
-import { cn } from '~/lib/utilities';
 
 interface ChartRow {
     low: number;
@@ -48,23 +54,16 @@ export default function CashFlowBandChartView({ result }: Properties) {
 
     return (
         <ChartContainer
-            className={cn(
-                'app-prop-calculator__cash-flow-band-chart',
-                'aspect-16/7 min-h-125 w-full',
-            )}
+            className="app-prop-calculator__cash-flow-band-chart"
             config={chartConfig}
+            size={ChartSize.Tall}
         >
             <ComposedChart
                 data={data}
                 margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid
-                    opacity={0.2}
-                    stroke="#ccc"
-                    strokeDasharray="3 3"
-                />
                 <XAxis
-                    axisLine={false}
+                    {...CHART_X_AXIS_PROPS}
                     dataKey="month"
                     label={{
                         fontSize: 11,
@@ -73,16 +72,13 @@ export default function CashFlowBandChartView({ result }: Properties) {
                         value: 'Months',
                     }}
                     tickFormatter={(v: number) => `${v}mo`}
-                    tickLine={false}
-                    tickMargin={6}
                 />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     tickFormatter={(v: number) => formatCompactCurrency(v)}
-                    tickLine={false}
-                    width={60}
                 />
                 <ReferenceLine
+                    {...CHART_REFERENCE_LINE_PROPS}
                     label={{
                         fill: 'var(--muted-foreground)',
                         fontSize: 11,
@@ -90,7 +86,6 @@ export default function CashFlowBandChartView({ result }: Properties) {
                         value: 'Break-even',
                     }}
                     stroke="var(--muted-foreground)"
-                    strokeDasharray="4 4"
                     y={0}
                 />
                 <Area
@@ -115,7 +110,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                     dot={false}
                     isAnimationActive={false}
                     stroke="var(--success)"
-                    strokeWidth={2.5}
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
             </ComposedChart>

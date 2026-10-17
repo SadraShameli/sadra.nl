@@ -103,7 +103,7 @@ describe('useActiveHomeNavItem', () => {
         expect(seen()).toBe(HomeSectionId.Tools);
 
         await scrollTo(2700);
-        expect(seen()).toBe(HomeSectionId.Live);
+        expect(seen()).toBe(HomeSectionId.Readings);
 
         await scrollTo(0);
         expect(seen()).toBe(HomeNavTarget.Top);
@@ -127,7 +127,7 @@ describe('useActiveHomeNavItem', () => {
                 setTimeout(resolve, SCROLL_IDLE_WAIT_MS),
             );
         });
-        expect(seen()).toBe(HomeSectionId.Live);
+        expect(seen()).toBe(HomeSectionId.Readings);
     });
 
     it('marks nothing away from the homepage', async () => {

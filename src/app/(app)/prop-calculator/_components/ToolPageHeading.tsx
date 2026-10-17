@@ -1,5 +1,8 @@
 import { type ReactNode } from 'react';
 
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { siteToolTitle, ToolTicker } from '~/lib/site/content';
+
 import { CalculatorToolbar } from './CalculatorToolbar';
 import {
     type OwnCodecToolId,
@@ -16,35 +19,20 @@ export type ToolPageHeadingProperties =
           toolId: Exclude<ToolId, OwnCodecToolId>;
       };
 
-export function ToolHeaderFrame({
-    children,
-    toolbar,
-}: {
-    readonly children: ReactNode;
-    readonly toolbar: ReactNode;
-}) {
-    return (
-        <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            {children}
-            {toolbar}
-        </header>
-    );
-}
-
-export function ToolHeadingText({
+export function ToolEntryHeader({
+    actions,
     entry,
 }: {
+    readonly actions?: ReactNode;
     readonly entry: ToolCatalogEntry;
 }) {
     return (
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                {entry.label}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                {entry.blurb}
-            </p>
-        </div>
+        <ToolPageHeader
+            actions={actions}
+            eyebrow={siteToolTitle(ToolTicker.PropCalculator)}
+            lead={entry.blurb}
+            title={entry.label}
+        />
     );
 }
 
@@ -55,17 +43,16 @@ export function ToolPageHeading({
 }: ToolPageHeadingProperties) {
     const entry = toolCatalogEntry(toolId);
     return (
-        <ToolHeaderFrame
-            toolbar={
-                entry.sharesState && (
+        <ToolEntryHeader
+            actions={
+                entry.sharesState ? (
                     <CalculatorToolbar
                         ownQuery={ownQuery}
                         pageQuery={pageQuery}
                     />
-                )
+                ) : undefined
             }
-        >
-            <ToolHeadingText entry={entry} />
-        </ToolHeaderFrame>
+            entry={entry}
+        />
     );
 }

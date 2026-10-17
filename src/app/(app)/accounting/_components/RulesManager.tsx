@@ -19,9 +19,10 @@ import type {
     LedgerReference,
 } from '~/lib/accounting/core/types';
 
+import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Card, CardContent } from '~/components/ui/Card';
 import {
     DataTable,
     type DataTableColumn,
@@ -581,65 +582,63 @@ function BankAccountsCard({
     );
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-base">Bank accounts</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-                <DataTable
-                    columns={columns}
-                    data={allAccounts}
-                    emptyState={(table) => (
-                        <EmptyState
-                            description={
-                                hasActiveTableFilter(table)
-                                    ? 'No bank accounts match the current filters.'
-                                    : 'Map a Wise currency to a ledger to start importing.'
-                            }
-                            icon={Landmark}
-                            title={
-                                hasActiveTableFilter(table)
-                                    ? 'No matches'
-                                    : 'No bank accounts'
-                            }
-                        />
-                    )}
-                    filterPlaceholder="Search accounts…"
-                    headerActions={(table) => (
-                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                            <DataTableFacetSelect
-                                column={table.getColumn('currency')}
-                                placeholder="All currencies"
-                            />
-                            <DataTableFacetSelect
-                                column={table.getColumn('ledger')}
-                                placeholder="All ledgers"
-                            />
-                            <Button
-                                className="shrink-0"
-                                onClick={() => setForm('new')}
-                                size="sm"
-                            >
-                                <Plus className="size-3.5" /> Add account
-                            </Button>
-                        </div>
-                    )}
-                    initialSorting={[{ desc: false, id: 'currency' }]}
-                    isLoading={banksQ.isPending}
-                    pageSize={25}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
-                {form !== null && (
-                    <BankAccountFormDialog
-                        credentialId={credentialId}
-                        ledgerOptions={ledgerOptions}
-                        mode={form}
-                        onClose={() => setForm(null)}
+        <ToolPanel
+            contentClassName="gap-3"
+            description="Map each bank account or currency to the ledger it books to."
+            title="Bank accounts"
+        >
+            <DataTable
+                columns={columns}
+                data={allAccounts}
+                emptyState={(table) => (
+                    <EmptyState
+                        description={
+                            hasActiveTableFilter(table)
+                                ? 'No bank accounts match the current filters.'
+                                : 'Map a Wise currency to a ledger to start importing.'
+                        }
+                        icon={Landmark}
+                        title={
+                            hasActiveTableFilter(table)
+                                ? 'No matches'
+                                : 'No bank accounts'
+                        }
                     />
                 )}
-            </CardContent>
-        </Card>
+                filterPlaceholder="Search accounts…"
+                headerActions={(table) => (
+                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                        <DataTableFacetSelect
+                            column={table.getColumn('currency')}
+                            placeholder="All currencies"
+                        />
+                        <DataTableFacetSelect
+                            column={table.getColumn('ledger')}
+                            placeholder="All ledgers"
+                        />
+                        <Button
+                            className="shrink-0"
+                            onClick={() => setForm('new')}
+                        >
+                            <Plus className="size-3.5" /> Add account
+                        </Button>
+                    </div>
+                )}
+                initialSorting={[{ desc: false, id: 'currency' }]}
+                isLoading={banksQ.isPending}
+                pageSize={25}
+                rowId={(r) => r.id}
+                showFilter
+            />
+            {form !== null && (
+                <BankAccountFormDialog
+                    credentialId={credentialId}
+                    ledgerOptions={ledgerOptions}
+                    mode={form}
+                    onClose={() => setForm(null)}
+                />
+            )}
+        </ToolPanel>
     );
 }
 
@@ -859,70 +858,68 @@ function RulesCard({
     );
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-base">Rules</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-                <DataTable
-                    columns={columns}
-                    data={allRules}
-                    emptyState={(table) => (
-                        <EmptyState
-                            description={
-                                hasActiveTableFilter(table)
-                                    ? 'No rules match the current filters.'
-                                    : 'Add a rule to classify transactions.'
-                            }
-                            icon={Filter}
-                            title={
-                                hasActiveTableFilter(table)
-                                    ? 'No matches'
-                                    : 'No rules yet'
-                            }
-                        />
-                    )}
-                    filterPlaceholder="Search rules…"
-                    headerActions={(table) => (
-                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                            <DataTableFacetSelect
-                                column={table.getColumn('direction')}
-                                placeholder="All directions"
-                            />
-                            <DataTableFacetSelect
-                                column={table.getColumn('ledger')}
-                                placeholder="All ledgers"
-                            />
-                            <DataTableFacetSelect
-                                column={table.getColumn('taxCode')}
-                                format={labelOf}
-                                placeholder="All VAT codes"
-                            />
-                            <Button
-                                className="shrink-0"
-                                onClick={() => setForm('new')}
-                                size="sm"
-                            >
-                                <Plus className="size-3.5" /> Add rule
-                            </Button>
-                        </div>
-                    )}
-                    isLoading={rulesQ.isPending}
-                    pageSize={25}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
-                {form !== null && (
-                    <RuleFormDialog
-                        credentialId={credentialId}
-                        ledgerOptions={ledgerOptions}
-                        mode={form}
-                        onClose={() => setForm(null)}
-                        sourceCredentialId={sourceCredentialId}
+        <ToolPanel
+            contentClassName="gap-3"
+            description="Match a counterpart to a ledger, a direction and a VAT code."
+            title="Rules"
+        >
+            <DataTable
+                columns={columns}
+                data={allRules}
+                emptyState={(table) => (
+                    <EmptyState
+                        description={
+                            hasActiveTableFilter(table)
+                                ? 'No rules match the current filters.'
+                                : 'Add a rule to classify transactions.'
+                        }
+                        icon={Filter}
+                        title={
+                            hasActiveTableFilter(table)
+                                ? 'No matches'
+                                : 'No rules yet'
+                        }
                     />
                 )}
-            </CardContent>
-        </Card>
+                filterPlaceholder="Search rules…"
+                headerActions={(table) => (
+                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                        <DataTableFacetSelect
+                            column={table.getColumn('direction')}
+                            placeholder="All directions"
+                        />
+                        <DataTableFacetSelect
+                            column={table.getColumn('ledger')}
+                            placeholder="All ledgers"
+                        />
+                        <DataTableFacetSelect
+                            column={table.getColumn('taxCode')}
+                            format={labelOf}
+                            placeholder="All VAT codes"
+                        />
+                        <Button
+                            className="shrink-0"
+                            onClick={() => setForm('new')}
+                        >
+                            <Plus className="size-3.5" /> Add rule
+                        </Button>
+                    </div>
+                )}
+                isLoading={rulesQ.isPending}
+                pageSize={25}
+                rowId={(r) => r.id}
+                showFilter
+            />
+            {form !== null && (
+                <RuleFormDialog
+                    credentialId={credentialId}
+                    ledgerOptions={ledgerOptions}
+                    mode={form}
+                    onClose={() => setForm(null)}
+                    sourceCredentialId={sourceCredentialId}
+                />
+            )}
+        </ToolPanel>
     );
 }
 

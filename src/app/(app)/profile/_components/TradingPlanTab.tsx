@@ -44,20 +44,10 @@ import type { TradingPlanRow } from '~/lib/trading/types';
 
 import { DefaultTradingPlanSetup } from '~/app/(app)/trade-checklist/_components/DefaultTradingPlanSetup';
 import { BlockableLink } from '~/components/NavigationBlocker';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     Dialog,
     DialogContent,
@@ -461,37 +451,16 @@ function SortablePlanRow({
                 >
                     <Copy className="size-3.5" />
                 </Button>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button
-                            disabled={!canDelete}
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Trash2 className="size-3.5" />
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>
-                                Delete &ldquo;{plan.name}&rdquo;?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Saved assessments referencing this plan keep
-                                their snapshotted config. Only the plan template
-                                is removed.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={() => onDelete(plan.id)}
-                            >
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <ConfirmDialog
+                    confirmLabel="Delete"
+                    description="Saved assessments referencing this plan keep their snapshotted config. Only the plan template is removed."
+                    onConfirm={() => onDelete(plan.id)}
+                    title={<>Delete &ldquo;{plan.name}&rdquo;?</>}
+                >
+                    <Button disabled={!canDelete} size="sm" variant="outline">
+                        <Trash2 className="size-3.5" />
+                    </Button>
+                </ConfirmDialog>
             </div>
         </div>
     );

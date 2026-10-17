@@ -7,20 +7,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     DataTable,
     type DataTableColumn,
@@ -50,11 +40,6 @@ import {
 import { Skeleton } from '~/components/ui/Skeleton';
 import { Textarea } from '~/components/ui/Textarea';
 import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '~/components/ui/Tooltip';
 import { MeasurementUnitConversion } from '~/lib/lifting/format';
 import {
     type CreateMeasurementInput,
@@ -519,44 +504,28 @@ function MeasurementsHistoryTable({
             },
             {
                 cell: ({ row }) => (
-                    <AlertDialog>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        aria-label="Delete measurement"
-                                        className="size-8 p-0"
-                                        type="button"
-                                        variant="ghost"
-                                    >
-                                        <Trash2 className="size-4 text-destructive" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>Delete measurement</TooltipContent>
-                        </Tooltip>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Delete measurement?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    {row.original.kind.replaceAll('_', ' ')}{' '}
-                                    {row.original.valueNumeric}{' '}
-                                    {row.original.unit} will be removed from
-                                    your history.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() => onDelete(row.original.id)}
-                                >
-                                    Delete
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <ConfirmDialog
+                        confirmLabel="Delete"
+                        description={
+                            <>
+                                {row.original.kind.replaceAll('_', ' ')}{' '}
+                                {row.original.valueNumeric} {row.original.unit}{' '}
+                                will be removed from your history.
+                            </>
+                        }
+                        onConfirm={() => onDelete(row.original.id)}
+                        title="Delete measurement?"
+                        tooltip="Delete measurement"
+                    >
+                        <Button
+                            aria-label="Delete measurement"
+                            className="size-8 p-0"
+                            type="button"
+                            variant="ghost"
+                        >
+                            <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                    </ConfirmDialog>
                 ),
                 header: () => <span className="sr-only">Actions</span>,
                 id: 'actions',

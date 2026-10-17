@@ -13,6 +13,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '~/components/ui/DropDown';
+import { FILTER_CONTROL_CLASS } from '~/components/ui/filterControl';
+import { cn } from '~/lib/utilities';
 
 export type DataTableColumnsMenuProperties<TData extends RowData> = {
     table: DataTableInstance<TData>;
@@ -29,8 +31,10 @@ export function DataTableColumnsMenu<TData extends RowData>({
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button
-                    className="h-8 shrink-0 gap-1.5 text-xs"
-                    size="sm"
+                    className={cn(
+                        FILTER_CONTROL_CLASS,
+                        'shrink-0 gap-1.5 px-4',
+                    )}
                     variant="outline"
                 >
                     <SlidersHorizontal className="size-3.5" />

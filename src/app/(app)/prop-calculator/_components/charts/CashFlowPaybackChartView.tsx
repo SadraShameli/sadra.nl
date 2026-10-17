@@ -1,12 +1,17 @@
 'use client';
 
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
+import { Line, LineChart, XAxis, YAxis } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_STROKE_WIDTH,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+} from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator';
 import { type PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
-import { cn } from '~/lib/utilities';
 
 interface ChartRow {
     month: number;
@@ -40,19 +45,15 @@ export default function CashFlowPaybackChartView({ result }: Properties) {
 
     return (
         <ChartContainer
-            className={cn(
-                'app-prop-calculator__cash-flow-payback-chart',
-                'aspect-4/3 min-h-90 w-full',
-            )}
+            className="app-prop-calculator__cash-flow-payback-chart"
             config={chartConfig}
         >
             <LineChart
                 data={data}
                 margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid stroke="#ccc" strokeDasharray="3 3" />
                 <XAxis
-                    axisLine={false}
+                    {...CHART_X_AXIS_PROPS}
                     dataKey="month"
                     label={{
                         fontSize: 11,
@@ -61,21 +62,17 @@ export default function CashFlowPaybackChartView({ result }: Properties) {
                         value: 'Months',
                     }}
                     tickFormatter={(v: number) => `${v}mo`}
-                    tickLine={false}
-                    tickMargin={6}
                 />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     tickFormatter={(v: number) => formatCompactCurrency(v)}
-                    tickLine={false}
-                    width={60}
                 />
                 <Line
                     dataKey="spend"
                     dot={false}
                     isAnimationActive={false}
                     stroke="var(--destructive)"
-                    strokeWidth={2}
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
                 <Line
@@ -83,7 +80,7 @@ export default function CashFlowPaybackChartView({ result }: Properties) {
                     dot={false}
                     isAnimationActive={false}
                     stroke="var(--success)"
-                    strokeWidth={2}
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
             </LineChart>

@@ -1,6 +1,7 @@
 import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
@@ -26,16 +27,16 @@ export default function PropAccountsReviewPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Weekly review
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        Enter this week&rsquo;s snapshot for every active
-                        account, see the size change since last week, and accept
-                        sizes into the decision log.
-                    </p>
-                </header>
+                <AccountsPageHeader
+                    description={
+                        <>
+                            Enter this week&rsquo;s snapshot for every active
+                            account, see the size change since last week, and
+                            accept sizes into the decision log.
+                        </>
+                    }
+                    title="Weekly review"
+                />
                 <Suspense fallback={<AccountsDataSkeleton />}>
                     <PropAccountsReviewContent />
                 </Suspense>

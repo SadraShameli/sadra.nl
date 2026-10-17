@@ -7,19 +7,9 @@ import { useState } from 'react';
 import type { TradeAssessmentRow } from '~/lib/trading/types';
 
 import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
 import { cn } from '~/lib/utilities';
@@ -160,40 +150,22 @@ export function HistoryStrip({
                                     </p>
                                 </div>
                             </Button>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        aria-label="Delete assessment"
-                                        className="size-7 shrink-0"
-                                        size="icon"
-                                        type="button"
-                                        variant="ghost"
-                                    >
-                                        <Trash2 className="size-3.5 text-muted-foreground" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Delete assessment?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This grade and outcome will be
-                                            removed permanently.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() => onDelete(row.id)}
-                                        >
-                                            Delete
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                            <ConfirmDialog
+                                confirmLabel="Delete"
+                                description="This grade and outcome will be removed permanently."
+                                onConfirm={() => onDelete(row.id)}
+                                title="Delete assessment?"
+                            >
+                                <Button
+                                    aria-label="Delete assessment"
+                                    className="size-7 shrink-0"
+                                    size="icon"
+                                    type="button"
+                                    variant="ghost"
+                                >
+                                    <Trash2 className="size-3.5 text-muted-foreground" />
+                                </Button>
+                            </ConfirmDialog>
                         </li>
                     );
                 })}

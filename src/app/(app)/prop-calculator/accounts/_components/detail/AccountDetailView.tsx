@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import {
     ACCOUNT_LIST_INPUT,
@@ -606,9 +607,7 @@ function AccountHeader({
                 >
                     All accounts
                 </Link>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                    {account.label}
-                </h1>
+                <ToolPageTitle>{account.label}</ToolPageTitle>
                 <p className="text-sm text-muted-foreground sm:text-base">
                     {firmName} {accountPlanLabel(account)}
                     {account.externalAlias === null

@@ -19,22 +19,13 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import { EmptyState } from '~/components/ui/EmptyState';
+import { SEARCH_FIELD_CLASS } from '~/components/ui/filterControl';
 import { FilterSelect } from '~/components/ui/FilterSelect';
 import { Input } from '~/components/ui/Input';
 import { Progress } from '~/components/ui/Progress';
@@ -48,6 +39,7 @@ import {
     type UserProgramStatus,
 } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
+import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type Enrollment =
@@ -242,11 +234,11 @@ export function ProgramsLibrary({
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="relative w-full md:max-w-xs">
-                            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <div className="relative w-fit">
+                            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-3.5 -translate-y-1/2 text-ink-muted" />
                             <Input
                                 aria-label="Search programs"
-                                className="h-8 pl-8 text-xs"
+                                className={cn(SEARCH_FIELD_CLASS, 'pl-9')}
                                 onChange={(event) =>
                                     setSearch(event.target.value)
                                 }
@@ -524,39 +516,21 @@ function ActiveEnrollmentCard({
                     >
                         <Pause className="size-3.5" /> Pause
                     </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button
-                                className="ml-auto gap-1.5 text-destructive"
-                                size="sm"
-                                type="button"
-                                variant="ghost"
-                            >
-                                <Trash2 className="size-3.5" /> Unenroll
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Unenroll from {program?.name ?? 'program'}?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Your progress for this enrollment will be
-                                    removed. You can re-enroll later.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() =>
-                                        unenroll.mutate({ id: enrollment.id })
-                                    }
-                                >
-                                    Unenroll
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <ConfirmDialog
+                        confirmLabel="Unenroll"
+                        description="Your progress for this enrollment will be removed. You can re-enroll later."
+                        onConfirm={() => unenroll.mutate({ id: enrollment.id })}
+                        title={<>Unenroll from {program?.name ?? 'program'}?</>}
+                    >
+                        <Button
+                            className="ml-auto gap-1.5 text-destructive"
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                        >
+                            <Trash2 className="size-3.5" /> Unenroll
+                        </Button>
+                    </ConfirmDialog>
                 </div>
             </CardContent>
         </Card>
@@ -757,39 +731,21 @@ function OwnedProgramCard({ program }: { program: OwnedProgram }) {
                             <Pencil className="size-3.5" /> Open
                         </Link>
                     </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button
-                                className="ml-auto gap-1.5 text-destructive"
-                                size="sm"
-                                type="button"
-                                variant="ghost"
-                            >
-                                <Trash2 className="size-3.5" /> Delete
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Delete {program.name}?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This is a custom program. Deleting it
-                                    removes the program and any enrollments.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() =>
-                                        remove.mutate({ id: program.id })
-                                    }
-                                >
-                                    Delete
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <ConfirmDialog
+                        confirmLabel="Delete"
+                        description="This is a custom program. Deleting it removes the program and any enrollments."
+                        onConfirm={() => remove.mutate({ id: program.id })}
+                        title={<>Delete {program.name}?</>}
+                    >
+                        <Button
+                            className="ml-auto gap-1.5 text-destructive"
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                        >
+                            <Trash2 className="size-3.5" /> Delete
+                        </Button>
+                    </ConfirmDialog>
                 </div>
             </CardContent>
         </Card>

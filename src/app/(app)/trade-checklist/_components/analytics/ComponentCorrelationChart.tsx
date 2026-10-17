@@ -12,7 +12,13 @@ import {
 
 import type { WeightCategory } from '~/lib/trading/types';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_REFERENCE_LINE_PROPS,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+} from '~/components/ui/Chart';
 import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import {
     componentScoreCorrelation,
@@ -86,29 +92,19 @@ export function ComponentCorrelationChart({
                     Not enough graded outcomes for this component yet.
                 </div>
             ) : (
-                <ChartContainer
-                    className="aspect-16/7 min-h-72 w-full"
-                    config={chartConfig}
-                >
+                <ChartContainer config={chartConfig}>
                     <BarChart
                         data={data}
                         margin={{ bottom: 36, left: 0, right: 12, top: 20 }}
                     >
-                        <XAxis
-                            axisLine={false}
-                            dataKey="bucket"
-                            tickLine={false}
-                            tickMargin={6}
-                        />
+                        <XAxis {...CHART_X_AXIS_PROPS} dataKey="bucket" />
                         <YAxis
-                            axisLine={false}
+                            {...CHART_Y_AXIS_PROPS}
                             tickFormatter={(v: number) => `${v.toFixed(1)}R`}
-                            tickLine={false}
-                            width={48}
                         />
                         <ReferenceLine
+                            {...CHART_REFERENCE_LINE_PROPS}
                             stroke="var(--muted-foreground)"
-                            strokeDasharray="4 4"
                             y={0}
                         />
                         <Bar dataKey="avgR" isAnimationActive={false}>

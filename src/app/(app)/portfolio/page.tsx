@@ -1,8 +1,10 @@
 import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
-import PortfolioContent from '~/app/(app)/_components/Portfolio/Portfolio';
+import PortfolioHero from '~/app/(app)/_components/Portfolio/PortfolioHero';
+import PortfolioSection from '~/app/(app)/_components/Portfolio/PortfolioSection';
 import RootResumeLink from '~/app/(app)/_components/Portfolio/RootResumeLink';
+import { SectionTone } from '~/app/(app)/_components/SectionShell';
 import { PageTransition } from '~/components/PageTransition';
 import { portfolioContent, siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
@@ -24,32 +26,26 @@ export const ensureStatic = 'prefetch';
 export default function PortfolioPage() {
     return (
         <PageTransition>
-            <main className={`app-portfolio container grid w-full pt-spacing`}>
-                <div className="my-content mx-auto w-full max-w-4xl">
-                    <PortfolioContent
-                        education={portfolioContent.education}
-                        educationSectionTitle={
-                            portfolioContent.educationSectionTitle
-                        }
-                        email={siteContent.email}
-                        experience={portfolioContent.experience}
-                        experienceSectionTitle={
-                            portfolioContent.experienceSectionTitle
-                        }
-                        heroHeadline={portfolioContent.heroHeadline}
-                        name={siteContent.manifest.name}
-                        profiles={siteContent.profiles}
-                        projects={portfolioContent.projects}
-                        projectsSectionTitle={
-                            portfolioContent.projectsSectionTitle
-                        }
-                        resumeLink={
-                            <Suspense fallback={null}>
-                                <RootResumeLink />
-                            </Suspense>
-                        }
+            <main className="app-portfolio">
+                <PortfolioHero
+                    email={siteContent.email}
+                    heading={portfolioContent.heroHeading}
+                    headline={portfolioContent.heroHeadline}
+                    name={siteContent.manifest.name}
+                    resumeLink={
+                        <Suspense fallback={null}>
+                            <RootResumeLink />
+                        </Suspense>
+                    }
+                    sections={portfolioContent.sections}
+                />
+                {portfolioContent.sections.map((section) => (
+                    <PortfolioSection
+                        key={section.id}
+                        section={section}
+                        tone={SectionTone.Alternate}
                     />
-                </div>
+                ))}
             </main>
         </PageTransition>
     );

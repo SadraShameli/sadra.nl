@@ -1,11 +1,9 @@
 import { type Metadata } from 'next';
-import { Suspense } from 'react';
 
-import { AccountingDataSkeleton } from '~/app/(app)/accounting/_components/AccountingDataSkeleton';
+import { AccountingPageFrame } from '~/app/(app)/accounting/_components/AccountingPageFrame';
+import { AccountingSection } from '~/app/(app)/accounting/_components/AccountingSection';
 import { RunDetail } from '~/app/(app)/accounting/_components/RunDetail';
-import { PageTransition } from '~/components/PageTransition';
 import { requireRootUser } from '~/lib/auth/guards';
-import { cn } from '~/lib/utilities';
 import { loadOrNotFound, routeIdOrNotFound } from '~/trpc/loadOrNotFound';
 import { api, HydrateClient } from '~/trpc/server';
 
@@ -13,23 +11,12 @@ export default function AccountingRunDetailPage({
     params,
 }: PageProps<'/accounting/runs/[id]'>) {
     return (
-        <PageTransition>
-            <main
-                className={cn(
-                    'app-accounting__run-detail',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Run detail
-                    </h1>
-                </header>
-                <Suspense fallback={<AccountingDataSkeleton />}>
-                    <AccountingRunDetailContent params={params} />
-                </Suspense>
-            </main>
-        </PageTransition>
+        <AccountingPageFrame
+            className="app-accounting__run-detail"
+            section={AccountingSection.RunDetail}
+        >
+            <AccountingRunDetailContent params={params} />
+        </AccountingPageFrame>
     );
 }
 

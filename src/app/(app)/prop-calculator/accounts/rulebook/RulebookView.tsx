@@ -12,20 +12,10 @@ import { DAY_STOP_KIND_LABELS } from '~/app/(app)/prop-calculator/_components/de
 import { AccountsCardHeading } from '~/app/(app)/prop-calculator/accounts/_components/AccountsCardHeading';
 import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     Form,
     FormControl,
@@ -999,29 +989,16 @@ function ResetRulebookDialog({
     onConfirm: () => void;
 }) {
     return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button disabled={disabled} type="button" variant="outline">
-                    Reset to skill defaults
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Reset the rulebook?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This deletes your saved rulebook. Every value goes back
-                        to the skill defaults, so the rulebook no longer differs
-                        from the skill.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={onConfirm}>
-                        Reset
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <ConfirmDialog
+            confirmLabel="Reset"
+            description="This deletes your saved rulebook. Every value goes back to the skill defaults, so the rulebook no longer differs from the skill."
+            onConfirm={onConfirm}
+            title="Reset the rulebook?"
+        >
+            <Button disabled={disabled} type="button" variant="outline">
+                Reset to skill defaults
+            </Button>
+        </ConfirmDialog>
     );
 }
 

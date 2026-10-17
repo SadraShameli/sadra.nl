@@ -3,10 +3,12 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/tradingRows';
+import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { loadTradingPlans } from '~/lib/trading/loadTradingPlans';
 import { cn } from '~/lib/utilities';
@@ -30,19 +32,18 @@ export default function TradeChecklistPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                            Trade Checklist
-                        </h1>
-                        <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
+                <ToolPageHeader
+                    eyebrow={siteToolTitle(ToolTicker.Checklist)}
+                    lead={
+                        <>
                             Walk through your plan&apos;s entry criteria one
                             section at a time. The grader returns an A+→F
                             rating, take/skip recommendation, and journals the
                             outcome for hindsight analysis.
-                        </p>
-                    </div>
-                </header>
+                        </>
+                    }
+                    title="Trade Checklist"
+                />
                 <Suspense fallback={<TradeChecklistDataSkeleton />}>
                     <TradeChecklistContent />
                 </Suspense>

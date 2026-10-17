@@ -3,10 +3,14 @@
 import { useMemo } from 'react';
 import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+} from '~/components/ui/Chart';
 import { formatPercent } from '~/lib/format';
 import { type LightAssessment, winRateByGrade } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
     winRate: { color: 'var(--chart-1)', label: 'Win rate' },
@@ -33,28 +37,18 @@ export function WinRateByGradeChart({
         </div>
     ) : (
         <ChartContainer
-            className={cn(
-                'app-trade-checklist__win-rate-chart',
-                'aspect-16/7 min-h-80 w-full',
-            )}
+            className="app-trade-checklist__win-rate-chart"
             config={chartConfig}
         >
             <BarChart
                 data={data}
                 margin={{ bottom: 36, left: 0, right: 12, top: 20 }}
             >
-                <XAxis
-                    axisLine={false}
-                    dataKey="grade"
-                    tickLine={false}
-                    tickMargin={6}
-                />
+                <XAxis {...CHART_X_AXIS_PROPS} dataKey="grade" />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     domain={[0, 1]}
                     tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
-                    tickLine={false}
-                    width={42}
                 />
                 <Bar dataKey="winRate" isAnimationActive={false}>
                     <LabelList

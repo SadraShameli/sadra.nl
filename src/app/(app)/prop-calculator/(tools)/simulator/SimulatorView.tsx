@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { CalculatorInputsForm } from '~/app/(app)/prop-calculator/_components/CalculatorInputsForm';
 import {
     useBaseResult,
@@ -177,12 +178,9 @@ export function SimulatorView() {
                     className={cn('flex flex-col gap-6', HEADER_SCROLL_MARGIN)}
                     id="value"
                 >
-                    <h2
-                        className="text-lg font-semibold tracking-tight text-foreground"
-                        id="value-heading"
-                    >
+                    <ToolSectionHeading id="value-heading">
                         Value
-                    </h2>
+                    </ToolSectionHeading>
                     <p className="text-sm text-muted-foreground">
                         {valueBasisText(state, rulebook, rulebookSource)}
                     </p>

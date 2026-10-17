@@ -12,17 +12,6 @@ const DAY_BLOCK = /:root\s*\{([\s\S]*?)\n {4}\}/u;
 const CUSTOM_PROPERTY = /--([\w-]+):\s*([^;]+);/gu;
 const TOKEN_REFERENCE = /^var\(--([\w-]+)\)$/u;
 
-function resolvedToken(
-    tokens: ReadonlyMap<string, string>,
-    name: string,
-): string | undefined {
-    const value = tokens.get(name);
-    const reference = value === undefined ? null : TOKEN_REFERENCE.exec(value);
-    return reference?.[1] === undefined
-        ? value
-        : resolvedToken(tokens, reference[1]);
-}
-
 function dayTokens(): ReadonlyMap<string, string> {
     const block = DAY_BLOCK.exec(TOKENS_CSS)?.[1] ?? '';
     return new Map(
@@ -33,6 +22,17 @@ function dayTokens(): ReadonlyMap<string, string> {
                 value.trim().toLowerCase(),
             ]),
     );
+}
+
+function resolvedToken(
+    tokens: ReadonlyMap<string, string>,
+    name: string,
+): string | undefined {
+    const value = tokens.get(name);
+    const reference = value === undefined ? null : TOKEN_REFERENCE.exec(value);
+    return reference?.[1] === undefined
+        ? value
+        : resolvedToken(tokens, reference[1]);
 }
 
 describe('EMAIL_COLORS', () => {

@@ -3,7 +3,6 @@
 import { format as formatDate } from 'date-fns';
 import {
     AlertCircle,
-    ArrowLeftRight,
     CalendarDays,
     FileCheck,
     PlayCircle,
@@ -11,7 +10,14 @@ import {
     StopCircle,
     Upload,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useId,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { toast } from 'sonner';
 
 import type { RunId } from '~/lib/accounting/core/ids';
@@ -23,11 +29,12 @@ import type {
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { ImportEvent, Stage } from '~/lib/accounting/runner-types';
 
+import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Calendar } from '~/components/ui/Calendar';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
 import { Checkbox } from '~/components/ui/Checkbox';
 import {
     Dialog,
@@ -37,7 +44,7 @@ import {
     DialogTrigger,
 } from '~/components/ui/Dialog';
 import { EmptyState } from '~/components/ui/EmptyState';
-import { Label } from '~/components/ui/Label';
+import { FILTER_CONTROL_CLASS } from '~/components/ui/filterControl';
 import {
     Popover,
     PopoverContent,
@@ -123,6 +130,7 @@ const formatIsoDate = (date: Date): string => {
 export function AccountingDashboard() {
     const { accounting, source, sources } = useActiveCredentials();
     const accountingCredentialId = accounting?.id ?? '';
+    const startDateLabelId = useId();
 
     const latestDateQ = api.accounting.mutations.latestDate.useQuery(
         { credentialId: accountingCredentialId },
@@ -273,168 +281,158 @@ export function AccountingDashboard() {
 
     return (
         <div className="flex flex-col gap-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Run controls</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-5">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div className="flex flex-col gap-2">
-                            <Label className="flex items-center gap-1.5 text-xs tracking-wider uppercase">
-                                <CalendarDays className="size-3" />
-                                Start date
-                            </Label>
-                            <StartDatePicker
-                                onChange={handleStartDateChange}
-                                value={startDate}
-                            />
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                            <Label className="flex items-center gap-1.5 text-xs tracking-wider uppercase">
-                                <ArrowLeftRight className="size-3" />
-                                Sources
-                            </Label>
-                            {sources.length === 0 ? (
-                                <span className="text-xs text-muted-foreground">
-                                    No transaction sources configured.
-                                </span>
-                            ) : (
-                                <div className="flex flex-col gap-2">
-                                    {sources.map((s) => {
-                                        const isChecked =
-                                            apiCredentialIds.includes(s.id);
-                                        const isFile = fileSourceIds.has(s.id);
-                                        return (
-                                            <div
-                                                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/40 px-3 py-2"
-                                                key={s.id}
-                                            >
-                                                <label className="flex items-center gap-2 text-xs">
-                                                    <Checkbox
-                                                        checked={isChecked}
-                                                        onCheckedChange={(c) =>
-                                                            toggleSource(
-                                                                s.id,
-                                                                c === true,
-                                                            )
-                                                        }
-                                                    />
-                                                    {s.label}
-                                                </label>
-                                                {isChecked && isFile && (
-                                                    <div className="flex items-center gap-3">
-                                                        <input
-                                                            accept=".csv"
-                                                            className="hidden"
-                                                            onChange={(
-                                                                event,
-                                                            ) => {
-                                                                const file =
-                                                                    event.target
-                                                                        .files?.[0];
-                                                                if (!file)
-                                                                    return;
-                                                                void loadFileContent(
-                                                                    file,
-                                                                    s.id,
-                                                                    setFileContents,
-                                                                );
-                                                            }}
-                                                            ref={(element) => {
-                                                                if (element) {
-                                                                    fileInputReferences.current.set(
-                                                                        s.id,
-                                                                        element,
-                                                                    );
-                                                                } else {
-                                                                    fileInputReferences.current.delete(
-                                                                        s.id,
-                                                                    );
-                                                                }
-                                                            }}
-                                                            type="file"
-                                                        />
-                                                        {fileContents.has(
-                                                            s.id,
-                                                        ) && (
-                                                            <span className="flex items-center gap-1 text-[10px] text-success">
-                                                                <FileCheck className="size-3" />
-                                                                {
-                                                                    fileContents.get(
-                                                                        s.id,
-                                                                    )?.name
-                                                                }
-                                                            </span>
-                                                        )}
-                                                        <Button
-                                                            className="h-7"
-                                                            onClick={() =>
-                                                                fileInputReferences.current
-                                                                    .get(s.id)
-                                                                    ?.click()
-                                                            }
-                                                            size="sm"
-                                                            variant="outline"
-                                                        >
-                                                            <Upload className="size-3" />
-                                                            {fileContents.has(
-                                                                s.id,
-                                                            )
-                                                                ? 'Change CSV'
-                                                                : 'Choose CSV'}
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+                <ToolPanel
+                    description="The start date follows the latest booking already in the accounting backend."
+                    title="New run"
+                >
+                    <div
+                        aria-labelledby={startDateLabelId}
+                        className="flex flex-col gap-2"
+                        role="group"
+                    >
+                        <span
+                            className="text-sm font-medium text-ink"
+                            id={startDateLabelId}
+                        >
+                            Start date
+                        </span>
+                        <StartDatePicker
+                            onChange={handleStartDateChange}
+                            value={startDate}
+                        />
                     </div>
 
-                    <div className="flex items-center justify-end gap-2">
+                    <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+                        <legend className="mb-2 text-sm font-medium text-ink">
+                            Sources
+                        </legend>
+                        {sources.length === 0 ? (
+                            <p className="m-0 text-sm text-ink-muted">
+                                No transaction sources yet. Add one under
+                                Connections.
+                            </p>
+                        ) : (
+                            <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                                {sources.map((s) => {
+                                    const isChecked = apiCredentialIds.includes(
+                                        s.id,
+                                    );
+                                    const isFile = fileSourceIds.has(s.id);
+                                    const loadedFile = fileContents.get(s.id);
+                                    return (
+                                        <li
+                                            className={cn(
+                                                'flex flex-wrap items-center justify-between gap-x-3 rounded-lg border transition-colors hover:border-line-hover',
+                                                isChecked
+                                                    ? 'border-line-hover bg-surface-raised'
+                                                    : 'border-line bg-background',
+                                            )}
+                                            key={s.id}
+                                        >
+                                            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-4 py-3 text-sm text-ink">
+                                                <Checkbox
+                                                    checked={isChecked}
+                                                    onCheckedChange={(c) =>
+                                                        toggleSource(
+                                                            s.id,
+                                                            c === true,
+                                                        )
+                                                    }
+                                                />
+                                                {s.label}
+                                            </label>
+                                            {isChecked && isFile && (
+                                                <div className="flex items-center gap-3 px-4 py-2 sm:pl-0">
+                                                    <input
+                                                        accept=".csv"
+                                                        className="hidden"
+                                                        onChange={(event) => {
+                                                            const file =
+                                                                event.target
+                                                                    .files?.[0];
+                                                            if (!file) return;
+                                                            void loadFileContent(
+                                                                file,
+                                                                s.id,
+                                                                setFileContents,
+                                                            );
+                                                        }}
+                                                        ref={(element) => {
+                                                            if (element) {
+                                                                fileInputReferences.current.set(
+                                                                    s.id,
+                                                                    element,
+                                                                );
+                                                            } else {
+                                                                fileInputReferences.current.delete(
+                                                                    s.id,
+                                                                );
+                                                            }
+                                                        }}
+                                                        type="file"
+                                                    />
+                                                    {loadedFile && (
+                                                        <span className="flex items-center gap-1.5 text-xs text-success">
+                                                            <FileCheck className="size-3.5" />
+                                                            {loadedFile.name}
+                                                        </span>
+                                                    )}
+                                                    <Button
+                                                        className="h-8"
+                                                        onClick={() =>
+                                                            fileInputReferences.current
+                                                                .get(s.id)
+                                                                ?.click()
+                                                        }
+                                                        size="sm"
+                                                        variant="outline"
+                                                    >
+                                                        <Upload className="size-3.5" />
+                                                        {loadedFile
+                                                            ? 'Change CSV'
+                                                            : 'Choose CSV'}
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </fieldset>
+
+                    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line-faint pt-5">
                         {stream.running ? (
-                            <Button
-                                onClick={stream.abort}
-                                size="sm"
-                                variant="outline"
-                            >
-                                <StopCircle className="size-3" /> Abort
+                            <Button onClick={stream.abort} variant="outline">
+                                <StopCircle className="size-4" /> Abort
                             </Button>
                         ) : null}
                         <Button disabled={isRunDisabled} onClick={handleRun}>
                             <PlayCircle className="size-4" /> Run plan
                         </Button>
                     </div>
-                </CardContent>
-            </Card>
+                </ToolPanel>
 
-            <PanelErrorBoundary section="Progress">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Progress</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
+                <PanelErrorBoundary section="Progress">
+                    <ToolPanel
+                        description="Each stage shows its time once it finishes."
+                        title="Progress"
+                    >
                         <StageStepper
                             stages={STAGE_DEFINITIONS}
                             state={stageState}
                         />
                         <EventLog lines={logLines} />
-                    </CardContent>
-                </Card>
-            </PanelErrorBoundary>
+                    </ToolPanel>
+                </PanelErrorBoundary>
+            </div>
 
             {stream.error && (
-                <Card>
-                    <CardContent>
-                        <div className="flex items-start gap-2 text-sm text-destructive-foreground">
-                            <AlertCircle className="mt-0.5 size-4" />
-                            <span>{stream.error}</span>
-                        </div>
-                    </CardContent>
-                </Card>
+                <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{stream.error}</AlertDescription>
+                </Alert>
             )}
 
             {result && (
@@ -545,116 +543,108 @@ function ResultsView({
             </PanelErrorBoundary>
 
             <PanelErrorBoundary section="Preview">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base">
-                            <span>Preview</span>
-                            <div className="flex items-center gap-2">
-                                {!isPostable && (
-                                    <Badge variant="outline">
-                                        pick an accounting credential to post
-                                    </Badge>
-                                )}
-                                <Dialog
-                                    onOpenChange={setPushOpen}
-                                    open={pushOpen}
-                                >
-                                    <DialogTrigger asChild>
-                                        <Button
-                                            disabled={
-                                                !isPostable ||
-                                                bookings.length === 0 ||
-                                                !runId
-                                            }
-                                            size="sm"
-                                        >
-                                            <Send className="size-3" /> Post to{' '}
-                                            {targetLabel}
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent
-                                        className={cn('max-w-3xl sm:max-w-3xl')}
+                <ToolPanel
+                    actions={
+                        <>
+                            {!isPostable && (
+                                <Badge variant="outline">
+                                    Pick an accounting connection to post
+                                </Badge>
+                            )}
+                            <Dialog onOpenChange={setPushOpen} open={pushOpen}>
+                                <DialogTrigger asChild>
+                                    <Button
+                                        disabled={
+                                            !isPostable ||
+                                            bookings.length === 0 ||
+                                            !runId
+                                        }
                                     >
-                                        <DialogHeader>
-                                            <DialogTitle>
-                                                Push to {targetLabel}
-                                            </DialogTitle>
-                                        </DialogHeader>
-                                        <PushPanel
-                                            accountingCredentialId={
-                                                accountingCredentialId || null
-                                            }
-                                            bookings={bookings}
-                                            onCompleted={(s) =>
-                                                void onPushedComplete(s)
-                                            }
-                                            runId={runId}
-                                            targetLabel={targetLabel}
-                                        />
-                                    </DialogContent>
-                                </Dialog>
-                            </div>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {bookings.length === 0 ? (
-                            <EmptyState
-                                description="Run completed but no bookings were produced."
-                                title="Nothing to post"
-                            />
-                        ) : (
-                            <Tabs defaultValue="bookings">
-                                <TabsList>
-                                    <TabsTrigger value="bookings">
-                                        Bookings ({bookings.length})
-                                    </TabsTrigger>
-                                    <TabsTrigger value="per-counterpart">
-                                        Per counterpart
-                                    </TabsTrigger>
-                                    <TabsTrigger value="audit">
-                                        Match audit ({result.matches.length})
-                                    </TabsTrigger>
-                                    <TabsTrigger value="unknowns">
-                                        Unknowns ({result.unknowns.length})
-                                    </TabsTrigger>
-                                </TabsList>
-                                <TabsContent className="mt-4" value="bookings">
-                                    <BookingsTable
-                                        bookings={bookings}
-                                        credentialId={accountingCredentialId}
-                                        ledgerOptions={ledgerOptions}
-                                        onEdit={editBooking}
-                                        rules={rulesQ.data ?? []}
-                                    />
-                                </TabsContent>
-                                <TabsContent
-                                    className="mt-4"
-                                    value="per-counterpart"
+                                        <Send className="size-4" /> Post to{' '}
+                                        {targetLabel}
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent
+                                    className={cn('max-w-3xl sm:max-w-3xl')}
                                 >
-                                    <PerCounterpartTable result={result} />
-                                </TabsContent>
-                                <TabsContent className="mt-4" value="audit">
-                                    <MatchAuditTable result={result} />
-                                </TabsContent>
-                                <TabsContent className="mt-4" value="unknowns">
-                                    <UnknownsTable
-                                        credentialId={
-                                            isPostable
-                                                ? accountingCredentialId
-                                                : undefined
+                                    <DialogHeader>
+                                        <DialogTitle>
+                                            Push to {targetLabel}
+                                        </DialogTitle>
+                                    </DialogHeader>
+                                    <PushPanel
+                                        accountingCredentialId={
+                                            accountingCredentialId || null
                                         }
-                                        ledgerOptions={
-                                            isPostable
-                                                ? ledgerOptions
-                                                : undefined
+                                        bookings={bookings}
+                                        onCompleted={(s) =>
+                                            void onPushedComplete(s)
                                         }
-                                        result={result}
+                                        runId={runId}
+                                        targetLabel={targetLabel}
                                     />
-                                </TabsContent>
-                            </Tabs>
-                        )}
-                    </CardContent>
-                </Card>
+                                </DialogContent>
+                            </Dialog>
+                        </>
+                    }
+                    description="Check the bookings before posting. Edits are saved to the run."
+                    title="Preview"
+                >
+                    {bookings.length === 0 ? (
+                        <EmptyState
+                            description="Run completed but no bookings were produced."
+                            title="Nothing to post"
+                        />
+                    ) : (
+                        <Tabs defaultValue="bookings">
+                            <TabsList>
+                                <TabsTrigger value="bookings">
+                                    Bookings ({bookings.length})
+                                </TabsTrigger>
+                                <TabsTrigger value="per-counterpart">
+                                    Per counterpart
+                                </TabsTrigger>
+                                <TabsTrigger value="audit">
+                                    Match audit ({result.matches.length})
+                                </TabsTrigger>
+                                <TabsTrigger value="unknowns">
+                                    Unknowns ({result.unknowns.length})
+                                </TabsTrigger>
+                            </TabsList>
+                            <TabsContent className="mt-4" value="bookings">
+                                <BookingsTable
+                                    bookings={bookings}
+                                    credentialId={accountingCredentialId}
+                                    ledgerOptions={ledgerOptions}
+                                    onEdit={editBooking}
+                                    rules={rulesQ.data ?? []}
+                                />
+                            </TabsContent>
+                            <TabsContent
+                                className="mt-4"
+                                value="per-counterpart"
+                            >
+                                <PerCounterpartTable result={result} />
+                            </TabsContent>
+                            <TabsContent className="mt-4" value="audit">
+                                <MatchAuditTable result={result} />
+                            </TabsContent>
+                            <TabsContent className="mt-4" value="unknowns">
+                                <UnknownsTable
+                                    credentialId={
+                                        isPostable
+                                            ? accountingCredentialId
+                                            : undefined
+                                    }
+                                    ledgerOptions={
+                                        isPostable ? ledgerOptions : undefined
+                                    }
+                                    result={result}
+                                />
+                            </TabsContent>
+                        </Tabs>
+                    )}
+                </ToolPanel>
             </PanelErrorBoundary>
         </div>
     );
@@ -674,11 +664,14 @@ function StartDatePicker({
         <Popover onOpenChange={setOpen} open={open}>
             <PopoverTrigger asChild>
                 <Button
-                    className="w-fit justify-start font-normal"
+                    className={cn(
+                        FILTER_CONTROL_CLASS,
+                        'w-fit justify-start gap-2 px-4 font-normal',
+                    )}
                     type="button"
                     variant="outline"
                 >
-                    <CalendarDays className="mr-1 size-3.5" />
+                    <CalendarDays className="size-3.5" />
                     {date ? formatDate(date, 'PPP') : 'Pick a date'}
                 </Button>
             </PopoverTrigger>

@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import InfoPopover from '~/components/ui/InfoPopover';
 import { type FirmId } from '~/lib/prop-calculator';
 import { type LegacySection } from '~/lib/site/legacyCalculatorLinks';
@@ -25,16 +26,12 @@ export function ToolSection({
 }: ToolSectionProperties) {
     const headingId = `${id}-heading`;
     const heading = (
-        <h2
-            className={
-                srOnlyHeading
-                    ? 'sr-only'
-                    : 'text-lg font-semibold tracking-tight text-foreground'
-            }
+        <ToolSectionHeading
+            className={srOnlyHeading ? 'sr-only' : undefined}
             id={headingId}
         >
             {title}
-        </h2>
+        </ToolSectionHeading>
     );
     return (
         <section

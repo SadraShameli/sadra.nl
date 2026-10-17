@@ -1,6 +1,8 @@
 import type { Route } from 'next';
 import type { StaticImageData } from 'next/image';
 
+import { type UrlObject } from 'node:url';
+
 import BSPImage from '~/assets/images/bsp.jpeg';
 import DiplomaImage from '~/assets/images/diploma.jpg';
 import PorscheImage from '~/assets/images/gallery/porsche.jpg';
@@ -17,6 +19,12 @@ import { routes } from './routes';
 export enum HeroMode {
     Developer = 'developer',
     Trader = 'trader',
+}
+
+export enum PortfolioSectionId {
+    Education = 'education',
+    Experience = 'experience',
+    Projects = 'projects',
 }
 
 export enum SensorMetric {
@@ -56,6 +64,14 @@ export interface HeroModeCopy {
 export interface LoopingVideo {
     readonly poster: string;
     readonly src: string;
+}
+
+export interface PortfolioSection {
+    readonly entries: readonly PortfolioSectionView[];
+    readonly eyebrow: string;
+    readonly heading: EmphasisHeading;
+    readonly id: PortfolioSectionId;
+    readonly number: string;
 }
 
 export type PortfolioSectionView = {
@@ -135,20 +151,20 @@ type HomepageData = {
         readonly videoChip: string;
     };
     readonly tools: {
+        readonly body: string;
         readonly heading: EmphasisHeading;
     };
 };
 
 type PortfolioData = {
     education: PortfolioSectionView[];
-    educationSectionTitle: string;
     experience: PortfolioSectionView[];
-    experienceSectionTitle: string;
+    heroHeading: EmphasisHeading;
     heroHeadline: string;
     metaDescription: string;
     metaTitle: string;
     projects: PortfolioSectionView[];
-    projectsSectionTitle: string;
+    sections: readonly PortfolioSection[];
 };
 
 type SiteData = {
@@ -175,6 +191,10 @@ type SocialProfile = {
     title: string;
     url: ExternalUrl;
 };
+
+export function portfolioSectionHref(id: PortfolioSectionId): UrlObject {
+    return { hash: id, pathname: routes.portfolio };
+}
 
 export const siteContent: SiteData = {
     email: 'sadra.shameli1@gmail.com',
@@ -220,6 +240,14 @@ export const siteContent: SiteData = {
         },
     ],
 };
+
+export function siteToolTitle(ticker: ToolTicker): string {
+    const tool = siteTools.find((entry) => entry.ticker === ticker);
+    if (tool === undefined) {
+        throw new Error(`No site tool is registered for ${ticker}`);
+    }
+    return tool.title;
+}
 
 export const siteTools: readonly SiteTool[] = [
     {
@@ -297,7 +325,7 @@ export const homepageContent: HomepageData = {
         directMessageLabel: 'Send a DM',
         eyebrow: 'After the bell',
         heading: { before: 'Let’s', emphasis: 'talk.', stacked: true },
-        madeBy: 'Designed and built by hand in the Netherlands',
+        madeBy: 'Designed and built by me in the Netherlands',
         marquee: ['Daytrader', 'Developer'],
     },
     hero: {
@@ -357,11 +385,8 @@ export const homepageContent: HomepageData = {
         videoChip: 'Unit 01 · Handmade',
     },
     tools: {
-        heading: {
-            after: 'them.',
-            before: 'Tools I built because I',
-            emphasis: 'needed',
-        },
+        body: 'Tools I built because I needed them: for the trading day, the gym and the portfolio.',
+        heading: { before: 'The', emphasis: 'toolkit' },
     },
 };
 
@@ -531,32 +556,62 @@ export const projectProjectAI: PortfolioSectionView = {
     url: 'https://github.com/SadraShameli/ProjectAI',
 };
 
-export const portfolioContent: PortfolioData = {
-    education: [
-        {
-            date: 'Sep 2020 - Aug 2023',
-            imageUrl: DiplomaImage.src,
-            location: {
-                title: 'Delft, The Netherlands',
-            },
-            role: 'VWO - Nature and Technology',
-            title: 'Grotius College',
-            url: 'https://www.grotiuscollege.nl',
+const portfolioEducation: PortfolioSectionView[] = [
+    {
+        date: 'Sep 2020 - Aug 2023',
+        imageUrl: DiplomaImage.src,
+        location: {
+            title: 'Delft, The Netherlands',
         },
-    ] as PortfolioSectionView[],
-    educationSectionTitle: 'Education',
-    experience: [experienceNobears, experienceBSP],
-    experienceSectionTitle: 'Work experience',
+        role: 'VWO - Nature and Technology',
+        title: 'Grotius College',
+        url: 'https://www.grotiuscollege.nl',
+    },
+];
+
+const portfolioExperience: PortfolioSectionView[] = [
+    experienceNobears,
+    experienceBSP,
+];
+
+const portfolioProjects: PortfolioSectionView[] = [
+    projectTradingBot,
+    projectSadraNl,
+    projectMinoMarkt,
+    projectSensorHub,
+    projectProjectAI,
+];
+
+export const portfolioContent: PortfolioData = {
+    education: portfolioEducation,
+    experience: portfolioExperience,
+    heroHeading: { before: 'Selected', emphasis: 'work' },
     heroHeadline:
         'Full-stack developer and futures daytrader, building high-end WordPress sites and trading tools.',
     metaDescription: 'Daytrader, developer',
     metaTitle: 'Sadra Shameli',
-    projects: [
-        projectTradingBot,
-        projectSadraNl,
-        projectMinoMarkt,
-        projectSensorHub,
-        projectProjectAI,
+    projects: portfolioProjects,
+    sections: [
+        {
+            entries: portfolioExperience,
+            eyebrow: 'Experience',
+            heading: { before: 'Work', emphasis: 'experience' },
+            id: PortfolioSectionId.Experience,
+            number: '01',
+        },
+        {
+            entries: portfolioProjects,
+            eyebrow: 'Projects',
+            heading: { before: 'Recent', emphasis: 'projects' },
+            id: PortfolioSectionId.Projects,
+            number: '02',
+        },
+        {
+            entries: portfolioEducation,
+            eyebrow: 'Education',
+            heading: { emphasis: 'Education' },
+            id: PortfolioSectionId.Education,
+            number: '03',
+        },
     ],
-    projectsSectionTitle: 'Recent projects',
 };

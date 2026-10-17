@@ -11,6 +11,7 @@ import { Card, CardContent } from '~/components/ui/Card';
 import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { FilterSelect } from '~/components/ui/FilterSelect';
+import { Eur } from '~/lib/accounting/core/money';
 import {
     CredentialRegistry,
     CredentialRole,
@@ -36,14 +37,6 @@ const STATUS_VARIANT: Record<RunStatus, BadgeProperties['variant']> = {
     posted: 'success',
     posting: 'warning',
 };
-
-const formatEur = (n: number) =>
-    new Intl.NumberFormat('en-US', {
-        currency: 'EUR',
-        maximumFractionDigits: 2,
-        minimumFractionDigits: 2,
-        style: 'currency',
-    }).format(n);
 
 export function RunsBrowser() {
     const [offset, setOffset] = useState(0);
@@ -152,7 +145,7 @@ export function RunsBrowser() {
                 accessorFn: (r) => r.summary.totalEur,
                 cell: ({ row }) => (
                     <span className="font-mono text-xs">
-                        {formatEur(row.original.summary.totalEur)}
+                        {Eur.format(row.original.summary.totalEur)}
                     </span>
                 ),
                 header: 'Total',

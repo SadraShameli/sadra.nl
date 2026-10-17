@@ -588,6 +588,13 @@ function viewPath(spec: ToolPageSpec): string {
     );
 }
 
+const SECTION_HEADING_TAG = /<(?:h2|ToolSectionHeading)[\s>]/;
+const PAGE_HEADING_TAG = /<(?:h1|ToolPageHeader)[\s>]/;
+
+function tagCount(source: string, tag: RegExp): number {
+    return source.match(new RegExp(tag.source, 'g'))?.length ?? 0;
+}
+
 function viewSource(spec: ToolPageSpec): string {
     return sourceText(viewPath(spec));
 }
@@ -861,7 +868,7 @@ describe('the position-size tool page (PT-25a)', () => {
         for (const attributes of sections) {
             expect(attributes).toMatch(/aria-labelledby=/);
         }
-        expect(source.match(/<h2[\s>]/g)).toHaveLength(sections.length);
+        expect(tagCount(source, SECTION_HEADING_TAG)).toBe(sections.length);
     });
 
     it('is linked from the catalog and listed for crawlers', () => {
@@ -913,7 +920,7 @@ describe('the funded-optimizer tool page (PT-25b)', () => {
         for (const attributes of sections) {
             expect(attributes).toMatch(/aria-labelledby=/);
         }
-        expect(source.match(/<h2[\s>]/g)).toHaveLength(sections.length);
+        expect(tagCount(source, SECTION_HEADING_TAG)).toBe(sections.length);
     });
 
     it('is linked from the catalog and listed for crawlers', () => {
@@ -1183,7 +1190,7 @@ describe('the hub page (F-8)', () => {
             'export const metadata: Metadata = buildHubMetadata();',
         );
         expect(page.match(/<main[\s>]/g)).toHaveLength(1);
-        expect(page.match(/<h1[\s>]/g)).toHaveLength(1);
+        expect(tagCount(page, PAGE_HEADING_TAG)).toBe(1);
         expect(page).toContain('<HubToolCards />');
         expect(page).toContain('<HubLegacySectionRedirect />');
     });
@@ -1197,7 +1204,7 @@ describe('the hub page (F-8)', () => {
     });
 
     it('renders an <h2> per tool group', () => {
-        expect(sourceText(HUB_CARDS_PATH)).toMatch(/<h2[\s>]/);
+        expect(sourceText(HUB_CARDS_PATH)).toMatch(SECTION_HEADING_TAG);
     });
 });
 

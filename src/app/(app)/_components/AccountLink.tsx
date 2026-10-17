@@ -1,20 +1,30 @@
-import { ArrowRight } from 'lucide-react';
+import { LogIn, UserRound } from 'lucide-react';
 import Link from 'next/link';
 
+import { Button } from '~/components/ui/Button';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
 export function AccountLink({ signedIn }: { signedIn: boolean }) {
+    const label = signedIn ? 'Profile' : 'Log in';
+    const Icon = signedIn ? UserRound : LogIn;
     return (
-        <Link
+        <Button
+            asChild
             className={cn(
                 'app-shell__account-link',
-                'ml-1 flex h-11 items-center gap-2 rounded-full bg-surface-high pr-4 pl-4.5 text-[15px] font-medium text-ink focus-camel transition-colors hover:bg-line',
+                'bg-surface-high text-ink hover:bg-line',
             )}
-            href={signedIn ? routes.profile : routes.auth.login}
+            size="icon-tap"
+            variant="capsule"
         >
-            {signedIn ? 'Profile' : 'Log in'}
-            <ArrowRight aria-hidden className="size-4" strokeWidth={1.8} />
-        </Link>
+            <Link
+                aria-label={label}
+                href={signedIn ? routes.profile : routes.auth.login}
+                title={label}
+            >
+                <Icon aria-hidden strokeWidth={1.6} />
+            </Link>
+        </Button>
     );
 }

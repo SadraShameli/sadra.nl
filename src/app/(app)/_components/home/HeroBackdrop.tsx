@@ -54,7 +54,7 @@ export function SignalBackdrop() {
             aria-hidden
             className={cn(
                 BACKDROP_CLASS,
-                '-left-5 flex items-end gap-1 opacity-60',
+                '-left-5 flex h-65 items-end gap-1 opacity-60',
             )}
         >
             {SIGNAL_BARS.map((bar, index) => (

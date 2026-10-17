@@ -7,18 +7,8 @@ import { type Route } from 'next';
 import Link from 'next/link';
 import { type ReactNode } from 'react';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     DataTableAlign,
     type DataTableColumn,
@@ -202,32 +192,21 @@ export function RowConfirmAction({
     title: ReactNode;
 }) {
     return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button
-                    aria-label={label}
-                    size="icon-sm"
-                    title={label}
-                    type="button"
-                    variant="ghost"
-                >
-                    <Icon className="size-4" />
-                </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>{title}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {description}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={onConfirm}>
-                        {confirmLabel}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <ConfirmDialog
+            confirmLabel={confirmLabel}
+            description={description}
+            onConfirm={onConfirm}
+            title={title}
+        >
+            <Button
+                aria-label={label}
+                size="icon-sm"
+                title={label}
+                type="button"
+                variant="ghost"
+            >
+                <Icon className="size-4" />
+            </Button>
+        </ConfirmDialog>
     );
 }

@@ -1,3 +1,6 @@
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { siteToolTitle, ToolTicker } from '~/lib/site/content';
+
 export function LiftingPageHeader({
     description,
     title,
@@ -6,13 +9,10 @@ export function LiftingPageHeader({
     readonly title: string;
 }) {
     return (
-        <header className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                {title}
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                {description}
-            </p>
-        </header>
+        <ToolPageHeader
+            eyebrow={siteToolTitle(ToolTicker.Lifting)}
+            lead={description}
+            title={title}
+        />
     );
 }

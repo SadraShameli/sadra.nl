@@ -13,6 +13,7 @@ import type { ExternalId, RunId } from '~/lib/accounting/core/ids';
 import type { Booking } from '~/lib/accounting/core/types';
 import type { ImportEvent } from '~/lib/accounting/runner-types';
 
+import { Alert, AlertDescription } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
@@ -183,10 +184,10 @@ export function PushPanel({
             )}
 
             {stream.error && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive-foreground">
-                    <AlertCircle className="mt-0.5 size-3.5" />
-                    <span>{stream.error}</span>
-                </div>
+                <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{stream.error}</AlertDescription>
+                </Alert>
             )}
 
             <Card className="max-h-80 overflow-y-auto py-0">

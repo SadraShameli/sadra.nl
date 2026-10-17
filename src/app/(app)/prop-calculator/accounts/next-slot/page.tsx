@@ -2,6 +2,7 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import {
     EVENT_LIST_INPUT,
@@ -32,17 +33,18 @@ export default function PropAccountsNextSlotPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Next slot
-                    </h1>
-                    <p className="mt-2 max-w-3xl text-sm text-muted-foreground sm:text-base">
-                        Which plan to buy next, ranked by modeled monthly net
-                        per slot under your documented payout rule, with the
-                        payout-size optimum beside it. Firms with unverified
-                        caps or live triggers are listed, never ranked.
-                    </p>
-                </header>
+                <AccountsPageHeader
+                    description={
+                        <>
+                            Which plan to buy next, ranked by modeled monthly
+                            net per slot under your documented payout rule, with
+                            the payout-size optimum beside it. Firms with
+                            unverified caps or live triggers are listed, never
+                            ranked.
+                        </>
+                    }
+                    title="Next slot"
+                />
                 <Suspense fallback={<AccountsDataSkeleton />}>
                     <PropAccountsNextSlotContent />
                 </Suspense>

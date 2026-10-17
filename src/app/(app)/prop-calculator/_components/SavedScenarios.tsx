@@ -8,18 +8,8 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { Alert, AlertDescription } from '~/components/ui/Alert';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     Form,
     FormControl,
@@ -316,25 +306,14 @@ function ClearAllButton({
     );
     if (confirmation === null) return button;
     return (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>{button}</AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>
-                        Clear all saved scenarios?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {confirmation}
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={onClearAll}>
-                        {CLEAR_ALL_TEXT}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+        <ConfirmDialog
+            confirmLabel={CLEAR_ALL_TEXT}
+            description={confirmation}
+            onConfirm={onClearAll}
+            title="Clear all saved scenarios?"
+        >
+            {button}
+        </ConfirmDialog>
     );
 }
 

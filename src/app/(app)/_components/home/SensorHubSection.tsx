@@ -7,13 +7,14 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { SectionTone } from '~/app/(app)/_components/SectionShell';
 import { AutoplayVideo } from '~/components/AutoplayVideo';
 import { homepageContent, SensorMetric } from '~/lib/site/content';
 import { homeSectionHref, HomeSectionId } from '~/lib/site/homeSections';
 
 import { Chip } from './Chip';
 import { SectionHeading } from './EmphasisTitle';
-import { HomeSectionShell, SectionTone } from './HomeSectionShell';
+import { HomeSectionShell } from './HomeSectionShell';
 import { MediaAspect, MediaFrame } from './MediaFrame';
 
 const METRIC_ICON: Readonly<Record<SensorMetric, LucideIcon>> = {
@@ -73,7 +74,7 @@ export function SensorHubSection() {
                     </ul>
                     <Link
                         className="inline-flex w-fit items-center gap-2.5 font-mono text-xs font-medium tracking-[0.18em] text-camel uppercase focus-camel transition-[gap] hover:gap-4"
-                        href={homeSectionHref(HomeSectionId.Live)}
+                        href={homeSectionHref(HomeSectionId.Readings)}
                     >
                         {linkLabel}
                         <ArrowDown

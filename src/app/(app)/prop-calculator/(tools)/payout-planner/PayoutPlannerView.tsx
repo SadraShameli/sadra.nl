@@ -4,6 +4,7 @@ import { CircleAlert, CircleCheck } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { DEFAULT_FUNDED_HORIZON_DAYS } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
 import FirmPlanPicker from '~/app/(app)/prop-calculator/_components/FirmPlanPicker';
@@ -296,12 +297,9 @@ export function PayoutPlannerView() {
                     aria-labelledby={INPUTS_HEADING_ID}
                     className="flex flex-col gap-4"
                 >
-                    <h2
-                        className="text-lg font-semibold tracking-tight text-foreground"
-                        id={INPUTS_HEADING_ID}
-                    >
+                    <ToolSectionHeading id={INPUTS_HEADING_ID}>
                         Account
-                    </h2>
+                    </ToolSectionHeading>
                     <PayoutPlannerInputs
                         onChange={change}
                         onValidityChange={changeValidity}
@@ -314,12 +312,9 @@ export function PayoutPlannerView() {
                         aria-labelledby={READINESS_HEADING_ID}
                         className="flex flex-col gap-4"
                     >
-                        <h2
-                            className="text-lg font-semibold tracking-tight text-foreground"
-                            id={READINESS_HEADING_ID}
-                        >
+                        <ToolSectionHeading id={READINESS_HEADING_ID}>
                             Readiness
-                        </h2>
+                        </ToolSectionHeading>
                         {rulebook === null || result === null ? (
                             <RulebookStatusNotice
                                 status={noticeStatusOf(rulebookStatus)}
@@ -339,12 +334,9 @@ export function PayoutPlannerView() {
                         aria-labelledby={OUTLOOK_HEADING_ID}
                         className="flex flex-col gap-4"
                     >
-                        <h2
-                            className="text-lg font-semibold tracking-tight text-foreground"
-                            id={OUTLOOK_HEADING_ID}
-                        >
+                        <ToolSectionHeading id={OUTLOOK_HEADING_ID}>
                             Path to payout
-                        </h2>
+                        </ToolSectionHeading>
                         {result === null ? (
                             <RulebookStatusNotice
                                 status={noticeStatusOf(rulebookStatus)}
@@ -364,12 +356,9 @@ export function PayoutPlannerView() {
                         aria-labelledby={SWEEP_HEADING_ID}
                         className="flex flex-col gap-4"
                     >
-                        <h2
-                            className="text-lg font-semibold tracking-tight text-foreground"
-                            id={SWEEP_HEADING_ID}
-                        >
+                        <ToolSectionHeading id={SWEEP_HEADING_ID}>
                             Payout-size sweep
-                        </h2>
+                        </ToolSectionHeading>
                         {rulebook === null ? (
                             <RulebookStatusNotice
                                 status={noticeStatusOf(rulebookStatus)}
@@ -395,12 +384,9 @@ export function PayoutPlannerView() {
                             aria-labelledby={ASSUMPTIONS_HEADING_ID}
                             className="flex flex-col gap-3"
                         >
-                            <h2
-                                className="text-lg font-semibold tracking-tight text-foreground"
-                                id={ASSUMPTIONS_HEADING_ID}
-                            >
+                            <ToolSectionHeading id={ASSUMPTIONS_HEADING_ID}>
                                 Assumptions
-                            </h2>
+                            </ToolSectionHeading>
                             <PayoutPlannerAssumptions
                                 isPeakAssumed={isPeakAssumed(state)}
                                 policy={policy}

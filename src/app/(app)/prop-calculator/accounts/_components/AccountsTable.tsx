@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -218,12 +219,9 @@ export function AccountsTableWithValues({
             aria-labelledby="prop-accounts-list-heading"
             className="app-prop-accounts__list flex flex-col gap-4"
         >
-            <h2
-                className="text-lg font-semibold tracking-tight text-foreground"
-                id="prop-accounts-list-heading"
-            >
+            <ToolSectionHeading id="prop-accounts-list-heading">
                 Accounts
-            </h2>
+            </ToolSectionHeading>
             {isComputing && (
                 <p className="sr-only" role="status">
                     Computing values

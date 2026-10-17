@@ -4,10 +4,12 @@ import { Suspense } from 'react';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { AnalyticsDashboard } from '~/app/(app)/trade-checklist/_components/AnalyticsDashboard';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
+import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';
@@ -27,17 +29,18 @@ export default function TradeAnalyticsPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Analytics
-                    </h1>
-                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                        Quantified hindsight on every graded setup. Filter by
-                        plan, cross-check whether your grades actually predict
-                        outcomes, and find which components and windows have
-                        edge.
-                    </p>
-                </header>
+                <ToolPageHeader
+                    eyebrow={siteToolTitle(ToolTicker.Checklist)}
+                    lead={
+                        <>
+                            Quantified hindsight on every graded setup. Filter
+                            by plan, cross-check whether your grades actually
+                            predict outcomes, and find which components and
+                            windows have edge.
+                        </>
+                    }
+                    title="Analytics"
+                />
                 <Suspense fallback={<TradeChecklistDataSkeleton />}>
                     <TradeAnalyticsContent />
                 </Suspense>

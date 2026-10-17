@@ -3,6 +3,7 @@
 import { ChevronDown } from 'lucide-react';
 import { useMemo } from 'react';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import {
     fundedOptimizerLiveTransferLines,
@@ -99,12 +100,9 @@ export function FundedOptimizerView() {
                     aria-labelledby={RESULT_HEADING_ID}
                     className="flex flex-col gap-4"
                 >
-                    <h2
-                        className="text-lg font-semibold tracking-tight text-foreground"
-                        id={RESULT_HEADING_ID}
-                    >
+                    <ToolSectionHeading id={RESULT_HEADING_ID}>
                         {ranking.heading}
-                    </h2>
+                    </ToolSectionHeading>
                     <CalculatorObjectiveChip />
                     <p className="text-xs text-muted-foreground">
                         {`Cushion: ${POLICY_BASIS_LABELS[policyBasis.cushion]} · Payout request: ${POLICY_BASIS_LABELS[policyBasis.payoutRequest]} · Lifetime payout cap: ${LIFETIME_PAYOUT_CAP_BASIS_LABELS[request.policy.lifetimePayoutCapBasis]}`}

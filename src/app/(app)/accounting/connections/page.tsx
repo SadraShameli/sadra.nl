@@ -1,11 +1,10 @@
 import { type Metadata } from 'next';
-import { Suspense } from 'react';
 
-import { AccountingDataSkeleton } from '~/app/(app)/accounting/_components/AccountingDataSkeleton';
+import { AccountingPageFrame } from '~/app/(app)/accounting/_components/AccountingPageFrame';
+import { AccountingSection } from '~/app/(app)/accounting/_components/AccountingSection';
 import { ConnectionsManager } from '~/app/(app)/accounting/_components/ConnectionsManager';
-import { PageTransition } from '~/components/PageTransition';
+import { NewCredentialDialog } from '~/app/(app)/accounting/_components/NewCredentialDialog';
 import { requireRootUser } from '~/lib/auth/guards';
-import { cn } from '~/lib/utilities';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },
@@ -14,26 +13,13 @@ export const metadata: Metadata = {
 
 export default function ConnectionsPage() {
     return (
-        <PageTransition>
-            <main
-                className={cn(
-                    'app-accounting__connections',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                            Connections
-                        </h1>
-                    </div>
-                </header>
-
-                <Suspense fallback={<AccountingDataSkeleton />}>
-                    <ConnectionsContent />
-                </Suspense>
-            </main>
-        </PageTransition>
+        <AccountingPageFrame
+            actions={<NewCredentialDialog />}
+            className="app-accounting__connections"
+            section={AccountingSection.Connections}
+        >
+            <ConnectionsContent />
+        </AccountingPageFrame>
     );
 }
 

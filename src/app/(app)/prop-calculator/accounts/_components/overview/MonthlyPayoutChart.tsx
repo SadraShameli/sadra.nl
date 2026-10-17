@@ -1,17 +1,16 @@
 'use client';
 
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    ReferenceLine,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_REFERENCE_LINE_PROPS,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+    ChartSize,
+} from '~/components/ui/Chart';
 import { formatCompactCurrency } from '~/lib/format';
-import { cn } from '~/lib/utilities';
 
 import { type StatementChartPoint } from './overviewModel';
 
@@ -36,37 +35,26 @@ export function MonthlyPayoutChart({
     }
     return (
         <ChartContainer
-            className={cn(
-                'app-prop-accounts__monthly-payout-chart',
-                'aspect-16/7 min-h-100 w-full',
-            )}
+            className="app-prop-accounts__monthly-payout-chart"
             config={chartConfig}
+            size={ChartSize.Tall}
         >
             <BarChart
                 data={[...points]}
                 margin={{ bottom: 20, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid stroke="#ccc" strokeDasharray="3 3" />
-                <XAxis
-                    axisLine={false}
-                    dataKey="month"
-                    fontSize={11}
-                    tickLine={false}
-                    tickMargin={6}
-                />
+                <XAxis {...CHART_X_AXIS_PROPS} dataKey="month" />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     tickFormatter={(value: number) =>
                         formatCompactCurrency(value)
                     }
-                    tickLine={false}
-                    width={56}
                 />
                 {targetDollars !== null && (
                     <ReferenceLine
+                        {...CHART_REFERENCE_LINE_PROPS}
                         label="Target"
                         stroke="var(--warning)"
-                        strokeDasharray="3 3"
                         y={targetDollars}
                     />
                 )}

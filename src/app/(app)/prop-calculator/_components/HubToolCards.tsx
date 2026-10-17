@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { subnavHref } from '~/app/(app)/_components/routeSubnavLinks';
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import {
     Card,
     CardDescription,
@@ -70,12 +71,9 @@ export function HubToolCards() {
                     className="flex flex-col gap-4"
                     key={group}
                 >
-                    <h2
-                        className="text-lg font-semibold tracking-tight text-foreground"
-                        id={`hub-group-${group}`}
-                    >
+                    <ToolSectionHeading id={`hub-group-${group}`}>
                         {label}
-                    </h2>
+                    </ToolSectionHeading>
                     <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {tools.map((entry) => {
                             const Icon = entry.icon;

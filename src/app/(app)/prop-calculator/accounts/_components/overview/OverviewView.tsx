@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { memo, type ReactNode, useMemo, useState } from 'react';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
@@ -294,12 +295,9 @@ function OverviewSection({
         >
             <Card>
                 <CardHeader>
-                    <h2
-                        className="text-lg font-semibold tracking-tight text-foreground"
-                        id={headingId}
-                    >
+                    <ToolSectionHeading id={headingId}>
                         {OVERVIEW_SECTION_TITLE[section]}
-                    </h2>
+                    </ToolSectionHeading>
                 </CardHeader>
                 <CardContent>{children}</CardContent>
             </Card>

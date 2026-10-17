@@ -1,9 +1,14 @@
 'use client';
 
 import { memo } from 'react';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+} from '~/components/ui/Chart';
 import {
     Table,
     TableBody,
@@ -104,17 +109,13 @@ function PayoutHistogram({ bins }: { readonly bins: readonly HistogramBin[] }) {
         count: bin.count,
     }));
     return (
-        <ChartContainer
-            className="aspect-video w-full"
-            config={histogramConfig}
-        >
+        <ChartContainer config={histogramConfig}>
             <BarChart
                 data={data}
                 margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid stroke="#ccc" strokeDasharray="3 3" />
                 <XAxis
-                    axisLine={false}
+                    {...CHART_X_AXIS_PROPS}
                     dataKey="center"
                     label={{
                         fontSize: 11,
@@ -125,20 +126,16 @@ function PayoutHistogram({ bins }: { readonly bins: readonly HistogramBin[] }) {
                     tickFormatter={(value: number) =>
                         formatCompactCurrency(value / 100)
                     }
-                    tickLine={false}
-                    tickMargin={6}
                 />
                 <YAxis
+                    {...CHART_Y_AXIS_PROPS}
                     allowDecimals={false}
-                    axisLine={false}
                     label={{
                         angle: -90,
                         fontSize: 11,
                         position: 'insideLeft',
                         value: 'Payouts',
                     }}
-                    tickLine={false}
-                    width={40}
                 />
                 <Bar
                     dataKey="count"

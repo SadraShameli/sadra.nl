@@ -15,7 +15,6 @@ export function PropCalculatorSubnav() {
         (entry) => ({
             carriesQuery: entry.usesCalculatorInputs,
             href: entry.route,
-            icon: entry.icon,
             label: entry.label,
             prefetch: false,
             query: withPageStateBlobsOnly(
@@ -27,7 +26,7 @@ export function PropCalculatorSubnav() {
     return (
         <RouteSubnav
             ariaLabel="Prop calculator tools"
-            className="app-prop-calculator__subnav lg:[&_svg]:hidden md:[&>div]:flex-wrap"
+            className="app-prop-calculator__subnav"
             items={items}
         />
     );

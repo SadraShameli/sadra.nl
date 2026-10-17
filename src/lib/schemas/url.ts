@@ -25,6 +25,7 @@ export const objectiveUrlSchema = z
 
 export const PROFILE_TAB_VALUES = [
     'account',
+    'contents',
     'lifting',
     'sensor-hub',
     'trading',

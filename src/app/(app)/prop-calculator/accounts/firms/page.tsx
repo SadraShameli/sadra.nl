@@ -2,6 +2,7 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
 import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import {
     EVENT_LIST_INPUT,
@@ -32,15 +33,15 @@ export default function PropAccountsFirmsPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                        Firms
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                        Your firm roster with status, measured live-transfer
-                        rates and scale readiness.
-                    </p>
-                </header>
+                <AccountsPageHeader
+                    description={
+                        <>
+                            Your firm roster with status, measured live-transfer
+                            rates and scale readiness.
+                        </>
+                    }
+                    title="Firms"
+                />
                 <Suspense fallback={<AccountsDataSkeleton />}>
                     <PropAccountsFirmsContent />
                 </Suspense>

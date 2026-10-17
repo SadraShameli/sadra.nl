@@ -23,19 +23,9 @@ import {
     ProfileTableEmpty,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { Checkbox } from '~/components/ui/Checkbox';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     DataTable,
     type DataTableColumn,
@@ -205,40 +195,23 @@ export function ReadingsPanel() {
                 action={
                     <>
                         {selected.length > 0 && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="destructive">
-                                        <Trash2 className="size-4" />
-                                        Delete {selected.length}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Delete {selected.length} reading(s)?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This cannot be undone.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                delBulk.mutate({
-                                                    ids: selected.map(
-                                                        (r) => r.id,
-                                                    ),
-                                                })
-                                            }
-                                        >
-                                            Delete
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                            <ConfirmDialog
+                                confirmLabel="Delete"
+                                description="This cannot be undone."
+                                onConfirm={() =>
+                                    delBulk.mutate({
+                                        ids: selected.map((r) => r.id),
+                                    })
+                                }
+                                title={
+                                    <>Delete {selected.length} reading(s)?</>
+                                }
+                            >
+                                <Button size="sm" variant="destructive">
+                                    <Trash2 className="size-4" />
+                                    Delete {selected.length}
+                                </Button>
+                            </ConfirmDialog>
                         )}
                         {newButton}
                     </>

@@ -4,6 +4,7 @@ import { ArrowRight, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
 
+import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import {
     ACCOUNT_LIST_INPUT,
@@ -291,13 +292,13 @@ function TeaserFrame({
         <section aria-labelledby="hub-accounts-teaser" className="mt-10">
             <Card className={cn('app-prop-calculator__accounts-teaser')}>
                 <CardHeader>
-                    <h2
-                        className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground"
+                    <ToolSectionHeading
+                        className="flex items-center gap-2"
                         id="hub-accounts-teaser"
                     >
                         <Wallet aria-hidden className="size-4 text-primary" />
                         My accounts
-                    </h2>
+                    </ToolSectionHeading>
                     {action !== undefined && <CardAction>{action}</CardAction>}
                 </CardHeader>
                 <CardContent className="flex flex-col gap-6">

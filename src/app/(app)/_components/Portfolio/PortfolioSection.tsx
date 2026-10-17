@@ -1,51 +1,37 @@
-import type { PortfolioSectionView } from '~/lib/site/content';
-
+import { SectionHeading } from '~/app/(app)/_components/home/EmphasisTitle';
+import {
+    SectionShell,
+    type SectionTone,
+} from '~/app/(app)/_components/SectionShell';
 import StaggerAnimation from '~/components/ui/Animations/Stagger';
-import { cn } from '~/lib/utilities';
+import { type PortfolioSection as PortfolioSectionCopy } from '~/lib/site/content';
 
 import PortfolioEntry from './PortfolioEntry';
-import SectionEyebrow from './SectionEyebrow';
-
-type PortfolioSectionProperties = {
-    entries: PortfolioSectionView[];
-    eyebrowLabel?: string;
-    hasLeadImage?: boolean;
-    id: string;
-    title: string;
-};
 
 export default function PortfolioSection({
-    entries,
-    eyebrowLabel,
-    hasLeadImage = false,
-    id,
-    title,
-}: PortfolioSectionProperties) {
-    const headingId = `${id}-heading`;
-
+    section,
+    tone,
+}: {
+    readonly section: PortfolioSectionCopy;
+    readonly tone: SectionTone;
+}) {
     return (
-        <section
-            aria-labelledby={headingId}
-            className={cn('app-portfolio__section', 'pt-spacing')}
+        <SectionShell
+            blockClassName="app-portfolio__section"
+            eyebrow={section.eyebrow}
+            id={section.id}
+            number={section.number}
+            tone={tone}
         >
-            <h2 className="sr-only" id={headingId}>
-                {title}
-            </h2>
-
-            <SectionEyebrow
-                count={entries.length}
-                label={eyebrowLabel ?? title.toUpperCase()}
-            />
-
-            <StaggerAnimation className="mt-8 flex flex-col gap-y-14 lg:gap-y-16">
-                {entries.map((entry, index) => (
+            <SectionHeading heading={section.heading} />
+            <StaggerAnimation className="flex flex-col [&>*+*]:mt-12 [&>*+*]:border-t [&>*+*]:border-line [&>*+*]:pt-12">
+                {section.entries.map((entry) => (
                     <PortfolioEntry
                         entry={entry}
-                        isLeadImage={hasLeadImage && index === 0}
-                        key={`${entry.title}-${entry.date}-${index}`}
+                        key={`${entry.title}-${entry.date}`}
                     />
                 ))}
             </StaggerAnimation>
-        </section>
+        </SectionShell>
     );
 }

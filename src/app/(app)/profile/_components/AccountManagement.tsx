@@ -6,20 +6,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
 import { Badge } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { ConfirmDialog } from '~/components/ui/ConfirmDialog';
 import {
     DataTable,
     type DataTableColumn,
@@ -219,41 +209,21 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                                 </Select>
                             )}
                             {canDelete && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button
-                                            aria-label="Delete user"
-                                            disabled={pending}
-                                            size="sm"
-                                            variant="outline"
-                                        >
-                                            <Trash2 className="size-3.5" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>
-                                                Delete &ldquo;{u.name}&rdquo;?
-                                            </AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Removes the user and all their
-                                                data permanently.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>
-                                                Cancel
-                                            </AlertDialogCancel>
-                                            <AlertDialogAction
-                                                onClick={() =>
-                                                    void onDelete(u.id)
-                                                }
-                                            >
-                                                Delete
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
+                                <ConfirmDialog
+                                    confirmLabel="Delete"
+                                    description="Removes the user and all their data permanently."
+                                    onConfirm={() => void onDelete(u.id)}
+                                    title={<>Delete &ldquo;{u.name}&rdquo;?</>}
+                                >
+                                    <Button
+                                        aria-label="Delete user"
+                                        disabled={pending}
+                                        size="sm"
+                                        variant="outline"
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                    </Button>
+                                </ConfirmDialog>
                             )}
                         </div>
                     );
