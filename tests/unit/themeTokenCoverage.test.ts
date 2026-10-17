@@ -8,6 +8,14 @@ const SONNER_STYLES = 'node_modules/sonner/dist/styles.css';
 const SONNER_OVERRIDES = 'src/styles/sonner.css';
 const TAILWIND_THEME = 'node_modules/tailwindcss/theme.css';
 const SITE_THEME = 'src/styles/theme.css';
+const SITE_BASE = 'src/styles/base.css';
+
+const NATIVE_PARTS = [
+    '::selection',
+    'accent-color: var(--primary)',
+    'scrollbar-color: var(--border)',
+    ':-webkit-autofill',
+] as const;
 
 const SONNER_THEME_VARIABLE =
     /--(?:border-radius|(?:normal|success|info|warning|error)-[a-z-]+)(?=:)/gu;
@@ -44,5 +52,11 @@ describe('theme token coverage', () => {
                 (step) => !themed.has(step),
             ),
         ).toEqual([]);
+    });
+
+    it('themes the browser-drawn parts: selection, form accents, scrollbars and autofill', () => {
+        const base = textOf(SITE_BASE);
+
+        expect(NATIVE_PARTS.filter((part) => !base.includes(part))).toEqual([]);
     });
 });
