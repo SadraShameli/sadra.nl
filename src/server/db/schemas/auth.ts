@@ -1,7 +1,9 @@
 import { sql } from 'drizzle-orm';
 import {
+    bigint,
     boolean,
     index,
+    integer,
     text,
     timestamp,
     uniqueIndex,
@@ -105,3 +107,10 @@ export const verification = createTable(
     },
     (table) => [index('verification_identifier_idx').on(table.identifier)],
 );
+
+export const rateLimit = createTable('auth_rate_limit', {
+    count: integer('count').notNull(),
+    id: text('id').primaryKey(),
+    key: text('key').notNull().unique(),
+    lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
+});

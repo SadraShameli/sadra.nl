@@ -13,6 +13,7 @@ import { authBackgroundTasks } from '~/lib/auth/backgroundTasks';
 import { authEmailAndPasswordOptions } from '~/lib/auth/emailAndPasswordOptions';
 import { EMAIL_LINK_LIFETIME_SECONDS, EmailLink } from '~/lib/auth/EmailLink';
 import { adminPluginOptions } from '~/lib/auth/permissions';
+import { authRateLimitOptions } from '~/lib/auth/rateLimitOptions';
 import { enforceRoleHierarchy } from '~/lib/auth/RoleHierarchy';
 import { ROLE, ROOT_EMAIL } from '~/lib/auth/roles';
 import { authUserOptions } from '~/lib/auth/userOptions';
@@ -109,11 +110,7 @@ export const auth = betterAuth({
         admin(adminPluginOptions),
         nextCookies(),
     ],
-    rateLimit: {
-        enabled: environment.NODE_ENV === 'production',
-        max: 30,
-        window: 15 * 60,
-    },
+    rateLimit: authRateLimitOptions(environment.NODE_ENV === 'production'),
     secret: environment.AUTH_SECRET,
     session: {
         cookieCache: { enabled: false },

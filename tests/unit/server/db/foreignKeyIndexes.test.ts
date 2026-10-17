@@ -58,9 +58,8 @@ function uncoveredForeignKeys(): string[] {
             .map((foreignKey) =>
                 foreignKey.reference().columns.map((column) => column.name),
             )
-            .filter(
-                (columns) =>
-                    indexes.every((index) => !isCoveredBy(columns, index)),
+            .filter((columns) =>
+                indexes.every((index) => !isCoveredBy(columns, index)),
             )
             .map((columns) => `${config.name}(${columns.join(', ')})`);
     });
