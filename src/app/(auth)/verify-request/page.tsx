@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 import { PageTransition } from '~/components/PageTransition';
 import { Alert, AlertDescription } from '~/components/ui/Alert';
@@ -9,10 +10,14 @@ import {
     CardHeader,
     CardTitle,
 } from '~/components/ui/Card';
+import { emailLinkSentText } from '~/lib/auth/EmailLink';
+import { verifyRequestSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
-export default function VerifyRequestPage() {
+export default function VerifyRequestPage({
+    searchParams,
+}: Pick<PageProps<'/verify-request'>, 'searchParams'>) {
     return (
         <PageTransition>
             <div
@@ -29,8 +34,15 @@ export default function VerifyRequestPage() {
                         <CardContent>
                             <Alert variant="success">
                                 <AlertDescription>
-                                    We&apos;ve sent you a sign-in link. Click it
-                                    to continue. The link expires in 24 hours.
+                                    <Suspense
+                                        fallback={
+                                            "We've sent you a link. Click it to continue."
+                                        }
+                                    >
+                                        <VerifyRequestNotice
+                                            searchParams={searchParams}
+                                        />
+                                    </Suspense>
                                 </AlertDescription>
                             </Alert>
                         </CardContent>
@@ -51,4 +63,11 @@ export default function VerifyRequestPage() {
             </div>
         </PageTransition>
     );
+}
+
+async function VerifyRequestNotice({
+    searchParams,
+}: Pick<PageProps<'/verify-request'>, 'searchParams'>) {
+    const { link } = verifyRequestSearchSchema.parse(await searchParams);
+    return emailLinkSentText(link);
 }

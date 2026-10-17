@@ -17,9 +17,10 @@ import {
 } from '~/components/ui/Form';
 import { Input } from '~/components/ui/Input';
 import { authClient } from '~/lib/auth/client';
+import { EmailLink } from '~/lib/auth/EmailLink';
 import { type SignupInput, signupInputSchema } from '~/lib/schemas/auth';
 import { currentCallbackUrl } from '~/lib/site/privateRoutes';
-import { routes } from '~/lib/site/routes';
+import { routes, withQuery } from '~/lib/site/routes';
 
 export function SignupForm() {
     const router = useRouter();
@@ -53,7 +54,11 @@ export function SignupForm() {
                 );
                 return;
             }
-            router.push(routes.auth.verifyRequest);
+            router.push(
+                withQuery(routes.auth.verifyRequest, {
+                    link: EmailLink.Verification,
+                }),
+            );
         });
     };
 

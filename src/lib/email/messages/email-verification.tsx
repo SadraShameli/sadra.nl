@@ -1,6 +1,7 @@
 import { Button, Heading, Text } from '@react-email/components';
 import { render } from '@react-email/render';
 
+import { EmailLink, emailLinkLifetimeText } from '~/lib/auth/EmailLink';
 import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
 
@@ -28,8 +29,7 @@ function EmailVerificationTemplate({ url }: { url: string }) {
                 Verify your email
             </Heading>
             <Text className="mt-0 mb-6 text-sm/6 text-neutral-600">
-                Click the button below to verify your email address. This link
-                expires in 24 hours.
+                {`Click the button below to verify your email address. This link expires in ${emailLinkLifetimeText(EmailLink.Verification)}.`}
             </Text>
             <Button
                 className="block rounded-md bg-neutral-900 px-6 py-3 text-center text-sm font-semibold text-white no-underline"

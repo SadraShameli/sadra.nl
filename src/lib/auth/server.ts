@@ -8,6 +8,7 @@ import { after } from 'next/server';
 import { cache } from 'react';
 
 import { environment } from '~/environment';
+import { EMAIL_LINK_LIFETIME_SECONDS, EmailLink } from '~/lib/auth/EmailLink';
 import { adminPluginOptions } from '~/lib/auth/permissions';
 import { enforceRoleHierarchy } from '~/lib/auth/RoleHierarchy';
 import { ROLE, ROOT_EMAIL } from '~/lib/auth/roles';
@@ -82,6 +83,7 @@ export const auth = betterAuth({
     },
     emailVerification: {
         autoSignInAfterVerification: true,
+        expiresIn: EMAIL_LINK_LIFETIME_SECONDS[EmailLink.Verification],
         sendOnSignUp: true,
         sendVerificationEmail: async ({ url, user }) => {
             await mailer.send(new EmailVerificationEmail(user.email, url));
@@ -90,6 +92,7 @@ export const auth = betterAuth({
     hooks: { before: enforceRoleHierarchy },
     plugins: [
         magicLink({
+            expiresIn: EMAIL_LINK_LIFETIME_SECONDS[EmailLink.SignIn],
             sendMagicLink: async ({ email, url }) => {
                 await mailer.send(new MagicLinkEmail(email, url));
             },

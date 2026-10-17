@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { EmailLink } from '~/lib/auth/EmailLink';
 import {
     CorrelationMode,
     InstrumentSymbol,
@@ -57,6 +58,7 @@ export const resetPasswordSearchSchema = z.object({
 
 export const verifyRequestSearchSchema = z.object({
     email: z.string().optional(),
+    link: z.enum(EmailLink).catch(EmailLink.SignIn),
 });
 
 export const authErrorSearchSchema = z.object({
