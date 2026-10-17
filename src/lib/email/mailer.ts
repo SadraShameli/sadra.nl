@@ -7,11 +7,15 @@ export class Mailer {
     constructor(private readonly provider: EmailProvider) {}
 
     async send(message: EmailMessage): Promise<void> {
-        const html = await message.render();
+        const [html, text] = await Promise.all([
+            message.render(),
+            message.renderText(),
+        ]);
         await this.provider.send({
             from: EMAIL_FROM,
             html,
             subject: message.subject,
+            text,
             to: message.to,
         });
     }

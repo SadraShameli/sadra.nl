@@ -18,6 +18,7 @@ const MESSAGE: EmailSendArguments = {
     from: 'noreply@sadra.nl',
     html: '<p>Hi Jane</p>',
     subject: 'Welcome',
+    text: 'Hi Jane',
     to: 'jane@example.com',
 };
 
@@ -87,6 +88,7 @@ describe('LettermintProvider', () => {
             from: MESSAGE.from,
             html: MESSAGE.html,
             subject: MESSAGE.subject,
+            text: MESSAGE.text,
             to: [MESSAGE.to],
         });
     });

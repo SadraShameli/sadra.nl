@@ -7,6 +7,7 @@ export interface EmailSendArguments {
     from: string;
     html: string;
     subject: string;
+    text: string;
     to: string;
 }
 
@@ -61,6 +62,7 @@ export class LettermintProvider extends EmailProvider {
             from: arguments_.from,
             html: arguments_.html,
             subject: arguments_.subject,
+            text: arguments_.text,
             to: [arguments_.to],
         });
     }
@@ -79,6 +81,7 @@ export class ResendProvider extends EmailProvider {
             from: arguments_.from,
             html: arguments_.html,
             subject: arguments_.subject,
+            text: arguments_.text,
             to: arguments_.to,
         });
         if (error !== null) throw new ResendRejectionError(error.message);

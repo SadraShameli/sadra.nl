@@ -1,3 +1,4 @@
+import { createElement, type ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EmailMessage } from '~/lib/email/message';
@@ -36,8 +37,8 @@ class AlertEmail extends EmailMessage {
         super();
     }
 
-    render(): Promise<string> {
-        return Promise.resolve('<p>Alert</p>');
+    protected content(): ReactElement {
+        return createElement('p', null, 'Alert');
     }
 }
 

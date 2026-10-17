@@ -1,5 +1,6 @@
+import type { ReactElement } from 'react';
+
 import { Heading, Text } from '@react-email/components';
-import { render } from '@react-email/render';
 
 import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
@@ -22,9 +23,9 @@ export class SignUpNotificationEmail extends EmailMessage {
         this.to = to;
     }
 
-    async render(): Promise<string> {
-        return render(
-            <SignUpNotificationTemplate email={this.email} name={this.name} />,
+    protected content(): ReactElement {
+        return (
+            <SignUpNotificationTemplate email={this.email} name={this.name} />
         );
     }
 }

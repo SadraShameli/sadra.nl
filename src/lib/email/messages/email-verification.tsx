@@ -1,5 +1,6 @@
+import type { ReactElement } from 'react';
+
 import { Button, Heading, Text } from '@react-email/components';
-import { render } from '@react-email/render';
 
 import { EmailLink, emailLinkLifetimeText } from '~/lib/auth/EmailLink';
 import { EmailMessage } from '~/lib/email/message';
@@ -17,8 +18,8 @@ export class EmailVerificationEmail extends EmailMessage {
         this.to = to;
     }
 
-    async render(): Promise<string> {
-        return render(<EmailVerificationTemplate url={this.url} />);
+    protected content(): ReactElement {
+        return <EmailVerificationTemplate url={this.url} />;
     }
 }
 

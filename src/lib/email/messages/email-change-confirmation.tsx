@@ -1,5 +1,6 @@
+import type { ReactElement } from 'react';
+
 import { Button, Heading, Text } from '@react-email/components';
-import { render } from '@react-email/render';
 
 import { EmailLink, emailLinkLifetimeText } from '~/lib/auth/EmailLink';
 import { EmailMessage } from '~/lib/email/message';
@@ -18,12 +19,12 @@ export class EmailChangeConfirmationEmail extends EmailMessage {
         this.to = to;
     }
 
-    async render(): Promise<string> {
-        return render(
+    protected content(): ReactElement {
+        return (
             <EmailChangeConfirmationTemplate
                 newEmail={this.newEmail}
                 url={this.url}
-            />,
+            />
         );
     }
 }

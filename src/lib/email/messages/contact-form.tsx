@@ -1,5 +1,6 @@
+import type { ReactElement } from 'react';
+
 import { Heading, Hr, Text } from '@react-email/components';
-import { render } from '@react-email/render';
 
 import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
@@ -27,14 +28,14 @@ export class ContactFormEmail extends EmailMessage {
         this.to = to;
     }
 
-    async render(): Promise<string> {
-        return render(
+    protected content(): ReactElement {
+        return (
             <ContactFormTemplate
                 email={this.senderEmail}
                 ip={this.ip}
                 message={this.message}
                 name={this.name}
-            />,
+            />
         );
     }
 }
