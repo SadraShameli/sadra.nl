@@ -11,3 +11,9 @@ export function authRateLimitOptions(isEnabled: boolean) {
         window: RATE_LIMIT_WINDOW_SECONDS,
     } satisfies BetterAuthOptions['rateLimit'];
 }
+
+export const authIpAddressOptions = {
+    ipAddressHeaders: ['x-real-ip', 'x-forwarded-for'],
+} satisfies NonNullable<
+    NonNullable<BetterAuthOptions['advanced']>['ipAddress']
+>;

@@ -14,7 +14,10 @@ import { authBackgroundTasks } from '~/lib/auth/backgroundTasks';
 import { authEmailAndPasswordOptions } from '~/lib/auth/emailAndPasswordOptions';
 import { EMAIL_LINK_LIFETIME_SECONDS, EmailLink } from '~/lib/auth/EmailLink';
 import { adminPluginOptions } from '~/lib/auth/permissions';
-import { authRateLimitOptions } from '~/lib/auth/rateLimitOptions';
+import {
+    authIpAddressOptions,
+    authRateLimitOptions,
+} from '~/lib/auth/rateLimitOptions';
 import { enforceRoleHierarchy } from '~/lib/auth/RoleHierarchy';
 import { ROLE, ROOT_EMAIL } from '~/lib/auth/roles';
 import { authUserOptions } from '~/lib/auth/userOptions';
@@ -43,6 +46,7 @@ export const auth = betterAuth({
         cookies: {
             session_token: { attributes: { sameSite: 'strict', secure: true } },
         },
+        ipAddress: authIpAddressOptions,
         useSecureCookies: environment.NODE_ENV === 'production',
     },
     baseURL: environment.NEXT_PUBLIC_SERVER_URL,
