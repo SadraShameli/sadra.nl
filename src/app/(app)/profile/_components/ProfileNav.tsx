@@ -8,7 +8,6 @@ import {
     LogOut,
     type LucideIcon,
     Radio,
-    Receipt,
     User,
     Users,
 } from 'lucide-react';
@@ -29,7 +28,7 @@ type NavItem = {
     href: Route;
     icon: LucideIcon;
     label: string;
-    tab?: ProfileTabValue;
+    tab: ProfileTabValue;
 };
 
 const ACCOUNT_ITEM: NavItem = {
@@ -68,11 +67,6 @@ const CONTENTS_ITEM: NavItem = {
     label: 'Contents',
     tab: 'contents',
 };
-const ACCOUNTING_ITEM: NavItem = {
-    href: routes.accounting.index,
-    icon: Receipt,
-    label: 'Accounting',
-};
 
 interface ProfileNavProperties {
     activeTab: ProfileTabValue;
@@ -96,7 +90,7 @@ export function ProfileNav({
         ...(isAdmin ? [USERS_ITEM, SENSOR_HUB_ITEM] : []),
         TRADING_PLAN_ITEM,
         LIFTING_ITEM,
-        ...(isRoot ? [CONTENTS_ITEM, ACCOUNTING_ITEM] : []),
+        ...(isRoot ? [CONTENTS_ITEM] : []),
     ];
     const initial = ((name ?? email)[0] ?? '?').toUpperCase();
 
@@ -122,8 +116,7 @@ export function ProfileNav({
 
             <nav className="flex flex-col gap-1">
                 {items.map((item) => {
-                    const isActive =
-                        item.tab !== undefined && activeTab === item.tab;
+                    const isActive = activeTab === item.tab;
                     return (
                         <Button
                             asChild
