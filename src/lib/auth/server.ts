@@ -16,6 +16,8 @@ import { enforceRoleHierarchy } from '~/lib/auth/RoleHierarchy';
 import { ROLE, ROOT_EMAIL } from '~/lib/auth/roles';
 import { authUserOptions } from '~/lib/auth/userOptions';
 import {
+    AccountDeletionEmail,
+    EmailChangeConfirmationEmail,
     EmailVerificationEmail,
     MagicLinkEmail,
     mailer,
@@ -133,7 +135,16 @@ export const auth = betterAuth({
             }),
     },
     trustedOrigins: [getPublicSiteOrigin()],
-    user: authUserOptions,
+    user: authUserOptions({
+        confirmAccountDeletion: async (to, url) => {
+            await mailer.send(new AccountDeletionEmail(to, url));
+        },
+        confirmEmailChange: async (to, newEmail, url) => {
+            await mailer.send(
+                new EmailChangeConfirmationEmail(to, newEmail, url),
+            );
+        },
+    }),
 });
 
 export type Session = typeof auth.$Infer.Session;

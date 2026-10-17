@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DeleteAccountDialog } from '~/app/(app)/profile/_components/DeleteAccountDialog';
+import { EmailLink, emailLinkSentText } from '~/lib/auth/EmailLink';
 import { routes } from '~/lib/site/routes';
 
 import { stubLocationAssign } from '../stubLocationAssign';
@@ -15,14 +16,16 @@ interface Mounted {
 
 const auth = vi.hoisted(() => ({
     deleteUser: vi.fn<
-        () => Promise<
+        (options?: {
+            callbackURL?: string;
+        }) => Promise<
             | { data: null; error: { message: string } }
             | { data: { success: boolean }; error: null }
         >
     >(() => Promise.resolve({ data: { success: true }, error: null })),
 }));
 
-const toast = vi.hoisted(() => ({ error: vi.fn() }));
+const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
 
 vi.mock('sonner', () => ({ toast }));
 
@@ -113,30 +116,21 @@ afterEach(async () => {
 });
 
 describe('DeleteAccountDialog', () => {
-    it("drops the deleted user's cached prop-accounts queries once the account is deleted", async () => {
+    it('emails a confirmation link and keeps the account until it is opened', async () => {
         const client = seededClient();
-        const cachedAtDelete: number[] = [];
-        auth.deleteUser.mockImplementationOnce(() => {
-            cachedAtDelete.push(cachedQueryCount(client));
-            return Promise.resolve({ data: { success: true }, error: null });
-        });
-        const cachedAtNavigation: number[] = [];
-        const assign = stubLocationAssign(() => {
-            cachedAtNavigation.push(cachedQueryCount(client));
-        });
+        const assign = stubLocationAssign();
         await renderWith(client);
-        expect(cachedQueryCount(client)).toBe(2);
 
         await confirmDelete();
 
-        expect(auth.deleteUser).toHaveBeenCalledTimes(1);
-        expect(cachedAtDelete).toEqual([2]);
-        expect(client.getQueryData(SCENARIO_LIST_KEY)).toBeUndefined();
-        expect(client.getQueryData(ACCOUNT_LIST_KEY)).toBeUndefined();
-        expect(cachedQueryCount(client)).toBe(0);
-        expect(assign).toHaveBeenCalledTimes(1);
-        expect(assign).toHaveBeenCalledWith(routes.home);
-        expect(cachedAtNavigation).toEqual([0]);
+        expect(auth.deleteUser).toHaveBeenCalledWith({
+            callbackURL: routes.home,
+        });
+        expect(toast.success).toHaveBeenCalledWith(
+            emailLinkSentText(EmailLink.AccountDeletion),
+        );
+        expect(assign).not.toHaveBeenCalled();
+        expect(cachedQueryCount(client)).toBe(2);
     });
 
     it('keeps the user on the page and shows why when deletion is refused', async () => {

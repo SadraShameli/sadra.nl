@@ -1,6 +1,5 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import {
@@ -16,23 +15,10 @@ import {
 } from '~/components/ui/AlertDialog';
 import { Button } from '~/components/ui/Button';
 import { authClient } from '~/lib/auth/client';
+import { EmailLink, emailLinkSentText } from '~/lib/auth/EmailLink';
 import { routes } from '~/lib/site/routes';
 
 export function DeleteAccountDialog() {
-    const queryClient = useQueryClient();
-
-    const onDelete = async () => {
-        const result = await authClient.deleteUser();
-        if (result.error) {
-            toast.error(
-                result.error.message ?? 'Could not delete your account.',
-            );
-            return;
-        }
-        queryClient.clear();
-        window.location.assign(routes.home);
-    };
-
     return (
         <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -48,17 +34,31 @@ export function DeleteAccountDialog() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Delete account</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will permanently delete your account and all
-                        associated data. This action cannot be undone.
+                        We'll email you a link to confirm. Opening it
+                        permanently deletes your account and all associated
+                        data. This action cannot be undone.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => void onDelete()}>
+                    <AlertDialogAction
+                        onClick={() => void requestAccountDeletion()}
+                    >
                         Delete account
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
     );
+}
+
+async function requestAccountDeletion(): Promise<void> {
+    const result = await authClient.deleteUser({
+        callbackURL: routes.home,
+    });
+    if (result.error) {
+        toast.error(result.error.message ?? 'Could not delete your account.');
+        return;
+    }
+    toast.success(emailLinkSentText(EmailLink.AccountDeletion));
 }

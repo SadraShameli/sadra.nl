@@ -77,7 +77,7 @@ export function UpdateNameForm({
                 return;
             }
             toast.success(
-                'Verification sent. Check your inbox to confirm the change.',
+                'Approval link sent to your current address. Approve it there, then verify the new one.',
             );
             setEditingEmail(false);
         });
