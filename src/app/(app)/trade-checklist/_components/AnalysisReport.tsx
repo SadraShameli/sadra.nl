@@ -18,7 +18,7 @@ import type {
     Grade,
     Recommendation,
     TradeAssessmentRow,
-    TradingPlanRow,
+    TradingPlanConfig,
 } from '~/lib/trading/types';
 
 import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
@@ -34,6 +34,12 @@ import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 
 import { OutcomeDialog } from './OutcomeDialog';
+
+export interface ReportPlan {
+    readonly config: TradingPlanConfig;
+    readonly id: null | string;
+    readonly name: string;
+}
 
 const recoMeta: Record<
     Recommendation,
@@ -68,7 +74,7 @@ export function AnalysisReport({
     history: TradeAssessmentRow[];
     onRestart: () => void;
     onSaved: (id: string) => void;
-    plan: TradingPlanRow;
+    plan: ReportPlan;
     result: AssessmentResult;
     savedId: null | string;
 }) {
@@ -437,6 +443,7 @@ export function AnalysisReport({
                     assessmentId={savedId}
                     onOpenChange={setOutcomeOpen}
                     open={outcomeOpen}
+                    saved={history.find((row) => row.id === savedId) ?? null}
                 />
             )}
         </motion.div>

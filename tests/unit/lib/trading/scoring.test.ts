@@ -131,3 +131,39 @@ describe('scoreAssessment grading', () => {
         expect(weakened.score).toBeLessThanOrEqual(clean.score);
     });
 });
+
+describe('scoreAssessment risk / reward minimum', () => {
+    it('gives a 3R setup no exceptional credit under a 4R minimum and names the shortfall', () => {
+        const plan = {
+            ...DEFAULT_PLAN,
+            setup: { ...DEFAULT_PLAN.setup, minRR: 4 },
+        };
+        const result = scoreAssessment(
+            plan,
+            makeAnswers({ rr: { slippageR: 0, targetR: 3 } }),
+        );
+        expect(result.componentScores.rr.earned).toBeLessThan(
+            result.componentScores.rr.max,
+        );
+        expect(
+            result.strengths.some((text) => text.includes('exceptional')),
+        ).toBe(false);
+        expect(result.weaknesses).toContain(
+            'Expected 3.0R is below plan minimum of 4R.',
+        );
+    });
+
+    it('gives full credit to a setup that meets a minimum above 3R', () => {
+        const plan = {
+            ...DEFAULT_PLAN,
+            setup: { ...DEFAULT_PLAN.setup, minRR: 4 },
+        };
+        const result = scoreAssessment(
+            plan,
+            makeAnswers({ rr: { slippageR: 0, targetR: 4 } }),
+        );
+        expect(result.componentScores.rr.earned).toBe(
+            result.componentScores.rr.max,
+        );
+    });
+});

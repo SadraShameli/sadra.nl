@@ -7,7 +7,11 @@ import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import type { ExecutionDeviation, Outcome } from '~/lib/trading/types';
+import type {
+    ExecutionDeviation,
+    Outcome,
+    TradeAssessmentRow,
+} from '~/lib/trading/types';
 
 import { badgeVariants } from '~/components/ui/Badge';
 import { Button } from '~/components/ui/Button';
@@ -64,28 +68,80 @@ const outcomeFormSchema = z.object({
 });
 type OutcomeFormValues = z.infer<typeof outcomeFormSchema>;
 
+type SavedOutcome = Pick<
+    TradeAssessmentRow,
+    | 'actualRiskTaken'
+    | 'executionDeviations'
+    | 'followedPlan'
+    | 'outcome'
+    | 'outcomeNotes'
+    | 'outcomeR'
+>;
+
 export function OutcomeDialog({
     assessmentId,
     onOpenChange,
     open,
+    saved,
 }: {
     assessmentId: string;
     onOpenChange: (isOpen: boolean) => void;
     open: boolean;
+    saved: null | SavedOutcome;
+}) {
+    return (
+        <Dialog onOpenChange={onOpenChange} open={open}>
+            <DialogContent
+                className={cn(
+                    'app-trade-checklist__outcome-dialog',
+                    'max-h-[90vh] overflow-y-auto sm:max-w-md',
+                )}
+                data-state={open ? 'open' : 'closed'}
+            >
+                <DialogHeader>
+                    <DialogTitle>Record trade outcome</DialogTitle>
+                    <DialogDescription>
+                        Tag this assessment so the hindsight stats improve.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <OutcomeForm
+                    assessmentId={assessmentId}
+                    key={assessmentId}
+                    onOpenChange={onOpenChange}
+                    saved={saved}
+                />
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function hasExecutionDetails(saved: null | SavedOutcome): boolean {
+    return (
+        saved !== null &&
+        (saved.actualRiskTaken !== null ||
+            saved.followedPlan !== null ||
+            (saved.executionDeviations?.length ?? 0) > 0)
+    );
+}
+
+function OutcomeForm({
+    assessmentId,
+    onOpenChange,
+    saved,
+}: {
+    assessmentId: string;
+    onOpenChange: (isOpen: boolean) => void;
+    saved: null | SavedOutcome;
 }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
-    const [executionOpen, setExecutionOpen] = useState(false);
+    const [executionOpen, setExecutionOpen] = useState(() =>
+        hasExecutionDetails(saved),
+    );
 
     const form = useForm<OutcomeFormValues>({
-        defaultValues: {
-            actualRisk: '',
-            deviations: [],
-            followedPlan: true,
-            notes: '',
-            outcome: 'win',
-            outcomeR: '',
-        },
+        defaultValues: outcomeFormValuesOf(saved),
         resolver: zodResolver(outcomeFormSchema),
     });
 
@@ -125,209 +181,198 @@ export function OutcomeDialog({
     });
 
     return (
-        <Dialog onOpenChange={onOpenChange} open={open}>
-            <DialogContent
-                className={cn(
-                    'app-trade-checklist__outcome-dialog',
-                    'max-h-[90vh] overflow-y-auto sm:max-w-md',
-                )}
-                data-state={open ? 'open' : 'closed'}
-            >
-                <DialogHeader>
-                    <DialogTitle>Record trade outcome</DialogTitle>
-                    <DialogDescription>
-                        Tag this assessment so the hindsight stats improve.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <Form {...form}>
-                    <form className="flex flex-col gap-4" onSubmit={submit}>
-                        <FormField
-                            control={form.control}
-                            name="outcome"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormControl>
-                                        <RadioGroup
-                                            className="grid grid-cols-2 gap-2"
-                                            onValueChange={field.onChange}
-                                            value={field.value}
+        <Form {...form}>
+            <form className="flex flex-col gap-4" onSubmit={submit}>
+                <FormField
+                    control={form.control}
+                    name="outcome"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormControl>
+                                <RadioGroup
+                                    className="grid grid-cols-2 gap-2"
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    {OUTCOMES.map((o) => (
+                                        <label
+                                            className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition ${
+                                                outcome === o.value
+                                                    ? o.tone
+                                                    : 'border-border/60 hover:border-border'
+                                            }`}
+                                            htmlFor={`outcome-${o.value}`}
+                                            key={o.value}
                                         >
-                                            {OUTCOMES.map((o) => (
-                                                <label
-                                                    className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition ${
-                                                        outcome === o.value
-                                                            ? o.tone
-                                                            : 'border-border/60 hover:border-border'
-                                                    }`}
-                                                    htmlFor={`outcome-${o.value}`}
-                                                    key={o.value}
-                                                >
-                                                    <RadioGroupItem
-                                                        id={`outcome-${o.value}`}
-                                                        value={o.value}
-                                                    />
-                                                    {o.label}
-                                                </label>
-                                            ))}
-                                        </RadioGroup>
-                                    </FormControl>
-                                </FormItem>
-                            )}
-                        />
+                                            <RadioGroupItem
+                                                id={`outcome-${o.value}`}
+                                                value={o.value}
+                                            />
+                                            {o.label}
+                                        </label>
+                                    ))}
+                                </RadioGroup>
+                            </FormControl>
+                        </FormItem>
+                    )}
+                />
 
-                        <FormField
-                            control={form.control}
-                            name="outcomeR"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-sm">
-                                        Actual R (optional)
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            placeholder="+2.0"
-                                            step="0.1"
-                                            type="number"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-sm">
-                                        Notes
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            placeholder="What happened, what worked, what to remember."
-                                            rows={3}
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                </FormItem>
-                            )}
-                        />
-
-                        <div className="rounded-md border border-border/40">
-                            <Button
-                                className={cn(
-                                    'app-trade-checklist__outcome-execution-toggle',
-                                    'h-auto w-full justify-between rounded-md px-3 py-2 text-sm font-medium',
-                                )}
-                                data-state={executionOpen ? 'open' : 'closed'}
-                                onClick={() => setExecutionOpen((o) => !o)}
-                                type="button"
-                                variant="ghost"
-                            >
-                                <span>Execution details (optional)</span>
-                                <ChevronDown
-                                    className={cn(
-                                        'size-4 transition-transform',
-                                        executionOpen && 'rotate-180',
-                                    )}
+                <FormField
+                    control={form.control}
+                    name="outcomeR"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-sm">
+                                Actual R (optional)
+                            </FormLabel>
+                            <FormControl>
+                                <Input
+                                    placeholder="+2.0"
+                                    step="0.1"
+                                    type="number"
+                                    {...field}
                                 />
-                            </Button>
+                            </FormControl>
+                        </FormItem>
+                    )}
+                />
 
-                            {executionOpen && (
-                                <div className="flex flex-col gap-4 border-t border-border/40 p-3">
-                                    <FormField
-                                        control={form.control}
-                                        name="actualRisk"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-sm">
-                                                    Actual risk taken ($)
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        placeholder="250"
-                                                        step="1"
-                                                        type="number"
-                                                        {...field}
-                                                    />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
+                <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="text-sm">Notes</FormLabel>
+                            <FormControl>
+                                <Textarea
+                                    placeholder="What happened, what worked, what to remember."
+                                    rows={3}
+                                    {...field}
+                                />
+                            </FormControl>
+                        </FormItem>
+                    )}
+                />
 
-                                    <FormField
-                                        control={form.control}
-                                        name="followedPlan"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center justify-between gap-2">
-                                                <FormLabel className="text-sm">
-                                                    Followed the plan as written
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Switch
-                                                        checked={field.value}
-                                                        onCheckedChange={
-                                                            field.onChange
-                                                        }
-                                                    />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <div>
-                                        <Label className="text-sm">
-                                            Deviations
-                                        </Label>
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                            {DEVIATIONS.map((d) => (
-                                                <button
-                                                    className={cn(
-                                                        badgeVariants({
-                                                            variant:
-                                                                deviations.includes(
-                                                                    d.value,
-                                                                )
-                                                                    ? 'warning'
-                                                                    : 'outline',
-                                                        }),
-                                                        'cursor-pointer transition',
-                                                    )}
-                                                    key={d.value}
-                                                    onClick={() =>
-                                                        toggleDeviation(d.value)
-                                                    }
-                                                    type="button"
-                                                >
-                                                    {d.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
+                <div className="rounded-md border border-border/40">
+                    <Button
+                        className={cn(
+                            'app-trade-checklist__outcome-execution-toggle',
+                            'h-auto w-full justify-between rounded-md px-3 py-2 text-sm font-medium',
+                        )}
+                        data-state={executionOpen ? 'open' : 'closed'}
+                        onClick={() => setExecutionOpen((o) => !o)}
+                        type="button"
+                        variant="ghost"
+                    >
+                        <span>Execution details (optional)</span>
+                        <ChevronDown
+                            className={cn(
+                                'size-4 transition-transform',
+                                executionOpen && 'rotate-180',
                             )}
-                        </div>
+                        />
+                    </Button>
 
-                        <DialogFooter>
-                            <Button
-                                disabled={pending}
-                                onClick={() => onOpenChange(false)}
-                                type="button"
-                                variant="ghost"
-                            >
-                                Cancel
-                            </Button>
-                            <Button disabled={pending} type="submit">
-                                Save outcome
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
+                    {executionOpen && (
+                        <div className="flex flex-col gap-4 border-t border-border/40 p-3">
+                            <FormField
+                                control={form.control}
+                                name="actualRisk"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-sm">
+                                            Actual risk taken ($)
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="250"
+                                                step="1"
+                                                type="number"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+
+                            <FormField
+                                control={form.control}
+                                name="followedPlan"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between gap-2">
+                                        <FormLabel className="text-sm">
+                                            Followed the plan as written
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Switch
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+
+                            <div>
+                                <Label className="text-sm">Deviations</Label>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {DEVIATIONS.map((d) => (
+                                        <button
+                                            className={cn(
+                                                badgeVariants({
+                                                    variant:
+                                                        deviations.includes(
+                                                            d.value,
+                                                        )
+                                                            ? 'warning'
+                                                            : 'outline',
+                                                }),
+                                                'cursor-pointer transition',
+                                            )}
+                                            key={d.value}
+                                            onClick={() =>
+                                                toggleDeviation(d.value)
+                                            }
+                                            type="button"
+                                        >
+                                            {d.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter>
+                    <Button
+                        disabled={pending}
+                        onClick={() => onOpenChange(false)}
+                        type="button"
+                        variant="ghost"
+                    >
+                        Cancel
+                    </Button>
+                    <Button disabled={pending} type="submit">
+                        Save outcome
+                    </Button>
+                </DialogFooter>
+            </form>
+        </Form>
     );
+}
+
+function outcomeFormValuesOf(saved: null | SavedOutcome): OutcomeFormValues {
+    return {
+        actualRisk:
+            saved?.actualRiskTaken == null ? '' : String(saved.actualRiskTaken),
+        deviations: [...(saved?.executionDeviations ?? [])],
+        followedPlan: saved?.followedPlan ?? true,
+        notes: saved?.outcomeNotes ?? '',
+        outcome: saved?.outcome ?? 'win',
+        outcomeR: saved?.outcomeR == null ? '' : String(saved.outcomeR),
+    };
 }
 
 function parseNullableNumber(raw: string): null | number {

@@ -10,6 +10,8 @@ import type {
 
 import { GRADE_THRESHOLDS, PLAN_TIMEZONE } from './defaults';
 
+const EXCEPTIONAL_EXPECTED_R = 3;
+
 const MENTAL_LABELS = {
     boredomHunt: 'boredom-driven setup hunt',
     distracted: 'lack of focus',
@@ -481,7 +483,7 @@ function scoreRiskReward(
     const expected = Math.max(0, answers.targetR - answers.slippageR);
     let earned = 0;
 
-    if (expected >= 3) {
+    if (expected >= minRR && expected >= EXCEPTIONAL_EXPECTED_R) {
         earned = max;
         strengths.push(
             `Expected ${expected.toFixed(1)}R after slippage: exceptional payoff.`,
@@ -491,7 +493,11 @@ function scoreRiskReward(
             max *
             (0.7 +
                 0.3 *
-                    Math.min(1, (expected - minRR) / Math.max(0.1, 3 - minRR)));
+                    Math.min(
+                        1,
+                        (expected - minRR) /
+                            Math.max(0.1, EXCEPTIONAL_EXPECTED_R - minRR),
+                    ));
         strengths.push(
             `Expected ${expected.toFixed(1)}R meets plan minimum (${minRR}R).`,
         );

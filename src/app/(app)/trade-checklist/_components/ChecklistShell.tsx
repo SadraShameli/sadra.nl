@@ -30,18 +30,21 @@ import {
 } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 
-import { AnalysisReport } from './AnalysisReport';
+import { AnalysisReport, type ReportPlan } from './AnalysisReport';
 import { HistoryStrip } from './HistoryStrip';
 import { WizardStepper } from './WizardStepper';
 
 type SubmissionState =
     | {
           answers: Answers;
+          plan: ReportPlan;
           result: AssessmentResult;
           savedId: null | string;
           status: 'graded';
       }
     | { status: 'editing' };
+
+const UNLISTED_PLAN_NAME = 'Plan at the time of this assessment';
 
 export function ChecklistShell({
     activePlan,
@@ -60,6 +63,13 @@ export function ChecklistShell({
     const handleSelect = (row: TradeAssessmentRow) => {
         setSubmission({
             answers: row.answers,
+            plan: {
+                config: row.planSnapshot,
+                id: row.planId,
+                name:
+                    plans.find((candidate) => candidate.id === row.planId)
+                        ?.name ?? UNLISTED_PLAN_NAME,
+            },
             result: row.result,
             savedId: row.id,
             status: 'graded',
@@ -100,6 +110,11 @@ export function ChecklistShell({
                         onSubmit={(answers, result) =>
                             setSubmission({
                                 answers,
+                                plan: {
+                                    config: activePlan.config,
+                                    id: activePlan.id,
+                                    name: activePlan.name,
+                                },
                                 result,
                                 savedId: null,
                                 status: 'graded',
@@ -119,7 +134,7 @@ export function ChecklistShell({
                                     : s,
                             );
                         }}
-                        plan={activePlan}
+                        plan={submission.plan}
                         result={submission.result}
                         savedId={submission.savedId}
                     />
