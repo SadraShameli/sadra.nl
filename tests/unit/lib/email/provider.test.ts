@@ -10,6 +10,10 @@ import {
     ResendProvider,
 } from '~/lib/email/provider';
 
+const captured = vi.hoisted(() => ({ captureError: vi.fn() }));
+
+vi.mock('~/lib/observability/logger', () => captured);
+
 const MESSAGE: EmailSendArguments = {
     from: 'noreply@sadra.nl',
     html: '<p>Hi Jane</p>',
@@ -37,6 +41,7 @@ class RecordingProvider extends EmailProvider {
 
 afterEach(() => {
     vi.restoreAllMocks();
+    captured.captureError.mockClear();
 });
 
 describe('ResendProvider', () => {
@@ -143,5 +148,22 @@ describe('FallbackEmailProvider', () => {
         );
 
         await expect(provider.send(MESSAGE)).rejects.toBe(fallbackError);
+    });
+
+    it('reports the primary failure even when the fallback delivers', async () => {
+        const fallback = new RecordingProvider();
+        const primaryError = new Error('Lettermint token expired');
+        const provider = new FallbackEmailProvider(
+            new FailingProvider(primaryError),
+            fallback,
+        );
+
+        await provider.send(MESSAGE);
+
+        expect(fallback.sent).toEqual([MESSAGE]);
+        expect(captured.captureError).toHaveBeenCalledWith(primaryError, {
+            fields: { subject: MESSAGE.subject, to: MESSAGE.to },
+            tag: 'email.primary',
+        });
     });
 });
