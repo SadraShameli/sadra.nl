@@ -9,6 +9,7 @@ import { cache } from 'react';
 
 import { environment } from '~/environment';
 import { authAccountOptions } from '~/lib/auth/accountOptions';
+import { authAuditHooks } from '~/lib/auth/AuditTrail';
 import { authLogger } from '~/lib/auth/authLogger';
 import { authBackgroundTasks } from '~/lib/auth/backgroundTasks';
 import { authEmailAndPasswordOptions } from '~/lib/auth/emailAndPasswordOptions';
@@ -52,7 +53,10 @@ export const auth = betterAuth({
     baseURL: environment.NEXT_PUBLIC_SERVER_URL,
     database: drizzleAdapter(db, { provider: 'pg' }),
     databaseHooks: {
+        account: authAuditHooks.account,
+        session: authAuditHooks.session,
         user: {
+            ...authAuditHooks.user,
             create: {
                 after: async (createdUser) => {
                     if (createdUser.email.toLowerCase() === ROOT_EMAIL) {
