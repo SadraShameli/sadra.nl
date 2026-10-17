@@ -76,9 +76,12 @@ const ChartContainer = React.forwardRef<
 });
 ChartContainer.displayName = 'Chart';
 
+const CSS_IDENTIFIER = /^[\w-]+$/u;
+
 const ChartStyle = ({ config, id }: { config: ChartConfig; id: string }) => {
     const colorConfig = Object.entries(config).filter(
-        ([, config]) => config.theme ?? config.color,
+        ([key, config]) =>
+            CSS_IDENTIFIER.test(key) && (config.theme ?? config.color),
     );
 
     return colorConfig.length === 0 ? null : (

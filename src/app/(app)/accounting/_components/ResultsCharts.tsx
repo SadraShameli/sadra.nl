@@ -78,7 +78,7 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
             value: { label: 'EUR' },
         };
         for (const [index, row] of byCounterpart.entries()) {
-            config[row.name] = {
+            config[`counterpart-${index}`] = {
                 color: COLORS[index % COLORS.length],
                 label: row.name,
             };
