@@ -4,6 +4,7 @@ import pg from 'pg';
 
 import { environment } from '~/environment';
 
+import { databaseConnectionString, databaseTls } from './DatabaseConnection';
 import { databaseSchema } from './databaseSchema';
 
 export {
@@ -42,42 +43,19 @@ const globalForDatabase = globalThis as unknown as {
 
 const PLACEHOLDER_DB_URL = 'postgres://placeholder@localhost:5432/placeholder';
 
-function buildConnectionString(raw: string): string {
-    const url = new URL(raw);
-    url.searchParams.delete('uselibpqcompat');
-    url.searchParams.delete('sslmode');
-    return url.href;
-}
-
-function shouldUseSsl(raw: string): boolean {
-    try {
-        const url = new URL(raw);
-        const sslmode = url.searchParams.get('sslmode');
-        return (
-            sslmode !== 'disable' &&
-            !['127.0.0.1', '::1', 'localhost'].includes(url.hostname)
-        );
-    } catch {
-        return true;
-    }
-}
-
 const databaseUrl = environment.DATABASE_URL;
 const pool =
     globalForDatabase.pool ??
     new pg.Pool({
         connectionString: databaseUrl
-            ? buildConnectionString(databaseUrl)
+            ? databaseConnectionString(databaseUrl)
             : PLACEHOLDER_DB_URL,
         connectionTimeoutMillis: 5000,
         idleTimeoutMillis: 30_000,
         keepAlive: true,
         max: 20,
         maxLifetimeSeconds: 60,
-        ssl:
-            databaseUrl && shouldUseSsl(databaseUrl)
-                ? { rejectUnauthorized: false }
-                : false,
+        ssl: databaseUrl ? databaseTls(databaseUrl) : false,
         statement_timeout: 15_000,
     });
 

@@ -1,5 +1,7 @@
 import pg from 'pg';
 
+import { databaseConnectionString, databaseTls } from './DatabaseConnection';
+
 const REQUIRED_EXTENSIONS = ['pg_trgm'] as const;
 
 function readDatabaseUrl(): string {
@@ -12,23 +14,10 @@ function readDatabaseUrl(): string {
     return url;
 }
 
-function shouldUseSsl(raw: string): boolean {
-    try {
-        const url = new URL(raw);
-        const sslmode = url.searchParams.get('sslmode');
-        return (
-            sslmode !== 'disable' &&
-            !['127.0.0.1', '::1', 'localhost'].includes(url.hostname)
-        );
-    } catch {
-        return true;
-    }
-}
-
 const databaseUrl = readDatabaseUrl();
 const client = new pg.Client({
-    connectionString: databaseUrl,
-    ssl: shouldUseSsl(databaseUrl) && { rejectUnauthorized: false },
+    connectionString: databaseConnectionString(databaseUrl),
+    ssl: databaseTls(databaseUrl),
 });
 
 await client.connect();
