@@ -8,7 +8,8 @@ import { after } from 'next/server';
 import { cache } from 'react';
 
 import { environment } from '~/environment';
-import { ac, roles } from '~/lib/auth/permissions';
+import { adminPluginOptions } from '~/lib/auth/permissions';
+import { enforceRoleHierarchy } from '~/lib/auth/RoleHierarchy';
 import { ROLE, ROOT_EMAIL } from '~/lib/auth/roles';
 import {
     EmailVerificationEmail,
@@ -86,18 +87,14 @@ export const auth = betterAuth({
             await mailer.send(new EmailVerificationEmail(user.email, url));
         },
     },
+    hooks: { before: enforceRoleHierarchy },
     plugins: [
         magicLink({
             sendMagicLink: async ({ email, url }) => {
                 await mailer.send(new MagicLinkEmail(email, url));
             },
         }),
-        admin({
-            ac,
-            adminRoles: [ROLE.ADMIN, ROLE.ROOT],
-            defaultRole: ROLE.USER,
-            roles,
-        }),
+        admin(adminPluginOptions),
         nextCookies(),
     ],
     rateLimit: {
