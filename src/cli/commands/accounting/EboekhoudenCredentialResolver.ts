@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 
+import { selectCredentialRow } from '~/cli/commands/accounting/CredentialSelection';
 import { ui } from '~/cli/ui';
 import { CredentialKind } from '~/lib/accounting/credentials/registry';
 import { EBoekhoudenClient } from '~/lib/accounting/providers/eboekhouden/client';
@@ -31,31 +32,12 @@ export const EboekhoudenCredentialResolver = {
             .from(accountingCredential)
             .where(eq(accountingCredential.kind, CredentialKind.EBoekhouden));
 
-        const [onlyRow] = rows;
-        if (!onlyRow || rows.length === 0) {
-            ui.fail('No eBoekhouden credential found in the database.');
-            return null;
-        }
-
-        let row = onlyRow;
-        if (rows.length > 1) {
-            const match = credentialArgument
-                ? rows.find(
-                      (r) =>
-                          r.id === credentialArgument ||
-                          r.label.toLowerCase() ===
-                              credentialArgument.toLowerCase(),
-                  )
-                : undefined;
-            if (!match) {
-                ui.fail(
-                    'Multiple eBoekhouden credentials found; pass --credential <id|label>:',
-                );
-                for (const r of rows) ui.note(`${r.label}  (${r.id})`);
-                return null;
-            }
-            row = match;
-        }
+        const row = selectCredentialRow(
+            rows,
+            credentialArgument,
+            'eBoekhouden',
+        );
+        if (row === null) return null;
 
         if (!row.ciphertext) {
             ui.fail(`Credential "${row.label}" has no stored secret.`);

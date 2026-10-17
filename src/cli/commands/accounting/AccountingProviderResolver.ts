@@ -3,6 +3,7 @@ import { inArray } from 'drizzle-orm';
 import type { ProviderSession } from '~/lib/accounting/providers/provider';
 
 import '~/lib/accounting/providers/index';
+import { selectCredentialRow } from '~/cli/commands/accounting/CredentialSelection';
 import { ui } from '~/cli/ui';
 import {
     CredentialRegistry,
@@ -30,31 +31,8 @@ export const AccountingProviderResolver = {
             .from(accountingCredential)
             .where(inArray(accountingCredential.kind, accountingKinds));
 
-        const [onlyRow] = rows;
-        if (!onlyRow || rows.length === 0) {
-            ui.fail('No accounting credential found in the database.');
-            return null;
-        }
-
-        let row = onlyRow;
-        if (rows.length > 1) {
-            const match = credentialArgument
-                ? rows.find(
-                      (r) =>
-                          r.id === credentialArgument ||
-                          r.label.toLowerCase() ===
-                              credentialArgument.toLowerCase(),
-                  )
-                : undefined;
-            if (!match) {
-                ui.fail(
-                    'Multiple accounting credentials found; pass --credential <id|label>:',
-                );
-                for (const r of rows) ui.note(`${r.label}  (${r.id})`);
-                return null;
-            }
-            row = match;
-        }
+        const row = selectCredentialRow(rows, credentialArgument, 'accounting');
+        if (row === null) return null;
 
         if (!row.ciphertext) {
             ui.fail(`Credential "${row.label}" has no stored secret.`);
