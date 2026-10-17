@@ -38,7 +38,6 @@ export default function Navbar({ accountLink }: { accountLink: ReactNode }) {
                 </div>
 
                 <div className="flex items-center gap-x-3 text-foreground sm:gap-x-4 lg:gap-x-6">
-                    <ColorModeToggle className="app-shell__color-mode" />
                     {socialLinks.map((profile) => (
                         <Link
                             aria-label={profile.platform}
@@ -54,6 +53,8 @@ export default function Navbar({ accountLink }: { accountLink: ReactNode }) {
                     ))}
 
                     {accountLink}
+
+                    <ColorModeToggle className="app-shell__color-mode" />
                 </div>
             </div>
             <div className={'app-shell__subnav-slot'} id="navbar-subnav-slot" />
