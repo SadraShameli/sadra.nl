@@ -435,7 +435,7 @@ export default function StrategyAnalysis({
                     />
                     <div className="grid gap-6 md:grid-cols-3">
                         <div className="flex flex-col gap-3">
-                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
+                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                                 Expectancy
                             </p>
                             <Metric
@@ -500,7 +500,7 @@ export default function StrategyAnalysis({
                             />
                         </div>
                         <div className="flex flex-col gap-3">
-                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
+                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                                 Edge confidence
                             </p>
                             <Metric
@@ -547,7 +547,7 @@ export default function StrategyAnalysis({
                             )}
                         </div>
                         <div className="flex flex-col gap-3">
-                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
+                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                                 Kelly (information only)
                             </p>
                             <p className="text-[11px] text-muted-foreground">

@@ -131,7 +131,7 @@ export function HistoryStrip({
                                     <div className="flex items-baseline gap-2">
                                         <span
                                             className={cn(
-                                                'font-orbitron text-sm font-bold',
+                                                'font-serif text-sm font-medium',
                                                 gradeTextClass(row.grade),
                                             )}
                                         >

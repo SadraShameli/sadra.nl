@@ -42,6 +42,41 @@
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-ring: var(--sidebar-ring);
 
+    --color-ground: var(--ground);
+    --color-ground-alt: var(--ground-alt);
+    --color-glow: var(--glow);
+    --color-surface-sunken: var(--surface-sunken);
+    --color-surface: var(--surface);
+    --color-surface-raised: var(--surface-raised);
+    --color-surface-high: var(--surface-high);
+    --color-line-faint: var(--line-faint);
+    --color-line: var(--line);
+    --color-line-strong: var(--line-strong);
+    --color-line-hover: var(--line-hover);
+    --color-line-camel: var(--line-camel);
+    --color-grid: var(--grid);
+    --color-hatch-a: var(--hatch-a);
+    --color-hatch-b: var(--hatch-b);
+    --color-ink: var(--ink);
+    --color-ink-soft: var(--ink-soft);
+    --color-ink-nav: var(--ink-nav);
+    --color-ink-muted: var(--ink-muted);
+    --color-camel: var(--camel);
+    --color-on-camel: var(--on-camel);
+    --color-danger: var(--danger);
+    --color-on-status: var(--on-status);
+    --color-signal-open: var(--signal-open);
+    --color-signal-closed: var(--signal-closed);
+    --color-capsule: var(--capsule);
+    --color-glass: var(--glass);
+    --color-scrim: var(--scrim);
+    --color-media-black: var(--media-black);
+    --color-metal-hi: var(--metal-hi);
+    --color-metal-mid: var(--metal-mid);
+    --color-metal-lo: var(--metal-lo);
+    --color-metal-edge: var(--metal-edge);
+    --color-metal-sheen: var(--metal-sheen);
+
     --font-sans: var(--font-sans);
     --font-mono: var(--font-mono);
     --font-serif: var(--font-serif);
@@ -63,6 +98,9 @@
     --shadow-lg: var(--shadow-lg);
     --shadow-xl: var(--shadow-xl);
     --shadow-2xl: var(--shadow-2xl);
+    --shadow-float: var(--shadow-float);
+    --shadow-capsule: var(--shadow-capsule);
+    --shadow-watch: var(--shadow-watch);
 
     --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
     --tracking-tight: calc(var(--tracking-normal) - 0.025em);
@@ -73,7 +111,10 @@
 }
 
 @theme {
-    --font-orbitron: 'var(--font-orbitron)', ui-monospace, monospace;
+    --container-site: 1320px;
+    --spacing-header: 92px;
+    --container-measure: 560px;
+    --container-capsule: 770px;
 
     --breakpoint-sm: 375px;
     --breakpoint-md: 768px;
@@ -110,6 +151,41 @@
         }
     }
 
+    @keyframes bob {
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+
+    @keyframes marquee {
+        from {
+            transform: translateX(0);
+        }
+        to {
+            transform: translateX(-50%);
+        }
+    }
+
+    @keyframes rise {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
     --animate-gradient: gradient 6s ease-out infinite;
+    --animate-bob: bob 7s ease-in-out infinite;
+    --animate-bob-slow: bob 8s ease-in-out -4s infinite;
+    --animate-bob-fast: bob 6s ease-in-out -2s infinite;
+    --animate-marquee: marquee 70s linear infinite;
+    --animate-rise: rise 0.7s ease both;
     --animate-eq: eq 0.9s ease-in-out infinite;
 }

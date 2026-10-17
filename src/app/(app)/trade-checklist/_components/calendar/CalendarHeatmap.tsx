@@ -61,7 +61,7 @@ export function CalendarHeatmap({
                                             {dayNumber}
                                         </span>
                                         {cell.bestGrade && (
-                                            <span className="font-orbitron text-xs font-bold text-foreground">
+                                            <span className="font-serif text-xs font-medium text-foreground">
                                                 {cell.bestGrade}
                                             </span>
                                         )}

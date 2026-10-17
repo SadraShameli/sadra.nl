@@ -1,116 +1,177 @@
-import { type Route } from 'next';
+import { ArrowUpRight } from 'lucide-react';
 import { cacheLife } from 'next/cache';
 import Link from 'next/link';
 
-import Eyebrow from '~/components/Eyebrow';
 import { SocialIcon } from '~/components/ui/SocialIcon';
-import { siteContent } from '~/lib/site/content';
+import { homepageContent, siteContent, siteTools } from '~/lib/site/content';
+import {
+    FOOTER_SECTION_NUMBER,
+    HOME_SECTIONS,
+    homeSectionHref,
+} from '~/lib/site/homeSections';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
-type Column = {
-    heading: string;
-    links: { external?: boolean; href: Route; label: string }[];
-};
+import { EmphasisTitle } from './home/EmphasisTitle';
+import { Marquee } from './home/Marquee';
+import { NumberedEyebrow } from './home/NumberedEyebrow';
+import { Watch } from './home/Watch';
 
-const columns: Column[] = [
-    {
-        heading: 'Tools',
-        links: [
-            { href: routes.portfolio, label: 'Portfolio' },
-            { href: routes.propCalculator.index, label: 'Prop calculator' },
-            { href: routes.tradeChecklist.index, label: 'Trade checklist' },
-        ],
-    },
-    {
-        heading: 'Site',
-        links: [
-            { href: routes.contact, label: 'Contact' },
-            { href: routes.legal.privacy, label: 'Privacy' },
-            { href: routes.legal.terms, label: 'Terms' },
-        ],
-    },
-];
+const FINE_PRINT = [
+    { href: routes.legal.privacy, label: 'Privacy' },
+    { href: routes.legal.terms, label: 'Terms' },
+    { href: routes.contact, label: 'Contact' },
+] as const;
+
+const INDEX_LINK_CLASS =
+    'flex items-baseline gap-3 text-ink-soft transition-[color,padding] duration-250 hover:pl-2 hover:text-camel focus-camel motion-reduce:transition-none';
 
 export default async function Footer() {
-    const { metaDescription, navBrand, socialLinks } = siteContent;
+    const { manifest, socialLinks } = siteContent;
+    const {
+        body,
+        contactLabel,
+        directMessageLabel,
+        eyebrow,
+        heading,
+        madeBy,
+        marquee,
+    } = homepageContent.closing;
+    const instagram = socialLinks.find(
+        (profile) => profile.platform === 'instagram',
+    );
     const year = await currentYear();
 
     return (
         <footer
             className={cn(
                 'app-shell__footer',
-                'relative mt-24 border-t border-border/60 bg-linear-to-b from-background to-background/95',
+                'relative overflow-hidden border-t border-line-faint bg-radial-[ellipse_55%_60%_at_78%_34%] from-glow to-ground to-70%',
             )}
         >
-            <div
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-foreground/15 to-transparent"
-            />
-            <div className="container mx-auto px-6 pt-16 pb-8">
-                <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(2,1fr)_auto] md:gap-12">
-                    <div className="flex flex-col gap-4">
+            <div className="mx-auto flex max-w-site flex-wrap items-center justify-between gap-18 px-6 pt-24 pb-20 lg:pt-34 lg:pb-28">
+                <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-8">
+                    <NumberedEyebrow
+                        label={eyebrow}
+                        number={FOOTER_SECTION_NUMBER}
+                        ruleClassName="max-w-40"
+                    />
+                    <h2 className="m-0 type-display-closing text-ink">
+                        <EmphasisTitle heading={heading} />
+                    </h2>
+                    <p className="m-0 max-w-115 text-[19px] leading-[1.6] font-light text-pretty text-ink-muted">
+                        {body}
+                    </p>
+                    <div className="flex flex-wrap gap-3">
                         <Link
-                            className="font-orbitron text-xl font-semibold tracking-widest text-foreground transition hover:opacity-70"
-                            href={routes.home}
+                            className="inline-flex h-14.5 items-center gap-3 rounded-full bg-camel px-7 text-base font-semibold text-on-camel focus-camel"
+                            href={routes.contact}
                         >
-                            {navBrand}
+                            {contactLabel}
+                            <ArrowUpRight
+                                aria-hidden
+                                className="size-4.5"
+                                strokeWidth={1.8}
+                            />
                         </Link>
-                        <p className="text-sm text-muted-foreground md:max-w-xs">
-                            {metaDescription}.
-                        </p>
-                    </div>
-
-                    {columns.map((col) => (
-                        <nav
-                            aria-label={col.heading}
-                            className="flex flex-col gap-3"
-                            key={col.heading}
-                        >
-                            <Eyebrow as="h2">{col.heading}</Eyebrow>
-                            <ul className="flex flex-col gap-2">
-                                {col.links.map((link) => (
-                                    <li key={link.href}>
-                                        <Link
-                                            className="text-sm text-foreground transition hover:opacity-60"
-                                            href={link.href}
-                                        >
-                                            {link.label}
-                                        </Link>
-                                    </li>
-                                ))}
-                            </ul>
-                        </nav>
-                    ))}
-
-                    <div className="flex flex-col gap-3">
-                        <Eyebrow as="h2">Connect</Eyebrow>
-                        <ul className="flex items-center gap-x-3">
-                            {socialLinks.map((profile) => (
-                                <li key={`${profile.platform}-${profile.url}`}>
-                                    <Link
-                                        aria-label={profile.platform}
-                                        className="flex size-4 items-center justify-center text-foreground transition hover:opacity-60 [&_svg]:size-4"
-                                        href={profile.url}
-                                        rel="noreferrer"
-                                        target="_blank"
-                                    >
-                                        <SocialIcon
-                                            platform={profile.platform}
-                                        />
-                                    </Link>
-                                </li>
-                            ))}
-                        </ul>
+                        {instagram === undefined ? null : (
+                            <Link
+                                className="inline-flex h-14.5 items-center gap-3 rounded-full border border-line-strong px-6.5 text-base font-medium text-ink focus-camel transition-colors hover:border-line-hover hover:bg-surface-raised [&_svg]:size-4.5"
+                                href={instagram.url}
+                            >
+                                <SocialIcon platform={instagram.platform} />
+                                {directMessageLabel}
+                            </Link>
+                        )}
                     </div>
                 </div>
 
-                <div className="mt-12 border-t border-border/60 pt-6">
-                    <p className="text-sm text-muted-foreground">
-                        © {year} Sadra Shameli. All rights reserved.
-                    </p>
+                <Watch />
+            </div>
+
+            <div className="mx-auto max-w-site px-6">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] gap-12 border-t border-line py-16">
+                    <nav aria-label="Index" className="flex flex-col gap-3">
+                        <FooterHeading>Index</FooterHeading>
+                        {HOME_SECTIONS.map((section) => (
+                            <Link
+                                className={cn(
+                                    INDEX_LINK_CLASS,
+                                    'type-display-item',
+                                )}
+                                href={homeSectionHref(section.id)}
+                                key={section.id}
+                            >
+                                {section.indexLabel}
+                            </Link>
+                        ))}
+                    </nav>
+
+                    <nav aria-label="Tools" className="flex flex-col gap-3">
+                        <FooterHeading>The desk</FooterHeading>
+                        {siteTools.map((tool) => (
+                            <Link
+                                className={cn(
+                                    INDEX_LINK_CLASS,
+                                    'font-serif text-2xl italic',
+                                )}
+                                href={tool.href}
+                                key={tool.ticker}
+                            >
+                                {tool.shortTitle}
+                            </Link>
+                        ))}
+                    </nav>
+
+                    <nav aria-label="Elsewhere" className="flex flex-col gap-3">
+                        <FooterHeading>Elsewhere</FooterHeading>
+                        {socialLinks.map((profile) => (
+                            <Link
+                                className={cn(
+                                    INDEX_LINK_CLASS,
+                                    'flex-col gap-0.5',
+                                )}
+                                href={profile.url}
+                                key={profile.url}
+                                rel="noreferrer"
+                                target="_blank"
+                            >
+                                {profile.title}
+                            </Link>
+                        ))}
+                    </nav>
+
+                    <div className="flex flex-col gap-8">
+                        <nav
+                            aria-label="Fine print"
+                            className="flex flex-col gap-3"
+                        >
+                            <FooterHeading>Fine print</FooterHeading>
+                            {FINE_PRINT.map((link) => (
+                                <Link
+                                    className={cn(
+                                        INDEX_LINK_CLASS,
+                                        'text-base font-light',
+                                    )}
+                                    href={link.href}
+                                    key={link.href}
+                                >
+                                    {link.label}
+                                </Link>
+                            ))}
+                        </nav>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line-faint pt-6 pb-10 type-micro text-ink-muted">
+                    <span>
+                        © {year} {manifest.name}
+                    </span>
+                    <span>{madeBy}</span>
                 </div>
             </div>
+
+            <Marquee words={marquee} />
         </footer>
     );
 }
@@ -119,4 +180,8 @@ async function currentYear(): Promise<number> {
     'use cache';
     cacheLife('days');
     return new Date().getFullYear();
+}
+
+function FooterHeading({ children }: { readonly children: string }) {
+    return <span className="mb-2 type-micro text-ink-muted">{children}</span>;
 }

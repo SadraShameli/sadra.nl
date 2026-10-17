@@ -84,10 +84,13 @@ function RouteSubnavPortal({
                     return (
                         <Button
                             asChild
-                            className="relative h-auto shrink-0 gap-2 px-3 py-1.5 text-xs font-medium tracking-wide whitespace-nowrap"
+                            className={cn(
+                                'relative h-auto shrink-0 gap-2 px-3 py-1.5 text-xs font-medium tracking-wide whitespace-nowrap',
+                                isActive && 'selected-pill',
+                            )}
                             key={subnavItemKey(item)}
                             size="sm"
-                            variant={isActive ? 'secondary' : 'ghost'}
+                            variant="ghost"
                         >
                             <Link
                                 {...attributes}

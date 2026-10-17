@@ -30,7 +30,7 @@ export {
 } from './schemas/lifting';
 export { notificationPreference } from './schemas/notification';
 export { rateLimitBucket } from './schemas/observability';
-export { userTheme } from './schemas/theme';
+export { siteShowcase } from './schemas/site';
 export {
     dailyPreparations,
     tradeAssessments,

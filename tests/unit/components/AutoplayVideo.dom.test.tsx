@@ -56,7 +56,7 @@ describe('AutoplayVideo', () => {
             root.render(
                 <Activity mode={mode}>
                     <AutoplayVideo
-                        video={homepageContent.recordingDecorVideo}
+                        video={homepageContent.recordings.decorVideo}
                     />
                 </Activity>,
             );
@@ -91,7 +91,7 @@ describe('AutoplayVideo', () => {
         renderIn('visible');
         const video = container.querySelector('video');
         expect(video?.getAttribute('poster')).toBe(
-            homepageContent.recordingDecorVideo.poster,
+            homepageContent.recordings.decorVideo.poster,
         );
         expect(video?.getAttribute('preload')).toBe('none');
         expect(play).not.toHaveBeenCalled();

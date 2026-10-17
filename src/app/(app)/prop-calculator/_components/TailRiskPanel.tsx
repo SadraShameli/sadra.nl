@@ -132,7 +132,7 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
                 </div>
 
                 <div>
-                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
+                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                         Loss probability
                     </p>
                     <TailRiskTable

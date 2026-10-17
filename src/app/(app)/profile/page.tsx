@@ -16,8 +16,8 @@ import { account, db } from '~/server/db';
 import { api, HydrateClient } from '~/trpc/server';
 
 import { AccountManagement } from './_components/AccountManagement';
-import { AppearanceTab } from './_components/appearance/AppearanceTab';
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
+import { HeroShowcaseForm } from './_components/HeroShowcaseForm';
 import { LiftingHub } from './_components/lifting/LiftingHub';
 import { ProfileNav } from './_components/ProfileNav';
 import { ProfileSkeleton } from './_components/ProfileSkeleton';
@@ -39,7 +39,6 @@ export const metadata: Metadata = {
 
 const TAB_TITLES: Record<ProfileTabValue, string> = {
     account: 'Account',
-    appearance: 'Appearance',
     lifting: 'Lifting',
     'sensor-hub': 'Sensor Hub',
     trading: 'Trading',
@@ -106,6 +105,7 @@ async function ProfileContent({
     const { email, name } = user;
     const role = resolveRole(email, user.role);
     const isUserIsRoot = isRoot(role);
+    const heroShowcase = isUserIsRoot ? await api.site.heroShowcase() : null;
     const activeTab = normalizeProfileTab(rawParameters.tab, isAdmin);
 
     const accountTab: ReactNode = (
@@ -162,6 +162,17 @@ async function ProfileContent({
                 </Card>
             </div>
 
+            {isUserIsRoot && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Homepage figures</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <HeroShowcaseForm initial={heroShowcase} />
+                    </CardContent>
+                </Card>
+            )}
+
             <Card>
                 <CardHeader>
                     <CardTitle>Active sessions</CardTitle>
@@ -183,7 +194,7 @@ async function ProfileContent({
                             <p className="text-sm font-medium text-destructive">
                                 Delete account
                             </p>
-                            <p className="mt-0.5 text-xs text-foreground/50">
+                            <p className="mt-0.5 text-xs text-muted-foreground">
                                 Permanently remove your account and all data.
                             </p>
                         </div>
@@ -197,18 +208,6 @@ async function ProfileContent({
     let content: ReactNode = accountTab;
     switch (activeTab) {
         case 'account': {
-            break;
-        }
-        case 'appearance': {
-            await Promise.all([
-                api.user.theme.current.prefetch(),
-                api.user.theme.catalog.prefetch({
-                    page: 1,
-                    search: '',
-                    source: null,
-                }),
-            ]);
-            content = <AppearanceTab />;
             break;
         }
         case 'lifting': {

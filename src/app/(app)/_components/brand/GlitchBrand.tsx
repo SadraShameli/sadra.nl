@@ -16,7 +16,7 @@ interface Properties {
 }
 
 export default function GlitchBrand({
-    className = 'font-orbitron text-lg font-semibold tracking-widest text-foreground',
+    className = 'font-serif text-lg font-medium tracking-widest text-foreground',
     href = '/',
     text,
     trigger = 0,

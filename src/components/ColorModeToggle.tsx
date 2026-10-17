@@ -15,17 +15,14 @@ export function ColorModeToggle({
     return (
         <button
             aria-label="Toggle light and dark mode"
-            className={cn(
-                'flex size-5 items-center justify-center transition hover:opacity-50',
-                className,
-            )}
+            className={cn('flex items-center justify-center', className)}
             onClick={() => {
                 setTheme(oppositeColorMode(parseColorMode(resolvedTheme)));
             }}
             type="button"
         >
-            <Sun aria-hidden className="hidden size-5 dark:block" />
-            <Moon aria-hidden className="size-5 dark:hidden" />
+            <Sun aria-hidden className="hidden dark:block" strokeWidth={1.6} />
+            <Moon aria-hidden className="dark:hidden" strokeWidth={1.6} />
         </button>
     );
 }

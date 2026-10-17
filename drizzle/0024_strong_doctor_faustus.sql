@@ -1,0 +1,1 @@
+ALTER TABLE "sadranl_site_showcase" ADD COLUMN "total_profit_and_loss_cents" integer DEFAULT 0 NOT NULL;

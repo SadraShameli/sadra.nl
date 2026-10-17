@@ -52,9 +52,7 @@ export function AssessmentDetailDialog({
             >
                 <DialogHeader>
                     <DialogTitle className="flex items-baseline gap-3">
-                        <span className="font-orbitron text-3xl">
-                            {row.grade}
-                        </span>
+                        <span className="font-serif text-3xl">{row.grade}</span>
                         <span className="font-mono text-sm text-muted-foreground">
                             {row.score.toFixed(1)} / 100
                         </span>

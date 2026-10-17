@@ -91,7 +91,7 @@ export default function PortfolioEntry({
                             <span className="inline-flex items-center gap-2 text-base text-foreground/80">
                                 <span
                                     aria-hidden="true"
-                                    className="text-muted-foreground/50"
+                                    className="text-muted-foreground"
                                 >
                                     /
                                 </span>

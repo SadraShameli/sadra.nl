@@ -3,6 +3,8 @@
 import { type DateRange } from 'react-day-picker';
 
 import { DateRangePicker } from '~/components/ui/DatePicker';
+import { FILTER_CONTROL_CLASS } from '~/components/ui/filterControl';
+import { cn } from '~/lib/utilities';
 
 export type FilterDateRangeProperties = {
     align?: 'center' | 'end' | 'start';
@@ -27,7 +29,7 @@ export function FilterDateRange({
         <DateRangePicker
             align={align}
             aria-label={label}
-            className="h-8 w-full text-xs md:w-auto"
+            className={cn(FILTER_CONTROL_CLASS, 'w-full md:w-auto')}
             maxDate={maxDate}
             minDate={minDate}
             onChange={onChange}

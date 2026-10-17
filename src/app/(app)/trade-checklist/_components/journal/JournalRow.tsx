@@ -34,7 +34,7 @@ export function JournalRowBody({ row }: { row: JournalRowData }) {
         <div className="flex items-start gap-3">
             <div className="flex w-14 flex-col items-center">
                 <span
-                    className={`font-orbitron text-lg font-bold ${gradeTextClass(row.grade)}`}
+                    className={`font-serif text-lg font-medium ${gradeTextClass(row.grade)}`}
                 >
                     {row.grade}
                 </span>

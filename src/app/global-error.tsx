@@ -9,7 +9,7 @@ import { useEffect } from 'react';
 import { type SectionErrorProperties } from '~/components/SectionError';
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
-import { jetBrainsMono, orbitron, plusJakartaSans } from '~/fonts';
+import { bodoniModa, hankenGrotesk, jetBrainsMono } from '~/fonts';
 import { cn } from '~/lib/utilities';
 
 export default function GlobalError({ error, retry }: SectionErrorProperties) {
@@ -21,7 +21,8 @@ export default function GlobalError({ error, retry }: SectionErrorProperties) {
         <html
             className={cn(
                 'dark antialiased',
-                plusJakartaSans.variable,
+                bodoniModa.variable,
+                hankenGrotesk.variable,
                 jetBrainsMono.variable,
             )}
             lang="en"
@@ -30,13 +31,12 @@ export default function GlobalError({ error, retry }: SectionErrorProperties) {
                 className={cn(
                     'app-global-error',
                     'flex min-h-screen flex-col bg-background text-foreground',
-                    orbitron.variable,
                 )}
             >
                 <title>Something went wrong</title>
                 <main className="flex flex-1 items-center justify-center px-6 py-16">
                     <Card className="w-full max-w-xl items-center gap-0 px-8 py-12 text-center">
-                        <h1 className="font-orbitron text-3xl font-bold tracking-tight text-foreground">
+                        <h1 className="font-serif text-3xl font-medium tracking-tight text-foreground">
                             Something went wrong
                         </h1>
                         <p className="mt-3 max-w-md text-sm text-muted-foreground">

@@ -4,6 +4,7 @@ import { scrubQueryParameters } from '~/lib/observability/QueryParameters';
 import { sentryBaseOptions } from '~/lib/observability/SentryOptions';
 
 export async function register(): Promise<void> {
+    if (process.env.NEXT_RUNTIME === 'nodejs') await import('zod/compile');
     if (!process.env.SENTRY_DSN) return;
 
     const common = {

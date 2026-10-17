@@ -32,7 +32,7 @@ export default function PortfolioHero({
             <h1
                 className={cn(
                     'app-portfolio__hero-name',
-                    'font-orbitron text-[2.25rem] leading-[1.05] font-semibold tracking-tight text-foreground sm:text-[2.75rem] lg:text-[3rem]',
+                    'font-serif text-[2.25rem] leading-[1.05] font-medium tracking-tight text-foreground sm:text-[2.75rem] lg:text-[3rem]',
                 )}
             >
                 Portfolio

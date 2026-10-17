@@ -17,6 +17,7 @@ type AreaChartNewProperties = {
     tooltip: {
         labelKey: string;
         nameKey: string;
+        valueFormatter?: (value: number) => string;
     };
     xAxis: {
         dataKey: string;
@@ -36,13 +37,13 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
                     <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
                         <stop
                             offset="5%"
-                            stopColor="var(--muted-foreground)"
-                            stopOpacity={0.2}
+                            stopColor="var(--chart-1)"
+                            stopOpacity={0.28}
                         />
 
                         <stop
                             offset="95%"
-                            stopColor="var(--muted-foreground)"
+                            stopColor="var(--chart-1)"
                             stopOpacity={0}
                         />
                     </linearGradient>
@@ -59,13 +60,15 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
                     axisLine={false}
                     tickFormatter={properties.yAxis.tickFormatter}
                     tickLine={false}
+                    width="auto"
                 />
 
                 <Area
                     dataKey={properties.area.dataKey}
                     fill={`url(#${id})`}
                     fillOpacity={1}
-                    stroke="var(--muted-foreground)"
+                    stroke="var(--chart-1)"
+                    strokeWidth={1.6}
                     type="monotone"
                 />
 
@@ -75,8 +78,10 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
                             indicator="line"
                             labelKey={properties.tooltip.labelKey}
                             nameKey={properties.tooltip.nameKey}
+                            valueFormatter={properties.tooltip.valueFormatter}
                         />
                     }
+                    cursor={{ stroke: 'var(--line-strong)', strokeWidth: 1 }}
                 />
             </AreaChart>
         </ChartContainer>

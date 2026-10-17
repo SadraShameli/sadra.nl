@@ -1,5 +1,6 @@
 'use client';
 
+import { FILTER_CONTROL_CLASS } from '~/components/ui/filterControl';
 import {
     Select,
     SelectContent,
@@ -7,6 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/Select';
+import { cn } from '~/lib/utilities';
 
 export type ToolbarSelectOption = {
     disabled?: boolean;
@@ -35,7 +37,10 @@ export function ToolbarSelect({
         <Select disabled={disabled} onValueChange={onValueChange} value={value}>
             <SelectTrigger
                 aria-label={label}
-                className="h-8 w-full shrink-0 text-xs md:w-auto md:max-w-64 md:min-w-40"
+                className={cn(
+                    FILTER_CONTROL_CLASS,
+                    'w-full shrink-0 md:w-auto md:max-w-64 md:min-w-40',
+                )}
                 id={id}
             >
                 <SelectValue />

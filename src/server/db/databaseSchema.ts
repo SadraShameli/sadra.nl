@@ -7,7 +7,7 @@ import * as mainSchema from './schemas/main';
 import * as notificationSchema from './schemas/notification';
 import * as observabilitySchema from './schemas/observability';
 import * as propSchema from './schemas/prop';
-import * as themeSchema from './schemas/theme';
+import * as siteSchema from './schemas/site';
 import * as tradingSchema from './schemas/trading';
 
 export const databaseSchema = {
@@ -20,6 +20,6 @@ export const databaseSchema = {
     ...accountingSchema,
     ...liftingSchema,
     ...propSchema,
-    ...themeSchema,
+    ...siteSchema,
     ...relationsModule,
 };

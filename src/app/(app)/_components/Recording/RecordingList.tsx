@@ -40,19 +40,17 @@ export function RecordingList({
         <div
             className={cn(
                 'app-recording__list',
-                'grid h-[27vh] grid-rows-[auto_1fr] gap-3 lg:h-[25vh]',
+                'grid max-h-52 grid-rows-[auto_minmax(0,1fr)] gap-3',
             )}
         >
             <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-medium tracking-[0.2em] text-muted-foreground/70 uppercase">
-                    Up Next
-                </p>
+                <p className="m-0 type-micro text-ink-muted">Up next</p>
                 <div className="relative w-40 sm:w-48">
-                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3 -translate-y-1/2 text-muted-foreground/70" />
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3 -translate-y-1/2 text-muted-foreground" />
                     <input
                         className={cn(
                             'app-recording__list-search',
-                            'w-full rounded-full bg-foreground/4 py-1.5 pr-3 pl-7 text-xs text-foreground transition outline-none placeholder:text-muted-foreground/70 focus:bg-foreground/8 disabled:cursor-not-allowed disabled:opacity-40',
+                            'w-full rounded-full bg-foreground/4 py-1.5 pr-3 pl-7 text-xs text-foreground transition outline-none placeholder:text-muted-foreground focus:bg-foreground/8 disabled:cursor-not-allowed disabled:opacity-40',
                         )}
                         disabled={!recordings?.length}
                         onChange={(event) => setSearchQuery(event.target.value)}
@@ -134,7 +132,7 @@ export function RecordingList({
                                                         'shrink-0 text-xs tabular-nums',
                                                         isCurrent
                                                             ? 'text-foreground/80'
-                                                            : 'text-muted-foreground/70',
+                                                            : 'text-muted-foreground',
                                                     )}
                                                 >
                                                     {DurationFormat.seconds(

@@ -1,6 +1,5 @@
+import type { Route } from 'next';
 import type { StaticImageData } from 'next/image';
-
-import type { GalleryItem } from '~/app/(app)/_components/GallerySection';
 
 import BSPImage from '~/assets/images/bsp.jpeg';
 import DiplomaImage from '~/assets/images/diploma.jpg';
@@ -11,10 +10,48 @@ import SpainPoolImage from '~/assets/images/gallery/spain-pool.jpg';
 import MinomarktImage from '~/assets/images/minomarkt.jpeg';
 import NobearsImage from '~/assets/images/nobears.jpg';
 import ProjectAIImage from '~/assets/images/projectai.jpg';
-import SadraImage from '~/assets/images/sadra.jpg';
 import SensorHubImage from '~/assets/images/units.jpg';
 
+import { routes } from './routes';
+
+export enum HeroMode {
+    Developer = 'developer',
+    Trader = 'trader',
+}
+
+export enum SensorMetric {
+    Humidity = 'humidity',
+    Loudness = 'loudness',
+    Temperature = 'temperature',
+}
+
+export enum ToolTicker {
+    Checklist = '$CHKL',
+    Lifting = '$LIFT',
+    Portfolio = '$PORT',
+    PropCalculator = '$PROP',
+}
+
+export interface CaptionedPhoto {
+    readonly alt: string;
+    readonly caption: string;
+    readonly image: StaticImageData;
+    readonly tag: string;
+}
+
+export interface EmphasisHeading {
+    readonly after?: string;
+    readonly before?: string;
+    readonly emphasis: string;
+    readonly stacked?: boolean;
+}
+
 export type ExternalUrl = `https://${string}`;
+
+export interface HeroModeCopy {
+    readonly punctuation: string;
+    readonly word: string;
+}
 
 export interface LoopingVideo {
     readonly poster: string;
@@ -33,21 +70,73 @@ export type PortfolioSectionView = {
     url?: ExternalUrl | null;
 };
 
+export interface SensorMetricCopy {
+    readonly label: string;
+    readonly metric: SensorMetric;
+    readonly unit: string;
+}
+
+export interface SiteTool {
+    readonly description: string;
+    readonly href: Route;
+    readonly shortTitle: string;
+    readonly sparkline: string;
+    readonly ticker: ToolTicker;
+    readonly title: string;
+}
+
 type HomepageData = {
-    aboutSectionTitle: string;
-    ctaLabel: string;
-    gallery: GalleryItem[];
-    heroImage: StaticImageData;
-    heroSubtitle: string;
-    heroTitle: string;
-    readingsDescription: string;
-    readingsTitle: string;
-    recordingDecorVideo: LoopingVideo;
-    recordingsDescription: string;
-    recordingsTitle: string;
-    sensorHubDescription: string;
-    sensorHubTitle: string;
-    sensorHubVideo: LoopingVideo;
+    readonly about: {
+        readonly gallery: readonly CaptionedPhoto[];
+        readonly heading: EmphasisHeading;
+        readonly spotifyEmbedUrl: ExternalUrl;
+        readonly spotifyLabel: string;
+    };
+    readonly closing: {
+        readonly body: string;
+        readonly contactLabel: string;
+        readonly directMessageLabel: string;
+        readonly eyebrow: string;
+        readonly heading: EmphasisHeading;
+        readonly madeBy: string;
+        readonly marquee: readonly string[];
+    };
+    readonly hero: {
+        readonly garage: {
+            readonly alt: string;
+            readonly caption: string;
+            readonly tag: string;
+        };
+        readonly modes: Readonly<Record<HeroMode, HeroModeCopy>>;
+        readonly payout: {
+            readonly date: string;
+            readonly firm: string;
+        };
+        readonly profitAndLoss: {
+            readonly label: string;
+        };
+    };
+    readonly live: {
+        readonly body: string;
+        readonly heading: EmphasisHeading;
+    };
+    readonly recordings: {
+        readonly body: string;
+        readonly decorChip: string;
+        readonly decorVideo: LoopingVideo;
+        readonly heading: EmphasisHeading;
+    };
+    readonly sensorHub: {
+        readonly body: string;
+        readonly heading: EmphasisHeading;
+        readonly linkLabel: string;
+        readonly metrics: readonly SensorMetricCopy[];
+        readonly video: LoopingVideo;
+        readonly videoChip: string;
+    };
+    readonly tools: {
+        readonly heading: EmphasisHeading;
+    };
 };
 
 type PortfolioData = {
@@ -67,9 +156,12 @@ type SiteData = {
     manifest: SiteManifest;
     metaDescription: string;
     metaTitle: string;
-    navBrand: string;
     profiles: SocialProfile[];
-    socialLinks: { platform: string; url: ExternalUrl }[];
+    socialLinks: {
+        platform: string;
+        title: string;
+        url: ExternalUrl;
+    }[];
 };
 
 type SiteManifest = {
@@ -93,7 +185,6 @@ export const siteContent: SiteData = {
     },
     metaDescription: 'Daytrader, developer',
     metaTitle: 'Sadra Shameli',
-    navBrand: 'sadra',
     profiles: [
         {
             platform: 'youtube',
@@ -117,39 +208,160 @@ export const siteContent: SiteData = {
         },
     ],
     socialLinks: [
-        { platform: 'instagram', url: 'https://instagram.com/sadra_shml' },
-        { platform: 'youtube', url: 'https://youtube.com/@sadrashameli' },
+        {
+            platform: 'instagram',
+            title: 'Instagram',
+            url: 'https://instagram.com/sadra_shml',
+        },
+        {
+            platform: 'youtube',
+            title: 'YouTube',
+            url: 'https://youtube.com/@sadrashameli',
+        },
     ],
 };
 
-export const homepageContent: HomepageData = {
-    aboutSectionTitle: 'More about me',
-    ctaLabel: 'Portfolio',
-    gallery: [
-        { alt: 'Spain Pool', src: SpainPoolImage.src },
-        { alt: 'Spain Church', src: SpainChurchImage.src },
-        { alt: 'Porsche', src: PorscheImage.src },
-        { alt: 'PC Setup', src: SetupImage.src },
-    ] as GalleryItem[],
-    heroImage: SadraImage,
-    heroSubtitle: 'Daytrader, developer',
-    heroTitle: 'Sadra Shameli',
-    readingsDescription:
-        'Ever been curious about the temperature, humidity and loudness levels at various locations in real time?',
-    readingsTitle: 'Live readings',
-    recordingDecorVideo: {
-        poster: '/headphone-poster.jpg',
-        src: '/headphone.mp4',
+export const siteTools: readonly SiteTool[] = [
+    {
+        description: 'Run the numbers on a challenge before you pay for it.',
+        href: routes.propCalculator.index,
+        shortTitle: 'Prop calculator',
+        sparkline: '0,38 20,34 40,36 60,26 80,30 100,18 120,22 140,12 160,8',
+        ticker: ToolTicker.PropCalculator,
+        title: 'Prop firm calculator',
     },
-    recordingsDescription:
-        'Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands.',
-    recordingsTitle: 'Noise recordings',
-    sensorHubDescription:
-        'Devices made by me, designed to record and register various climate telemetry and noise pollution data.',
-    sensorHubTitle: 'This is Sensor Hub',
-    sensorHubVideo: {
-        poster: '/sensorUnit-poster.png',
-        src: '/sensorUnit.mp4',
+    {
+        description:
+            'Every rule ticked off before an entry. No checklist, no trade.',
+        href: routes.tradeChecklist.index,
+        shortTitle: 'Trade checklist',
+        sparkline: '0,30 20,28 40,30 60,24 80,24 100,20 120,18 140,16 160,14',
+        ticker: ToolTicker.Checklist,
+        title: 'Trade checklist',
+    },
+    {
+        description:
+            'Sets, reps and progress from the gym, logged in one place.',
+        href: routes.lifting.index,
+        shortTitle: 'Lifting tracker',
+        sparkline: '0,42 20,40 40,36 60,36 80,28 100,26 120,18 140,16 160,6',
+        ticker: ToolTicker.Lifting,
+        title: 'Lifting tracker',
+    },
+    {
+        description: 'My trading portfolio, laid out in the open.',
+        href: routes.portfolio,
+        shortTitle: 'Portfolio',
+        sparkline: '0,20 20,30 40,24 60,34 80,22 100,26 120,14 140,20 160,10',
+        ticker: ToolTicker.Portfolio,
+        title: 'Portfolio',
+    },
+];
+
+export const homepageContent: HomepageData = {
+    about: {
+        gallery: [
+            {
+                alt: 'A pool in Spain',
+                caption: 'The pool',
+                image: SpainPoolImage,
+                tag: 'Spain',
+            },
+            {
+                alt: 'A church in Spain',
+                caption: 'The church',
+                image: SpainChurchImage,
+                tag: 'Spain',
+            },
+            {
+                alt: 'The Porsche in the garage',
+                caption: 'The Porsche',
+                image: PorscheImage,
+                tag: 'Garage',
+            },
+            {
+                alt: 'The desk setup with trading screens',
+                caption: 'The setup',
+                image: SetupImage,
+                tag: 'Desk',
+            },
+        ],
+        heading: { before: 'More', emphasis: 'about me.' },
+        spotifyEmbedUrl:
+            'https://open.spotify.com/embed/track/74Jja0PIrdXE0aK0a6hxPN?utm_source=generator&theme=0',
+        spotifyLabel: 'On repeat',
+    },
+    closing: {
+        body: 'Markets keep hours. I don’t. A question about a tool, a spot for a Sensor Hub, or just something to say.',
+        contactLabel: 'Get in touch',
+        directMessageLabel: 'Send a DM',
+        eyebrow: 'After the bell',
+        heading: { before: 'Let’s', emphasis: 'talk.', stacked: true },
+        madeBy: 'Designed and built by hand in the Netherlands',
+        marquee: ['Daytrader', 'Developer'],
+    },
+    hero: {
+        garage: {
+            alt: 'A line drawing of a modern hypercar under a spotlight',
+            caption: 'The garage',
+            tag: 'No. 01',
+        },
+        modes: {
+            [HeroMode.Developer]: {
+                punctuation: '.',
+                word: 'developer',
+            },
+            [HeroMode.Trader]: {
+                punctuation: ',',
+                word: 'Daytrader',
+            },
+        },
+        payout: {
+            date: '[ Date ]',
+            firm: '[ Prop firm ]',
+        },
+        profitAndLoss: {
+            label: 'Today’s P&L',
+        },
+    },
+    live: {
+        body: 'Ever been curious about the temperature, humidity and loudness at different spots in real time?',
+        heading: { before: 'Live', emphasis: 'readings' },
+    },
+    recordings: {
+        body: 'Recorded by Sensor Hub devices placed at locations across the Netherlands. Put your headphones on.',
+        decorChip: 'Headphones on',
+        decorVideo: {
+            poster: '/headphone-poster.jpg',
+            src: '/headphone.mp4',
+        },
+        heading: { before: 'Noise', emphasis: 'recordings.', stacked: true },
+    },
+    sensorHub: {
+        body: 'Devices made by me, designed to record and register climate telemetry and noise pollution data.',
+        heading: { before: 'This is', emphasis: 'Sensor Hub.', stacked: true },
+        linkLabel: 'See the live readings',
+        metrics: [
+            {
+                label: 'Temperature',
+                metric: SensorMetric.Temperature,
+                unit: '°C',
+            },
+            { label: 'Humidity', metric: SensorMetric.Humidity, unit: '%RH' },
+            { label: 'Loudness', metric: SensorMetric.Loudness, unit: 'dB' },
+        ],
+        video: {
+            poster: '/sensorUnit-poster.png',
+            src: '/sensorUnit.mp4',
+        },
+        videoChip: 'Unit 01 · Handmade',
+    },
+    tools: {
+        heading: {
+            after: 'them.',
+            before: 'Tools I built because I',
+            emphasis: 'needed',
+        },
     },
 };
 

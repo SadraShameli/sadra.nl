@@ -1,18 +1,25 @@
-import { ArrowUpRight } from 'lucide-react';
 import { type Metadata } from 'next';
-import Image from 'next/image';
 import { Suspense } from 'react';
 
-import { AutoplayVideo } from '~/components/AutoplayVideo';
 import { PageTransition } from '~/components/PageTransition';
-import SectionDescription from '~/components/SectionDescription';
-import SectionTitle from '~/components/SectionTitle';
-import { Badge } from '~/components/ui/Badge';
 import { homepageContent, siteContent } from '~/lib/site/content';
+import { HomeSectionId } from '~/lib/site/homeSections';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
-import AboutSection from './_components/About';
+import { AboutSection } from './_components/home/AboutSection';
+import { SectionHeading } from './_components/home/EmphasisTitle';
+import { HeroIntro } from './_components/home/HeroIntro';
+import {
+    HomeSectionShell,
+    SectionTone,
+} from './_components/home/HomeSectionShell';
+import {
+    OwnerHeroCollage,
+    PlaceholderHeroCollage,
+} from './_components/home/OwnerHeroCollage';
+import { SensorHubSection } from './_components/home/SensorHubSection';
+import { ToolsWatchlist } from './_components/home/ToolsWatchlist';
 import ReadingSection from './_components/Reading/Reading';
 import ReadingSkeleton from './_components/Reading/ReadingSkeleton';
 import RecordingSection from './_components/Recording/Recording';
@@ -38,131 +45,71 @@ export const metadata: Metadata = {
 export const ensureStatic = 'prefetch';
 
 export default function HomePage() {
-    const { gallery, heroImage } = homepageContent;
+    const { live, recordings, tools } = homepageContent;
     return (
         <PageTransition>
             <main className={'app-home'}>
                 <section
                     className={cn(
                         'app-home__hero',
-                        'container pt-spacing lg:-mt-17 lg:grid lg:h-screen lg:grid-cols-2 lg:items-center lg:gap-20',
+                        'relative overflow-hidden glow-corner lg:-mt-header',
                     )}
                 >
-                    <Image
-                        alt="Sadra Shameli - daytrader and developer"
-                        className={cn(
-                            'app-home__hero-image',
-                            'aspect-square rounded-2xl object-cover',
-                        )}
-                        height={800}
-                        preload
-                        src={heroImage}
-                        width={800}
-                    />
-
-                    <div className="flex flex-col pt-spacing-inner lg:mt-0">
-                        <h1 className="font-orbitron text-5xl font-semibold text-foreground sm:text-6xl lg:text-8xl lg:font-bold">
-                            {homepageContent.heroTitle}
-                        </h1>
-
-                        <p className="mt-5 bg-gradient-neutral-anim text-lg font-semibold lg:mt-5 lg:text-xl">
-                            {homepageContent.heroSubtitle}
-                        </p>
-
-                        <div className="mt-18 flex flex-col items-start gap-1">
-                            <HeroToolChip
-                                href={routes.portfolio}
-                                label={homepageContent.ctaLabel}
-                            />
-                            <HeroToolChip
-                                href={routes.propCalculator.index}
-                                label="Prop firm calculator"
-                            />
-                            <HeroToolChip
-                                href={routes.tradeChecklist.index}
-                                label="Trade checklist"
-                            />
-                            <HeroToolChip
-                                href={routes.lifting.index}
-                                label="Lifting tracker"
-                            />
-                        </div>
+                    <div className="relative mx-auto flex max-w-site flex-wrap items-center gap-14 px-6 pt-12 pb-20 lg:pt-37 lg:pb-32">
+                        <HeroIntro />
+                        <Suspense fallback={<PlaceholderHeroCollage />}>
+                            <OwnerHeroCollage />
+                        </Suspense>
                     </div>
                 </section>
 
-                <section
-                    className={cn(
-                        'app-home__sensor-hub',
-                        'container py-spacing',
-                    )}
+                <HomeSectionShell
+                    id={HomeSectionId.Tools}
+                    tone={SectionTone.Alternate}
                 >
-                    <SectionTitle text={homepageContent.sensorHubTitle} />
-
-                    <SectionDescription
-                        text={homepageContent.sensorHubDescription}
+                    <SectionHeading
+                        className="max-w-205 text-[clamp(42px,5.6vw,80px)] leading-none"
+                        heading={tools.heading}
                     />
+                    <ToolsWatchlist />
+                </HomeSectionShell>
 
-                    <AutoplayVideo
-                        className={cn(
-                            'app-home__sensor-hub-video',
-                            'rounded-2xl pt-spacing-inner',
-                        )}
-                        video={homepageContent.sensorHubVideo}
-                    />
-                </section>
+                <SensorHubSection />
 
-                <section
-                    className={cn(
-                        'app-home__recordings',
-                        'container py-spacing',
-                    )}
+                <HomeSectionShell
+                    className="gap-10"
+                    id={HomeSectionId.Live}
+                    tone={SectionTone.Ground}
                 >
-                    <SectionTitle text={homepageContent.recordingsTitle} />
-                    <SectionDescription
-                        text={homepageContent.recordingsDescription}
-                    />
-                    <RecordingSection
-                        decorVideo={homepageContent.recordingDecorVideo}
-                    />
-                </section>
-
-                <section
-                    className={cn('app-home__readings', 'container py-spacing')}
-                >
-                    <SectionTitle text={homepageContent.readingsTitle} />
-                    <SectionDescription
-                        text={homepageContent.readingsDescription}
-                    />
+                    <div className="flex flex-wrap items-end justify-between gap-6">
+                        <SectionHeading heading={live.heading} />
+                        <p className="m-0 max-w-110 type-body text-ink-muted">
+                            {live.body}
+                        </p>
+                    </div>
                     <Suspense fallback={<ReadingSkeleton />}>
                         <ReadingSection />
                     </Suspense>
-                </section>
+                </HomeSectionShell>
 
-                <section
-                    className={cn('app-home__about', 'container pt-spacing')}
+                <HomeSectionShell
+                    id={HomeSectionId.Recordings}
+                    tone={SectionTone.Alternate}
                 >
-                    <SectionTitle text={homepageContent.aboutSectionTitle} />
-                    <AboutSection gallery={gallery} />
-                </section>
+                    <div className="flex flex-wrap items-end justify-between gap-6">
+                        <SectionHeading heading={recordings.heading} />
+                        <p className="m-0 max-w-110 type-body text-ink-muted">
+                            {recordings.body}
+                        </p>
+                    </div>
+                    <RecordingSection
+                        decorChip={recordings.decorChip}
+                        decorVideo={recordings.decorVideo}
+                    />
+                </HomeSectionShell>
+
+                <AboutSection />
             </main>
         </PageTransition>
-    );
-}
-
-function HeroToolChip({ href, label }: { href: string; label: string }) {
-    return (
-        <Badge
-            asChild
-            className={cn(
-                'app-home__cta-link',
-                'group gap-1 border-border bg-transparent px-3 py-1 text-xs font-medium text-muted-foreground transition hover:border-foreground/25 hover:bg-foreground/4 hover:text-foreground',
-            )}
-            variant="outline"
-        >
-            <a href={href}>
-                <span>{label}</span>
-                <ArrowUpRight className="size-3 shrink-0 text-muted-foreground/70 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground" />
-            </a>
-        </Badge>
     );
 }

@@ -26,7 +26,7 @@ export function SpeedControl({
                 aria-label="Playback speed"
                 className={cn(
                     'app-recording__speed',
-                    'inline-flex h-8 items-center justify-center rounded-full border border-border bg-foreground/4 px-3 text-xs font-semibold text-foreground/80 tabular-nums transition hover:bg-foreground/8 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40',
+                    'inline-flex h-11 min-w-16 items-center justify-center rounded-full border border-line-strong bg-transparent px-3.5 font-mono text-[13px] font-medium text-ink tabular-nums focus-camel transition hover:border-line-hover hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40',
                 )}
                 disabled={!hasRecordings}
             >

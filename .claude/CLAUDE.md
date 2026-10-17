@@ -70,11 +70,12 @@ line.
 - **Run Vitest from the repo root** (`bunx vitest run tests/unit/...`), never
   from inside `tests/`: from a subfolder it skips `vitest.config.ts` (the `~/`
   alias fails) and writes its cache to a nested `node_modules/.vite`.
-- **Never run `bun run dev` / `bun run build` / `next dev` / `next build`
-  yourself, and never drive the app with a browser automation tool** — the
-  user runs their own dev server and verifies UI changes themselves. Verify
-  frontend changes by reading and tracing the code.
-- **When verifying by tracing (not running) code:** check that any
+- **Verify UI changes in a real browser**: drive the user's running dev
+  server (`localhost:3000`) through the Chrome DevTools MCP or the built-in
+  browser pane, and check both the Day and Night themes. If no dev server is
+  running, start `bun run dev` in the background. Trace the code for logic
+  as well; a screenshot is not a test.
+- **When verifying by tracing code:** check that any
   library/API call you're relying on actually exists and does what its name
   implies — don't assume from the name.
 - **Prop-calculator firm/plan data** (drawdown rules, consistency %, payout

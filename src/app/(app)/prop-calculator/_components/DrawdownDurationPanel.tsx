@@ -133,7 +133,7 @@ export default function DrawdownDurationPanel({
                 </div>
 
                 <div>
-                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
+                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                         Recovery tax (loss needs more gain to break even)
                     </p>
                     <RecoveryTaxTable avgDepth={m.avgDepth} />

@@ -4,24 +4,24 @@ import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { type Metadata, type Viewport } from 'next';
 import { ThemeProvider } from 'next-themes';
-import Script from 'next/script';
 import { Suspense } from 'react';
 
+import { MeshBackground } from '~/components/MeshBackground';
 import { Toaster } from '~/components/ui/Sonner';
-import { jetBrainsMono, orbitron, plusJakartaSans } from '~/fonts';
+import { bodoniModa, hankenGrotesk, jetBrainsMono } from '~/fonts';
 import { siteContent } from '~/lib/site/content';
 import { SITE_NAME } from '~/lib/site/siteName';
 import { THEME_BACKGROUND_COLOR } from '~/lib/site/themeColor';
 import { getPublicSiteOrigin } from '~/lib/site/url';
-import { browserThemeBootScript, DEFAULT_COLOR_MODE } from '~/lib/theme';
+import { DEFAULT_COLOR_MODE } from '~/lib/theme';
 import { cn } from '~/lib/utilities';
 import { TRPCReactProvider } from '~/trpc/react';
 
 import { AccountLink } from './(app)/_components/AccountLink';
 import Footer from './(app)/_components/Footer';
+import { MAIN_CONTENT_ID } from './(app)/_components/mainContent';
 import Navbar from './(app)/_components/Navbar';
 import { SessionAccountLink } from './(app)/_components/SessionAccountLink';
-import { SessionThemeSync } from './(app)/_components/SessionThemeSync';
 
 export const viewport: Viewport = {
     themeColor: THEME_BACKGROUND_COLOR,
@@ -54,31 +54,22 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <html
             className={cn(
                 'scroll-smooth antialiased',
-                plusJakartaSans.variable,
+                bodoniModa.variable,
+                hankenGrotesk.variable,
                 jetBrainsMono.variable,
             )}
             data-scroll-behavior="smooth"
             lang="en"
             suppressHydrationWarning
         >
-            <head>
-                <Script id="user-theme-boot" strategy="beforeInteractive">
-                    {browserThemeBootScript()}
-                </Script>
-            </head>
-            <body
-                className={cn(
-                    'app-shell',
-                    'flex min-h-screen flex-col',
-                    orbitron.variable,
-                )}
-            >
+            <body className={cn('app-shell', 'flex min-h-screen flex-col')}>
                 <ThemeProvider
                     attribute="class"
                     defaultTheme={DEFAULT_COLOR_MODE}
                     disableTransitionOnChange
                     enableSystem={false}
                 >
+                    <MeshBackground />
                     <TRPCReactProvider>
                         <Navbar
                             accountLink={
@@ -89,13 +80,13 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                                 </Suspense>
                             }
                         />
-                        <div className="flex flex-1 flex-col" id="main-content">
+                        <div
+                            className="flex flex-1 flex-col"
+                            id={MAIN_CONTENT_ID}
+                        >
                             {children}
                         </div>
                         <Footer />
-                        <Suspense fallback={null}>
-                            <SessionThemeSync />
-                        </Suspense>
                     </TRPCReactProvider>
                     <Toaster position="bottom-center" richColors />
                 </ThemeProvider>

@@ -115,7 +115,7 @@ function Calendar({
                 ),
                 root: cn('w-fit', defaultClassNames.root),
                 today: cn(
-                    'bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none',
+                    'bg-accent text-accent-foreground rounded-full data-[selected=true]:bg-transparent',
                     defaultClassNames.today,
                 ),
                 week: cn('flex w-full mt-2', defaultClassNames.week),

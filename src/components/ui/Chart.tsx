@@ -123,6 +123,7 @@ const ChartTooltipContent = React.forwardRef<
             labelKey?: string;
             nameKey?: string;
             payload?: readonly RechartsPrimitive.TooltipPayloadEntry[];
+            valueFormatter?: (value: number) => string;
         }
 >(
     (
@@ -140,6 +141,7 @@ const ChartTooltipContent = React.forwardRef<
             labelKey,
             nameKey,
             payload,
+            valueFormatter,
         },
         reference,
     ) => {
@@ -162,14 +164,23 @@ const ChartTooltipContent = React.forwardRef<
 
             if (labelFormatter) {
                 return (
-                    <div className={cn('font-medium', labelClassName)}>
+                    <div
+                        className={cn(
+                            'type-micro text-ink-muted',
+                            labelClassName,
+                        )}
+                    >
                         {labelFormatter(value, payload)}
                     </div>
                 );
             }
 
             return value ? (
-                <div className={cn('font-medium', labelClassName)}>{value}</div>
+                <div
+                    className={cn('type-micro text-ink-muted', labelClassName)}
+                >
+                    {value}
+                </div>
             ) : null;
         }
 
@@ -184,7 +195,7 @@ const ChartTooltipContent = React.forwardRef<
         return (
             <div
                 className={cn(
-                    'grid min-w-32 items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl',
+                    'grid min-w-40 items-start gap-2 rounded-md border border-line bg-surface-raised px-3 py-2.5 text-xs shadow-float',
                     className,
                 )}
                 ref={reference}
@@ -247,7 +258,7 @@ const ChartTooltipContent = React.forwardRef<
                                                     !hideIndicator && (
                                                         <div
                                                             className={cn(
-                                                                'shrink-0 rounded-xs border-[--color-border] bg-[--color-bg]',
+                                                                'shrink-0 rounded-xs border-border bg-(--color-bg)',
                                                                 {
                                                                     'my-0.5':
                                                                         isNestLabel &&
@@ -277,7 +288,7 @@ const ChartTooltipContent = React.forwardRef<
                                                 )}
                                                 <div
                                                     className={cn(
-                                                        'flex flex-1 justify-between leading-none',
+                                                        'flex flex-1 justify-between gap-4 leading-none',
                                                         isNestLabel
                                                             ? 'items-end'
                                                             : 'items-center',
@@ -287,14 +298,21 @@ const ChartTooltipContent = React.forwardRef<
                                                         {isNestLabel
                                                             ? tooltipLabel
                                                             : null}
-                                                        <span className="text-muted-foreground">
+                                                        <span className="text-ink-soft">
                                                             {itemConfig?.label ??
                                                                 item.name}
                                                         </span>
                                                     </div>
-                                                    {item.value && (
-                                                        <span className="font-mono font-medium text-foreground tabular-nums">
-                                                            {item.value.toLocaleString()}
+                                                    {item.value !==
+                                                        undefined && (
+                                                        <span className="font-mono font-medium whitespace-nowrap text-ink tabular-nums">
+                                                            {valueFormatter &&
+                                                            typeof item.value ===
+                                                                'number'
+                                                                ? valueFormatter(
+                                                                      item.value,
+                                                                  )
+                                                                : item.value.toLocaleString()}
                                                         </span>
                                                     )}
                                                 </div>

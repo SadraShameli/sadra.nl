@@ -9,14 +9,6 @@ const APP_ROOT = path.join(SOURCE_ROOT, 'app');
 const GUARDED_DIRECTORIES = ['server', 'lib'] as const;
 const SOURCE_FILE = /\.tsx?$/;
 
-const PRE_EXISTING_APP_IMPORTS: ReadonlyMap<string, readonly string[]> =
-    new Map([
-        [
-            path.join('src', 'lib', 'site', 'content.ts'),
-            ['~/app/(app)/_components/GallerySection'],
-        ],
-    ]);
-
 function importsIntoApp(file: string): string[] {
     const source = readFileSync(file, 'utf8');
     return importSpecifiersOf(source)
@@ -43,27 +35,17 @@ function sourceFilesUnder(directory: string): string[] {
 }
 
 describe('the server and lib import boundary', () => {
-    it('never imports from ~/app in src/server or src/lib, except the pre-existing site content type import', () => {
+    it('never imports from ~/app in src/server or src/lib', () => {
         const offenders: string[] = [];
         for (const directory of GUARDED_DIRECTORIES) {
             for (const file of sourceFilesUnder(directory)) {
                 const relative = path.relative(process.cwd(), file);
-                const allowed = PRE_EXISTING_APP_IMPORTS.get(relative) ?? [];
                 for (const specifier of importsIntoApp(file)) {
-                    if (!allowed.includes(specifier)) {
-                        offenders.push(`${relative} -> ${specifier}`);
-                    }
+                    offenders.push(`${relative} -> ${specifier}`);
                 }
             }
         }
         expect(offenders).toEqual([]);
-    });
-
-    it('still sees the allow-listed import, so the allow list never goes stale silently', () => {
-        for (const [relative, specifiers] of PRE_EXISTING_APP_IMPORTS) {
-            const file = path.join(process.cwd(), relative);
-            expect(importsIntoApp(file)).toEqual(specifiers);
-        }
     });
 
     it('catches a relative path that climbs into src/app', () => {

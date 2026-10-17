@@ -1,0 +1,1 @@
+DROP TABLE "sadranl_user_theme" CASCADE;

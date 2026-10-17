@@ -6,7 +6,6 @@ import {
     LineChart,
     LogOut,
     type LucideIcon,
-    Palette,
     Radio,
     Receipt,
     User,
@@ -20,7 +19,6 @@ import { Avatar, AvatarFallback } from '~/components/ui/Avatar';
 import { Button } from '~/components/ui/Button';
 import { authClient } from '~/lib/auth/client';
 import { profileTabUrl, routes } from '~/lib/site/routes';
-import { applyBrowserTheme } from '~/lib/theme';
 import { cn } from '~/lib/utilities';
 
 import type { ProfileTabValue } from './profileTabs';
@@ -62,12 +60,6 @@ const LIFTING_ITEM: NavItem = {
     label: 'Lifting',
     tab: 'lifting',
 };
-const APPEARANCE_ITEM: NavItem = {
-    href: profileTabUrl('appearance'),
-    icon: Palette,
-    label: 'Appearance',
-    tab: 'appearance',
-};
 const ACCOUNTING_ITEM: NavItem = {
     href: routes.accounting.index,
     icon: Receipt,
@@ -93,7 +85,6 @@ export function ProfileNav({
     const [pending, startTransition] = useTransition();
     const items: NavItem[] = [
         ACCOUNT_ITEM,
-        APPEARANCE_ITEM,
         ...(isAdmin ? [USERS_ITEM, SENSOR_HUB_ITEM] : []),
         TRADING_PLAN_ITEM,
         LIFTING_ITEM,
@@ -154,7 +145,6 @@ export function ProfileNav({
                     onClick={() =>
                         startTransition(async () => {
                             await authClient.signOut();
-                            applyBrowserTheme(null);
                             queryClient.clear();
                             window.location.assign(routes.home);
                         })

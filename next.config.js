@@ -6,7 +6,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 const ContentSecurityPolicy = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"} https://va.vercel-scripts.com https://vercel.live`,
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://vercel.live",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
     "font-src 'self' data:",
@@ -57,21 +57,7 @@ const config = {
     partialPrefetching: true,
     poweredByHeader: false,
     reactCompiler: true,
-    turbopack: {
-        rules: {
-            '*.{ts,tsx}': {
-                condition: {
-                    all: [{ not: 'foreign' }, { content: /[Zz]od/ }],
-                },
-                loaders: [
-                    {
-                        loader: 'zod-compiler/turbopack',
-                        options: { include: ['src/lib'] },
-                    },
-                ],
-            },
-        },
-    },
+    serverExternalPackages: ['zod'],
     typedRoutes: true,
 };
 

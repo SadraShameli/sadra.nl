@@ -512,9 +512,7 @@ function MeasurementsHistoryTable({
                             {row.original.notes}
                         </span>
                     ) : (
-                        <span className="text-xs text-muted-foreground/50">
-                            -
-                        </span>
+                        <span className="text-xs text-muted-foreground">-</span>
                     ),
                 header: 'Notes',
                 id: 'notes',

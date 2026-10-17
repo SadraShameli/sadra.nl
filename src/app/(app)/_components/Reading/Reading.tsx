@@ -2,23 +2,17 @@
 
 import { keepPreviousData, skipToken } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
-import {
-    AreaChart as ChartIcon,
-    Download,
-    ThermometerSnowflake,
-} from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { AreaChart as ChartIcon } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
 import type { location } from '~/server/db/schemas/iot';
 
-import { Button } from '~/components/ui/Button';
-import { Card } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
+import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
 import { EmptyState } from '~/components/ui/EmptyState';
 import { FilterDateRange } from '~/components/ui/FilterDateRange';
 import { FilterSelect } from '~/components/ui/FilterSelect';
-import { Skeleton } from '~/components/ui/Skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/Tabs';
 import { ToolbarSelect } from '~/components/ui/ToolbarSelect';
 import {
@@ -31,26 +25,32 @@ import {
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
-import { exportReadingsToCSV, GRANULARITIES } from './helpers';
+import { DEFAULT_GRANULARITY, GRANULARITIES } from './helpers';
+import { ReadingBodySkeleton } from './ReadingSkeleton';
 
 export default function ReadingSection() {
     const [date, setDate] = useState<DateRange>();
-    const [currentLocation, setCurrentLocation] =
+    const [chosenLocation, setChosenLocation] =
         useState<typeof location.$inferSelect>();
     const [currentDevice, setCurrentDevice] = useState<PublicDevice>();
-    const [currentSensor, setCurrentSensor] = useState<string>();
-    const [granularity, setGranularity] = useState<Granularity>('hour');
+    const [chosenSensor, setChosenSensor] = useState<string>();
+    const [granularity, setGranularity] =
+        useState<Granularity>(DEFAULT_GRANULARITY);
+
+    const locations = api.location.getLocations.useQuery();
+    const defaultLocation = locations.data?.data.at(-1);
+    const activeLocation = chosenLocation ?? defaultLocation;
 
     const currentReading = api.reading.getReadingsInput.useQuery(
-        currentLocation
+        activeLocation
             ? {
                   date_from: date?.from,
                   date_to: date?.to,
                   device_id: currentDevice?.device_id,
                   granularity,
-                  location_id: currentLocation.id,
+                  location_id: activeLocation.id,
               }
-            : undefined,
+            : skipToken,
         { placeholderData: keepPreviousData },
     );
 
@@ -58,12 +58,13 @@ export default function ReadingSection() {
         () => currentReading.data?.data?.map((reading) => reading.sensor),
         [currentReading.data],
     );
-
-    const locations = api.location.getLocations.useQuery();
+    const activeSensor = sensors?.some((sensor) => sensor.name === chosenSensor)
+        ? chosenSensor
+        : sensors?.[0]?.name;
 
     const devices = api.location.getLocationDevices.useQuery(
-        currentLocation
-            ? { location_id: currentLocation.location_id }
+        activeLocation
+            ? { location_id: activeLocation.location_id }
             : skipToken,
     );
 
@@ -75,324 +76,243 @@ export default function ReadingSection() {
     const currentSensorData = useMemo(
         () =>
             currentReading.data?.data?.find(
-                (r) => r.sensor.name === currentSensor,
+                (r) => r.sensor.name === activeSensor,
             ),
-        [currentReading.data, currentSensor],
+        [currentReading.data, activeSensor],
     );
 
-    useEffect(() => {
-        if (!sensors?.length) return;
-        if (!currentSensor) {
-            setCurrentSensor(sensors[0]?.name);
-        } else if (sensors.every((s) => s.name !== currentSensor)) {
-            setCurrentSensor(sensors.at(-1)?.name);
-        }
-    }, [sensors, currentSensor]);
-
-    useEffect(() => {
-        if (!currentLocation) {
-            setCurrentLocation(locations.data?.data.at(-1));
-        }
-    }, [currentLocation, locations]);
-
-    useEffect(() => {
+    const unit = currentSensorData?.sensor.unit;
+    const hasFilters =
+        date !== undefined ||
+        currentDevice !== undefined ||
+        granularity !== DEFAULT_GRANULARITY ||
+        (chosenLocation !== undefined &&
+            chosenLocation.id !== defaultLocation?.id);
+    const resetFilters = () => {
+        setDate(undefined);
         setCurrentDevice(undefined);
-    }, [currentLocation]);
+        setGranularity(DEFAULT_GRANULARITY);
+        setChosenLocation(undefined);
+    };
 
     return (
-        <div className={cn('app-reading', 'pt-spacing-inner')}>
-            <Card className="container flex min-h-100 flex-col sm:min-h-[538.81px]">
-                <Tabs
-                    className="grid gap-y-5"
-                    onValueChange={(value) => setCurrentSensor(value)}
-                    value={currentSensor ?? ''}
-                >
-                    <div className="flex flex-wrap justify-between gap-5">
-                        <div
-                            className={cn(
-                                'flex flex-col justify-between gap-y-5 lg:flex-row lg:gap-5',
-                                !currentReading.data?.data && 'justify-end',
-                            )}
-                        >
-                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                <FilterDateRange
-                                    label="Reading date"
-                                    maxDate={new Date()}
-                                    minDate={addDays(
-                                        Date.now() -
-                                            READINGS_SERIES_LONGEST_SPAN_MS,
-                                        1,
-                                    )}
-                                    onChange={(range) => {
-                                        setDate(range);
-                                        setGranularity((current) =>
-                                            isReadingsSpanWithinCap(
-                                                current,
-                                                range?.from,
-                                                range?.to,
-                                            )
-                                                ? current
-                                                : (finestGranularityForRange(
-                                                      range?.from,
-                                                      range?.to,
-                                                  ) ?? current),
-                                        );
-                                    }}
-                                    placeholder="Pick a date"
-                                    value={date}
-                                />
-
-                                <ToolbarSelect
-                                    disabled={!locations.data?.data}
-                                    label="Location"
-                                    onValueChange={(value) => {
-                                        const loc = locations.data?.data.find(
-                                            (l) => l.location_name === value,
-                                        );
-                                        setCurrentLocation(loc);
-                                    }}
-                                    options={(locations.data?.data ?? []).map(
-                                        (loc) => ({
-                                            label: loc.location_name,
-                                            value: loc.location_name,
-                                        }),
-                                    )}
-                                    value={
-                                        currentLocation
-                                            ? currentLocation.location_name
-                                            : (locations.data?.data.at(-1)
-                                                  ?.location_name ?? '')
-                                    }
-                                />
-
-                                <FilterSelect
-                                    disabled={deviceList.length === 0}
-                                    label="Device"
-                                    onValueChange={(value) => {
-                                        setCurrentDevice(
-                                            value === undefined
-                                                ? undefined
-                                                : deviceList.find(
-                                                      (x) => x.name === value,
-                                                  ),
-                                        );
-                                    }}
-                                    options={deviceList.map((d) => ({
-                                        label: d.name,
-                                        value: d.name,
-                                    }))}
-                                    placeholder="All devices"
-                                    value={currentDevice?.name}
-                                />
-
-                                <ToolbarSelect
-                                    disabled={!currentReading.data?.data}
-                                    label="Granularity"
-                                    onValueChange={(value) => {
-                                        const next = GRANULARITIES.find(
-                                            (g) => g.value === value,
-                                        );
-                                        if (next) setGranularity(next.value);
-                                    }}
-                                    options={GRANULARITIES.map((g) => ({
-                                        disabled: !isReadingsSpanWithinCap(
-                                            g.value,
-                                            date?.from,
-                                            date?.to,
-                                        ),
-                                        label: g.label,
-                                        value: g.value,
-                                    }))}
-                                    value={granularity}
-                                />
-
-                                <Button
-                                    className={cn(
-                                        'app-reading__export',
-                                        'w-fit',
-                                    )}
-                                    disabled={!currentSensorData}
-                                    onClick={() => {
-                                        if (!currentSensorData) return;
-                                        exportReadingsToCSV(
-                                            currentSensorData.readings,
-                                            currentSensorData.sensor.name,
-                                            currentSensorData.sensor.unit,
-                                            currentLocation?.location_name,
-                                        );
-                                    }}
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    <Download className="mr-1 size-4" />
-                                    Export CSV
-                                </Button>
-                            </div>
-                        </div>
-
-                        {!sensors && currentReading.isLoading && (
-                            <Skeleton className="h-9 w-full max-w-xl rounded-lg" />
+        <div
+            className={cn(
+                'app-reading',
+                'overflow-hidden rounded-xl border border-line bg-surface-sunken',
+            )}
+        >
+            <Tabs
+                onValueChange={(value) => setChosenSensor(value)}
+                value={activeSensor ?? ''}
+            >
+                <div className="flex flex-wrap items-center gap-2.5 border-b border-line-faint p-4">
+                    <FilterDateRange
+                        label="Reading date"
+                        maxDate={new Date()}
+                        minDate={addDays(
+                            Date.now() - READINGS_SERIES_LONGEST_SPAN_MS,
+                            1,
                         )}
-                        {sensors && (
-                            <TabsList className="w-fit">
-                                {sensors.map((sensor) => (
-                                    <TabsTrigger
-                                        key={sensor.name}
-                                        value={sensor.name}
-                                    >
-                                        {sensor.name}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-                        )}
-                    </div>
-
-                    <div
-                        className="shimmer rounded-xl"
-                        data-loading={currentReading.isRefetching}
-                    >
-                        {currentReading.data?.data?.map((reading) => {
-                            const chartData = reading.readings;
-                            return (
-                                <TabsContent
-                                    key={reading.sensor.name}
-                                    value={reading.sensor.name}
-                                >
-                                    <div className="grid gap-5 text-sm leading-none font-semibold">
-                                        <div className="grid gap-5 lg:grid-cols-2">
-                                            <div
-                                                className={cn(
-                                                    'app-reading__chart',
-                                                    'relative rounded-xl border p-5',
-                                                )}
-                                            >
-                                                <div className="absolute flex items-center gap-x-2 pb-5">
-                                                    <ChartIcon />
-                                                    Live Chart
-                                                </div>
-
-                                                <div className="mt-12 grid">
-                                                    <AreaChartNew
-                                                        area={{
-                                                            dataKey: 'value',
-                                                        }}
-                                                        config={{
-                                                            location: {
-                                                                label: currentLocation?.location_name,
-                                                            },
-                                                            sensor: {
-                                                                label: currentSensor,
-                                                            },
-                                                        }}
-                                                        data={chartData}
-                                                        tooltip={{
-                                                            labelKey:
-                                                                'location',
-                                                            nameKey: 'sensor',
-                                                        }}
-                                                        xAxis={{
-                                                            dataKey: 'date',
-                                                        }}
-                                                        yAxis={{
-                                                            tickFormatter: (
-                                                                value: number,
-                                                            ) =>
-                                                                `${value} ${sensors?.find((s) => s.name === currentSensor)?.unit}`,
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-5">
-                                                <div
-                                                    className={cn(
-                                                        'app-reading__latest',
-                                                        'relative flex rounded-xl bg-muted p-5',
-                                                    )}
-                                                >
-                                                    <div className="absolute flex items-center gap-x-2">
-                                                        <ThermometerSnowflake />
-                                                        Latest
-                                                    </div>
-
-                                                    <div className="m-auto text-2xl whitespace-nowrap lg:text-4xl">
-                                                        {`${reading.latestReading.value} ${reading.sensor.unit}`}
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid gap-5">
-                                                    <div
-                                                        className={cn(
-                                                            'app-reading__period-high',
-                                                            'relative flex min-h-36 rounded-xl bg-muted p-5',
-                                                        )}
-                                                    >
-                                                        <div className="absolute">{`${reading.period_label} high`}</div>
-
-                                                        <div className="m-auto text-xl whitespace-nowrap lg:text-3xl">
-                                                            {`${reading.highest} ${reading.sensor.unit}`}
-                                                        </div>
-                                                    </div>
-
-                                                    <div
-                                                        className={cn(
-                                                            'app-reading__period-low',
-                                                            'relative min-h-36 rounded-xl bg-muted p-5',
-                                                        )}
-                                                    >
-                                                        <div className="flex h-full">
-                                                            <div className="absolute">{`${reading.period_label} low`}</div>
-
-                                                            <div className="m-auto text-xl whitespace-nowrap lg:text-3xl">
-                                                                {`${reading.lowest} ${reading.sensor.unit}`}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </TabsContent>
+                        onChange={(range) => {
+                            setDate(range);
+                            setGranularity((current) =>
+                                isReadingsSpanWithinCap(
+                                    current,
+                                    range?.from,
+                                    range?.to,
+                                )
+                                    ? current
+                                    : (finestGranularityForRange(
+                                          range?.from,
+                                          range?.to,
+                                      ) ?? current),
                             );
-                        })}
-                    </div>
-                </Tabs>
+                        }}
+                        placeholder="Pick a date"
+                        value={date}
+                    />
 
-                {!currentReading.data?.data &&
-                    (currentReading.isLoading ? (
-                        <ReadingSkeleton />
-                    ) : (
-                        currentReading.isFetched && (
-                            <EmptyState
-                                description="Try switching to another location or a different date range."
-                                icon={ChartIcon}
-                                title="No readings"
-                            />
-                        )
+                    <ToolbarSelect
+                        disabled={!locations.data?.data}
+                        label="Location"
+                        onValueChange={(value) => {
+                            const loc = locations.data?.data.find(
+                                (l) => l.location_name === value,
+                            );
+                            setChosenLocation(loc);
+                            setCurrentDevice(undefined);
+                        }}
+                        options={(locations.data?.data ?? []).map((loc) => ({
+                            label: loc.location_name,
+                            value: loc.location_name,
+                        }))}
+                        value={activeLocation?.location_name ?? ''}
+                    />
+
+                    <FilterSelect
+                        disabled={deviceList.length === 0}
+                        label="Device"
+                        onValueChange={(value) => {
+                            setCurrentDevice(
+                                value === undefined
+                                    ? undefined
+                                    : deviceList.find((x) => x.name === value),
+                            );
+                        }}
+                        options={deviceList.map((d) => ({
+                            label: d.name,
+                            value: d.name,
+                        }))}
+                        placeholder="All devices"
+                        value={currentDevice?.name}
+                    />
+
+                    <ToolbarSelect
+                        disabled={!currentReading.data?.data}
+                        label="Granularity"
+                        onValueChange={(value) => {
+                            const next = GRANULARITIES.find(
+                                (g) => g.value === value,
+                            );
+                            if (next) setGranularity(next.value);
+                        }}
+                        options={GRANULARITIES.map((g) => ({
+                            disabled: !isReadingsSpanWithinCap(
+                                g.value,
+                                date?.from,
+                                date?.to,
+                            ),
+                            label: g.label,
+                            value: g.value,
+                        }))}
+                        value={granularity}
+                    />
+
+                    <ClearFiltersButton
+                        active={hasFilters}
+                        className="h-9"
+                        onReset={resetFilters}
+                    />
+                </div>
+                {sensors && (
+                    <div className="border-b border-line-faint px-4 py-3">
+                        <TabsList className="flex w-fit max-w-full scrollbar-none justify-start overflow-x-auto">
+                            {sensors.map((sensor) => (
+                                <TabsTrigger
+                                    key={sensor.name}
+                                    value={sensor.name}
+                                >
+                                    {sensor.name}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </div>
+                )}
+
+                <div
+                    className="shimmer"
+                    data-loading={currentReading.isRefetching}
+                >
+                    {currentReading.data?.data?.map((reading) => (
+                        <TabsContent
+                            className="mt-0"
+                            key={reading.sensor.name}
+                            value={reading.sensor.name}
+                        >
+                            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] border-b border-line-faint">
+                                <StatTile
+                                    label="Latest"
+                                    unit={reading.sensor.unit}
+                                    value={reading.latestReading.value}
+                                />
+                                <StatTile
+                                    label={`${reading.period_label} high`}
+                                    unit={reading.sensor.unit}
+                                    value={reading.highest}
+                                />
+                                <StatTile
+                                    label={`${reading.period_label} low`}
+                                    unit={reading.sensor.unit}
+                                    value={reading.lowest}
+                                />
+                            </div>
+
+                            <div
+                                className={cn(
+                                    'app-reading__chart',
+                                    'm-6 h-64 rounded-md border border-line-faint chart-well p-5 lg:h-80',
+                                )}
+                            >
+                                <AreaChartNew
+                                    area={{
+                                        dataKey: 'value',
+                                    }}
+                                    config={{
+                                        location: {
+                                            label: activeLocation?.location_name,
+                                        },
+                                        sensor: {
+                                            label: activeSensor,
+                                        },
+                                    }}
+                                    data={reading.readings}
+                                    tooltip={{
+                                        labelKey: 'location',
+                                        nameKey: 'sensor',
+                                        valueFormatter: (value) =>
+                                            `${value.toLocaleString()} ${reading.sensor.unit}`,
+                                    }}
+                                    xAxis={{
+                                        dataKey: 'date',
+                                    }}
+                                    yAxis={{
+                                        tickFormatter: (value: number) =>
+                                            `${value} ${unit ?? ''}`,
+                                    }}
+                                />
+                            </div>
+                        </TabsContent>
                     ))}
-            </Card>
+                </div>
+            </Tabs>
+
+            {currentReading.data === undefined ? (
+                <ReadingBodySkeleton />
+            ) : currentReading.data.data ? null : (
+                <div className="m-6 flex min-h-64 items-center justify-center rounded-md border border-line-faint chart-well">
+                    <EmptyState
+                        className="rounded-md bg-surface-sunken p-6 md:p-6"
+                        description="Pick another location or a different date range."
+                        icon={ChartIcon}
+                        title={
+                            <span className="type-display-item">
+                                No readings for this selection yet
+                            </span>
+                        }
+                    />
+                </div>
+            )}
         </div>
     );
 }
 
-function ReadingSkeleton() {
+function StatTile({
+    label,
+    unit,
+    value,
+}: {
+    readonly label: string;
+    readonly unit: string;
+    readonly value: number;
+}) {
     return (
-        <div
-            aria-busy="true"
-            aria-label="Loading readings"
-            className="mt-5 grid gap-5 lg:grid-cols-2"
-        >
-            <div className="rounded-xl border p-5">
-                <Skeleton className="h-6 w-28" />
-                <Skeleton className="mt-6 aspect-video w-full" />
-            </div>
-            <div className="grid grid-cols-2 gap-5">
-                <Skeleton className="rounded-xl" />
-                <div className="grid gap-5">
-                    <Skeleton className="min-h-36 rounded-xl" />
-                    <Skeleton className="min-h-36 rounded-xl" />
-                </div>
-            </div>
+        <div className="flex flex-col gap-3.5 border-r border-line-faint p-7 last:border-r-0">
+            <span className="type-micro text-ink-muted">{label}</span>
+            <span className="type-display-stat text-ink">
+                {value}
+                <span className="text-2xl text-ink-muted italic"> {unit}</span>
+            </span>
         </div>
     );
 }

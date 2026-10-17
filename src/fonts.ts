@@ -1,9 +1,17 @@
-import { JetBrains_Mono, Orbitron, Plus_Jakarta_Sans } from 'next/font/google';
+import { Bodoni_Moda, Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const bodoniModa = Bodoni_Moda({
+    axes: ['opsz'],
+    display: 'swap',
+    style: ['normal', 'italic'],
+    subsets: ['latin'],
+    variable: '--font-bodoni-moda',
+});
+
+const hankenGrotesk = Hanken_Grotesk({
     display: 'swap',
     subsets: ['latin'],
-    variable: '--font-plus-jakarta-sans',
+    variable: '--font-hanken-grotesk',
 });
 
 const jetBrainsMono = JetBrains_Mono({
@@ -12,10 +20,4 @@ const jetBrainsMono = JetBrains_Mono({
     variable: '--font-jetbrains-mono',
 });
 
-const orbitron = Orbitron({
-    display: 'swap',
-    subsets: ['latin'],
-    variable: '--font-orbitron',
-});
-
-export { jetBrainsMono, orbitron, plusJakartaSans };
+export { bodoniModa, hankenGrotesk, jetBrainsMono };

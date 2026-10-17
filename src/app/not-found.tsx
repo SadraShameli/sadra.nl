@@ -20,7 +20,7 @@ export default function NotFound() {
             <Card className="w-full max-w-xl items-center gap-0 px-8 py-12 text-center">
                 <h1
                     aria-label="404"
-                    className="font-orbitron text-[clamp(6rem,20vw,8rem)] leading-none font-bold tracking-tighter"
+                    className="font-serif text-[clamp(6rem,20vw,8rem)] leading-none font-medium tracking-tighter"
                 >
                     404
                 </h1>
@@ -46,7 +46,7 @@ export default function NotFound() {
                         >
                             <Link href={link.href}>
                                 <span>{link.label}</span>
-                                <ArrowUpRight className="size-3 shrink-0 text-muted-foreground/70 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground" />
+                                <ArrowUpRight className="size-3 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground" />
                             </Link>
                         </Badge>
                     ))}

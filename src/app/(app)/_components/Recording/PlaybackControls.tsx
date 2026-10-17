@@ -1,9 +1,16 @@
-import { Repeat, ShuffleIcon, SkipBack, SkipForward } from 'lucide-react';
+import {
+    Pause,
+    Play,
+    Repeat,
+    ShuffleIcon,
+    SkipBack,
+    SkipForward,
+} from 'lucide-react';
 
 import { Button } from '~/components/ui/Button';
-import PauseIcon from '~/components/ui/Icons/Pause';
-import PlayIcon from '~/components/ui/Icons/Play';
 import { cn } from '~/lib/utilities';
+
+import { RECORDER_TOGGLE_ON_CLASS } from './toggleStyles';
 
 interface PlaybackControlsProperties {
     canGoNext: boolean;
@@ -36,14 +43,15 @@ export function PlaybackControls({
         <div
             className={cn(
                 'app-recording__playback-controls',
-                'flex items-center justify-center gap-x-4 sm:gap-x-6',
+                'flex items-center justify-center gap-x-3 sm:gap-x-5',
             )}
         >
             <Button
                 aria-label="Shuffle"
+                aria-pressed={isShuffle}
                 className={cn(
-                    'app-recording__shuffle size-9 rounded-full p-0 text-muted-foreground transition hover:bg-foreground/5 hover:text-foreground',
-                    isShuffle && 'text-foreground',
+                    'app-recording__shuffle size-11 p-0 text-ink-muted hover:bg-surface-high hover:text-ink',
+                    isShuffle && RECORDER_TOGGLE_ON_CLASS,
                 )}
                 data-state={isShuffle ? 'on' : 'off'}
                 disabled={!hasRecordings}
@@ -56,19 +64,19 @@ export function PlaybackControls({
 
             <Button
                 aria-label="Previous"
-                className="app-recording__previous size-9 rounded-full p-0 text-foreground/80 transition hover:bg-foreground/5 hover:text-foreground"
+                className="app-recording__previous size-13 border border-line-strong p-0 text-ink hover:border-line-hover hover:bg-surface-raised"
                 disabled={!hasRecordings || !canGoPrevious}
                 onClick={onPrevious}
                 type="button"
                 variant="ghost"
             >
-                <SkipBack className="size-5 fill-current" />
+                <SkipBack aria-hidden className="size-4.5 fill-current" />
             </Button>
 
             <Button
                 aria-label={isPlaying ? 'Pause' : 'Play'}
                 className={cn(
-                    'app-recording__play-pause size-12 rounded-full p-0 text-primary transition hover:scale-105 active:scale-95',
+                    'app-recording__play-pause size-19 bg-camel p-0 text-on-camel hover:bg-camel hover:text-on-camel active:scale-95 dark:hover:bg-camel',
                 )}
                 data-state={isPlaying ? 'playing' : 'paused'}
                 disabled={!hasRecordings}
@@ -77,28 +85,37 @@ export function PlaybackControls({
                 variant="ghost"
             >
                 {isPlaying ? (
-                    <PauseIcon className="size-10" />
+                    <Pause
+                        aria-hidden
+                        className="size-7 fill-current"
+                        strokeWidth={0}
+                    />
                 ) : (
-                    <PlayIcon className="size-10" />
+                    <Play
+                        aria-hidden
+                        className="size-7 translate-x-0.5 fill-current"
+                        strokeWidth={0}
+                    />
                 )}
             </Button>
 
             <Button
                 aria-label="Next"
-                className="app-recording__next size-9 rounded-full p-0 text-foreground/80 transition hover:bg-foreground/5 hover:text-foreground"
+                className="app-recording__next size-13 border border-line-strong p-0 text-ink hover:border-line-hover hover:bg-surface-raised"
                 disabled={!hasRecordings || !canGoNext}
                 onClick={onNext}
                 type="button"
                 variant="ghost"
             >
-                <SkipForward className="size-5 fill-current" />
+                <SkipForward aria-hidden className="size-4.5 fill-current" />
             </Button>
 
             <Button
                 aria-label="Repeat"
+                aria-pressed={isRepeat}
                 className={cn(
-                    'app-recording__repeat size-9 rounded-full p-0 text-muted-foreground transition hover:bg-foreground/5 hover:text-foreground',
-                    isRepeat && 'text-foreground',
+                    'app-recording__repeat size-11 p-0 text-ink-muted hover:bg-surface-high hover:text-ink',
+                    isRepeat && RECORDER_TOGGLE_ON_CLASS,
                 )}
                 data-state={isRepeat ? 'on' : 'off'}
                 disabled={!hasRecordings}

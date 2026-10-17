@@ -3,6 +3,7 @@ import { siteContent } from '~/lib/site/content';
 import { serializeJsonLd } from '~/lib/site/jsonLd';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 
+import { MAIN_CONTENT_ID } from './_components/mainContent';
 import ScrollToTop from './_components/ScrollToTop';
 
 const personJsonLd = {
@@ -24,7 +25,7 @@ export default function AppLayout({ children }: LayoutProps<'/'>) {
                 }}
                 type="application/ld+json"
             />
-            <a className="skip-link" href="#main-content">
+            <a className="skip-link" href={`#${MAIN_CONTENT_ID}`}>
                 Skip to content
             </a>
             <NavigationBlockerProvider>{children}</NavigationBlockerProvider>

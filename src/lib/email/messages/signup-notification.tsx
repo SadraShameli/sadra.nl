@@ -36,19 +36,19 @@ function SignUpNotificationTemplate({
 }: SignUpNotificationTemplateProperties) {
     return (
         <BaseEmail preview={`New sign-up: ${email}`}>
-            <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
+            <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
                 New sign-up
             </Heading>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 Email
             </Text>
-            <Text className="m-0 text-sm/snug text-neutral-700">{email}</Text>
+            <Text className="m-0 text-sm/snug text-ink-soft">{email}</Text>
             {name && (
                 <>
-                    <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+                    <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                         Name
                     </Text>
-                    <Text className="m-0 text-sm/snug text-neutral-700">
+                    <Text className="m-0 text-sm/snug text-ink-soft">
                         {name}
                     </Text>
                 </>

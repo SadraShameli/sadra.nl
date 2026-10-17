@@ -127,7 +127,7 @@ export function AnalysisReport({
                     <div className="flex flex-col items-center justify-center">
                         <motion.div
                             animate={{ opacity: 1, scale: 1 }}
-                            className={`font-orbitron text-[6rem] leading-none font-bold tracking-tight ${gradeTextClass(result.grade)}`}
+                            className={`font-serif text-[6rem] leading-none font-medium tracking-tight ${gradeTextClass(result.grade)}`}
                             initial={{ opacity: 0, scale: 0.6 }}
                             transition={{ stiffness: 200, type: 'spring' }}
                         >
