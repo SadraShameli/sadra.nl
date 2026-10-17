@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 import {
     AlertDialog,
@@ -21,7 +22,13 @@ export function DeleteAccountDialog() {
     const queryClient = useQueryClient();
 
     const onDelete = async () => {
-        await authClient.deleteUser();
+        const result = await authClient.deleteUser();
+        if (result.error) {
+            toast.error(
+                result.error.message ?? 'Could not delete your account.',
+            );
+            return;
+        }
         queryClient.clear();
         window.location.assign(routes.home);
     };

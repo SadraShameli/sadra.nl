@@ -14,8 +14,17 @@ interface Mounted {
 }
 
 const auth = vi.hoisted(() => ({
-    deleteUser: vi.fn(() => Promise.resolve({ data: { success: true } })),
+    deleteUser: vi.fn<
+        () => Promise<
+            | { data: null; error: { message: string } }
+            | { data: { success: boolean }; error: null }
+        >
+    >(() => Promise.resolve({ data: { success: true }, error: null })),
 }));
+
+const toast = vi.hoisted(() => ({ error: vi.fn() }));
+
+vi.mock('sonner', () => ({ toast }));
 
 vi.mock('~/lib/auth/client', () => ({
     authClient: { deleteUser: auth.deleteUser },
@@ -109,7 +118,7 @@ describe('DeleteAccountDialog', () => {
         const cachedAtDelete: number[] = [];
         auth.deleteUser.mockImplementationOnce(() => {
             cachedAtDelete.push(cachedQueryCount(client));
-            return Promise.resolve({ data: { success: true } });
+            return Promise.resolve({ data: { success: true }, error: null });
         });
         const cachedAtNavigation: number[] = [];
         const assign = stubLocationAssign(() => {
@@ -128,5 +137,26 @@ describe('DeleteAccountDialog', () => {
         expect(assign).toHaveBeenCalledTimes(1);
         expect(assign).toHaveBeenCalledWith(routes.home);
         expect(cachedAtNavigation).toEqual([0]);
+    });
+
+    it('keeps the user on the page and shows why when deletion is refused', async () => {
+        const client = seededClient();
+        auth.deleteUser.mockResolvedValueOnce({
+            data: null,
+            error: {
+                message:
+                    'Session expired. Re-authenticate to perform this action.',
+            },
+        });
+        const assign = stubLocationAssign();
+        await renderWith(client);
+
+        await confirmDelete();
+
+        expect(assign).not.toHaveBeenCalled();
+        expect(cachedQueryCount(client)).toBe(2);
+        expect(toast.error).toHaveBeenCalledWith(
+            'Session expired. Re-authenticate to perform this action.',
+        );
     });
 });

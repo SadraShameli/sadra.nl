@@ -212,10 +212,6 @@ afterEach(async () => {
     }
 });
 
-function doNothing(): void {
-    return;
-}
-
 describe('callbackUrl on every auth path', () => {
     describe.each(AUTH_PATHS)('$name', ({ run, sent }) => {
         it.each(REJECTED_CALLBACK_URLS)(
@@ -241,7 +237,7 @@ describe('callbackUrl on every auth path', () => {
     });
 
     it('navigates after a password sign-in only to the checked callbackUrl', async () => {
-        const assign = stubLocationAssign(doNothing);
+        const assign = stubLocationAssign();
         withCallbackUrl('//evil.com');
         await AUTH_PATHS[0]?.run();
         expect(assign).toHaveBeenCalledWith(routes.home);

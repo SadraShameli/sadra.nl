@@ -12,6 +12,7 @@ import { EMAIL_LINK_LIFETIME_SECONDS, EmailLink } from '~/lib/auth/EmailLink';
 import { adminPluginOptions } from '~/lib/auth/permissions';
 import { enforceRoleHierarchy } from '~/lib/auth/RoleHierarchy';
 import { ROLE, ROOT_EMAIL } from '~/lib/auth/roles';
+import { authUserOptions } from '~/lib/auth/userOptions';
 import {
     EmailVerificationEmail,
     MagicLinkEmail,
@@ -23,6 +24,7 @@ import { captureError } from '~/lib/observability/logger';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 import { db } from '~/server/db';
 import { user as userTable } from '~/server/db/schemas/auth';
+import { deleteUserOwnedData } from '~/server/helpers/UserOwnedData';
 
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const SESSION_UPDATE_INTERVAL_SECONDS = 60 * 60;
@@ -69,6 +71,11 @@ export const auth = betterAuth({
                             });
                         }
                     });
+                },
+            },
+            delete: {
+                before: async (deletedUser) => {
+                    await deleteUserOwnedData(db, deletedUser.id);
                 },
             },
         },
@@ -128,6 +135,7 @@ export const auth = betterAuth({
             }),
     },
     trustedOrigins: [getPublicSiteOrigin()],
+    user: authUserOptions,
 });
 
 export type Session = typeof auth.$Infer.Session;
