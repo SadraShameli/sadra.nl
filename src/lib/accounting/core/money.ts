@@ -6,6 +6,8 @@ import type { RateProvider } from '~/lib/accounting/rates/provider';
 
 import { EUR_CODE } from '~/lib/accounting/core/currency';
 
+const CENTS_PER_UNIT = 100;
+
 export interface ConvertedAmount {
     eur: Eur | null;
     note: string;
@@ -17,6 +19,10 @@ export interface CurrencyAmount {
 }
 
 export type Eur = Dinero<number, 'EUR'>;
+
+export function toCents(amount: number): number {
+    return Math.round(amount * CENTS_PER_UNIT);
+}
 export const Eur = {
     add: (a: Eur, b: Eur): Eur => add(a, b),
     fromNumber: (n: number): Eur =>

@@ -6,22 +6,26 @@ import type {
 } from '~/lib/accounting/core/types';
 
 import { IsoDate } from '~/lib/accounting/core/date';
+import { toCents } from '~/lib/accounting/core/money';
 
 export interface RuleCondition {
     isSatisfiedBy(tx: RawTransaction): boolean;
 }
 
 export class AmountRangeCondition implements RuleCondition {
-    constructor(
-        private readonly min: null | number,
-        private readonly max: null | number,
-    ) {}
+    private readonly maxCents: null | number;
+    private readonly minCents: null | number;
+
+    constructor(min: null | number, max: null | number) {
+        this.minCents = min === null ? null : toCents(min);
+        this.maxCents = max === null ? null : toCents(max);
+    }
 
     isSatisfiedBy(tx: RawTransaction): boolean {
-        const amount = Math.abs(tx.sourceAmount);
+        const cents = toCents(Math.abs(tx.sourceAmount));
         return (
-            (this.min === null || amount >= this.min) &&
-            (this.max === null || amount <= this.max)
+            (this.minCents === null || cents >= this.minCents) &&
+            (this.maxCents === null || cents <= this.maxCents)
         );
     }
 }

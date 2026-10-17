@@ -27,6 +27,10 @@ function hasValidDateRange(v: {
     return v.dateFrom == null || v.dateTo == null || v.dateFrom <= v.dateTo;
 }
 
+const SMALLEST_RULE_AMOUNT = 0.01;
+
+const ruleAmountSchema = z.number().positive().multipleOf(SMALLEST_RULE_AMOUNT);
+
 export const credentialKindSchema = z
     .enum(CredentialKind)
     .refine((id) => CredentialRegistry.instance.get(id) !== undefined, {
@@ -101,8 +105,8 @@ export const ruleCreateSchema = z
         ledger: ledgerReferenceSchema,
         match: z.string().min(1).max(256),
         matchType: z.enum(MATCH_TYPES).optional(),
-        maxAmount: z.number().positive().nullable().optional(),
-        minAmount: z.number().positive().nullable().optional(),
+        maxAmount: ruleAmountSchema.nullable().optional(),
+        minAmount: ruleAmountSchema.nullable().optional(),
         taxCode: z.string().min(1).max(32),
     })
     .refine(hasValidAmountRange, {
@@ -131,8 +135,8 @@ export const ruleUpdateSchema = z
         ledger: ledgerReferenceSchema.optional(),
         match: z.string().min(1).max(256).optional(),
         matchType: z.enum(MATCH_TYPES).optional(),
-        maxAmount: z.number().positive().nullable().optional(),
-        minAmount: z.number().positive().nullable().optional(),
+        maxAmount: ruleAmountSchema.nullable().optional(),
+        minAmount: ruleAmountSchema.nullable().optional(),
         taxCode: z.string().min(1).max(32).optional(),
     })
     .refine(hasValidAmountRange, {
@@ -161,8 +165,8 @@ export const ruleBacktestSchema = z
         from: isoDateSchema,
         match: z.string().min(1).max(256),
         matchType: z.enum(MATCH_TYPES).optional(),
-        maxAmount: z.number().positive().optional(),
-        minAmount: z.number().positive().optional(),
+        maxAmount: ruleAmountSchema.optional(),
+        minAmount: ruleAmountSchema.optional(),
         to: isoDateSchema,
     })
     .refine(hasValidAmountRange, {

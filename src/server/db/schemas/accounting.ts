@@ -1,10 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
     boolean,
-    doublePrecision,
     index,
     integer,
     jsonb,
+    numeric,
     text,
     timestamp,
     uniqueIndex,
@@ -90,8 +90,16 @@ export const accountingRule = createTable(
             .$type<MatchType>()
             .default('contains')
             .notNull(),
-        maxAmount: doublePrecision('max_amount'),
-        minAmount: doublePrecision('min_amount'),
+        maxAmount: numeric('max_amount', {
+            mode: 'number',
+            precision: 14,
+            scale: 2,
+        }),
+        minAmount: numeric('min_amount', {
+            mode: 'number',
+            precision: 14,
+            scale: 2,
+        }),
         sortOrder: integer('sort_order').default(0).notNull(),
         updatedAt: timestamp('updated_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
