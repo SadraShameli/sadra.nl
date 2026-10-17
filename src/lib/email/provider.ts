@@ -34,14 +34,14 @@ export class FallbackEmailProvider extends EmailProvider {
             await this.primary.send(arguments_);
         } catch (primaryError) {
             captureError(primaryError, {
-                fields: { subject: arguments_.subject, to: arguments_.to },
+                fields: { subject: arguments_.subject },
                 tag: 'email.primary',
             });
             try {
                 await this.fallback.send(arguments_);
             } catch (fallbackError) {
                 captureError(fallbackError, {
-                    fields: { subject: arguments_.subject, to: arguments_.to },
+                    fields: { subject: arguments_.subject },
                     tag: 'email.fallback',
                 });
                 throw fallbackError;

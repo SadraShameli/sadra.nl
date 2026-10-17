@@ -162,8 +162,21 @@ describe('FallbackEmailProvider', () => {
 
         expect(fallback.sent).toEqual([MESSAGE]);
         expect(captured.captureError).toHaveBeenCalledWith(primaryError, {
-            fields: { subject: MESSAGE.subject, to: MESSAGE.to },
+            fields: { subject: MESSAGE.subject },
             tag: 'email.primary',
         });
+    });
+
+    it('keeps the recipient address out of error reports', async () => {
+        const provider = new FallbackEmailProvider(
+            new FailingProvider(new Error('Lettermint is unavailable')),
+            new FailingProvider(new Error('Resend is unavailable')),
+        );
+
+        await expect(provider.send(MESSAGE)).rejects.toThrow();
+
+        expect(JSON.stringify(captured.captureError.mock.calls)).not.toContain(
+            MESSAGE.to,
+        );
     });
 });

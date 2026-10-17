@@ -76,7 +76,7 @@ export const auth = betterAuth({
                             );
                         } catch (error: unknown) {
                             captureError(error, {
-                                fields: { email: createdUser.email },
+                                fields: { userId: createdUser.id },
                                 tag: 'auth.signup.notify',
                             });
                         }

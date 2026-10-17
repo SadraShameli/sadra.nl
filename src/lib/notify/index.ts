@@ -26,7 +26,7 @@ async function fanOutEvent(
     factory: (to: string) => EmailMessage,
 ): Promise<void> {
     const subscribers = await db
-        .select({ email: user.email })
+        .select({ email: user.email, userId: user.id })
         .from(notificationPreference)
         .innerJoin(user, eq(user.id, notificationPreference.userId))
         .where(
@@ -37,13 +37,13 @@ async function fanOutEvent(
         );
 
     await Promise.all(
-        subscribers.map(async ({ email }) => {
+        subscribers.map(async ({ email, userId }) => {
             if (!email) return;
             try {
                 await mailer.send(factory(email));
             } catch (error: unknown) {
                 captureError(error, {
-                    fields: { eventType, to: email },
+                    fields: { eventType, userId },
                     tag: 'notify.fanOut',
                 });
             }
