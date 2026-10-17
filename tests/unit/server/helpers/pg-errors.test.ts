@@ -11,10 +11,13 @@ import { createFakeDatabase, FakeDatabaseError } from '../fakeDatabase';
 const UNIQUE_VIOLATION = '23505';
 const FOREIGN_KEY_VIOLATION = '23503';
 
-function rejectingDatabase(code: string) {
-    return createFakeDatabase(() => {
-        throw new FakeDatabaseError(code, 'sadranl_user_email_unique');
-    });
+async function caughtFrom(run: () => Promise<void>): Promise<unknown> {
+    try {
+        await run();
+    } catch (error: unknown) {
+        return error;
+    }
+    throw new TypeError('the query did not fail');
 }
 
 async function insertUser(
@@ -25,13 +28,10 @@ async function insertUser(
         .values({ email: 'a@b.test', id: 'user-1', name: 'A' });
 }
 
-async function caughtFrom(run: () => Promise<void>): Promise<unknown> {
-    try {
-        await run();
-    } catch (error: unknown) {
-        return error;
-    }
-    throw new TypeError('the query did not fail');
+function rejectingDatabase(code: string) {
+    return createFakeDatabase(() => {
+        throw new FakeDatabaseError(code, 'sadranl_user_email_unique');
+    });
 }
 
 describe('isUniqueViolation', () => {
