@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { isoDateSchema } from '~/lib/accounting/core/date';
 import { LedgerId } from '~/lib/accounting/core/ids';
-import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
+import {
+    isValidRulePattern,
+    MATCH_TYPES,
+} from '~/lib/accounting/core/rules/matcher';
 import { BOOKING_DIRECTIONS } from '~/lib/accounting/core/types';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { CredentialKind } from '~/lib/accounting/credentials/registry';
@@ -85,6 +88,8 @@ export const runPushRequestSchema = z.object({
     runId: z.uuid(),
 });
 
+export const INVALID_RULE_PATTERN = 'Match is not a valid regular expression';
+
 export const ruleCreateSchema = z
     .object({
         credentialId: z.uuid(),
@@ -107,7 +112,12 @@ export const ruleCreateSchema = z
     .refine(hasValidDateRange, {
         error: 'Date-from must not be after date-to',
         path: ['dateFrom'],
-    });
+    })
+    .refine(
+        (input) =>
+            isValidRulePattern(input.matchType ?? 'contains', input.match),
+        { error: INVALID_RULE_PATTERN, path: ['match'] },
+    );
 export type RuleCreateInput = z.infer<typeof ruleCreateSchema>;
 
 export const ruleUpdateSchema = z

@@ -36,6 +36,20 @@ export const MATCH_TYPES = ['contains', 'exact', 'regex'] as const;
 
 export type MatchType = (typeof MATCH_TYPES)[number];
 
+export function isValidRulePattern(
+    matchType: MatchType,
+    pattern: string,
+): boolean {
+    if (matchType !== 'regex') return true;
+    try {
+        new RegExp(pattern, 'i');
+        return true;
+    } catch (error) {
+        if (error instanceof SyntaxError) return false;
+        throw error;
+    }
+}
+
 export const MatcherFactory = {
     create(matchType: MatchType, pattern: string): RuleMatcher {
         switch (matchType) {
