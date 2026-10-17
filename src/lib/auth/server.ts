@@ -8,6 +8,7 @@ import { after } from 'next/server';
 import { cache } from 'react';
 
 import { environment } from '~/environment';
+import { authBackgroundTasks } from '~/lib/auth/backgroundTasks';
 import { authEmailAndPasswordOptions } from '~/lib/auth/emailAndPasswordOptions';
 import { EMAIL_LINK_LIFETIME_SECONDS, EmailLink } from '~/lib/auth/EmailLink';
 import { adminPluginOptions } from '~/lib/auth/permissions';
@@ -39,6 +40,7 @@ export const auth = betterAuth({
         },
     },
     advanced: {
+        backgroundTasks: authBackgroundTasks,
         cookies: {
             session_token: { attributes: { sameSite: 'strict', secure: true } },
         },
