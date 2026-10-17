@@ -1,6 +1,11 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { z } from 'zod';
+
+const SERVER_ERROR_EVENT = 'error';
+
+const serverErrorSchema = z.object({ message: z.string() });
 
 export interface StreamHandle<TEvent> {
     abort: () => void;
@@ -50,7 +55,12 @@ export function useImportStream<TEvent>(): StreamHandle<TEvent> {
                 const decoder = new TextDecoder();
                 let buffer = '';
                 const processChunk = (chunk: string) => {
-                    for (const line of chunk.split('\n')) {
+                    const lines = chunk.split('\n');
+                    const eventName = lines
+                        .find((line) => line.startsWith('event:'))
+                        ?.slice(6)
+                        .trim();
+                    for (const line of lines) {
                         if (!line.startsWith('data:')) {
                             continue;
                         }
@@ -58,8 +68,18 @@ export function useImportStream<TEvent>(): StreamHandle<TEvent> {
                         const json = line.slice(5).trim();
                         if (!json) continue;
                         try {
-                            const parsed = JSON.parse(json) as TEvent;
-                            setEvents((previous) => [...previous, parsed]);
+                            const parsed: unknown = JSON.parse(json);
+                            if (eventName === SERVER_ERROR_EVENT) {
+                                setError(
+                                    serverErrorSchema.safeParse(parsed).data
+                                        ?.message ?? 'The import failed.',
+                                );
+                                continue;
+                            }
+                            setEvents((previous) => [
+                                ...previous,
+                                parsed as TEvent,
+                            ]);
                         } catch {}
                     }
                 };
