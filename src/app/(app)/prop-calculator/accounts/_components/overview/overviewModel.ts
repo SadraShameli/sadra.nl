@@ -6118,7 +6118,7 @@ function planLimitBudgetCentsOf(
     usage: PlanCapUsage,
 ): null | number {
     const freeSlots = usage.plans.reduce((sum, row) => sum + row.freeSlots, 0);
-    return cheapestAttemptCents === null || freeSlots === 0
+    return cheapestAttemptCents === null || usage.plans.length === 0
         ? null
         : Math.round(freeSlots * cheapestAttemptCents);
 }

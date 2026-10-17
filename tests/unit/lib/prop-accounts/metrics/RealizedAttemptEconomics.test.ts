@@ -51,7 +51,7 @@ describe('perAttemptNetCents', () => {
         expect(values).toHaveLength(1);
     });
 
-    it('splits an account net cash evenly over its attempts', () => {
+    it('gives one net-cash sample per attempt of a cashless account', () => {
         const owner = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
         const values = perAttemptNetCents(
             ledger({
@@ -67,6 +67,37 @@ describe('perAttemptNetCents', () => {
         );
         expect(values).toHaveLength(1);
         expect(values[0]).toBe(0);
+    });
+});
+
+describe('perAttemptNetCents attributes cash to attempt windows', () => {
+    it('keeps a failed attempt negative and its profitable reset positive', () => {
+        const owner = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const values = perAttemptNetCents(
+            ledger({
+                accounts: [owner],
+                events: [
+                    purchased(owner),
+                    event(owner, AccountEventKind.Busted, '2026-01-10'),
+                    event(owner, AccountEventKind.Reopened, '2026-01-10'),
+                    event(owner, AccountEventKind.EvalPassed, '2026-01-20'),
+                ],
+                fees: [
+                    fee(owner, FeeKind.EvalPurchase, 10_000, '2026-01-01'),
+                    fee(owner, FeeKind.Reset, 10_000, '2026-01-10'),
+                ],
+                payouts: [
+                    payout(owner, 100_000, {
+                        netCents: 100_000,
+                        paidOn: '2026-01-25',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            '2026-09-01',
+            30,
+        );
+        expect(values).toEqual([-10_000, 90_000]);
     });
 });
 

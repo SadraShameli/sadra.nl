@@ -67,9 +67,23 @@ export function isHorizonMaturedCohort(
     const status = finalState(entry)?.status;
     const isEnded = status !== undefined && isEndedStatus(status);
     return (
-        paidCountWithinHorizon(entry, fundedOn, horizonDays) > 0 ||
+        observedPaidCountWithinHorizon(entry, fundedOn, asOfDate, horizonDays) >
+            0 ||
         isEnded ||
         isoDaysBetween(fundedOn, asOfDate) >= horizonDays
+    );
+}
+
+export function observedPaidCountWithinHorizon(
+    entry: LedgerAccount,
+    fundedOn: string,
+    asOfDate: string,
+    horizonDays: number,
+): number {
+    return paidCountWithinHorizon(
+        entry,
+        fundedOn,
+        Math.min(horizonDays, isoDaysBetween(fundedOn, asOfDate)),
     );
 }
 

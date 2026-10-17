@@ -482,6 +482,37 @@ describe('propAccounts.review', () => {
         );
         expect(insertsInto(queries, TABLES.snapshot)).toHaveLength(1);
     });
+
+    it('stamps a backdated decision with the stage the account had on the review date', async () => {
+        const { caller, queries } = callerFor(
+            SIGNED_IN,
+            tableResponder({
+                [TABLES.account]: [stagedAccountRow()],
+                [TABLES.event]: [movedLiveOn('2026-09-25')],
+                [TABLES.snapshot]: [
+                    snapshotRow({ account_id: IDS.account, id: IDS.snapshot }),
+                ],
+            }),
+        );
+        await caller.review.submit(
+            reviewSubmitInput({
+                snapshots: [
+                    {
+                        accountId: IDS.account,
+                        balanceCents: 5_050_000,
+                        dashboardFloorCents: 4_900_000,
+                        highestEodBalanceCents: 5_100_000,
+                        payoutsTaken: 0,
+                        tradingDays: 4,
+                    },
+                ],
+            }),
+        );
+        const [decisionInsert] = insertsInto(queries, TABLES.decision);
+        expect(insertedColumnValues(defined(decisionInsert), 'stage')).toEqual([
+            AccountStage.Funded,
+        ]);
+    });
 });
 
 describe('propAccounts.review.stagesOn', () => {

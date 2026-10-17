@@ -721,6 +721,40 @@ describe('nextSlotAllocation free slots', () => {
         );
     });
 
+    it('reserves the shared pool for a higher-ranked plan before allocating the next plan of the firm', () => {
+        const pool: SharedPoolPolicy = {
+            excludedPlans: [],
+            household: false,
+            kind: AccountCapPolicyKind.SharedPool,
+            members: [EVAL_PLAN.serial, SAME_FIRM_SECOND_EVAL_PLAN.serial],
+            poolSize: 5,
+            reduction: null,
+            subCaps: [],
+        };
+        const allocation = verified(
+            [EVAL_PLAN],
+            () =>
+                allocate({
+                    bankroll: {
+                        ...DEFAULT_RULEBOOK.bankroll,
+                        dailyAccountCapacity: 20,
+                    },
+                    candidates: [
+                        candidateOf(EVAL_PLAN, { monthlyNet: 400 }),
+                        candidateOf(SAME_FIRM_SECOND_EVAL_PLAN, {
+                            monthlyNet: 300,
+                        }),
+                    ],
+                }),
+            { pool },
+        );
+        const total = allocation.ranked.reduce(
+            (sum, row) => sum + row.allocatableSlots,
+            0,
+        );
+        expect(total).toBeLessThanOrEqual(5);
+    });
+
     it('lists a firm whose cap scope is unverified and does not rank it', () => {
         const allocation = allocate({ candidates: [candidateOf(EVAL_PLAN)] });
         expect(allocation.ranked).toEqual([]);

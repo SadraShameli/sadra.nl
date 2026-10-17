@@ -120,6 +120,41 @@ describe('monthlyStatement', () => {
     });
 });
 
+describe('monthlyStatement as-of cutoff', () => {
+    it('leaves cash and events after the as-of day out of the partial month', () => {
+        const owner = account(EVAL_PLAN, { purchasedOn: '2026-01-02' });
+        const { months } = monthlyStatement(
+            ledger({
+                accounts: [owner],
+                events: [
+                    purchased(owner),
+                    event(owner, AccountEventKind.EvalPassed, '2026-01-10'),
+                ],
+                fees: [fee(owner, FeeKind.EvalPurchase, 20_000, '2026-01-02')],
+                payouts: [
+                    payout(owner, 100_000, {
+                        netCents: 100_000,
+                        paidOn: '2026-01-20',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            '2026-01-05',
+            { monthlyPayoutTargetCents: 50_000, targetMonthlyMultiple: null },
+        );
+        expect(months).toHaveLength(1);
+        expect(months[0]).toMatchObject({
+            net: -20_000,
+            paidPayouts: 0,
+            payouts: 0,
+            spend: 20_000,
+        });
+        expect(months[0]?.events).toEqual({
+            [AccountEventKind.Purchased]: 1,
+        });
+    });
+});
+
 describe('monthlyStatement fills and disclosures', () => {
     it('fills every month from the first purchase to the as-of month, even with no cash, and marks the current month partial', () => {
         const owner = account(EVAL_PLAN, { purchasedOn: '2026-06-01' });

@@ -429,7 +429,26 @@ describe('scaleAtMeasuredMultiple', () => {
         });
     });
 
-    it('treats a zero, negative or fractional budget as not set', () => {
+    it('keeps a known zero plan limit as no room to scale instead of no limit', () => {
+        expect(
+            scaleAtMeasuredMultiple(
+                MULTIPLE,
+                {
+                    capacityFillCents: 500_000,
+                    enteredMonthlyCents: null,
+                    planLimitCents: 0,
+                },
+                THRESHOLDS,
+            ),
+        ).toMatchObject({
+            budgetBasis: ScaleBudgetBasis.PlanLimit,
+            budgetCents: 0,
+            kind: ScaleAtMultipleKind.Available,
+            projectedCents: 0,
+        });
+    });
+
+    it('treats a zero, negative or fractional budget as not set, except a known zero plan limit', () => {
         for (const bad of [0, -5000, 1.5, NaN]) {
             expect(
                 scaleAtMeasuredMultiple(
@@ -441,16 +460,18 @@ describe('scaleAtMeasuredMultiple', () => {
                 kind: ScaleAtMultipleKind.Unavailable,
                 reason: ScaleAtMultipleReason.CapacityNotSet,
             });
-            expect(
-                scaleAtMeasuredMultiple(
-                    MULTIPLE,
-                    { ...NO_BUDGETS, planLimitCents: bad },
-                    THRESHOLDS,
-                ),
-            ).toMatchObject({
-                kind: ScaleAtMultipleKind.Unavailable,
-                reason: ScaleAtMultipleReason.CapacityNotSet,
-            });
+            if (bad !== 0) {
+                expect(
+                    scaleAtMeasuredMultiple(
+                        MULTIPLE,
+                        { ...NO_BUDGETS, planLimitCents: bad },
+                        THRESHOLDS,
+                    ),
+                ).toMatchObject({
+                    kind: ScaleAtMultipleKind.Unavailable,
+                    reason: ScaleAtMultipleReason.CapacityNotSet,
+                });
+            }
             expect(
                 scaleAtMeasuredMultiple(
                     MULTIPLE,

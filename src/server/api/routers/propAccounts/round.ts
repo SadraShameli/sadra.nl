@@ -59,6 +59,7 @@ export const propRoundRouter = createTRPCRouter({
         .output(propAccountOutputSchema)
         .mutation(({ ctx, input }) =>
             ctx.db.transaction(async (tx) => {
+                const quotas = await PropQuotaGuard.acquire(tx, ctx.userId);
                 const repo = new PropAccountRepo(tx, ctx.userId);
                 const stored = await repo.loadOwnedAccountOrThrow(
                     input.accountId,
@@ -70,7 +71,6 @@ export const propRoundRouter = createTRPCRouter({
                     input.roundId,
                     input.overrideRoundBudget,
                 );
-                const quotas = await PropQuotaGuard.acquire(tx, ctx.userId);
                 await quotas.assertWithin(PropQuota.Events, 1);
                 const now = new Date();
                 const [row] = await tx

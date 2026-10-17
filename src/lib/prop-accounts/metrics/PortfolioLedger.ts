@@ -215,6 +215,11 @@ export interface UnmatchedRows {
     readonly payouts: number;
 }
 
+interface EvalAttemptEnd {
+    readonly isPass: boolean;
+    readonly on: string;
+}
+
 interface LedgerAccountEntries {
     readonly events: readonly LedgerEventRow[];
     readonly fees: readonly LedgerFeeRow[];
@@ -397,22 +402,33 @@ export function accountRoundId(account: LedgerAccount): null | string {
     return account.row.roundId ?? null;
 }
 
+export function evalAttemptEnds(
+    account: LedgerAccount,
+): readonly EvalAttemptEnd[] {
+    return account.transitions.flatMap(
+        (transition, index): EvalAttemptEnd[] => {
+            if (transition.kind === AccountEventKind.EvalPassed) {
+                return [{ isPass: true, on: transition.on }];
+            }
+            const { from } = transition;
+            if (from?.stage !== AccountStage.Eval) return [];
+            const isEvalBust =
+                transition.to.status === AccountStatus.Busted &&
+                !isReversed(account.transitions, index);
+            const isIdleClosure =
+                transition.kind === AccountEventKind.ClosedInactivity &&
+                from.status !== AccountStatus.Busted;
+            return isEvalBust || isIdleClosure
+                ? [{ isPass: false, on: transition.on }]
+                : [];
+        },
+    );
+}
+
 export function evalAttemptTally(account: LedgerAccount): EvalAttemptTally {
-    let passes = 0;
-    let fails = 0;
-    for (const [index, transition] of account.transitions.entries()) {
-        if (transition.kind === AccountEventKind.EvalPassed) passes += 1;
-        const { from } = transition;
-        if (from?.stage !== AccountStage.Eval) continue;
-        const isEvalBust =
-            transition.to.status === AccountStatus.Busted &&
-            !isReversed(account.transitions, index);
-        const isIdleClosure =
-            transition.kind === AccountEventKind.ClosedInactivity &&
-            from.status !== AccountStatus.Busted;
-        if (isEvalBust || isIdleClosure) fails += 1;
-    }
-    return { fails, passes };
+    const ends = evalAttemptEnds(account);
+    const passes = ends.filter((end) => end.isPass).length;
+    return { fails: ends.length - passes, passes };
 }
 
 export function finalState(

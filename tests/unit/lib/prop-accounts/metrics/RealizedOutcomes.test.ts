@@ -319,6 +319,32 @@ describe('realizedPayoutRates', () => {
         });
     });
 
+    it('does not count a payout dated after the as-of date as an observed success', () => {
+        const funded = account(EVAL_PLAN, { purchasedOn: '2026-01-01' });
+        const result = realizedPayoutRates(
+            ledger({
+                accounts: [funded],
+                events: [
+                    purchased(funded),
+                    event(funded, AccountEventKind.EvalPassed, '2026-01-02'),
+                ],
+                payouts: [
+                    payout(funded, 100_000, {
+                        paidOn: '2026-01-20',
+                        status: PayoutStatus.Paid,
+                    }),
+                ],
+            }),
+            '2026-01-05',
+            HORIZON_DAYS,
+        );
+        const plan = result.perPlan.find(
+            (p) => p.planSerial === EVAL_PLAN.serial,
+        );
+        expect(plan?.openAccounts).toBe(1);
+        expect(plan?.payoutRate).toBeNull();
+    });
+
     it('merges a copy group bought on the same date into one independent sample', () => {
         const first = account(EVAL_PLAN, {
             copyGroupId: 'group-1',

@@ -54,6 +54,26 @@ describe('moneyWeightedReturn', () => {
         expect(rate).toBeNull();
     });
 
+    it('is null for a deposit valued on the same day, which has no elapsed exposure', () => {
+        expect(
+            moneyWeightedReturn([
+                { amountCents: -10_000, on: '2026-01-01' },
+                { amountCents: 10_000, on: '2026-01-01' },
+            ]),
+        ).toBeNull();
+    });
+
+    it('nets same-day cashflows before solving', () => {
+        const days = 100;
+        const expected = (220_000 / 200_000) ** (365 / days) - 1;
+        const rate = moneyWeightedReturn([
+            { amountCents: -150_000, on: '2026-01-01' },
+            { amountCents: -50_000, on: '2026-01-01' },
+            { amountCents: 220_000, on: '2026-04-11' },
+        ]);
+        expect(rate ?? 0).toBeCloseTo(expected, 6);
+    });
+
     it('ignores zero-amount cashflows', () => {
         const rate = moneyWeightedReturn([
             { amountCents: -200_000, on: '2026-01-01' },

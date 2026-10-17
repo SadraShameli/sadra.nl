@@ -189,6 +189,12 @@ export const propReviewRouter = createTRPCRouter({
                 const snapshotIdByAccount = new Map(
                     insertedSnapshots.map((row) => [row.accountId, row.id]),
                 );
+                const stageByAccount = new Map(
+                    staged.map((entry) => [
+                        entry.snapshot.accountId,
+                        entry.stage,
+                    ]),
+                );
                 const insertedDecisions =
                     input.decisions.length === 0
                         ? []
@@ -213,13 +219,21 @@ export const propReviewRouter = createTRPCRouter({
                                               'no stored snapshot id was found for this decision account',
                                           );
                                       }
+                                      const stage = stageByAccount.get(
+                                          entry.accountId,
+                                      );
+                                      if (stage === undefined) {
+                                          throw new Error(
+                                              'no reviewed stage was found for this decision account',
+                                          );
+                                      }
                                       return {
                                           ...entry,
                                           decidedOn: input.asOf,
                                           note: null,
                                           snapshotId,
                                           source: AdviceSource.Documented,
-                                          stage: account.stage,
+                                          stage,
                                           userId: ctx.userId,
                                       };
                                   }),

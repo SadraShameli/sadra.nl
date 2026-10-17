@@ -5,13 +5,14 @@ import {
     firmKeyOf,
     groupByFirmKey,
     isEndedStatus,
-    isoDaysBetween,
-    paidPayoutCash,
     weekdaysInRange,
 } from '~/lib/prop-accounts/core';
 import { type FirmId } from '~/lib/prop-calculator';
 
-import { isHorizonMaturedCohort } from './FundedPayoutDistribution';
+import {
+    isHorizonMaturedCohort,
+    observedPaidCountWithinHorizon,
+} from './FundedPayoutDistribution';
 import { type CopyGroupKey, independentSamples } from './IndependentSamples';
 import {
     evalAttemptTally,
@@ -150,25 +151,19 @@ function cohortOutcomeOf(
 ): CohortOutcomeKind | null {
     const funded = fundedSince(entry);
     if (funded === null) return null;
-    if (hasPaidWithinHorizon(entry, funded.on, horizonDays)) {
+    if (
+        observedPaidCountWithinHorizon(
+            entry,
+            funded.on,
+            asOfDate,
+            horizonDays,
+        ) > 0
+    ) {
         return CohortOutcomeKind.Success;
     }
     return isHorizonMaturedCohort(entry, funded.on, asOfDate, horizonDays)
         ? CohortOutcomeKind.Failure
         : CohortOutcomeKind.Open;
-}
-
-function hasPaidWithinHorizon(
-    entry: ModeledLedgerAccount,
-    fundedOn: string,
-    horizonDays: number,
-): boolean {
-    return entry.payouts.some((row) => {
-        const paid = paidPayoutCash(row);
-        if (!paid?.paidOn) return false;
-        const lag = isoDaysBetween(fundedOn, paid.paidOn);
-        return lag >= 0 && lag <= horizonDays;
-    });
 }
 
 function isStillOpen(entry: LedgerAccount): boolean {

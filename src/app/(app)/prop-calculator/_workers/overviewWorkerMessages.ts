@@ -35,6 +35,7 @@ import {
     type DocumentedPolicyTimelineGap,
     documentedPolicyTimelineInputs,
     enginePolicyKey,
+    type EnginePolicyPositionSizing,
     hasPersonalCaps,
     liveTransferAssumptionOf,
     type LiveTransferHazardAssumption,
@@ -294,6 +295,7 @@ interface DocumentedSpecInput {
     readonly measuredRebuyLag?: MeasuredRebuyLag | null;
     readonly overrides: AccountPersonalPolicy;
     readonly plan: Plan;
+    readonly positionSizing?: EnginePolicyPositionSizing | null;
     readonly rulebook: RulebookParameters;
     readonly run: DocumentedPolicyRun;
 }
@@ -425,7 +427,7 @@ export function buildDocumentedSpec(
         fundedHorizonDays: input.fundedHorizonDays,
         measuredRebuyLag: input.measuredRebuyLag,
         plan,
-        positionSizing: null,
+        positionSizing: input.positionSizing ?? null,
         rulebook,
     });
     return {

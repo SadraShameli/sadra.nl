@@ -50,6 +50,14 @@ interface AdviceInput {
     readonly firmId: FirmIdType;
     readonly optIns: PlanOptIns;
     readonly planSerial: string;
+    readonly values: null | {
+        readonly spec: {
+            readonly enginePolicy: {
+                readonly instrument?: string;
+                readonly stopPoints?: number;
+            };
+        };
+    };
 }
 
 interface FakeQuery {
@@ -430,6 +438,20 @@ describe('the advice panel passes the entered instrument and stop to the advisor
         expect(atTwenty).not.toBe(unplaced);
         expect(atFive).not.toBe(atTwenty);
         expect(backAtTwenty).toBe(atTwenty);
+    });
+
+    it('places the value runs at the entered stop, so they match the sizing card', () => {
+        render();
+        expect(
+            lastInput().values?.spec.enginePolicy.stopPoints,
+        ).toBeUndefined();
+
+        setField('#daily-card-stop', '20');
+        settle();
+
+        const policy = lastInput().values?.spec.enginePolicy;
+        expect(policy?.stopPoints).toBe(20);
+        expect(policy?.instrument).toBeDefined();
     });
 
     it('keeps the stop field, its value and its focus when the settled stop sends the engine job to loading', () => {

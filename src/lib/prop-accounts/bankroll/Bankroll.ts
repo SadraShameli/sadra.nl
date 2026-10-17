@@ -174,6 +174,12 @@ export function scaleAtMeasuredMultiple(
     };
 }
 
+function nonNegativeCentsOf(cents: null | number): null | number {
+    return cents !== null && Number.isSafeInteger(cents) && cents >= 0
+        ? cents
+        : null;
+}
+
 function positiveCentsOf(cents: null | number): null | number {
     return cents !== null && Number.isSafeInteger(cents) && cents > 0
         ? cents
@@ -200,7 +206,7 @@ function scaleBudgetOf(budgets: ScaleBudgetInputs): null | ScaleBudget {
 
 function scaleLimitOf(budgets: ScaleBudgetInputs): null | ScaleBudget {
     const capacityFillCents = positiveCentsOf(budgets.capacityFillCents);
-    const planLimitCents = positiveCentsOf(budgets.planLimitCents);
+    const planLimitCents = nonNegativeCentsOf(budgets.planLimitCents);
     if (
         capacityFillCents !== null &&
         (planLimitCents === null || capacityFillCents <= planLimitCents)

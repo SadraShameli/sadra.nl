@@ -20,6 +20,7 @@ import {
     paidCountWithinHorizon,
 } from './FundedPayoutDistribution';
 import {
+    evalAttemptEnds,
     finalState,
     fundedSince,
     type LedgerAccount,
@@ -29,6 +30,7 @@ import {
     roundCents,
     type SampledEstimate,
     sampledMean,
+    signedFeeCents,
 } from './PortfolioLedger';
 import { realizedOutcomes, realizedPayoutRates } from './RealizedOutcomes';
 import { summarizeCash } from './SpendAndPayouts';
@@ -75,13 +77,11 @@ export function perAttemptNetCents(
     asOfDate: string,
     horizonDays: number,
 ): readonly number[] {
-    return ledger.resolvedAccounts.flatMap((entry) => {
-        if (!isCohortEndedAttempt(entry, asOfDate, horizonDays)) return [];
-        const attempts = attemptsOf(entry);
-        if (attempts <= 0) return [];
-        const net = summarizeCash(entry.fees, entry.payouts).net;
-        return Array.from({ length: attempts }, () => net / attempts);
-    });
+    return ledger.resolvedAccounts.flatMap((entry) =>
+        isCohortEndedAttempt(entry, asOfDate, horizonDays)
+            ? attemptWindowNetCents(entry)
+            : [],
+    );
 }
 
 export function realizedAttemptEconomics(
@@ -117,6 +117,30 @@ export function realizedAttemptEconomics(
                 ),
             ),
     };
+}
+
+function attemptWindowNetCents(entry: ModeledLedgerAccount): number[] {
+    const attempts = attemptsOf(entry);
+    if (attempts <= 0) return [];
+    const endDates = evalAttemptEnds(entry).map((end) => end.on);
+    const windowOf = (on: null | string): number =>
+        on === null
+            ? attempts - 1
+            : Math.min(
+                  attempts - 1,
+                  endDates.filter((endOn) => endOn <= on).length,
+              );
+    const nets = Array.from({ length: attempts }, () => 0);
+    const credit = (on: null | string, cents: number): void => {
+        const index = windowOf(on);
+        nets[index] = (nets[index] ?? 0) + cents;
+    };
+    for (const row of entry.fees) credit(row.paidOn, 0 - signedFeeCents(row));
+    for (const row of entry.payouts) {
+        const paid = paidPayoutCash(row);
+        if (paid !== null) credit(paid.paidOn, paid.cents);
+    }
+    return nets;
 }
 
 function averagePayoutOf(

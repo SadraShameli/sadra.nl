@@ -241,7 +241,7 @@ export class PayoutRequestRule extends RulebookRule<PayoutRuleContext> {
                     return {
                         kind: PayoutRequestDecisionKind.Request,
                         notice,
-                        requestAmount: dollars(requestedAmount),
+                        requestAmount: dollars(evaluation.debited),
                         retainedCushion,
                         retainedCushionBasis: basis,
                         sources,

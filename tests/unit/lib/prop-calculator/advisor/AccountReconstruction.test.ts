@@ -1568,6 +1568,41 @@ describe('AccountReconstruction.rebuild: a live account discloses a payout reque
     });
 });
 
+describe('AccountReconstruction.rebuild: a live account deducts payouts requested after its snapshot', () => {
+    it('lowers a modeled live cushion by the pending payout and discloses the deduction', () => {
+        const apex = registryPlan(APEX_EOD_ID);
+        const input = baseInput({
+            balance: dollars(53_000),
+            highestEodBalance: dollars(53_000),
+            liveStartBalance: dollars(52_000),
+        });
+        const without = liveOf(input, apex);
+        const withPending = liveOf(
+            { ...input, pendingPayouts: dollars(1000) },
+            apex,
+        );
+        expect(withPending.cushion).toBe((without.cushion ?? 0) - 1000);
+        expect(kindsOf(withPending)).toContain(
+            AssumptionKind.PendingPayoutDeducted,
+        );
+    });
+
+    it('lowers a not-modeled live cushion by the pending payout', () => {
+        const account = liveOf(
+            baseInput({
+                balance: dollars(54_000),
+                dashboardFloor: dollars(52_000),
+                pendingPayouts: dollars(1000),
+            }),
+            registryPlan(FUNDEDNEXT_LEGACY_ID),
+        );
+        expect(account.cushion).toBe(1000);
+        expect(kindsOf(account)).toContain(
+            AssumptionKind.PendingPayoutDeducted,
+        );
+    });
+});
+
 describe('AccountReconstruction.rebuild: a live account carries the personal max risk per trade (F-62 (4), QF-2)', () => {
     it('carries the cap on a modeled live account and defaults it to null', () => {
         const apex = registryPlan(APEX_EOD_ID);

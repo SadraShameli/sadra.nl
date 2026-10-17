@@ -1788,6 +1788,57 @@ describe('buildOverview bankroll card (F-V3)', () => {
         expect(scale.budget).not.toBe(cents(10_000_000));
     });
 
+    it('projects no scaling when the plan funded cap leaves zero free slots', () => {
+        const alpha = account(EVAL_PLAN, {
+            label: 'Alpha',
+            purchasedOn: '2026-06-01',
+            status: AccountStatus.Closed,
+        });
+        const cap = EVAL_PLAN.firm.maxFundedAccounts(EVAL_PLAN.plan);
+        const funded = Array.from({ length: cap }, (_, index) =>
+            account(EVAL_PLAN, {
+                fundedOn: '2026-06-10',
+                label: `Funded ${String(index)}`,
+                purchasedOn: '2026-06-01',
+                stage: AccountStage.Funded,
+            }),
+        );
+        const cards = cardsOf({
+            accounts: [alpha, ...funded].map(overviewAccount),
+            events: [
+                purchased(alpha),
+                event(alpha, AccountEventKind.ClosedInactivity, '2026-07-01'),
+                ...funded.flatMap((row) => [
+                    purchased(row),
+                    event(row, AccountEventKind.EvalPassed, '2026-06-10'),
+                ]),
+            ],
+            fees: [fee(alpha, FeeKind.EvalPurchase, 10_000, '2026-06-01')],
+            payouts: [
+                payout(alpha, 20_000, {
+                    netCents: 20_000,
+                    paidOn: '2026-07-01',
+                    requestedOn: '2026-06-25',
+                }),
+            ],
+            rulebook: {
+                ...DEFAULT_RULEBOOK,
+                bankroll: {
+                    ...DEFAULT_RULEBOOK.bankroll,
+                    dailyAccountCapacity: 1000,
+                },
+            },
+        });
+        const scale = cards.bankroll.scale;
+        if (scale.kind !== ScaleAtMultipleKind.Available) {
+            throw new Error(
+                'expected the scale-at-multiple line to be available',
+            );
+        }
+        expect(scale.budget).toBe(cents(0));
+        expect(scale.projected).toBe(cents(0));
+    });
+
     it('caps an entered monthly budget above the capacity fill and says so', () => {
         const model = scaleAtMultipleModel(
             scaleAtMeasuredMultiple(

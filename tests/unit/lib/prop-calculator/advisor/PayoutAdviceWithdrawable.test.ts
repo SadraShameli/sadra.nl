@@ -267,6 +267,23 @@ describe('the payout advice names the caps that bound the request (PT-105 step 7
         expect(advice.ruleCappedWithdrawable).toBe(300);
     });
 
+    it('recommends the capped request the evaluator settles and prices the cash from it', () => {
+        const plan = uncappedPlan.withOverrides({
+            payoutRequestCap: dollars(300),
+        });
+
+        const advice = payoutAdvice(
+            rulebookRequesting(50_000),
+            fundedContext(plan),
+        );
+
+        if (advice.documented.kind !== PayoutRequestDecisionKind.Request) {
+            throw new Error('expected a request');
+        }
+        expect(advice.documented.requestAmount).toBe(300);
+        expect(advice.netAfterSplit).toBe(plan.payoutFromProfit(300, 0));
+    });
+
     it('does not mark a per-request cap that sits above the cushion room as the limiter', () => {
         const plan = uncappedPlan.withOverrides({
             payoutRequestCap: dollars(9000),

@@ -695,6 +695,32 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         expect(container.textContent).toContain('not modeled');
     });
 
+    it.each([
+        { name: 'busted', overrides: { status: AccountStatus.Busted } },
+        { name: 'closed', overrides: { status: AccountStatus.Closed } },
+        { name: 'concluded', overrides: { status: AccountStatus.Concluded } },
+        {
+            name: 'archived',
+            overrides: { archivedAt: new Date('2026-09-20T00:00:00Z') },
+        },
+    ])('gives no actionable advice for a $name account', ({ overrides }) => {
+        answerEverything({ 'account.get': answer(account(overrides)) });
+        adviceBox.state = {
+            advice: realFundedAdvice(),
+            failedOptima: [],
+            phase: AccountAdvicePhase.Ready,
+        };
+        render();
+
+        expect(adviceBox.inputs.filter((input) => input !== null)).toEqual([]);
+        expect(
+            [...container.querySelectorAll('button')].some(
+                (button) => button.textContent === 'Accept size',
+            ),
+        ).toBe(false);
+        expect(container.textContent).toContain('has ended');
+    });
+
     it('shows a loading state while the advice worker is running', () => {
         answerEverything();
         adviceBox.state = { phase: AccountAdvicePhase.Loading };

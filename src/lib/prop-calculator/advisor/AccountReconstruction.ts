@@ -316,6 +316,21 @@ function noteRequestsAssumedInBalance(
     );
 }
 
+function pendingPayoutDeduction(
+    input: AccountSnapshotInput,
+    assumptions: Assumption[],
+): number {
+    const pendingPayouts = input.pendingPayouts ?? 0;
+    if (pendingPayouts <= 0) return 0;
+    assumptions.push(
+        inputAssumption(
+            AssumptionKind.PendingPayoutDeducted,
+            AssumptionBias.Conservative,
+        ),
+    );
+    return pendingPayouts;
+}
+
 function rebuildEval(
     input: AccountSnapshotInput,
     plan: Plan,
@@ -458,16 +473,8 @@ function rebuildFunded(
         );
     }
 
-    const pendingPayouts = input.pendingPayouts ?? 0;
-    if (pendingPayouts > 0) {
-        state.balance -= pendingPayouts;
-        assumptions.push(
-            inputAssumption(
-                AssumptionKind.PendingPayoutDeducted,
-                AssumptionBias.Conservative,
-            ),
-        );
-    }
+    const pendingPayouts = pendingPayoutDeduction(input, assumptions);
+    state.balance -= pendingPayouts;
     noteRequestsAssumedInBalance(input, assumptions);
 
     if (input.qualifyingDaysSinceLastPayout !== undefined) {
@@ -666,6 +673,7 @@ function rebuildLive(
                     AssumptionBias.Neutral,
                 );
             }
+            state.balance -= pendingPayoutDeduction(input, assumptions);
             if (isLiveModelApproximation(applicability)) {
                 assumptions.push(
                     inputAssumption(
@@ -695,7 +703,9 @@ function rebuildLive(
             const cushion =
                 input.dashboardFloor === undefined
                     ? null
-                    : nominal(input.balance) - nominal(input.dashboardFloor);
+                    : nominal(input.balance) -
+                      nominal(input.dashboardFloor) -
+                      pendingPayoutDeduction(input, assumptions);
             return {
                 assumptions,
                 cushion,

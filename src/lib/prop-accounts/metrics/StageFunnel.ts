@@ -39,6 +39,11 @@ export interface AccountBustViolation extends BustDiagnosisViolation {
     readonly accountId: string;
 }
 
+const ATTEMPT_START_EVENTS: ReadonlySet<AccountEventKind> = new Set([
+    AccountEventKind.FundedReset,
+    AccountEventKind.Reopened,
+]);
+
 export interface BustAttempt {
     readonly events: readonly BustAttemptEvent[];
     readonly purchasedOn: string;
@@ -99,8 +104,17 @@ export function bustDiagnosisOfAttempt(
         .filter((event) => event.kind === AccountEventKind.Busted)
         .toSorted((a, b) => compareText(b.occurredOn, a.occurredOn))[0];
     if (bustEvent === undefined) return null;
-    const windowStart = attempt.purchasedOn;
     const windowEnd = bustEvent.occurredOn;
+    const windowStart =
+        attempt.events
+            .filter(
+                (event) =>
+                    ATTEMPT_START_EVENTS.has(event.kind) &&
+                    compareText(event.occurredOn, windowEnd) < 0,
+            )
+            .map((event) => event.occurredOn)
+            .toSorted(compareText)
+            .at(-1) ?? attempt.purchasedOn;
     return bustDiagnosisOf({
         bustCause:
             readAccountEventDetail(bustEvent.detail ?? {}).bustCause ??

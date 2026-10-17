@@ -33,6 +33,7 @@ import {
     type DocumentedPolicySpec,
     type DocumentedRung,
     type EnginePolicy,
+    type EnginePolicyPositionSizing,
     liveTransferAssumptionLines,
     type MeasuredRebuyLag,
     NO_PERSONAL_CAPS,
@@ -106,6 +107,7 @@ export interface AdviceValueRequestInput {
     readonly personalPayoutOverride?: Dollars | null;
     readonly personalRetainedCushion?: Dollars | null;
     readonly plan: Plan;
+    readonly positionSizing?: EnginePolicyPositionSizing | null;
     readonly rulebook: RulebookParameters;
 }
 
@@ -629,6 +631,7 @@ export function valueSpecOf(
         measuredRebuyLag: input.measuredRebuyLag,
         overrides: personalPolicyOverridesOfOptions(input),
         plan: input.plan,
+        positionSizing: input.positionSizing ?? null,
         rulebook: input.rulebook,
         run: {
             maxEvalDays: DEFAULT_MAX_EVAL_DAYS,

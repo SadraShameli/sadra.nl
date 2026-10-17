@@ -178,6 +178,26 @@ describe('bustDiagnosisOfAttempt', () => {
             )?.kind,
         ).toBe(BustDiagnosisKind.WithinPlan);
     });
+
+    it('starts the evidence window at the reopen before the latest bust, leaving an earlier attempt violation out', () => {
+        expect(
+            bustDiagnosisOfAttempt(
+                {
+                    ...ATTEMPT,
+                    events: [
+                        bust(BustCause.MaxDrawdown, '2026-09-05'),
+                        {
+                            kind: AccountEventKind.Reopened,
+                            occurredOn: '2026-09-06',
+                        },
+                        bust(BustCause.MaxDrawdown, '2026-09-20'),
+                    ],
+                },
+                [followed('2026-09-10')],
+                [violation('2026-09-02')],
+            )?.kind,
+        ).toBe(BustDiagnosisKind.WithinPlan);
+    });
 });
 
 describe('bustSplitByFirm', () => {

@@ -14,7 +14,7 @@ export interface MoneyWeightedReturnCashflow {
 export function moneyWeightedReturn(
     cashflows: readonly MoneyWeightedReturnCashflow[],
 ): null | number {
-    const dated = cashflows
+    const dated = netByDate(cashflows)
         .filter((cashflow) => cashflow.amountCents !== 0)
         .toSorted((a, b) => compareText(a.on, b.on));
     if (dated.length < 2) return null;
@@ -60,4 +60,17 @@ export function moneyWeightedReturn(
         }
     }
     return null;
+}
+
+function netByDate(
+    cashflows: readonly MoneyWeightedReturnCashflow[],
+): readonly MoneyWeightedReturnCashflow[] {
+    const totals = new Map<string, number>();
+    for (const cashflow of cashflows) {
+        totals.set(
+            cashflow.on,
+            (totals.get(cashflow.on) ?? 0) + cashflow.amountCents,
+        );
+    }
+    return [...totals].map(([on, amountCents]) => ({ amountCents, on }));
 }

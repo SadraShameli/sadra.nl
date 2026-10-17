@@ -29,6 +29,7 @@ import { Skeleton } from '~/components/ui/Skeleton';
 import { useSession } from '~/lib/auth/client';
 import {
     type AccountStage,
+    isEndedStatus,
     isModeledAccount,
     latestTwoSnapshots,
     PlanKeyResolutionKind,
@@ -39,6 +40,7 @@ import {
 import {
     type InstrumentSymbol,
     type Plan,
+    points,
     type TierProfitContext,
     type TradingPhase,
 } from '~/lib/prop-calculator';
@@ -108,7 +110,11 @@ import { useHeldAdviceState } from './useHeldAdviceState';
 import { useRiskCheck } from './useRiskCheck';
 import { NextTradeValue, RiskCandidates, ValuesNotice } from './ValueSections';
 
+const INACTIVE_ACCOUNT_TEXT =
+    'This account has ended or is archived, so there is no size or payout to act on.';
+
 enum BuiltKind {
+    Inactive = 'inactive',
     Loading = 'loading',
     NotModeled = 'not-modeled',
     Ready = 'ready',
@@ -132,6 +138,7 @@ type Built =
           readonly tierContext: null | TierProfitContext;
           readonly today: string;
       }
+    | { readonly kind: BuiltKind.Inactive }
     | { readonly kind: BuiltKind.Loading }
     | { readonly kind: BuiltKind.NotModeled; readonly reason: string };
 
@@ -407,6 +414,15 @@ export function AdvicePanel({ id }: { readonly id: string }) {
         return <LoadingAdvice label="Loading the advice" />;
     }
 
+    if (built.kind === BuiltKind.Inactive) {
+        return (
+            <Alert>
+                <AlertTitle>No advice for this account</AlertTitle>
+                <AlertDescription>{INACTIVE_ACCOUNT_TEXT}</AlertDescription>
+            </Alert>
+        );
+    }
+
     if (built.kind === BuiltKind.NotModeled) {
         return (
             <Alert>
@@ -512,6 +528,9 @@ function buildAdvisorInput(args: {
     if (account === undefined || rulebook === undefined) {
         return { kind: BuiltKind.Loading };
     }
+    if (isEndedStatus(account.status) || account.archivedAt !== null) {
+        return { kind: BuiltKind.Inactive };
+    }
     if (!isModeledAccount(account)) {
         return {
             kind: BuiltKind.NotModeled,
@@ -593,6 +612,13 @@ function buildAdvisorInput(args: {
         personalPayoutOverride: options.personalPayoutOverride,
         personalRetainedCushion: options.personalRetainedCushion,
         plan,
+        positionSizing:
+            options.positionSizing == null
+                ? null
+                : {
+                      instrument: options.positionSizing.instrument,
+                      stopPoints: points(options.positionSizing.stopPoints),
+                  },
         rulebook,
     });
     return {

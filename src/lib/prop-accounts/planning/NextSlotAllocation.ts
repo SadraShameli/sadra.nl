@@ -381,6 +381,7 @@ export function nextSlotAllocation(inputs: NextSlotInputs): NextSlotAllocation {
     );
     const capacity = capacityOf(inputs.ledger, inputs.bankroll);
     let remaining = capacity?.remaining ?? Infinity;
+    const reservedBySerial = new Map(context.usedBySerial);
     const ranked = ordered.map((entry, index) => {
         const scaleMark = scaleMarkOf(
             entry.candidate,
@@ -388,11 +389,23 @@ export function nextSlotAllocation(inputs: NextSlotInputs): NextSlotAllocation {
             inputs.scaleGate,
         );
         const blockedBy = noSlotReasonOf(entry, scaleMark);
+        const unreservedSlots = Math.min(
+            entry.freeSlots,
+            fundedSlotRoomOf(
+                entry.candidate.firm,
+                entry.candidate.plan,
+                reservedBySerial,
+            ).freeSlots,
+        );
         const allocatable =
-            blockedBy === null ? Math.min(entry.freeSlots, remaining) : 0;
+            blockedBy === null ? Math.min(unreservedSlots, remaining) : 0;
         remaining -= allocatable;
+        reservedBySerial.set(
+            entry.planSerial,
+            (reservedBySerial.get(entry.planSerial) ?? 0) + allocatable,
+        );
         const isLimitedByCapacity =
-            capacity !== null && allocatable < entry.freeSlots;
+            capacity !== null && allocatable < unreservedSlots;
         return rankedRowOf(
             entry,
             index + 1,

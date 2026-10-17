@@ -20,6 +20,7 @@ import {
     ledgerPayouts,
     type MonthlyCash,
     monthlyCash,
+    paidPayoutsOnOrBefore,
     summarizeCash,
 } from './SpendAndPayouts';
 
@@ -113,8 +114,8 @@ export function monthlyStatement(
     asOf: string,
     targets: MonthlyStatementTargets,
 ): MonthlyStatement {
-    const fees = ledgerFees(ledger);
-    const payouts = ledgerPayouts(ledger);
+    const fees = ledgerFees(ledger).filter((fee) => fee.paidOn <= asOf);
+    const payouts = paidPayoutsOnOrBefore(ledgerPayouts(ledger), asOf);
     const cashByMonth = new Map(
         monthlyCash(fees, payouts).map((cash) => [cash.month, cash]),
     );
@@ -122,7 +123,9 @@ export function monthlyStatement(
         string,
         Partial<Record<AccountEventKind, number>>
     >();
-    const events = ledger.accounts.flatMap((entry) => entry.events);
+    const events = ledger.accounts
+        .flatMap((entry) => entry.events)
+        .filter((event) => event.occurredOn <= asOf);
     for (const event of events) {
         const month = isoMonthOf(event.occurredOn);
         const counts = eventsByMonth.get(month) ?? {};

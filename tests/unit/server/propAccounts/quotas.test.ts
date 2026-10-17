@@ -60,6 +60,7 @@ import {
     TABLES,
     USER_ID,
 } from './propRouterHarness';
+import { VIDEO_IDS } from './videoRecordFixtures';
 
 vi.mock('~/environment', () => ({ environment: { NODE_ENV: 'test' } }));
 vi.mock('~/server/db', () => ({ db: {} }));
@@ -223,6 +224,14 @@ const LOCKED_CASES: readonly LockedCase[] = [
                 copyGroupId: IDS.copyGroup,
             }),
         name: 'copyGroup.assign',
+    },
+    {
+        call: (caller) =>
+            caller.round.assign({
+                accountId: IDS.account,
+                roundId: VIDEO_IDS.round,
+            }),
+        name: 'round.assign',
     },
     {
         call: (caller) =>

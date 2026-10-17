@@ -1192,6 +1192,19 @@ describe('adviceValueRequestOf (PT-67 steps 1 and 2)', () => {
         ).toEqual({ kind: AdviceValueRequestKind.NotRequested });
     });
 
+    it('places the value runs at the entered instrument and stop', () => {
+        const request = readyRequestOf(
+            valueRequestInputOf({
+                positionSizing: {
+                    instrument: InstrumentSymbol.NQ,
+                    stopPoints: points(20),
+                },
+            }),
+        );
+        expect(request.spec.enginePolicy.instrument).toBe(InstrumentSymbol.NQ);
+        expect(request.spec.enginePolicy.stopPoints).toBe(20);
+    });
+
     it('does not request values for stale advice, which shows no amounts', () => {
         const advice = adviceFixture({
             staleness: {
