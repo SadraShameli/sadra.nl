@@ -1,7 +1,7 @@
 import { type Metadata } from 'next';
 
-import { CapsulePage } from '~/app/(app)/_components/CapsulePage';
 import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { CapsulePage } from '~/components/CapsulePage';
 import { PageTransition } from '~/components/PageTransition';
 import { Card } from '~/components/ui/card';
 

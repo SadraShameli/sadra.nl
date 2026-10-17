@@ -29,7 +29,7 @@ export function FilterDateRange({
         <DateRangePicker
             align={align}
             aria-label={label}
-            className={cn(FILTER_CONTROL_CLASS, 'w-full md:w-auto')}
+            className={cn(FILTER_CONTROL_CLASS, 'w-auto')}
             maxDate={maxDate}
             minDate={minDate}
             onChange={onChange}

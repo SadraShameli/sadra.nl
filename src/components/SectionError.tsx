@@ -4,9 +4,17 @@ import * as Sentry from '@sentry/nextjs';
 import { RotateCcw, TriangleAlert } from 'lucide-react';
 import { useEffect } from 'react';
 
+import { CapsulePage } from '~/components/CapsulePage';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import { cn } from '~/lib/utilities';
+import {
+    Empty,
+    EmptyContent,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+} from '~/components/ui/empty';
 
 export enum SectionErrorScope {
     Page = 'page',
@@ -36,34 +44,43 @@ export function SectionError({
         Sentry.captureException(error);
     }, [error]);
 
-    const alert = (
-        <Alert className="max-w-2xl" variant="destructive">
-            <TriangleAlert className="size-4" />
-            <AlertTitle>{section} could not load</AlertTitle>
-            <AlertDescription>
-                <p>
-                    Something went wrong while loading {SCOPE_TEXT[scope]}. Your
-                    data is safe. Try again, and if it keeps happening, reload
-                    the page or come back in a few minutes.
-                </p>
-                <Button
-                    className="mt-4 gap-2"
-                    onClick={retry}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                >
-                    <RotateCcw className="size-4" />
-                    Try again
-                </Button>
-            </AlertDescription>
-        </Alert>
+    const message = (
+        <>
+            Something went wrong while loading {SCOPE_TEXT[scope]}. Your data is
+            safe. Try again, and if it keeps happening, reload the page or come
+            back in a few minutes.
+        </>
     );
-    return scope === SectionErrorScope.Page ? (
-        <main className={cn('app-section-error', 'container pt-spacing pb-24')}>
-            {alert}
-        </main>
-    ) : (
-        alert
+    const retryButton = (
+        <Button onClick={retry} type="button" variant="outline">
+            <RotateCcw />
+            Try again
+        </Button>
+    );
+    if (scope === SectionErrorScope.Panel) {
+        return (
+            <Alert variant="destructive">
+                <TriangleAlert />
+                <AlertTitle>{section} could not load</AlertTitle>
+                <AlertDescription>
+                    <p>{message}</p>
+                    <div className="mt-4">{retryButton}</div>
+                </AlertDescription>
+            </Alert>
+        );
+    }
+    return (
+        <CapsulePage className="app-section-error">
+            <Empty className="min-h-[50svh] rounded-3xl border border-line bg-surface">
+                <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                        <TriangleAlert />
+                    </EmptyMedia>
+                    <EmptyTitle>{section} could not load</EmptyTitle>
+                    <EmptyDescription>{message}</EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>{retryButton}</EmptyContent>
+            </Empty>
+        </CapsulePage>
     );
 }

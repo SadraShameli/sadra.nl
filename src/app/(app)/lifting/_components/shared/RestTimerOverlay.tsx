@@ -1,11 +1,16 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
-import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '~/components/ui/button';
 import { Progress } from '~/components/ui/progress';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetSide,
+    SheetTitle,
+} from '~/components/ui/sheet';
 import { DurationFormat } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
 
@@ -68,61 +73,50 @@ export function RestTimerOverlay({
     const progressPct = Math.min(100, (elapsed / Math.max(seconds, 1)) * 100);
 
     return (
-        <AnimatePresence>
-            {open && (
-                <motion.div
-                    animate={{ opacity: 1, y: 0 }}
+        <Sheet
+            onOpenChange={(isOpen) => {
+                if (!isOpen) onClose();
+            }}
+            open={open}
+        >
+            <SheetContent
+                className="h-svh items-center justify-center gap-0"
+                side={SheetSide.Bottom}
+            >
+                <SheetTitle className="text-xs font-normal tracking-[0.4em] text-muted-foreground uppercase">
+                    Rest
+                </SheetTitle>
+                <span
                     className={cn(
-                        'fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/90 backdrop-blur-xl',
+                        'mt-2 text-[120px] leading-none font-bold tabular-nums',
+                        isOverrun ? 'text-success' : 'text-foreground',
                     )}
-                    exit={{ opacity: 0, y: 40 }}
-                    initial={{ opacity: 0, y: 40 }}
-                    transition={{ damping: 30, stiffness: 400, type: 'spring' }}
                 >
-                    <Button
-                        aria-label="Dismiss timer"
-                        className="absolute top-4 right-4 size-10 rounded-full p-0 text-muted-foreground hover:bg-foreground/10"
-                        onClick={onClose}
-                        type="button"
-                        variant="ghost"
-                    >
-                        <X className="size-5" />
-                    </Button>
-                    <span className="text-xs tracking-[0.4em] text-muted-foreground uppercase">
-                        Rest
-                    </span>
-                    <span
-                        className={cn(
-                            'mt-2 text-[120px] leading-none font-bold tabular-nums',
-                            isOverrun ? 'text-success' : 'text-foreground',
-                        )}
-                    >
-                        {DurationFormat.seconds(remaining)}
-                    </span>
-                    <span className="mt-2 text-sm text-muted-foreground tabular-nums">
-                        Target {DurationFormat.seconds(seconds)}
-                        {isOverrun && (
-                            <span className="ml-2 text-success">
-                                +{DurationFormat.seconds(elapsed - seconds)}
-                            </span>
-                        )}
-                    </span>
-                    <Progress
-                        className={cn(
-                            'mt-8 h-1.5 w-[min(80vw,420px)] bg-foreground/5',
-                            isOverrun && '*:data-state:bg-success',
-                        )}
-                        value={progressPct}
-                    />
-                    <Button
-                        className="mt-10 rounded-full px-8"
-                        onClick={onClose}
-                        type="button"
-                    >
-                        Skip rest
-                    </Button>
-                </motion.div>
-            )}
-        </AnimatePresence>
+                    {DurationFormat.seconds(remaining)}
+                </span>
+                <SheetDescription className="mt-2 tabular-nums">
+                    Target {DurationFormat.seconds(seconds)}
+                    {isOverrun && (
+                        <span className="ml-2 text-success">
+                            +{DurationFormat.seconds(elapsed - seconds)}
+                        </span>
+                    )}
+                </SheetDescription>
+                <Progress
+                    className={cn(
+                        'mt-8 h-1.5 w-[min(80vw,420px)] bg-foreground/5',
+                        isOverrun && '*:data-state:bg-success',
+                    )}
+                    value={progressPct}
+                />
+                <Button
+                    className="mt-10 rounded-full px-8"
+                    onClick={onClose}
+                    type="button"
+                >
+                    Skip rest
+                </Button>
+            </SheetContent>
+        </Sheet>
     );
 }

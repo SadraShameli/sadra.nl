@@ -150,7 +150,7 @@ function fieldScope(scope: ParentNode): HTMLElement {
     );
     if (label === undefined)
         throw new Error('no field labelled Replaces account');
-    const item = label.closest<HTMLElement>('.flex.flex-col.gap-2');
+    const item = label.closest<HTMLElement>('[data-slot="field"]');
     if (item === null) throw new Error('no form item for Replaces account');
     return item;
 }

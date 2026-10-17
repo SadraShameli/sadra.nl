@@ -1,4 +1,4 @@
-import { CapsulePage } from '~/app/(app)/_components/CapsulePage';
+import { CapsulePage } from '~/components/CapsulePage';
 
 export const ensureStatic = 'prefetch';
 

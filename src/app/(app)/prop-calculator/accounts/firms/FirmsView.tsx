@@ -2,8 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { TriangleAlert } from 'lucide-react';
-import { useMemo } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useId, useMemo } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -23,14 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -383,6 +376,7 @@ function FirmStatusForm({
         },
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
+    const formId = useId();
     const status = useWatch({ control: form.control, name: 'status' });
     const reason = useWatch({ control: form.control, name: 'reason' });
 
@@ -405,75 +399,79 @@ function FirmStatusForm({
     };
 
     return (
-        <Form {...form}>
-            <form
-                aria-label={`Edit status for ${firmLabel}`}
-                className="flex flex-col gap-2"
-                noValidate
-                onSubmit={(event) => {
-                    if (!canEditEngagement) {
-                        event.preventDefault();
-                        return;
-                    }
-                    void form.handleSubmit(save)(event);
-                }}
-            >
-                <FormField
+        <form
+            aria-label={`Edit status for ${firmLabel}`}
+            className="flex flex-col gap-2"
+            noValidate
+            onSubmit={(event) => {
+                if (!canEditEngagement) {
+                    event.preventDefault();
+                    return;
+                }
+                void form.handleSubmit(save)(event);
+            }}
+        >
+            <Controller
+                control={form.control}
+                name="status"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel
+                            className="sr-only"
+                            htmlFor={`${formId}-status`}
+                        >
+                            Status
+                        </FieldLabel>
+                        <Select
+                            disabled={!canEditEngagement}
+                            onValueChange={field.onChange}
+                            value={field.value}
+                        >
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-status`}
+                                ref={field.ref}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.values(FirmEngagementStatus).map(
+                                    (value) => (
+                                        <SelectItem key={value} value={value}>
+                                            {firmEngagementStatusLabel(value)}
+                                        </SelectItem>
+                                    ),
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            {status !== FirmEngagementStatus.Active && (
+                <Controller
                     control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel className="sr-only">Status</FormLabel>
+                    name="reason"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-reason`}>
+                                Reason
+                            </FieldLabel>
                             <Select
                                 disabled={!canEditEngagement}
                                 onValueChange={field.onChange}
                                 value={field.value}
                             >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {Object.values(FirmEngagementStatus).map(
-                                        (value) => (
-                                            <SelectItem
-                                                key={value}
-                                                value={value}
-                                            >
-                                                {firmEngagementStatusLabel(
-                                                    value,
-                                                )}
-                                            </SelectItem>
-                                        ),
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                {status !== FirmEngagementStatus.Active && (
-                    <FormField
-                        control={form.control}
-                        name="reason"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Reason</FormLabel>
-                                <Select
-                                    disabled={!canEditEngagement}
-                                    onValueChange={field.onChange}
-                                    value={field.value}
+                                <SelectTrigger
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-reason`}
+                                    ref={field.ref}
                                 >
-                                    <FormControl>
-                                        <SelectTrigger ref={field.ref}>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {Object.values(
-                                            FirmEngagementReason,
-                                        ).map((value) => (
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.values(FirmEngagementReason).map(
+                                        (value) => (
                                             <SelectItem
                                                 key={value}
                                                 value={value}
@@ -482,66 +480,70 @@ function FirmStatusForm({
                                                     value,
                                                 )}
                                             </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                )}
-                {status !== FirmEngagementStatus.Active &&
-                    reason === FirmEngagementReason.SentLive && (
-                        <FormField
-                            control={form.control}
-                            name="sentLiveOn"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Sent live on</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            disabled={!canEditEngagement}
-                                            type="date"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                        ),
+                                    )}
+                                </SelectContent>
+                            </Select>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
-                <FormField
-                    control={form.control}
-                    name="sinceOn"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Since</FormLabel>
-                            <FormControl>
+                />
+            )}
+            {status !== FirmEngagementStatus.Active &&
+                reason === FirmEngagementReason.SentLive && (
+                    <Controller
+                        control={form.control}
+                        name="sentLiveOn"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-sentLiveOn`}>
+                                    Sent live on
+                                </FieldLabel>
                                 <Input
+                                    aria-invalid={fieldState.invalid}
                                     disabled={!canEditEngagement}
+                                    id={`${formId}-sentLiveOn`}
                                     type="date"
                                     {...field}
                                 />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button
-                    disabled={
-                        set.isPending ||
-                        form.formState.isSubmitting ||
-                        !canEditEngagement
-                    }
-                    size="sm"
-                    type="submit"
-                    variant="outline"
-                >
-                    Save
-                    <span className="sr-only"> the status of {firmLabel}</span>
-                </Button>
-            </form>
-        </Form>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                )}
+            <Controller
+                control={form.control}
+                name="sinceOn"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-sinceOn`}>
+                            Since
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            disabled={!canEditEngagement}
+                            id={`${formId}-sinceOn`}
+                            type="date"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Button
+                disabled={
+                    set.isPending ||
+                    form.formState.isSubmitting ||
+                    !canEditEngagement
+                }
+                size="sm"
+                type="submit"
+                variant="outline"
+            >
+                Save
+                <span className="sr-only"> the status of {firmLabel}</span>
+            </Button>
+        </form>
     );
 }
 

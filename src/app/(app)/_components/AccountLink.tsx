@@ -13,7 +13,7 @@ export function AccountLink({ signedIn }: { signedIn: boolean }) {
             asChild
             className={cn(
                 'app-shell__account-link',
-                'bg-surface-high text-ink hover:bg-line',
+                'md:bg-surface-high md:text-ink md:hover:bg-line',
             )}
             size="icon-tap"
             variant="capsule"

@@ -208,22 +208,7 @@ export function TransactionsBrowser() {
                         filterPlaceholder="Search transactions…"
                         hasExternalFilters={dateRange !== initialDateRange}
                         headerActions={(table) => (
-                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                <ActiveConnectionNote
-                                    credential={source}
-                                    roleNoun="transaction source"
-                                />
-                                <ActiveConnectionNote
-                                    credential={accounting}
-                                    roleNoun="accounting credential"
-                                />
-                                <FilterDateRange
-                                    align="end"
-                                    label="Transaction date"
-                                    onChange={setDateRange}
-                                    placeholder="Any date"
-                                    value={dateRange}
-                                />
+                            <div className="flex flex-wrap items-center gap-2">
                                 <FilterSelect
                                     label="Direction"
                                     onValueChange={(v) =>
@@ -262,6 +247,13 @@ export function TransactionsBrowser() {
                                             string | undefined
                                     }
                                 />
+                                <FilterDateRange
+                                    align="end"
+                                    label="Transaction date"
+                                    onChange={setDateRange}
+                                    placeholder="Any date"
+                                    value={dateRange}
+                                />
                             </div>
                         )}
                         initialSorting={[{ desc: true, id: 'date' }]}
@@ -270,6 +262,18 @@ export function TransactionsBrowser() {
                         pageSize={25}
                         rowId={(r) => r.txnId}
                         showFilter
+                        toolbarEnd={
+                            <>
+                                <ActiveConnectionNote
+                                    credential={source}
+                                    roleNoun="transaction source"
+                                />
+                                <ActiveConnectionNote
+                                    credential={accounting}
+                                    roleNoun="accounting credential"
+                                />
+                            </>
+                        }
                     />
                 )}
             </CardContent>

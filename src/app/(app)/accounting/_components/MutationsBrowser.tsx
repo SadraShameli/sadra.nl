@@ -185,21 +185,7 @@ export function MutationsBrowser() {
                             filterPlaceholder="Search mutations…"
                             hasExternalFilters={hasFilters}
                             headerActions={
-                                <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                    <ActiveConnectionNote
-                                        credential={accounting}
-                                        roleNoun="accounting credential"
-                                    />
-                                    <FilterDateRange
-                                        align="end"
-                                        label="Mutation date"
-                                        onChange={(r) => {
-                                            setDateRange(r);
-                                            setOffset(0);
-                                        }}
-                                        placeholder="Any date"
-                                        value={dateRange}
-                                    />
+                                <div className="flex flex-wrap items-center gap-2">
                                     <FilterSelect
                                         label="Type"
                                         onValueChange={(v) => {
@@ -223,6 +209,16 @@ export function MutationsBrowser() {
                                                 : typeFilter
                                         }
                                     />
+                                    <FilterDateRange
+                                        align="end"
+                                        label="Mutation date"
+                                        onChange={(r) => {
+                                            setDateRange(r);
+                                            setOffset(0);
+                                        }}
+                                        placeholder="Any date"
+                                        value={dateRange}
+                                    />
                                 </div>
                             }
                             initialSorting={[{ desc: true, id: 'date' }]}
@@ -238,6 +234,14 @@ export function MutationsBrowser() {
                                 pageSize: PAGE_SIZE,
                             }}
                             showFilter
+                            toolbarEnd={
+                                <>
+                                    <ActiveConnectionNote
+                                        credential={accounting}
+                                        roleNoun="accounting credential"
+                                    />
+                                </>
+                            }
                         />
                     </div>
                 )}

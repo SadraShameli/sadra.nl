@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useId, useRef, useState } from 'react';
-import { type Control, useForm, useWatch } from 'react-hook-form';
+import { type Control, Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { STICKY_ACTION_BAR_PROPS } from '~/app/(app)/_components/ScrollToTop';
@@ -17,14 +17,11 @@ import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -338,23 +335,27 @@ function DeviationCard({ parsed }: { parsed: null | RulebookParameters }) {
 }
 
 function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
+    const formId = useId();
     return (
         <SectionCard title="Display">
-            <FormField
+            <Controller
                 control={control}
                 name="display.riskUnit"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Show risk as</FormLabel>
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-display.riskUnit`}>
+                            Show risk as
+                        </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
                             value={field.value}
                         >
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-display.riskUnit`}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                                 {Object.values(RiskDisplayUnit).map((unit) => (
                                     <SelectItem key={unit} value={unit}>
@@ -363,16 +364,16 @@ function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <FormDescription>
+                        <FieldDescription>
                             The unit risk is shown in across the tools. Your
                             setting, not a skill rule, default{' '}
                             {RISK_UNIT_LABEL[
                                 DEFAULT_RULEBOOK.display.riskUnit
                             ].toLowerCase()}
                             .
-                        </FormDescription>
-                        <FormMessage />
-                    </FormItem>
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
             />
             <TextField
@@ -384,6 +385,7 @@ function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
 }
 
 function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
+    const formId = useId();
     const mode = useWatch({ control, name: 'eval.mode' });
     const ladderSource = useWatch({
         control,
@@ -391,21 +393,24 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
     });
     return (
         <SectionCard title="Eval sizing">
-            <FormField
+            <Controller
                 control={control}
                 name="eval.mode"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Eval mode</FormLabel>
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-eval.mode`}>
+                            Eval mode
+                        </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
                             value={field.value}
                         >
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-eval.mode`}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                                 {Object.values(EvalSizingMode).map((option) => (
                                     <SelectItem key={option} value={option}>
@@ -414,7 +419,7 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <FormDescription>
+                        <FieldDescription>
                             Source:{' '}
                             {ruleSourceListText(
                                 mode === EvalSizingMode.Ladder
@@ -429,26 +434,31 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 DEFAULT_RULEBOOK.eval.mode
                             ].label.toLowerCase()}
                             .
-                        </FormDescription>
-                        <FormMessage />
-                    </FormItem>
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
             />
-            <FormField
+            <Controller
                 control={control}
                 name="eval.ladderFractionSource"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Ladder fractions</FormLabel>
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel
+                            htmlFor={`${formId}-eval.ladderFractionSource`}
+                        >
+                            Ladder fractions
+                        </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
                             value={field.value}
                         >
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-eval.ladderFractionSource`}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                                 {Object.values(LadderFractionSource).map(
                                     (option) => (
@@ -462,7 +472,7 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 )}
                             </SelectContent>
                         </Select>
-                        <FormDescription>
+                        <FieldDescription>
                             Ladder mode only. Source:{' '}
                             {
                                 RULE_SOURCE_LABEL[
@@ -470,9 +480,9 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 ]
                             }
                             .
-                        </FormDescription>
-                        <FormMessage />
-                    </FormItem>
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
             />
             <TextField
@@ -497,6 +507,7 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
 }
 
 function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
+    const formId = useId();
     const stopKind = useWatch({ control, name: 'funded.stopRule.kind' });
     return (
         <SectionCard title="Funded sizing">
@@ -504,21 +515,24 @@ function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
             <TextField control={control} name="funded.takeProfitCents" />
             <TextField control={control} name="funded.tradesPerDayMax" />
             <TextField control={control} name="execution.maxTradesPerWindow" />
-            <FormField
+            <Controller
                 control={control}
                 name="funded.stopRule.kind"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Funded day stop</FormLabel>
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-funded.stopRule.kind`}>
+                            Funded day stop
+                        </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
                             value={field.value}
                         >
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-funded.stopRule.kind`}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                                 {Object.values(DayStopRuleKind).map((kind) => (
                                     <SelectItem key={kind} value={kind}>
@@ -527,16 +541,16 @@ function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <FormDescription>
+                        <FieldDescription>
                             Source: {RULE_SOURCE_LABEL[RuleSource.HisNumbers]},
                             default{' '}
                             {DAY_STOP_KIND_LABELS[
                                 DEFAULT_RULEBOOK.funded.stopRule.kind
                             ].toLowerCase()}
                             .
-                        </FormDescription>
-                        <FormMessage />
-                    </FormItem>
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
             />
             {stopKind === DayStopRuleKind.AfterKLosses && (
@@ -910,6 +924,7 @@ function OverwriteRulebook({
 }
 
 function PayoutCard({ control }: { control: Control<RulebookFormValues> }) {
+    const formId = useId();
     const isBelowHardRule2Allowed = useWatch({
         control,
         name: 'payout.allowBelowHardRule2',
@@ -918,25 +933,30 @@ function PayoutCard({ control }: { control: Control<RulebookFormValues> }) {
         <SectionCard title="Payouts">
             <TextField control={control} name="payout.requestCents" />
             <TextField control={control} name="payout.retainedCushionCents" />
-            <FormField
+            <Controller
                 control={control}
                 name="payout.allowBelowHardRule2"
-                render={({ field }) => (
-                    <FormItem className="md:col-span-2">
+                render={({ field, fieldState }) => (
+                    <Field
+                        className="md:col-span-2"
+                        data-invalid={fieldState.invalid}
+                    >
                         <div className="flex items-center gap-2">
-                            <FormControl>
-                                <Switch
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                />
-                            </FormControl>
-                            <FormLabel>
+                            <Switch
+                                aria-invalid={fieldState.invalid}
+                                checked={field.value}
+                                id={`${formId}-payout.allowBelowHardRule2`}
+                                onCheckedChange={field.onChange}
+                            />
+                            <FieldLabel
+                                htmlFor={`${formId}-payout.allowBelowHardRule2`}
+                            >
                                 Allow a retained cushion below{' '}
                                 {RULE_SOURCE_LABEL[RuleSource.HardRule2]}
-                            </FormLabel>
+                            </FieldLabel>
                         </div>
-                        <FormMessage />
-                    </FormItem>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
             />
             {isBelowHardRule2Allowed && (
@@ -1003,23 +1023,27 @@ function ResetRulebookDialog({
 }
 
 function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
+    const formId = useId();
     return (
         <SectionCard title="Review">
-            <FormField
+            <Controller
                 control={control}
                 name="review.weekday"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Weekly review day</FormLabel>
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-review.weekday`}>
+                            Weekly review day
+                        </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
                             value={field.value}
                         >
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-review.weekday`}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                                 {WEEKDAY_ORDER.map((weekday) => (
                                     <SelectItem key={weekday} value={weekday}>
@@ -1028,14 +1052,14 @@ function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <FormDescription>
+                        <FieldDescription>
                             Source:{' '}
                             {RULE_SOURCE_LABEL[RuleSource.ReassessmentCadence]},
                             default{' '}
                             {WEEKDAY_LABEL[DEFAULT_RULEBOOK.review.weekday]}.
-                        </FormDescription>
-                        <FormMessage />
-                    </FormItem>
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
             />
             <TextField control={control} name="review.fundedStaleDays" />
@@ -1139,73 +1163,71 @@ function RulebookForm({
     };
 
     return (
-        <Form {...form}>
-            <form
-                className="app-prop-accounts__rulebook-form flex flex-col gap-6"
-                noValidate
-                onSubmit={(event) => {
-                    void onSubmit(event);
-                }}
-            >
-                <DeviationCard parsed={parsed} />
-                <ImportCard
-                    onApply={applyImport}
-                    parsed={parsed}
-                    tradingPlan={tradingPlan}
-                />
-                <StrategyCard control={form.control} />
-                <PlausibilityCard control={form.control} />
-                <EvalCard control={form.control} />
-                <FundedCard control={form.control} />
-                <PayoutCard control={form.control} />
-                <LiveCard control={form.control} />
-                <ReviewCard control={form.control} />
-                <TargetsCard control={form.control} />
-                <AlertsCard control={form.control} />
-                <BankrollCard control={form.control} />
-                <SamplesCard control={form.control} />
-                <DisplayCard control={form.control} />
-                <LiveTransferCard control={form.control} />
+        <form
+            className="app-prop-accounts__rulebook-form flex flex-col gap-6"
+            noValidate
+            onSubmit={(event) => {
+                void onSubmit(event);
+            }}
+        >
+            <DeviationCard parsed={parsed} />
+            <ImportCard
+                onApply={applyImport}
+                parsed={parsed}
+                tradingPlan={tradingPlan}
+            />
+            <StrategyCard control={form.control} />
+            <PlausibilityCard control={form.control} />
+            <EvalCard control={form.control} />
+            <FundedCard control={form.control} />
+            <PayoutCard control={form.control} />
+            <LiveCard control={form.control} />
+            <ReviewCard control={form.control} />
+            <TargetsCard control={form.control} />
+            <AlertsCard control={form.control} />
+            <BankrollCard control={form.control} />
+            <SamplesCard control={form.control} />
+            <DisplayCard control={form.control} />
+            <LiveTransferCard control={form.control} />
 
-                {form.formState.errors.root?.message !== undefined && (
-                    <p className="text-sm text-destructive" role="alert">
-                        {form.formState.errors.root.message}
+            {form.formState.errors.root?.message !== undefined && (
+                <p className="text-sm text-destructive" role="alert">
+                    {form.formState.errors.root.message}
+                </p>
+            )}
+
+            <div
+                className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 py-3 backdrop-blur-sm"
+                {...STICKY_ACTION_BAR_PROPS}
+            >
+                <Button disabled={isSaving} type="submit">
+                    Save rulebook
+                </Button>
+                <Button
+                    disabled={isSaving || !form.formState.isDirty}
+                    onClick={() => {
+                        form.reset();
+                    }}
+                    type="button"
+                    variant="ghost"
+                >
+                    Discard changes
+                </Button>
+                {form.formState.isDirty && (
+                    <p className="text-sm text-warning" role="status">
+                        Unsaved changes
                     </p>
                 )}
-
-                <div
-                    className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 py-3 backdrop-blur-sm"
-                    {...STICKY_ACTION_BAR_PROPS}
-                >
-                    <Button disabled={isSaving} type="submit">
-                        Save rulebook
-                    </Button>
-                    <Button
-                        disabled={isSaving || !form.formState.isDirty}
-                        onClick={() => {
-                            form.reset();
-                        }}
-                        type="button"
-                        variant="ghost"
-                    >
-                        Discard changes
-                    </Button>
-                    {form.formState.isDirty && (
-                        <p className="text-sm text-warning" role="status">
-                            Unsaved changes
-                        </p>
-                    )}
-                </div>
-                <div>
-                    <ResetRulebookDialog
-                        disabled={isSaving}
-                        onConfirm={() => {
-                            void resetToDefaults();
-                        }}
-                    />
-                </div>
-            </form>
-        </Form>
+            </div>
+            <div>
+                <ResetRulebookDialog
+                    disabled={isSaving}
+                    onConfirm={() => {
+                        void resetToDefaults();
+                    }}
+                />
+            </div>
+        </form>
     );
 }
 
@@ -1270,15 +1292,16 @@ function SpecField({
     renderFooter?: (setText: (text: string) => void) => ReactNode;
     spec: TextFieldSpec;
 }) {
+    const formId = useId();
     const defaultComparable = comparableText(
         spec.kind,
         spec.read(DEFAULT_FORM_VALUES),
     );
     return (
-        <FormField
+        <Controller
             control={control}
             name={name}
-            render={({ field }) => {
+            render={({ field, fieldState }) => {
                 const valueComparable = comparableText(spec.kind, field.value);
                 const isCustom =
                     spec.source !== null &&
@@ -1286,31 +1309,34 @@ function SpecField({
                     valueComparable !== null &&
                     valueComparable !== defaultComparable;
                 return (
-                    <FormItem>
-                        <FormLabel className="flex items-center gap-2">
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel
+                            className="flex items-center gap-2"
+                            htmlFor={`${formId}-${field.name}`}
+                        >
                             {spec.label}
                             {spec.kind === FieldKind.Money && ' ($)'}
                             {spec.kind === FieldKind.Percent && ' (%)'}
                             {isCustom && (
                                 <Badge variant="warning">custom</Badge>
                             )}
-                        </FormLabel>
-                        <FormControl>
-                            <Input
-                                inputMode={
-                                    spec.kind === FieldKind.Count
-                                        ? 'numeric'
-                                        : 'decimal'
-                                }
-                                {...field}
-                            />
-                        </FormControl>
-                        <FormDescription>
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-${field.name}`}
+                            inputMode={
+                                spec.kind === FieldKind.Count
+                                    ? 'numeric'
+                                    : 'decimal'
+                            }
+                            {...field}
+                        />
+                        <FieldDescription>
                             {spec.hint} {settingNote(spec)}
-                        </FormDescription>
+                        </FieldDescription>
                         {renderFooter?.(field.onChange)}
-                        <FormMessage />
-                    </FormItem>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 );
             }}
         />

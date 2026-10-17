@@ -11,9 +11,7 @@ import {
     passwordSchema,
     resetPasswordInputSchema,
     signupInputSchema,
-    updateEmailInputSchema,
-    updateNameInputSchema,
-    updatePasswordInputSchema,
+    updateAccountInputSchema,
 } from '~/lib/schemas/auth';
 
 describe('emailSchema', () => {
@@ -286,70 +284,68 @@ describe('resetPasswordInputSchema', () => {
     });
 });
 
-describe('updatePasswordInputSchema', () => {
-    it('requires the current password', async () => {
-        const r = await updatePasswordInputSchema.safeParseAsync({
+describe('updateAccountInputSchema', () => {
+    const account = {
+        confirm: '',
+        current: '',
+        email: 'ada@example.test',
+        name: 'Ada',
+        password: '',
+    };
+
+    it('accepts a name and email change without touching the password', async () => {
+        const r = await updateAccountInputSchema.safeParseAsync(account);
+        expect(r.success).toBe(true);
+    });
+
+    it('lowercases the email', async () => {
+        const r = await updateAccountInputSchema.safeParseAsync({
+            ...account,
+            email: 'X@Y.TEST',
+        });
+        expect(r.data?.email).toBe('x@y.test');
+    });
+
+    it('rejects an empty name and a garbage email', async () => {
+        const r = await updateAccountInputSchema.safeParseAsync({
+            ...account,
+            email: 'bad',
+            name: '  ',
+        });
+        expect(new Set(r.error?.issues.map((issue) => issue.path[0]))).toEqual(
+            new Set(['email', 'name']),
+        );
+    });
+
+    it('requires the current password for a new one', async () => {
+        const r = await updateAccountInputSchema.safeParseAsync({
+            ...account,
             confirm: 'CorrectHorseBattery9',
-            current: '',
             password: 'CorrectHorseBattery9',
         });
-        expect(r.success).toBe(false);
+        expect(r.error?.issues.map((issue) => issue.path[0])).toEqual([
+            'current',
+        ]);
     });
 
     it('rejects mismatched new passwords', async () => {
-        const r = await updatePasswordInputSchema.safeParseAsync({
+        const r = await updateAccountInputSchema.safeParseAsync({
+            ...account,
             confirm: 'CorrectHorseBattery8',
             current: 'whatever',
             password: 'CorrectHorseBattery9',
         });
-        expect(r.success).toBe(false);
+        expect(r.error?.issues.map((issue) => issue.path[0])).toEqual([
+            'confirm',
+        ]);
     });
 
-    it('accepts a valid change-password payload', async () => {
-        const r = await updatePasswordInputSchema.safeParseAsync({
+    it('accepts a full password change', async () => {
+        const r = await updateAccountInputSchema.safeParseAsync({
+            ...account,
             confirm: 'CorrectHorseBattery9',
             current: 'whatever',
             password: 'CorrectHorseBattery9',
-        });
-        expect(r.success).toBe(true);
-    });
-});
-
-describe('updateEmailInputSchema', () => {
-    it('lowercases the new email', () => {
-        const r = updateEmailInputSchema.safeParse({ email: 'X@Y.TEST' });
-        expect(r.success).toBe(true);
-        expect(r.data?.email).toBe('x@y.test');
-    });
-
-    it('rejects garbage email', () => {
-        expect(updateEmailInputSchema.safeParse({ email: 'bad' }).success).toBe(
-            false,
-        );
-    });
-});
-
-describe('updateNameInputSchema', () => {
-    it('refuses a no-op update (same name as current)', () => {
-        const r = updateNameInputSchema.safeParse({
-            currentName: 'Ada',
-            name: 'Ada',
-        });
-        expect(r.success).toBe(false);
-    });
-
-    it('treats whitespace differences as no-op', () => {
-        const r = updateNameInputSchema.safeParse({
-            currentName: '  Ada  ',
-            name: 'Ada',
-        });
-        expect(r.success).toBe(false);
-    });
-
-    it('accepts a real change', () => {
-        const r = updateNameInputSchema.safeParse({
-            currentName: 'Ada',
-            name: 'Ada Lovelace',
         });
         expect(r.success).toBe(true);
     });

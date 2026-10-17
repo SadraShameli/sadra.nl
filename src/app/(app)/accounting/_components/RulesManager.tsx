@@ -583,6 +583,11 @@ function BankAccountsCard({
 
     return (
         <ToolPanel
+            actions={
+                <Button onClick={() => setForm('new')}>
+                    <Plus /> Add account
+                </Button>
+            }
             contentClassName="gap-3"
             description="Map each bank account or currency to the ledger it books to."
             title="Bank accounts"
@@ -607,7 +612,7 @@ function BankAccountsCard({
                 )}
                 filterPlaceholder="Search accounts…"
                 headerActions={(table) => (
-                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                    <div className="flex flex-wrap items-center gap-2">
                         <DataTableFacetSelect
                             column={table.getColumn('currency')}
                             placeholder="All currencies"
@@ -616,12 +621,6 @@ function BankAccountsCard({
                             column={table.getColumn('ledger')}
                             placeholder="All ledgers"
                         />
-                        <Button
-                            className="shrink-0"
-                            onClick={() => setForm('new')}
-                        >
-                            <Plus className="size-3.5" /> Add account
-                        </Button>
                     </div>
                 )}
                 initialSorting={[{ desc: false, id: 'currency' }]}
@@ -859,6 +858,11 @@ function RulesCard({
 
     return (
         <ToolPanel
+            actions={
+                <Button onClick={() => setForm('new')}>
+                    <Plus /> Add rule
+                </Button>
+            }
             contentClassName="gap-3"
             description="Match a counterpart to a ledger, a direction and a VAT code."
             title="Rules"
@@ -883,7 +887,7 @@ function RulesCard({
                 )}
                 filterPlaceholder="Search rules…"
                 headerActions={(table) => (
-                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                    <div className="flex flex-wrap items-center gap-2">
                         <DataTableFacetSelect
                             column={table.getColumn('direction')}
                             placeholder="All directions"
@@ -897,12 +901,6 @@ function RulesCard({
                             format={labelOf}
                             placeholder="All VAT codes"
                         />
-                        <Button
-                            className="shrink-0"
-                            onClick={() => setForm('new')}
-                        >
-                            <Plus className="size-3.5" /> Add rule
-                        </Button>
                     </div>
                 )}
                 isLoading={rulesQ.isPending}

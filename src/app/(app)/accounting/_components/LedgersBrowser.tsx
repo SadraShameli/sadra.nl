@@ -133,11 +133,7 @@ export function LedgersBrowser() {
                         )}
                         filterPlaceholder="Search ledgers…"
                         headerActions={(table) => (
-                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                <ActiveConnectionNote
-                                    credential={accounting}
-                                    roleNoun="accounting credential"
-                                />
+                            <div className="flex flex-wrap items-center gap-2">
                                 <DataTableFacetSelect
                                     column={table.getColumn('category')}
                                     format={(value) =>
@@ -156,6 +152,14 @@ export function LedgersBrowser() {
                         pageSize={25}
                         rowId={(r) => r.externalId}
                         showFilter
+                        toolbarEnd={
+                            <>
+                                <ActiveConnectionNote
+                                    credential={accounting}
+                                    roleNoun="accounting credential"
+                                />
+                            </>
+                        }
                     />
                 )}
             </CardContent>

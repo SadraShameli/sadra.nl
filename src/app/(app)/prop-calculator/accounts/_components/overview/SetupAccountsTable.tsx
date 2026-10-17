@@ -86,7 +86,7 @@ export function SetupAccountsTable({
             data={[...accounts]}
             filterPlaceholder="Search accounts"
             headerActions={(table) => (
-                <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                <div className="flex flex-wrap items-center gap-2">
                     <DataTableFacetSelect
                         column={table.getColumn(SetupAccountColumn.Firm)}
                         placeholder="All firms"

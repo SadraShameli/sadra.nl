@@ -974,7 +974,7 @@ function StrategyLabTable({
                         aria-label={`Remove ${row.original.scenario.label}`}
                         disabled={row.original.onlyOne}
                         onClick={() => onRemove(row.original.scenario.id)}
-                        size="sm"
+                        size="icon-sm"
                         title="Remove scenario"
                         variant="ghost"
                     >

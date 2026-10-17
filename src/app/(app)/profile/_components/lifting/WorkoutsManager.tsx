@@ -3,8 +3,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Calendar, ExternalLink, Pencil, Play } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -32,14 +32,8 @@ import {
 import { DataTableDateRange } from '~/components/ui/data-table-date-range';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { Dialog } from '~/components/ui/dialog';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { FilterSelect } from '~/components/ui/filter-select';
-import {
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
 import { Textarea } from '~/components/ui/textarea';
 import { DurationFormat } from '~/lib/lifting/format';
@@ -297,6 +291,7 @@ function WorkoutEditDialog({
         mode: 'onTouched',
         resolver: zodResolver(workoutEditSchema),
     });
+    const formId = useId();
 
     useEffect(() => {
         form.reset({
@@ -321,80 +316,86 @@ function WorkoutEditDialog({
                 submitLabel="Save"
                 title="Edit workout"
             >
-                <FormField
+                <Controller
                     control={form.control}
                     name="name"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Name</FormLabel>
-                            <FormControl>
-                                <Input
-                                    onChange={(event) =>
-                                        field.onChange(
-                                            event.target.value === ''
-                                                ? null
-                                                : event.target.value,
-                                        )
-                                    }
-                                    ref={field.ref}
-                                    value={field.value ?? ''}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-name`}>
+                                Name
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-name`}
+                                onChange={(event) =>
+                                    field.onChange(
+                                        event.target.value === ''
+                                            ? null
+                                            : event.target.value,
+                                    )
+                                }
+                                ref={field.ref}
+                                value={field.value ?? ''}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
-                <FormField
+                <Controller
                     control={form.control}
                     name="bodyweightKg"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Bodyweight (kg)</FormLabel>
-                            <FormControl>
-                                <Input
-                                    inputMode="decimal"
-                                    onChange={(event) => {
-                                        if (event.target.value === '') {
-                                            field.onChange(null);
-                                            return;
-                                        }
-                                        const n = Number(event.target.value);
-                                        field.onChange(
-                                            Number.isFinite(n) ? n : null,
-                                        );
-                                    }}
-                                    ref={field.ref}
-                                    step="0.1"
-                                    type="number"
-                                    value={field.value ?? ''}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-bodyweightKg`}>
+                                Bodyweight (kg)
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-bodyweightKg`}
+                                inputMode="decimal"
+                                onChange={(event) => {
+                                    if (event.target.value === '') {
+                                        field.onChange(null);
+                                        return;
+                                    }
+                                    const n = Number(event.target.value);
+                                    field.onChange(
+                                        Number.isFinite(n) ? n : null,
+                                    );
+                                }}
+                                ref={field.ref}
+                                step="0.1"
+                                type="number"
+                                value={field.value ?? ''}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
-                <FormField
+                <Controller
                     control={form.control}
                     name="notes"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Notes</FormLabel>
-                            <FormControl>
-                                <Textarea
-                                    onChange={(event) =>
-                                        field.onChange(
-                                            event.target.value === ''
-                                                ? null
-                                                : event.target.value,
-                                        )
-                                    }
-                                    ref={field.ref}
-                                    rows={4}
-                                    value={field.value ?? ''}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-notes`}>
+                                Notes
+                            </FieldLabel>
+                            <Textarea
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-notes`}
+                                onChange={(event) =>
+                                    field.onChange(
+                                        event.target.value === ''
+                                            ? null
+                                            : event.target.value,
+                                    )
+                                }
+                                ref={field.ref}
+                                rows={4}
+                                value={field.value ?? ''}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
             </ProfileFormDialog>

@@ -98,6 +98,7 @@ export type DataTableProperties<TData extends RowData> = {
     showFilter?: boolean;
     skeletonRows?: number;
     tableClassName?: string;
+    toolbarEnd?: React.ReactNode;
 };
 
 export function DataTable<TData extends RowData>({
@@ -129,6 +130,7 @@ export function DataTable<TData extends RowData>({
     showFilter = false,
     skeletonRows = 5,
     tableClassName,
+    toolbarEnd,
 }: DataTableProperties<TData>) {
     const [sorting, setSorting] = useState<SortingState>(initialSorting ?? []);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -209,51 +211,40 @@ export function DataTable<TData extends RowData>({
         />
     );
 
+    const searchField = showFilter ? (
+        <Input
+            className={SEARCH_FIELD_CLASS}
+            onChange={(event) => changeSearch(event.target.value)}
+            placeholder={filterPlaceholder}
+            value={searchValue}
+        />
+    ) : null;
+
     return (
         <div className={cn('flex w-full min-w-0 flex-col gap-3', className)}>
             {(showFilter ||
                 headerActions !== undefined ||
-                belowFilter !== undefined) &&
+                belowFilter !== undefined ||
+                toolbarEnd !== undefined) &&
                 (filterPosition === 'bottom' ? (
                     <div className="flex flex-col gap-2">
                         {renderDataTableSlot(headerActions, table)}
-                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-3">
-                            {showFilter ? (
-                                <Input
-                                    className={SEARCH_FIELD_CLASS}
-                                    onChange={(event) =>
-                                        changeSearch(event.target.value)
-                                    }
-                                    placeholder={filterPlaceholder}
-                                    value={searchValue}
-                                />
-                            ) : (
-                                <span />
-                            )}
-                            <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-                                {clearFilters}
-                                {renderDataTableSlot(belowFilter, table)}
-                            </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {renderDataTableSlot(belowFilter, table)}
+                            {searchField}
+                            {clearFilters}
                         </div>
                     </div>
                 ) : (
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        {showFilter ? (
-                            <Input
-                                className={SEARCH_FIELD_CLASS}
-                                onChange={(event) =>
-                                    changeSearch(event.target.value)
-                                }
-                                placeholder={filterPlaceholder}
-                                value={searchValue}
-                            />
-                        ) : (
-                            <span />
+                    <div className="flex flex-wrap items-center gap-2">
+                        {renderDataTableSlot(headerActions, table)}
+                        {searchField}
+                        {clearFilters}
+                        {toolbarEnd === undefined ? null : (
+                            <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+                                {toolbarEnd}
+                            </div>
                         )}
-                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                            {clearFilters}
-                            {renderDataTableSlot(headerActions, table)}
-                        </div>
                     </div>
                 ))}
             <div className="w-full min-w-0 overflow-hidden rounded-lg border border-line bg-background">

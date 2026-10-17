@@ -39,7 +39,7 @@ export function ToolbarSelect({
                 aria-label={label}
                 className={cn(
                     FILTER_CONTROL_CLASS,
-                    'w-full shrink-0 md:w-auto md:max-w-64 md:min-w-40',
+                    'w-auto max-w-64 min-w-40 shrink-0',
                 )}
                 id={id}
             >

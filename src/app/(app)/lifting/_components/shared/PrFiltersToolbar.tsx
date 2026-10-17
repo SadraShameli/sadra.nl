@@ -19,7 +19,7 @@ export type PrFiltersToolbarProperties = {
 export function PrFiltersToolbar({ filters }: PrFiltersToolbarProperties) {
     const { customRange, kind, range } = filters;
     return (
-        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+        <div className="flex flex-wrap items-center gap-2">
             <FilterSelect
                 label="PR kind"
                 onValueChange={(v) => filters.setKind(PrFilters.kindFor(v))}

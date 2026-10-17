@@ -3,8 +3,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format, subDays } from 'date-fns';
 import { LineChart, Plus, Ruler, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { Button } from '~/components/ui/button';
@@ -21,14 +21,7 @@ import { DataTableDateRange } from '~/components/ui/data-table-date-range';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { DatePicker } from '~/components/ui/date-picker';
 import { EmptyState } from '~/components/ui/empty-state';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -126,7 +119,7 @@ export function BodyView() {
                     <MeasurementsHistoryTable
                         headerActions={(table) => (
                             <div className="flex w-full flex-col gap-3">
-                                <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <DataTableFacetSelect
                                         column={table.getColumn('kind')}
                                         format={(k) => (
@@ -186,6 +179,7 @@ function AddMeasurementCard({
         },
         resolver: zodResolver(measurementInputSchema),
     });
+    const formId = useId();
 
     const kind = form.watch('kind');
 
@@ -215,164 +209,178 @@ function AddMeasurementCard({
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <Form {...form}>
-                    <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                            <FormField
-                                control={form.control}
-                                name="kind"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Kind
-                                        </FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {MEASUREMENT_KIND_VALUES.map(
-                                                    (k) => (
-                                                        <SelectItem
-                                                            key={k}
-                                                            value={k}
-                                                        >
-                                                            <span className="capitalize">
-                                                                {k.replaceAll(
-                                                                    '_',
-                                                                    ' ',
-                                                                )}
-                                                            </span>
-                                                        </SelectItem>
-                                                    ),
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="valueNumeric"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Value
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                inputMode="decimal"
-                                                onChange={(event) => {
-                                                    const n = Number(
-                                                        event.target.value,
-                                                    );
-                                                    field.onChange(
-                                                        Number.isFinite(n)
-                                                            ? n
-                                                            : 0,
-                                                    );
-                                                }}
-                                                ref={field.ref}
-                                                step="any"
-                                                type="number"
-                                                value={field.value}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="unit"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Unit
-                                        </FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {MEASUREMENT_UNIT_VALUES.map(
-                                                    (u) => (
-                                                        <SelectItem
-                                                            key={u}
-                                                            value={u}
-                                                        >
-                                                            {u}
-                                                        </SelectItem>
-                                                    ),
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="takenAt"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            When
-                                        </FormLabel>
-                                        <DatePicker
-                                            className="w-full"
-                                            maxDate={new Date()}
-                                            onChange={(d) =>
-                                                field.onChange(d ?? undefined)
-                                            }
-                                            value={field.value ?? undefined}
-                                        />
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                        <FormField
+                <form className="flex flex-col gap-3" onSubmit={onSubmit}>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <Controller
                             control={form.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-xs text-muted-foreground">
-                                        Notes (optional)
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            className="min-h-16 text-sm"
-                                            placeholder="Anything notable about this measurement…"
-                                            {...field}
-                                            value={field.value ?? ''}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                            name="kind"
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid}>
+                                    <FieldLabel
+                                        className="text-xs text-muted-foreground"
+                                        htmlFor={`${formId}-kind`}
+                                    >
+                                        Kind
+                                    </FieldLabel>
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        value={field.value}
+                                    >
+                                        <SelectTrigger
+                                            aria-invalid={fieldState.invalid}
+                                            id={`${formId}-kind`}
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {MEASUREMENT_KIND_VALUES.map(
+                                                (k) => (
+                                                    <SelectItem
+                                                        key={k}
+                                                        value={k}
+                                                    >
+                                                        <span className="capitalize">
+                                                            {k.replaceAll(
+                                                                '_',
+                                                                ' ',
+                                                            )}
+                                                        </span>
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    <FieldError errors={[fieldState.error]} />
+                                </Field>
                             )}
                         />
-                        <Button
-                            className="gap-2 self-start"
-                            disabled={pending}
-                            type="submit"
-                        >
-                            <Plus className="size-4" />
-                            {pending ? 'Saving…' : 'Add'}
-                        </Button>
-                    </form>
-                </Form>
+                        <Controller
+                            control={form.control}
+                            name="valueNumeric"
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid}>
+                                    <FieldLabel
+                                        className="text-xs text-muted-foreground"
+                                        htmlFor={`${formId}-valueNumeric`}
+                                    >
+                                        Value
+                                    </FieldLabel>
+                                    <Input
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-valueNumeric`}
+                                        inputMode="decimal"
+                                        onChange={(event) => {
+                                            const n = Number(
+                                                event.target.value,
+                                            );
+                                            field.onChange(
+                                                Number.isFinite(n) ? n : 0,
+                                            );
+                                        }}
+                                        ref={field.ref}
+                                        step="any"
+                                        type="number"
+                                        value={field.value}
+                                    />
+                                    <FieldError errors={[fieldState.error]} />
+                                </Field>
+                            )}
+                        />
+                        <Controller
+                            control={form.control}
+                            name="unit"
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid}>
+                                    <FieldLabel
+                                        className="text-xs text-muted-foreground"
+                                        htmlFor={`${formId}-unit`}
+                                    >
+                                        Unit
+                                    </FieldLabel>
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        value={field.value}
+                                    >
+                                        <SelectTrigger
+                                            aria-invalid={fieldState.invalid}
+                                            id={`${formId}-unit`}
+                                        >
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {MEASUREMENT_UNIT_VALUES.map(
+                                                (u) => (
+                                                    <SelectItem
+                                                        key={u}
+                                                        value={u}
+                                                    >
+                                                        {u}
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    <FieldError errors={[fieldState.error]} />
+                                </Field>
+                            )}
+                        />
+                        <Controller
+                            control={form.control}
+                            name="takenAt"
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid}>
+                                    <FieldLabel
+                                        className="text-xs text-muted-foreground"
+                                        htmlFor={`${formId}-takenAt`}
+                                    >
+                                        When
+                                    </FieldLabel>
+                                    <DatePicker
+                                        className="w-full"
+                                        id={`${formId}-takenAt`}
+                                        maxDate={new Date()}
+                                        onChange={(d) =>
+                                            field.onChange(d ?? undefined)
+                                        }
+                                        value={field.value ?? undefined}
+                                    />
+                                    <FieldError errors={[fieldState.error]} />
+                                </Field>
+                            )}
+                        />
+                    </div>
+                    <Controller
+                        control={form.control}
+                        name="notes"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-notes`}
+                                >
+                                    Notes (optional)
+                                </FieldLabel>
+                                <Textarea
+                                    aria-invalid={fieldState.invalid}
+                                    className="min-h-16 text-sm"
+                                    id={`${formId}-notes`}
+                                    placeholder="Anything notable about this measurement…"
+                                    {...field}
+                                    value={field.value ?? ''}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Button
+                        className="gap-2 self-start"
+                        disabled={pending}
+                        type="submit"
+                    >
+                        <Plus className="size-4" />
+                        {pending ? 'Saving…' : 'Add'}
+                    </Button>
+                </form>
             </CardContent>
         </Card>
     );

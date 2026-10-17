@@ -2,8 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil } from 'lucide-react';
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useId } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -13,14 +13,11 @@ import {
 } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { Button } from '~/components/ui/button';
 import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -97,6 +94,7 @@ export function ViolationForm({
                 : violationEditFormValues(editing),
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
+    const formId = useId();
     const { setFocus } = form;
     const isEditing = editing !== null;
     const isOpenedOnPurpose = isEditing || initial !== undefined;
@@ -143,156 +141,170 @@ export function ViolationForm({
     };
 
     return (
-        <Form {...form}>
-            <form
-                aria-label={formLabelOf(editing, initial)}
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-                noValidate
-                onSubmit={(event) => {
-                    void form.handleSubmit(save)(event);
-                }}
-            >
-                <FormField
-                    control={form.control}
-                    name="kind"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Kind</FormLabel>
-                            <Select
-                                onValueChange={(next) => {
-                                    const parsed = z
-                                        .enum(RuleViolationKind)
-                                        .safeParse(next).data;
-                                    if (parsed !== undefined) {
-                                        field.onChange(parsed);
-                                    }
-                                }}
-                                value={field.value}
+        <form
+            aria-label={formLabelOf(editing, initial)}
+            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            noValidate
+            onSubmit={(event) => {
+                void form.handleSubmit(save)(event);
+            }}
+        >
+            <Controller
+                control={form.control}
+                name="kind"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-kind`}>Kind</FieldLabel>
+                        <Select
+                            onValueChange={(next) => {
+                                const parsed = z
+                                    .enum(RuleViolationKind)
+                                    .safeParse(next).data;
+                                if (parsed !== undefined) {
+                                    field.onChange(parsed);
+                                }
+                            }}
+                            value={field.value}
+                        >
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-kind`}
+                                ref={field.ref}
                             >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {Object.values(RuleViolationKind).map(
-                                        (candidate) => (
-                                            <SelectItem
-                                                key={candidate}
-                                                value={candidate}
-                                            >
-                                                {ruleViolationKindLabel(
-                                                    candidate,
-                                                )}
-                                            </SelectItem>
-                                        ),
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <FormDescription>
-                                {violationKindHelpText(kind)}
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="occurredOn"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Date</FormLabel>
-                            <FormControl>
-                                <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="costCents"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Cost</FormLabel>
-                            <FormControl>
-                                <Input
-                                    inputMode="decimal"
-                                    placeholder="0.00"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormDescription>
-                                Leave blank when the dollar cost is not known. A
-                                negative amount means the violation still won
-                                money.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="decisionId"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Linked decision</FormLabel>
-                            <Select
-                                disabled={isDecisionLocked}
-                                onValueChange={field.onChange}
-                                value={field.value}
-                            >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    <SelectItem value={NO_LINKED_DECISION}>
-                                        No linked decision
-                                    </SelectItem>
-                                    {decisions.map((decision) => (
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.values(RuleViolationKind).map(
+                                    (candidate) => (
                                         <SelectItem
-                                            key={decision.id}
-                                            value={decision.id}
+                                            key={candidate}
+                                            value={candidate}
                                         >
-                                            {`Decision on ${decision.decidedOn}`}
+                                            {ruleViolationKindLabel(candidate)}
                                         </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="note"
-                    render={({ field }) => (
-                        <FormItem className="md:col-span-2 lg:col-span-3">
-                            <FormLabel>Note</FormLabel>
-                            <FormControl>
-                                <Textarea rows={2} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
-                    <Button
-                        disabled={create.isPending || update.isPending}
-                        type="submit"
+                                    ),
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                            {violationKindHelpText(kind)}
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="occurredOn"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-occurredOn`}>
+                            Date
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-occurredOn`}
+                            type="date"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="costCents"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-costCents`}>
+                            Cost
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-costCents`}
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            {...field}
+                        />
+                        <FieldDescription>
+                            Leave blank when the dollar cost is not known. A
+                            negative amount means the violation still won money.
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="decisionId"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-decisionId`}>
+                            Linked decision
+                        </FieldLabel>
+                        <Select
+                            disabled={isDecisionLocked}
+                            onValueChange={field.onChange}
+                            value={field.value}
+                        >
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-decisionId`}
+                                ref={field.ref}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={NO_LINKED_DECISION}>
+                                    No linked decision
+                                </SelectItem>
+                                {decisions.map((decision) => (
+                                    <SelectItem
+                                        key={decision.id}
+                                        value={decision.id}
+                                    >
+                                        {`Decision on ${decision.decidedOn}`}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="note"
+                render={({ field, fieldState }) => (
+                    <Field
+                        className="md:col-span-2 lg:col-span-3"
+                        data-invalid={fieldState.invalid}
                     >
-                        {editing === null ? 'Add violation' : 'Save violation'}
+                        <FieldLabel htmlFor={`${formId}-note`}>Note</FieldLabel>
+                        <Textarea
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-note`}
+                            rows={2}
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
+                <Button
+                    disabled={create.isPending || update.isPending}
+                    type="submit"
+                >
+                    {editing === null ? 'Add violation' : 'Save violation'}
+                </Button>
+                {isOpenedOnPurpose && (
+                    <Button onClick={onDone} type="button" variant="ghost">
+                        {isEditing ? 'Cancel edit' : 'Cancel'}
                     </Button>
-                    {isOpenedOnPurpose && (
-                        <Button onClick={onDone} type="button" variant="ghost">
-                            {isEditing ? 'Cancel edit' : 'Cancel'}
-                        </Button>
-                    )}
-                </div>
-            </form>
-        </Form>
+                )}
+            </div>
+        </form>
     );
 }
 

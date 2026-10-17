@@ -18,6 +18,7 @@ import { useTransition } from 'react';
 
 import { Avatar, AvatarFallback } from '~/components/ui/avatar';
 import { Button } from '~/components/ui/button';
+import { Separator } from '~/components/ui/separator';
 import { authClient } from '~/lib/auth/client';
 import { profileTabUrl, routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -100,22 +101,24 @@ export function ProfileNav({
     const initial = ((name ?? email)[0] ?? '?').toUpperCase();
 
     return (
-        <div className="flex flex-col gap-4 px-4 md:gap-6 md:px-2">
-            <div className="flex items-center gap-3 rounded-xl bg-foreground/3 p-3">
-                <Avatar className="size-10 rounded-full">
-                    <AvatarFallback className="rounded-full bg-primary/15 font-semibold text-primary">
+        <div className="flex flex-col gap-5 px-4 md:px-2">
+            <div className="flex flex-col items-start gap-4 px-3 pt-2">
+                <Avatar className="size-14">
+                    <AvatarFallback className="bg-camel font-serif text-2xl text-on-camel">
                         {initial}
                     </AvatarFallback>
                 </Avatar>
-                <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">
+                <div className="flex w-full min-w-0 flex-col gap-1">
+                    <p className="m-0 truncate type-display-item text-ink">
                         {name ?? 'Unnamed'}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="m-0 truncate text-sm text-ink-muted">
                         {email}
                     </p>
                 </div>
             </div>
+
+            <Separator />
 
             <nav className="flex flex-col gap-1">
                 {items.map((item) => {
@@ -125,16 +128,16 @@ export function ProfileNav({
                         <Button
                             asChild
                             className={cn(
-                                'w-full justify-start gap-2 px-3!',
-                                isActive
-                                    ? 'bg-primary/15 text-foreground hover:bg-primary/20'
-                                    : 'text-muted-foreground hover:bg-foreground/3 hover:text-foreground',
+                                'w-full justify-start gap-2.5 px-3!',
+                                isActive && 'bg-surface-high text-ink',
                             )}
                             key={item.href}
-                            size="sm"
-                            variant="ghost"
+                            variant="capsule"
                         >
-                            <Link href={item.href}>
+                            <Link
+                                aria-current={isActive ? 'page' : undefined}
+                                href={item.href}
+                            >
                                 <item.icon className="size-4 shrink-0" />
                                 <span className="whitespace-nowrap">
                                     {item.label}
@@ -145,9 +148,11 @@ export function ProfileNav({
                 })}
             </nav>
 
-            <div className="border-t pt-3">
+            <Separator />
+
+            <div>
                 <Button
-                    className="w-full justify-start gap-2 px-3! text-muted-foreground hover:bg-foreground/3 hover:text-foreground"
+                    className="w-full justify-start gap-2.5 px-3!"
                     disabled={pending}
                     onClick={() =>
                         startTransition(async () => {
@@ -156,8 +161,7 @@ export function ProfileNav({
                             window.location.assign(routes.home);
                         })
                     }
-                    size="sm"
-                    variant="ghost"
+                    variant="capsule"
                 >
                     <LogOut className="size-4 shrink-0" />
                     <span>{pending ? 'Signing out…' : 'Sign out'}</span>

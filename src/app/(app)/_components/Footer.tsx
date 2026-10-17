@@ -46,7 +46,7 @@ export default async function Footer() {
         <footer
             className={cn(
                 'app-shell__footer',
-                'relative overflow-hidden border-t border-line-faint bg-radial-[ellipse_55%_60%_at_78%_34%] from-glow to-ground to-70%',
+                'relative overflow-hidden border-t border-line-faint',
             )}
         >
             <div className="mx-auto flex max-w-site flex-wrap items-center justify-between gap-18 px-6 pt-24 pb-20 lg:pt-34 lg:pb-28">

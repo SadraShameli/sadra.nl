@@ -246,7 +246,7 @@ export function ProgramsLibrary({
                                 value={search}
                             />
                         </div>
-                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                        <div className="flex flex-wrap items-center gap-2">
                             <ClearFiltersButton
                                 active={isFiltersActive}
                                 onReset={() => {
@@ -630,10 +630,11 @@ function EnrollmentCard({
                         </Button>
                     )}
                     <Button
-                        className="ml-auto gap-1.5 text-destructive"
+                        aria-label="Unenroll"
+                        className="ml-auto text-destructive"
                         disabled={unenroll.isPending}
                         onClick={() => unenroll.mutate({ id: enrollment.id })}
-                        size="sm"
+                        size="icon-sm"
                         type="button"
                         variant="ghost"
                     >

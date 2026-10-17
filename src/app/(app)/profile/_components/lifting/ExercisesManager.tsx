@@ -2,8 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Dumbbell, Pencil, Plus } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
@@ -27,13 +27,7 @@ import {
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { Dialog } from '~/components/ui/dialog';
-import {
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import {
     Select,
     SelectContent,
@@ -275,19 +269,23 @@ function EnumSelect({
     name: 'equipment' | 'force' | 'mechanic' | 'primaryMuscle';
     values: readonly string[];
 }) {
+    const formId = useId();
     return (
-        <FormField
+        <Controller
             control={control}
             name={name}
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>{label}</FormLabel>
+            render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={`${formId}-${field.name}`}>
+                        {label}
+                    </FieldLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                        </FormControl>
+                        <SelectTrigger
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-${field.name}`}
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                             {values.map((v) => (
                                 <SelectItem key={v} value={v}>
@@ -296,8 +294,8 @@ function EnumSelect({
                             ))}
                         </SelectContent>
                     </Select>
-                    <FormMessage />
-                </FormItem>
+                    <FieldError errors={[fieldState.error]} />
+                </Field>
             )}
         />
     );

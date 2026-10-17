@@ -104,18 +104,6 @@ export function JournalFilters({
             )}
         >
             <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
-                <Input
-                    aria-label="Search notes"
-                    className={SEARCH_FIELD_CLASS}
-                    onChange={(event) =>
-                        onChange({
-                            ...state,
-                            query: event.target.value || null,
-                        })
-                    }
-                    placeholder="Search notes…"
-                    value={state.query ?? ''}
-                />
                 <FilterIsoDateRange
                     label="Journal date"
                     onChange={(range) =>
@@ -128,6 +116,18 @@ export function JournalFilters({
                     }
                     placeholder="Filter by date"
                     value={{ from: state.dateFrom, to: state.dateTo }}
+                />
+                <Input
+                    aria-label="Search notes"
+                    className={SEARCH_FIELD_CLASS}
+                    onChange={(event) =>
+                        onChange({
+                            ...state,
+                            query: event.target.value || null,
+                        })
+                    }
+                    placeholder="Search notes…"
+                    value={state.query ?? ''}
                 />
             </div>
 

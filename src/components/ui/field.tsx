@@ -80,14 +80,44 @@ function FieldDescription({
     );
 }
 
-function FieldError({ className, ...properties }: React.ComponentProps<'div'>) {
+function FieldError({
+    children,
+    className,
+    errors,
+    ...properties
+}: React.ComponentProps<'div'> & {
+    errors?: readonly (undefined | { message?: string })[];
+}) {
+    const content = React.useMemo(() => {
+        if (children) return children;
+        const messages = [
+            ...new Set(
+                (errors ?? [])
+                    .map((error) => error?.message)
+                    .filter((message) => message !== undefined),
+            ),
+        ];
+        if (messages.length <= 1) return messages.at(0);
+        return (
+            <ul className="ml-4 flex list-disc flex-col gap-1">
+                {messages.map((message) => (
+                    <li key={message}>{message}</li>
+                ))}
+            </ul>
+        );
+    }, [children, errors]);
+
+    if (!content) return null;
+
     return (
         <div
             className={cn('text-sm font-normal text-destructive', className)}
             data-slot="field-error"
             role="alert"
             {...properties}
-        />
+        >
+            {content}
+        </div>
     );
 }
 

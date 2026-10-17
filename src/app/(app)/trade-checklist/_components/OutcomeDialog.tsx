@@ -3,8 +3,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useState, useTransition } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import type {
@@ -23,13 +23,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '~/components/ui/dialog';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-} from '~/components/ui/form';
+import { Field, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group';
@@ -144,6 +138,7 @@ function OutcomeForm({
         defaultValues: outcomeFormValuesOf(saved),
         resolver: zodResolver(outcomeFormSchema),
     });
+    const formId = useId();
 
     const deviations = form.watch('deviations');
     const outcome = form.watch('outcome');
@@ -181,185 +176,197 @@ function OutcomeForm({
     });
 
     return (
-        <Form {...form}>
-            <form className="flex flex-col gap-4" onSubmit={submit}>
-                <FormField
-                    control={form.control}
-                    name="outcome"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormControl>
-                                <RadioGroup
-                                    className="grid grid-cols-2 gap-2"
-                                    onValueChange={field.onChange}
-                                    value={field.value}
+        <form className="flex flex-col gap-4" onSubmit={submit}>
+            <Controller
+                control={form.control}
+                name="outcome"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <RadioGroup
+                            aria-invalid={fieldState.invalid}
+                            className="grid grid-cols-2 gap-2"
+                            id={`${formId}-outcome`}
+                            onValueChange={field.onChange}
+                            value={field.value}
+                        >
+                            {OUTCOMES.map((o) => (
+                                <label
+                                    className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition ${
+                                        outcome === o.value
+                                            ? o.tone
+                                            : 'border-border/60 hover:border-border'
+                                    }`}
+                                    htmlFor={`outcome-${o.value}`}
+                                    key={o.value}
                                 >
-                                    {OUTCOMES.map((o) => (
-                                        <label
-                                            className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition ${
-                                                outcome === o.value
-                                                    ? o.tone
-                                                    : 'border-border/60 hover:border-border'
-                                            }`}
-                                            htmlFor={`outcome-${o.value}`}
-                                            key={o.value}
-                                        >
-                                            <RadioGroupItem
-                                                id={`outcome-${o.value}`}
-                                                value={o.value}
-                                            />
-                                            {o.label}
-                                        </label>
-                                    ))}
-                                </RadioGroup>
-                            </FormControl>
-                        </FormItem>
-                    )}
-                />
+                                    <RadioGroupItem
+                                        id={`outcome-${o.value}`}
+                                        value={o.value}
+                                    />
+                                    {o.label}
+                                </label>
+                            ))}
+                        </RadioGroup>
+                    </Field>
+                )}
+            />
 
-                <FormField
-                    control={form.control}
-                    name="outcomeR"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel className="text-sm">
-                                Actual R (optional)
-                            </FormLabel>
-                            <FormControl>
-                                <Input
-                                    placeholder="+2.0"
-                                    step="0.1"
-                                    type="number"
-                                    {...field}
-                                />
-                            </FormControl>
-                        </FormItem>
-                    )}
-                />
+            <Controller
+                control={form.control}
+                name="outcomeR"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel
+                            className="text-sm"
+                            htmlFor={`${formId}-outcomeR`}
+                        >
+                            Actual R (optional)
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-outcomeR`}
+                            placeholder="+2.0"
+                            step="0.1"
+                            type="number"
+                            {...field}
+                        />
+                    </Field>
+                )}
+            />
 
-                <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel className="text-sm">Notes</FormLabel>
-                            <FormControl>
-                                <Textarea
-                                    placeholder="What happened, what worked, what to remember."
-                                    rows={3}
-                                    {...field}
-                                />
-                            </FormControl>
-                        </FormItem>
-                    )}
-                />
+            <Controller
+                control={form.control}
+                name="notes"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel
+                            className="text-sm"
+                            htmlFor={`${formId}-notes`}
+                        >
+                            Notes
+                        </FieldLabel>
+                        <Textarea
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-notes`}
+                            placeholder="What happened, what worked, what to remember."
+                            rows={3}
+                            {...field}
+                        />
+                    </Field>
+                )}
+            />
 
-                <div className="rounded-md border border-border/40">
-                    <Button
+            <div className="rounded-md border border-border/40">
+                <Button
+                    className={cn(
+                        'app-trade-checklist__outcome-execution-toggle',
+                        'h-auto w-full justify-between rounded-md px-3 py-2 text-sm font-medium',
+                    )}
+                    data-state={executionOpen ? 'open' : 'closed'}
+                    onClick={() => setExecutionOpen((o) => !o)}
+                    type="button"
+                    variant="ghost"
+                >
+                    <span>Execution details (optional)</span>
+                    <ChevronDown
                         className={cn(
-                            'app-trade-checklist__outcome-execution-toggle',
-                            'h-auto w-full justify-between rounded-md px-3 py-2 text-sm font-medium',
+                            'size-4 transition-transform',
+                            executionOpen && 'rotate-180',
                         )}
-                        data-state={executionOpen ? 'open' : 'closed'}
-                        onClick={() => setExecutionOpen((o) => !o)}
-                        type="button"
-                        variant="ghost"
-                    >
-                        <span>Execution details (optional)</span>
-                        <ChevronDown
-                            className={cn(
-                                'size-4 transition-transform',
-                                executionOpen && 'rotate-180',
+                    />
+                </Button>
+
+                {executionOpen && (
+                    <div className="flex flex-col gap-4 border-t border-border/40 p-3">
+                        <Controller
+                            control={form.control}
+                            name="actualRisk"
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid}>
+                                    <FieldLabel
+                                        className="text-sm"
+                                        htmlFor={`${formId}-actualRisk`}
+                                    >
+                                        Actual risk taken ($)
+                                    </FieldLabel>
+                                    <Input
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-actualRisk`}
+                                        placeholder="250"
+                                        step="1"
+                                        type="number"
+                                        {...field}
+                                    />
+                                </Field>
                             )}
                         />
-                    </Button>
 
-                    {executionOpen && (
-                        <div className="flex flex-col gap-4 border-t border-border/40 p-3">
-                            <FormField
-                                control={form.control}
-                                name="actualRisk"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-sm">
-                                            Actual risk taken ($)
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                placeholder="250"
-                                                step="1"
-                                                type="number"
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
+                        <Controller
+                            control={form.control}
+                            name="followedPlan"
+                            render={({ field, fieldState }) => (
+                                <Field
+                                    className="flex flex-row items-center justify-between gap-2"
+                                    data-invalid={fieldState.invalid}
+                                >
+                                    <FieldLabel
+                                        className="text-sm"
+                                        htmlFor={`${formId}-followedPlan`}
+                                    >
+                                        Followed the plan as written
+                                    </FieldLabel>
+                                    <Switch
+                                        aria-invalid={fieldState.invalid}
+                                        checked={field.value}
+                                        id={`${formId}-followedPlan`}
+                                        onCheckedChange={field.onChange}
+                                    />
+                                </Field>
+                            )}
+                        />
 
-                            <FormField
-                                control={form.control}
-                                name="followedPlan"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between gap-2">
-                                        <FormLabel className="text-sm">
-                                            Followed the plan as written
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Switch
-                                                checked={field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-
-                            <div>
-                                <Label className="text-sm">Deviations</Label>
-                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {DEVIATIONS.map((d) => (
-                                        <button
-                                            className={cn(
-                                                badgeVariants({
-                                                    variant:
-                                                        deviations.includes(
-                                                            d.value,
-                                                        )
-                                                            ? 'warning'
-                                                            : 'outline',
-                                                }),
-                                                'cursor-pointer transition',
-                                            )}
-                                            key={d.value}
-                                            onClick={() =>
-                                                toggleDeviation(d.value)
-                                            }
-                                            type="button"
-                                        >
-                                            {d.label}
-                                        </button>
-                                    ))}
-                                </div>
+                        <div>
+                            <Label className="text-sm">Deviations</Label>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                {DEVIATIONS.map((d) => (
+                                    <button
+                                        className={cn(
+                                            badgeVariants({
+                                                variant: deviations.includes(
+                                                    d.value,
+                                                )
+                                                    ? 'warning'
+                                                    : 'outline',
+                                            }),
+                                            'cursor-pointer transition',
+                                        )}
+                                        key={d.value}
+                                        onClick={() => toggleDeviation(d.value)}
+                                        type="button"
+                                    >
+                                        {d.label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
+            </div>
 
-                <DialogFooter>
-                    <Button
-                        disabled={pending}
-                        onClick={() => onOpenChange(false)}
-                        type="button"
-                        variant="ghost"
-                    >
-                        Cancel
-                    </Button>
-                    <Button disabled={pending} type="submit">
-                        Save outcome
-                    </Button>
-                </DialogFooter>
-            </form>
-        </Form>
+            <DialogFooter>
+                <Button
+                    disabled={pending}
+                    onClick={() => onOpenChange(false)}
+                    type="button"
+                    variant="ghost"
+                >
+                    Cancel
+                </Button>
+                <Button disabled={pending} type="submit">
+                    Save outcome
+                </Button>
+            </DialogFooter>
+        </form>
     );
 }
 

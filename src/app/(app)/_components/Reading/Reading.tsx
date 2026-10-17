@@ -107,32 +107,6 @@ export default function ReadingSection() {
                 value={activeSensor ?? ''}
             >
                 <div className="flex flex-wrap items-center gap-2.5 border-b border-line-faint p-4">
-                    <FilterDateRange
-                        label="Reading date"
-                        maxDate={new Date()}
-                        minDate={addDays(
-                            Date.now() - READINGS_SERIES_LONGEST_SPAN_MS,
-                            1,
-                        )}
-                        onChange={(range) => {
-                            setDate(range);
-                            setGranularity((current) =>
-                                isReadingsSpanWithinCap(
-                                    current,
-                                    range?.from,
-                                    range?.to,
-                                )
-                                    ? current
-                                    : (finestGranularityForRange(
-                                          range?.from,
-                                          range?.to,
-                                      ) ?? current),
-                            );
-                        }}
-                        placeholder="Pick a date"
-                        value={date}
-                    />
-
                     <ToolbarSelect
                         disabled={!locations.data?.data}
                         label="Location"
@@ -187,6 +161,31 @@ export default function ReadingSection() {
                             value: g.value,
                         }))}
                         value={granularity}
+                    />
+                    <FilterDateRange
+                        label="Reading date"
+                        maxDate={new Date()}
+                        minDate={addDays(
+                            Date.now() - READINGS_SERIES_LONGEST_SPAN_MS,
+                            1,
+                        )}
+                        onChange={(range) => {
+                            setDate(range);
+                            setGranularity((current) =>
+                                isReadingsSpanWithinCap(
+                                    current,
+                                    range?.from,
+                                    range?.to,
+                                )
+                                    ? current
+                                    : (finestGranularityForRange(
+                                          range?.from,
+                                          range?.to,
+                                      ) ?? current),
+                            );
+                        }}
+                        placeholder="Pick a date"
+                        value={date}
                     />
 
                     <ClearFiltersButton

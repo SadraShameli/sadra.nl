@@ -2,8 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Download, Pencil, Receipt } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -34,17 +34,14 @@ import {
 import { Button } from '~/components/ui/button';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { EmptyState } from '~/components/ui/empty-state';
+import {
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/field';
 import { FilterIsoDateRange } from '~/components/ui/filter-iso-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
-import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -981,6 +978,7 @@ function StatementForm({
                 : editingStatementValues(editing),
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
+    const formId = useId();
 
     const save = async (values: StatementFormValues) => {
         const parsed = schema.safeParse(values);
@@ -1005,153 +1003,160 @@ function StatementForm({
     };
 
     return (
-        <Form {...form}>
-            <form
-                aria-label={
-                    editing === null
-                        ? 'Add a firm statement'
-                        : 'Edit firm statement'
-                }
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
-                noValidate
-                onSubmit={(event) => {
-                    void form.handleSubmit(save)(event);
-                }}
-            >
-                {editing === null ? (
-                    <FormField
-                        control={form.control}
-                        name="firmValue"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Firm</FormLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger ref={field.ref}>
-                                            <SelectValue placeholder="Choose a firm" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {firmSelectOptions(externalFirms).map(
-                                            (option) => (
-                                                <SelectItem
-                                                    key={option.value}
-                                                    value={option.value}
-                                                >
-                                                    {option.label}
-                                                </SelectItem>
-                                            ),
-                                        )}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                ) : (
-                    <dl className="flex flex-col gap-2 text-sm">
-                        <dt className="font-medium">Firm</dt>
-                        <dd className="text-muted-foreground">
-                            {firmKeyLabel(
-                                firmKeyOf(firmColumnsOf(editing)),
-                                externalFirms,
-                            )}
-                        </dd>
-                    </dl>
-                )}
-                <FormField
+        <form
+            aria-label={
+                editing === null
+                    ? 'Add a firm statement'
+                    : 'Edit firm statement'
+            }
+            className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+            noValidate
+            onSubmit={(event) => {
+                void form.handleSubmit(save)(event);
+            }}
+        >
+            {editing === null ? (
+                <Controller
                     control={form.control}
-                    name="asOf"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>As of</FormLabel>
-                            <FormControl>
-                                <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="basis"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Basis</FormLabel>
+                    name="firmValue"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-firmValue`}>
+                                Firm
+                            </FieldLabel>
                             <Select
-                                onValueChange={(next) => {
-                                    const parsedBasis = z
-                                        .enum(ReportedPayoutBasis)
-                                        .safeParse(next).data;
-                                    if (parsedBasis !== undefined) {
-                                        field.onChange(parsedBasis);
-                                    }
-                                }}
+                                onValueChange={field.onChange}
                                 value={field.value}
                             >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue placeholder="Choose gross or net" />
-                                    </SelectTrigger>
-                                </FormControl>
+                                <SelectTrigger
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-firmValue`}
+                                    ref={field.ref}
+                                >
+                                    <SelectValue placeholder="Choose a firm" />
+                                </SelectTrigger>
                                 <SelectContent>
-                                    {Object.values(ReportedPayoutBasis).map(
-                                        (basis) => (
+                                    {firmSelectOptions(externalFirms).map(
+                                        (option) => (
                                             <SelectItem
-                                                key={basis}
-                                                value={basis}
+                                                key={option.value}
+                                                value={option.value}
                                             >
-                                                {reportedPayoutBasisLabel(
-                                                    basis,
-                                                )}
+                                                {option.label}
                                             </SelectItem>
                                         ),
                                     )}
                                 </SelectContent>
                             </Select>
-                            <FormMessage />
-                        </FormItem>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
-                <FormField
-                    control={form.control}
-                    name="reportedPayoutCents"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Reported total</FormLabel>
-                            <FormControl>
-                                <Input
-                                    inputMode="decimal"
-                                    placeholder="0.00"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormDescription>
-                                The total your firm dashboard shows as of this
-                                date.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-4">
-                    <Button
-                        disabled={create.isPending || update.isPending}
-                        type="submit"
-                    >
-                        {editing === null ? 'Add statement' : 'Save statement'}
+            ) : (
+                <dl className="flex flex-col gap-2 text-sm">
+                    <dt className="font-medium">Firm</dt>
+                    <dd className="text-muted-foreground">
+                        {firmKeyLabel(
+                            firmKeyOf(firmColumnsOf(editing)),
+                            externalFirms,
+                        )}
+                    </dd>
+                </dl>
+            )}
+            <Controller
+                control={form.control}
+                name="asOf"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-asOf`}>
+                            As of
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-asOf`}
+                            type="date"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="basis"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-basis`}>
+                            Basis
+                        </FieldLabel>
+                        <Select
+                            onValueChange={(next) => {
+                                const parsedBasis = z
+                                    .enum(ReportedPayoutBasis)
+                                    .safeParse(next).data;
+                                if (parsedBasis !== undefined) {
+                                    field.onChange(parsedBasis);
+                                }
+                            }}
+                            value={field.value}
+                        >
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-basis`}
+                                ref={field.ref}
+                            >
+                                <SelectValue placeholder="Choose gross or net" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.values(ReportedPayoutBasis).map(
+                                    (basis) => (
+                                        <SelectItem key={basis} value={basis}>
+                                            {reportedPayoutBasisLabel(basis)}
+                                        </SelectItem>
+                                    ),
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="reportedPayoutCents"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-reportedPayoutCents`}>
+                            Reported total
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-reportedPayoutCents`}
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            {...field}
+                        />
+                        <FieldDescription>
+                            The total your firm dashboard shows as of this date.
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-4">
+                <Button
+                    disabled={create.isPending || update.isPending}
+                    type="submit"
+                >
+                    {editing === null ? 'Add statement' : 'Save statement'}
+                </Button>
+                {editing !== null && (
+                    <Button onClick={onDone} type="button" variant="ghost">
+                        Cancel edit
                     </Button>
-                    {editing !== null && (
-                        <Button onClick={onDone} type="button" variant="ghost">
-                            Cancel edit
-                        </Button>
-                    )}
-                </div>
-            </form>
-        </Form>
+                )}
+            </div>
+        </form>
     );
 }
 
@@ -1239,6 +1244,7 @@ function TransferForm({
                   },
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
+    const formId = useId();
 
     const save = async (values: TransferFormValues) => {
         const parsed = schema.safeParse(values);
@@ -1264,113 +1270,120 @@ function TransferForm({
     };
 
     return (
-        <Form {...form}>
-            <form
-                aria-label={
-                    editing === null ? 'Add a transfer' : 'Edit transfer'
-                }
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
-                noValidate
-                onSubmit={(event) => {
-                    void form.handleSubmit(save)(event);
-                }}
-            >
-                <FormField
-                    control={form.control}
-                    name="kind"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Kind</FormLabel>
-                            <Select
-                                onValueChange={(next) => {
-                                    const parsedKind = z
-                                        .enum(BankrollTransferKind)
-                                        .safeParse(next).data;
-                                    if (parsedKind !== undefined) {
-                                        field.onChange(parsedKind);
-                                    }
-                                }}
-                                value={field.value}
+        <form
+            aria-label={editing === null ? 'Add a transfer' : 'Edit transfer'}
+            className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+            noValidate
+            onSubmit={(event) => {
+                void form.handleSubmit(save)(event);
+            }}
+        >
+            <Controller
+                control={form.control}
+                name="kind"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-kind`}>Kind</FieldLabel>
+                        <Select
+                            onValueChange={(next) => {
+                                const parsedKind = z
+                                    .enum(BankrollTransferKind)
+                                    .safeParse(next).data;
+                                if (parsedKind !== undefined) {
+                                    field.onChange(parsedKind);
+                                }
+                            }}
+                            value={field.value}
+                        >
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-kind`}
+                                ref={field.ref}
                             >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {Object.values(BankrollTransferKind).map(
-                                        (kind) => (
-                                            <SelectItem key={kind} value={kind}>
-                                                {bankrollTransferKindLabel(
-                                                    kind,
-                                                )}
-                                            </SelectItem>
-                                        ),
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="amountCents"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Amount</FormLabel>
-                            <FormControl>
-                                <Input
-                                    inputMode="decimal"
-                                    placeholder="0.00"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="occurredOn"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Date</FormLabel>
-                            <FormControl>
-                                <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="note"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Note (optional)</FormLabel>
-                            <FormControl>
-                                <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-4">
-                    <Button
-                        disabled={create.isPending || update.isPending}
-                        type="submit"
-                    >
-                        {editing === null ? 'Add transfer' : 'Save transfer'}
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.values(BankrollTransferKind).map(
+                                    (kind) => (
+                                        <SelectItem key={kind} value={kind}>
+                                            {bankrollTransferKindLabel(kind)}
+                                        </SelectItem>
+                                    ),
+                                )}
+                            </SelectContent>
+                        </Select>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="amountCents"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-amountCents`}>
+                            Amount
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-amountCents`}
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="occurredOn"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-occurredOn`}>
+                            Date
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-occurredOn`}
+                            type="date"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="note"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-note`}>
+                            Note (optional)
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-note`}
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-4">
+                <Button
+                    disabled={create.isPending || update.isPending}
+                    type="submit"
+                >
+                    {editing === null ? 'Add transfer' : 'Save transfer'}
+                </Button>
+                {editing !== null && (
+                    <Button onClick={onDone} type="button" variant="ghost">
+                        Cancel edit
                     </Button>
-                    {editing !== null && (
-                        <Button onClick={onDone} type="button" variant="ghost">
-                            Cancel edit
-                        </Button>
-                    )}
-                </div>
-            </form>
-        </Form>
+                )}
+            </div>
+        </form>
     );
 }
 

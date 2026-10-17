@@ -7,10 +7,11 @@ import {
     type ReactNode,
     useContext,
     useEffect,
+    useRef,
     useState,
 } from 'react';
 
-const UNSAVED_CHANGES_PROMPT = 'You have unsaved changes. Leave anyway?';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 
 interface NavigationBlockerState {
     readonly isBlocked: boolean;
@@ -28,20 +29,41 @@ const NavigationBlockerContext = createContext<NavigationBlockerState | null>(
     null,
 );
 
-export function BlockableLink(properties: ComponentProps<typeof Link>) {
+export function BlockableLink({
+    onNavigate,
+    ...properties
+}: ComponentProps<typeof Link>) {
     const { isBlocked } = useNavigationBlocker();
-    const { onNavigate } = properties;
+    const linkReference = useRef<HTMLAnchorElement>(null);
+    const leaveApproval = useRef(false);
+    const [isConfirming, setIsConfirming] = useState(false);
     return (
-        <Link
-            {...properties}
-            onNavigate={(event) => {
-                if (isBlocked && !window.confirm(UNSAVED_CHANGES_PROMPT)) {
-                    event.preventDefault();
-                    return;
-                }
-                onNavigate?.(event);
-            }}
-        />
+        <>
+            <Link
+                {...properties}
+                onNavigate={(event) => {
+                    if (isBlocked && !leaveApproval.current) {
+                        event.preventDefault();
+                        setIsConfirming(true);
+                        return;
+                    }
+                    leaveApproval.current = false;
+                    onNavigate?.(event);
+                }}
+                ref={linkReference}
+            />
+            <ConfirmDialog
+                confirmLabel="Leave"
+                description="You have unsaved changes. Leaving now discards them."
+                onConfirm={() => {
+                    leaveApproval.current = true;
+                    linkReference.current?.click();
+                }}
+                onOpenChange={setIsConfirming}
+                open={isConfirming}
+                title="Leave without saving?"
+            />
+        </>
     );
 }
 

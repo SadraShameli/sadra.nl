@@ -19,10 +19,7 @@ export function FilterToggle({
 }: FilterToggleProperties) {
     return (
         <Toggle
-            className={cn(
-                FILTER_CONTROL_CLASS,
-                'w-full gap-1.5 px-4 md:w-auto',
-            )}
+            className={cn(FILTER_CONTROL_CLASS, 'w-auto gap-1.5 px-4')}
             onPressedChange={onPressedChange}
             pressed={isPressed}
             variant="outline"

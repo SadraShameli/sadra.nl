@@ -4,8 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type BaseSyntheticEvent, useState } from 'react';
-import { type Control, useForm, type UseFormReturn } from 'react-hook-form';
+import { type BaseSyntheticEvent, useId, useState } from 'react';
+import {
+    type Control,
+    Controller,
+    useForm,
+    type UseFormReturn,
+} from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -17,17 +22,9 @@ import {
     Field,
     FieldContent,
     FieldDescription,
+    FieldError,
     FieldLabel,
 } from '~/components/ui/field';
-import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -554,73 +551,71 @@ function AccountForm({
     const confirmLeave = useUnsavedChangesGuard(form.formState.isDirty);
 
     return (
-        <Form {...form}>
-            <form
-                className="app-prop-accounts__form flex flex-col gap-6"
-                noValidate
-                onSubmit={submit.onSubmit}
-            >
-                <PlanCard
-                    externalFirms={externalFirms}
-                    form={form}
-                    onCreateExternalFirm={onCreateExternalFirm}
-                    plan={plan}
-                    selection={selection}
-                    stored={stored}
-                />
+        <form
+            className="app-prop-accounts__form flex flex-col gap-6"
+            noValidate
+            onSubmit={submit.onSubmit}
+        >
+            <PlanCard
+                externalFirms={externalFirms}
+                form={form}
+                onCreateExternalFirm={onCreateExternalFirm}
+                plan={plan}
+                selection={selection}
+                stored={stored}
+            />
 
-                <DetailsCard
-                    control={form.control}
-                    groups={groupsQuery.data ?? []}
-                    isLedgerOnly={isLedgerOnly}
-                    otherAccounts={otherAccounts}
-                    rounds={roundsQuery.data ?? []}
-                />
+            <DetailsCard
+                control={form.control}
+                groups={groupsQuery.data ?? []}
+                isLedgerOnly={isLedgerOnly}
+                otherAccounts={otherAccounts}
+                rounds={roundsQuery.data ?? []}
+            />
 
-                <Card>
-                    <CardHeader>
-                        <AccountsCardHeading>
-                            Personal stricter rules
-                        </AccountsCardHeading>
-                    </CardHeader>
-                    <CardContent>
-                        <PersonalRulesFields
-                            errors={personalRuleErrors}
-                            onChange={(key, value) => {
-                                form.setValue(`personalRules.${key}`, value, {
-                                    shouldDirty: true,
-                                    shouldValidate: form.formState.isSubmitted,
-                                });
-                            }}
-                            payoutNotice={payoutNotice}
-                            values={personalRulesText}
-                        />
-                    </CardContent>
-                </Card>
+            <Card>
+                <CardHeader>
+                    <AccountsCardHeading>
+                        Personal stricter rules
+                    </AccountsCardHeading>
+                </CardHeader>
+                <CardContent>
+                    <PersonalRulesFields
+                        errors={personalRuleErrors}
+                        onChange={(key, value) => {
+                            form.setValue(`personalRules.${key}`, value, {
+                                shouldDirty: true,
+                                shouldValidate: form.formState.isSubmitted,
+                            });
+                        }}
+                        payoutNotice={payoutNotice}
+                        values={personalRulesText}
+                    />
+                </CardContent>
+            </Card>
 
-                {isCreate && <InitialSnapshotCard submit={submit} />}
+            {isCreate && <InitialSnapshotCard submit={submit} />}
 
-                <div className="flex flex-wrap items-center gap-2">
-                    <Button disabled={submit.isSaving} type="submit">
-                        {isCreate ? 'Add account' : 'Save changes'}
-                    </Button>
-                    <Button asChild type="button" variant="ghost">
-                        <Link
-                            href={
-                                stored === null
-                                    ? routes.propCalculator.accounts.index
-                                    : routes.propCalculator.accounts.detail(
-                                          stored.id,
-                                      )
-                            }
-                            onNavigate={confirmLeave}
-                        >
-                            Cancel
-                        </Link>
-                    </Button>
-                </div>
-            </form>
-        </Form>
+            <div className="flex flex-wrap items-center gap-2">
+                <Button disabled={submit.isSaving} type="submit">
+                    {isCreate ? 'Add account' : 'Save changes'}
+                </Button>
+                <Button asChild type="button" variant="ghost">
+                    <Link
+                        href={
+                            stored === null
+                                ? routes.propCalculator.accounts.index
+                                : routes.propCalculator.accounts.detail(
+                                      stored.id,
+                                  )
+                        }
+                        onNavigate={confirmLeave}
+                    >
+                        Cancel
+                    </Link>
+                </Button>
+            </div>
+        </form>
     );
 }
 
@@ -629,19 +624,23 @@ function DashboardConventionField({
 }: {
     control: Control<AccountFormValues>;
 }) {
+    const formId = useId();
     return (
-        <FormField
+        <Controller
             control={control}
             name="dashboardConvention"
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Dashboard balance</FormLabel>
+            render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={`${formId}-dashboardConvention`}>
+                        Dashboard balance
+                    </FieldLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                        </FormControl>
+                        <SelectTrigger
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-dashboardConvention`}
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                             {Object.values(DashboardBalanceConvention).map(
                                 (convention) => (
@@ -655,12 +654,12 @@ function DashboardConventionField({
                             )}
                         </SelectContent>
                     </Select>
-                    <FormDescription>
+                    <FieldDescription>
                         How the firm dashboard shows this account&rsquo;s
                         balance. Enter every balance below the same way.
-                    </FormDescription>
-                    <FormMessage />
-                </FormItem>
+                    </FieldDescription>
+                    <FieldError errors={[fieldState.error]} />
+                </Field>
             )}
         />
     );
@@ -677,21 +676,25 @@ function DateField({
     label: string;
     name: 'firstFundedTradeOn' | 'fundedOn' | 'purchasedOn';
 }) {
+    const formId = useId();
     return (
-        <FormField
+        <Controller
             control={control}
             name={name}
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>
+            render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={`${formId}-${field.name}`}>
                         {label}
                         {isOptional && <FieldRequirementMark text="optional" />}
-                    </FormLabel>
-                    <FormControl>
-                        <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
+                    </FieldLabel>
+                    <Input
+                        aria-invalid={fieldState.invalid}
+                        id={`${formId}-${field.name}`}
+                        type="date"
+                        {...field}
+                    />
+                    <FieldError errors={[fieldState.error]} />
+                </Field>
             )}
         />
     );
@@ -714,44 +717,52 @@ function DetailsCard({
         readonly status: RoundStatus;
     }[];
 }) {
+    const formId = useId();
     return (
         <Card>
             <CardHeader>
                 <AccountsCardHeading>Details</AccountsCardHeading>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-                <FormField
+                <Controller
                     control={control}
                     name="label"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Label</FormLabel>
-                            <FormControl>
-                                <Input {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-label`}>
+                                Label
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-label`}
+                                {...field}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
-                <FormField
+                <Controller
                     control={control}
                     name="externalAlias"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-externalAlias`}>
                                 Alias
                                 <FieldRequirementMark text="optional" />
-                            </FormLabel>
-                            <FormControl>
-                                <Input autoComplete="off" {...field} />
-                            </FormControl>
-                            <FormDescription>
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                autoComplete="off"
+                                id={`${formId}-externalAlias`}
+                                {...field}
+                            />
+                            <FieldDescription>
                                 A non-secret hint to recognize the account, such
                                 as the last 4 characters of its number. Never
                                 paste credentials, passwords or API keys here.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
+                            </FieldDescription>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
                 <DateField
@@ -772,21 +783,24 @@ function DetailsCard({
                     name="firstFundedTradeOn"
                 />
                 {!isLedgerOnly && (
-                    <FormField
+                    <Controller
                         control={control}
                         name="copyGroupId"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Copy group</FormLabel>
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-copyGroupId`}>
+                                    Copy group
+                                </FieldLabel>
                                 <Select
                                     onValueChange={field.onChange}
                                     value={field.value}
                                 >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-copyGroupId`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value={NONE}>
                                             None (traded on its own)
@@ -801,30 +815,33 @@ function DetailsCard({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <FormDescription>
+                                <FieldDescription>
                                     Every account in a group must be in the same
                                     stage.
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
+                                </FieldDescription>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
                         )}
                     />
                 )}
-                <FormField
+                <Controller
                     control={control}
                     name="roundId"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Round</FormLabel>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-roundId`}>
+                                Round
+                            </FieldLabel>
                             <Select
                                 onValueChange={field.onChange}
                                 value={field.value}
                             >
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
+                                <SelectTrigger
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-roundId`}
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value={NONE}>
                                         None (not in a round)
@@ -846,16 +863,16 @@ function DetailsCard({
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <FormDescription>
+                            <FieldDescription>
                                 Groups this account&apos;s spend and payouts
                                 against a round budget. Only your own open
                                 rounds accept new members.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
+                            </FieldDescription>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
-                <FormField
+                <Controller
                     control={control}
                     name="overrideRoundBudget"
                     render={({ field }) => (
@@ -880,21 +897,24 @@ function DetailsCard({
                         </Field>
                     )}
                 />
-                <FormField
+                <Controller
                     control={control}
                     name="replacesAccountId"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Replaces account</FormLabel>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-replacesAccountId`}>
+                                Replaces account
+                            </FieldLabel>
                             <Select
                                 onValueChange={field.onChange}
                                 value={field.value}
                             >
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
+                                <SelectTrigger
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-replacesAccountId`}
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value={NONE}>None</SelectItem>
                                     {otherAccounts.map((account) => (
@@ -907,47 +927,55 @@ function DetailsCard({
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <FormDescription>
+                            <FieldDescription>
                                 The busted or closed account this one replaces,
                                 if any.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
+                            </FieldDescription>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
-                <FormField
+                <Controller
                     control={control}
                     name="tags"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-tags`}>
                                 Tags
                                 <FieldRequirementMark text="optional" />
-                            </FormLabel>
-                            <FormControl>
-                                <Input {...field} />
-                            </FormControl>
-                            <FormDescription>
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-tags`}
+                                {...field}
+                            />
+                            <FieldDescription>
                                 Separate tags with commas.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
+                            </FieldDescription>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
-                <FormField
+                <Controller
                     control={control}
                     name="notes"
-                    render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                            <FormLabel>
+                    render={({ field, fieldState }) => (
+                        <Field
+                            className="md:col-span-2"
+                            data-invalid={fieldState.invalid}
+                        >
+                            <FieldLabel htmlFor={`${formId}-notes`}>
                                 Notes
                                 <FieldRequirementMark text="optional" />
-                            </FormLabel>
-                            <FormControl>
-                                <Textarea rows={3} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                            </FieldLabel>
+                            <Textarea
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-notes`}
+                                rows={3}
+                                {...field}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
             </CardContent>
@@ -1048,6 +1076,7 @@ function LedgerOnlyPlanFields({
     onCreateExternalFirm: CreateExternalFirm | null;
     selection: AccountPlanSelection;
 }) {
+    const formId = useId();
     const firmKey = ledgerFirmKeyOf(
         form.watch('ledgerFirmId'),
         form.watch('ledgerExternalFirmId'),
@@ -1128,40 +1157,47 @@ function LedgerOnlyPlanFields({
                     />
                 )}
             <div className="grid gap-4 md:grid-cols-2">
-                <FormField
+                <Controller
                     control={form.control}
                     name="ledgerSize"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Account size ($)</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="off"
-                                    inputMode="numeric"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormDescription>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-ledgerSize`}>
+                                Account size ($)
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                autoComplete="off"
+                                id={`${formId}-ledgerSize`}
+                                inputMode="numeric"
+                                {...field}
+                            />
+                            <FieldDescription>
                                 Any size, in whole dollars, as the firm sold it.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
+                            </FieldDescription>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
-                <FormField
+                <Controller
                     control={form.control}
                     name="planLabel"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Plan</FormLabel>
-                            <FormControl>
-                                <Input autoComplete="off" {...field} />
-                            </FormControl>
-                            <FormDescription>
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-planLabel`}>
+                                Plan
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                autoComplete="off"
+                                id={`${formId}-planLabel`}
+                                {...field}
+                            />
+                            <FieldDescription>
                                 The plan name as the firm shows it.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
+                            </FieldDescription>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
                     )}
                 />
             </div>
@@ -1244,22 +1280,28 @@ function LiveStartBalanceField({
 }: {
     control: Control<AccountFormValues>;
 }) {
+    const formId = useId();
     return (
-        <FormField
+        <Controller
             control={control}
             name="liveStartBalanceCents"
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Live start balance ($)</FormLabel>
-                    <FormControl>
-                        <Input inputMode="decimal" {...field} />
-                    </FormControl>
-                    <FormDescription>
+            render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={`${formId}-liveStartBalanceCents`}>
+                        Live start balance ($)
+                    </FieldLabel>
+                    <Input
+                        aria-invalid={fieldState.invalid}
+                        id={`${formId}-liveStartBalanceCents`}
+                        inputMode="decimal"
+                        {...field}
+                    />
+                    <FieldDescription>
                         The balance the live account started with or was moved
                         over with.
-                    </FormDescription>
-                    <FormMessage />
-                </FormItem>
+                    </FieldDescription>
+                    <FieldError errors={[fieldState.error]} />
+                </Field>
             )}
         />
     );
@@ -1525,13 +1567,14 @@ function StageField({
     isInstantFunded: boolean;
     options: readonly AccountStageOption[];
 }) {
+    const formId = useId();
     return (
-        <FormField
+        <Controller
             control={form.control}
             name="stage"
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Stage</FormLabel>
+            render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={`${formId}-stage`}>Stage</FieldLabel>
                     <Select
                         onValueChange={(next) => {
                             field.onChange(next);
@@ -1544,11 +1587,12 @@ function StageField({
                         }}
                         value={field.value}
                     >
-                        <FormControl>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                        </FormControl>
+                        <SelectTrigger
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-stage`}
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                             {options.map((option) => (
                                 <SelectItem
@@ -1561,13 +1605,13 @@ function StageField({
                         </SelectContent>
                     </Select>
                     {isInstantFunded && (
-                        <FormDescription>
+                        <FieldDescription>
                             This plan is instant funded, so it has no evaluation
                             stage.
-                        </FormDescription>
+                        </FieldDescription>
                     )}
-                    <FormMessage />
-                </FormItem>
+                    <FieldError errors={[fieldState.error]} />
+                </Field>
             )}
         />
     );

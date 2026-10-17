@@ -17,7 +17,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '~/components/ui/dialog';
-import { Form } from '~/components/ui/form';
 import { Spinner } from '~/components/ui/spinner';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import {
@@ -119,80 +118,76 @@ export function NewCredentialDialog() {
                     <DialogTitle>New credential</DialogTitle>
                 </DialogHeader>
 
-                <Form {...form}>
-                    <form className="flex flex-col gap-4" onSubmit={onSubmit}>
-                        <CredentialFormFields
-                            descriptor={descriptor}
-                            descriptors={descriptors}
-                            kindEditable
-                            label={label}
-                            meta={meta}
-                            onKindChange={(id) => {
-                                const next = descriptors.find(
-                                    (d) => d.id === id,
-                                );
-                                form.setValue('kind', id, {
-                                    shouldDirty: true,
-                                    shouldValidate: true,
-                                });
-                                form.setValue(
-                                    'meta',
-                                    next ? defaultMetaFor(next) : {},
-                                    { shouldDirty: true, shouldValidate: true },
-                                );
-                            }}
-                            onLabelChange={(v) =>
-                                form.setValue('label', v, {
-                                    shouldDirty: true,
-                                    shouldValidate: true,
-                                })
-                            }
-                            onMetaChange={(v) =>
-                                form.setValue('meta', v, {
-                                    shouldDirty: true,
-                                    shouldValidate: true,
-                                })
-                            }
-                            onSecretChange={(v) =>
-                                form.setValue('secret', v, {
-                                    shouldDirty: true,
-                                    shouldValidate: true,
-                                })
-                            }
-                            secret={secret ?? ''}
-                            secretRequired={descriptor.requiresSecret !== false}
-                        />
+                <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+                    <CredentialFormFields
+                        descriptor={descriptor}
+                        descriptors={descriptors}
+                        kindEditable
+                        label={label}
+                        meta={meta}
+                        onKindChange={(id) => {
+                            const next = descriptors.find((d) => d.id === id);
+                            form.setValue('kind', id, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                            });
+                            form.setValue(
+                                'meta',
+                                next ? defaultMetaFor(next) : {},
+                                { shouldDirty: true, shouldValidate: true },
+                            );
+                        }}
+                        onLabelChange={(v) =>
+                            form.setValue('label', v, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                            })
+                        }
+                        onMetaChange={(v) =>
+                            form.setValue('meta', v, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                            })
+                        }
+                        onSecretChange={(v) =>
+                            form.setValue('secret', v, {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                            })
+                        }
+                        secret={secret ?? ''}
+                        secretRequired={descriptor.requiresSecret !== false}
+                    />
 
-                        {creationMutation.error && (
-                            <Alert variant="destructive">
-                                <AlertCircle className="size-4" />
-                                <AlertDescription>
-                                    {creationMutation.error.message}
-                                </AlertDescription>
-                            </Alert>
-                        )}
+                    {creationMutation.error && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="size-4" />
+                            <AlertDescription>
+                                {creationMutation.error.message}
+                            </AlertDescription>
+                        </Alert>
+                    )}
 
-                        <DialogFooter>
-                            <Button
-                                disabled={creationMutation.isPending}
-                                onClick={() => setOpen(false)}
-                                type="button"
-                                variant="ghost"
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                disabled={creationMutation.isPending}
-                                type="submit"
-                            >
-                                {creationMutation.isPending && (
-                                    <Spinner className="size-3" />
-                                )}
-                                Save
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
+                    <DialogFooter>
+                        <Button
+                            disabled={creationMutation.isPending}
+                            onClick={() => setOpen(false)}
+                            type="button"
+                            variant="ghost"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            disabled={creationMutation.isPending}
+                            type="submit"
+                        >
+                            {creationMutation.isPending && (
+                                <Spinner className="size-3" />
+                            )}
+                            Save
+                        </Button>
+                    </DialogFooter>
+                </form>
             </DialogContent>
         </Dialog>
     );

@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import type { SetType, UnitDistance, UnitWeight } from '~/lib/lifting/types';
@@ -17,7 +17,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
-import { Form, FormControl, FormField, FormItem } from '~/components/ui/form';
+import { Field } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Tooltip,
@@ -139,280 +139,276 @@ export function SetRow({
     });
 
     return (
-        <Form {...form}>
-            <form
-                className={cn(
-                    'rounded-xl border border-border/30 bg-background/40 p-2 transition md:flex md:items-end md:gap-2',
-                    isCompleted && 'bg-muted/40 opacity-90',
-                )}
-                onSubmit={handleComplete}
-            >
-                <div className="flex items-center justify-between gap-2 md:contents">
-                    <div
-                        className={cn(
-                            'flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold tabular-nums',
-                            'bg-accent/40 text-muted-foreground',
-                        )}
+        <form
+            className={cn(
+                'rounded-xl border border-border/30 bg-background/40 p-2 transition md:flex md:items-end md:gap-2',
+                isCompleted && 'bg-muted/40 opacity-90',
+            )}
+            onSubmit={handleComplete}
+        >
+            <div className="flex items-center justify-between gap-2 md:contents">
+                <div
+                    className={cn(
+                        'flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold tabular-nums',
+                        'bg-accent/40 text-muted-foreground',
+                    )}
+                >
+                    {TYPE_LABEL[set.type] === 'W'
+                        ? set.order
+                        : TYPE_LABEL[set.type]}
+                </div>
+
+                <div className="flex items-center gap-1 md:order-last md:ml-auto">
+                    <Button
+                        aria-label="Complete set"
+                        className="size-9 rounded-full p-0"
+                        disabled={busy}
+                        type="submit"
+                        variant={isCompleted ? 'secondary' : 'default'}
                     >
-                        {TYPE_LABEL[set.type] === 'W'
-                            ? set.order
-                            : TYPE_LABEL[set.type]}
-                    </div>
-
-                    <div className="flex items-center gap-1 md:order-last md:ml-auto">
-                        <Button
-                            aria-label="Complete set"
-                            className="size-9 rounded-full p-0"
-                            disabled={busy}
-                            type="submit"
-                            variant={isCompleted ? 'secondary' : 'default'}
-                        >
-                            <Check className="size-4" />
-                        </Button>
-                        <DropdownMenu>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            aria-label="Set options"
-                                            className="size-9 p-0"
-                                            type="button"
-                                            variant="ghost"
-                                        >
-                                            <MoreHorizontal className="size-4 text-muted-foreground" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                </TooltipTrigger>
-                                <TooltipContent>Set options</TooltipContent>
-                            </Tooltip>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    className="text-destructive"
-                                    onSelect={(event) => {
-                                        event.preventDefault();
-                                        setDeleteOpen(true);
-                                    }}
-                                >
-                                    <Trash2 className="mr-2 size-4" /> Delete
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
+                        <Check className="size-4" />
+                    </Button>
+                    <DropdownMenu>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        aria-label="Set options"
+                                        className="size-9 p-0"
+                                        type="button"
+                                        variant="ghost"
+                                    >
+                                        <MoreHorizontal className="size-4 text-muted-foreground" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>Set options</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                                className="text-destructive"
+                                onSelect={(event) => {
+                                    event.preventDefault();
+                                    setDeleteOpen(true);
+                                }}
+                            >
+                                <Trash2 className="mr-2 size-4" /> Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
+            </div>
 
-                <div className="mt-2 grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 md:mt-0 md:contents">
-                    <FormField
-                        control={form.control}
-                        name="displayWeight"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormControl>
-                                    <NumberStepper
-                                        decimals={1}
-                                        label="Weight"
-                                        onChange={field.onChange}
-                                        step={stepInDisplay}
-                                        suffix={unitWeight}
-                                        value={field.value}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="reps"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormControl>
-                                    <NumberStepper
-                                        decimals={0}
-                                        label="Reps"
-                                        onChange={field.onChange}
-                                        step={1}
-                                        suffix="×"
-                                        value={field.value}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                </div>
-
-                <div className="mt-2 grid grid-cols-3 gap-2 md:basis-full md:grid-cols-5">
-                    <FormField
-                        control={form.control}
-                        name="rpe"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col gap-1">
-                                <label
-                                    className="text-[10px] tracking-wide text-muted-foreground uppercase"
-                                    htmlFor={`set-${set.id}-rpe`}
-                                >
-                                    RPE
-                                </label>
-                                <FormControl>
-                                    <Input
-                                        aria-invalid={
-                                            rpeValue !== '' &&
-                                            parseRpe(rpeValue) === null
-                                        }
-                                        className="h-9 text-sm tabular-nums"
-                                        id={`set-${set.id}-rpe`}
-                                        inputMode="decimal"
-                                        max={10}
-                                        min={1}
-                                        placeholder="1–10"
-                                        step="0.5"
-                                        type="number"
-                                        {...field}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="rir"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col gap-1">
-                                <label
-                                    className="text-[10px] tracking-wide text-muted-foreground uppercase"
-                                    htmlFor={`set-${set.id}-rir`}
-                                >
-                                    RIR
-                                </label>
-                                <FormControl>
-                                    <Input
-                                        aria-invalid={
-                                            rirValue !== '' &&
-                                            parseRir(rirValue) === null
-                                        }
-                                        className="h-9 text-sm tabular-nums"
-                                        id={`set-${set.id}-rir`}
-                                        inputMode="numeric"
-                                        max={10}
-                                        min={0}
-                                        placeholder="0–10"
-                                        step="1"
-                                        type="number"
-                                        {...field}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="tempo"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col gap-1">
-                                <label
-                                    className="text-[10px] tracking-wide text-muted-foreground uppercase"
-                                    htmlFor={`set-${set.id}-tempo`}
-                                >
-                                    Tempo
-                                </label>
-                                <FormControl>
-                                    <Input
-                                        aria-invalid={
-                                            tempoValue !== '' &&
-                                            parseTempo(tempoValue) === null
-                                        }
-                                        className="h-9 text-sm tabular-nums"
-                                        id={`set-${set.id}-tempo`}
-                                        placeholder="3-1-1-0"
-                                        {...field}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="distance"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col gap-1">
-                                <label
-                                    className="text-[10px] tracking-wide text-muted-foreground uppercase"
-                                    htmlFor={`set-${set.id}-distance`}
-                                >
-                                    Distance ({unitDistance})
-                                </label>
-                                <FormControl>
-                                    <Input
-                                        aria-invalid={
-                                            distanceValue !== '' &&
-                                            parseDistance(
-                                                distanceValue,
-                                                unitDistance,
-                                            ) === null
-                                        }
-                                        className="h-9 text-sm tabular-nums"
-                                        id={`set-${set.id}-distance`}
-                                        inputMode="decimal"
-                                        min={0}
-                                        placeholder={
-                                            unitDistance === 'm' ? '500' : '1.0'
-                                        }
-                                        step="any"
-                                        type="number"
-                                        {...field}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="duration"
-                        render={({ field }) => (
-                            <FormItem className="flex flex-col gap-1">
-                                <label
-                                    className="text-[10px] tracking-wide text-muted-foreground uppercase"
-                                    htmlFor={`set-${set.id}-duration`}
-                                >
-                                    Duration (s)
-                                </label>
-                                <FormControl>
-                                    <Input
-                                        aria-invalid={
-                                            durationValue !== '' &&
-                                            parseDuration(durationValue) ===
-                                                null
-                                        }
-                                        className="h-9 text-sm tabular-nums"
-                                        id={`set-${set.id}-duration`}
-                                        inputMode="numeric"
-                                        min={0}
-                                        placeholder="60"
-                                        step="1"
-                                        type="number"
-                                        {...field}
-                                    />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                </div>
-
-                <ConfirmDialog
-                    confirmLabel="Delete"
-                    description={
-                        <>Set {set.order} will be removed permanently.</>
-                    }
-                    onConfirm={() => onDelete(set.id)}
-                    onOpenChange={setDeleteOpen}
-                    open={isDeleteDialogOpen}
-                    title="Delete set?"
+            <div className="mt-2 grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 md:mt-0 md:contents">
+                <Controller
+                    control={form.control}
+                    name="displayWeight"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <NumberStepper
+                                decimals={1}
+                                label="Weight"
+                                onChange={field.onChange}
+                                step={stepInDisplay}
+                                suffix={unitWeight}
+                                value={field.value}
+                            />
+                        </Field>
+                    )}
                 />
-            </form>
-        </Form>
+
+                <Controller
+                    control={form.control}
+                    name="reps"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <NumberStepper
+                                decimals={0}
+                                label="Reps"
+                                onChange={field.onChange}
+                                step={1}
+                                suffix="×"
+                                value={field.value}
+                            />
+                        </Field>
+                    )}
+                />
+            </div>
+
+            <div className="mt-2 grid grid-cols-3 gap-2 md:basis-full md:grid-cols-5">
+                <Controller
+                    control={form.control}
+                    name="rpe"
+                    render={({ field, fieldState }) => (
+                        <Field
+                            className="flex flex-col gap-1"
+                            data-invalid={fieldState.invalid}
+                        >
+                            <label
+                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                htmlFor={`set-${set.id}-rpe`}
+                            >
+                                RPE
+                            </label>
+                            <Input
+                                aria-invalid={
+                                    rpeValue !== '' &&
+                                    parseRpe(rpeValue) === null
+                                }
+                                className="h-9 text-sm tabular-nums"
+                                id={`set-${set.id}-rpe`}
+                                inputMode="decimal"
+                                max={10}
+                                min={1}
+                                placeholder="1–10"
+                                step="0.5"
+                                type="number"
+                                {...field}
+                            />
+                        </Field>
+                    )}
+                />
+
+                <Controller
+                    control={form.control}
+                    name="rir"
+                    render={({ field, fieldState }) => (
+                        <Field
+                            className="flex flex-col gap-1"
+                            data-invalid={fieldState.invalid}
+                        >
+                            <label
+                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                htmlFor={`set-${set.id}-rir`}
+                            >
+                                RIR
+                            </label>
+                            <Input
+                                aria-invalid={
+                                    rirValue !== '' &&
+                                    parseRir(rirValue) === null
+                                }
+                                className="h-9 text-sm tabular-nums"
+                                id={`set-${set.id}-rir`}
+                                inputMode="numeric"
+                                max={10}
+                                min={0}
+                                placeholder="0–10"
+                                step="1"
+                                type="number"
+                                {...field}
+                            />
+                        </Field>
+                    )}
+                />
+
+                <Controller
+                    control={form.control}
+                    name="tempo"
+                    render={({ field, fieldState }) => (
+                        <Field
+                            className="flex flex-col gap-1"
+                            data-invalid={fieldState.invalid}
+                        >
+                            <label
+                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                htmlFor={`set-${set.id}-tempo`}
+                            >
+                                Tempo
+                            </label>
+                            <Input
+                                aria-invalid={
+                                    tempoValue !== '' &&
+                                    parseTempo(tempoValue) === null
+                                }
+                                className="h-9 text-sm tabular-nums"
+                                id={`set-${set.id}-tempo`}
+                                placeholder="3-1-1-0"
+                                {...field}
+                            />
+                        </Field>
+                    )}
+                />
+
+                <Controller
+                    control={form.control}
+                    name="distance"
+                    render={({ field, fieldState }) => (
+                        <Field
+                            className="flex flex-col gap-1"
+                            data-invalid={fieldState.invalid}
+                        >
+                            <label
+                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                htmlFor={`set-${set.id}-distance`}
+                            >
+                                Distance ({unitDistance})
+                            </label>
+                            <Input
+                                aria-invalid={
+                                    distanceValue !== '' &&
+                                    parseDistance(
+                                        distanceValue,
+                                        unitDistance,
+                                    ) === null
+                                }
+                                className="h-9 text-sm tabular-nums"
+                                id={`set-${set.id}-distance`}
+                                inputMode="decimal"
+                                min={0}
+                                placeholder={
+                                    unitDistance === 'm' ? '500' : '1.0'
+                                }
+                                step="any"
+                                type="number"
+                                {...field}
+                            />
+                        </Field>
+                    )}
+                />
+
+                <Controller
+                    control={form.control}
+                    name="duration"
+                    render={({ field, fieldState }) => (
+                        <Field
+                            className="flex flex-col gap-1"
+                            data-invalid={fieldState.invalid}
+                        >
+                            <label
+                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                htmlFor={`set-${set.id}-duration`}
+                            >
+                                Duration (s)
+                            </label>
+                            <Input
+                                aria-invalid={
+                                    durationValue !== '' &&
+                                    parseDuration(durationValue) === null
+                                }
+                                className="h-9 text-sm tabular-nums"
+                                id={`set-${set.id}-duration`}
+                                inputMode="numeric"
+                                min={0}
+                                placeholder="60"
+                                step="1"
+                                type="number"
+                                {...field}
+                            />
+                        </Field>
+                    )}
+                />
+            </div>
+
+            <ConfirmDialog
+                confirmLabel="Delete"
+                description={<>Set {set.order} will be removed permanently.</>}
+                onConfirm={() => onDelete(set.id)}
+                onOpenChange={setDeleteOpen}
+                open={isDeleteDialogOpen}
+                title="Delete set?"
+            />
+        </form>
     );
 }
 

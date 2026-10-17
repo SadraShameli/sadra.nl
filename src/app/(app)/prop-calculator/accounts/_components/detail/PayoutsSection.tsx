@@ -2,8 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil } from 'lucide-react';
-import { useEffect } from 'react';
-import { type Control, useForm } from 'react-hook-form';
+import { useEffect, useId } from 'react';
+import { type Control, Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -14,14 +14,7 @@ import {
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
 import { payoutStatusLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Button } from '~/components/ui/button';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -211,18 +204,24 @@ function DateField({
     readonly label: string;
     readonly name: 'approvedOn' | 'paidOn' | 'requestedOn';
 }) {
+    const formId = useId();
     return (
-        <FormField
+        <Controller
             control={control}
             name={name}
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>{label}</FormLabel>
-                    <FormControl>
-                        <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
+            render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={`${formId}-${field.name}`}>
+                        {label}
+                    </FieldLabel>
+                    <Input
+                        aria-invalid={fieldState.invalid}
+                        id={`${formId}-${field.name}`}
+                        type="date"
+                        {...field}
+                    />
+                    <FieldError errors={[fieldState.error]} />
+                </Field>
             )}
         />
     );
@@ -249,22 +248,25 @@ function MoneyField({
     readonly label: string;
     readonly name: 'grossCents' | 'netCents';
 }) {
+    const formId = useId();
     return (
-        <FormField
+        <Controller
             control={control}
             name={name}
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>{label}</FormLabel>
-                    <FormControl>
-                        <Input
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            {...field}
-                        />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
+            render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor={`${formId}-${field.name}`}>
+                        {label}
+                    </FieldLabel>
+                    <Input
+                        aria-invalid={fieldState.invalid}
+                        id={`${formId}-${field.name}`}
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        {...field}
+                    />
+                    <FieldError errors={[fieldState.error]} />
+                </Field>
             )}
         />
     );
@@ -294,6 +296,7 @@ function PayoutForm({
         defaultValues: defaults,
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
+    const formId = useId();
     const { setFocus } = form;
     const isEditing = editing !== null;
     useFollowToday({
@@ -340,100 +343,98 @@ function PayoutForm({
     };
 
     return (
-        <Form {...form}>
-            <form
-                aria-label={editing === null ? 'Add a payout' : 'Edit payout'}
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-                noValidate
-                onSubmit={(event) => {
-                    void form.handleSubmit(save)(event);
-                }}
-            >
-                <DateField
-                    control={form.control}
-                    label="Requested on"
-                    name="requestedOn"
-                />
-                <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Status</FormLabel>
-                            <Select
-                                onValueChange={field.onChange}
-                                value={field.value}
+        <form
+            aria-label={editing === null ? 'Add a payout' : 'Edit payout'}
+            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            noValidate
+            onSubmit={(event) => {
+                void form.handleSubmit(save)(event);
+            }}
+        >
+            <DateField
+                control={form.control}
+                label="Requested on"
+                name="requestedOn"
+            />
+            <Controller
+                control={form.control}
+                name="status"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-status`}>
+                            Status
+                        </FieldLabel>
+                        <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                        >
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-status`}
                             >
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {Object.values(PayoutStatus).map(
-                                        (status) => (
-                                            <SelectItem
-                                                key={status}
-                                                value={status}
-                                            >
-                                                {payoutStatusLabel(status)}
-                                            </SelectItem>
-                                        ),
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <DateField
-                    control={form.control}
-                    label="Approved on"
-                    name="approvedOn"
-                />
-                <DateField
-                    control={form.control}
-                    label="Paid on"
-                    name="paidOn"
-                />
-                <MoneyField
-                    control={form.control}
-                    label="Gross amount"
-                    name="grossCents"
-                />
-                <MoneyField
-                    control={form.control}
-                    label="Net received"
-                    name="netCents"
-                />
-                <FormField
-                    control={form.control}
-                    name="note"
-                    render={({ field }) => (
-                        <FormItem className="md:col-span-2 lg:col-span-3">
-                            <FormLabel>Note</FormLabel>
-                            <FormControl>
-                                <Textarea rows={2} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
-                    <Button
-                        disabled={create.isPending || update.isPending}
-                        type="submit"
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.values(PayoutStatus).map((status) => (
+                                    <SelectItem key={status} value={status}>
+                                        {payoutStatusLabel(status)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <DateField
+                control={form.control}
+                label="Approved on"
+                name="approvedOn"
+            />
+            <DateField control={form.control} label="Paid on" name="paidOn" />
+            <MoneyField
+                control={form.control}
+                label="Gross amount"
+                name="grossCents"
+            />
+            <MoneyField
+                control={form.control}
+                label="Net received"
+                name="netCents"
+            />
+            <Controller
+                control={form.control}
+                name="note"
+                render={({ field, fieldState }) => (
+                    <Field
+                        className="md:col-span-2 lg:col-span-3"
+                        data-invalid={fieldState.invalid}
                     >
-                        {editing === null ? 'Add payout' : 'Save payout'}
+                        <FieldLabel htmlFor={`${formId}-note`}>Note</FieldLabel>
+                        <Textarea
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-note`}
+                            rows={2}
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
+                <Button
+                    disabled={create.isPending || update.isPending}
+                    type="submit"
+                >
+                    {editing === null ? 'Add payout' : 'Save payout'}
+                </Button>
+                {editing !== null && (
+                    <Button onClick={onDone} type="button" variant="ghost">
+                        Cancel edit
                     </Button>
-                    {editing !== null && (
-                        <Button onClick={onDone} type="button" variant="ghost">
-                            Cancel edit
-                        </Button>
-                    )}
-                </div>
-            </form>
-        </Form>
+                )}
+            </div>
+        </form>
     );
 }
 

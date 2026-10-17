@@ -2,8 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil } from 'lucide-react';
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useId } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -14,14 +14,11 @@ import {
 import { feeKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Button } from '~/components/ui/button';
 import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -265,6 +262,7 @@ function FeeForm({
                   },
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
+    const formId = useId();
     const { setFocus } = form;
     const isEditing = editing !== null;
     useFollowToday({
@@ -317,110 +315,125 @@ function FeeForm({
     };
 
     return (
-        <Form {...form}>
-            <form
-                aria-label={editing === null ? 'Add a fee' : 'Edit fee'}
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-                noValidate
-                onSubmit={(event) => {
-                    void form.handleSubmit(save)(event);
-                }}
-            >
-                <FormField
-                    control={form.control}
-                    name="kind"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Fee kind</FormLabel>
-                            <Select
-                                onValueChange={(next) => {
-                                    const kind = z
-                                        .enum(FeeKind)
-                                        .safeParse(next).data;
-                                    if (kind !== undefined) changeKind(kind);
-                                }}
-                                value={field.value}
+        <form
+            aria-label={editing === null ? 'Add a fee' : 'Edit fee'}
+            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            noValidate
+            onSubmit={(event) => {
+                void form.handleSubmit(save)(event);
+            }}
+        >
+            <Controller
+                control={form.control}
+                name="kind"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-kind`}>
+                            Fee kind
+                        </FieldLabel>
+                        <Select
+                            onValueChange={(next) => {
+                                const kind = z
+                                    .enum(FeeKind)
+                                    .safeParse(next).data;
+                                if (kind !== undefined) changeKind(kind);
+                            }}
+                            value={field.value}
+                        >
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-kind`}
+                                ref={field.ref}
                             >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {Object.values(FeeKind).map((kind) => (
-                                        <SelectItem key={kind} value={kind}>
-                                            {feeKindLabel(kind)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="amountCents"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Amount</FormLabel>
-                            <FormControl>
-                                <Input
-                                    inputMode="decimal"
-                                    placeholder="0.00"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormDescription>
-                                {plan === null
-                                    ? 'Enter what you paid. Record each subscription month as its own subscription fee.'
-                                    : "Prefilled with the plan's list price for this one charge before any coupon, left blank when the plan has no such charge; enter what you actually paid. Record each subscription month, the first one too, as its own subscription fee."}
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="paidOn"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Paid on</FormLabel>
-                            <FormControl>
-                                <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="note"
-                    render={({ field }) => (
-                        <FormItem className="md:col-span-2 lg:col-span-3">
-                            <FormLabel>Note</FormLabel>
-                            <FormControl>
-                                <Textarea rows={2} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
-                    <Button
-                        disabled={create.isPending || update.isPending}
-                        type="submit"
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.values(FeeKind).map((kind) => (
+                                    <SelectItem key={kind} value={kind}>
+                                        {feeKindLabel(kind)}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="amountCents"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-amountCents`}>
+                            Amount
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-amountCents`}
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            {...field}
+                        />
+                        <FieldDescription>
+                            {plan === null
+                                ? 'Enter what you paid. Record each subscription month as its own subscription fee.'
+                                : "Prefilled with the plan's list price for this one charge before any coupon, left blank when the plan has no such charge; enter what you actually paid. Record each subscription month, the first one too, as its own subscription fee."}
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="paidOn"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-paidOn`}>
+                            Paid on
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-paidOn`}
+                            type="date"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="note"
+                render={({ field, fieldState }) => (
+                    <Field
+                        className="md:col-span-2 lg:col-span-3"
+                        data-invalid={fieldState.invalid}
                     >
-                        {editing === null ? 'Add fee' : 'Save fee'}
+                        <FieldLabel htmlFor={`${formId}-note`}>Note</FieldLabel>
+                        <Textarea
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-note`}
+                            rows={2}
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
+                <Button
+                    disabled={create.isPending || update.isPending}
+                    type="submit"
+                >
+                    {editing === null ? 'Add fee' : 'Save fee'}
+                </Button>
+                {editing !== null && (
+                    <Button onClick={onDone} type="button" variant="ghost">
+                        Cancel edit
                     </Button>
-                    {editing !== null && (
-                        <Button onClick={onDone} type="button" variant="ghost">
-                            Cancel edit
-                        </Button>
-                    )}
-                </div>
-            </form>
-        </Form>
+                )}
+            </div>
+        </form>
     );
 }
 

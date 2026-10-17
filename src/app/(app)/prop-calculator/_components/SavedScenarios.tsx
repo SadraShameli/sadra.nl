@@ -2,21 +2,15 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Bookmark, RotateCcw, Trash2 } from 'lucide-react';
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useId, useState, useSyncExternalStore } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Popover,
@@ -407,6 +401,7 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
         defaultValues: { name: '' },
         resolver: zodResolver(savedScenarioFormSchema),
     });
+    const formId = useId();
 
     const status = scenarioListStatus(loadError, scenarios);
 
@@ -422,35 +417,36 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
     return (
         <div className="flex flex-col gap-3">
             <div className="text-sm font-semibold">Save current scenario</div>
-            <Form {...form}>
-                <form className="flex gap-2" onSubmit={handleSave}>
-                    <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                            <FormItem className="flex-1">
-                                <FormControl>
-                                    <Input
-                                        className="h-8"
-                                        placeholder="Name"
-                                        type="text"
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <Button
-                        className="h-8 px-3 text-xs"
-                        disabled={busy || !form.watch('name').trim()}
-                        size="sm"
-                        type="submit"
-                    >
-                        Save
-                    </Button>
-                </form>
-            </Form>
+            <form className="flex gap-2" onSubmit={handleSave}>
+                <Controller
+                    control={form.control}
+                    name="name"
+                    render={({ field, fieldState }) => (
+                        <Field
+                            className="flex-1"
+                            data-invalid={fieldState.invalid}
+                        >
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                className="h-8"
+                                id={`${formId}-name`}
+                                placeholder="Name"
+                                type="text"
+                                {...field}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <Button
+                    className="h-8 px-3 text-xs"
+                    disabled={busy || !form.watch('name').trim()}
+                    size="sm"
+                    type="submit"
+                >
+                    Save
+                </Button>
+            </form>
 
             <div className="border-t border-border/50 pt-2">
                 <div className="mb-2 flex items-center justify-between">
@@ -495,7 +491,7 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
                                         className="size-6 p-0 text-muted-foreground"
                                         disabled={busy}
                                         onClick={() => onReplace(s)}
-                                        size="sm"
+                                        size="icon-sm"
                                         type="button"
                                         variant="ghost"
                                     >
@@ -506,7 +502,7 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
                                         className="size-6 p-0 text-muted-foreground hover:text-destructive"
                                         disabled={busy}
                                         onClick={() => onDelete(s)}
-                                        size="sm"
+                                        size="icon-sm"
                                         type="button"
                                         variant="ghost"
                                     >

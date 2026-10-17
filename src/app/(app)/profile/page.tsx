@@ -16,6 +16,7 @@ import { cn } from '~/lib/utilities';
 import { account, db } from '~/server/db';
 import { api, HydrateClient } from '~/trpc/server';
 
+import { AccountDetailsForm } from './_components/AccountDetailsForm';
 import { AccountManagement } from './_components/AccountManagement';
 import { DeleteAccountDialog } from './_components/DeleteAccountDialog';
 import { HeroShowcaseForm } from './_components/HeroShowcaseForm';
@@ -29,8 +30,6 @@ import {
 import { SensorHubTab } from './_components/SensorHubTab';
 import { SessionsList } from './_components/SessionsList';
 import { TradingPlanTab } from './_components/TradingPlanTab';
-import { UpdateNameForm } from './_components/UpdateNameForm';
-import { UpdatePasswordForm } from './_components/UpdatePasswordForm';
 
 export const metadata: Metadata = {
     description: 'Manage your account, sessions and trading plan.',
@@ -45,6 +44,12 @@ const TAB_TITLES: Record<ProfileTabValue, string> = {
     'sensor-hub': 'Sensor Hub',
     trading: 'Trading',
     users: 'Users',
+};
+
+const SUCCESS_MESSAGES: Record<string, string> = {
+    email: 'Email updated successfully.',
+    name: 'Name updated successfully.',
+    password: 'Password changed successfully.',
 };
 
 const PW_MESSAGES: Record<string, string> = {
@@ -115,57 +120,32 @@ async function ProfileContent({
 
     const accountTab: ReactNode = (
         <>
-            <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Profile</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                        {success === 'name' && (
-                            <AutoDismissAlert variant="success">
-                                <AlertDescription>
-                                    Name updated successfully.
-                                </AlertDescription>
-                            </AutoDismissAlert>
-                        )}
-                        {success === 'email' && (
-                            <AutoDismissAlert variant="success">
-                                <AlertDescription>
-                                    Email updated successfully.
-                                </AlertDescription>
-                            </AutoDismissAlert>
-                        )}
-                        <UpdateNameForm currentName={name} email={email} />
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Password</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                        {error && PW_MESSAGES[error] && (
-                            <Alert variant="destructive">
-                                <AlertDescription>
-                                    {PW_MESSAGES[error]}
-                                </AlertDescription>
-                            </Alert>
-                        )}
-                        {success === 'password' && (
-                            <AutoDismissAlert variant="success">
-                                <AlertDescription>
-                                    Password changed successfully.
-                                </AlertDescription>
-                            </AutoDismissAlert>
-                        )}
-                        <UpdatePasswordForm
-                            email={email}
-                            hasEmail={Boolean(email)}
-                            hasPassword={hasPassword}
-                        />
-                    </CardContent>
-                </Card>
-            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Profile</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4">
+                    {error && PW_MESSAGES[error] && (
+                        <Alert variant="destructive">
+                            <AlertDescription>
+                                {PW_MESSAGES[error]}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    {success !== undefined && SUCCESS_MESSAGES[success] && (
+                        <AutoDismissAlert variant="success">
+                            <AlertDescription>
+                                {SUCCESS_MESSAGES[success]}
+                            </AlertDescription>
+                        </AutoDismissAlert>
+                    )}
+                    <AccountDetailsForm
+                        currentName={name}
+                        email={email}
+                        hasPassword={hasPassword}
+                    />
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader>
@@ -183,7 +163,7 @@ async function ProfileContent({
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <p className="text-sm font-medium text-destructive">
                                 Delete account

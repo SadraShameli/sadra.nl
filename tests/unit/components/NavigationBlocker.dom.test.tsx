@@ -1,4 +1,4 @@
-import { act, type ReactNode } from 'react';
+import { act, type ReactNode, type Ref } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,11 +29,14 @@ vi.mock('next/link', () => ({
     default: ({
         children,
         onNavigate,
+        ref,
     }: {
         children: ReactNode;
         onNavigate?: (event: NavigateEvent) => void;
+        ref?: Ref<HTMLButtonElement>;
     }) => (
         <button
+            data-testid="leave-link"
             onClick={() => {
                 const event: NavigateEvent = {
                     defaultPrevented: false,
@@ -44,6 +47,7 @@ vi.mock('next/link', () => ({
                 onNavigate?.(event);
                 navigation.events.push(event);
             }}
+            ref={ref}
             type="button"
         >
             {children}
@@ -53,9 +57,20 @@ vi.mock('next/link', () => ({
 
 const mounted: Mounted[] = [];
 
+function answerDialog(label: string): void {
+    const button = [...(leaveDialog()?.querySelectorAll('button') ?? [])].find(
+        (candidate) => candidate.textContent === label,
+    );
+    act(() => {
+        button?.click();
+    });
+}
+
 function clickLeave(): NavigateEvent | undefined {
     act(() => {
-        document.querySelector('button')?.click();
+        document
+            .querySelector<HTMLButtonElement>('[data-testid="leave-link"]')
+            ?.click();
     });
     return navigation.events.at(-1);
 }
@@ -71,6 +86,10 @@ function isUnloadPrevented(): boolean {
     const event = new Event('beforeunload', { cancelable: true });
     window.dispatchEvent(event);
     return event.defaultPrevented;
+}
+
+function leaveDialog(): HTMLElement | null {
+    return document.querySelector('[role="alertdialog"]');
 }
 
 function mount(): Root {
@@ -89,12 +108,6 @@ function renderInProvider(root: Root, node: ReactNode): void {
     });
 }
 
-function stubConfirm(shouldLeave: boolean) {
-    const isLeaveConfirmed = vi.fn(() => shouldLeave);
-    vi.stubGlobal('confirm', isLeaveConfirmed);
-    return isLeaveConfirmed;
-}
-
 describe('NavigationBlocker', () => {
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -111,24 +124,26 @@ describe('NavigationBlocker', () => {
     });
 
     it('lets a link navigate while the form is clean, without asking', () => {
-        const isLeaveConfirmed = stubConfirm(true);
         renderInProvider(mount(), <Editor isUnsaved={false} />);
         expect(clickLeave()?.defaultPrevented).toBe(false);
-        expect(isLeaveConfirmed).not.toHaveBeenCalled();
+        expect(leaveDialog()).toBeNull();
         expect(isUnloadPrevented()).toBe(false);
     });
 
     it('cancels the navigation when the user declines to leave unsaved changes', () => {
-        const isLeaveConfirmed = stubConfirm(false);
         renderInProvider(mount(), <Editor isUnsaved />);
         expect(clickLeave()?.defaultPrevented).toBe(true);
-        expect(isLeaveConfirmed).toHaveBeenCalledOnce();
+        expect(leaveDialog()).not.toBeNull();
+        answerDialog('Cancel');
+        expect(navigation.events).toHaveLength(1);
     });
 
     it('navigates when the user confirms leaving unsaved changes', () => {
-        stubConfirm(true);
         renderInProvider(mount(), <Editor isUnsaved />);
-        expect(clickLeave()?.defaultPrevented).toBe(false);
+        expect(clickLeave()?.defaultPrevented).toBe(true);
+        answerDialog('Leave');
+        expect(navigation.events).toHaveLength(2);
+        expect(navigation.events.at(-1)?.defaultPrevented).toBe(false);
     });
 
     it('warns before unloading the page only while unsaved', () => {
@@ -140,7 +155,6 @@ describe('NavigationBlocker', () => {
     });
 
     it('stops blocking once the editor unmounts', () => {
-        const isLeaveConfirmed = stubConfirm(true);
         const root = mount();
         renderInProvider(root, <Editor isUnsaved />);
         renderInProvider(
@@ -150,7 +164,7 @@ describe('NavigationBlocker', () => {
             </BlockableLink>,
         );
         expect(clickLeave()?.defaultPrevented).toBe(false);
-        expect(isLeaveConfirmed).not.toHaveBeenCalled();
+        expect(leaveDialog()).toBeNull();
         expect(isUnloadPrevented()).toBe(false);
     });
 

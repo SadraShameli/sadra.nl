@@ -25,8 +25,8 @@ import {
     Trophy,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useCallback, useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
@@ -45,14 +45,7 @@ import { DataTableDateRange } from '~/components/ui/data-table-date-range';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { DatePicker } from '~/components/ui/date-picker';
 import { EmptyState } from '~/components/ui/empty-state';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Progress } from '~/components/ui/progress';
 import {
@@ -161,6 +154,7 @@ interface Stats {
 }
 
 export function GoalsView() {
+    const formId = useId();
     const utilities = api.useUtils();
     const goalsQuery = api.lifting.goal.list.useQuery({});
     const settings = api.lifting.settings.get.useQuery();
@@ -435,121 +429,122 @@ export function GoalsView() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <Form {...newGoalForm}>
-                        <form
-                            className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-                            onSubmit={submit}
-                        >
-                            <FormField
-                                control={newGoalForm.control}
-                                name="kind"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Kind
-                                        </FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value}
+                    <form
+                        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+                        onSubmit={submit}
+                    >
+                        <Controller
+                            control={newGoalForm.control}
+                            name="kind"
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid}>
+                                    <FieldLabel
+                                        className="text-xs text-muted-foreground"
+                                        htmlFor={`${formId}-kind`}
+                                    >
+                                        Kind
+                                    </FieldLabel>
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        value={field.value}
+                                    >
+                                        <SelectTrigger
+                                            aria-invalid={fieldState.invalid}
+                                            id={`${formId}-kind`}
                                         >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {GOAL_KIND_VALUES.map((k) => (
-                                                    <SelectItem
-                                                        key={k}
-                                                        value={k}
-                                                    >
-                                                        {KIND_LABEL[k]}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={newGoalForm.control}
-                                name="targetValue"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Target value
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                inputMode="decimal"
-                                                onChange={(event) => {
-                                                    const n = Number(
-                                                        event.target.value,
-                                                    );
-                                                    field.onChange(
-                                                        Number.isFinite(n)
-                                                            ? n
-                                                            : 0,
-                                                    );
-                                                }}
-                                                ref={field.ref}
-                                                step="any"
-                                                type="number"
-                                                value={field.value}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={newGoalForm.control}
-                                name="targetDate"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Target date
-                                        </FormLabel>
-                                        <DatePicker
-                                            className="w-full"
-                                            minDate={startOfDay(new Date())}
-                                            onChange={(d) =>
-                                                field.onChange(
-                                                    d
-                                                        ? format(
-                                                              d,
-                                                              'yyyy-MM-dd',
-                                                          )
-                                                        : null,
-                                                )
-                                            }
-                                            value={
-                                                field.value
-                                                    ? parseISO(field.value)
-                                                    : undefined
-                                            }
-                                        />
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="flex items-end">
-                                <Button
-                                    className="w-full gap-2"
-                                    disabled={create.isPending}
-                                    type="submit"
-                                >
-                                    <Plus className="size-4" /> Create
-                                </Button>
-                            </div>
-                            {create.error?.message && (
-                                <p className="col-span-full mt-1 text-xs text-destructive">
-                                    {create.error.message}
-                                </p>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {GOAL_KIND_VALUES.map((k) => (
+                                                <SelectItem key={k} value={k}>
+                                                    {KIND_LABEL[k]}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FieldError errors={[fieldState.error]} />
+                                </Field>
                             )}
-                        </form>
-                    </Form>
+                        />
+                        <Controller
+                            control={newGoalForm.control}
+                            name="targetValue"
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid}>
+                                    <FieldLabel
+                                        className="text-xs text-muted-foreground"
+                                        htmlFor={`${formId}-targetValue`}
+                                    >
+                                        Target value
+                                    </FieldLabel>
+                                    <Input
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-targetValue`}
+                                        inputMode="decimal"
+                                        onChange={(event) => {
+                                            const n = Number(
+                                                event.target.value,
+                                            );
+                                            field.onChange(
+                                                Number.isFinite(n) ? n : 0,
+                                            );
+                                        }}
+                                        ref={field.ref}
+                                        step="any"
+                                        type="number"
+                                        value={field.value}
+                                    />
+                                    <FieldError errors={[fieldState.error]} />
+                                </Field>
+                            )}
+                        />
+                        <Controller
+                            control={newGoalForm.control}
+                            name="targetDate"
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid}>
+                                    <FieldLabel
+                                        className="text-xs text-muted-foreground"
+                                        htmlFor={`${formId}-targetDate`}
+                                    >
+                                        Target date
+                                    </FieldLabel>
+                                    <DatePicker
+                                        className="w-full"
+                                        id={`${formId}-targetDate`}
+                                        minDate={startOfDay(new Date())}
+                                        onChange={(d) =>
+                                            field.onChange(
+                                                d
+                                                    ? format(d, 'yyyy-MM-dd')
+                                                    : null,
+                                            )
+                                        }
+                                        value={
+                                            field.value
+                                                ? parseISO(field.value)
+                                                : undefined
+                                        }
+                                    />
+                                    <FieldError errors={[fieldState.error]} />
+                                </Field>
+                            )}
+                        />
+                        <div className="flex items-end">
+                            <Button
+                                className="w-full gap-2"
+                                disabled={create.isPending}
+                                type="submit"
+                            >
+                                <Plus className="size-4" /> Create
+                            </Button>
+                        </div>
+                        {create.error?.message && (
+                            <p className="col-span-full mt-1 text-xs text-destructive">
+                                {create.error.message}
+                            </p>
+                        )}
+                    </form>
                 </CardContent>
             </Card>
 
@@ -660,7 +655,7 @@ export function GoalsView() {
                                         </TabsList>
                                     </Tabs>
 
-                                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <DataTableFacetSelect
                                             column={table.getColumn('kind')}
                                             format={(k) =>

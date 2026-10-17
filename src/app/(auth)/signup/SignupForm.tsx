@@ -2,19 +2,12 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useState, useTransition } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { authClient } from '~/lib/auth/client';
 import { EmailLink } from '~/lib/auth/EmailLink';
@@ -37,6 +30,7 @@ export function SignupForm() {
         mode: 'onTouched',
         resolver: zodResolver(signupInputSchema),
     });
+    const formId = useId();
 
     const onSubmit = (data: SignupInput) => {
         setTopError(null);
@@ -63,97 +57,97 @@ export function SignupForm() {
     };
 
     return (
-        <Form {...form}>
-            <form
-                className={`app-auth__signup-form flex flex-col gap-3`}
-                method="post"
-                onSubmit={form.handleSubmit(onSubmit)}
-            >
-                {topError && (
-                    <Alert variant="destructive">
-                        <AlertDescription>{topError}</AlertDescription>
-                    </Alert>
+        <form
+            className={`app-auth__signup-form flex flex-col gap-3`}
+            method="post"
+            onSubmit={form.handleSubmit(onSubmit)}
+        >
+            {topError && (
+                <Alert variant="destructive">
+                    <AlertDescription>{topError}</AlertDescription>
+                </Alert>
+            )}
+            <Controller
+                control={form.control}
+                name="name"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-name`}>Name</FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="name"
+                            id={`${formId}-name`}
+                            placeholder="Your name"
+                            type="text"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
-                <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Name</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="name"
-                                    placeholder="Your name"
-                                    type="text"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="email"
-                                    placeholder="you@example.com"
-                                    type="email"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="new-password"
-                                    placeholder="••••••••"
-                                    type="password"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="confirm"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Confirm password</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="new-password"
-                                    placeholder="••••••••"
-                                    type="password"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button
-                    className="mt-7 w-full"
-                    disabled={pending}
-                    type="submit"
-                >
-                    {pending ? 'Creating account…' : 'Create account'}
-                </Button>
-            </form>
-        </Form>
+            />
+            <Controller
+                control={form.control}
+                name="email"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-email`}>
+                            Email
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="email"
+                            id={`${formId}-email`}
+                            placeholder="you@example.com"
+                            type="email"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="password"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-password`}>
+                            Password
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="new-password"
+                            id={`${formId}-password`}
+                            placeholder="••••••••"
+                            type="password"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="confirm"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-confirm`}>
+                            Confirm password
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="new-password"
+                            id={`${formId}-confirm`}
+                            placeholder="••••••••"
+                            type="password"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Button className="mt-7 w-full" disabled={pending} type="submit">
+                {pending ? 'Creating account…' : 'Create account'}
+            </Button>
+        </form>
     );
 }

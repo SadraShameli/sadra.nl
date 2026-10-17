@@ -174,7 +174,7 @@ function fieldScope(scope: ParentNode): HTMLElement {
         (candidate) => candidate.textContent.trim() === 'Round',
     );
     if (label === undefined) throw new Error('no field labelled Round');
-    const item = label.closest<HTMLElement>('.flex.flex-col.gap-2');
+    const item = label.closest<HTMLElement>('[data-slot="field"]');
     if (item === null) throw new Error('no form item for Round');
     return item;
 }

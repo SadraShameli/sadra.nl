@@ -141,7 +141,7 @@ export function ExercisesBrowser() {
                         headerActions={(table) => {
                             const sourceColumn = table.getColumn('source');
                             return (
-                                <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <DataTableFacetSelect
                                         column={table.getColumn(
                                             'primaryMuscle',

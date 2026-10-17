@@ -3,20 +3,18 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Save, X } from 'lucide-react';
 import { useId, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { badgeVariants } from '~/components/ui/badge';
+import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { FieldLegend, FieldSet } from '~/components/ui/field';
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+    Field,
+    FieldError,
+    FieldLabel,
+    FieldLegend,
+    FieldSet,
+} from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
@@ -146,268 +144,271 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
             description="Units, bar and plates, and rest defaults used across the lifting tools."
             title="Settings"
         >
-            <Form {...form}>
-                <form
-                    className="flex flex-col gap-8"
-                    id={formId}
-                    onSubmit={onSubmit}
-                >
-                    <Section
-                        className="grid-cols-3 md:grid-cols-3"
-                        title="Units"
-                    >
-                        <FormField
-                            control={form.control}
-                            name="unitWeight"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Weight</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {UNIT_WEIGHT_VALUES.map((v) => (
-                                                <SelectItem key={v} value={v}>
-                                                    {v}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="unitDistance"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Distance</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {UNIT_DISTANCE_VALUES.map((v) => (
-                                                <SelectItem key={v} value={v}>
-                                                    {v}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="unitLength"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Length</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {UNIT_LENGTH_VALUES.map((v) => (
-                                                <SelectItem key={v} value={v}>
-                                                    {v}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </Section>
-
-                    <Separator />
-
-                    <Section title="Bar and plates">
-                        <FormField
-                            control={form.control}
-                            name="barWeightKg"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>
-                                        Bar weight ({unitWeight})
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            inputMode="decimal"
-                                            onChange={(event) => {
-                                                const raw = Number(
-                                                    event.target.value,
-                                                );
-                                                const asKg = Number.isFinite(
-                                                    raw,
-                                                )
-                                                    ? WeightUnit.fromDisplay(
-                                                          raw,
-                                                          unitWeight,
-                                                      )
-                                                    : 0;
-                                                field.onChange(asKg);
-                                            }}
-                                            ref={field.ref}
-                                            step="any"
-                                            type="number"
-                                            value={Number(
-                                                WeightUnit.toDisplay(
-                                                    field.value,
-                                                    unitWeight,
-                                                ).toFixed(2),
-                                            )}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="flex flex-col gap-2">
-                            <Label>
-                                Available plates ({unitWeight}, per side
-                                options)
-                            </Label>
-                            <div className="flex gap-2">
-                                <Input
-                                    inputMode="decimal"
-                                    onChange={(event) =>
-                                        setPlateDraft(event.target.value)
-                                    }
-                                    onKeyDown={(event) => {
-                                        if (event.key !== 'Enter') {
-                                            return;
-                                        }
-
-                                        event.preventDefault();
-                                        addPlate();
-                                    }}
-                                    placeholder="Add plate"
-                                    type="number"
-                                    value={plateDraft}
-                                />
-                                <Button
-                                    onClick={addPlate}
-                                    type="button"
-                                    variant="outline"
+            <form
+                className="flex flex-col gap-8"
+                id={formId}
+                onSubmit={onSubmit}
+            >
+                <Section className="grid-cols-3 md:grid-cols-3" title="Units">
+                    <Controller
+                        control={form.control}
+                        name="unitWeight"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-unitWeight`}>
+                                    Weight
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
                                 >
-                                    Add
-                                </Button>
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                                {availablePlatesKg.map((p, index) => {
-                                    const display = Number(
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-unitWeight`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {UNIT_WEIGHT_VALUES.map((v) => (
+                                            <SelectItem key={v} value={v}>
+                                                {v}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="unitDistance"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-unitDistance`}>
+                                    Distance
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-unitDistance`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {UNIT_DISTANCE_VALUES.map((v) => (
+                                            <SelectItem key={v} value={v}>
+                                                {v}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="unitLength"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-unitLength`}>
+                                    Length
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-unitLength`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {UNIT_LENGTH_VALUES.map((v) => (
+                                            <SelectItem key={v} value={v}>
+                                                {v}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                </Section>
+
+                <Separator />
+
+                <Section title="Bar and plates">
+                    <Controller
+                        control={form.control}
+                        name="barWeightKg"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-barWeightKg`}>
+                                    Bar weight ({unitWeight})
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-barWeightKg`}
+                                    inputMode="decimal"
+                                    onChange={(event) => {
+                                        const raw = Number(event.target.value);
+                                        const asKg = Number.isFinite(raw)
+                                            ? WeightUnit.fromDisplay(
+                                                  raw,
+                                                  unitWeight,
+                                              )
+                                            : 0;
+                                        field.onChange(asKg);
+                                    }}
+                                    ref={field.ref}
+                                    step="any"
+                                    type="number"
+                                    value={Number(
                                         WeightUnit.toDisplay(
-                                            p,
+                                            field.value,
                                             unitWeight,
                                         ).toFixed(2),
-                                    );
-                                    return (
+                                    )}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <div className="flex flex-col gap-2">
+                        <Label>
+                            Available plates ({unitWeight}, per side options)
+                        </Label>
+                        <div className="flex gap-2">
+                            <Input
+                                inputMode="decimal"
+                                onChange={(event) =>
+                                    setPlateDraft(event.target.value)
+                                }
+                                onKeyDown={(event) => {
+                                    if (event.key !== 'Enter') {
+                                        return;
+                                    }
+
+                                    event.preventDefault();
+                                    addPlate();
+                                }}
+                                placeholder="Add plate"
+                                type="number"
+                                value={plateDraft}
+                            />
+                            <Button
+                                onClick={addPlate}
+                                type="button"
+                                variant="outline"
+                            >
+                                Add
+                            </Button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {availablePlatesKg.map((p, index) => {
+                                const display = Number(
+                                    WeightUnit.toDisplay(p, unitWeight).toFixed(
+                                        2,
+                                    ),
+                                );
+                                return (
+                                    <Badge
+                                        asChild
+                                        className="cursor-pointer gap-1 tabular-nums hover:border-line-hover hover:bg-surface-high"
+                                        key={`${p}-${index}`}
+                                        variant="outline"
+                                    >
                                         <button
                                             aria-label={`Remove ${display} ${unitWeight} plate`}
-                                            className={cn(
-                                                badgeVariants({
-                                                    variant: 'outline',
-                                                }),
-                                                'cursor-pointer gap-1 tabular-nums hover:border-destructive hover:bg-destructive hover:text-destructive-foreground',
-                                            )}
-                                            key={`${p}-${index}`}
                                             onClick={() => removePlate(index)}
                                             type="button"
                                         >
                                             {display}
                                             <X className="size-3 opacity-60" />
                                         </button>
-                                    );
-                                })}
-                            </div>
+                                    </Badge>
+                                );
+                            })}
                         </div>
-                    </Section>
+                    </div>
+                </Section>
 
-                    <Separator />
+                <Separator />
 
-                    <Section title="Rest and week">
-                        <FormField
-                            control={form.control}
-                            name="defaultRestSeconds"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>
-                                        Default rest (seconds)
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            inputMode="numeric"
-                                            min={0}
-                                            onChange={(event) => {
-                                                const n = Math.trunc(
-                                                    Number(event.target.value),
-                                                );
-                                                field.onChange(
-                                                    Number.isFinite(n) ? n : 0,
-                                                );
-                                            }}
-                                            ref={field.ref}
-                                            step="1"
-                                            type="number"
-                                            value={field.value}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="weekStart"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Week starts on</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
+                <Section title="Rest and week">
+                    <Controller
+                        control={form.control}
+                        name="defaultRestSeconds"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    htmlFor={`${formId}-defaultRestSeconds`}
+                                >
+                                    Default rest (seconds)
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-defaultRestSeconds`}
+                                    inputMode="numeric"
+                                    min={0}
+                                    onChange={(event) => {
+                                        const n = Math.trunc(
+                                            Number(event.target.value),
+                                        );
+                                        field.onChange(
+                                            Number.isFinite(n) ? n : 0,
+                                        );
+                                    }}
+                                    ref={field.ref}
+                                    step="1"
+                                    type="number"
+                                    value={field.value}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="weekStart"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-weekStart`}>
+                                    Week starts on
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-weekStart`}
                                     >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {WEEK_START_VALUES.map((v) => (
-                                                <SelectItem key={v} value={v}>
-                                                    {v === 'mon'
-                                                        ? 'Monday'
-                                                        : 'Sunday'}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </Section>
-                </form>
-            </Form>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {WEEK_START_VALUES.map((v) => (
+                                            <SelectItem key={v} value={v}>
+                                                {v === 'mon'
+                                                    ? 'Monday'
+                                                    : 'Sunday'}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                </Section>
+            </form>
         </ProfilePanel>
     );
 }

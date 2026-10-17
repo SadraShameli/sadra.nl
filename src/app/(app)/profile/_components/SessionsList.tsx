@@ -189,7 +189,7 @@ export function SessionsList() {
                 filterPlaceholder="Search sessions…"
                 hasExternalFilters={hasFilters}
                 headerActions={
-                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                    <div className="flex flex-wrap items-center gap-2">
                         <FilterSelect
                             label="Session"
                             onValueChange={(v) =>

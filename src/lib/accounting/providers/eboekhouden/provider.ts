@@ -56,6 +56,11 @@ export const adaptMutation = (m: MutationResponse): ProviderMutation => ({
     type: m.type,
 });
 
+interface SharedSession {
+    holders: number;
+    readonly session: Promise<EBoekhoudenSession>;
+}
+
 class EBoekhoudenSession extends ProviderSessionBase {
     readonly administrations: AdministrationsResource;
     readonly costCenters: CostCentersResource;
@@ -153,19 +158,126 @@ class EBoekhoudenSession extends ProviderSessionBase {
     }
 }
 
+class EBoekhoudenSessionLease extends ProviderSessionBase {
+    private isReleased = false;
+
+    constructor(
+        private readonly session: EBoekhoudenSession,
+        private readonly release: () => Promise<void>,
+    ) {
+        super();
+    }
+
+    async close(): Promise<void> {
+        if (this.isReleased) return;
+        this.isReleased = true;
+        await this.release();
+    }
+
+    latestMutationDate(): Promise<null | string> {
+        return this.session.latestMutationDate();
+    }
+
+    listLedgers(options?: { category?: string }): Promise<ProviderLedger[]> {
+        return this.session.listLedgers(options);
+    }
+
+    listMutations(options: ListMutationsOptions): Promise<ProviderMutation[]> {
+        return this.session.listMutations(options);
+    }
+
+    postBooking(booking: Booking): Promise<PostBookingResult> {
+        return this.session.postBooking(booking);
+    }
+
+    taxCodes(): Promise<TaxCodeCatalog> {
+        return this.session.taxCodes();
+    }
+}
+
+class SharedSessionPool {
+    private readonly closing = new Map<string, Promise<void>>();
+    private readonly open = new Map<string, SharedSession>();
+
+    private async release(key: string, shared: SharedSession): Promise<void> {
+        shared.holders -= 1;
+        if (shared.holders > 0) return;
+        if (this.open.get(key) === shared) this.open.delete(key);
+        const closed = closeShared(shared);
+        const settled = settle(closed);
+        this.closing.set(key, settled);
+        try {
+            await closed;
+        } finally {
+            if (this.closing.get(key) === settled) this.closing.delete(key);
+        }
+    }
+
+    private start(
+        key: string,
+        openSession: () => Promise<EBoekhoudenSession>,
+    ): SharedSession {
+        const shared: SharedSession = { holders: 0, session: openSession() };
+        this.open.set(key, shared);
+        return shared;
+    }
+
+    async acquire(
+        key: string,
+        openSession: () => Promise<EBoekhoudenSession>,
+    ): Promise<EBoekhoudenSessionLease> {
+        await this.closing.get(key);
+        const shared = this.open.get(key) ?? this.start(key, openSession);
+        shared.holders += 1;
+        try {
+            const session = await shared.session;
+            return new EBoekhoudenSessionLease(session, () =>
+                this.release(key, shared),
+            );
+        } catch (error) {
+            shared.holders -= 1;
+            if (this.open.get(key) === shared) this.open.delete(key);
+            throw error;
+        }
+    }
+}
+
+async function closeShared(shared: SharedSession): Promise<void> {
+    const session = await shared.session;
+    await session.close();
+}
+
+async function settle(closing: Promise<void>): Promise<void> {
+    try {
+        await closing;
+    } catch (error) {
+        if (!(error instanceof Error)) throw error;
+    }
+}
+
+const SHARED_SESSIONS = new SharedSessionPool();
+const DEFAULT_SOURCE = 'sadranl';
+
 export const eboekhoudenProvider: AccountingProvider = {
     id: 'eboekhouden',
     label: 'eBoekhouden',
     async openSession(
         options: OpenSessionOptions,
-    ): Promise<EBoekhoudenSession> {
+    ): Promise<EBoekhoudenSessionLease> {
         const source =
             typeof options.meta?.source === 'string'
                 ? options.meta.source
-                : 'sadranl';
-        const client = new EBoekhoudenClient(options.secret, { source });
-        await client.openSession();
-        return new EBoekhoudenSession(client);
+                : DEFAULT_SOURCE;
+        return SHARED_SESSIONS.acquire(
+            JSON.stringify([source, options.secret]),
+            async () => {
+                const client = new EBoekhoudenClient(options.secret, {
+                    source,
+                });
+                await client.openSession();
+                return new EBoekhoudenSession(client);
+            },
+        );
     },
 };
 

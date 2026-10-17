@@ -269,14 +269,6 @@
     );
 }
 
-@utility glow-corner {
-    background: radial-gradient(
-        ellipse 70% 60% at 78% 18%,
-        var(--glow) 0%,
-        transparent 70%
-    );
-}
-
 @utility money-hidden {
     filter: var(--money-blur);
 }

@@ -324,7 +324,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                             placeholder="Search exercise name…"
                             value={search}
                         />
-                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
+                        <div className="flex flex-wrap items-center gap-2">
                             <ClearFiltersButton
                                 active={hasFilters}
                                 onReset={reset}

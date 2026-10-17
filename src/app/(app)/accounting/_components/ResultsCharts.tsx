@@ -63,7 +63,7 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
     const largestCounterpartValue = topCounterparts[0]?.value ?? 0;
 
     return result.bookings.length === 0 ? null : (
-        <div className="grid items-start gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
             <ToolPanel
                 description="IN and OUT stacked per booking date."
                 title="Per day"

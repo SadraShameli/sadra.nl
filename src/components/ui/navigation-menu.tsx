@@ -78,7 +78,7 @@ const NavigationMenu = React.forwardRef<
                 className="absolute top-full left-0 z-10 hidden pt-3 ease-out group-data-[switching=true]/menu:transition-[left] group-data-[switching=true]/menu:duration-200 motion-reduce:transition-none md:block"
                 ref={anchorReference}
             >
-                <NavigationMenuPrimitive.Viewport className="relative h-(--radix-navigation-menu-viewport-height) w-(--radix-navigation-menu-viewport-width) overflow-hidden rounded-3xl border glass transition-none duration-100 ease-out group-data-[switching=true]/menu:transition-[width,height] group-data-[switching=true]/menu:duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none motion-reduce:transition-none" />
+                <NavigationMenuPrimitive.Viewport className="relative h-(--radix-navigation-menu-viewport-height) w-(--radix-navigation-menu-viewport-width) overflow-hidden rounded-4xl border glass transition-none duration-100 ease-out group-data-[switching=true]/menu:transition-[width,height] group-data-[switching=true]/menu:duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=open]:animate-in data-[state=open]:fade-in motion-reduce:animate-none motion-reduce:transition-none" />
             </div>
         </NavigationMenuPrimitive.Root>
     );

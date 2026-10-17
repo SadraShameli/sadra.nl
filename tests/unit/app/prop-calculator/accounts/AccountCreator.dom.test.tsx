@@ -427,17 +427,7 @@ describe('AccountCreator live start balance', () => {
 
         const input = liveStartInput();
         expect(input.getAttribute('aria-invalid')).toBe('true');
-        const messageIds = (input.getAttribute('aria-describedby') ?? '').split(
-            ' ',
-        );
-        const message = messageIds
-            .map(
-                (id) =>
-                    container.querySelector(`[id="${CSS.escape(id)}"]`)
-                        ?.textContent ?? '',
-            )
-            .join(' ');
-        expect(message).toContain('live account');
+        expect(fieldErrorOf(input)).toContain('live account');
         expect(harness.create).not.toHaveBeenCalled();
     });
 
@@ -759,14 +749,7 @@ describe('AccountCreator label validation', () => {
     }
 
     function labelMessage(): null | string {
-        const describedBy = labelInput().getAttribute('aria-describedby') ?? '';
-        const messageId = describedBy
-            .split(' ')
-            .find((id) => id.endsWith('-form-item-message'));
-        return messageId === undefined
-            ? null
-            : (container.querySelector(`#${CSS.escape(messageId)}`)
-                  ?.textContent ?? null);
+        return fieldErrorOf(labelInput());
     }
 
     beforeEach(() => {
@@ -829,3 +812,11 @@ describe('AccountCreator label validation', () => {
         expect(harness.create).not.toHaveBeenCalled();
     });
 });
+
+function fieldErrorOf(control: HTMLElement): null | string {
+    return (
+        control
+            .closest('[data-slot="field"]')
+            ?.querySelector('[data-slot="field-error"]')?.textContent ?? null
+    );
+}

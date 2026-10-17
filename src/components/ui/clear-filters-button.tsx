@@ -17,7 +17,7 @@ export function ClearFiltersButton({ active, className, onReset }: Properties) {
         <Button
             className={cn(
                 FILTER_CONTROL_CLASS,
-                'ml-auto w-fit gap-1.5 px-4',
+                'w-fit gap-1.5 px-4',
                 className,
             )}
             onClick={onReset}

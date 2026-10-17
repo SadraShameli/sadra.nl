@@ -2,22 +2,15 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Copy, Play } from 'lucide-react';
-import { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useMemo } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import type { ProgramBlock } from '~/lib/lifting/types';
 
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
@@ -33,6 +26,7 @@ interface ProgramEnrollCardProperties {
 }
 
 export function ProgramEnrollCard({ program }: ProgramEnrollCardProperties) {
+    const formId = useId();
     const utilities = api.useUtils();
     const mine = api.lifting.program.listMine.useQuery();
     const settings = api.lifting.settings.get.useQuery();
@@ -97,121 +91,118 @@ export function ProgramEnrollCard({ program }: ProgramEnrollCardProperties) {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <Form {...enrollForm}>
-                    <form className="flex flex-col gap-4" onSubmit={onEnroll}>
-                        {liftSlugs.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                                This program doesn&apos;t require 1RM inputs.
-                            </p>
-                        ) : (
-                            <div className="grid grid-cols-2 gap-3">
-                                {liftSlugs.map((k) => (
-                                    <FormField
-                                        control={enrollForm.control}
-                                        key={k}
-                                        name={`oneRepMaxes.${k}` as const}
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-xs text-muted-foreground">
-                                                    {k.replaceAll('-', ' ')} 1RM
-                                                    ({unitWeight})
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        inputMode="decimal"
-                                                        max={1500}
-                                                        min={0}
-                                                        onChange={(event) => {
-                                                            const raw =
-                                                                event.target
-                                                                    .value;
-                                                            if (raw === '') {
-                                                                field.onChange(
-                                                                    0,
-                                                                );
-                                                                return;
-                                                            }
-                                                            const parsed =
-                                                                Number(raw);
-                                                            field.onChange(
-                                                                Number.isFinite(
-                                                                    parsed,
-                                                                )
-                                                                    ? WeightUnit.fromDisplay(
-                                                                          parsed,
-                                                                          unitWeight,
-                                                                      )
-                                                                    : 0,
-                                                            );
-                                                        }}
-                                                        ref={field.ref}
-                                                        step="0.5"
-                                                        type="number"
-                                                        value={
-                                                            field.value
-                                                                ? Number(
-                                                                      WeightUnit.toDisplay(
-                                                                          field.value,
-                                                                          unitWeight,
-                                                                      ).toFixed(
-                                                                          1,
-                                                                      ),
-                                                                  )
-                                                                : ''
-                                                        }
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                        <div className="flex flex-wrap gap-3">
-                            <Button
-                                className="gap-2"
-                                disabled={enroll.isPending || isEnrolled}
-                                type="submit"
-                            >
-                                {isEnrolled ? (
-                                    <>
-                                        <Check className="size-4" /> Enrolled to
-                                        program
-                                    </>
-                                ) : (
-                                    <>
-                                        <Play className="size-4" />{' '}
-                                        {enroll.isPending
-                                            ? 'Enrolling…'
-                                            : 'Enroll'}
-                                    </>
-                                )}
-                            </Button>
-                            <Button
-                                className="gap-2"
-                                disabled={clone.isPending || isCloned}
-                                onClick={() => clone.mutate({ id: program.id })}
-                                type="button"
-                                variant="outline"
-                            >
-                                {isCloned ? (
-                                    <>
-                                        <Check className="size-4" /> Added to
-                                        custom programs
-                                    </>
-                                ) : (
-                                    <>
-                                        <Copy className="size-4" />{' '}
-                                        {clone.isPending
-                                            ? 'Cloning…'
-                                            : 'Clone to custom'}
-                                    </>
-                                )}
-                            </Button>
+                <form className="flex flex-col gap-4" onSubmit={onEnroll}>
+                    {liftSlugs.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                            This program doesn&apos;t require 1RM inputs.
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                            {liftSlugs.map((k) => (
+                                <Controller
+                                    control={enrollForm.control}
+                                    key={k}
+                                    name={`oneRepMaxes.${k}` as const}
+                                    render={({ field, fieldState }) => (
+                                        <Field
+                                            data-invalid={fieldState.invalid}
+                                        >
+                                            <FieldLabel
+                                                className="text-xs text-muted-foreground"
+                                                htmlFor={`${formId}-${field.name}`}
+                                            >
+                                                {k.replaceAll('-', ' ')} 1RM (
+                                                {unitWeight})
+                                            </FieldLabel>
+                                            <Input
+                                                aria-invalid={
+                                                    fieldState.invalid
+                                                }
+                                                id={`${formId}-${field.name}`}
+                                                inputMode="decimal"
+                                                max={1500}
+                                                min={0}
+                                                onChange={(event) => {
+                                                    const raw =
+                                                        event.target.value;
+                                                    if (raw === '') {
+                                                        field.onChange(0);
+                                                        return;
+                                                    }
+                                                    const parsed = Number(raw);
+                                                    field.onChange(
+                                                        Number.isFinite(parsed)
+                                                            ? WeightUnit.fromDisplay(
+                                                                  parsed,
+                                                                  unitWeight,
+                                                              )
+                                                            : 0,
+                                                    );
+                                                }}
+                                                ref={field.ref}
+                                                step="0.5"
+                                                type="number"
+                                                value={
+                                                    field.value
+                                                        ? Number(
+                                                              WeightUnit.toDisplay(
+                                                                  field.value,
+                                                                  unitWeight,
+                                                              ).toFixed(1),
+                                                          )
+                                                        : ''
+                                                }
+                                            />
+                                            <FieldError
+                                                errors={[fieldState.error]}
+                                            />
+                                        </Field>
+                                    )}
+                                />
+                            ))}
                         </div>
-                    </form>
-                </Form>
+                    )}
+                    <div className="flex flex-wrap gap-3">
+                        <Button
+                            className="gap-2"
+                            disabled={enroll.isPending || isEnrolled}
+                            type="submit"
+                        >
+                            {isEnrolled ? (
+                                <>
+                                    <Check className="size-4" /> Enrolled to
+                                    program
+                                </>
+                            ) : (
+                                <>
+                                    <Play className="size-4" />{' '}
+                                    {enroll.isPending ? 'Enrolling…' : 'Enroll'}
+                                </>
+                            )}
+                        </Button>
+                        <Button
+                            className="gap-2"
+                            disabled={clone.isPending || isCloned}
+                            onClick={() => clone.mutate({ id: program.id })}
+                            type="button"
+                            variant="outline"
+                        >
+                            {isCloned ? (
+                                <>
+                                    <Check className="size-4" /> Added to custom
+                                    programs
+                                </>
+                            ) : (
+                                <>
+                                    <Copy className="size-4" />{' '}
+                                    {clone.isPending
+                                        ? 'Cloning…'
+                                        : 'Clone to custom'}
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </form>
             </CardContent>
         </Card>
     );

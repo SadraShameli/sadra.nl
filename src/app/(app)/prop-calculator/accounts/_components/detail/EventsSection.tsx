@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Info, TriangleAlert } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -19,16 +19,12 @@ import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_com
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Checkbox } from '~/components/ui/checkbox';
-import { Field, FieldLabel } from '~/components/ui/field';
 import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -236,6 +232,7 @@ function EventForm({
         },
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
+    const formId = useId();
     useFollowToday({
         isEnabled: true,
         read: () => form.getValues('occurredOn'),
@@ -319,237 +316,240 @@ function EventForm({
     };
 
     return (
-        <Form {...form}>
-            <form
-                aria-label="Record an event"
-                className="grid gap-4 md:grid-cols-2"
-                noValidate
-                onSubmit={(event) => {
-                    void form.handleSubmit(save)(event);
-                }}
-            >
-                <FormField
+        <form
+            aria-label="Record an event"
+            className="grid gap-4 md:grid-cols-2"
+            noValidate
+            onSubmit={(event) => {
+                void form.handleSubmit(save)(event);
+            }}
+        >
+            <Controller
+                control={form.control}
+                name="kind"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-kind`}>
+                            Event
+                        </FieldLabel>
+                        <Select
+                            onValueChange={(next) => {
+                                const nextKind = z
+                                    .enum(AccountEventKind)
+                                    .safeParse(next).data;
+                                const option = options.find(
+                                    (candidate) => candidate.kind === nextKind,
+                                );
+                                if (option !== undefined) {
+                                    field.onChange(option.kind);
+                                }
+                            }}
+                            value={field.value}
+                        >
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-kind`}
+                                ref={field.ref}
+                            >
+                                <SelectValue placeholder="Choose an event" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {options.map((option) => (
+                                    <SelectItem
+                                        key={option.kind}
+                                        value={option.kind}
+                                    >
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                            Only events the account&apos;s current stage and
+                            status allow are offered.
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            {isBusted && (
+                <Controller
                     control={form.control}
-                    name="kind"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Event</FormLabel>
+                    name="bustCause"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-bustCause`}>
+                                Bust cause
+                            </FieldLabel>
                             <Select
                                 onValueChange={(next) => {
-                                    const nextKind = z
-                                        .enum(AccountEventKind)
+                                    const parsed = z
+                                        .enum(BustCause)
                                         .safeParse(next).data;
-                                    const option = options.find(
-                                        (candidate) =>
-                                            candidate.kind === nextKind,
-                                    );
-                                    if (option !== undefined) {
-                                        field.onChange(option.kind);
+                                    if (parsed !== undefined) {
+                                        field.onChange(parsed);
                                     }
                                 }}
                                 value={field.value}
                             >
-                                <FormControl>
-                                    <SelectTrigger ref={field.ref}>
-                                        <SelectValue placeholder="Choose an event" />
-                                    </SelectTrigger>
-                                </FormControl>
+                                <SelectTrigger
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-bustCause`}
+                                    ref={field.ref}
+                                >
+                                    <SelectValue />
+                                </SelectTrigger>
                                 <SelectContent>
-                                    {options.map((option) => (
-                                        <SelectItem
-                                            key={option.kind}
-                                            value={option.kind}
-                                        >
-                                            {option.label}
+                                    {Object.values(BustCause).map((cause) => (
+                                        <SelectItem key={cause} value={cause}>
+                                            {bustCauseLabel(cause)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <FormDescription>
-                                Only events the account&apos;s current stage and
-                                status allow are offered.
-                            </FormDescription>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                {isBusted && (
-                    <FormField
-                        control={form.control}
-                        name="bustCause"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Bust cause</FormLabel>
-                                <Select
-                                    onValueChange={(next) => {
-                                        const parsed = z
-                                            .enum(BustCause)
-                                            .safeParse(next).data;
-                                        if (parsed !== undefined) {
-                                            field.onChange(parsed);
-                                        }
-                                    }}
-                                    value={field.value}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger ref={field.ref}>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {Object.values(BustCause).map(
-                                            (cause) => (
-                                                <SelectItem
-                                                    key={cause}
-                                                    value={cause}
-                                                >
-                                                    {bustCauseLabel(cause)}
-                                                </SelectItem>
-                                            ),
-                                        )}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                )}
-                <FormField
-                    control={form.control}
-                    name="occurredOn"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Date</FormLabel>
-                            <FormControl>
-                                <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="note"
-                    render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                            <FormLabel>Note</FormLabel>
-                            <FormControl>
-                                <Textarea rows={2} {...field} />
-                            </FormControl>
-                            {selected?.requiresNote === true && (
-                                <FormDescription>
-                                    Say why the firm reversed the bust.
-                                </FormDescription>
-                            )}
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                {shown !== null && (
-                    <Alert className="md:col-span-2">
-                        <Info />
-                        <AlertTitle>{shown.title}</AlertTitle>
-                        <AlertDescription>
-                            {shown.lines.map((line) => (
-                                <p key={line}>{line}</p>
-                            ))}
-                        </AlertDescription>
-                    </Alert>
-                )}
-                {isAwaitingAccounts && (
-                    <Alert className="md:col-span-2">
-                        <Info />
-                        <AlertTitle>Loading your other accounts</AlertTitle>
-                        <AlertDescription>
-                            What the firm&apos;s rules do to your other accounts
-                            when this one goes live is shown once they are
-                            loaded; recording waits until then.
-                        </AlertDescription>
-                    </Alert>
-                )}
-                {isMovedLive && accountsFailed && (
-                    <Alert className="md:col-span-2" variant="warning">
-                        <TriangleAlert />
-                        <AlertTitle>Other accounts not loaded</AlertTitle>
-                        <AlertDescription>
-                            Your other accounts could not be loaded, so what the
-                            firm&apos;s rules do to them is not shown. Recording
-                            this event is refused if the firm&apos;s policy
-                            suspends another of your accounts; reload to see
-                            which.
-                        </AlertDescription>
-                    </Alert>
-                )}
-                {exclusivity !== null && (
-                    <Alert className="md:col-span-2">
-                        <Info />
-                        <AlertTitle>{exclusivity.title}</AlertTitle>
-                        <AlertDescription>
-                            {exclusivity.lines.map((line) => (
-                                <p key={line}>{line}</p>
-                            ))}
-                        </AlertDescription>
-                    </Alert>
-                )}
-                {exclusivity !== null &&
-                    exclusivity.confirmedAccountIds.length > 0 && (
-                        <Field
-                            className="md:col-span-2"
-                            orientation="horizontal"
-                        >
-                            <Checkbox
-                                checked={suspendedIds.length > 0}
-                                id={suspendId}
-                                onCheckedChange={(checked) => {
-                                    setSuspendedKey(
-                                        checked === true
-                                            ? exclusivityKey
-                                            : null,
-                                    );
-                                }}
-                            />
-                            <FieldLabel htmlFor={suspendId}>
-                                Suspend these accounts when recording
-                            </FieldLabel>
+                            <FieldError errors={[fieldState.error]} />
                         </Field>
                     )}
-                {isAwaitingSuspensions && (
-                    <p className="text-sm text-muted-foreground md:col-span-2">
-                        Confirm the accounts the firm suspends before recording
-                        this move live; recording without them is refused.
-                    </p>
+                />
+            )}
+            <Controller
+                control={form.control}
+                name="occurredOn"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-occurredOn`}>
+                            Date
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-occurredOn`}
+                            type="date"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
-                {shown?.requiresConfirmation === true && (
+            />
+            <Controller
+                control={form.control}
+                name="note"
+                render={({ field, fieldState }) => (
+                    <Field
+                        className="md:col-span-2"
+                        data-invalid={fieldState.invalid}
+                    >
+                        <FieldLabel htmlFor={`${formId}-note`}>Note</FieldLabel>
+                        <Textarea
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-note`}
+                            rows={2}
+                            {...field}
+                        />
+                        {selected?.requiresNote === true && (
+                            <FieldDescription>
+                                Say why the firm reversed the bust.
+                            </FieldDescription>
+                        )}
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            {shown !== null && (
+                <Alert className="md:col-span-2">
+                    <Info />
+                    <AlertTitle>{shown.title}</AlertTitle>
+                    <AlertDescription>
+                        {shown.lines.map((line) => (
+                            <p key={line}>{line}</p>
+                        ))}
+                    </AlertDescription>
+                </Alert>
+            )}
+            {isAwaitingAccounts && (
+                <Alert className="md:col-span-2">
+                    <Info />
+                    <AlertTitle>Loading your other accounts</AlertTitle>
+                    <AlertDescription>
+                        What the firm&apos;s rules do to your other accounts
+                        when this one goes live is shown once they are loaded;
+                        recording waits until then.
+                    </AlertDescription>
+                </Alert>
+            )}
+            {isMovedLive && accountsFailed && (
+                <Alert className="md:col-span-2" variant="warning">
+                    <TriangleAlert />
+                    <AlertTitle>Other accounts not loaded</AlertTitle>
+                    <AlertDescription>
+                        Your other accounts could not be loaded, so what the
+                        firm&apos;s rules do to them is not shown. Recording
+                        this event is refused if the firm&apos;s policy suspends
+                        another of your accounts; reload to see which.
+                    </AlertDescription>
+                </Alert>
+            )}
+            {exclusivity !== null && (
+                <Alert className="md:col-span-2">
+                    <Info />
+                    <AlertTitle>{exclusivity.title}</AlertTitle>
+                    <AlertDescription>
+                        {exclusivity.lines.map((line) => (
+                            <p key={line}>{line}</p>
+                        ))}
+                    </AlertDescription>
+                </Alert>
+            )}
+            {exclusivity !== null &&
+                exclusivity.confirmedAccountIds.length > 0 && (
                     <Field className="md:col-span-2" orientation="horizontal">
                         <Checkbox
-                            checked={isConfirmed}
-                            id={confirmId}
+                            checked={suspendedIds.length > 0}
+                            id={suspendId}
                             onCheckedChange={(checked) => {
-                                setConfirmedKey(
-                                    checked === true ? shownKey : null,
+                                setSuspendedKey(
+                                    checked === true ? exclusivityKey : null,
                                 );
                             }}
                         />
-                        <FieldLabel htmlFor={confirmId}>
-                            I have read what recording this event changes
+                        <FieldLabel htmlFor={suspendId}>
+                            Suspend these accounts when recording
                         </FieldLabel>
                     </Field>
                 )}
-                <div className="md:col-span-2">
-                    <Button
-                        disabled={
-                            record.isPending ||
-                            isAwaitingConfirmation ||
-                            isAwaitingAccounts ||
-                            isAwaitingSuspensions
-                        }
-                        type="submit"
-                    >
-                        Record event
-                    </Button>
-                </div>
-            </form>
-        </Form>
+            {isAwaitingSuspensions && (
+                <p className="text-sm text-muted-foreground md:col-span-2">
+                    Confirm the accounts the firm suspends before recording this
+                    move live; recording without them is refused.
+                </p>
+            )}
+            {shown?.requiresConfirmation === true && (
+                <Field className="md:col-span-2" orientation="horizontal">
+                    <Checkbox
+                        checked={isConfirmed}
+                        id={confirmId}
+                        onCheckedChange={(checked) => {
+                            setConfirmedKey(checked === true ? shownKey : null);
+                        }}
+                    />
+                    <FieldLabel htmlFor={confirmId}>
+                        I have read what recording this event changes
+                    </FieldLabel>
+                </Field>
+            )}
+            <div className="md:col-span-2">
+                <Button
+                    disabled={
+                        record.isPending ||
+                        isAwaitingConfirmation ||
+                        isAwaitingAccounts ||
+                        isAwaitingSuspensions
+                    }
+                    type="submit"
+                >
+                    Record event
+                </Button>
+            </div>
+        </form>
     );
 }
 

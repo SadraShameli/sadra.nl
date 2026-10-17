@@ -31,7 +31,6 @@ import {
     DialogTitle,
 } from '~/components/ui/dialog';
 import { EmptyState } from '~/components/ui/empty-state';
-import { Form } from '~/components/ui/form';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import {
@@ -216,7 +215,7 @@ export function ConnectionsManager() {
                         <Button
                             aria-label={`Delete ${cred.label}`}
                             disabled={isDeleting}
-                            size="sm"
+                            size="icon-sm"
                             variant="ghost"
                         >
                             {isDeleting ? (
@@ -387,62 +386,58 @@ function EditCredentialForm({
             <DialogHeader>
                 <DialogTitle>Edit credential</DialogTitle>
             </DialogHeader>
-            <Form {...form}>
-                <form className="flex flex-col gap-4" onSubmit={onSubmit}>
-                    <CredentialFormFields
-                        credentialId={credential.id}
-                        descriptor={descriptor}
-                        label={label}
-                        meta={meta}
-                        onLabelChange={(v) =>
-                            form.setValue('label', v, {
-                                shouldDirty: true,
-                                shouldValidate: true,
-                            })
-                        }
-                        onMetaChange={(v) =>
-                            form.setValue('meta', v, {
-                                shouldDirty: true,
-                                shouldValidate: true,
-                            })
-                        }
-                        onSecretChange={(v) =>
-                            form.setValue('secret', v, {
-                                shouldDirty: true,
-                                shouldValidate: true,
-                            })
-                        }
-                        secret={secret}
-                        secretRequired={false}
-                    />
+            <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+                <CredentialFormFields
+                    credentialId={credential.id}
+                    descriptor={descriptor}
+                    label={label}
+                    meta={meta}
+                    onLabelChange={(v) =>
+                        form.setValue('label', v, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                        })
+                    }
+                    onMetaChange={(v) =>
+                        form.setValue('meta', v, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                        })
+                    }
+                    onSecretChange={(v) =>
+                        form.setValue('secret', v, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                        })
+                    }
+                    secret={secret}
+                    secretRequired={false}
+                />
 
-                    {updateMut.error && (
-                        <Alert variant="destructive">
-                            <AlertCircle className="size-4" />
-                            <AlertDescription>
-                                {updateMut.error.message}
-                            </AlertDescription>
-                        </Alert>
-                    )}
+                {updateMut.error && (
+                    <Alert variant="destructive">
+                        <AlertCircle className="size-4" />
+                        <AlertDescription>
+                            {updateMut.error.message}
+                        </AlertDescription>
+                    </Alert>
+                )}
 
-                    <DialogFooter>
-                        <Button
-                            disabled={updateMut.isPending}
-                            onClick={onClose}
-                            type="button"
-                            variant="ghost"
-                        >
-                            Cancel
-                        </Button>
-                        <Button disabled={updateMut.isPending} type="submit">
-                            {updateMut.isPending && (
-                                <Spinner className="size-3" />
-                            )}
-                            Save changes
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
+                <DialogFooter>
+                    <Button
+                        disabled={updateMut.isPending}
+                        onClick={onClose}
+                        type="button"
+                        variant="ghost"
+                    >
+                        Cancel
+                    </Button>
+                    <Button disabled={updateMut.isPending} type="submit">
+                        {updateMut.isPending && <Spinner className="size-3" />}
+                        Save changes
+                    </Button>
+                </DialogFooter>
+            </form>
         </>
     );
 }

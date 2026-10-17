@@ -2,19 +2,12 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useState, useTransition } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { authClient } from '~/lib/auth/client';
 import { EmailLink } from '~/lib/auth/EmailLink';
@@ -32,6 +25,7 @@ export function MagicLinkForm() {
         mode: 'onTouched',
         resolver: zodResolver(magicLinkInputSchema),
     });
+    const formId = useId();
 
     const onSubmit = (data: MagicLinkInput) => {
         setTopError(null);
@@ -54,43 +48,39 @@ export function MagicLinkForm() {
     };
 
     return (
-        <Form {...form}>
-            <form
-                className={`app-auth__magic-link-form flex flex-col gap-3`}
-                method="post"
-                onSubmit={form.handleSubmit(onSubmit)}
-            >
-                {topError && (
-                    <Alert variant="destructive">
-                        <AlertDescription>{topError}</AlertDescription>
-                    </Alert>
+        <form
+            className={`app-auth__magic-link-form flex flex-col gap-3`}
+            method="post"
+            onSubmit={form.handleSubmit(onSubmit)}
+        >
+            {topError && (
+                <Alert variant="destructive">
+                    <AlertDescription>{topError}</AlertDescription>
+                </Alert>
+            )}
+            <Controller
+                control={form.control}
+                name="email"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-email`}>
+                            Email
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="email"
+                            id={`${formId}-email`}
+                            placeholder="you@example.com"
+                            type="email"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
-                <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="email"
-                                    placeholder="you@example.com"
-                                    type="email"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button
-                    className="mt-5 w-full"
-                    disabled={pending}
-                    type="submit"
-                >
-                    {pending ? 'Sending link…' : 'Email me a sign-in link'}
-                </Button>
-            </form>
-        </Form>
+            />
+            <Button className="mt-5 w-full" disabled={pending} type="submit">
+                {pending ? 'Sending link…' : 'Email me a sign-in link'}
+            </Button>
+        </form>
     );
 }

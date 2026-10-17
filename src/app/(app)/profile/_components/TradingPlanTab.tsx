@@ -444,9 +444,10 @@ function SortablePlanRow({
                     </Button>
                 )}
                 <Button
+                    aria-label={`Duplicate ${plan.name}`}
                     disabled={pending && pendingActionId === plan.id}
                     onClick={() => onClone(plan.id)}
-                    size="sm"
+                    size="icon-sm"
                     variant="outline"
                 >
                     <Copy className="size-3.5" />
@@ -457,7 +458,12 @@ function SortablePlanRow({
                     onConfirm={() => onDelete(plan.id)}
                     title={<>Delete &ldquo;{plan.name}&rdquo;?</>}
                 >
-                    <Button disabled={!canDelete} size="sm" variant="outline">
+                    <Button
+                        aria-label={`Delete ${plan.name}`}
+                        disabled={!canDelete}
+                        size="icon-sm"
+                        variant="outline"
+                    >
                         <Trash2 className="size-3.5" />
                     </Button>
                 </ConfirmDialog>

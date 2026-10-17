@@ -2,8 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AudioLines, Download, Pencil, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
@@ -31,13 +31,7 @@ import {
     hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { Dialog, DialogTrigger } from '~/components/ui/dialog';
-import {
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
@@ -303,6 +297,7 @@ function NewRecordingDialog({
         defaultValues: { deviceId: 0, fileBase64: '', fileName: '' },
         resolver: zodResolver(recordingCreateAdminSchema),
     });
+    const formId = useId();
 
     const handleFile = (file: File) => {
         const isWav =
@@ -357,29 +352,31 @@ function NewRecordingDialog({
                 options={devices}
                 placeholder="Pick a device"
             />
-            <FormField
+            <Controller
                 control={form.control}
                 name="fileBase64"
-                render={() => (
-                    <FormItem>
-                        <FormLabel>WAV file (max 10 MB)</FormLabel>
-                        <FormControl>
-                            <Input
-                                accept=".wav,audio/wav,audio/x-wav"
-                                onChange={(event) => {
-                                    const file = event.target.files?.[0];
-                                    if (file) handleFile(file);
-                                }}
-                                type="file"
-                            />
-                        </FormControl>
+                render={({ fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-fileBase64`}>
+                            WAV file (max 10 MB)
+                        </FieldLabel>
+                        <Input
+                            accept=".wav,audio/wav,audio/x-wav"
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-fileBase64`}
+                            onChange={(event) => {
+                                const file = event.target.files?.[0];
+                                if (file) handleFile(file);
+                            }}
+                            type="file"
+                        />
                         {fileName && (
                             <p className="text-xs text-muted-foreground">
                                 {reading ? `Reading ${fileName}…` : fileName}
                             </p>
                         )}
-                        <FormMessage />
-                    </FormItem>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
             />
         </ProfileFormDialog>

@@ -1,8 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useCallback, useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -22,14 +22,11 @@ import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
-    Form,
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Progress } from '~/components/ui/progress';
 import {
@@ -594,6 +591,7 @@ function RoundForm({
                   },
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
+    const formId = useId();
 
     const assignSuggestedAccounts = async (roundId: string) => {
         if (prefill === null || prefill.memberAccountIds.length === 0) return;
@@ -635,104 +633,116 @@ function RoundForm({
                 <CardTitle as="h2">New round</CardTitle>
             </CardHeader>
             <CardContent>
-                <Form {...form}>
-                    <form
-                        aria-label="Add a round"
-                        className="grid gap-4 md:grid-cols-2"
-                        noValidate
-                        onSubmit={(event) => {
-                            void form.handleSubmit(save)(event);
-                        }}
-                    >
-                        <FormField
-                            control={form.control}
-                            name="firmValue"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Firm</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
+                <form
+                    aria-label="Add a round"
+                    className="grid gap-4 md:grid-cols-2"
+                    noValidate
+                    onSubmit={(event) => {
+                        void form.handleSubmit(save)(event);
+                    }}
+                >
+                    <Controller
+                        control={form.control}
+                        name="firmValue"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-firmValue`}>
+                                    Firm
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-firmValue`}
+                                        ref={field.ref}
                                     >
-                                        <FormControl>
-                                            <SelectTrigger ref={field.ref}>
-                                                <SelectValue placeholder="Choose a firm" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {options.map((option) => (
-                                                <SelectItem
-                                                    key={option.value}
-                                                    value={option.value}
-                                                >
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="label"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Label</FormLabel>
-                                    <FormControl>
-                                        <Input {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="openedOn"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Opened on</FormLabel>
-                                    <FormControl>
-                                        <Input type="date" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="budgetCents"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Budget (optional)</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            inputMode="decimal"
-                                            placeholder="0.00"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormDescription>
-                                        Leave blank for no budget.
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="md:col-span-2">
-                            <Button
-                                disabled={
-                                    create.isPending ||
-                                    form.formState.isSubmitting
-                                }
-                                type="submit"
-                            >
-                                Add round
-                            </Button>
-                        </div>
-                    </form>
-                </Form>
+                                        <SelectValue placeholder="Choose a firm" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {options.map((option) => (
+                                            <SelectItem
+                                                key={option.value}
+                                                value={option.value}
+                                            >
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="label"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-label`}>
+                                    Label
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-label`}
+                                    {...field}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="openedOn"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-openedOn`}>
+                                    Opened on
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-openedOn`}
+                                    type="date"
+                                    {...field}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="budgetCents"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-budgetCents`}>
+                                    Budget (optional)
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-budgetCents`}
+                                    inputMode="decimal"
+                                    placeholder="0.00"
+                                    {...field}
+                                />
+                                <FieldDescription>
+                                    Leave blank for no budget.
+                                </FieldDescription>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <div className="md:col-span-2">
+                        <Button
+                            disabled={
+                                create.isPending || form.formState.isSubmitting
+                            }
+                            type="submit"
+                        >
+                            Add round
+                        </Button>
+                    </div>
+                </form>
             </CardContent>
         </Card>
     );

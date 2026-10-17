@@ -2,8 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Pencil, Plus, Radio, Ruler, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
@@ -33,14 +33,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '~/components/ui/dialog';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/form';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -319,6 +312,7 @@ function SensorDialog({
         },
         resolver: zodResolver(sensorCreateSchema),
     });
+    const formId = useId();
     return (
         <ProfileFormDialog
             form={form}
@@ -335,21 +329,22 @@ function SensorDialog({
                 name="name"
                 placeholder="Temperature"
             />
-            <FormField
+            <Controller
                 control={form.control}
                 name="unit"
-                render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Unit</FormLabel>
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-unit`}>Unit</FieldLabel>
                         <Select
                             onValueChange={field.onChange}
                             value={field.value}
                         >
-                            <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pick a unit" />
-                                </SelectTrigger>
-                            </FormControl>
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-unit`}
+                            >
+                                <SelectValue placeholder="Pick a unit" />
+                            </SelectTrigger>
                             <SelectContent>
                                 {units.map((u) => (
                                     <SelectItem key={u.id} value={u.value}>
@@ -358,8 +353,8 @@ function SensorDialog({
                                 ))}
                             </SelectContent>
                         </Select>
-                        <FormMessage />
-                    </FormItem>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
             />
         </ProfileFormDialog>
@@ -388,6 +383,7 @@ function UnitRowEditor({
         defaultValues: { id: unit.id, value: unit.value },
         resolver: zodResolver(sensorUnitUpdateSchema),
     });
+    const formId = useId();
     if (!editing) {
         return (
             <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-3 py-2">
@@ -414,51 +410,49 @@ function UnitRowEditor({
     const onSubmit = form.handleSubmit((values) => update.mutate(values));
 
     return (
-        <Form {...form}>
-            <form
-                className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2"
-                onSubmit={onSubmit}
+        <form
+            className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2"
+            onSubmit={onSubmit}
+        >
+            <Controller
+                control={form.control}
+                name="value"
+                render={({ field, fieldState }) => (
+                    <Field className="flex-1" data-invalid={fieldState.invalid}>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            className="h-8 font-mono text-sm"
+                            id={`${formId}-value`}
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Button
+                aria-label="Save unit"
+                disabled={update.isPending}
+                size="icon-sm"
+                title="Save unit"
+                type="submit"
+                variant="ghost"
             >
-                <FormField
-                    control={form.control}
-                    name="value"
-                    render={({ field }) => (
-                        <FormItem className="flex-1">
-                            <FormControl>
-                                <Input
-                                    className="h-8 font-mono text-sm"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button
-                    aria-label="Save unit"
-                    disabled={update.isPending}
-                    size="icon-sm"
-                    title="Save unit"
-                    type="submit"
-                    variant="ghost"
-                >
-                    <Check className="size-4" />
-                </Button>
-                <Button
-                    aria-label="Cancel rename"
-                    onClick={() => {
-                        form.reset({ id: unit.id, value: unit.value });
-                        setEditing(false);
-                    }}
-                    size="icon-sm"
-                    title="Cancel rename"
-                    type="button"
-                    variant="ghost"
-                >
-                    <X className="size-4" />
-                </Button>
-            </form>
-        </Form>
+                <Check className="size-4" />
+            </Button>
+            <Button
+                aria-label="Cancel rename"
+                onClick={() => {
+                    form.reset({ id: unit.id, value: unit.value });
+                    setEditing(false);
+                }}
+                size="icon-sm"
+                title="Cancel rename"
+                type="button"
+                variant="ghost"
+            >
+                <X className="size-4" />
+            </Button>
+        </form>
     );
 }
 
@@ -469,6 +463,7 @@ function UnitsManagerDialog({
     onClose: () => void;
     units: UnitRow[];
 }) {
+    const formId = useId();
     const utilities = api.useUtils();
     const invalidate = async () => {
         await Promise.all([
@@ -505,35 +500,35 @@ function UnitsManagerDialog({
             <DialogHeader>
                 <DialogTitle>Manage units</DialogTitle>
             </DialogHeader>
-            <Form {...unitCreateForm}>
-                <form className="mt-2 flex flex-col gap-3" onSubmit={onAdd}>
-                    <FormField
-                        control={unitCreateForm.control}
-                        name="value"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>New unit</FormLabel>
-                                <div className="flex gap-2">
-                                    <FormControl>
-                                        <Input
-                                            placeholder="e.g. lux"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <Button
-                                        disabled={create.isPending}
-                                        type="submit"
-                                    >
-                                        <Plus className="size-4" />
-                                        Add
-                                    </Button>
-                                </div>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </form>
-            </Form>
+            <form className="mt-2 flex flex-col gap-3" onSubmit={onAdd}>
+                <Controller
+                    control={unitCreateForm.control}
+                    name="value"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-value`}>
+                                New unit
+                            </FieldLabel>
+                            <div className="flex gap-2">
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-value`}
+                                    placeholder="e.g. lux"
+                                    {...field}
+                                />
+                                <Button
+                                    disabled={create.isPending}
+                                    type="submit"
+                                >
+                                    <Plus className="size-4" />
+                                    Add
+                                </Button>
+                            </div>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+            </form>
 
             <Separator className="my-2" />
 
