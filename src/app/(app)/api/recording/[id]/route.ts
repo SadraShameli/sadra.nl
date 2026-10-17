@@ -106,12 +106,12 @@ function parseRangeHeader(
         end = size - 1;
     } else {
         start = Number(rawStart);
-        end = rawEnd === '' ? size - 1 : Number(rawEnd);
+        end = rawEnd === '' ? size - 1 : Math.min(Number(rawEnd), size - 1);
     }
     return !Number.isFinite(start) ||
         !Number.isFinite(end) ||
         start < 0 ||
-        end >= size ||
+        start >= size ||
         start > end
         ? null
         : { end, start };
