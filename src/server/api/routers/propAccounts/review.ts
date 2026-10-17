@@ -18,15 +18,15 @@ import {
 } from '~/lib/prop-accounts/server';
 import { type Plan } from '~/lib/prop-calculator';
 import { AdviceSource } from '~/lib/prop-calculator/advisor';
-import {
-    propAccountSnapshotOutputSchema,
-    PropQuota,
-    propSizingDecisionOutputSchema,
-} from '~/lib/schemas/propAccountOutputs';
+import { PropQuota } from '~/lib/schemas/propAccountOutputs';
 import {
     accountDateSchema,
     weeklyReviewSubmitSchema,
 } from '~/lib/schemas/propAccounts';
+import {
+    propAccountSnapshotOutputSchema,
+    propSizingDecisionOutputSchema,
+} from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import {
     propAccountSnapshot,

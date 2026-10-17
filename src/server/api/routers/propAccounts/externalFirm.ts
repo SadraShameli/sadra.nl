@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { PropAccountRepo, PropQuotaGuard } from '~/lib/prop-accounts/server';
 import {
     okOutputSchema,
-    propExternalFirmOutputSchema,
     PropMutationRejection,
     PropQuota,
     PropRecord,
@@ -15,6 +14,7 @@ import {
     externalFirmCreateSchema,
     externalFirmUpdateSchema,
 } from '~/lib/schemas/propAccounts';
+import { propExternalFirmOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propExternalFirm } from '~/server/db/schemas/prop';
 

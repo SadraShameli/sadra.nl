@@ -8,8 +8,8 @@ import {
     withPlanRulesChanged,
 } from '~/lib/prop-accounts/server';
 import { dpAdviceStaleness } from '~/lib/prop-calculator/advisor';
-import { propDpAdviceOutputSchema } from '~/lib/schemas/propAccountOutputs';
 import { accountIdSchema } from '~/lib/schemas/propAccounts';
+import { propDpAdviceOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { type PropAccountSnapshotRow } from '~/server/db/schemas/prop';
 

@@ -20,7 +20,6 @@ import {
     PropMutationRejection,
     PropQuota,
     PropRecord,
-    propRuleViolationOutputSchema,
 } from '~/lib/schemas/propAccountOutputs';
 import {
     entityIdSchema,
@@ -28,6 +27,7 @@ import {
     violationListSchema,
     violationUpdateSchema,
 } from '~/lib/schemas/propAccounts';
+import { propRuleViolationOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import {
     propRuleViolation,

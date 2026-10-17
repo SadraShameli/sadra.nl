@@ -22,24 +22,6 @@ import {
 } from '~/lib/prop-accounts';
 import { FirmId, NO_PLAN_OPT_INS } from '~/lib/prop-calculator';
 import {
-    propAccountEventOutputSchema,
-    propAccountListedOutputSchema,
-    propAccountOutputSchema,
-    propAccountSnapshotOutputSchema,
-    propBankrollTransferOutputSchema,
-    propCopyGroupOutputSchema,
-    propDpAdviceOutputSchema,
-    propExternalFirmOutputSchema,
-    propFeeOutputSchema,
-    propFirmEngagementOutputSchema,
-    propFirmStatementOutputSchema,
-    propPayoutOutputSchema,
-    propRoundOutputSchema,
-    propRuleViolationOutputSchema,
-    propSavedScenarioOutputSchema,
-    propSizingDecisionOutputSchema,
-} from '~/lib/schemas/propAccountOutputs';
-import {
     bankrollTransferCreateSchema,
     bankrollTransferUpdateSchema,
     eventRecordSchema,
@@ -58,6 +40,24 @@ import {
     violationUpdateSchema,
     weeklyReviewSubmitSchema,
 } from '~/lib/schemas/propAccounts';
+import {
+    propAccountEventOutputSchema,
+    propAccountListedOutputSchema,
+    propAccountOutputSchema,
+    propAccountSnapshotOutputSchema,
+    propBankrollTransferOutputSchema,
+    propCopyGroupOutputSchema,
+    propDpAdviceOutputSchema,
+    propExternalFirmOutputSchema,
+    propFeeOutputSchema,
+    propFirmEngagementOutputSchema,
+    propFirmStatementOutputSchema,
+    propPayoutOutputSchema,
+    propRoundOutputSchema,
+    propRuleViolationOutputSchema,
+    propSavedScenarioOutputSchema,
+    propSizingDecisionOutputSchema,
+} from '~/lib/schemas/propRecordOutputs';
 import {
     propAccount,
     propAccountEvent,

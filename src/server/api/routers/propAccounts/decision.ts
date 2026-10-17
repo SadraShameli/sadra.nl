@@ -3,17 +3,14 @@ import 'server-only';
 import { z } from 'zod';
 
 import { PropAccountRepo, PropQuotaGuard } from '~/lib/prop-accounts/server';
-import {
-    PropQuota,
-    PropRecord,
-    propSizingDecisionOutputSchema,
-} from '~/lib/schemas/propAccountOutputs';
+import { PropQuota, PropRecord } from '~/lib/schemas/propAccountOutputs';
 import {
     accountIdSchema,
     decisionCreateSchema,
     decisionRecordActualSchema,
     ledgerListSchema,
 } from '~/lib/schemas/propAccounts';
+import { propSizingDecisionOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propSizingDecision } from '~/server/db/schemas/prop';
 

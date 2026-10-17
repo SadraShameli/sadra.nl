@@ -17,7 +17,6 @@ import {
 import { type Plan } from '~/lib/prop-calculator';
 import {
     okOutputSchema,
-    propAccountSnapshotOutputSchema,
     PropQuota,
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
@@ -27,6 +26,7 @@ import {
     snapshotBulkCreateSchema,
     snapshotCreateSchema,
 } from '~/lib/schemas/propAccounts';
+import { propAccountSnapshotOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import {
     propAccountSnapshot,

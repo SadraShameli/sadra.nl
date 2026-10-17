@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { PropAccountRepo, PropQuotaGuard } from '~/lib/prop-accounts/server';
 import {
     okOutputSchema,
-    propFeeOutputSchema,
     PropQuota,
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
@@ -15,6 +14,7 @@ import {
     feeUpdateSchema,
     ledgerListSchema,
 } from '~/lib/schemas/propAccounts';
+import { propFeeOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propFee } from '~/server/db/schemas/prop';
 

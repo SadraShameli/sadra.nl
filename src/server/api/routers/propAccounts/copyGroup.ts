@@ -9,8 +9,6 @@ import {
 } from '~/lib/prop-accounts/server';
 import {
     okOutputSchema,
-    propAccountOutputSchema,
-    propCopyGroupOutputSchema,
     PropQuota,
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
@@ -20,6 +18,10 @@ import {
     copyGroupUpdateSchema,
     entityIdSchema,
 } from '~/lib/schemas/propAccounts';
+import {
+    propAccountOutputSchema,
+    propCopyGroupOutputSchema,
+} from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propAccount, propCopyGroup } from '~/server/db/schemas/prop';
 

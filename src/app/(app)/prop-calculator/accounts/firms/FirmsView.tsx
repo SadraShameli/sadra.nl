@@ -7,6 +7,8 @@ import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import type { propFirmEngagementOutputSchema } from '~/lib/schemas/propRecordOutputs';
+
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
     nullIfBlank,
@@ -78,7 +80,6 @@ import {
 } from '~/lib/prop-accounts/firms';
 import { type SampledEstimate } from '~/lib/prop-accounts/metrics';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
-import { type propFirmEngagementOutputSchema } from '~/lib/schemas/propAccountOutputs';
 import { firmEngagementSetSchema } from '~/lib/schemas/propAccounts';
 import { api } from '~/trpc/react';
 

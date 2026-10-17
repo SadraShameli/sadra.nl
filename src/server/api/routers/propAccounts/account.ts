@@ -31,9 +31,6 @@ import { type Plan } from '~/lib/prop-calculator';
 import { planRulesFingerprint } from '~/lib/prop-calculator/describe';
 import {
     okOutputSchema,
-    propAccountArchiveOutputSchema,
-    propAccountListedOutputSchema,
-    propAccountOutputSchema,
     PropMutationRejection,
     PropQuota,
     PropRecord,
@@ -46,6 +43,11 @@ import {
     accountUpgradeSchema,
     importAccountsSchema,
 } from '~/lib/schemas/propAccounts';
+import {
+    propAccountArchiveOutputSchema,
+    propAccountListedOutputSchema,
+    propAccountOutputSchema,
+} from '~/lib/schemas/propRecordOutputs';
 import { stableJson } from '~/lib/stableJson';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propAccount, propAccountEvent } from '~/server/db/schemas/prop';

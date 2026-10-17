@@ -9,7 +9,6 @@ import { PropAccountRepo, PropQuotaGuard } from '~/lib/prop-accounts/server';
 import {
     okOutputSchema,
     propBankrollSummaryOutputSchema,
-    propBankrollTransferOutputSchema,
     PropQuota,
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
@@ -18,6 +17,7 @@ import {
     bankrollTransferUpdateSchema,
     entityIdSchema,
 } from '~/lib/schemas/propAccounts';
+import { propBankrollTransferOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propBankrollTransfer } from '~/server/db/schemas/prop';
 

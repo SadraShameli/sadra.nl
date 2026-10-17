@@ -11,9 +11,9 @@ import {
     okOutputSchema,
     PropQuota,
     PropRecord,
-    propSavedScenarioOutputSchema,
 } from '~/lib/schemas/propAccountOutputs';
 import { entityIdSchema, scenarioSaveSchema } from '~/lib/schemas/propAccounts';
+import { propSavedScenarioOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propSavedScenario } from '~/server/db/schemas/prop';
 

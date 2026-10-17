@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 
+import type { propAccountSnapshotOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import type { PropAccountRow } from '~/server/db/schemas/prop';
 
 import {
@@ -38,10 +39,7 @@ import {
     PayoutBlockReasonKind,
     PayoutWaitBasis,
 } from '~/lib/prop-calculator/advisor';
-import {
-    type propAccountSnapshotOutputSchema,
-    STORED_DATA_OWNER_REPAIR,
-} from '~/lib/schemas/propAccountOutputs';
+import { STORED_DATA_OWNER_REPAIR } from '~/lib/schemas/propAccountOutputs';
 
 export enum AccountSortKey {
     Cushion = 'cushion',

@@ -30,7 +30,6 @@ import {
 } from '~/lib/prop-accounts/server';
 import { type FirmId, parseFirmId, type Plan } from '~/lib/prop-calculator';
 import {
-    propAccountEventOutputSchema,
     PropMutationRejection,
     PropQuota,
     PropRecord,
@@ -40,6 +39,7 @@ import {
     eventListSchema,
     eventRecordSchema,
 } from '~/lib/schemas/propAccounts';
+import { propAccountEventOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propAccount, propAccountEvent } from '~/server/db/schemas/prop';
 

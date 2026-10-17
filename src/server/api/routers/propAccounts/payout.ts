@@ -6,7 +6,6 @@ import { PropAccountRepo, PropQuotaGuard } from '~/lib/prop-accounts/server';
 import {
     okOutputSchema,
     PropMutationRejection,
-    propPayoutOutputSchema,
     PropQuota,
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
@@ -17,6 +16,7 @@ import {
     payoutDateOrderIssues,
     payoutUpdateSchema,
 } from '~/lib/schemas/propAccounts';
+import { propPayoutOutputSchema } from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import { propPayout } from '~/server/db/schemas/prop';
 

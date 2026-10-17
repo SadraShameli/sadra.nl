@@ -18,11 +18,9 @@ import {
 } from '~/lib/prop-accounts/server';
 import {
     okOutputSchema,
-    propAccountOutputSchema,
     PropMutationRejection,
     PropQuota,
     PropRecord,
-    propRoundOutputSchema,
 } from '~/lib/schemas/propAccountOutputs';
 import {
     entityIdSchema,
@@ -31,6 +29,10 @@ import {
     roundCreateSchema,
     roundUpdateSchema,
 } from '~/lib/schemas/propAccounts';
+import {
+    propAccountOutputSchema,
+    propRoundOutputSchema,
+} from '~/lib/schemas/propRecordOutputs';
 import { createTRPCRouter } from '~/server/api/trpc';
 import {
     propAccount,
