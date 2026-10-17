@@ -1,4 +1,13 @@
-import { and, asc, desc, eq, ne, sql, type SQLWrapper } from 'drizzle-orm';
+import {
+    and,
+    asc,
+    desc,
+    eq,
+    ne,
+    notInArray,
+    sql,
+    type SQLWrapper,
+} from 'drizzle-orm';
 import 'server-only';
 
 import type { Booking } from '~/lib/accounting/core/types';
@@ -11,7 +20,10 @@ import type {
 } from '~/lib/accounting/runs/types';
 
 import { CredentialId, RunId, UserId } from '~/lib/accounting/core/ids';
-import { canEditBooking } from '~/lib/accounting/runs/edit-policy';
+import {
+    LOCKED_RUN_STATUSES,
+    POSTED_OUTCOME,
+} from '~/lib/accounting/runs/edit-policy';
 import { accountingCredential, accountingRun, db } from '~/server/db';
 
 const RUN_SORT_EXPRESSIONS: Record<RunSortKey, SQLWrapper> = {
@@ -189,24 +201,43 @@ export class AccountingRunRepo {
             >
         >,
     ): Promise<void> {
+        const edited = await db
+            .update(accountingRun)
+            .set({
+                bookings: sql`(
+                    select coalesce(
+                        jsonb_agg(
+                            case
+                                when entry.element ->> 'txnId' = ${txnId}
+                                then entry.element || ${JSON.stringify(patch)}::jsonb
+                                else entry.element
+                            end
+                            order by entry.position
+                        ),
+                        '[]'::jsonb
+                    )
+                    from jsonb_array_elements(${accountingRun.bookings})
+                        with ordinality as entry(element, position)
+                )`,
+                updatedAt: new Date(),
+            })
+            .where(
+                and(
+                    eq(accountingRun.id, id),
+                    eq(accountingRun.userId, userId),
+                    notInArray(accountingRun.status, [...LOCKED_RUN_STATUSES]),
+                    sql`coalesce(${accountingRun.outcomes} -> ${txnId} ->> 'status', '') <> ${POSTED_OUTCOME}`,
+                ),
+            )
+            .returning({ id: accountingRun.id });
+        if (edited.length > 0) return;
         const run = await this.get(id, userId);
         if (!run) {
             throw new Error('Run not found');
         }
-        if (!canEditBooking(run, txnId)) {
-            throw new Error(
-                `Cannot edit booking "${txnId}" on a run with status "${run.status}"`,
-            );
-        }
-        const bookings = run.bookings.map((b) =>
-            b.txnId === txnId ? { ...b, ...patch } : b,
+        throw new Error(
+            `Cannot edit booking "${txnId}" on a run with status "${run.status}"`,
         );
-        await db
-            .update(accountingRun)
-            .set({ bookings, updatedAt: new Date() })
-            .where(
-                and(eq(accountingRun.id, id), eq(accountingRun.userId, userId)),
-            );
     }
 }
 
