@@ -13,11 +13,8 @@ import {
     useFormContext,
 } from 'react-hook-form';
 
-import type {
-    Answers,
-    AssessmentResult,
-    TradingPlanRow,
-} from '~/lib/schemas/trading';
+import type { Answers, AssessmentResult } from '~/lib/schemas/trading';
+import type { TradingPlanRow } from '~/lib/schemas/tradingRows';
 import type { ConfluenceKey } from '~/lib/trading/types';
 
 import Eyebrow from '~/components/Eyebrow';

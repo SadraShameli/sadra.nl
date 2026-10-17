@@ -7,6 +7,8 @@ import { useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
+
 import { Button } from '~/components/ui/Button';
 import {
     Form,
@@ -19,10 +21,7 @@ import { Label } from '~/components/ui/Label';
 import { Progress } from '~/components/ui/Progress';
 import { Switch } from '~/components/ui/Switch';
 import { Textarea } from '~/components/ui/Textarea';
-import {
-    type DailyPreparationRow,
-    prepChecksSchema,
-} from '~/lib/schemas/trading';
+import { prepChecksSchema } from '~/lib/schemas/trading';
 import { deletePrep, savePrep } from '~/lib/trading/actions';
 import {
     PREP_CHECK_KEYS,

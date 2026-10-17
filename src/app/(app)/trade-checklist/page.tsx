@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
-import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
+import { tradeAssessmentRowSchema } from '~/lib/schemas/tradingRows';
 import { routes } from '~/lib/site/routes';
 import { loadTradingPlans } from '~/lib/trading/loadTradingPlans';
 import { cn } from '~/lib/utilities';

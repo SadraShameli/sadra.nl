@@ -8,7 +8,7 @@ import { PrepView } from '~/app/(app)/trade-checklist/_components/PrepView';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
-import { dailyPreparationRowSchema } from '~/lib/schemas/trading';
+import { dailyPreparationRowSchema } from '~/lib/schemas/tradingRows';
 import { routes } from '~/lib/site/routes';
 import { PLAN_TIMEZONE } from '~/lib/trading/defaults';
 import { loadActiveTradingPlan } from '~/lib/trading/loadActiveTradingPlan';

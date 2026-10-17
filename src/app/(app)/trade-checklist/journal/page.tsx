@@ -7,7 +7,7 @@ import { JournalView } from '~/app/(app)/trade-checklist/_components/JournalView
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
-import { tradeAssessmentRowSchema } from '~/lib/schemas/trading';
+import { tradeAssessmentRowSchema } from '~/lib/schemas/tradingRows';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments, tradingPlans } from '~/server/db';

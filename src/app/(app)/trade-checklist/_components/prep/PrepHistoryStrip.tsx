@@ -1,6 +1,6 @@
 'use client';
 
-import type { DailyPreparationRow } from '~/lib/schemas/trading';
+import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
 
 import { cn } from '~/lib/utilities';
 

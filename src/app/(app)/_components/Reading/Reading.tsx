@@ -10,6 +10,8 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 
+import type { location } from '~/server/db/schemas/iot';
+
 import { Button } from '~/components/ui/Button';
 import { Card } from '~/components/ui/Card';
 import AreaChartNew from '~/components/ui/Chart/AreaChartNew';
@@ -27,7 +29,6 @@ import {
     READINGS_SERIES_LONGEST_SPAN_MS,
 } from '~/lib/schemas/sensor';
 import { cn } from '~/lib/utilities';
-import { type location } from '~/server/db/schemas/iot';
 import { api } from '~/trpc/react';
 
 import { exportReadingsToCSV, GRANULARITIES } from './helpers';

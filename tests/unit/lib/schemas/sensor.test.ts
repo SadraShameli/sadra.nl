@@ -1,7 +1,8 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import type { DeviceRow } from '~/lib/schemas/sensorRows';
+
 import {
-    type DeviceRow,
     finestGranularityForRange,
     type Granularity,
     granularitySchema,
