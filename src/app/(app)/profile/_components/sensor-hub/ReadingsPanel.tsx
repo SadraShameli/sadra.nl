@@ -15,7 +15,6 @@ import {
     ProfileDateCell,
     ProfileDatePrecision,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { NoMatchesState } from '~/components/ui/empty-state';
 import { FormDialog } from '~/components/FormDialog';
 import {
     FormNumberField,
@@ -29,6 +28,7 @@ import { Checkbox } from '~/components/ui/checkbox';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Dialog, DialogTrigger } from '~/components/ui/dialog';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import {
     type ReadingCreateAdminInput,
     readingCreateAdminSchema,
@@ -234,10 +234,7 @@ export function ReadingsPanel() {
                         columns={columns}
                         data={rows}
                         emptyState={
-                            <NoMatchesState
-                                icon={Activity}
-                                noun="readings"
-                            />
+                            <NoMatchesState icon={Activity} noun="readings" />
                         }
                         filterPlaceholder="Search readings…"
                         hasExternalFilters={scope.isActive}

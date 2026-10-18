@@ -2,7 +2,7 @@
 
 import { ChartColumn } from 'lucide-react';
 import { useMemo } from 'react';
-import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 
 import {
     CHART_BAR_PROPS,
@@ -12,8 +12,12 @@ import {
     ChartContainer,
 } from '~/components/ui/chart';
 import { EmptyState } from '~/components/ui/empty-state';
-import { formatPercent } from '~/lib/format';
 import { type LightAssessment, winRateByGrade } from '~/lib/trading/analytics';
+
+import {
+    WIN_RATE_CHART_TOP_MARGIN,
+    WinRateBarLabels,
+} from './WinRateBarLabels';
 
 const chartConfig: ChartConfig = {
     winRate: { color: 'var(--chart-1)', label: 'Win rate' },
@@ -25,13 +29,7 @@ export function WinRateByGradeChart({
     assessments: LightAssessment[];
 }) {
     const data = useMemo(() => {
-        return winRateByGrade(assessments)
-            .filter((d) => d.count > 0)
-            .map((d) => ({
-                ...d,
-                fill: gradeColor(d.grade),
-                fillOpacity: d.count < 3 ? 0.35 : 0.85,
-            }));
+        return winRateByGrade(assessments).filter((d) => d.count > 0);
     }, [assessments]);
 
     return data.length === 0 ? (
@@ -47,7 +45,12 @@ export function WinRateByGradeChart({
         >
             <BarChart
                 data={data}
-                margin={{ bottom: 36, left: 0, right: 12, top: 20 }}
+                margin={{
+                    bottom: 36,
+                    left: 0,
+                    right: 12,
+                    top: WIN_RATE_CHART_TOP_MARGIN,
+                }}
             >
                 <XAxis {...CHART_X_AXIS_PROPS} dataKey="grade" />
                 <YAxis
@@ -55,33 +58,14 @@ export function WinRateByGradeChart({
                     domain={[0, 1]}
                     tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
                 />
-                <Bar {...CHART_BAR_PROPS} dataKey="winRate">
-                    <LabelList
-                        dataKey="count"
-                        fill="var(--muted-foreground)"
-                        fontSize={11}
-                        formatter={(v: unknown) =>
-                            typeof v === 'number' ? `n=${v}` : ''
-                        }
-                        position="top"
-                    />
-                    <LabelList
-                        dataKey="winRate"
-                        fill="var(--foreground)"
-                        fontSize={11}
-                        formatter={(v: unknown) =>
-                            typeof v === 'number' ? formatPercent(v, 0) : ''
-                        }
-                        position="insideTop"
-                    />
+                <Bar
+                    {...CHART_BAR_PROPS}
+                    dataKey="winRate"
+                    fill="var(--color-winRate)"
+                >
+                    <WinRateBarLabels />
                 </Bar>
             </BarChart>
         </ChartContainer>
     );
-}
-
-function gradeColor(grade: string): string {
-    if (grade.startsWith('A')) return 'var(--success)';
-    if (grade.startsWith('B')) return 'var(--warning)';
-    return grade.startsWith('C') ? 'var(--warning)' : 'var(--destructive)';
 }

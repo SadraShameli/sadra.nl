@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import FirmPlanPicker from '~/app/(app)/prop-calculator/_components/FirmPlanPicker';
+import { NO_EVAL_PHASE_REASON } from '~/app/(app)/prop-calculator/_components/missingReasons';
 import {
     formatPoints,
     fundedTierOptions,
@@ -55,6 +56,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
+import { WarningNote } from '~/components/WarningNote';
 import { formatCount, formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -393,7 +395,7 @@ function PositionSizeInputs({
                     </Select>
                     {phases.includes(TradingPhase.Eval) ? null : (
                         <FieldDescription>
-                            Instant-funded plan: there is no eval phase.
+                            {NO_EVAL_PHASE_REASON}
                         </FieldDescription>
                     )}
                 </Field>
@@ -593,7 +595,9 @@ function PositionSizeSummary({
                 </p>
             ) : null}
             {result.refusal === null ? null : (
-                <p className="text-sm text-warning">{result.refusal}</p>
+                <p className="text-sm">
+                    <WarningNote>{result.refusal}</WarningNote>
+                </p>
             )}
             {result.atRiskIfBustedText === null ? null : (
                 <p className="text-sm text-muted-foreground">

@@ -7,22 +7,29 @@ import { useMemo, useState, useTransition } from 'react';
 import type {
     Answers,
     AssessmentResult,
-    Grade,
     Recommendation,
     TradeAssessmentRow,
     TradingPlanConfig,
 } from '~/lib/trading/types';
 
+import {
+    expectancyStat,
+    outcomeCount,
+} from '~/app/(app)/trade-checklist/_components/analytics/outcomeStats';
 import { RECOMMENDATION_LABEL } from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
-import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
 import { StatStrip, StatStripSize } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
-import { formatCurrency, formatWholeOrCentsCurrency } from '~/lib/format';
+import {
+    formatCurrency,
+    formatPercent,
+    formatWholeOrCentsCurrency,
+} from '~/lib/format';
 import { saveAssessment } from '~/lib/trading/actions';
+import { outcomeTally } from '~/lib/trading/analytics';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 
@@ -77,12 +84,10 @@ export function AnalysisReport({
     );
 
     const comparable = useMemo(
-        () => comparableStats(result.grade, history),
+        () => outcomeTally(history.filter((h) => h.grade === result.grade)),
         [result.grade, history],
     );
     const isRiskAllowed = result.suggestedSizeMultiplier > 0;
-    const comparableRTone =
-        comparable.avgR > 0 ? 'text-success' : 'text-destructive';
 
     const persist = (onComplete?: () => void) => {
         if (savedId) {
@@ -116,7 +121,7 @@ export function AnalysisReport({
                     <div className="flex flex-col items-center justify-center">
                         <motion.div
                             animate={{ opacity: 1, scale: 1 }}
-                            className={`type-display-section ${gradeTextClass(result.grade)}`}
+                            className="type-display-section text-ink"
                             initial={{ opacity: 0, scale: 0.6 }}
                             transition={{ stiffness: 200, type: 'spring' }}
                         >
@@ -163,21 +168,7 @@ export function AnalysisReport({
                                         : 'Do not trade this setup.',
                                     id: 'recommended-risk',
                                     label: 'Recommended risk',
-                                    value: (
-                                        <span
-                                            className={
-                                                isRiskAllowed
-                                                    ? 'text-success'
-                                                    : 'text-destructive'
-                                            }
-                                        >
-                                            {isRiskAllowed
-                                                ? formatCurrency(
-                                                      recommendedDollars,
-                                                  )
-                                                : '$0'}
-                                        </span>
-                                    ),
+                                    value: formatCurrency(recommendedDollars),
                                 },
                             ]}
                             size={StatStripSize.Large}
@@ -248,53 +239,27 @@ export function AnalysisReport({
             )}
 
             <ToolPanel title={`Hindsight at grade ${result.grade}`}>
-                {comparable.sample >= 3 ? (
+                {comparable.outcomes >= 3 ? (
                     <StatStrip
                         items={[
                             {
+                                caption: `${String(comparable.withR)} with R`,
                                 id: 'sample',
                                 label: 'Sample',
-                                value: comparable.sample.toString(),
+                                value: String(comparable.outcomes),
                             },
                             {
                                 id: 'win-rate',
                                 label: 'Win rate',
-                                value: (
-                                    <span
-                                        className={
-                                            comparable.winRate >= 0.55
-                                                ? 'text-success'
-                                                : undefined
-                                        }
-                                    >
-                                        {`${(comparable.winRate * 100).toFixed(0)}%`}
-                                    </span>
-                                ),
+                                value: formatPercent(comparable.winRate, 0),
                             },
-                            {
-                                id: 'avg-r',
-                                label: 'Avg R',
-                                value: (
-                                    <span className={comparableRTone}>
-                                        {`${comparable.avgR > 0 ? '+' : ''}${comparable.avgR.toFixed(2)}`}
-                                    </span>
-                                ),
-                            },
-                            {
-                                id: 'expectancy',
-                                label: 'Expectancy',
-                                value: (
-                                    <span className={comparableRTone}>
-                                        {`${comparable.expectancy > 0 ? '+' : ''}${comparable.expectancy.toFixed(2)}R`}
-                                    </span>
-                                ),
-                            },
+                            expectancyStat(comparable),
                         ]}
                     />
                 ) : (
                     <StatusRow
                         detail="Build the sample by saving and tagging outcomes."
-                        title={`Not enough history at this grade yet (${String(comparable.sample)} recorded outcome${comparable.sample === 1 ? '' : 's'}).`}
+                        title={`Not enough history at this grade yet (${outcomeCount(comparable.outcomes)} recorded).`}
                         tone={StatusTone.Neutral}
                     />
                 )}
@@ -345,23 +310,6 @@ export function AnalysisReport({
             )}
         </motion.div>
     );
-}
-
-function comparableStats(grade: Grade, history: TradeAssessmentRow[]) {
-    const peers = history.filter(
-        (h) => h.grade === grade && h.outcome !== null,
-    );
-    const sample = peers.length;
-    if (sample === 0) {
-        return { avgR: 0, expectancy: 0, sample, winRate: 0 };
-    }
-    const wins = peers.filter((p) => p.outcome === 'win').length;
-    const winRate = wins / sample;
-    const rs = peers
-        .map((p) => p.outcomeR)
-        .filter((r): r is number => typeof r === 'number');
-    const avgR = rs.length > 0 ? rs.reduce((s, r) => s + r, 0) / rs.length : 0;
-    return { avgR, expectancy: avgR, sample, winRate };
 }
 
 function recommendationHeadline(

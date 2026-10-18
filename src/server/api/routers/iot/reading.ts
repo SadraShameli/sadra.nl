@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import { and, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -81,22 +80,25 @@ function shouldAlert(deviceId: number): boolean {
 
 const PERIOD_BY_GRANULARITY: Record<
     Granularity,
-    { dateFormat: string; label: string; ms: number }
+    { label: string; ms: number }
 > = {
-    day: { dateFormat: 'd MMM', label: '30d', ms: 30 * 24 * 60 * 60 * 1000 },
+    day: {
+        label: '30d',
+        ms: 30 * 24 * 60 * 60 * 1000,
+    },
     hour: {
-        dateFormat: 'd MMM, H:mm  ',
         label: '24h',
         ms: 24 * 60 * 60 * 1000,
     },
     month: {
-        dateFormat: 'MMM yyyy',
         label: '12mo',
         ms: 12 * 30 * 24 * 60 * 60 * 1000,
     },
-    raw: { dateFormat: 'd MMM, H:mm  ', label: '1h', ms: 1 * 60 * 60 * 1000 },
+    raw: {
+        label: '1h',
+        ms: 1 * 60 * 60 * 1000,
+    },
     week: {
-        dateFormat: 'd MMM',
         label: '12w',
         ms: 12 * 7 * 24 * 60 * 60 * 1000,
     },
@@ -108,10 +110,25 @@ enum DeviceFilterKind {
     UnknownDevice = 'unknown-device',
 }
 
+export interface BucketedReading {
+    readonly avg: number;
+    readonly bucket: Date | string;
+    readonly max: number;
+    readonly min: number;
+    readonly sensor_id: number;
+}
+
 type DeviceFilter =
     | { id: number; kind: DeviceFilterKind.Device }
     | { kind: DeviceFilterKind.AllDevices }
     | { kind: DeviceFilterKind.UnknownDevice };
+
+export function readingPointOf(row: BucketedReading): ReadingRecord {
+    return {
+        at: new Date(row.bucket).getTime(),
+        value: Math.round(row.avg * 100) / 100,
+    };
+}
 
 async function resolveDateRange(
     input: z.infer<typeof readingsQueryProperties>,
@@ -340,7 +357,7 @@ export const readingRouter = createTRPCRouter({
                 return { error: NO_READINGS };
             }
             const { from, to } = await resolveDateRange(input, ctx);
-            const { dateFormat, label: periodLabel } =
+            const { label: periodLabel } =
                 PERIOD_BY_GRANULARITY[input.granularity];
 
             const baseWhere = and(
@@ -352,15 +369,7 @@ export const readingRouter = createTRPCRouter({
                 lte(reading.created_at, to),
             );
 
-            type Bucketed = {
-                avg: number;
-                bucket: Date;
-                max: number;
-                min: number;
-                sensor_id: number;
-            };
-
-            let rows: Bucketed[];
+            let rows: BucketedReading[];
 
             if (input.granularity === 'raw') {
                 const raw = await ctx.db
@@ -377,7 +386,7 @@ export const readingRouter = createTRPCRouter({
                     .limit(READINGS_SERIES_MAX_POINTS);
                 rows = raw.toReversed();
             } else {
-                const trunc = sql<Date>`date_trunc(${input.granularity}, ${reading.created_at})`;
+                const trunc = sql<string>`date_trunc(${input.granularity}, ${reading.created_at})`;
                 const bucketed = await ctx.db
                     .select({
                         avg: sql<number>`avg(${reading.value})`,
@@ -408,10 +417,7 @@ export const readingRouter = createTRPCRouter({
             for (const s of sensors) {
                 const points: ReadingRecord[] = rows
                     .filter((r) => r.sensor_id === s.id)
-                    .map((r) => ({
-                        date: format(r.bucket, dateFormat),
-                        value: Math.round(r.avg * 100) / 100,
-                    }));
+                    .map(readingPointOf);
                 const lastPoint = points.at(-1);
                 if (!lastPoint) continue;
 

@@ -297,7 +297,7 @@ function ClearAllButton({
 }: ClearAllButtonProperties) {
     const button = (
         <Button
-            className="h-auto px-1 py-0 text-xs text-muted-foreground hover:text-destructive"
+            className="h-auto px-1 py-0 text-xs text-muted-foreground"
             disabled={busy}
             onClick={confirmation === null ? onClearAll : undefined}
             size="sm"
@@ -459,9 +459,9 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
                     )}
                 </div>
                 {loadError === null ? null : (
-                    <p className="text-xs text-destructive" role="alert">
-                        {loadError}
-                    </p>
+                    <Alert variant="destructive">
+                        <AlertDescription>{loadError}</AlertDescription>
+                    </Alert>
                 )}
                 {loadError === null ? (
                     scenarios === null ? (

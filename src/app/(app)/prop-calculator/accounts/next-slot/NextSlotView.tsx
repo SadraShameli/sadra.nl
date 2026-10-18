@@ -25,7 +25,10 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useOverviewWorker } from '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker';
-import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import {
+    JournalErrorNotice,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { FilterToolbar } from '~/components/FilterToolbar';
 import { InfoNote } from '~/components/InfoNote';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
@@ -41,6 +44,7 @@ import { Field, FieldLabel } from '~/components/ui/field';
 import InfoPopover from '~/components/ui/info-popover';
 import { Skeleton } from '~/components/ui/skeleton';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
+import { WarningNote } from '~/components/WarningNote';
 import { NextSlotSortKey, PortfolioLedger } from '~/lib/prop-accounts';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { type SizingObjective } from '~/lib/prop-calculator/advisor';
@@ -185,10 +189,7 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
     return (
         <div className="flex flex-col gap-8">
             {edgeQuery.isError && edgeQuery.data === undefined && (
-                <p className="text-xs text-destructive">
-                    Your journal could not be loaded, so the scale gate treats
-                    your trade count as zero: {edgeQuery.error.message}
-                </p>
+                <JournalErrorNotice message={edgeQuery.error.message} />
             )}
             {model.engineFailure !== null && (
                 <QueryErrorNotice
@@ -342,9 +343,9 @@ const RANKED_LEAD_COLUMNS: DataTableColumn<NextSlotRankedViewRow>[] = [
             <>
                 {row.firm} {row.plan}
                 {rankedNotesOf(row).map((note) => (
-                    <span className="block text-xs text-warning" key={note}>
+                    <WarningNote className="flex text-xs" key={note}>
                         {note}
-                    </span>
+                    </WarningNote>
                 ))}
                 {row.liveTransferNotes.length > 0 && (
                     <ul

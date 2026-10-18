@@ -1,5 +1,7 @@
 import { type LucideIcon } from 'lucide-react';
 
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+
 import { ExpectedNetStatus } from './overviewModel';
 import {
     OverviewComputingPanel,
@@ -16,9 +18,7 @@ export function ModelFailureNote({
     readonly statusNote: null | string;
 }) {
     return statusNote !== null && status === ExpectedNetStatus.Failed ? (
-        <p className="text-sm text-destructive" role="status">
-            {statusNote}
-        </p>
+        <QueryErrorNotice message={statusNote} />
     ) : null;
 }
 

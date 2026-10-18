@@ -32,12 +32,16 @@ describe('one plausibility note wording for CLI and web (PT-61d, F-V22)', () => 
         ).toBe(1);
     });
 
-    it('states the QV-20 disclosure in exactly one place', () => {
+    it('states the trading skill second source in exactly one place', () => {
         expect(
             occurrencesAcrossOwnedFiles(
-                /while QV-20 is open: this note uses \+0\.20R from 40% at 1:2/,
+                /The trading skill's own numbers put this edge at/,
             ),
         ).toBe(1);
+    });
+
+    it('names no internal ticket in any file that renders the note', () => {
+        expect(occurrencesAcrossOwnedFiles(/QV-?20/)).toBe(0);
     });
 
     it('is exported through the economics barrel and consumed by the CLI, TradingInputs and the rulebook form', () => {
@@ -62,5 +66,6 @@ describe('one plausibility note wording for CLI and web (PT-61d, F-V22)', () => 
             'utf8',
         );
         expect(barrelSource).toContain('edgePlausibilityNoteText');
+        expect(barrelSource).not.toContain('QV20_EXPECTANCY_DISCLOSURE');
     });
 });

@@ -10,7 +10,7 @@ import { tradingInputsProperties } from './tradingInputsFixture';
 
 const PLAUSIBILITY_WINRATE = 0.7;
 const PLAUSIBILITY_RR = 1;
-const INITIAL_TRADES_PER_DAY = 4;
+const INITIAL_TRADES_PER_DAY = 3;
 
 interface HarnessProperties {
     onTradesPerDayChange?: (n: number) => void;
@@ -183,6 +183,18 @@ describe('TradingInputs plausibility note live region (F-V22, PT-86b)', () => {
         blur('compounding-start');
         expect(note().textContent).not.toBe(before);
         expect(note().textContent).toContain('$5,000');
+    });
+
+    it('says more than 1,000x and drops the amount once the pace compounds past the cap', () => {
+        renderInputs();
+        type('compounding-start', '5000');
+        blur('compounding-start');
+        expect(note().textContent).toContain('$5,000');
+        act(() => {
+            tradesPerDayRef.current?.(4);
+        });
+        expect(note().textContent).toContain('compounds to more than 1,000x');
+        expect(note().textContent).not.toContain('$5,000');
     });
 
     it('commits the compounding start into the note on Enter', () => {

@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 
 import {
+    CHART_REFERENCE_LABEL_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_STROKE_WIDTH,
     CHART_X_AXIS_PROPS,
@@ -37,10 +38,10 @@ interface Properties {
 
 const chartConfig: ChartConfig = {
     band: {
-        color: 'color-mix(in oklab, var(--success) 18%, transparent)',
+        color: 'color-mix(in oklab, var(--chart-1) 18%, transparent)',
         label: 'P10–P90',
     },
-    median: { color: 'var(--success)', label: 'Median net' },
+    median: { color: 'var(--chart-1)', label: 'Median net' },
 };
 
 export default function CashFlowBandChartView({ result }: Properties) {
@@ -78,8 +79,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                 <ReferenceLine
                     {...CHART_REFERENCE_LINE_PROPS}
                     label={{
-                        fill: 'var(--muted-foreground)',
-                        fontSize: 11,
+                        ...CHART_REFERENCE_LABEL_PROPS,
                         position: 'insideBottomLeft',
                         value: 'Break-even',
                     }}
@@ -96,7 +96,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                 />
                 <Area
                     dataKey="range"
-                    fill="var(--success)"
+                    fill="var(--color-median)"
                     fillOpacity={0.18}
                     isAnimationActive={false}
                     legendType="none"
@@ -107,7 +107,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                     dataKey="net50"
                     dot={false}
                     isAnimationActive={false}
-                    stroke="var(--success)"
+                    stroke="var(--color-median)"
                     strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />

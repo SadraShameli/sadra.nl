@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { type CSSProperties, useMemo } from 'react';
 
 import { Card, CardContent } from '~/components/ui/card';
 import { WeightUnit } from '~/lib/lifting/format';
@@ -19,15 +19,10 @@ interface PlateVisualizerProperties {
     unitWeight: UnitWeight;
 }
 
-const PLATE_COLORS: Record<string, string> = {
-    '1.25': '#9ca3af',
-    '2.5': '#94a3b8',
-    '5': '#3b82f6',
-    '10': '#22c55e',
-    '15': '#eab308',
-    '20': '#ef4444',
-    '25': '#dc2626',
-};
+const PLATE_SIZE_CAP_KG = 25;
+
+const PLATE_CLASS =
+    'flex items-center justify-center rounded-sm border border-line-strong bg-surface-high px-1 type-micro tracking-normal text-ink tabular-nums';
 
 export function PlateVisualizer({
     availableKg,
@@ -59,13 +54,13 @@ export function PlateVisualizer({
                     <span className="tabular-nums">
                         {WeightUnit.format(load.totalLoadedKg, unitWeight)}
                         {load.remainderKg > 0 && (
-                            <span className="ml-1 text-destructive">
-                                (−
+                            <span className="ml-1 text-ink">
+                                (
                                 {WeightUnit.toDisplay(
                                     load.remainderKg,
                                     unitWeight,
-                                ).toFixed(2)}
-                                )
+                                ).toFixed(2)}{' '}
+                                short)
                             </span>
                         )}
                     </span>
@@ -73,13 +68,9 @@ export function PlateVisualizer({
                 <div className="flex items-center justify-center gap-1">
                     {[...load.perSide].toReversed().map((weight, index) => (
                         <div
-                            className="flex items-center justify-center rounded-sm px-1 type-micro font-bold tracking-normal text-black tabular-nums"
+                            className={PLATE_CLASS}
                             key={`${weight}-${index}`}
-                            style={{
-                                backgroundColor: getColor(weight),
-                                height: 36 + Math.min(weight, 20) * 2,
-                                width: 12 + Math.min(weight, 20) * 0.5,
-                            }}
+                            style={plateSize(weight)}
                         >
                             {weight}
                         </div>
@@ -91,13 +82,9 @@ export function PlateVisualizer({
                     <div className="h-3 flex-1 rounded-full bg-muted-foreground/60" />
                     {load.perSide.map((weight, index) => (
                         <div
-                            className="flex items-center justify-center rounded-sm px-1 type-micro font-bold tracking-normal text-black tabular-nums"
+                            className={PLATE_CLASS}
                             key={`r-${weight}-${index}`}
-                            style={{
-                                backgroundColor: getColor(weight),
-                                height: 36 + Math.min(weight, 20) * 2,
-                                width: 12 + Math.min(weight, 20) * 0.5,
-                            }}
+                            style={plateSize(weight)}
                         >
                             {weight}
                         </div>
@@ -111,6 +98,7 @@ export function PlateVisualizer({
     );
 }
 
-function getColor(weight: number): string {
-    return PLATE_COLORS[weight.toString()] ?? '#6b7280';
+function plateSize(weight: number): CSSProperties {
+    const scale = Math.min(weight, PLATE_SIZE_CAP_KG);
+    return { height: 36 + scale * 2, width: 12 + scale * 0.5 };
 }

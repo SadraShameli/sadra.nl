@@ -191,6 +191,17 @@ async function flush() {
     });
 }
 
+function pressFocused(card: HTMLElement, label: string) {
+    const button = [...card.querySelectorAll('button')].find(
+        (candidate) => candidate.textContent === label,
+    );
+    if (button === undefined) throw new Error(`no ${label} button`);
+    button.focus();
+    act(() => {
+        button.click();
+    });
+}
+
 function previousDecision(accountId: string) {
     return {
         acceptedRiskCents: 100,
@@ -328,6 +339,17 @@ describe('WeeklyReviewView form', () => {
         });
         await flush();
     }
+
+    it('moves focus to the heading of the account that Next account or Previous account shows, so focus never drops to the page', () => {
+        pressFocused(cardOf('Eval one'), 'Next account');
+        const afterNext = document.activeElement;
+        expect(afterNext?.textContent).toBe('Eval two');
+        expect(cardOf('Eval two').contains(afterNext)).toBe(true);
+        pressFocused(cardOf('Eval two'), 'Previous account');
+        const afterPrevious = document.activeElement;
+        expect(afterPrevious?.textContent).toBe('Eval one');
+        expect(cardOf('Eval one').contains(afterPrevious)).toBe(true);
+    });
 
     it('shows a row nobody touched as unchanged since the previous snapshot and counts the rows not updated', () => {
         expect(cardOf('Eval one').textContent).toContain(

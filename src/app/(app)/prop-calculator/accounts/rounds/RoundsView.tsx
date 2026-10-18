@@ -19,7 +19,11 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
-import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import {
+    QueryErrorNotice,
+    RulebookErrorNotice,
+    UnlistedFirmsErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
@@ -51,6 +55,7 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
+import { WarningNote } from '~/components/WarningNote';
 import { useSession } from '~/lib/auth/client';
 import { formatDisplayDate, formatDisplayDateRange } from '~/lib/format';
 import {
@@ -246,27 +251,20 @@ export function RoundsView() {
         <div className="flex flex-col gap-6">
             {externalFirmsQuery.isError &&
                 externalFirmsQuery.data === undefined && (
-                    <p className="text-xs text-destructive">
-                        Your firms could not be loaded, so external firms show
-                        as an unlisted firm until they load:{' '}
-                        {externalFirmsQuery.error.message}
-                    </p>
+                    <UnlistedFirmsErrorNotice
+                        message={externalFirmsQuery.error.message}
+                    />
                 )}
             {rulebookQuery.isError && rulebookQuery.data === undefined && (
-                <p className="text-xs text-destructive">
-                    Your rulebook could not be loaded, so this page is using
-                    default thresholds instead of yours:{' '}
-                    {rulebookQuery.error.message}
-                </p>
+                <RulebookErrorNotice message={rulebookQuery.error.message} />
             )}
             {bankrollSummaryQuery.isError &&
                 bankrollSummaryQuery.data === undefined && (
-                    <p className="text-xs text-destructive">
-                        Your available bankroll could not be loaded, so option B
-                        on the &quot;Next round&quot; card is capped at option
-                        A&apos;s budget until it does:{' '}
-                        {bankrollSummaryQuery.error.message}
-                    </p>
+                    <QueryErrorNotice
+                        consequence={`Option B on the "Next round" card is capped at option A's budget until it loads.`}
+                        message={bankrollSummaryQuery.error.message}
+                        title="Your available bankroll could not be loaded"
+                    />
                 )}
             {model.suggestions.length > 0 && (
                 <SuggestionsCard
@@ -578,18 +576,21 @@ function NextRoundCard({
                 .
             </p>
             {model.leftOutLabels.length > 0 && (
-                <p className="text-xs text-warning">
+                <WarningNote className="text-xs">
                     This round also has{' '}
                     {model.leftOutLabels.length === 1 ? 'a member' : 'members'}{' '}
                     whose plan agreement was not checked, so its spend and
                     payouts are left out: {model.leftOutLabels.join(', ')}.
-                </p>
+                </WarningNote>
             )}
             <p className="text-xs text-muted-foreground">
                 {model.rebuyLagNote}
             </p>
             {failureReason !== null && (
-                <p className="text-xs text-destructive">{failureReason}</p>
+                <QueryErrorNotice
+                    message={failureReason}
+                    title="The next round could not be computed"
+                />
             )}
             {result === null ? (
                 <Skeleton className="h-24 w-full" />
@@ -657,7 +658,9 @@ function NextRoundOption({
                 ]}
             />
             {summary.scaleGateNote !== null && (
-                <p className="text-xs text-warning">{summary.scaleGateNote}</p>
+                <WarningNote className="text-xs">
+                    {summary.scaleGateNote}
+                </WarningNote>
             )}
         </div>
     );

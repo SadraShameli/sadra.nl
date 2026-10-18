@@ -1,7 +1,6 @@
 'use client';
 
 import { replaceEqualDeep } from '@tanstack/react-query';
-import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { memo, type ReactNode, useMemo, useState } from 'react';
 
@@ -9,11 +8,14 @@ import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { OverviewSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
+import {
+    ErrorNoticeTitle,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import { InfoNote } from '~/components/InfoNote';
 import { type PageTab, UrlPageTabs } from '~/components/PageTabs';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import {
@@ -142,15 +144,11 @@ export function OverviewView({ userId }: { readonly userId: string }) {
             <LoadFailures issues={load.failures} />
             <StaleLoads issues={load.stale} />
             {externalFirmsQuery.isError && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>Your firms could not be loaded</AlertTitle>
-                    <AlertDescription>
-                        {externalFirmsQuery.error.message} Accounts at a firm
-                        you added show it as an unlisted firm in the cards below
-                        until your firms load.
-                    </AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    consequence="Accounts at a firm you added show it as an unlisted firm in the cards below until your firms load."
+                    message={externalFirmsQuery.error.message}
+                    title={ErrorNoticeTitle.Firms}
+                />
             )}
             {load.accounts.status === OverviewSectionStatus.Pending && (
                 <OverviewSkeleton />
@@ -268,18 +266,18 @@ function LoadFailures({
     return (
         <div className="flex flex-col gap-3">
             {issues.map((issue) => (
-                <Alert key={issue.source} variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>{issue.title}</AlertTitle>
-                    <AlertDescription>
-                        {issue.message}
-                        {issue.source === PortfolioSource.Rulebook && (
+                <QueryErrorNotice
+                    actions={
+                        issue.source === PortfolioSource.Rulebook ? (
                             <div className="mt-2">
                                 <RulebookRepairLink />
                             </div>
-                        )}
-                    </AlertDescription>
-                </Alert>
+                        ) : undefined
+                    }
+                    key={issue.source}
+                    message={issue.message}
+                    title={issue.title}
+                />
             ))}
         </div>
     );
@@ -356,11 +354,10 @@ function OverviewTabSections({
                     model={model}
                     tab={tab}
                 >
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>The ledger cards are not shown</AlertTitle>
-                        <AlertDescription>{ledger.message}</AlertDescription>
-                    </Alert>
+                    <QueryErrorNotice
+                        message={ledger.message}
+                        title="The ledger cards are not shown"
+                    />
                 </LedgerGapSections>
             );
         }
@@ -620,7 +617,7 @@ function SectionGap({
 }) {
     switch (gap.kind) {
         case OverviewSectionStatus.Failed: {
-            return <p className="text-sm text-destructive">{gap.message}</p>;
+            return <QueryErrorNotice message={gap.message} />;
         }
         case OverviewSectionStatus.Pending: {
             return <SectionSkeleton label={loadingLabel} />;
@@ -657,7 +654,7 @@ function SetupSection({ setup }: { readonly setup: OverviewSetup }) {
         case OverviewSectionStatus.Failed: {
             return (
                 <OverviewPanel section={OverviewSectionId.Setup}>
-                    <p className="text-sm text-destructive">{setup.message}</p>
+                    <QueryErrorNotice message={setup.message} />
                 </OverviewPanel>
             );
         }

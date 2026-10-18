@@ -23,16 +23,8 @@ export default function FinalBalanceHistogramView({ result }: Properties) {
             binCount={BIN_COUNT}
             emptyMessage="No simulation data yet"
             referenceLines={[
-                {
-                    color: 'var(--muted-foreground)',
-                    label: 'Start',
-                    x: startingBalance,
-                },
-                {
-                    color: 'var(--success)',
-                    label: 'Target',
-                    x: targetBalance,
-                },
+                { label: 'Start', x: startingBalance },
+                { label: 'Target', x: targetBalance },
             ]}
             size={ChartSize.Tall}
             values={result.finalBalances}

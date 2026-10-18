@@ -18,8 +18,8 @@ import { formatCompactCurrency, formatDisplayDate } from '~/lib/format';
 import { type SnapshotSeries } from './snapshotSeries';
 
 const chartConfig: ChartConfig = {
-    balance: { color: 'var(--success)', label: 'Balance' },
-    event: { color: 'var(--warning)', label: 'Event' },
+    balance: { color: 'var(--chart-1)', label: 'Balance' },
+    event: { color: 'var(--chart-2)', label: 'Event' },
 };
 
 export function SnapshotHistoryChart({

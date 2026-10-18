@@ -18,7 +18,7 @@ export function AccountFromStateDetails({
             {milestone.gates.length > 0 && (
                 <ul
                     aria-label="Gates not met at the milestone"
-                    className="flex list-disc flex-col gap-1 pl-5 text-xs text-warning"
+                    className="flex list-disc flex-col gap-1 pl-5 text-xs"
                 >
                     {milestone.gates.map((gate) => (
                         <li key={gate}>{gate}</li>
@@ -74,11 +74,7 @@ function detailItemsOf(
                   {
                       id: 'milestone-value',
                       label: milestone.label,
-                      value: (
-                          <span className="text-warning">
-                              {milestone.value.text}
-                          </span>
-                      ),
+                      value: milestone.value.text,
                   },
               ]),
         ...(milestone.debited === null

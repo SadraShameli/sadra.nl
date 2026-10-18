@@ -1,8 +1,12 @@
 import { Gauge } from 'lucide-react';
 
+import { NO_DASHBOARD_FLOOR_REASON } from '~/app/(app)/prop-calculator/accounts/_components/accountStateReasonText';
 import { EnterBalancesButton } from '~/app/(app)/prop-calculator/accounts/_components/EnterBalancesButton';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { MissingValue } from '~/components/MissingValue';
 import { StatStrip } from '~/components/StatStrip';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { WarningNote } from '~/components/WarningNote';
 import { formatCurrency, formatDisplayDate } from '~/lib/format';
 import {
     AssumptionKind,
@@ -13,7 +17,8 @@ import {
 
 import { StateCardKind, type StateCardView } from './detailState';
 
-const UNAVAILABLE = 'unavailable';
+const LIVE_NOT_MODELED_REASON =
+    'No live stage is modeled for this plan, so the floor and lock are not reconstructed.';
 
 export function StateCard({ view }: { readonly view: StateCardView }) {
     switch (view.kind) {
@@ -31,7 +36,7 @@ export function StateCard({ view }: { readonly view: StateCardView }) {
         case StateCardKind.PeakRequired: {
             return (
                 <div className="flex flex-col gap-2 text-sm">
-                    <p className="text-destructive">{view.message}</p>
+                    <QueryErrorNotice message={view.message} />
                     <IssueList issues={view.issues} />
                 </div>
             );
@@ -50,27 +55,39 @@ export function StateCard({ view }: { readonly view: StateCardView }) {
                                 id: 'floor',
                                 label: 'Floor',
                                 value:
-                                    floorLock === null
-                                        ? UNAVAILABLE
-                                        : formatCurrency(floorLock.floor),
+                                    floorLock === null ? (
+                                        <MissingValue
+                                            reason={LIVE_NOT_MODELED_REASON}
+                                        />
+                                    ) : (
+                                        formatCurrency(floorLock.floor)
+                                    ),
                             },
                             {
                                 id: 'lock',
                                 label: 'Lock',
                                 value:
-                                    floorLock === null
-                                        ? UNAVAILABLE
-                                        : floorLock.locked
-                                          ? 'locked'
-                                          : 'not locked',
+                                    floorLock === null ? (
+                                        <MissingValue
+                                            reason={LIVE_NOT_MODELED_REASON}
+                                        />
+                                    ) : floorLock.locked ? (
+                                        'locked'
+                                    ) : (
+                                        'not locked'
+                                    ),
                             },
                             {
                                 id: 'cushion',
                                 label: 'Cushion',
                                 value:
-                                    cushion === null
-                                        ? UNAVAILABLE
-                                        : formatCurrency(cushion),
+                                    cushion === null ? (
+                                        <MissingValue
+                                            reason={NO_DASHBOARD_FLOOR_REASON}
+                                        />
+                                    ) : (
+                                        formatCurrency(cushion)
+                                    ),
                             },
                         ]}
                     />
@@ -121,9 +138,11 @@ function IssueList({
 }) {
     if (issues.length === 0) return null;
     return (
-        <ul className="flex flex-col gap-1 text-sm text-destructive">
+        <ul className="flex flex-col gap-1 text-sm">
             {issues.map((issue) => (
-                <li key={`${issue.field}-${issue.kind}`}>{issue.message}</li>
+                <li key={`${issue.field}-${issue.kind}`}>
+                    <WarningNote>{issue.message}</WarningNote>
+                </li>
             ))}
         </ul>
     );

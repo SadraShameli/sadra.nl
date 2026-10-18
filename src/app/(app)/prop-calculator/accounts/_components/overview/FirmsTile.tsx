@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
+import {
+    EngagementsErrorNotice,
+    JournalErrorNotice,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { StatStrip } from '~/components/StatStrip';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -59,9 +64,10 @@ export function FirmsTile({
     }
     if (computed.kind !== OverviewSectionStatus.Ready) {
         return (
-            <p className="text-sm text-destructive">
-                The firms summary could not be computed: {computed.message}
-            </p>
+            <QueryErrorNotice
+                message={computed.message}
+                title="The firms summary could not be computed"
+            />
         );
     }
     const model = computed.value;
@@ -96,16 +102,12 @@ export function FirmsTile({
                 ]}
             />
             {engagementsQuery.isError && engagements === undefined && (
-                <p className="text-xs text-destructive">
-                    Your firm statuses could not be loaded, so every firm counts
-                    as active until they load: {engagementsQuery.error.message}
-                </p>
+                <EngagementsErrorNotice
+                    message={engagementsQuery.error.message}
+                />
             )}
             {edgeQuery.isError && edgeQuery.data === undefined && (
-                <p className="text-xs text-destructive">
-                    Your journal could not be loaded, so the scale gate treats
-                    your trade count as zero: {edgeQuery.error.message}
-                </p>
+                <JournalErrorNotice message={edgeQuery.error.message} />
             )}
             <Button asChild className="self-start" size="sm" variant="outline">
                 <Link href={routes.propCalculator.accounts.firms}>

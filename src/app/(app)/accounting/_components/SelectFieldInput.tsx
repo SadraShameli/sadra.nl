@@ -6,6 +6,7 @@ import { useEffect, useId, useState } from 'react';
 import type { CredentialMetaField } from '~/lib/accounting/credentials/index';
 
 import { Button } from '~/components/ui/button';
+import { FieldError } from '~/components/ui/field';
 import { Label } from '~/components/ui/label';
 import {
     Select,
@@ -148,9 +149,7 @@ export function SelectFieldInput({
                 </Button>
             </div>
 
-            {lastError && (
-                <p className="text-xs text-destructive">{lastError.message}</p>
-            )}
+            <FieldError errors={[lastError ?? undefined]} />
         </div>
     );
 }

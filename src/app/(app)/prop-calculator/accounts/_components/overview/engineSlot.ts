@@ -76,6 +76,20 @@ export function engineSlotOf<Figures>(
         : { figures, kind: EngineSlotKind.Ready };
 }
 
+export function failureReasonOf(
+    ...slots: readonly EngineSlot<unknown>[]
+): null | string {
+    for (const slot of slots) {
+        if (
+            slot.kind === EngineSlotKind.Failed ||
+            slot.kind === EngineSlotKind.Refused
+        ) {
+            return slot.reason;
+        }
+    }
+    return null;
+}
+
 export function groupFailureOf(
     engine: SlotEngine,
     group: OverviewRequestGroup,

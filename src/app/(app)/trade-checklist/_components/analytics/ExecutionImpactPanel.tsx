@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 
 import { executionDeviationLabel } from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
 import { PanelSubheading } from '~/components/PanelSubheading';
-import { StatStrip, StatTone } from '~/components/StatStrip';
+import { StatStrip } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatPercent, formatR } from '~/lib/format';
@@ -46,7 +46,6 @@ export function ExecutionImpactPanel({
                                 caption: cohortCaption(impact.followed),
                                 id: 'followed-plan',
                                 label: 'Followed plan',
-                                tone: StatTone.Positive,
                                 value: formatPercent(
                                     impact.followed.winRate,
                                     0,
@@ -56,11 +55,6 @@ export function ExecutionImpactPanel({
                                 caption: cohortCaption(impact.deviated),
                                 id: 'deviated',
                                 label: 'Deviated',
-                                tone:
-                                    impact.deviated.winRate >
-                                    impact.followed.winRate
-                                        ? StatTone.Positive
-                                        : StatTone.Negative,
                                 value: formatPercent(
                                     impact.deviated.winRate,
                                     0,

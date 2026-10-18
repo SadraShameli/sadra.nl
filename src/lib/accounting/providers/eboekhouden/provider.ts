@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { TaxCodeCatalog } from '~/lib/accounting/core/tax-code';
 import type { Booking } from '~/lib/accounting/core/types';
+import type { DateBounds } from '~/lib/accounting/providers/date-filter';
 import type {
     LedgerResponse,
     MutationResponse,
@@ -9,12 +10,14 @@ import type {
 import type {
     AccountingProvider,
     ListMutationsOptions,
+    MutationDateRange,
     OpenSessionOptions,
     PostBookingResult,
     ProviderLedger,
     ProviderMutation,
 } from '~/lib/accounting/providers/provider';
 
+import { DateFilter } from '~/lib/accounting/providers/date-filter';
 import { bookingToMutationPayload } from '~/lib/accounting/providers/eboekhouden/booking';
 import { EBoekhoudenClient } from '~/lib/accounting/providers/eboekhouden/client';
 import { eboekhoudenTaxCodes } from '~/lib/accounting/providers/eboekhouden/enums';
@@ -27,6 +30,7 @@ import {
     SessionsResource,
 } from '~/lib/accounting/providers/eboekhouden/resources';
 import {
+    newestMutationFirst,
     ProviderRegistry,
     ProviderSessionBase,
 } from '~/lib/accounting/providers/provider';
@@ -80,22 +84,47 @@ class EBoekhoudenSession extends ProviderSessionBase {
         this.relations = new RelationsResource(client);
     }
 
+    private async mutationsWithin(
+        bounds: DateBounds,
+    ): Promise<MutationResponse[]> {
+        const date = DateFilter.between(bounds);
+        return this.paginate(
+            (offset) =>
+                this.mutations.list({
+                    date,
+                    limit: MUTATION_PAGE_SIZE,
+                    offset,
+                }),
+            MUTATION_PAGE_SIZE,
+        );
+    }
+
+    private async newestMutations(
+        bounds: DateBounds,
+        atLeast: number,
+    ): Promise<ProviderMutation[]> {
+        const found = await this.collectNewestFirst(bounds, atLeast, (slice) =>
+            this.mutationsWithin(slice),
+        );
+        return found
+            .map((mutation) => adaptMutation(mutation))
+            .toSorted(newestMutationFirst);
+    }
+
     async close(): Promise<void> {
         await this.sessions.close();
     }
 
-    async latestMutationDate(): Promise<null | string> {
-        const mutations = await this.paginate(
-            (offset) =>
-                this.mutations.list({ limit: MUTATION_PAGE_SIZE, offset }),
-            MUTATION_PAGE_SIZE,
+    async countMutations(range: MutationDateRange): Promise<null | number> {
+        const mutations = await this.mutationsWithin(
+            DateFilter.boundsOf(range),
         );
-        let latest: null | string = null;
-        for (const m of mutations) {
-            const d = adaptMutation(m).date;
-            if (!latest || d > latest) latest = d;
-        }
-        return latest;
+        return mutations.length;
+    }
+
+    async latestMutationDate(): Promise<null | string> {
+        const [latest] = await this.newestMutations({}, 1);
+        return latest?.date ?? null;
     }
 
     async listLedgers(
@@ -115,37 +144,12 @@ class EBoekhoudenSession extends ProviderSessionBase {
     async listMutations(
         options: ListMutationsOptions,
     ): Promise<ProviderMutation[]> {
-        const hasDateFilter = Boolean(options.dateFrom ?? options.dateTo);
-        const rows = hasDateFilter
-            ? await this.paginate(
-                  (offset) =>
-                      this.mutations.list({
-                          limit: MUTATION_PAGE_SIZE,
-                          offset,
-                      }),
-                  MUTATION_PAGE_SIZE,
-              )
-            : await this.mutations.list({
-                  limit: options.limit,
-                  offset: options.offset ?? 0,
-              });
-        let adapted = rows.map((m) => adaptMutation(m));
-        if (options.dateFrom) {
-            const from = options.dateFrom;
-            adapted = adapted.filter((m) => m.date >= from);
-        }
-        if (options.dateTo) {
-            const to = options.dateTo;
-            adapted = adapted.filter((m) => m.date <= to);
-        }
-        const sorted = adapted.toSorted((a, b) => {
-            if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-            return b.externalId.localeCompare(a.externalId, undefined, {
-                numeric: true,
-            });
-        });
-        const pageOffset = hasDateFilter ? (options.offset ?? 0) : 0;
-        return sorted.slice(pageOffset, pageOffset + options.limit);
+        const offset = options.offset ?? 0;
+        const newest = await this.newestMutations(
+            DateFilter.boundsOf(options),
+            offset + options.limit,
+        );
+        return newest.slice(offset, offset + options.limit);
     }
 
     async postBooking(booking: Booking): Promise<PostBookingResult> {
@@ -173,6 +177,10 @@ class EBoekhoudenSessionLease extends ProviderSessionBase {
         if (this.isReleased) return;
         this.isReleased = true;
         await this.release();
+    }
+
+    countMutations(range: MutationDateRange): Promise<null | number> {
+        return this.session.countMutations(range);
     }
 
     latestMutationDate(): Promise<null | string> {

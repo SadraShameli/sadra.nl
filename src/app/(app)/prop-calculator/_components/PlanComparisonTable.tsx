@@ -20,7 +20,6 @@ import {
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
-import { cn } from '~/lib/utilities';
 
 import { ComputationId } from './ComputationId';
 import {
@@ -32,7 +31,7 @@ import {
     useComparisonView,
 } from './FirmComparisonTable';
 import { panelDescriptions } from './kpiDescriptions';
-import { ptddColor } from './metricColors';
+import { formatPtdd, planPtdd, ptddBench } from './ptddBench';
 import {
     bestExpectedMonthlyNet,
     monthlyNetScoreText,
@@ -99,7 +98,7 @@ export default function PlanComparisonTable({
                     trials,
                 }),
                 plan,
-                ptdd: plan.profitTarget / plan.drawdown.amount,
+                ptdd: planPtdd(plan),
             }));
             const bestNet = bestExpectedMonthlyNet(partial);
             return partial.map((r) => ({
@@ -149,13 +148,13 @@ export default function PlanComparisonTable({
             {
                 accessorFn: (r) => r.ptdd,
                 cell: ({ row }) => (
-                    <span
-                        className={cn(
-                            'font-mono',
-                            ptddColor(row.original.ptdd),
-                        )}
-                    >
-                        {row.original.ptdd.toFixed(2)}×
+                    <span className="flex flex-col">
+                        <span className="font-mono">
+                            {formatPtdd(row.original.ptdd)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                            {ptddBench(row.original.ptdd)}
+                        </span>
                     </span>
                 ),
                 header: 'PT:DD',
@@ -264,13 +263,9 @@ export default function PlanComparisonTable({
                             title="No plans"
                         />
                     }
+                    isCurrentRow={(r) => r.plan === activePlan}
                     isLoading={pending && rows.length === 0}
                     pageSize={null}
-                    rowClassName={(r) =>
-                        r.plan === activePlan
-                            ? 'bg-primary/10 font-semibold text-foreground'
-                            : undefined
-                    }
                     rowId={(r) => JSON.stringify(r.plan.id)}
                 />
             ) : (

@@ -13,7 +13,6 @@ import {
     ProfileDateCell,
     ProfileDatePrecision,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { NoMatchesState } from '~/components/ui/empty-state';
 import { FormDialog } from '~/components/FormDialog';
 import { FormNumberField, FormTextField } from '~/components/FormFields';
 import {
@@ -25,6 +24,7 @@ import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Dialog, DialogTrigger } from '~/components/ui/dialog';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import {
     type LocationCreateInput,
     locationCreateSchema,

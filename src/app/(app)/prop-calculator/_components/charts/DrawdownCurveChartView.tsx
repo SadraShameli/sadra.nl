@@ -3,6 +3,7 @@
 import { Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_REFERENCE_LABEL_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_STROKE_WIDTH,
     CHART_X_AXIS_PROPS,
@@ -23,8 +24,8 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    median: { color: 'var(--destructive)', label: 'Median drawdown' },
-    sample: { color: 'var(--destructive)', label: 'Sample drawdown' },
+    median: { color: 'var(--chart-1)', label: 'Median drawdown' },
+    sample: { color: 'var(--chart-2)', label: 'Sample drawdown' },
 };
 
 export default function DrawdownCurveChartView({ result }: Properties) {
@@ -67,12 +68,10 @@ export default function DrawdownCurveChartView({ result }: Properties) {
                 <ReferenceLine
                     {...CHART_REFERENCE_LINE_PROPS}
                     label={{
-                        fill: 'var(--destructive)',
-                        fontSize: 11,
+                        ...CHART_REFERENCE_LABEL_PROPS,
                         position: 'right',
                         value: 'Bust limit',
                     }}
-                    stroke="var(--destructive)"
                     y={drawdownLimit}
                 />
                 {Array.from({ length: pathCount }, (_, index) => (

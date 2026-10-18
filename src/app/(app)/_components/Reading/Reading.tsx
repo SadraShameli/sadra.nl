@@ -10,6 +10,7 @@ import type { location } from '~/server/db/schemas/iot';
 
 import { StatStrip, StatStripSize } from '~/components/StatStrip';
 import AreaChartNew from '~/components/ui/chart/area-chart-new';
+import { timeAxisOf } from '~/components/ui/chart/time-axis';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
@@ -288,7 +289,13 @@ export default function ReadingSection() {
                                         `${formatNumber(value, SENSOR_READING_FRACTION_DIGITS)} ${reading.sensor.unit}`,
                                 }}
                                 xAxis={{
-                                    dataKey: 'date',
+                                    dataKey: 'at',
+                                    time:
+                                        timeAxisOf(
+                                            reading.readings.map(
+                                                (point) => point.at,
+                                            ),
+                                        ) ?? undefined,
                                 }}
                                 yAxis={{
                                     tickFormatter: (value: number) =>

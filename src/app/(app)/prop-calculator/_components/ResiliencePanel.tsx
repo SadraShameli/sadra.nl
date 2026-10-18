@@ -31,7 +31,6 @@ export default function ResiliencePanel({
     );
 
     const buffer = data.lossToler - data.p95;
-    const bufferClass = buffer >= 0 ? 'text-success' : 'text-destructive';
 
     return (
         <div className="app-prop-calculator__resilience flex flex-col gap-4">
@@ -50,18 +49,10 @@ export default function ResiliencePanel({
                         value: data.p95,
                     },
                     {
-                        caption: (
-                            <span className={bufferClass}>
-                                {buffer >= 0 ? 'safe margin' : 'at risk'}
-                            </span>
-                        ),
+                        caption: buffer >= 0 ? 'safe margin' : 'at risk',
                         id: 'buffer',
                         label: 'Buffer',
-                        value: (
-                            <span className={bufferClass}>
-                                {buffer >= 0 ? `+${buffer}` : buffer}
-                            </span>
-                        ),
+                        value: buffer >= 0 ? `+${buffer}` : buffer,
                     },
                 ]}
             />
@@ -142,15 +133,6 @@ function ResilienceTable({ rows }: { rows: readonly ResilienceRow[] }) {
             columns={columns}
             data={[...rows]}
             pageSize={null}
-            rowClassName={(r) =>
-                cn(
-                    !r.survives &&
-                        (r.prob ?? 1) > 0.05 &&
-                        'bg-destructive/10 text-destructive',
-                    !r.survives && (r.prob ?? 1) <= 0.05 && 'text-warning',
-                    r.isTolerance && 'font-semibold',
-                )
-            }
             rowId={(r) => String(r.n)}
             tableClassName={cn(
                 'app-prop-calculator__resilience-table',

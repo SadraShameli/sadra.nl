@@ -1251,6 +1251,16 @@ describe('OverviewView', () => {
                 alert.textContent.includes('Your firms could not be loaded'),
         );
         expect(alerts).toHaveLength(2);
+        expect(
+            alerts.map(
+                (alert) =>
+                    alert.querySelector('[data-slot="alert-description"]')
+                        ?.textContent,
+            ),
+        ).toEqual([
+            'Failed to fetch. Accounts at a firm you added show it as an unlisted firm in the cards below until your firms load.',
+            'Failed to fetch. Accounts at a firm you added show it as an unlisted firm until your firms load.',
+        ]);
     });
 
     it('shows no card and the accounts table empty state when there are no accounts', async () => {
@@ -1398,6 +1408,9 @@ describe('OverviewView', () => {
         openOverviewTab(container, OverviewTab.Money);
         expect(sectionNamed('Firms')?.textContent).toContain(
             'Your firm statuses could not be loaded',
+        );
+        expect(sectionNamed('Firms')?.textContent).toContain(
+            'statuses down. Every firm counts as active until they load.',
         );
     });
 

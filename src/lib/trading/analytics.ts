@@ -101,6 +101,17 @@ export interface FilterCriteria {
     windowIds?: string[];
 }
 
+export interface OutcomeTally {
+    readonly avgR: number;
+    readonly outcomes: number;
+    readonly sumR: number;
+    readonly winRate: number;
+    readonly winRateWithR: number;
+    readonly wins: number;
+    readonly winsWithR: number;
+    readonly withR: number;
+}
+
 export interface StreakStats {
     bestLoss: number;
     bestWin: number;
@@ -122,12 +133,7 @@ export function componentScoreCorrelation(
     const buckets: { rs: number[] }[] = [];
     for (let index = 0; index < 5; index++) buckets.push({ rs: [] });
     for (const r of rows) {
-        if (
-            !isCountedOutcome(r.outcome) ||
-            r.outcomeR === null ||
-            !Number.isFinite(r.outcomeR)
-        )
-            continue;
+        if (!hasOutcomeR(r)) continue;
         const cs = r.componentScores?.[category];
         if (!cs || cs.max <= 0) continue;
         const pct = cs.earned / cs.max;
@@ -226,12 +232,7 @@ export function cumulativeRSeries(
     rows: LightAssessment[],
 ): { cumR: number; date: string; r: number }[] {
     const valid = rows
-        .filter(
-            (r): r is LightAssessment & { outcomeR: number } =>
-                isCountedOutcome(r.outcome) &&
-                r.outcomeR !== null &&
-                Number.isFinite(r.outcomeR),
-        )
+        .filter((r) => hasOutcomeR(r))
         .toSorted(
             (a, b) =>
                 toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime(),
@@ -470,12 +471,7 @@ export function equityCurveFromR(
     options: { dollarRiskPerTrade: number; startingBalance: number },
 ): EquityPoint[] {
     const valid = rows
-        .filter(
-            (r): r is LightAssessment & { outcomeR: number } =>
-                isCountedOutcome(r.outcome) &&
-                r.outcomeR !== null &&
-                Number.isFinite(r.outcomeR),
-        )
+        .filter((r) => hasOutcomeR(r))
         .toSorted(
             (a, b) =>
                 toDate(a.createdAt).getTime() - toDate(b.createdAt).getTime(),
@@ -527,19 +523,11 @@ export function expectancyR(rows: LightAssessment[]): {
     sample: number;
     winRate: number;
 } {
-    const counted = rows.filter(
-        (r): r is LightAssessment & { outcomeR: number } =>
-            isCountedOutcome(r.outcome) &&
-            r.outcomeR !== null &&
-            Number.isFinite(r.outcomeR),
-    );
-    if (counted.length === 0) return { avgR: 0, sample: 0, winRate: 0 };
-    const sumR = counted.reduce((s, r) => s + r.outcomeR, 0);
-    const wins = counted.filter((r) => r.outcome === 'win').length;
+    const tally = outcomeTally(rows);
     return {
-        avgR: sumR / counted.length,
-        sample: counted.length,
-        winRate: wins / counted.length,
+        avgR: tally.avgR,
+        sample: tally.withR,
+        winRate: tally.winRateWithR,
     };
 }
 
@@ -591,12 +579,7 @@ export function gradeCalibration(
 ): { avgR: number; count: number; grade: Grade }[] {
     const buckets = new Map<string, { rs: number[] }>();
     for (const r of rows) {
-        if (
-            !isCountedOutcome(r.outcome) ||
-            r.outcomeR === null ||
-            !Number.isFinite(r.outcomeR)
-        )
-            continue;
+        if (!hasOutcomeR(r)) continue;
         const b = buckets.get(r.grade) ?? { rs: [] };
         b.rs.push(r.outcomeR);
         buckets.set(r.grade, b);
@@ -613,6 +596,20 @@ export function gradeCalibration(
             grade: g,
         };
     });
+}
+
+export function hasOutcome(row: Pick<LightAssessment, 'outcome'>): boolean {
+    return isCountedOutcome(row.outcome);
+}
+
+export function hasOutcomeR<T extends LightAssessment>(
+    row: T,
+): row is T & { outcomeR: number } {
+    return (
+        hasOutcome(row) &&
+        row.outcomeR !== null &&
+        Number.isFinite(row.outcomeR)
+    );
 }
 
 export function outcomeDistribution(rows: LightAssessment[]): {
@@ -640,6 +637,24 @@ export function outcomeDistribution(rows: LightAssessment[]): {
             share: total > 0 ? counts[outcome] / total : 0,
         }),
     );
+}
+
+export function outcomeTally(rows: readonly LightAssessment[]): OutcomeTally {
+    const outcomes = rows.filter((r) => hasOutcome(r));
+    const withR = outcomes.filter((r) => hasOutcomeR(r));
+    const wins = winsIn(outcomes);
+    const winsWithR = winsIn(withR);
+    const sumR = withR.reduce((s, r) => s + r.outcomeR, 0);
+    return {
+        avgR: withR.length > 0 ? sumR / withR.length : 0,
+        outcomes: outcomes.length,
+        sumR,
+        winRate: outcomes.length > 0 ? wins / outcomes.length : 0,
+        winRateWithR: withR.length > 0 ? winsWithR / withR.length : 0,
+        wins,
+        winsWithR,
+        withR: withR.length,
+    };
 }
 
 export function perWindowStats(rows: LightAssessment[]): {
@@ -747,4 +762,8 @@ function tallyOutcome(cell: DayCell, outcome: null | string): void {
             break;
         }
     }
+}
+
+function winsIn(rows: readonly LightAssessment[]): number {
+    return rows.filter((r) => r.outcome === 'win').length;
 }

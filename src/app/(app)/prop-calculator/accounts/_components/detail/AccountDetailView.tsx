@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Pencil, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
@@ -38,6 +38,12 @@ import {
     OverviewSectionStatus,
     PortfolioSource,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import {
+    ErrorNoticeTitle,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { periodTerminated } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
+import { StoredDateFix } from '~/app/(app)/prop-calculator/accounts/_components/storedDateFix';
 import { useAccountDetailValues } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import { InfoNote } from '~/components/InfoNote';
 import { PageHeader } from '~/components/PageHeader';
@@ -45,7 +51,6 @@ import { PanelSubheading } from '~/components/PanelSubheading';
 import { deleteRowAction, rowActionsColumn } from '~/components/RowActionsMenu';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard } from '~/components/ToggleCard';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
@@ -360,13 +365,11 @@ export function AccountDetailView({
         return accountQuery.error === null ? (
             <AccountDetailSkeleton />
         ) : (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle as="h2">The account could not be loaded</AlertTitle>
-                <AlertDescription>
-                    {accountQuery.error.message}
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                message={accountQuery.error.message}
+                title={ErrorNoticeTitle.Account}
+                titleAs="h2"
+            />
         );
     }
 
@@ -397,14 +400,11 @@ export function AccountDetailView({
                 />
             )}
             {externalFirmsQuery.isError && account.externalFirmId !== null && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>Your firms could not be loaded</AlertTitle>
-                    <AlertDescription>
-                        {externalFirmsQuery.error.message} This account shows it
-                        as an unlisted firm until your firms load.
-                    </AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    consequence="This account shows it as an unlisted firm until your firms load."
+                    message={externalFirmsQuery.error.message}
+                    title={ErrorNoticeTitle.Firms}
+                />
             )}
             {isReadOnly && (
                 <StatusRow
@@ -557,7 +557,7 @@ export function AccountDetailView({
 function AccountAlerts({ alerts }: { readonly alerts: OverviewAlerts }) {
     switch (alerts.kind) {
         case OverviewSectionStatus.Failed: {
-            return <p className="text-sm text-destructive">{alerts.message}</p>;
+            return <QueryErrorNotice message={alerts.message} />;
         }
         case OverviewSectionStatus.Pending: {
             return (
@@ -770,28 +770,20 @@ function AccountStateSection({
 
     const firmCountFailure = firmPayoutCount.kind ===
         FirmPayoutCountKind.Failed && (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>The firm payout count could not be loaded</AlertTitle>
-            <AlertDescription>
-                {firmPayoutCount.message} The account state is not shown,
-                because it counts the payouts the whole firm has paid or
-                requested toward a firm-wide live trigger.
-            </AlertDescription>
-        </Alert>
+        <QueryErrorNotice
+            consequence="The account state is not shown, because it counts the payouts the whole firm has paid or requested toward a firm-wide live trigger."
+            message={firmPayoutCount.message}
+            title={ErrorNoticeTitle.FirmPayoutCount}
+        />
     );
 
     const rulebookFailure = rulebook === undefined &&
         rulebookError !== null && (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>Your rulebook could not be loaded</AlertTitle>
-                <AlertDescription>
-                    {rulebookError} The account state is not shown, because a
-                    live account is sized from your rulebook&apos;s live cushion
-                    percent.
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                consequence="The account state is not shown, because a live account is sized from your rulebook's live cushion percent."
+                message={rulebookError}
+                title={ErrorNoticeTitle.Rulebook}
+            />
         );
 
     if (view === null) {
@@ -900,7 +892,7 @@ function lagLineOf(line: null | RebuyLagLine): LagLine | null {
     return line.kind === RebuyLagLineKind.Failed
         ? {
               kind: LagLineKind.Failed,
-              text: `The rebuy lag could not be measured: ${line.message} Fix the stored date listed in the alerts on the accounts overview.`,
+              text: `${ErrorNoticeTitle.RebuyLag}: ${periodTerminated(line.message)} ${StoredDateFix.OnOverview}`,
           }
         : {
               kind: LagLineKind.Measured,
@@ -994,17 +986,14 @@ function ReplacementChain({
                             ))}
                         </p>
                     )}
-                    {view.lag !== null && (
-                        <p
-                            className={
-                                view.lag.kind === LagLineKind.Failed
-                                    ? 'text-destructive'
-                                    : 'text-muted-foreground'
-                            }
-                        >
-                            {view.lag.text}
-                        </p>
-                    )}
+                    {view.lag !== null &&
+                        (view.lag.kind === LagLineKind.Failed ? (
+                            <QueryErrorNotice message={view.lag.text} />
+                        ) : (
+                            <p className="text-muted-foreground">
+                                {view.lag.text}
+                            </p>
+                        ))}
                 </div>
             )}
         </>
@@ -1227,18 +1216,17 @@ function StoredRecordNotice({
     readonly onResolved: () => void;
 }) {
     return (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>A stored record needs your attention</AlertTitle>
-            <AlertDescription>
-                <p>{issue.message}</p>
+        <QueryErrorNotice
+            actions={
                 <StoredRecordActions
                     account={account}
                     onResolved={onResolved}
                     rejection={issue.rejection}
                 />
-            </AlertDescription>
-        </Alert>
+            }
+            message={issue.message}
+            title="A stored record needs your attention"
+        />
     );
 }
 

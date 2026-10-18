@@ -97,7 +97,7 @@ export function SessionsList() {
                 enableSorting: false,
                 header: '',
                 id: 'icon',
-                meta: { isPhoneHidden: true },
+                meta: { isHiddenInCards: true },
             },
             {
                 accessorFn: (r) => describeUserAgent(r.userAgent).label,

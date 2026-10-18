@@ -12,10 +12,10 @@ const LOCATION = {
 
 const AIR_PRESSURE = {
     highest: 1014,
-    latestReading: { date: '10:00', value: 1012.19 },
+    latestReading: { at: Date.parse('2026-05-15T10:00:00Z'), value: 1012.19 },
     lowest: 1010,
     period_label: '24h',
-    readings: [{ date: '10:00', value: 1012.19 }],
+    readings: [{ at: Date.parse('2026-05-15T10:00:00Z'), value: 1012.19 }],
     sensor: { name: 'Air Pressure', unit: 'hPa' },
 };
 

@@ -122,7 +122,7 @@ export function StepperIndicator({
             className={cn(
                 'inline-flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors',
                 state === 'completed' &&
-                    'border-success/40 bg-success/15 text-success',
+                    'border-line-strong bg-background text-ink',
                 state === 'active' &&
                     'border-primary bg-primary text-primary-foreground',
                 state === 'inactive' &&

@@ -86,21 +86,21 @@ export const DATA_TABLE_ALIGN_CLASS_NAME: Record<DataTableAlign, string> = {
     [DataTableAlign.Start]: 'text-left',
 };
 
-export const DataTablePhoneLayout = {
+export const DataTableNarrowLayout = {
     Cards: 'cards',
     Scroll: 'scroll',
 } as const;
 
 export type DataTableColumnMeta = {
     align?: DataTableAlign;
-    isPhoneHidden?: boolean;
+    isHiddenInCards?: boolean;
     isRowActions?: boolean;
     isRowHeader?: boolean;
     label?: string;
 };
 
-export type DataTablePhoneLayout =
-    (typeof DataTablePhoneLayout)[keyof typeof DataTablePhoneLayout];
+export type DataTableNarrowLayout =
+    (typeof DataTableNarrowLayout)[keyof typeof DataTableNarrowLayout];
 
 export const dataTableFeatures = tableFeatures({
     columnFacetingFeature,

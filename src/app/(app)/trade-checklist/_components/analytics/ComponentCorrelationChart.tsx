@@ -57,8 +57,6 @@ export function ComponentCorrelationChart({
             componentScoreCorrelation(assessments, category).map((d) => ({
                 ...d,
                 bucket: `${d.pctOfMax - 20}–${d.pctOfMax}%`,
-                fill: d.avgR > 0 ? 'var(--success)' : 'var(--destructive)',
-                fillOpacity: d.count < 3 ? 0.35 : 0.85,
             })),
         [assessments, category],
     );
@@ -109,7 +107,11 @@ export function ComponentCorrelationChart({
                             stroke="var(--muted-foreground)"
                             y={0}
                         />
-                        <Bar {...CHART_BAR_PROPS} dataKey="avgR">
+                        <Bar
+                            {...CHART_BAR_PROPS}
+                            dataKey="avgR"
+                            fill="var(--color-avgR)"
+                        >
                             <LabelList
                                 dataKey="count"
                                 fill="var(--muted-foreground)"

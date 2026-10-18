@@ -4,11 +4,7 @@ import { useMemo } from 'react';
 
 import { MissingValue } from '~/components/MissingValue';
 import { PanelSubheading } from '~/components/PanelSubheading';
-import {
-    StatStrip,
-    type StatStripItem,
-    StatTone,
-} from '~/components/StatStrip';
+import { StatStrip, type StatStripItem } from '~/components/StatStrip';
 import { Separator } from '~/components/ui/separator';
 import {
     formatCompactCurrency,
@@ -47,7 +43,6 @@ interface RatioItemOptions {
     bench: string;
     id: string;
     label: string;
-    tone: StatTone;
     value: string;
 }
 
@@ -273,20 +268,12 @@ export default function StrategyAnalysis({
                             caption: `${formatSignedPercent(breakdown.monthlyPct, 2)} a month · ${formatSignedPercent(breakdown.weeklyPct, 2)} a week · ${formatSignedPercent(breakdown.perTradePct, 3)} a trade, before account fees`,
                             id: 'annualized-roi',
                             label: 'Annualized ROI',
-                            tone:
-                                breakdown.yearlyPct > 0
-                                    ? StatTone.Positive
-                                    : StatTone.Negative,
                             value: `${formatSignedPercent(breakdown.yearlyPct, 2)} a year`,
                         },
                         {
                             caption: `${rrRatio.toFixed(2)}:1 reward-to-risk`,
                             id: 'avg-trade-size',
                             label: 'Avg trade size',
-                            tone:
-                                averageTrade === null
-                                    ? StatTone.Muted
-                                    : StatTone.Default,
                             value: (
                                 <ValueOrMissing
                                     reason={NO_TRADE_REASON}
@@ -319,12 +306,6 @@ export default function StrategyAnalysis({
                             caption: `+${rrRatio.toFixed(2)}R win · −1.00R loss`,
                             id: 'sum-r-per-pass',
                             label: 'Sum R per pass',
-                            tone:
-                                breakdown.sumR > 0
-                                    ? StatTone.Positive
-                                    : breakdown.sumR < 0
-                                      ? StatTone.Negative
-                                      : StatTone.Default,
                             value: (
                                 <ValueOrMissing
                                     reason={NO_PASS_REASON}
@@ -367,7 +348,6 @@ export default function StrategyAnalysis({
                             bench: pfBench(ratios.profitFactor),
                             id: 'profit-factor',
                             label: 'Profit factor',
-                            tone: pfTone(ratios.profitFactor),
                             value: Number.isFinite(ratios.profitFactor)
                                 ? ratios.profitFactor.toFixed(2)
                                 : '∞',
@@ -376,21 +356,18 @@ export default function StrategyAnalysis({
                             bench: riskAdjustedRatioBench(ratios.sharpe),
                             id: 'sharpe',
                             label: 'Sharpe (ann.)',
-                            tone: riskAdjustedRatioTone(ratios.sharpe),
                             value: ratios.sharpe.toFixed(2),
                         }),
                         ratioItem({
                             bench: riskAdjustedRatioBench(ratios.sortino),
                             id: 'sortino',
                             label: 'Sortino (ann.)',
-                            tone: riskAdjustedRatioTone(ratios.sortino),
                             value: ratios.sortino.toFixed(2),
                         }),
                         ratioItem({
                             bench: calmarBench(ratios.calmar),
                             id: 'calmar',
                             label: 'Calmar',
-                            tone: calmarTone(ratios.calmar),
                             value: ratios.calmar.toFixed(2),
                         }),
                         ratioItem({
@@ -400,17 +377,12 @@ export default function StrategyAnalysis({
                                     : 'net < max DD',
                             id: 'recovery-factor',
                             label: 'Recovery factor',
-                            tone:
-                                ratios.recovery > 1
-                                    ? StatTone.Positive
-                                    : StatTone.Negative,
                             value: ratios.recovery.toFixed(2),
                         }),
                         ratioItem({
                             bench: omegaBench(ratios.omega),
                             id: 'omega',
                             label: 'Omega ratio',
-                            tone: omegaTone(ratios.omega),
                             value: omegaString,
                         }),
                         ratioItem({
@@ -422,7 +394,6 @@ export default function StrategyAnalysis({
                                       : 'losing',
                             id: 'gain-to-pain',
                             label: 'Gain-to-pain',
-                            tone: gainToPainTone(ratios.gainToPain),
                             value: Number.isFinite(ratios.gainToPain)
                                 ? ratios.gainToPain.toFixed(2)
                                 : '∞',
@@ -436,7 +407,6 @@ export default function StrategyAnalysis({
                                       : 'high DD pain',
                             id: 'ulcer-index',
                             label: 'Ulcer index',
-                            tone: ulcerTone(ratios.ulcerIndex),
                             value: ratios.ulcerIndex.toFixed(1),
                         }),
                     ]}
@@ -458,19 +428,11 @@ export default function StrategyAnalysis({
                                 {
                                     id: 'per-trade-r',
                                     label: 'Per trade (R)',
-                                    tone:
-                                        result.expectancyR > 0
-                                            ? StatTone.Positive
-                                            : StatTone.Negative,
                                     value: formatR(result.expectancyR),
                                 },
                                 {
                                     id: 'per-trade-dollars',
                                     label: 'Per trade ($)',
-                                    tone:
-                                        result.expectancyDollars > 0
-                                            ? StatTone.Positive
-                                            : StatTone.Negative,
                                     value: formatCurrency(
                                         result.expectancyDollars,
                                     ),
@@ -483,22 +445,12 @@ export default function StrategyAnalysis({
                                 {
                                     id: 'edge-margin',
                                     label: 'Edge margin',
-                                    tone:
-                                        edge.edgeMargin > 0
-                                            ? StatTone.Positive
-                                            : StatTone.Negative,
                                     value: `${edge.edgeMargin > 0 ? '+' : ''}${(edge.edgeMargin * 100).toFixed(1)}pp`,
                                 },
                                 {
                                     caption: 'EV per attempt / attempt cost',
                                     id: 'edge-leverage',
                                     label: 'Edge leverage',
-                                    tone:
-                                        edgeLeverage === null
-                                            ? StatTone.Muted
-                                            : edgeLeverage > 0
-                                              ? StatTone.Positive
-                                              : StatTone.Negative,
                                     value: (
                                         <ValueOrMissing
                                             value={
@@ -512,10 +464,6 @@ export default function StrategyAnalysis({
                                 {
                                     id: 'net-r-to-pass',
                                     label: 'Net R to pass',
-                                    tone:
-                                        netRToPass === null
-                                            ? StatTone.Muted
-                                            : StatTone.Default,
                                     value: (
                                         <ValueOrMissing
                                             value={
@@ -614,16 +562,6 @@ function calmarBench(v: number): string {
     return v > 1 ? 'acceptable' : 'poor';
 }
 
-function calmarTone(v: number): StatTone {
-    if (v > 3 || v > 2) return StatTone.Positive;
-    return v > 1 ? StatTone.Warning : StatTone.Negative;
-}
-
-function gainToPainTone(v: number): StatTone {
-    if (v > 3 || v > 1.5) return StatTone.Positive;
-    return v > 1 ? StatTone.Warning : StatTone.Negative;
-}
-
 function kellyIndexItem(basis: string, index: KellyIndex): StatStripItem {
     switch (index.status) {
         case KellyIndexStatus.NoEdge: {
@@ -637,7 +575,6 @@ function kellyIndexItem(basis: string, index: KellyIndex): StatStripItem {
             return {
                 id: 'kelly-index',
                 label: 'Kelly index',
-                tone: StatTone.Muted,
                 value: <MissingValue reason={NO_TRADE_REASON} />,
             };
         }
@@ -656,30 +593,20 @@ function omegaBench(v: number): string {
     if (v > 2) return 'strong';
     return v > 1 ? 'acceptable' : 'losing';
 }
-function omegaTone(v: number): StatTone {
-    if (v > 2) return StatTone.Positive;
-    return v > 1 ? StatTone.Warning : StatTone.Negative;
-}
 function pfBench(v: number): string {
     if (v > 1.5) return 'healthy';
     return v > 1 ? 'marginal' : 'losing';
-}
-function pfTone(v: number): StatTone {
-    if (v > 1.5) return StatTone.Positive;
-    return v > 1 ? StatTone.Warning : StatTone.Negative;
 }
 function ratioItem({
     bench,
     id,
     label,
-    tone,
     value,
 }: RatioItemOptions): StatStripItem {
     return {
         caption: bench,
         id,
         label,
-        tone,
         value,
     };
 }
@@ -687,10 +614,6 @@ function riskAdjustedRatioBench(v: number): string {
     if (v > 2) return 'excellent';
     if (v > 1) return 'good';
     return v > 0.5 ? 'acceptable' : 'poor';
-}
-function riskAdjustedRatioTone(v: number): StatTone {
-    if (v > 2 || v > 1) return StatTone.Positive;
-    return v > 0.5 ? StatTone.Warning : StatTone.Negative;
 }
 function SectionHeader({
     description,
@@ -700,10 +623,6 @@ function SectionHeader({
     title: string;
 }) {
     return <PanelSubheading info={description}>{title}</PanelSubheading>;
-}
-function ulcerTone(v: number): StatTone {
-    if (v < 3) return StatTone.Positive;
-    return v < 8 ? StatTone.Warning : StatTone.Negative;
 }
 function zLabel(z: number): string {
     if (z >= 1.645) return 'strong (95% CI)';
@@ -719,7 +638,6 @@ function zScoreItems(
             {
                 id: 'z-score',
                 label: 'Z-score',
-                tone: StatTone.Muted,
                 value: 'no edge',
             },
         ];
@@ -728,7 +646,6 @@ function zScoreItems(
         {
             id: 'z-score',
             label: 'Z-score',
-            tone: zTone(zScore),
             value: (
                 <>
                     {zScore.toFixed(2)}{' '}
@@ -746,9 +663,4 @@ function zScoreItems(
             ),
         },
     ];
-}
-
-function zTone(z: number): StatTone {
-    if (z >= 1.645) return StatTone.Positive;
-    return z >= 1.28 ? StatTone.Warning : StatTone.Negative;
 }

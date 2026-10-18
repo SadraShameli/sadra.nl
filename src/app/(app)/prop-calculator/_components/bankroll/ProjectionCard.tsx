@@ -70,10 +70,10 @@ interface ProjectionCardProperties {
 
 const monthEndChartConfig: ChartConfig = {
     band: {
-        color: 'color-mix(in oklab, var(--success) 18%, transparent)',
+        color: 'color-mix(in oklab, var(--chart-1) 18%, transparent)',
         label: 'P10 to P90',
     },
-    median: { color: 'var(--success)', label: 'Median bankroll' },
+    median: { color: 'var(--chart-1)', label: 'Median bankroll' },
 };
 
 export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
@@ -345,7 +345,7 @@ function MonthEndBands({
                     />
                     <Area
                         dataKey="range"
-                        fill="var(--success)"
+                        fill="var(--color-median)"
                         fillOpacity={0.18}
                         isAnimationActive={false}
                         legendType="none"
@@ -356,7 +356,7 @@ function MonthEndBands({
                         dataKey="median"
                         dot={false}
                         isAnimationActive={false}
-                        stroke="var(--success)"
+                        stroke="var(--color-median)"
                         strokeWidth={CHART_STROKE_WIDTH}
                         type="monotone"
                     />

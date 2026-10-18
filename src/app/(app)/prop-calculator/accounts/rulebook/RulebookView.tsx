@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useId, useRef, useState } from 'react';
 import { type Control, Controller, useForm, useWatch } from 'react-hook-form';
@@ -10,11 +9,11 @@ import { toast } from 'sonner';
 import { STICKY_ACTION_BAR_PROPS } from '~/app/(app)/_components/ScrollToTop';
 import { DAY_STOP_KIND_LABELS } from '~/app/(app)/prop-calculator/_components/describeDayStopRule';
 import { RulebookSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { SwitchCard } from '~/components/ToggleCard';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
@@ -34,6 +33,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
+import { WarningNote } from '~/components/WarningNote';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatPercent } from '~/lib/format';
 import { formatUsdCents, usdCents } from '~/lib/prop-accounts';
@@ -643,16 +643,10 @@ function ImportCard({
                 </p>
             )}
             {tradingPlan.kind === TradingPlanSourceKind.Unreadable && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>
-                        &ldquo;{tradingPlan.name}&rdquo; could not be read
-                    </AlertTitle>
-                    <AlertDescription>
-                        Its saved settings do not pass validation, so nothing is
-                        imported. Open and save it on your profile first.
-                    </AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    message="Its saved settings do not pass validation, so nothing is imported. Open and save it on your profile first."
+                    title={`“${tradingPlan.name}” could not be read`}
+                />
             )}
             {tradingPlan.kind === TradingPlanSourceKind.Ready && (
                 <>
@@ -832,13 +826,10 @@ function LiveTransferCard({
             title="Live transfer (your assumption, not a firm rule)"
         >
             {failed && (
-                <p
-                    className="text-xs text-destructive md:col-span-2"
-                    role="status"
-                >
-                    Measured rates unavailable: your ledger could not be loaded,
-                    so no measured rate is suggested.
-                </p>
+                <QueryErrorNotice
+                    className="md:col-span-2"
+                    message="Measured rates unavailable: your ledger could not be loaded, so no measured rate is suggested."
+                />
             )}
             {Object.values(FirmId).map((firmId) => (
                 <HazardField
@@ -1167,9 +1158,7 @@ function RulebookForm({
             <LiveTransferCard control={form.control} />
 
             {form.formState.errors.root?.message !== undefined && (
-                <p className="text-sm text-destructive" role="alert">
-                    {form.formState.errors.root.message}
-                </p>
+                <FieldError>{form.formState.errors.root.message}</FieldError>
             )}
 
             <div
@@ -1190,7 +1179,7 @@ function RulebookForm({
                     Discard changes
                 </Button>
                 {form.formState.isDirty && (
-                    <p className="text-sm text-warning" role="status">
+                    <p className="text-sm" role="status">
                         Unsaved changes
                     </p>
                 )}
@@ -1207,13 +1196,12 @@ function RulebookForm({
     );
 }
 
-function RulebookLoadError({ message }: { message: string }) {
+function RulebookLoadError({ message }: { readonly message: string }) {
     return (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>The rulebook could not be loaded</AlertTitle>
-            <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <QueryErrorNotice
+            message={message}
+            title="The rulebook could not be loaded"
+        />
     );
 }
 
@@ -1349,9 +1337,11 @@ function StrategyCard({ control }: { control: Control<RulebookFormValues> }) {
             <TextField control={control} name="strategy.winrate" />
             <TextField control={control} name="strategy.rr" />
             <TextField control={control} name="strategy.tradesPerDayMax" />
-            <p className="text-xs text-warning" role="status">
-                {note ?? ''}
-            </p>
+            <div role="status">
+                {note !== null && (
+                    <WarningNote className="text-xs">{note}</WarningNote>
+                )}
+            </div>
         </SectionCard>
     );
 }

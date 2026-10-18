@@ -7,14 +7,17 @@ import {
     hasFigure,
     isPendingFigure,
 } from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
+import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
+import { MissingValue } from '~/components/MissingValue';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { ChartSize, ChartSkeleton } from '~/components/ui/chart';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
-    DataTablePhoneLayout,
+    DataTableNarrowLayout,
 } from '~/components/ui/data-table';
+import { WarningNote } from '~/components/WarningNote';
 import { cn } from '~/lib/utilities';
 
 import { type FundedPayoutsCardModel } from './overviewModel';
@@ -27,8 +30,9 @@ import { OverviewSectionId } from './overviewSections';
 
 const PAYOUT_COUNT_CAPTION = '# payouts per funded account';
 
-const NO_MODELED_DISTRIBUTION_TEXT =
-    'Modeled distribution: the engine has none for this plan.';
+const MODELED_DISTRIBUTION_LABEL = 'Modeled distribution:';
+
+const NO_MODELED_DISTRIBUTION_TEXT = `${MODELED_DISTRIBUTION_LABEL} the engine has none for this plan.`;
 
 const NO_REALIZED_DISTRIBUTION_TEXT =
     'Realized distribution: no fully observed funded account yet.';
@@ -99,14 +103,14 @@ function fundedPayoutsColumns(
         {
             cell: ({ row: { original: line } }) =>
                 realizedOnly(line, (row) => (
-                    <span className="text-muted-foreground">
+                    <div>
                         <FigureText text={row.modeledFundedValue} />
                         {row.fundedValueFlag !== null && (
-                            <span className="block text-xs text-warning">
+                            <WarningNote className="flex justify-end text-xs">
                                 {row.fundedValueFlag}
-                            </span>
+                            </WarningNote>
                         )}
-                    </span>
+                    </div>
                 )),
             header: 'Modeled funded value',
             id: FundedPayoutsColumn.ModeledFundedValue,
@@ -166,13 +170,8 @@ export const FundedPayoutsCard = memo(function FundedPayoutsCard({
                 )}
                 data={linesOf(model.rows)}
                 isSortable={false}
+                narrowLayout={DataTableNarrowLayout.Scroll}
                 pageSize={null}
-                phoneLayout={DataTablePhoneLayout.Scroll}
-                rowClassName={(line) =>
-                    line.kind === FundedPayoutsLine.Modeled
-                        ? 'text-muted-foreground'
-                        : undefined
-                }
                 rowId={(line) => `${line.row.key}-${line.kind}`}
             />
             <div className="flex flex-col gap-4">
@@ -227,11 +226,24 @@ function DistributionPair({
                     {NO_REALIZED_DISTRIBUTION_TEXT}
                 </p>
             )}
-            {!hasModeled && (
-                <p className="text-xs text-muted-foreground">
-                    {NO_MODELED_DISTRIBUTION_TEXT}
-                </p>
-            )}
+            {!hasModeled && <NoModeledDistribution row={row} />}
         </div>
+    );
+}
+
+function NoModeledDistribution({
+    row,
+}: {
+    readonly row: FundedPayoutsPlanRow;
+}) {
+    return row.modeledUnavailableReason === null ? (
+        <p className="text-xs text-muted-foreground">
+            {NO_MODELED_DISTRIBUTION_TEXT}
+        </p>
+    ) : (
+        <p className="text-xs text-muted-foreground">
+            {MODELED_DISTRIBUTION_LABEL}{' '}
+            <MissingValue reason={sentenceOf(row.modeledUnavailableReason)} />
+        </p>
     );
 }

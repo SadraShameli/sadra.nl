@@ -20,19 +20,11 @@ import {
     formatStreak,
 } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utilities';
 
 import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
 import AttemptEconomicsCard from './economics/AttemptEconomicsCard';
 import { attemptEconomicsCardModel } from './economics/attemptEconomicsModel';
 import { describeFirstPayoutGate } from './firstPayoutGate';
-import {
-    KPI_ACCENT_STAT_TONE,
-    KpiAccent,
-    probabilityAccent,
-    roiAccent,
-    signAccent,
-} from './kpiAccent';
 import { kpiDescriptions } from './kpiDescriptions';
 import {
     NO_COST_ROI_REASON,
@@ -53,7 +45,6 @@ interface DeltaChip {
 }
 
 interface KpiItemProperties {
-    accent?: KpiAccent;
     delta?: DeltaChip | null;
     id: string;
     info: ReactNode;
@@ -132,12 +123,6 @@ export default function ResultsPanel({
               text: dDays.text,
           }
         : null;
-    const evalPassAccent = probabilityAccent(result.evalPassProbability);
-    const fundedSurvivalAccent = probabilityAccent(
-        result.fundedSurvivalProbability,
-    );
-    const netAccent = signAccent(result.expectedMonthlyNet);
-    const roiOnCostAccent = roiAccent(result.roiOnCost);
     const isShowCycleEconomics = result.expectedAttempts > 1.01;
 
     return (
@@ -165,17 +150,14 @@ export default function ResultsPanel({
                     )}
                 </Toggle>
             }
-            className={cn(
-                'app-prop-calculator__results',
-                'transition-opacity',
-                isPending && 'opacity-60',
-            )}
+            className="app-prop-calculator__results"
             data-state={isPending ? 'pending' : 'idle'}
             description={
                 pinned
                     ? `Pinned: ${formatCount(pinned.accountSize)} · comparing live vs pinned`
                     : 'Pin a scenario to compare deltas'
             }
+            isComputing={isPending}
             title="Results"
             titleAs="h3"
         >
@@ -186,7 +168,6 @@ export default function ResultsPanel({
                 <StatStrip
                     items={[
                         kpiItem({
-                            accent: evalPassAccent,
                             delta: dEvalPass,
                             id: 'eval-pass',
                             info: (
@@ -219,7 +200,6 @@ export default function ResultsPanel({
                             value: formatPercent(result.evalPassProbability),
                         }),
                         kpiItem({
-                            accent: fundedSurvivalAccent,
                             delta: dFundedSurvival,
                             id: 'funded-survive',
                             info: (
@@ -315,7 +295,6 @@ export default function ResultsPanel({
                             ),
                         }),
                         kpiItem({
-                            accent: netAccent,
                             delta: dNet,
                             id: 'monthly-net',
                             info: (
@@ -344,11 +323,6 @@ export default function ResultsPanel({
                         ...(attemptEconomics
                             ? [
                                   kpiItem({
-                                      accent: signAccent(
-                                          attemptEconomics.economics
-                                              ?.expectedNetPerAttempt.value ??
-                                              null,
-                                      ),
                                       id: 'ev-per-attempt',
                                       info: (
                                           <>
@@ -413,10 +387,6 @@ export default function ResultsPanel({
                             value: `${formatStreak(result.maxLosingStreakP50)} / ${formatStreak(result.maxLosingStreakP95)}`,
                         }),
                         kpiItem({
-                            accent:
-                                result.bustProbability > 0.4
-                                    ? KpiAccent.Negative
-                                    : KpiAccent.Neutral,
                             id: 'bust-before-passing',
                             info: <p>{kpiDescriptions.bustBeforePassing}</p>,
                             label: 'Bust before passing',
@@ -424,10 +394,6 @@ export default function ResultsPanel({
                             value: formatPercent(result.bustProbability),
                         }),
                         kpiItem({
-                            accent:
-                                result.risk5LossesPercent > 0.5
-                                    ? KpiAccent.Negative
-                                    : KpiAccent.Neutral,
                             id: 'risk-5-losses',
                             info: <p>{kpiDescriptions.risk5Losses}</p>,
                             label: 'Risk of 5+ losses',
@@ -438,7 +404,6 @@ export default function ResultsPanel({
                             value: formatPercent(result.risk5LossesPercent),
                         }),
                         kpiItem({
-                            accent: roiOnCostAccent,
                             id: 'roi-on-cost',
                             info: <p>{kpiDescriptions.roiOnCost}</p>,
                             label: 'ROI on cost',
@@ -665,8 +630,12 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
     );
 }
 
+function deltaVerdictText({ positive }: DeltaChip): string {
+    if (positive === null) return '';
+    return positive ? ', better' : ', worse';
+}
+
 function kpiItem({
-    accent = KpiAccent.Neutral,
     delta,
     id,
     info,
@@ -674,24 +643,13 @@ function kpiItem({
     sub,
     value,
 }: KpiItemProperties): StatStripItem {
-    const deltaClass =
-        delta?.positive === true
-            ? 'text-success'
-            : delta?.positive === false
-              ? 'text-destructive'
-              : 'text-muted-foreground';
     return {
         caption: (
             <>
                 {sub}
                 {delta && (
-                    <span
-                        className={cn(
-                            'mt-0.5 block font-mono tabular-nums',
-                            deltaClass,
-                        )}
-                    >
-                        {delta.text} vs pinned
+                    <span className="mt-0.5 block font-mono tabular-nums">
+                        {delta.text} vs pinned{deltaVerdictText(delta)}
                     </span>
                 )}
             </>
@@ -699,7 +657,6 @@ function kpiItem({
         id,
         info,
         label,
-        tone: KPI_ACCENT_STAT_TONE[accent],
         value,
     };
 }

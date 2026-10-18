@@ -5,13 +5,21 @@ import { useMemo } from 'react';
 
 import { MissingValue } from '~/components/MissingValue';
 import { PanelSubheading } from '~/components/PanelSubheading';
-import { StatStrip, StatTone } from '~/components/StatStrip';
+import { StatStrip } from '~/components/StatStrip';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
+
+import { benchCaption } from './benchCaption';
+import { CaptionedFigure } from './CaptionedFigure';
+import {
+    gainChanceBench,
+    lossChanceBench,
+    tailRatioBench,
+} from './tailRiskBench';
 
 const NO_GAIN_SCENARIO_REASON =
     'The gain side is only measured at 10% and 25% of capital.';
@@ -93,12 +101,6 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
     const tailRatioString = Number.isFinite(m.tailRatio)
         ? m.tailRatio.toFixed(2)
         : '∞';
-    const tailTone =
-        m.tailRatio > 1.5
-            ? StatTone.Positive
-            : m.tailRatio > 1
-              ? StatTone.Warning
-              : StatTone.Negative;
 
     return (
         <div className="app-prop-calculator__tail-risk flex flex-col gap-5">
@@ -108,35 +110,33 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
                         caption: 'loss in 1-of-20 trials',
                         id: 'var-95',
                         label: 'VaR 95%',
-                        tone: StatTone.Negative,
                         value: formatCompactCurrency(m.var95),
                     },
                     {
                         caption: 'avg loss in worst 5%',
                         id: 'cvar-95',
                         label: 'CVaR 95% (ES)',
-                        tone: StatTone.Negative,
                         value: formatCompactCurrency(m.cvar95),
                     },
                     {
                         caption: 'loss in 1-of-100 trials',
                         id: 'var-99',
                         label: 'VaR 99%',
-                        tone: StatTone.Negative,
                         value: formatCompactCurrency(m.var99),
                     },
                     {
                         caption: 'avg loss in worst 1%',
                         id: 'cvar-99',
                         label: 'CVaR 99% (ES)',
-                        tone: StatTone.Negative,
                         value: formatCompactCurrency(m.cvar99),
                     },
                     {
-                        caption: 'upside / downside tail',
+                        caption: benchCaption(
+                            'upside / downside tail',
+                            tailRatioBench(m.tailRatio),
+                        ),
                         id: 'tail-ratio',
                         label: 'Tail ratio',
-                        tone: tailTone,
                         value: tailRatioString,
                     },
                 ]}
@@ -197,23 +197,12 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
             },
             {
                 accessorFn: (r) => r.lossP,
-                cell: ({ row }) => {
-                    const p = row.original.lossP;
-                    return (
-                        <span
-                            className={cn(
-                                'font-medium',
-                                p > 0.25
-                                    ? 'text-destructive'
-                                    : p > 0.1
-                                      ? 'text-warning'
-                                      : 'text-success',
-                            )}
-                        >
-                            {formatPercent(p)}
-                        </span>
-                    );
-                },
+                cell: ({ row }) => (
+                    <CaptionedFigure
+                        caption={lossChanceBench(row.original.lossP)}
+                        figure={formatPercent(row.original.lossP)}
+                    />
+                ),
                 header: 'P(loss ≥ threshold)',
                 id: 'lossP',
             },
@@ -221,23 +210,13 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
                 accessorFn: (r) => r.gainP ?? -1,
                 cell: ({ row }) => {
                     const g = row.original.gainP;
-                    if (g === null) {
-                        return (
-                            <MissingValue reason={NO_GAIN_SCENARIO_REASON} />
-                        );
-                    }
-                    return (
-                        <span
-                            className={cn(
-                                g > 0.5
-                                    ? 'text-success'
-                                    : g > 0.25
-                                      ? 'text-warning'
-                                      : 'text-muted-foreground',
-                            )}
-                        >
-                            {formatPercent(g)}
-                        </span>
+                    return g === null ? (
+                        <MissingValue reason={NO_GAIN_SCENARIO_REASON} />
+                    ) : (
+                        <CaptionedFigure
+                            caption={gainChanceBench(g)}
+                            figure={formatPercent(g)}
+                        />
                     );
                 },
                 header: 'P(gain ≥ threshold)',

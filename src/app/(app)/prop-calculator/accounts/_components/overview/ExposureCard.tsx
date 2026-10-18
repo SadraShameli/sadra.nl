@@ -7,7 +7,10 @@ import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sen
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { NOT_APPLICABLE } from '~/lib/format';
 
-import { type ExposureCardModel } from './overviewModel';
+import {
+    type ExposureCardModel,
+    isAwaitingOnlySnapshots,
+} from './overviewModel';
 import {
     infoLinesOf,
     OverviewEmptyPanel,
@@ -43,7 +46,11 @@ export const ExposureCard = memo(function ExposureCard({
 }: {
     readonly model: ExposureCardModel;
 }) {
-    if (model.accounts.length === 0 && model.groups.length === 0) {
+    if (
+        model.accounts.length === 0 &&
+        model.groups.length === 0 &&
+        isAwaitingOnlySnapshots(model.unavailable)
+    ) {
         return (
             <OverviewEmptyPanel
                 action={<EnterBalancesButton />}

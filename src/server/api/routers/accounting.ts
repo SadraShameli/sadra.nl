@@ -24,7 +24,10 @@ import {
     getCredentialTest,
     getFieldOptionsLoader,
 } from '~/lib/accounting/credentials/server';
-import { ProviderRegistry } from '~/lib/accounting/providers/provider';
+import {
+    ProviderRegistry,
+    type ProviderSession,
+} from '~/lib/accounting/providers/provider';
 import { loadRuleSet } from '~/lib/accounting/rules/load';
 import { accountingRunRepo } from '~/lib/accounting/runs/repo';
 import '~/lib/accounting/sources/index';
@@ -208,6 +211,26 @@ function requireTransactionSource(cred: LoadedCredential): ApiSource {
     return source;
 }
 
+async function withAccountingSession<T>(
+    cred: LoadedCredential,
+    run: (session: ProviderSession) => Promise<T>,
+): Promise<T> {
+    const { provider } = requireAccountingSession(cred);
+    const session = await provider.openSession({
+        meta: cred.meta,
+        secret: requireSecret(cred),
+    });
+    try {
+        return await run(session);
+    } finally {
+        try {
+            await session.close();
+        } catch {
+            noop();
+        }
+    }
+}
+
 const idInputSchema = z.object({ id: z.uuid() });
 const credentialIdInputSchema = z.object({ credentialId: z.uuid() });
 
@@ -229,7 +252,7 @@ const ledgersListInputSchema = z.object({
     credentialId: z.uuid(),
 });
 
-const mutationsListInputSchema = z.object({
+const mutationsRangeInputSchema = z.object({
     credentialId: z.uuid(),
     dateFrom: z
         .string()
@@ -239,6 +262,9 @@ const mutationsListInputSchema = z.object({
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .optional(),
+});
+
+const mutationsListInputSchema = mutationsRangeInputSchema.extend({
     limit: z.number().int().min(1).max(2000).default(20),
     offset: z.number().int().min(0).default(0),
 });
@@ -614,26 +640,28 @@ export const accountingRouter = createTRPCRouter({
                     input.credentialId,
                     ctx.userId,
                 );
-                const { provider } = requireAccountingSession(cred);
-                const session = await provider.openSession({
-                    meta: cred.meta,
-                    secret: requireSecret(cred),
-                });
-                try {
-                    return await session.listLedgers({
-                        category: input.category,
-                    });
-                } finally {
-                    try {
-                        await session.close();
-                    } catch {
-                        noop();
-                    }
-                }
+                return withAccountingSession(cred, (session) =>
+                    session.listLedgers({ category: input.category }),
+                );
             }),
     }),
 
     mutations: createTRPCRouter({
+        count: rootProcedure
+            .input(mutationsRangeInputSchema)
+            .query(async ({ ctx, input }) => {
+                const cred = await loadCredentialOrThrow(
+                    input.credentialId,
+                    ctx.userId,
+                );
+                return withAccountingSession(cred, (session) =>
+                    session.countMutations({
+                        dateFrom: input.dateFrom,
+                        dateTo: input.dateTo,
+                    }),
+                );
+            }),
+
         latestDate: rootProcedure
             .input(credentialIdInputSchema)
             .query(async ({ ctx, input }) => {
@@ -641,20 +669,9 @@ export const accountingRouter = createTRPCRouter({
                     input.credentialId,
                     ctx.userId,
                 );
-                const { provider } = requireAccountingSession(cred);
-                const session = await provider.openSession({
-                    meta: cred.meta,
-                    secret: requireSecret(cred),
-                });
-                try {
-                    return await session.latestMutationDate();
-                } finally {
-                    try {
-                        await session.close();
-                    } catch {
-                        noop();
-                    }
-                }
+                return withAccountingSession(cred, (session) =>
+                    session.latestMutationDate(),
+                );
             }),
 
         list: rootProcedure
@@ -664,25 +681,14 @@ export const accountingRouter = createTRPCRouter({
                     input.credentialId,
                     ctx.userId,
                 );
-                const { provider } = requireAccountingSession(cred);
-                const session = await provider.openSession({
-                    meta: cred.meta,
-                    secret: requireSecret(cred),
-                });
-                try {
-                    return await session.listMutations({
+                return withAccountingSession(cred, (session) =>
+                    session.listMutations({
                         dateFrom: input.dateFrom,
                         dateTo: input.dateTo,
                         limit: input.limit,
                         offset: input.offset,
-                    });
-                } finally {
-                    try {
-                        await session.close();
-                    } catch {
-                        noop();
-                    }
-                }
+                    }),
+                );
             }),
     }),
 
@@ -1000,24 +1006,13 @@ export const accountingRouter = createTRPCRouter({
                     input.credentialId,
                     ctx.userId,
                 );
-                const { provider } = requireAccountingSession(cred);
-                const session = await provider.openSession({
-                    meta: cred.meta,
-                    secret: requireSecret(cred),
-                });
-                try {
+                return withAccountingSession(cred, async (session) => {
                     const catalog = await session.taxCodes();
                     return catalog.list().map((opt) => ({
                         code: opt.code.toString(),
                         label: opt.label,
                     }));
-                } finally {
-                    try {
-                        await session.close();
-                    } catch {
-                        noop();
-                    }
-                }
+                });
             }),
     }),
 

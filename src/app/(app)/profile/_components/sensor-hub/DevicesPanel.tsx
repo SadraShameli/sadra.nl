@@ -42,7 +42,11 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '~/components/ui/dialog';
-import { EmptyState, EmptyStateSize, NoMatchesState } from '~/components/ui/empty-state';
+import {
+    EmptyState,
+    EmptyStateSize,
+    NoMatchesState,
+} from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import {
     type DeviceCreateInput,
@@ -157,14 +161,10 @@ export function DevicesPanel() {
                 cell: ({ row }) => {
                     const d = row.original;
                     if (d.token_revoked_at) {
-                        return (
-                            <MutedCell className="text-destructive">
-                                revoked
-                            </MutedCell>
-                        );
+                        return <MutedCell>revoked</MutedCell>;
                     }
                     return d.has_token && d.token_created_at ? (
-                        <MutedCell className="text-success">issued</MutedCell>
+                        <MutedCell>issued</MutedCell>
                     ) : (
                         <MutedCell>none</MutedCell>
                     );
@@ -271,10 +271,7 @@ export function DevicesPanel() {
                             columns={columns}
                             data={allRows}
                             emptyState={
-                                <NoMatchesState
-                                    icon={Cpu}
-                                    noun="devices"
-                                />
+                                <NoMatchesState icon={Cpu} noun="devices" />
                             }
                             filterPlaceholder="Search devices…"
                             headerActions={(table) => (

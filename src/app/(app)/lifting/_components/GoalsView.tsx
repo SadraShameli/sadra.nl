@@ -11,9 +11,13 @@ import {
     subDays,
 } from 'date-fns';
 import {
+    CalendarClock,
     CalendarRange,
+    CalendarX,
     Check,
+    CircleCheck,
     Flag,
+    type LucideIcon,
     Pause,
     Play,
     Plus,
@@ -21,7 +25,14 @@ import {
     Target,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useId, useMemo, useState } from 'react';
+import {
+    type ComponentProps,
+    useCallback,
+    useId,
+    useMemo,
+    useState,
+} from 'react';
+import { labelDayButton, type Modifiers } from 'react-day-picker';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -37,7 +48,7 @@ import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Calendar } from '~/components/ui/calendar';
+import { Calendar, CalendarDayButton } from '~/components/ui/calendar';
 import {
     DataTable,
     type DataTableColumn,
@@ -118,18 +129,35 @@ function formatGoalTarget(
 
 const WEEKDAY_HINTS = ['Mon', 'Wed', 'Fri'] as const;
 
-const CALENDAR_MODIFIER_CLASS = {
-    achieved: 'bg-success/30 text-success hover:bg-success/40 rounded-md',
-    targetActive: 'bg-warning/30 text-warning hover:bg-warning/40 rounded-md',
-    targetMissed:
-        'bg-destructive/30 text-destructive hover:bg-destructive/40 rounded-md',
-} as const;
-
-interface CalendarMarkers {
-    achieved: Date[];
-    targetActive: Date[];
-    targetMissed: Date[];
+enum GoalCalendarMarker {
+    Achieved = 'achieved',
+    TargetOverdue = 'targetOverdue',
+    TargetUpcoming = 'targetUpcoming',
 }
+
+const GOAL_CALENDAR_MARKERS: readonly {
+    readonly icon: LucideIcon;
+    readonly label: string;
+    readonly marker: GoalCalendarMarker;
+}[] = [
+    {
+        icon: CircleCheck,
+        label: 'Achieved',
+        marker: GoalCalendarMarker.Achieved,
+    },
+    {
+        icon: CalendarClock,
+        label: 'Target upcoming',
+        marker: GoalCalendarMarker.TargetUpcoming,
+    },
+    {
+        icon: CalendarX,
+        label: 'Target overdue',
+        marker: GoalCalendarMarker.TargetOverdue,
+    },
+];
+
+type CalendarMarkers = Record<GoalCalendarMarker, Date[]>;
 
 interface HeatmapCell {
     count: number;
@@ -525,13 +553,10 @@ export function GoalsView() {
                     title="Target calendar"
                 >
                     <Calendar
+                        components={{ DayButton: GoalCalendarDayButton }}
+                        labels={{ labelDayButton: labelGoalCalendarDay }}
                         mode="single"
-                        modifiers={{
-                            achieved: calendarMarkers.achieved,
-                            targetActive: calendarMarkers.targetActive,
-                            targetMissed: calendarMarkers.targetMissed,
-                        }}
-                        modifiersClassNames={CALENDAR_MODIFIER_CLASS}
+                        modifiers={calendarMarkers}
                         month={calendarMonth}
                         onMonthChange={setCalendarMonth}
                         selected={undefined}
@@ -667,18 +692,23 @@ function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
 function buildCalendarMarkers(goals: GoalRow[]): CalendarMarkers {
     const today = startOfDay(new Date());
     const markers: CalendarMarkers = {
-        achieved: [],
-        targetActive: [],
-        targetMissed: [],
+        [GoalCalendarMarker.Achieved]: [],
+        [GoalCalendarMarker.TargetOverdue]: [],
+        [GoalCalendarMarker.TargetUpcoming]: [],
     };
     for (const g of goals) {
         if (g.achievedAt) {
-            markers.achieved.push(startOfDay(new Date(g.achievedAt)));
+            markers[GoalCalendarMarker.Achieved].push(
+                startOfDay(new Date(g.achievedAt)),
+            );
         }
         if (!g.targetDate || g.status !== GOAL_STATUS.ACTIVE) continue;
         const d = parseISO(g.targetDate);
-        if (isBefore(d, today)) markers.targetMissed.push(d);
-        else markers.targetActive.push(d);
+        markers[
+            isBefore(d, today)
+                ? GoalCalendarMarker.TargetOverdue
+                : GoalCalendarMarker.TargetUpcoming
+        ].push(d);
     }
     return markers;
 }
@@ -725,9 +755,12 @@ function buildHeatmap(goals: GoalRow[]): HeatmapGrid {
 function CalendarLegend() {
     return (
         <div className="flex flex-wrap items-center justify-center gap-3 type-micro text-muted-foreground">
-            <LegendDot className="bg-success/60" label="Achieved" />
-            <LegendDot className="bg-warning/60" label="Target upcoming" />
-            <LegendDot className="bg-destructive/60" label="Target overdue" />
+            {GOAL_CALENDAR_MARKERS.map(({ icon: Icon, label, marker }) => (
+                <span className="inline-flex items-center gap-1.5" key={marker}>
+                    <Icon aria-hidden className="size-3.5 text-ink" />
+                    {label}
+                </span>
+            ))}
         </div>
     );
 }
@@ -741,6 +774,38 @@ function computeStats(goals: GoalRow[]): Stats {
     };
     for (const g of goals) counts[g.status]++;
     return { ...counts, total: goals.length };
+}
+
+function GoalCalendarDayButton({
+    children,
+    modifiers,
+    ...properties
+}: ComponentProps<typeof CalendarDayButton>) {
+    const markers = goalCalendarMarkersOn(modifiers);
+    return (
+        <CalendarDayButton modifiers={modifiers} {...properties}>
+            {children}
+            {markers.length > 0 && (
+                <span className="flex items-center gap-0.5">
+                    {markers.map(({ icon: Icon, marker }) => (
+                        <Icon
+                            aria-hidden
+                            className="size-3 text-ink"
+                            key={marker}
+                        />
+                    ))}
+                </span>
+            )}
+        </CalendarDayButton>
+    );
+}
+
+function goalCalendarMarkersOn(
+    modifiers: Modifiers,
+): typeof GOAL_CALENDAR_MARKERS {
+    return GOAL_CALENDAR_MARKERS.filter(
+        ({ marker }) => modifiers[marker] === true,
+    );
 }
 
 function goalStatusActions(
@@ -805,13 +870,14 @@ function goalStatusLabel(value: string): string {
     return status === undefined ? value : STATUS_LABEL[status];
 }
 
-function LegendDot({ className, label }: { className: string; label: string }) {
-    return (
-        <span className="inline-flex items-center gap-1.5">
-            <span className={cn('size-2.5 rounded-sm', className)} />
-            {label}
-        </span>
-    );
+function labelGoalCalendarDay(
+    ...parameters: Parameters<typeof labelDayButton>
+): string {
+    const [, modifiers] = parameters;
+    return [
+        labelDayButton(...parameters),
+        ...goalCalendarMarkersOn(modifiers).map(({ label }) => label),
+    ].join(', ');
 }
 
 function TargetDateCell({

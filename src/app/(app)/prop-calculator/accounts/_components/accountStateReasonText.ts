@@ -15,6 +15,9 @@ export type AccountStateReasonAccount = Pick<
     'accountSize' | 'firmId' | 'planSerial'
 >;
 
+export const NO_DASHBOARD_FLOOR_REASON =
+    'The latest snapshot has no drawdown floor from the firm dashboard, so the cushion cannot be computed.';
+
 const LIVE_EXPOSURE_NOT_MODELED_TEXT =
     'sizing is not modeled yet for live accounts';
 

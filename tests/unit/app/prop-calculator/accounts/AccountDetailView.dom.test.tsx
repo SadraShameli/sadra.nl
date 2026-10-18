@@ -707,7 +707,9 @@ describe('AccountDetailView', () => {
         expect(container.textContent).toContain(
             'Your firms could not be loaded',
         );
-        expect(container.textContent).toContain('Failed to fetch');
+        expect(container.textContent).toContain(
+            'Failed to fetch. This account shows it as an unlisted firm until your firms load.',
+        );
     });
 
     it('asks through an AlertDialog before deleting a payout from its row menu, returns focus to the menu on cancel and deletes on confirm', async () => {
@@ -1344,7 +1346,9 @@ describe('AccountDetailView', () => {
         render();
         const state = sectionTitled('Account state');
         expect(state.textContent).toContain('rulebook could not be loaded');
-        expect(state.textContent).toContain('rulebook fetch failed');
+        expect(state.textContent).toContain(
+            "rulebook fetch failed. The account state is not shown, because a live account is sized from your rulebook's live cushion percent.",
+        );
         expect(state.textContent).not.toContain('rulebook has not loaded');
     });
 

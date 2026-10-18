@@ -37,6 +37,10 @@ import {
 import { pickOption } from './accounts/pickOption';
 import { expectDialogFieldGridsOneColumnBelowMd } from './dialogFieldGrids';
 import { fieldValidation } from './labelledControl';
+import {
+    MISSING_REASON_BUTTON_SELECTOR,
+    missingValueText,
+} from './missingValue';
 
 const NO_OPT_INS: PlanOptIns = {
     takesFundedReset: false,
@@ -240,5 +244,98 @@ describe('the planner rows end in a row menu with an edit dialog', () => {
                 planId: plan.id,
             }),
         ]);
+    });
+});
+
+describe('a planner row waiting for its first run', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    const added: PortfolioEntry = { ...entry, count: 1, id: 'added-row' };
+    const refused: PortfolioEntry = {
+        ...entry,
+        count: 1,
+        id: 'refused-row',
+        instrument: InstrumentSymbol.NQ,
+        stopPoints: 20,
+    };
+
+    function render(portfolio: PortfolioEntry[]) {
+        act(() => {
+            root.render(
+                <PortfolioPanel
+                    baseInputs={buildSimInputs(state)}
+                    currentFirm={firm}
+                    currentPlan={plan}
+                    firms={ALL_FIRMS}
+                    onPortfolioChange={vi.fn()}
+                    planOptIns={NO_OPT_INS}
+                    portfolio={portfolio}
+                />,
+            );
+        });
+    }
+
+    function evalPassCells(): HTMLTableCellElement[] {
+        const headers = [...container.querySelectorAll(':scope thead th')].map(
+            (node) => node.textContent.trim(),
+        );
+        const column = headers.indexOf('Eval pass');
+        return [
+            ...container.querySelectorAll<HTMLTableRowElement>(
+                ':scope tbody tr',
+            ),
+        ].flatMap((row) => {
+            const cell = row.cells[column];
+            return cell === undefined ? [] : [cell];
+        });
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        document.body.replaceChildren();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+    });
+
+    it('shows a just-added row as loading, not as not simulated, before its debounced run starts', () => {
+        render([entry]);
+        flush();
+        render([entry, added]);
+        const addedCell = evalPassCells()[1];
+        expect(
+            addedCell?.querySelector('[data-slot="skeleton"]'),
+        ).not.toBeNull();
+        expect(
+            addedCell?.querySelector(MISSING_REASON_BUTTON_SELECTOR),
+        ).toBeNull();
+        flush();
+        expect(evalPassCells()[1]?.textContent.trim()).toMatch(/^\d+\.\d%$/);
+    });
+
+    it('keeps a refused row not simulated, with its reason, before and after the run', () => {
+        render([entry]);
+        flush();
+        render([entry, refused]);
+        expect(
+            evalPassCells()[1]?.querySelector(MISSING_REASON_BUTTON_SELECTOR),
+        ).not.toBeNull();
+        flush();
+        expect(evalPassCells()[1]?.textContent.trim()).toBe(missingValueText());
+        expect(
+            evalPassCells()[1]?.querySelector('[data-slot="skeleton"]'),
+        ).toBeNull();
     });
 });

@@ -159,15 +159,16 @@ describe('edgePlausibilityNoteText Kelly growth and pace (F-V22, PT-86)', () => 
 
     it('shows the compounded multiple over one trading month at the entered pace', () => {
         const note = edgePlausibilityNoteText(
-            { ...inputs, tradesPerDay: 4 },
+            { ...inputs, tradesPerDay: 3 },
             plannerThresholds,
         );
         const expected = compoundedMultiple(
             growth,
-            4 * TRADING_DAYS_PER_MONTH,
+            3 * TRADING_DAYS_PER_MONTH,
         ).value;
         expect(expected).not.toBeNull();
-        expect(note).toContain('4 trades per day');
+        expect(expected).toBeLessThan(1000);
+        expect(note).toContain('3 trades per day');
         expect(note).toContain(
             `${String(TRADING_DAYS_PER_MONTH)} trading days`,
         );
@@ -176,12 +177,12 @@ describe('edgePlausibilityNoteText Kelly growth and pace (F-V22, PT-86)', () => 
 
     it('shows the amount from a start in dollars', () => {
         const note = edgePlausibilityNoteText(
-            { ...inputs, compoundStartDollars: 5000, tradesPerDay: 4 },
+            { ...inputs, compoundStartDollars: 5000, tradesPerDay: 3 },
             plannerThresholds,
         );
         const expected = compoundedMultiple(
             growth,
-            4 * TRADING_DAYS_PER_MONTH,
+            3 * TRADING_DAYS_PER_MONTH,
         ).value;
         expect(note).toContain(formatCurrency(5000));
         expect(note).toContain(formatCurrency(5000 * (expected ?? 0)));
@@ -215,7 +216,7 @@ describe('edgePlausibilityNoteText Kelly growth and pace (F-V22, PT-86)', () => 
         'leaves the amount out for a start of %s',
         (compoundStartDollars) => {
             const note = edgePlausibilityNoteText(
-                { ...inputs, compoundStartDollars, tradesPerDay: 4 },
+                { ...inputs, compoundStartDollars, tradesPerDay: 3 },
                 plannerThresholds,
             );
             expect(note).toContain('compounds to');
@@ -247,6 +248,39 @@ describe('edgePlausibilityNoteText Kelly growth and pace (F-V22, PT-86)', () => 
         expect(note).not.toContain('Full Kelly would grow');
     });
 
+    it('says more than 1,000x above the cap instead of the full multiple, and drops the dollar projection', () => {
+        const uncapped = compoundedMultiple(
+            growth,
+            4 * TRADING_DAYS_PER_MONTH,
+        ).value;
+        expect(uncapped).toBeGreaterThan(1000);
+        const note = edgePlausibilityNoteText(
+            { ...inputs, compoundStartDollars: 5000, tradesPerDay: 4 },
+            plannerThresholds,
+        );
+        expect(note).toContain(
+            'at 4 trades per day over 21 trading days that compounds to more than 1,000x (',
+        );
+        expect(note).not.toContain('1,004');
+        expect(note).not.toContain('becomes');
+        expect(note).not.toContain(formatCurrency(5000));
+    });
+
+    it('caps the 90% at 1:2 multiple instead of printing a 26-digit number', () => {
+        const note = edgePlausibilityNoteText(
+            {
+                compoundStartDollars: 5000,
+                rrRatio: 2,
+                tradesPerDay: 4,
+                winrate: fraction(0.9),
+            },
+            plannerThresholds,
+        );
+        expect(note).toContain('compounds to more than 1,000x');
+        expect(note).not.toMatch(/\d{1,3}(?:,\d{3}){3,}/);
+        expect(note).not.toContain('too large to show');
+    });
+
     it('says the multiple is too large to show instead of printing Infinity', () => {
         const note = edgePlausibilityNoteText(
             { rrRatio: 5, tradesPerDay: 50, winrate: fraction(0.95) },
@@ -263,4 +297,70 @@ describe('edgePlausibilityNoteText Kelly growth and pace (F-V22, PT-86)', () => 
         );
         expect(note).not.toContain('\u{2014}');
     });
+});
+
+describe('edgePlausibilityNoteText second expectancy source', () => {
+    const flaggingThresholds: PlausibilityThresholds = {
+        strongMaxExpectancyR: 0.15,
+        typicalMaxExpectancyR: 0.1,
+    };
+    const SKILL_SENTENCE =
+        "The trading skill's own numbers put this edge at +0.26R.";
+
+    it('adds the trading skill figure in plain words when the note is about 40% at 1:2', () => {
+        const note = edgePlausibilityNoteText(
+            { rrRatio: 2, winrate: fraction(0.4) },
+            flaggingThresholds,
+        );
+        expect(note).toContain('+0.20R per trade at 40% and 1:2.00');
+        expect(note).toContain(SKILL_SENTENCE);
+    });
+
+    it('matches 40% at 1:2 within the shared comparison tolerance', () => {
+        expect(
+            edgePlausibilityNoteText(
+                { rrRatio: 2 + 1e-12, winrate: fraction(0.4 - 1e-12) },
+                flaggingThresholds,
+            ),
+        ).toContain(SKILL_SENTENCE);
+    });
+
+    it.each([
+        { rrRatio: 1, winrate: 0.7 },
+        { rrRatio: 2, winrate: 0.9 },
+        { rrRatio: 3, winrate: 0.4 },
+        { rrRatio: 2, winrate: 0.42 },
+        { rrRatio: 2, winrate: 0.401 },
+        { rrRatio: 2.01, winrate: 0.4 },
+        { rrRatio: 1, winrate: 0.3 },
+    ])(
+        'shows no second-source sentence at $winrate and 1:$rrRatio',
+        ({ rrRatio, winrate }) => {
+            const note = edgePlausibilityNoteText(
+                { rrRatio, winrate: fraction(winrate) },
+                flaggingThresholds,
+            );
+            expect(note).not.toBeNull();
+            expect(note).not.toContain('trading skill');
+            expect(note).not.toContain('own numbers');
+        },
+    );
+
+    it.each([
+        { rrRatio: 2, winrate: 0.4 },
+        { rrRatio: 1, winrate: 0.7 },
+        { rrRatio: 2, winrate: 0.9 },
+        { rrRatio: 1, winrate: 0.3 },
+    ])(
+        'never shows the ticket id or the internal wording at $winrate and 1:$rrRatio',
+        ({ rrRatio, winrate }) => {
+            const note = edgePlausibilityNoteText(
+                { rrRatio, tradesPerDay: 4, winrate: fraction(winrate) },
+                flaggingThresholds,
+            );
+            expect(note).not.toBeNull();
+            expect(note).not.toContain('QV-20');
+            expect(note).not.toContain('is open');
+        },
+    );
 });

@@ -67,6 +67,10 @@ import {
     RUIN_FIRST_UNPRICED_NOTE,
 } from '~/app/(app)/prop-calculator/_components/objectiveRanking';
 import PlanComparisonTable from '~/app/(app)/prop-calculator/_components/PlanComparisonTable';
+import {
+    formatPtdd,
+    PtddBench,
+} from '~/app/(app)/prop-calculator/_components/ptddBench';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalculator';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
@@ -564,5 +568,84 @@ describe('PlanComparisonTable ranks RuinFirst by the batch loss risk at a known 
         });
         expect(selectedText(select)).toBe('All');
         expect(rowLabels(container)).toHaveLength(5);
+    });
+});
+
+describe('PlanComparisonTable grades each PT:DD ratio in words under the figure (wave 7 review)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+    const state = defaultCalculatorState();
+    const baseInputs = buildSimInputs({ ...state, trials: COMPARE_TRIALS });
+    const baseOut = simulate({
+        ...baseInputs,
+        plan: state.plan,
+        trials: COMPARE_TRIALS,
+    });
+    const graded: readonly { bench: PtddBench; ratio: number }[] = [
+        { bench: PtddBench.Hard, ratio: 3 },
+        { bench: PtddBench.Demanding, ratio: 1.75 },
+        { bench: PtddBench.Typical, ratio: 1.25 },
+        { bench: PtddBench.Easy, ratio: 0.8 },
+    ];
+    const seenLabels = new Set<string>();
+    const plans = ALL_FIRMS.flatMap((firm) => rankablePlans(firm.plans, false))
+        .filter((plan) => {
+            if (seenLabels.has(plan.label)) return false;
+            seenLabels.add(plan.label);
+            return true;
+        })
+        .slice(0, graded.length);
+
+    function ptddCellText(label: string): string | undefined {
+        const headers = [...container.querySelectorAll(':scope thead th')];
+        const column = headers.findIndex((header) =>
+            header.textContent.includes('PT:DD'),
+        );
+        const row = [...container.querySelectorAll(':scope tbody tr')].find(
+            (candidate) =>
+                candidate.querySelector(':scope th[scope="row"]')
+                    ?.textContent === label,
+        );
+        return row?.children[column]?.textContent;
+    }
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+        synthetic.rows = graded.map(({ ratio }, index) => ({
+            isBest: false,
+            out: baseOut,
+            plan: plans[index],
+            ptdd: ratio,
+            score: 3,
+        }));
+        act(() => {
+            root.render(
+                <PlanComparisonTable
+                    activePlan={state.plan}
+                    baseInputs={baseInputs}
+                    firm={state.firm}
+                    planOptIns={NO_PLAN_OPT_INS}
+                />,
+            );
+        });
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        synthetic.rows = null;
+    });
+
+    it('prints the grade word beneath each ratio, from hard above 2x down to easy at 1x or below', () => {
+        expect(plans).toHaveLength(graded.length);
+        for (const [index, { bench, ratio }] of graded.entries()) {
+            const label = plans[index]?.label ?? '';
+            expect(ptddCellText(label)).toBe(`${formatPtdd(ratio)}${bench}`);
+        }
     });
 });

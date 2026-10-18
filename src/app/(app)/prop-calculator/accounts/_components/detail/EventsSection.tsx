@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { History, TriangleAlert } from 'lucide-react';
+import { History } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -16,10 +16,10 @@ import {
     type AccountListAccount,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { InfoNote } from '~/components/InfoNote';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard } from '~/components/ToggleCard';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
@@ -489,16 +489,11 @@ function EventForm({
                 </InfoNote>
             )}
             {isMovedLive && accountsFailed && (
-                <Alert className="md:col-span-2" variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>Other accounts not loaded</AlertTitle>
-                    <AlertDescription>
-                        Your other accounts could not be loaded, so what the
-                        firm&apos;s rules do to them is not shown. Recording
-                        this event is refused if the firm&apos;s policy suspends
-                        another of your accounts; reload to see which.
-                    </AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    className="md:col-span-2"
+                    message="Your other accounts could not be loaded, so what the firm's rules do to them is not shown. Recording this event is refused if the firm's policy suspends another of your accounts; reload to see which."
+                    title="Other accounts not loaded"
+                />
             )}
             {exclusivity !== null && (
                 <StatusRow

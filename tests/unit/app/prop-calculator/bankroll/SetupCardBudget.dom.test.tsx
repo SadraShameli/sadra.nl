@@ -163,7 +163,7 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
         );
     }
 
-    it('tells a user below the threshold budget how much they need, in red, with the attempts', () => {
+    it('tells a user below the threshold budget how much they need, with the attempts and a status icon in the default ink', () => {
         render(
             stateOf({
                 budget: dollars(500),
@@ -176,9 +176,10 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
         expect(sentence).toBe(
             'you need at least $4,300 (43 attempts) at this plan for your threshold',
         );
-        expect(
-            budgetStatus()?.querySelector('.text-destructive'),
-        ).not.toBeNull();
+        expect(budgetStatus()?.querySelector('svg')).not.toBeNull();
+        expect(budgetStatus()?.outerHTML).not.toMatch(
+            /(?:text|bg)-(?:success|warning|destructive|danger)/,
+        );
     });
 
     it('repeats the figure the minimum budget card shows', () => {

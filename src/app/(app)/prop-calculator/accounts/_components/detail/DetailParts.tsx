@@ -1,11 +1,11 @@
 'use client';
 
-import { Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -68,11 +68,10 @@ export function ListQueryStatus<Row>({
 }) {
     if (query.error !== null) {
         return query.data === undefined ? (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>{`The ${subject} could not be loaded`}</AlertTitle>
-                <AlertDescription>{query.error.message}</AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                message={query.error.message}
+                title={`The ${subject} could not be loaded`}
+            />
         ) : (
             <StatusRow
                 detail={query.error.message}

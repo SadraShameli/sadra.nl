@@ -161,9 +161,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
             <DataTable
                 columns={columns}
                 data={allRows}
-                emptyState={
-                    <NoMatchesState icon={Calendar} noun="workouts" />
-                }
+                emptyState={<NoMatchesState icon={Calendar} noun="workouts" />}
                 hasExternalFilters={Boolean(dateRange?.from)}
                 headerActions={(table) => {
                     const statusColumn = table.getColumn('status');

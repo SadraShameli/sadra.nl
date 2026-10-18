@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check } from 'lucide-react';
+import { Check, CheckCheck } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -128,10 +128,7 @@ export function SetRow({
 
     return (
         <form
-            className={cn(
-                'rounded-xl border border-border/30 bg-background/40 p-2 transition md:flex md:items-end md:gap-2',
-                isCompleted && 'bg-muted/40 opacity-90',
-            )}
+            className="rounded-xl border border-border/30 bg-background/40 p-2 transition md:flex md:items-end md:gap-2"
             onSubmit={handleComplete}
         >
             <div className="flex items-center justify-between gap-2 md:contents">
@@ -148,13 +145,20 @@ export function SetRow({
 
                 <div className="flex items-center gap-1 md:order-last md:ml-auto">
                     <Button
-                        aria-label="Complete set"
+                        aria-label={
+                            isCompleted
+                                ? 'Set done, save changes'
+                                : 'Complete set'
+                        }
                         className="size-9 rounded-full p-0"
                         disabled={busy}
                         type="submit"
-                        variant={isCompleted ? 'secondary' : 'default'}
                     >
-                        <Check className="size-4" />
+                        {isCompleted ? (
+                            <CheckCheck className="size-4" />
+                        ) : (
+                            <Check className="size-4" />
+                        )}
                     </Button>
                     <RowActionsMenu
                         actions={[

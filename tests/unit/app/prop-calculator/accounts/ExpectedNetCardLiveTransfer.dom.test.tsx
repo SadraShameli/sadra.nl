@@ -9,6 +9,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
 import { infoContent, withInfoTexts } from '../infoPopover';
+import { inlineWarningNotes, warningNotes } from './warningNotes';
 
 const FIGURE = {
     creditFree: '$1,111',
@@ -97,5 +98,48 @@ describe('ExpectedNetCard live-transfer hazard lines (PT-73d)', () => {
         });
 
         expect(withInfoTexts(container)).not.toContain('Live transfer');
+    });
+});
+
+describe('ExpectedNetCard plan notes', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        document.body.replaceChildren();
+        vi.unstubAllGlobals();
+    });
+
+    it('starts the policy-sensitive note on its own line under the plan name', () => {
+        const model = modelOf([]);
+        act(() => {
+            root.render(
+                <ExpectedNetCard
+                    model={{
+                        ...model,
+                        rows: model.rows.map((row) => ({
+                            ...row,
+                            policySensitiveNote:
+                                'This plan ranks differently under the payout-size optimum.',
+                        })),
+                    }}
+                />,
+            );
+        });
+
+        const planCell = container.querySelector(':scope tbody th');
+        if (planCell === null) throw new Error('no plan row header');
+        expect(warningNotes(planCell)).toHaveLength(1);
+        expect(inlineWarningNotes(planCell)).toEqual([]);
     });
 });

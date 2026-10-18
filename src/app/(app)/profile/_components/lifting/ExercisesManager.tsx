@@ -12,7 +12,6 @@ import {
     PrimaryCell,
     ProfileCollectionEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { NoMatchesState } from '~/components/ui/empty-state';
 import { FormDialog } from '~/components/FormDialog';
 import { FormTextField } from '~/components/FormFields';
 import {
@@ -29,6 +28,7 @@ import {
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { Dialog } from '~/components/ui/dialog';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import {
     Select,

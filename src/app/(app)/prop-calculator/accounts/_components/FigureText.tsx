@@ -36,7 +36,13 @@ export function figureColumns<Row extends RowData>(
     rows: readonly Row[],
 ): DataTableColumn<Row>[] {
     return columns
-        .filter((column) => rows.some((row) => hasFigure(column.textOf(row))))
+        .filter((column) =>
+            rows.some(
+                (row) =>
+                    hasFigure(column.textOf(row)) ||
+                    (column.reasonOf?.(row) ?? null) !== null,
+            ),
+        )
         .map((column) => ({
             cell: ({ row }) => (
                 <FigureText

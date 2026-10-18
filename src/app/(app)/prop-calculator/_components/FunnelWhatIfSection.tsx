@@ -227,18 +227,8 @@ export default function FunnelWhatIfSection() {
                             {
                                 id: 'net',
                                 label: 'Net',
-                                value: (
-                                    <span
-                                        className={
-                                            outcome.result.net >= 0
-                                                ? 'text-success'
-                                                : 'text-destructive'
-                                        }
-                                    >
-                                        {formatCompactCurrency(
-                                            outcome.result.net,
-                                        )}
-                                    </span>
+                                value: formatCompactCurrency(
+                                    outcome.result.net,
                                 ),
                             },
                             {

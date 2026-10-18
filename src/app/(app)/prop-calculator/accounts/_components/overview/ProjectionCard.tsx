@@ -166,7 +166,7 @@ function ProjectionDetail({ row }: { readonly row: ProjectionRow }) {
             {row.notHonoured.length > 0 && (
                 <ul
                     aria-label={`Policy fields the timeline does not honour for ${row.plan}`}
-                    className="flex list-disc flex-col gap-1 pl-5 text-xs text-warning"
+                    className="flex list-disc flex-col gap-1 pl-5 text-xs"
                 >
                     {row.notHonoured.map((text) => (
                         <li key={text}>{text}</li>

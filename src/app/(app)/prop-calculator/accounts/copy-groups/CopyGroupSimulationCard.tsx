@@ -15,6 +15,7 @@ import {
     CopyGroupWorkerOutcomeKind,
     type CopyGroupWorkerRequest,
 } from '~/app/(app)/prop-calculator/_workers/copyGroupWorkerMessages';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { ComputingIndicator } from '~/components/ComputingIndicator';
 import { InfoNote } from '~/components/InfoNote';
 import { PanelSubheading } from '~/components/PanelSubheading';
@@ -38,6 +39,8 @@ type ReadyPlan = Extract<
 >;
 
 const HEADING = 'Correlated bust risk and payouts';
+
+const SIMULATION_FAILED_TITLE = 'The simulation could not run';
 
 export function CopyGroupSimulationCard({
     plan,
@@ -97,21 +100,24 @@ function Outcome({
     switch (outcome.kind) {
         case CopyGroupWorkerOutcomeKind.Failed: {
             return (
-                <p className="text-destructive" role="alert">
-                    The simulation could not run: {outcome.reason}
-                </p>
+                <QueryErrorNotice
+                    message={outcome.reason}
+                    title={SIMULATION_FAILED_TITLE}
+                />
             );
         }
         case CopyGroupWorkerOutcomeKind.Rejected: {
             const { rejection } = outcome;
             return (
-                <p className="text-destructive" role="alert">
-                    Not simulated:{' '}
-                    {rejection.kind ===
-                    CopyGroupSimulationRejectionKind.MemberRefused
-                        ? `${labelOf(plan.members, rejection.memberId)}: ${rejection.message}`
-                        : rejection.message}
-                </p>
+                <QueryErrorNotice
+                    message={
+                        rejection.kind ===
+                        CopyGroupSimulationRejectionKind.MemberRefused
+                            ? `${labelOf(plan.members, rejection.memberId)}: ${rejection.message}`
+                            : rejection.message
+                    }
+                    title="Not simulated"
+                />
             );
         }
         case CopyGroupWorkerOutcomeKind.Simulated: {
@@ -221,9 +227,10 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
                     )}
             </div>
             {state.phase === WorkerTaskPhase.Failed && (
-                <p className="text-destructive" role="alert">
-                    The simulation could not run: {state.reason}
-                </p>
+                <QueryErrorNotice
+                    message={state.reason}
+                    title={SIMULATION_FAILED_TITLE}
+                />
             )}
             {state.phase === WorkerTaskPhase.Done &&
                 state.result.kind !== CopyGroupWorkerOutcomeKind.Simulated && (

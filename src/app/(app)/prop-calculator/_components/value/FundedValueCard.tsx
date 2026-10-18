@@ -12,6 +12,7 @@ import { InfoNote } from '~/components/InfoNote';
 import { StatStrip, type StatStripItem } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
+import { FieldError } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { formatPercent } from '~/lib/format';
@@ -146,12 +147,12 @@ export function FundedValueCard({
                         </p>
                     ) : null}
                     {isSampleSizeInvalid ? (
-                        <p
-                            className="text-xs text-destructive"
+                        <FieldError
+                            className="text-xs"
                             id={SAMPLE_SIZE_ERROR_ID}
                         >
                             {SAMPLE_SIZE_ERROR_TEXT}
-                        </p>
+                        </FieldError>
                     ) : null}
                 </div>
                 <div aria-live="polite" className="flex flex-col gap-3">

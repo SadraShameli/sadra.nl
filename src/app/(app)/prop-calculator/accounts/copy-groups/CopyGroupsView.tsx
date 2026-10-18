@@ -1,6 +1,6 @@
 'use client';
 
-import { Layers, Pencil, Trash2, TriangleAlert, UserMinus } from 'lucide-react';
+import { Layers, Pencil, Trash2, UserMinus } from 'lucide-react';
 import Link from 'next/link';
 import { useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -21,12 +21,12 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { InfoNote } from '~/components/InfoNote';
 import { CardSkeleton } from '~/components/PageSkeleton';
 import { RowActionKind, RowActionsMenu } from '~/components/RowActionsMenu';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
@@ -46,7 +46,6 @@ import {
     propRejectionOf,
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import { copyGroupSizingSectionsOf } from './copyGroupSizingModel';
@@ -157,13 +156,13 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
             <div className="flex flex-col gap-8">
                 <CreateGroupForm />
                 {groupsQuery.isError && groups === undefined && (
-                    <LoadError
+                    <QueryErrorNotice
                         message={groupsQuery.error.message}
                         title="Your copy groups could not be loaded"
                     />
                 )}
                 {accountsQuery.isError && accounts === undefined && (
-                    <LoadError
+                    <QueryErrorNotice
                         message={accountsQuery.error.message}
                         title="Your accounts could not be loaded"
                     />
@@ -486,18 +485,15 @@ function GroupSection({
                     />
                 )}
                 {rejection !== null && (
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>
-                            {rejection.accountLabel} cannot join {group.name}
-                        </AlertTitle>
-                        <AlertDescription>
-                            {rejection.explanation !== null && (
-                                <p>{rejection.explanation}</p>
-                            )}
-                            <p>{rejection.message}</p>
-                        </AlertDescription>
-                    </Alert>
+                    <QueryErrorNotice
+                        consequence={
+                            rejection.explanation === null
+                                ? undefined
+                                : rejection.message
+                        }
+                        message={rejection.explanation ?? rejection.message}
+                        title={`${rejection.accountLabel} cannot join ${group.name}`}
+                    />
                 )}
                 <MemberList
                     groupName={group.name}
@@ -601,22 +597,6 @@ function GroupSection({
     );
 }
 
-function LoadError({
-    message,
-    title,
-}: {
-    readonly message: string;
-    readonly title: string;
-}) {
-    return (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>{title}</AlertTitle>
-            <AlertDescription>{message}</AlertDescription>
-        </Alert>
-    );
-}
-
 function MemberList({
     groupName,
     isPending,
@@ -633,10 +613,7 @@ function MemberList({
         <ul className="flex flex-col divide-y rounded-lg border">
             {members.map((member) => (
                 <li
-                    className={cn(
-                        'flex flex-wrap items-center justify-between gap-2 px-3 py-2',
-                        member.isArchived && 'opacity-60',
-                    )}
+                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
                     key={member.id}
                 >
                     <MemberSummary member={member} />

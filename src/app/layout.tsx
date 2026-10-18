@@ -105,7 +105,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                         </div>
                         <Footer />
                     </TRPCReactProvider>
-                    <Toaster position="bottom-center" richColors />
+                    <Toaster position="bottom-center" />
                 </ThemeProvider>
                 <Analytics />
                 <SpeedInsights />

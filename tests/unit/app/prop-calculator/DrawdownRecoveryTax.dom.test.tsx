@@ -39,4 +39,33 @@ describe('the recovery tax table', () => {
         );
         expect(firstRow?.textContent.match(/5\.3%/g)).toHaveLength(1);
     });
+
+    it('writes a grade word under the gain each drawdown needs, in place of the old colours', () => {
+        act(() => {
+            root.render(
+                <DrawdownDurationPanel
+                    result={simulate(buildSimInputs(defaultCalculatorState()))}
+                />,
+            );
+        });
+        const gainCells = [
+            ...container.querySelectorAll(
+                ':scope .app-prop-calculator__recovery-tax-table tbody tr td',
+            ),
+        ];
+        expect(
+            gainCells.map((cell) =>
+                [...(cell.querySelector('span')?.children ?? [])].map(
+                    (line) => line.textContent,
+                ),
+            ),
+        ).toStrictEqual([
+            ['5.3% gain required', 'light'],
+            ['11.1% gain required', 'light'],
+            ['17.6% gain required', 'moderate'],
+            ['25.0% gain required', 'heavy'],
+            ['33.3% gain required', 'heavy'],
+            ['49.3% gain required', 'heavy'],
+        ]);
+    });
 });

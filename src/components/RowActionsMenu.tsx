@@ -20,7 +20,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
-import { cn } from '~/lib/utilities';
 
 export enum RowActionKind {
     Download = 'download',
@@ -249,12 +248,13 @@ function RowActionItem({
         case RowActionKind.Select: {
             return (
                 <DropdownMenuItem
-                    className={cn(
-                        action.isDestructive === true &&
-                            'text-destructive focus:text-destructive',
-                    )}
                     disabled={action.isDisabled}
                     onSelect={() => onSelect(action)}
+                    variant={
+                        action.isDestructive === true
+                            ? 'destructive'
+                            : 'default'
+                    }
                 >
                     {content}
                 </DropdownMenuItem>

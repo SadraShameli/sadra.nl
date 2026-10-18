@@ -9,11 +9,7 @@ import {
     RowActionKind,
     rowActionsColumn,
 } from '~/components/RowActionsMenu';
-import {
-    StatStrip,
-    type StatStripItem,
-    StatTone,
-} from '~/components/StatStrip';
+import { StatStrip, type StatStripItem } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
@@ -45,7 +41,6 @@ import { cn } from '~/lib/utilities';
 
 import { ComputationId } from './ComputationId';
 import { toCouponDiscounts } from './couponDiscounts';
-import { KPI_ACCENT_STAT_TONE, roiAccent } from './kpiAccent';
 import { panelDescriptions } from './kpiDescriptions';
 import { portfolioCacheKey } from './portfolioCacheKey';
 import {
@@ -81,13 +76,20 @@ interface PortfolioPanelProperties {
 interface PortfolioTableRow {
     entry: PortfolioEntry;
     firm: TradingFirm;
+    isAwaitingResult: boolean;
     plan: Plan;
     sim: SimmedEntry | undefined;
+}
+
+interface SimulatableEntry {
+    entry: PortfolioEntry;
+    plan: Plan;
 }
 
 const DEBOUNCE_MS = 600;
 const MAX_TRIALS = 500;
 const EMPTY_SIMMED: SimmedEntry[] = [];
+const NO_AWAITED_IDS: ReadonlySet<string> = new Set();
 const NOT_SIMULATED_REASON =
     'This row was not simulated; the notice above the totals says why.';
 
@@ -105,6 +107,7 @@ export default function PortfolioPanel({
         ...baseInputs,
         ...entryPositionSizing(baseInputs, entry),
     }));
+    const simulatable = simulatableEntries(firms, sizing.accepted);
     const computation = useDebouncedComputation(
         ComputationId.Planner,
         key,
@@ -112,10 +115,7 @@ export default function PortfolioPanel({
         () => {
             const trials = Math.min(MAX_TRIALS, baseInputs.trials);
             const results: SimmedEntry[] = [];
-            for (const entry of sizing.accepted) {
-                const firm = firms.find((f) => f.id === entry.firmId);
-                const plan = firm?.findPlan(entry.planId);
-                if (!plan) continue;
+            for (const { entry, plan } of simulatable) {
                 const out = simulate({
                     ...baseInputs,
                     copyAccounts: entry.count,
@@ -132,6 +132,10 @@ export default function PortfolioPanel({
     );
     const isPending = portfolio.length > 0 && computation.pending;
     const simmed = portfolio.length === 0 ? EMPTY_SIMMED : computation.result;
+    const awaitedIds =
+        computation.error === null
+            ? new Set(simulatable.map(({ entry }) => entry.id))
+            : NO_AWAITED_IDS;
 
     const totals = useMemo(() => {
         if (simmed.length === 0) return null;
@@ -252,12 +256,6 @@ export default function PortfolioPanel({
                                         </p>
                                     ),
                                     label: 'Combined monthly net',
-                                    tone:
-                                        totals === null
-                                            ? undefined
-                                            : totals.monthlyNet > 0
-                                              ? StatTone.Positive
-                                              : StatTone.Negative,
                                     value:
                                         totals === null
                                             ? null
@@ -325,6 +323,7 @@ export default function PortfolioPanel({
                         />
                     )}
                     <PortfolioTable
+                        awaitedIds={awaitedIds}
                         firms={firms}
                         globalInstrument={baseInputs.instrument ?? null}
                         globalStopPoints={baseInputs.stopPoints ?? null}
@@ -379,7 +378,6 @@ export function portfolioRoiItem(roi: null | Roi): StatStripItem {
         ),
         isLoading: roi === null,
         label: ROI_BASIS_LABEL[roi?.basis ?? RoiBasis.AnnualisedOnCost],
-        tone: roi === null ? undefined : KPI_ACCENT_STAT_TONE[roiAccent(roi)],
         value:
             roi === null ? null : (
                 <ValueOrMissing value={formatOptionalPercent(roi.value)} />
@@ -390,16 +388,14 @@ export function portfolioRoiItem(roi: null | Roi): StatStripItem {
 function ComputedCell({
     children,
     className,
-    pending,
-    sim,
+    row: { isAwaitingResult, sim },
 }: {
     children: (out: SimOutputs) => React.ReactNode;
     className?: string;
-    pending: boolean;
-    sim: SimmedEntry | undefined;
+    row: PortfolioTableRow;
 }) {
     if (!sim) {
-        return pending ? (
+        return isAwaitingResult ? (
             <Skeleton className="h-4 w-12" />
         ) : (
             <MissingValue reason={NOT_SIMULATED_REASON} />
@@ -444,6 +440,7 @@ function entryPositionSizing(
 }
 
 function PortfolioTable({
+    awaitedIds,
     firms,
     globalInstrument,
     globalStopPoints,
@@ -453,6 +450,7 @@ function PortfolioTable({
     portfolio,
     simmed,
 }: {
+    awaitedIds: ReadonlySet<string>;
     firms: readonly TradingFirm[];
     globalInstrument: InstrumentSymbol | null;
     globalStopPoints: null | number;
@@ -472,10 +470,16 @@ function PortfolioTable({
                     const plan = firm.findPlan(entry.planId) ?? firm.plans[0];
                     if (!plan) return null;
                     const sim = simmed.find((s) => s.entry.id === entry.id);
-                    return { entry, firm, plan, sim };
+                    return {
+                        entry,
+                        firm,
+                        isAwaitingResult: awaitedIds.has(entry.id),
+                        plan,
+                        sim,
+                    };
                 })
                 .filter((r): r is PortfolioTableRow => r !== null),
-        [portfolio, firms, simmed],
+        [awaitedIds, portfolio, firms, simmed],
     );
 
     const columns = useMemo<DataTableColumn<PortfolioTableRow>[]>(
@@ -525,7 +529,7 @@ function PortfolioTable({
             {
                 accessorFn: (r) => r.sim?.out.evalPassProbability ?? -1,
                 cell: ({ row }) => (
-                    <ComputedCell pending={pending} sim={row.original.sim}>
+                    <ComputedCell row={row.original}>
                         {(out) => formatPercent(out.evalPassProbability)}
                     </ComputedCell>
                 ),
@@ -535,7 +539,7 @@ function PortfolioTable({
             {
                 accessorFn: (r) => r.sim?.out.fundedSurvivalProbability ?? -1,
                 cell: ({ row }) => (
-                    <ComputedCell pending={pending} sim={row.original.sim}>
+                    <ComputedCell row={row.original}>
                         {(out) => formatPercent(out.fundedSurvivalProbability)}
                     </ComputedCell>
                 ),
@@ -545,7 +549,7 @@ function PortfolioTable({
             {
                 accessorFn: (r) => r.sim?.out.daysToPassP50 ?? Infinity,
                 cell: ({ row }) => (
-                    <ComputedCell pending={pending} sim={row.original.sim}>
+                    <ComputedCell row={row.original}>
                         {(out) => (
                             <ValueOrMissing
                                 value={formatDays(out.daysToPassP50)}
@@ -562,17 +566,7 @@ function PortfolioTable({
                         ? r.sim.out.expectedMonthlyNet / r.entry.count
                         : -Infinity,
                 cell: ({ row }) => (
-                    <ComputedCell
-                        className={
-                            row.original.sim
-                                ? row.original.sim.out.expectedMonthlyNet >= 0
-                                    ? 'text-success'
-                                    : 'text-destructive'
-                                : undefined
-                        }
-                        pending={pending}
-                        sim={row.original.sim}
-                    >
+                    <ComputedCell row={row.original}>
                         {(out) =>
                             formatCurrency(
                                 out.expectedMonthlyNet /
@@ -589,8 +583,7 @@ function PortfolioTable({
                 cell: ({ row }) => (
                     <ComputedCell
                         className="font-semibold text-foreground"
-                        pending={pending}
-                        sim={row.original.sim}
+                        row={row.original}
                     >
                         {(out) => formatCurrency(out.expectedMonthlyNet)}
                     </ComputedCell>
@@ -606,8 +599,7 @@ function PortfolioTable({
                 cell: ({ row }) => (
                     <ComputedCell
                         className="text-muted-foreground"
-                        pending={pending}
-                        sim={row.original.sim}
+                        row={row.original}
                     >
                         {(out) =>
                             formatCurrency(
@@ -647,7 +639,7 @@ function PortfolioTable({
                     `${firm.displayName} ${plan.label}`,
             }),
         ],
-        [globalInstrument, globalStopPoints, onEdit, onRemove, pending],
+        [globalInstrument, globalStopPoints, onEdit, onRemove],
     );
 
     return (
@@ -663,4 +655,18 @@ function PortfolioTable({
             )}
         />
     );
+}
+
+function simulatableEntries(
+    firms: readonly TradingFirm[],
+    accepted: readonly PortfolioEntry[],
+): SimulatableEntry[] {
+    const simulatable: SimulatableEntry[] = [];
+    for (const entry of accepted) {
+        const plan = firms
+            .find((f) => f.id === entry.firmId)
+            ?.findPlan(entry.planId);
+        if (plan !== undefined) simulatable.push({ entry, plan });
+    }
+    return simulatable;
 }

@@ -11,6 +11,7 @@ import {
 import {
     type EngineSlot,
     EngineSlotKind,
+    failureReasonOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import {
     estimateCurrency,
@@ -473,20 +474,6 @@ function expectedPayoutsOf(
     }
 }
 
-function failureReasonOf(
-    ...slots: readonly EngineSlot<unknown>[]
-): null | string {
-    for (const slot of slots) {
-        if (
-            slot.kind === EngineSlotKind.Failed ||
-            slot.kind === EngineSlotKind.Refused
-        ) {
-            return slot.reason;
-        }
-    }
-    return null;
-}
-
 function joinedSentences(sentences: readonly (null | string)[]): null | string {
     const present = sentences.filter((sentence) => sentence !== null);
     return present.length === 0 ? null : present.join(' ');
@@ -512,7 +499,7 @@ function nextPayoutDisclosureOf(
             ? null
             : `The first payout caused a breach: ${estimatePercent({ standardError: projection.firstPayoutCausedBreachStandardError, value: breach })}.`,
         payingShare < 1 ? AVERAGED_OVER_PAYING_TRIALS_TEXT : null,
-        `Highlighted when the first payout is expected within ${String(options.highlightWithinDays)} calendar days and at least ${formatPercent(MIN_PAYING_SHARE_FOR_NEXT_PAYOUT_HIGHLIGHT)} of the simulated trials reach one.`,
+        `Marked soon when the first payout is expected within ${String(options.highlightWithinDays)} calendar days and at least ${formatPercent(MIN_PAYING_SHARE_FOR_NEXT_PAYOUT_HIGHLIGHT)} of the simulated trials reach one.`,
     ]
         .filter((sentence) => sentence !== null)
         .join(' ');

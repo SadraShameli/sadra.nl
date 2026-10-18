@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { FilterToolbar } from '~/components/FilterToolbar';
 import { InfoNote } from '~/components/InfoNote';
 import { PanelSubheading } from '~/components/PanelSubheading';
-import { StatStrip, StatTone } from '~/components/StatStrip';
+import { StatStrip } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
 import { ChartSkeleton } from '~/components/ui/chart';
@@ -22,7 +22,6 @@ import CashFlowBandChartView from './charts/CashFlowBandChartView';
 import CashFlowPaybackChartView from './charts/CashFlowPaybackChartView';
 import { clampInt } from './clamp';
 import FunnelWhatIfSection from './FunnelWhatIfSection';
-import { KPI_ACCENT_STAT_TONE } from './kpiAccent';
 import { panelDescriptions } from './kpiDescriptions';
 import { NO_COST_ROI_REASON } from './missingReasons';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
@@ -236,10 +235,6 @@ export default function CashFlowPanel({
                             caption: `through ${horizon.label}`,
                             id: 'median-final-net',
                             label: 'Median final net',
-                            tone:
-                                finalNet50 >= 0
-                                    ? StatTone.Positive
-                                    : StatTone.Negative,
                             value: formatCompactCurrency(finalNet50),
                         },
                         {
@@ -265,10 +260,6 @@ export default function CashFlowPanel({
                             caption: 'month net turns positive',
                             id: 'median-break-even',
                             label: 'Median break-even',
-                            tone:
-                                medianBreakEvenMonth === null
-                                    ? StatTone.Muted
-                                    : StatTone.Positive,
                             value: (
                                 <ValueOrMissing
                                     reason={NO_BREAK_EVEN_REASON}
@@ -284,21 +275,16 @@ export default function CashFlowPanel({
                             caption: 'within the horizon',
                             id: 'p-ever-break-even',
                             label: 'P(ever break-even)',
-                            tone:
-                                pEverBreakEven >= 0.5
-                                    ? StatTone.Positive
-                                    : StatTone.Warning,
                             value: formatPercent(pEverBreakEven),
                         },
                         {
                             caption: 'median final net ÷ median spend',
                             id: 'roi-on-spend',
                             label: 'ROI on spend',
-                            tone: KPI_ACCENT_STAT_TONE[roiOnSpend.accent],
                             value: (
                                 <ValueOrMissing
                                     reason={NO_COST_ROI_REASON}
-                                    value={roiOnSpend.text}
+                                    value={roiOnSpend}
                                 />
                             ),
                         },
@@ -321,16 +307,6 @@ export default function CashFlowPanel({
                                 Spend vs payout (median)
                             </PanelSubheading>
                             <CashFlowPaybackChartView result={result} />
-                            <p className="text-xs text-muted-foreground">
-                                <span aria-hidden className="text-destructive">
-                                    ■
-                                </span>{' '}
-                                Cumulative spend ·{' '}
-                                <span aria-hidden className="text-success">
-                                    ■
-                                </span>{' '}
-                                Cumulative payout
-                            </p>
                         </div>
                         <div className="flex min-w-0 flex-col gap-2">
                             <PanelSubheading as="h4">

@@ -73,6 +73,10 @@ export function MutationsBrowser() {
         },
         { enabled: !!credentialId },
     );
+    const countQ = api.accounting.mutations.count.useQuery(
+        { credentialId, dateFrom, dateTo },
+        { enabled: !!credentialId },
+    );
     const ledgersQ = api.accounting.ledgers.list.useQuery(
         { credentialId },
         { enabled: !!credentialId },
@@ -95,6 +99,7 @@ export function MutationsBrowser() {
         () => mutationsQ.data ?? [],
         [mutationsQ.data],
     );
+    const totalCount = countQ.data ?? undefined;
     const typeOptions = useMemo(
         () => [...new Set(allMutations.map((m) => m.type))],
         [allMutations],
@@ -290,12 +295,17 @@ export function MutationsBrowser() {
                         rowId={(r) => r.externalId}
                         serverPagination={{
                             hasNextPage:
-                                allMutations.length === DATA_TABLE_PAGE_SIZE,
+                                totalCount === undefined
+                                    ? allMutations.length ===
+                                      DATA_TABLE_PAGE_SIZE
+                                    : offset + allMutations.length < totalCount,
                             isPending: mutationsQ.isPending,
                             onPageIndexChange: (pageIndex) =>
                                 setOffset(pageIndex * DATA_TABLE_PAGE_SIZE),
                             pageIndex: offset / DATA_TABLE_PAGE_SIZE,
                             pageSize: DATA_TABLE_PAGE_SIZE,
+                            totalCount:
+                                typeFilter === ALL ? totalCount : undefined,
                         }}
                         showFilter
                     />

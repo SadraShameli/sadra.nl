@@ -46,6 +46,7 @@ import {
     periodTerminated,
     sentenceOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
+import { StoredDateFix } from '~/app/(app)/prop-calculator/accounts/_components/storedDateFix';
 import { firmsModelOf } from '~/app/(app)/prop-calculator/accounts/firms/firmsModel';
 import { errorMessage } from '~/lib/errorMessage';
 import {
@@ -67,6 +68,8 @@ import {
     AccountStateKind,
     type AccountStateSnapshotRow,
     accountStatesOf,
+    AccountStateUnavailableKind,
+    type AccountStateUnavailableReason,
     ADHERENCE_STEP_REASON,
     type AlertAccountRow,
     type AlertContext,
@@ -109,6 +112,7 @@ import {
     ExposureBasis,
     type ExposureEntry,
     exposureOf,
+    ExposureUnavailableKind,
     type ExternalFirmName,
     FeeKind,
     feeReconciliation,
@@ -338,6 +342,7 @@ import {
     type EngineSlot,
     EngineSlotKind,
     engineSlotOf,
+    failureReasonOf,
     groupFailureOf,
     type SlotEngine,
     uniformSlotEngine,
@@ -365,11 +370,10 @@ export enum ExpectedNetStatus {
     Ready = 'ready',
 }
 
-export enum KpiTone {
-    Negative = 'negative',
-    Neutral = 'neutral',
+export enum KpiState {
+    Failed = 'failed',
     Pending = 'pending',
-    Positive = 'positive',
+    Ready = 'ready',
 }
 
 export enum OverviewKpiKind {
@@ -431,6 +435,14 @@ export enum PortfolioSource {
     Snapshots = 'snapshots',
     Transfers = 'transfers',
     Violations = 'violations',
+}
+
+export enum SetupRowStatus {
+    Done = 'done',
+    Failed = 'failed',
+    Missing = 'missing',
+    NotApplicable = 'not-applicable',
+    NotChecked = 'not-checked',
 }
 
 enum FunnelCohortStage {
@@ -664,7 +676,7 @@ export interface OverviewKpi {
     readonly kind: OverviewKpiKind;
     readonly label: string;
     readonly note: null | string;
-    readonly tone: KpiTone;
+    readonly state: KpiState;
     readonly value: string;
 }
 
@@ -939,6 +951,11 @@ export interface SetupChecklistCardModel {
     readonly totalSteps: number;
 }
 
+export interface SetupEngineState {
+    readonly expectedValueFailure: null | string;
+    readonly isCounting: boolean;
+}
+
 export interface StatementCardModel {
     readonly caveat: string;
     readonly chart: readonly StatementChartPoint[];
@@ -1177,6 +1194,7 @@ interface FundedPayoutsRow {
     readonly modeledCounts: null | readonly string[];
     readonly modeledFundedValue: string;
     readonly modeledProbabilities: null | readonly number[];
+    readonly modeledUnavailableReason: null | string;
     readonly openAccounts: string;
     readonly plan: string;
     readonly realizedFundedValue: string;
@@ -1438,7 +1456,7 @@ interface SetupStepRow {
     readonly items: readonly SetupItemRow[];
     readonly key: SetupStep;
     readonly label: string;
-    readonly status: SetupStepStatus;
+    readonly status: SetupRowStatus;
     readonly statusLabel: string;
 }
 
@@ -1496,6 +1514,7 @@ interface TimelineRow {
 
 interface UnavailableAccountRow {
     readonly account: string;
+    readonly isAwaitingSnapshot: boolean;
     readonly key: string;
     readonly reason: string;
 }
@@ -1773,11 +1792,24 @@ const SETUP_STEP_HREF: Readonly<Record<SetupStep, Route>> = {
     [SetupStep.StagesCaptured]: routes.propCalculator.accounts.review,
 };
 
-const SETUP_STATUS_LABEL: Readonly<Record<SetupStepStatus, string>> = {
-    [SetupStepStatus.Done]: 'Done',
-    [SetupStepStatus.Missing]: 'Missing',
-    [SetupStepStatus.NotApplicable]: 'Add an account first',
-    [SetupStepStatus.NotChecked]: 'Waiting for the engine',
+const SETUP_ROW_STATUS: Readonly<Record<SetupStepStatus, SetupRowStatus>> = {
+    [SetupStepStatus.Done]: SetupRowStatus.Done,
+    [SetupStepStatus.Missing]: SetupRowStatus.Missing,
+    [SetupStepStatus.NotApplicable]: SetupRowStatus.NotApplicable,
+    [SetupStepStatus.NotChecked]: SetupRowStatus.NotChecked,
+};
+
+const SETUP_STATUS_LABEL: Readonly<Record<SetupRowStatus, string>> = {
+    [SetupRowStatus.Done]: 'Done',
+    [SetupRowStatus.Failed]: 'The engine failed',
+    [SetupRowStatus.Missing]: 'Missing',
+    [SetupRowStatus.NotApplicable]: 'Add an account first',
+    [SetupRowStatus.NotChecked]: 'Waiting for the engine',
+};
+
+const HUB_SETUP_ENGINE: SetupEngineState = {
+    expectedValueFailure: null,
+    isCounting: false,
 };
 
 const EV_FUNDED_PROGRESS_LABEL = 'payout money at risk';
@@ -1864,8 +1896,8 @@ interface Counted {
 
 interface EngineView {
     readonly failure: null | string;
-    readonly hasRulebook: boolean;
     readonly plans: ReadonlyMap<string, PlanEngine>;
+    readonly rulebookStatus: OverviewSectionStatus;
     readonly ruleLabel: string;
     readonly values: ReadonlyMap<string, EngineSlot<PlanValuesFigures>>;
 }
@@ -1905,6 +1937,11 @@ interface PlanNames {
 
 interface PolicyNames {
     of(planSerial: string, optIns: PlanOptIns): string;
+}
+
+interface RulebookState {
+    readonly parameters: null | RulebookParameters;
+    readonly status: OverviewSectionStatus;
 }
 
 type SectionLoad<Rows> =
@@ -2086,7 +2123,7 @@ export function buildOverview({
         load.violations,
         load.decisions,
         engine,
-        load.rulebook,
+        rulebookStateOf(load),
         realizedRisk,
     );
     return {
@@ -2256,6 +2293,12 @@ export function hubPortfolioOf(inputs: HubPortfolioInputs): HubPortfolio {
                       }),
                   ),
     };
+}
+
+export function isAwaitingOnlySnapshots(
+    unavailable: readonly UnavailableAccountRow[],
+): boolean {
+    return unavailable.every((row) => row.isAwaitingSnapshot);
 }
 
 export function ledgerOrDateFailure<Result>(
@@ -2431,23 +2474,34 @@ export function scaleModelAtBudget(
 
 export function setupChecklistCardOf(
     checklist: SetupChecklist,
-    isCounting: boolean,
+    engine: SetupEngineState,
 ): SetupChecklistCardModel {
     return {
         doneCount: checklist.doneCount,
         isComplete: checklist.isComplete,
-        isCounting,
-        steps: checklist.steps.map((result) => ({
-            accounts: result.missing.flatMap(setupAccountRows),
-            actionLabel: SETUP_STEP_ACTION[result.step],
-            detail: setupStepDetail(result),
-            href: SETUP_STEP_HREF[result.step],
-            items: result.missing.flatMap(setupItemRows),
-            key: result.step,
-            label: SETUP_STEP_LABEL[result.step],
-            status: result.status,
-            statusLabel: SETUP_STATUS_LABEL[result.status],
-        })),
+        isCounting: engine.isCounting,
+        steps: checklist.steps.map((result) => {
+            const status = setupRowStatusOf(
+                result,
+                engine.expectedValueFailure,
+            );
+            return {
+                accounts: result.missing.flatMap(setupAccountRows),
+                actionLabel: SETUP_STEP_ACTION[result.step],
+                detail: setupStepDetail(
+                    result,
+                    status === SetupRowStatus.Failed
+                        ? engine.expectedValueFailure
+                        : null,
+                ),
+                href: SETUP_STEP_HREF[result.step],
+                items: result.missing.flatMap(setupItemRows),
+                key: result.step,
+                label: SETUP_STEP_LABEL[result.step],
+                status,
+                statusLabel: SETUP_STATUS_LABEL[status],
+            };
+        }),
         totalSteps: checklist.steps.length,
     };
 }
@@ -3551,6 +3605,7 @@ function cushionBoardCard(
                     accounts.get(row.accountId),
                     row.reason,
                 ),
+                isNoSnapshot(row.reason),
             ),
         ),
     };
@@ -3639,7 +3694,7 @@ function engineText<Figures>(
 function engineViewOf(
     engine: OverviewEngine,
     requests: readonly OverviewRequest[],
-    rulebook: null | RulebookParameters,
+    rulebook: RulebookState,
 ): EngineView {
     const plans = new Map<string, PlanEngine>();
     const values = new Map<string, EngineSlot<PlanValuesFigures>>();
@@ -3682,10 +3737,10 @@ function engineViewOf(
     }
     return {
         failure: groupFailureOf(engine, OverviewRequestGroup.Policy),
-        hasRulebook: rulebook !== null,
         plans,
+        rulebookStatus: rulebook.status,
         ruleLabel: documentedRuleLabel(
-            rulebookDeviation(rulebook ?? DEFAULT_RULEBOOK),
+            rulebookDeviation(rulebook.parameters ?? DEFAULT_RULEBOOK),
         ),
         values,
     };
@@ -3840,7 +3895,7 @@ function evSourcesFor(
                 ...engineRequestsOfLedger(ledger, load.rulebook),
                 ...valueRequestsOfLedger(ledger, load.rulebook),
             ],
-            load.rulebook,
+            rulebookStateOf(load),
         );
         return evSourcesCard(
             ledger,
@@ -3855,7 +3910,7 @@ function evSourcesFor(
         ? { kind: OverviewSectionStatus.Ready, model: computed.value }
         : {
               kind: OverviewSectionStatus.Failed,
-              message: `Where EV comes from could not be computed: ${computed.message} Fix the stored date listed in the alerts.`,
+              message: `Where EV comes from could not be computed: ${periodTerminated(computed.message)} ${StoredDateFix.InAlerts}`,
           };
 }
 
@@ -3875,12 +3930,11 @@ function expectedNetCard(
             disclosures: [],
             refused: [],
             rows: [],
-            status: engine.hasRulebook
-                ? ExpectedNetStatus.NoPlans
-                : ExpectedNetStatus.Pending,
-            statusNote: engine.hasRulebook
-                ? 'No plan you hold is modeled by the engine, so there is no expected net to compute.'
-                : 'The expected net waits for your rulebook to load.',
+            ...noRequestStatusOf(
+                engine.rulebookStatus,
+                'The expected net',
+                'No plan you hold is modeled by the engine, so there is no expected net to compute.',
+            ),
         };
     }
     const allSlots = plans.flatMap(([, plan]) => [
@@ -3990,11 +4044,25 @@ function expectedNetKpi(
         const count = slots.get(serial) ?? 0;
         return count > 0 ? { count, plan } : [];
     });
-    if (engine.plans.size === 0 && !engine.hasRulebook) {
+    if (
+        engine.plans.size === 0 &&
+        engine.rulebookStatus === OverviewSectionStatus.Failed
+    ) {
+        return {
+            ...base,
+            detail: `Your ${sourceList([PortfolioSource.Rulebook])} could not be loaded`,
+            state: KpiState.Failed,
+            value: NOT_APPLICABLE,
+        };
+    }
+    if (
+        engine.plans.size === 0 &&
+        engine.rulebookStatus === OverviewSectionStatus.Pending
+    ) {
         return {
             ...base,
             detail: `Modeled monthly net per slot under ${engine.ruleLabel}: pending the engine cards`,
-            tone: KpiTone.Pending,
+            state: KpiState.Pending,
             value: PENDING_FIGURE,
         };
     }
@@ -4002,7 +4070,7 @@ function expectedNetKpi(
         return {
             ...base,
             detail: NO_ACTIVE_FUNDED_SLOT,
-            tone: KpiTone.Neutral,
+            state: KpiState.Ready,
             value: NOT_APPLICABLE,
         };
     }
@@ -4012,7 +4080,7 @@ function expectedNetKpi(
         return {
             ...base,
             detail: `The engine cards could not be computed: ${periodTerminated(engine.failure ?? UNAVAILABLE_FIGURE)}`,
-            tone: KpiTone.Neutral,
+            state: KpiState.Failed,
             value: NOT_APPLICABLE,
         };
     }
@@ -4022,7 +4090,7 @@ function expectedNetKpi(
         return {
             ...base,
             detail: `Modeled monthly net per slot under ${engine.ruleLabel}: pending the engine cards`,
-            tone: KpiTone.Pending,
+            state: KpiState.Pending,
             value: PENDING_FIGURE,
         };
     }
@@ -4036,7 +4104,7 @@ function expectedNetKpi(
         return {
             ...base,
             detail: 'Every plan you hold with an active funded slot was refused by the engine; the refusals are listed in the expected net card.',
-            tone: KpiTone.Neutral,
+            state: KpiState.Ready,
             value: NOT_APPLICABLE,
         };
     }
@@ -4061,7 +4129,7 @@ function expectedNetKpi(
     return {
         ...base,
         detail: `Under ${engine.ruleLabel}, credit-free (credit-inclusive ${formatCurrency(creditInclusive)}), weighted over ${counted({ count: totalSlots, plural: 'active funded slots', singular: 'active funded slot' })}${exclusion}; fresh start, ${formatTrials(trials)}`,
-        tone: toneOf(creditFree),
+        state: KpiState.Ready,
         value: formatCurrency(creditFree),
     };
 }
@@ -4131,6 +4199,18 @@ function expectedNetRow(
     };
 }
 
+function expectedValueFailureOf(
+    ledger: PortfolioLedger,
+    view: EngineView,
+): null | string {
+    if (hasPendingExpectedValue(ledger, view)) return null;
+    for (const group of heldPolicyGroupsOf(ledger)) {
+        const slot = view.plans.get(group.policyKey)?.documented;
+        if (slot?.kind === EngineSlotKind.Failed) return slot.reason;
+    }
+    return null;
+}
+
 function expectedValuePlanSerialsOf(
     ledger: PortfolioLedger,
     view: EngineView,
@@ -4186,6 +4266,8 @@ function exposureCard(
                     accounts.get(row.accountId),
                     row.reason,
                 ),
+                row.reason.kind === ExposureUnavailableKind.Reconstruction &&
+                    isNoSnapshot(row.reason.reason),
             ),
         ),
     };
@@ -4424,7 +4506,7 @@ function followedRecommendationsKpi(load: PortfolioLoad): OverviewKpi {
             return {
                 ...base,
                 detail: `Your ${sourceList(decisions.failed)} could not be loaded`,
-                tone: KpiTone.Neutral,
+                state: KpiState.Failed,
                 value: NOT_APPLICABLE,
             };
         }
@@ -4432,7 +4514,7 @@ function followedRecommendationsKpi(load: PortfolioLoad): OverviewKpi {
             return {
                 ...base,
                 detail: 'Pending your sizing decisions',
-                tone: KpiTone.Pending,
+                state: KpiState.Pending,
                 value: PENDING_FIGURE,
             };
         }
@@ -4441,7 +4523,7 @@ function followedRecommendationsKpi(load: PortfolioLoad): OverviewKpi {
                 return {
                     ...base,
                     detail: 'Your rulebook is needed to read the rounding step',
-                    tone: KpiTone.Neutral,
+                    state: KpiState.Ready,
                     value: NOT_APPLICABLE,
                 };
             }
@@ -4451,7 +4533,7 @@ function followedRecommendationsKpi(load: PortfolioLoad): OverviewKpi {
                 return {
                     ...base,
                     detail: 'No sizing decision recorded yet',
-                    tone: KpiTone.Neutral,
+                    state: KpiState.Ready,
                     value: NOT_APPLICABLE,
                 };
             }
@@ -4459,7 +4541,7 @@ function followedRecommendationsKpi(load: PortfolioLoad): OverviewKpi {
                 return {
                     ...base,
                     detail: `No decision has an actual risk entered yet (${String(adherence.notRecorded)} recorded without one)`,
-                    tone: KpiTone.Neutral,
+                    state: KpiState.Ready,
                     value: NOT_APPLICABLE,
                 };
             }
@@ -4471,7 +4553,7 @@ function followedRecommendationsKpi(load: PortfolioLoad): OverviewKpi {
                 ...base,
                 detail: `n = ${String(adherence.measured)}; the actual risk within ${formatUsdCents(usdCents(stepCents))} of the accepted risk (${ADHERENCE_STEP_REASON})${unrecorded}`,
                 note: ADHERENCE_BASIS_NOTE,
-                tone: KpiTone.Neutral,
+                state: KpiState.Ready,
                 value: formatPercent(adherence.rate),
             };
         }
@@ -4596,6 +4678,8 @@ function fundedPayoutsCard(
                     ready.fundedPayoutCountDistribution.length === 0
                         ? null
                         : ready.fundedPayoutCountDistribution,
+                modeledUnavailableReason:
+                    modeled === undefined ? null : failureReasonOf(modeled),
                 openAccounts: String(row.openAccounts),
                 plan: names.of(row.planSerial),
                 realizedFundedValue: formatSampledCents(
@@ -4975,20 +5059,20 @@ function householdNoteOf(
 }
 
 function hubSetupCardOf(checklist: SetupChecklist): SetupChecklistCardModel {
-    const card = setupChecklistCardOf(checklist, false);
+    const card = setupChecklistCardOf(checklist, HUB_SETUP_ENGINE);
     const shown = card.steps.filter(
         (step) =>
-            step.status !== SetupStepStatus.NotChecked &&
-            step.status !== SetupStepStatus.NotApplicable,
+            step.status !== SetupRowStatus.NotChecked &&
+            step.status !== SetupRowStatus.NotApplicable,
     );
     return {
         ...card,
         isComplete:
-            shown.every((step) => step.status !== SetupStepStatus.Missing) &&
+            shown.every((step) => step.status !== SetupRowStatus.Missing) &&
             shown.some(
                 (step) =>
                     step.key !== SetupStep.BudgetSet &&
-                    step.status === SetupStepStatus.Done,
+                    step.status === SetupRowStatus.Done,
             ),
         totalSteps: shown.length,
     };
@@ -5037,6 +5121,10 @@ function isLiveTriggerListChecked(
     );
 }
 
+function isNoSnapshot(reason: AccountStateUnavailableReason): boolean {
+    return reason.kind === AccountStateUnavailableKind.NoSnapshot;
+}
+
 function isStale(query: PortfolioQuery<unknown> | undefined): boolean {
     return query?.data !== undefined && hasError(query.error);
 }
@@ -5079,7 +5167,7 @@ function kpiRow(
             kind: OverviewKpiKind.Spend,
             label: 'Spend',
             note: cashNote,
-            tone: KpiTone.Neutral,
+            state: KpiState.Ready,
             value: formatUsdCents(cash.spend),
         },
         {
@@ -5087,7 +5175,7 @@ function kpiRow(
             kind: OverviewKpiKind.PayoutsReceived,
             label: 'Payouts received',
             note: cashNote,
-            tone: KpiTone.Neutral,
+            state: KpiState.Ready,
             value: formatUsdCents(cash.payouts),
         },
         {
@@ -5095,7 +5183,7 @@ function kpiRow(
             kind: OverviewKpiKind.Net,
             label: 'Net',
             note: cashNote,
-            tone: toneOf(cash.net),
+            state: KpiState.Ready,
             value: formatUsdCents(cash.net),
         },
         pooled === null
@@ -5104,7 +5192,7 @@ function kpiRow(
                   kind: OverviewKpiKind.RealizedNetPerSlot,
                   label: 'Realized net per slot per month',
                   note: perSlotNote,
-                  tone: KpiTone.Neutral,
+                  state: KpiState.Ready,
                   value: NOT_APPLICABLE,
               }
             : {
@@ -5112,7 +5200,7 @@ function kpiRow(
                   kind: OverviewKpiKind.RealizedNetPerSlot,
                   label: 'Realized net per slot per month',
                   note: perSlotNote,
-                  tone: toneOf(pooled.value),
+                  state: KpiState.Ready,
                   value: formatUsdCents(pooled.value),
               },
         expectedNet,
@@ -5124,7 +5212,7 @@ function kpiRow(
             kind: OverviewKpiKind.Roi,
             label: ROI_BASIS_LABEL[roi.total.basis],
             note: cashNote,
-            tone: toneOf(roi.total.value ?? 0),
+            state: KpiState.Ready,
             value: formatOptionalPercent(roi.total.value),
         },
         {
@@ -5135,10 +5223,7 @@ function kpiRow(
             kind: OverviewKpiKind.PayoutMultiple,
             label: 'Payout multiple',
             note: cashNote,
-            tone:
-                cash.spend === 0
-                    ? KpiTone.Neutral
-                    : toneOf(cash.payouts - cash.spend),
+            state: KpiState.Ready,
             value: formatMultiple(payoutMultiple(cash.payouts, cash.spend)),
         },
         {
@@ -5146,7 +5231,7 @@ function kpiRow(
             kind: OverviewKpiKind.TotalFunding,
             label: 'Total nominal funding',
             note: null,
-            tone: KpiTone.Neutral,
+            state: KpiState.Ready,
             value: formatUsdCents(funding.fundedNominal),
         },
         {
@@ -5154,7 +5239,7 @@ function kpiRow(
             kind: OverviewKpiKind.AveragePayout,
             label: 'Average payout',
             note: null,
-            tone: KpiTone.Neutral,
+            state: KpiState.Ready,
             value: formatSampledCents(averagePayout),
         },
     ];
@@ -5754,7 +5839,7 @@ function nextPayoutFor(
         case OverviewSectionStatus.Failed: {
             return {
                 kind: OverviewSectionStatus.Failed,
-                message: `The from-state figures could not be computed: ${computed.message} Fix the stored date listed in the alerts.`,
+                message: `The from-state figures could not be computed: ${periodTerminated(computed.message)} ${StoredDateFix.InAlerts}`,
             };
         }
         case OverviewSectionStatus.Ready: {
@@ -5775,6 +5860,33 @@ function nextPayoutFor(
                               ? NEXT_PAYOUT_NO_ACCOUNTS_NOTE
                               : null,
                 },
+            };
+        }
+    }
+}
+
+function noRequestStatusOf(
+    rulebookStatus: OverviewSectionStatus,
+    subject: string,
+    noPlansNote: string,
+): Pick<ExpectedNetCardModel, 'status' | 'statusNote'> {
+    switch (rulebookStatus) {
+        case OverviewSectionStatus.Failed: {
+            return {
+                status: ExpectedNetStatus.Failed,
+                statusNote: `${subject} could not be computed because your ${sourceList([PortfolioSource.Rulebook])} could not be loaded.`,
+            };
+        }
+        case OverviewSectionStatus.Pending: {
+            return {
+                status: ExpectedNetStatus.Pending,
+                statusNote: `${subject} waits for your ${sourceList([PortfolioSource.Rulebook])} to load.`,
+            };
+        }
+        case OverviewSectionStatus.Ready: {
+            return {
+                status: ExpectedNetStatus.NoPlans,
+                statusNote: noPlansNote,
             };
         }
     }
@@ -5917,7 +6029,7 @@ function overviewLedger(
     violations: PortfolioLoad['violations'],
     decisions: PortfolioLoad['decisions'],
     engine: OverviewEngine,
-    rulebook: null | RulebookParameters,
+    rulebook: RulebookState,
     realizedRisk: null | RealizedLossRisk,
 ): OverviewLedger {
     switch (section.status) {
@@ -6234,19 +6346,18 @@ function projectionCard(
     names: PolicyNames,
     engine: OverviewEngine,
     requests: readonly OverviewRequest[],
-    hasRulebook: boolean,
+    rulebookStatus: OverviewSectionStatus,
 ): ProjectionCardModel {
     if (requests.length === 0) {
         return {
             disclosures: [],
             refused: [],
             rows: [],
-            status: hasRulebook
-                ? ExpectedNetStatus.NoPlans
-                : ExpectedNetStatus.Pending,
-            statusNote: hasRulebook
-                ? 'No plan you hold has an active account the engine models, so there is no projection to compute.'
-                : 'The projection waits for your rulebook to load.',
+            ...noRequestStatusOf(
+                rulebookStatus,
+                'The projection',
+                'No plan you hold has an active account the engine models, so there is no projection to compute.',
+            ),
         };
     }
     const slots = requests.map((request) => ({
@@ -6333,14 +6444,14 @@ function projectionFor(
                     ),
                     engine,
                     projectionRequestsOfLedger(ledger, rulebook),
-                    rulebook !== null,
+                    rulebookStateOf(load).status,
                 );
             });
             switch (computed.kind) {
                 case OverviewSectionStatus.Failed: {
                     return {
                         kind: OverviewSectionStatus.Failed,
-                        message: `The fresh-start projection could not be computed: ${computed.message} Fix the stored date listed in the alerts.`,
+                        message: `The fresh-start projection could not be computed: ${periodTerminated(computed.message)} ${StoredDateFix.InAlerts}`,
                     };
                 }
                 case OverviewSectionStatus.Ready: {
@@ -6472,6 +6583,7 @@ function readinessBoardCard(
                               accounts.get(row.accountId),
                               row.notApplicable.reason,
                           ),
+                          isNoSnapshot(row.notApplicable.reason),
                       ),
                   ]
                 : [],
@@ -6547,7 +6659,7 @@ function readyLedger(
     violations: PortfolioLoad['violations'],
     decisions: PortfolioLoad['decisions'],
     engine: OverviewEngine,
-    rulebook: null | RulebookParameters,
+    rulebook: RulebookState,
     realizedRisk: null | RealizedLossRisk,
 ): OverviewLedger {
     const computed = ledgerOrDateFailure(() => {
@@ -6565,7 +6677,7 @@ function readyLedger(
             decisions,
             engineViewOf(
                 engine,
-                engineRequestsOfLedger(ledger, rulebook),
+                engineRequestsOfLedger(ledger, rulebook.parameters),
                 rulebook,
             ),
             realizedRisk,
@@ -6576,7 +6688,7 @@ function readyLedger(
         case OverviewSectionStatus.Failed: {
             return {
                 kind: OverviewSectionStatus.Failed,
-                message: `The ledger cards could not be computed: ${computed.message} Fix the stored date listed in the alerts.`,
+                message: `The ledger cards could not be computed: ${periodTerminated(computed.message)} ${StoredDateFix.InAlerts}`,
             };
         }
         case OverviewSectionStatus.Ready: {
@@ -6740,6 +6852,23 @@ function retainedCushionLabel(
         : `Retained cushion ${formatCurrency(resolved)} (engine-resolved)`;
 }
 
+function rulebookStateOf(load: PortfolioLoad): RulebookState {
+    if (load.rulebook !== null) {
+        return {
+            parameters: load.rulebook,
+            status: OverviewSectionStatus.Ready,
+        };
+    }
+    return {
+        parameters: null,
+        status: load.failures.some(
+            (failure) => failure.source === PortfolioSource.Rulebook,
+        )
+            ? OverviewSectionStatus.Failed
+            : OverviewSectionStatus.Pending,
+    };
+}
+
 function sensitivityEntryOf(
     key: string,
     plan: PlanEngine,
@@ -6809,7 +6938,7 @@ function setupFor(
         const view = engineViewOf(
             engine,
             engineRequestsOfLedger(ledger, load.rulebook),
-            load.rulebook,
+            rulebookStateOf(load),
         );
         const staleSnapshotNotes = staleSnapshotNotesOf(
             new StaleSnapshotRule().evaluate(context),
@@ -6826,15 +6955,19 @@ function setupFor(
                 rulebook: ready.alerts.rulebook,
                 staleSnapshotNotes,
             }),
-            expectedValuePlanSerials === null &&
-                hasPendingExpectedValue(ledger, view),
+            {
+                expectedValueFailure: expectedValueFailureOf(ledger, view),
+                isCounting:
+                    expectedValuePlanSerials === null &&
+                    hasPendingExpectedValue(ledger, view),
+            },
         );
     });
     return computed.kind === OverviewSectionStatus.Ready
         ? { kind: OverviewSectionStatus.Ready, model: computed.value }
         : {
               kind: OverviewSectionStatus.Failed,
-              message: `The setup checklist could not be computed: ${computed.message} Fix the stored date listed in the alerts.`,
+              message: `The setup checklist could not be computed: ${periodTerminated(computed.message)} ${StoredDateFix.InAlerts}`,
           };
 }
 
@@ -6865,7 +6998,21 @@ function setupItemRows(item: SetupMissingItem): readonly SetupItemRow[] {
     }
 }
 
-function setupStepDetail(result: SetupStepResult): null | string {
+function setupRowStatusOf(
+    result: SetupStepResult,
+    expectedValueFailure: null | string,
+): SetupRowStatus {
+    return expectedValueFailure !== null &&
+        result.step === SetupStep.ExpectedValueComputed &&
+        result.status === SetupStepStatus.NotChecked
+        ? SetupRowStatus.Failed
+        : SETUP_ROW_STATUS[result.status];
+}
+
+function setupStepDetail(
+    result: SetupStepResult,
+    failure: null | string,
+): null | string {
     const { status } = result;
     switch (result.step) {
         case SetupStep.BudgetSet: {
@@ -6881,6 +7028,9 @@ function setupStepDetail(result: SetupStepResult): null | string {
         case SetupStep.ExpectedValueComputed: {
             if (status === SetupStepStatus.Missing) {
                 return 'No expected net yet for these plans.';
+            }
+            if (failure !== null) {
+                return `The expected net could not be computed: ${failure}`;
             }
             return status === SetupStepStatus.NotChecked
                 ? 'Computed once the engine has answered, and not counted in the done total until then.'
@@ -6989,9 +7139,11 @@ function unavailableAccountRow(
     accountId: string,
     accounts: ReadonlyMap<string, OverviewAccountRow>,
     reason: string,
+    isAwaitingSnapshot: boolean,
 ): UnavailableAccountRow {
     return {
         account: accounts.get(accountId)?.label ?? accountId,
+        isAwaitingSnapshot,
         key: accountId,
         reason,
     };
@@ -7057,14 +7209,14 @@ function worstDayKpi(
                   ...base,
                   detail: `Your ${sourceList(load.alerts.failed)} could not be loaded`,
                   note: null,
-                  tone: KpiTone.Neutral,
+                  state: KpiState.Failed,
                   value: NOT_APPLICABLE,
               }
             : {
                   ...base,
                   detail: 'Pending your accounts and snapshots',
                   note: null,
-                  tone: KpiTone.Pending,
+                  state: KpiState.Pending,
                   value: PENDING_FIGURE,
               };
     }
@@ -7086,7 +7238,7 @@ function worstDayKpi(
                 ...dayLossBasisNotes(worstDay).map((note) => sentenceOf(note)),
                 unmeasured,
             ),
-            tone: KpiTone.Negative,
+            state: KpiState.Ready,
             value: formatUsdCents(worstDay.lossCents),
         };
     }
@@ -7095,14 +7247,14 @@ function worstDayKpi(
               ...base,
               detail: 'No loss measured on any account since its previous snapshot',
               note: unmeasured,
-              tone: KpiTone.Neutral,
+              state: KpiState.Ready,
               value: formatUsdCents(usdCents(0)),
           }
         : {
               ...base,
               detail: 'No active account could be compared with a previous snapshot yet',
               note: unmeasured,
-              tone: KpiTone.Neutral,
+              state: KpiState.Ready,
               value: NOT_APPLICABLE,
           };
 }
@@ -7499,11 +7651,6 @@ function timelineRow(entry: TimelineEntry): TimelineRow {
             };
         }
     }
-}
-
-function toneOf(value: number): KpiTone {
-    if (value > 0) return KpiTone.Positive;
-    return value < 0 ? KpiTone.Negative : KpiTone.Neutral;
 }
 
 function undatedPaidPayoutsCaveatOf(count: number): null | string {

@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleCheck, FileUp, TriangleAlert } from 'lucide-react';
+import { CircleCheck, FileUp } from 'lucide-react';
 import {
     type ReactNode,
     useDeferredValue,
@@ -17,10 +17,14 @@ import {
     accountPlanOptions,
     planTagLabel,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
+import {
+    ErrorNoticeTitle,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { messageWithConsequence } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
 import { DetailList, DetailListLayout } from '~/components/DetailList';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
@@ -212,14 +216,11 @@ export function ImportView() {
 
     if (accountsQuery.data === undefined) {
         return accountsQuery.isError ? (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>The accounts could not be loaded</AlertTitle>
-                <AlertDescription>
-                    {accountsQuery.error.message} Import needs them to check
-                    labels, so it is paused.
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                consequence="Import needs them to check labels, so it is paused."
+                message={accountsQuery.error.message}
+                title={ErrorNoticeTitle.Accounts}
+            />
         ) : (
             <Skeleton
                 aria-label="Loading your accounts"
@@ -236,7 +237,10 @@ export function ImportView() {
         >
             {accountsQuery.isError && (
                 <StatusRow
-                    detail={`${accountsQuery.error.message} Labels are checked against the list loaded earlier, which may be out of date. Reload the page before importing if you changed an account since then.`}
+                    detail={messageWithConsequence(
+                        accountsQuery.error.message,
+                        'Labels are checked against the list loaded earlier, which may be out of date. Reload the page before importing if you changed an account since then.',
+                    )}
                     title="The account list could not be refreshed"
                     tone={StatusTone.Warn}
                 />
@@ -326,14 +330,11 @@ function AccountImportTab({
         );
     }
     return externalFirmsQuery.isError ? (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>Your firms could not be loaded</AlertTitle>
-            <AlertDescription>
-                {externalFirmsQuery.error.message} Account import needs them to
-                check firm names, so it is paused.
-            </AlertDescription>
-        </Alert>
+        <QueryErrorNotice
+            consequence="Account import needs them to check firm names, so it is paused."
+            message={externalFirmsQuery.error.message}
+            title={ErrorNoticeTitle.Firms}
+        />
     ) : (
         <Skeleton
             aria-label="Loading your firms"
@@ -490,20 +491,16 @@ function CsvImportPanel<Column extends string, Value>({
                     )}
                 </div>
                 {fileError !== null && (
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>The file was not loaded</AlertTitle>
-                        <AlertDescription>{fileError}</AlertDescription>
-                    </Alert>
+                    <QueryErrorNotice
+                        message={fileError}
+                        title="The file was not loaded"
+                    />
                 )}
                 {preview !== null && preview.kind === CsvTableKind.Failed && (
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>This CSV cannot be imported</AlertTitle>
-                        <AlertDescription>
-                            {describeCsvFailure(preview.failure)}
-                        </AlertDescription>
-                    </Alert>
+                    <QueryErrorNotice
+                        message={describeCsvFailure(preview.failure)}
+                        title="This CSV cannot be imported"
+                    />
                 )}
                 {preview !== null && preview.kind === CsvTableKind.Parsed && (
                     <PreviewTable
@@ -514,11 +511,10 @@ function CsvImportPanel<Column extends string, Value>({
                     />
                 )}
                 {commitError !== null && (
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>Nothing was imported</AlertTitle>
-                        <AlertDescription>{commitError}</AlertDescription>
-                    </Alert>
+                    <QueryErrorNotice
+                        message={commitError}
+                        title="Nothing was imported"
+                    />
                 )}
                 <div className="flex flex-wrap items-center gap-3">
                     <Button
@@ -702,8 +698,11 @@ function PreviewTable<Column extends string, Value>({
                         cell: ({ row: { original: row } }) =>
                             row.issues.length === 0 ? (
                                 <div className="flex flex-col gap-1">
-                                    <span className="flex items-center gap-1 text-success">
-                                        <CircleCheck className="size-4" />
+                                    <span className="flex items-center gap-1">
+                                        <CircleCheck
+                                            aria-hidden
+                                            className="size-4"
+                                        />
                                         Ready
                                     </span>
                                     <RowWarnings
@@ -714,7 +713,7 @@ function PreviewTable<Column extends string, Value>({
                                     />
                                 </div>
                             ) : (
-                                <ul className="flex flex-col gap-1 text-warning">
+                                <ul className="flex flex-col gap-1">
                                     {row.issues.map((issue, index) => (
                                         <li key={index}>
                                             {describeIssue(issue)}
@@ -738,7 +737,7 @@ function PreviewTable<Column extends string, Value>({
 function RowWarnings({ warnings }: { warnings: readonly CsvIssue[] }) {
     if (warnings.length === 0) return null;
     return (
-        <ul className="flex flex-col gap-1 text-warning">
+        <ul className="flex flex-col gap-1">
             {warnings.map((warning, index) => (
                 <li key={index}>Check {describeIssue(warning)}</li>
             ))}
@@ -780,17 +779,11 @@ function SnapshotImport({
 
     if (stored === undefined) {
         return storedQuery.isError ? (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>
-                    The stored snapshots could not be loaded
-                </AlertTitle>
-                <AlertDescription>
-                    {storedQuery.error.message} Snapshot import needs them to
-                    avoid saving a second snapshot for the same account and
-                    date, so it is paused.
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                consequence="Snapshot import needs them to avoid saving a second snapshot for the same account and date, so it is paused."
+                message={storedQuery.error.message}
+                title="The stored snapshots could not be loaded"
+            />
         ) : (
             <Skeleton
                 aria-label="Loading your latest snapshots"

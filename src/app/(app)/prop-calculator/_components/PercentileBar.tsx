@@ -81,7 +81,7 @@ export default function PercentileBar({
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <div
-                                        className="absolute top-0 h-full w-px border-l border-dashed border-success/70"
+                                        className="absolute top-0 h-full w-px border-l border-dashed border-ink-muted"
                                         style={{
                                             left: `${pct(referenceLine.value)}%`,
                                         }}

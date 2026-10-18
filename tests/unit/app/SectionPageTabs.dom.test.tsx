@@ -105,6 +105,102 @@ describe('SectionPageTabs', () => {
         expect(container.getHTML()).toBe('');
     });
 
+    describe('a group wider than the screen', () => {
+        const TAB_WIDTH_PX = 100;
+        const STRIP_WIDTH_PX = 300;
+        const WIDE_ITEMS: readonly RouteSubnavItem[] = [
+            subnavGroup('Plan', [
+                { href: '/plan/cash-flow', label: 'Cash flow' },
+                { href: '/plan/bankroll', label: 'Bankroll' },
+                { href: '/plan/planner', label: 'Planner' },
+                { href: '/plan/optimizer', label: 'Optimizer' },
+                { href: '/plan/payouts', label: 'Payouts' },
+            ]),
+        ];
+
+        function renderWide(pathname: string) {
+            navigation.pathname = pathname;
+            act(() => {
+                root.render(
+                    <SectionPageTabs items={WIDE_ITEMS} label="Plan pages" />,
+                );
+            });
+        }
+
+        beforeEach(() => {
+            vi.spyOn(
+                HTMLElement.prototype,
+                'clientWidth',
+                'get',
+            ).mockImplementation(function width(this: HTMLElement) {
+                return this.tagName === 'NAV' ? STRIP_WIDTH_PX : TAB_WIDTH_PX;
+            });
+            vi.spyOn(
+                HTMLElement.prototype,
+                'scrollWidth',
+                'get',
+            ).mockImplementation(function width(this: HTMLElement) {
+                return this.tagName === 'NAV'
+                    ? TAB_WIDTH_PX * this.querySelectorAll('a').length
+                    : TAB_WIDTH_PX;
+            });
+            vi.spyOn(
+                HTMLElement.prototype,
+                'offsetWidth',
+                'get',
+            ).mockReturnValue(TAB_WIDTH_PX);
+            vi.spyOn(
+                HTMLElement.prototype,
+                'offsetLeft',
+                'get',
+            ).mockImplementation(function left(this: HTMLElement) {
+                const siblings = [...(this.parentElement?.children ?? [])];
+                return siblings.indexOf(this) * TAB_WIDTH_PX;
+            });
+        });
+
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        it('scrolls the current page to the middle of the strip', () => {
+            const scrollTo = vi
+                .spyOn(HTMLElement.prototype, 'scrollTo')
+                .mockReturnValue(undefined);
+            renderWide('/plan/cash-flow');
+            renderWide('/plan/optimizer');
+            expect(scrollTo).toHaveBeenLastCalledWith({
+                left: 3 * TAB_WIDTH_PX - (STRIP_WIDTH_PX - TAB_WIDTH_PX) / 2,
+            });
+        });
+
+        it('fades the edge that hides more pages', () => {
+            vi.spyOn(HTMLElement.prototype, 'scrollTo').mockReturnValue(
+                undefined,
+            );
+            renderWide('/plan/cash-flow');
+            expect(scrollStripOf(container).className).toContain(
+                'mask-r-from-90%',
+            );
+            expect(scrollStripOf(container).className).not.toContain(
+                'mask-l-from-90%',
+            );
+            Object.defineProperty(scrollStripOf(container), 'scrollLeft', {
+                configurable: true,
+                value: STRIP_WIDTH_PX - TAB_WIDTH_PX,
+            });
+            act(() => {
+                scrollStripOf(container).dispatchEvent(new Event('scroll'));
+            });
+            expect(scrollStripOf(container).className).toContain(
+                'mask-l-from-90%',
+            );
+            expect(scrollStripOf(container).className).not.toContain(
+                'mask-r-from-90%',
+            );
+        });
+    });
+
     describe('pages that carry a query', () => {
         const QUERY_ITEMS: readonly RouteSubnavItem[] = [
             subnavGroup('Plan', [
@@ -149,3 +245,9 @@ describe('SectionPageTabs', () => {
         });
     });
 });
+
+function scrollStripOf(container: HTMLElement): HTMLElement {
+    const nav = container.querySelector(':scope nav');
+    if (!(nav instanceof HTMLElement)) throw new TypeError('No nav');
+    return nav;
+}

@@ -265,13 +265,14 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
             {editing && (
                 <ToolPanel
                     className="scroll-mt-4"
+                    description={
+                        <span className="wrap-break-word">{editing.name}</span>
+                    }
                     ref={editorReference}
                     title={
-                        <span className="flex min-w-0 items-center gap-2">
+                        <span className="flex items-center gap-2">
                             <Edit3 className="size-4 shrink-0" />
-                            <span className="truncate">
-                                Editing: {editing.name}
-                            </span>
+                            Editing
                         </span>
                     }
                 >

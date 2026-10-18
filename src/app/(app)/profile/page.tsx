@@ -144,14 +144,10 @@ async function ProfileContent({
                 <SessionsList />
             </ToolPanel>
 
-            <ToolPanel
-                title={<span className="text-destructive">Danger zone</span>}
-            >
+            <ToolPanel title="Danger zone">
                 <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <PanelSubheading className="text-destructive">
-                            Delete account
-                        </PanelSubheading>
+                        <PanelSubheading>Delete account</PanelSubheading>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                             Permanently remove your account and all data.
                         </p>

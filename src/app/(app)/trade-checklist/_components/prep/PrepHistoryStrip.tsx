@@ -3,6 +3,7 @@
 import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
 
 import { Button } from '~/components/ui/button';
+import { HeatScale } from '~/components/ui/heat-scale';
 import {
     Tooltip,
     TooltipContent,
@@ -10,6 +11,14 @@ import {
 } from '~/components/ui/tooltip';
 import { formatDisplayDate } from '~/lib/format';
 import { cn } from '~/lib/utilities';
+
+const NO_PREP_CLASS = 'bg-card/40 border-border/20 text-muted-foreground';
+
+const MAX_PREP_SCORE_PERCENT = 100;
+
+const PREP_SCORE_SCALE = HeatScale.between(0, MAX_PREP_SCORE_PERCENT);
+
+const SCORED_PREP_CLASS = 'border-line text-ink';
 
 interface PrepHistoryStripProperties {
     history: DailyPreparationRow[];
@@ -96,11 +105,7 @@ function lastDays(today: string, count: number): string[] {
 }
 
 function scoreTone(score: null | number): string {
-    if (score === null)
-        return 'bg-card/40 border-border/20 text-muted-foreground';
-    if (score >= 86) return 'bg-success/25 border-success/50 text-success';
-    if (score >= 57) return 'bg-success/10 border-success/30 text-success';
-    return score >= 29
-        ? 'bg-warning/25 border-warning/50 text-warning'
-        : 'bg-destructive/25 border-destructive/50 text-destructive';
+    return score === null
+        ? NO_PREP_CLASS
+        : cn(SCORED_PREP_CLASS, PREP_SCORE_SCALE.tileClassName(score));
 }

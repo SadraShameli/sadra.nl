@@ -15,7 +15,6 @@ import {
     ProfileDateCell,
     ProfileDatePrecision,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { NoMatchesState } from '~/components/ui/empty-state';
 import { FormDialog } from '~/components/FormDialog';
 import { MissingValue } from '~/components/MissingValue';
 import {
@@ -35,6 +34,7 @@ import {
 import { DataTableDateRange } from '~/components/ui/data-table-date-range';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { Dialog } from '~/components/ui/dialog';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { Input } from '~/components/ui/input';
@@ -204,10 +204,7 @@ export function WorkoutsManager() {
                         columns={columns}
                         data={rows}
                         emptyState={
-                            <NoMatchesState
-                                icon={Calendar}
-                                noun="workouts"
-                            />
+                            <NoMatchesState icon={Calendar} noun="workouts" />
                         }
                         filterPlaceholder="Search workouts…"
                         headerActions={(table) => (

@@ -8,7 +8,6 @@ import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     formatCurrency,
-    formatDays,
     formatOptionalPercent,
     formatPercent,
     formatStreak,
@@ -34,7 +33,6 @@ import { useBankrollVariant } from './bankroll/useBankrollVariant';
 import { useCalculatorInputs } from './CalculatorProvider';
 import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
-import { NO_PASS_DAYS_REASON } from './missingReasons';
 import { CalculatorObjectiveChip } from './ObjectiveChip';
 import {
     documentedSizingHeadline,
@@ -45,7 +43,7 @@ import {
 } from './objectiveRanking';
 import { riskPercentToDollars } from './riskConversion';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
-import { roiColumn } from './simOutputColumns';
+import { passDaysColumn, roiColumn } from './simOutputColumns';
 import { partitionBySizing } from './simulationFailure';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useSectionComputing } from './ToolSection';
@@ -153,7 +151,7 @@ export default function OptimalRiskTable({
                         </span>
                         {starred.has(row.original) &&
                             row.original.riskPct !== closestRiskPct && (
-                                <span className="ml-1 text-success">★</span>
+                                <span className="ml-1">★</span>
                             )}
                     </>
                 ),
@@ -182,17 +180,7 @@ export default function OptimalRiskTable({
                 header: 'Bust%',
                 id: 'bust',
             },
-            {
-                accessorFn: (r) => r.out.daysToPassP50,
-                cell: ({ row }) => (
-                    <ValueOrMissing
-                        reason={NO_PASS_DAYS_REASON}
-                        value={formatDays(row.original.out.daysToPassP50)}
-                    />
-                ),
-                header: 'Days P50',
-                id: 'days',
-            },
+            passDaysColumn<Row>('Days P50'),
             {
                 accessorFn: (r) => r.out.expectedMonthlyNet,
                 cell: ({ row }) =>
@@ -277,13 +265,9 @@ export default function OptimalRiskTable({
                         title="No data yet"
                     />
                 }
+                isCurrentRow={(r) => r.riskPct === closestRiskPct}
                 isLoading={pending && rows.length === 0}
                 pageSize={null}
-                rowClassName={(r) =>
-                    r.riskPct === closestRiskPct
-                        ? 'bg-primary/10 font-semibold text-foreground'
-                        : undefined
-                }
                 rowId={(r) => String(r.riskPct)}
             />
         </div>

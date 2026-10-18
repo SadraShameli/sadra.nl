@@ -13,9 +13,6 @@ export enum StatStripSize {
 export enum StatTone {
     Default = 'default',
     Muted = 'muted',
-    Negative = 'negative',
-    Positive = 'positive',
-    Warning = 'warning',
 }
 
 export interface StatStripItem {
@@ -31,9 +28,6 @@ export interface StatStripItem {
 const TONE_CLASS: Readonly<Record<StatTone, string>> = {
     [StatTone.Default]: 'text-ink',
     [StatTone.Muted]: 'text-ink-muted',
-    [StatTone.Negative]: 'text-destructive',
-    [StatTone.Positive]: 'text-success',
-    [StatTone.Warning]: 'text-warning',
 };
 
 const VALUE_CLASS: Readonly<Record<StatStripSize, string>> = {

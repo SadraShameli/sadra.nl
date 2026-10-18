@@ -62,11 +62,21 @@ const STATUS_RESTRICTIONS = [
         selector:
             "JSXOpeningElement[name.name='Alert']:not(:has(JSXAttribute[name.name='variant'][value.value='destructive']))",
     },
+];
+
+const COLOUR_CODING_MESSAGE =
+    'No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant="destructive", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.';
+
+const COLOUR_TOKEN_PATTERN = String.raw`--(?:color-)?(?:success|warning|danger|destructive)\b`;
+
+const COLOUR_RESTRICTIONS = [
     {
-        message:
-            'Badges are one neutral outline style: drop the variant prop and let the word carry the meaning.',
-        selector:
-            "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='variant']",
+        message: COLOUR_CODING_MESSAGE,
+        selector: `Literal[value=/${COLOUR_TOKEN_PATTERN}/]`,
+    },
+    {
+        message: COLOUR_CODING_MESSAGE,
+        selector: `TemplateElement[value.raw=/${COLOUR_TOKEN_PATTERN}/]`,
     },
 ];
 
@@ -251,7 +261,11 @@ const config = defineConfig(
                 'error',
                 { patterns: [PARENT_IMPORT_PATTERN] },
             ],
-            'no-restricted-syntax': ['error', ...RHF_WATCH_RESTRICTIONS],
+            'no-restricted-syntax': [
+                'error',
+                ...RHF_WATCH_RESTRICTIONS,
+                ...COLOUR_RESTRICTIONS,
+            ],
         },
     },
     {
@@ -289,6 +303,10 @@ const config = defineConfig(
                                 'Show work in progress with Spinner from ~/components/ui/spinner, the one place that spins.',
                             pattern: String.raw`^(?:[\w\[\]&=:>*-]+:)*animate-spin$`,
                         },
+                        {
+                            message: COLOUR_CODING_MESSAGE,
+                            pattern: String.raw`^(?:[\w\[\]&=:>*-]+:)*(?:text|bg|border|ring|outline|fill|stroke|from|via|to|decoration|divide|shadow|accent|caret)-(?:success|warning|destructive|danger)(?:-foreground)?(?:\/.+)?$`,
+                        },
                     ],
                 },
             ],
@@ -301,6 +319,7 @@ const config = defineConfig(
             'no-restricted-syntax': [
                 'error',
                 ...RHF_WATCH_RESTRICTIONS,
+                ...COLOUR_RESTRICTIONS,
                 ...NATIVE_CONTROL_RESTRICTIONS,
                 ...CHART_RESTRICTIONS,
                 ...PANEL_RESTRICTIONS,
@@ -317,6 +336,7 @@ const config = defineConfig(
             'no-restricted-syntax': [
                 'error',
                 ...RHF_WATCH_RESTRICTIONS,
+                ...COLOUR_RESTRICTIONS,
                 ...NATIVE_CONTROL_RESTRICTIONS,
                 ...CHART_RESTRICTIONS,
                 ...PANEL_RESTRICTIONS,
@@ -330,6 +350,7 @@ const config = defineConfig(
             'no-restricted-syntax': [
                 'error',
                 ...RHF_WATCH_RESTRICTIONS,
+                ...COLOUR_RESTRICTIONS,
                 ...NATIVE_CONTROL_RESTRICTIONS,
                 ...CHART_RESTRICTIONS,
                 ...PANEL_RESTRICTIONS,
@@ -345,6 +366,7 @@ const config = defineConfig(
             'no-restricted-syntax': [
                 'error',
                 ...RHF_WATCH_RESTRICTIONS,
+                ...COLOUR_RESTRICTIONS,
                 ...NATIVE_CONTROL_RESTRICTIONS,
                 ...CHART_RESTRICTIONS,
                 ...PANEL_RESTRICTIONS,

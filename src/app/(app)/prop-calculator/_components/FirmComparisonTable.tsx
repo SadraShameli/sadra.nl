@@ -319,13 +319,9 @@ export default function FirmComparisonTable({
                             title="No matching plans"
                         />
                     }
+                    isCurrentRow={(r) => r.firm.id === activeFirmId}
                     isLoading={pending && rows.length === 0}
                     pageSize={null}
-                    rowClassName={(r) =>
-                        r.firm.id === activeFirmId
-                            ? 'bg-primary/10 font-semibold text-foreground'
-                            : undefined
-                    }
                     rowId={(r) => r.firm.id}
                 />
             ) : (

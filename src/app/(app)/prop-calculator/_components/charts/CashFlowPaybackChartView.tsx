@@ -8,6 +8,8 @@ import {
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
+    ChartLegend,
+    ChartLegendContent,
 } from '~/components/ui/chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator';
@@ -26,8 +28,8 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    payout: { color: 'var(--success)', label: 'Cumulative payout' },
-    spend: { color: 'var(--destructive)', label: 'Cumulative spend' },
+    payout: { color: 'var(--chart-1)', label: 'Cumulative payout' },
+    spend: { color: 'var(--chart-2)', label: 'Cumulative spend' },
 };
 
 export default function CashFlowPaybackChartView({ result }: Properties) {
@@ -65,11 +67,15 @@ export default function CashFlowPaybackChartView({ result }: Properties) {
                     {...CHART_Y_AXIS_PROPS}
                     tickFormatter={(v: number) => formatCompactCurrency(v)}
                 />
+                <ChartLegend
+                    content={<ChartLegendContent className="pt-0 pb-2" />}
+                    position="top"
+                />
                 <Line
                     dataKey="spend"
                     dot={false}
                     isAnimationActive={false}
-                    stroke="var(--destructive)"
+                    stroke="var(--color-spend)"
                     strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
@@ -77,7 +83,7 @@ export default function CashFlowPaybackChartView({ result }: Properties) {
                     dataKey="payout"
                     dot={false}
                     isAnimationActive={false}
-                    stroke="var(--success)"
+                    stroke="var(--color-payout)"
                     strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />

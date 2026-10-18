@@ -956,14 +956,25 @@ describe('edgePlausibilityNote (PT-54, F-V22)', () => {
         expect(note).toContain('-0.10R per trade at 30% and 1:2.00');
     });
 
-    it('names both expectancy sources while the authoritative one is open (QV-20)', () => {
+    it('names no internal ticket and no second source for 70% at 1:1', () => {
         const note = edgePlausibilityNote({
             rrRatio: 1,
             winrate: fraction(0.7),
         });
-        expect(note).toContain('+0.20R from 40% at 1:2');
-        expect(note).toContain('+0.26R');
+        expect(note).not.toContain('QV-20');
+        expect(note).not.toContain('+0.26R');
         expect(note).not.toContain('\u{2014}');
+    });
+
+    it("adds the trading skill's +0.26R in plain words when the flagged edge is 40% at 1:2", () => {
+        const note = edgePlausibilityNote(
+            { rrRatio: 2, winrate: fraction(0.4) },
+            { strongMaxExpectancyR: 0.25, typicalMaxExpectancyR: 0.15 },
+        );
+        expect(note).toContain(
+            "+0.20R per trade at 40% and 1:2.00 (typical up to +0.15R, strong up to +0.25R). The trading skill's own numbers put this edge at +0.26R.",
+        );
+        expect(note).not.toContain('QV-20');
     });
 
     it('reads the thresholds passed in, defaulting to the rulebook defaults', () => {
@@ -1016,12 +1027,36 @@ describe('edgePlausibilityNote (PT-54, F-V22)', () => {
         expect(rest).toStrictEqual([]);
         expect(note).toContain('Implausible edge');
         expect(note).toContain(
-            'Full Kelly would grow a bankroll 8.58% per trade; at 4 trades per day over 21 trading days that compounds to 1,004.01x',
+            'Full Kelly would grow a bankroll 8.58% per trade; at 4 trades per day over 21 trading days that compounds to more than 1,000x (',
         );
+        expect(note).not.toContain('1,004.01x');
         expect(note).not.toContain('becomes');
     });
 
-    it('names what the compound start becomes when it is given', () => {
+    it('prints the exact multiple under the 1,000x cap', () => {
+        const [note] = tradingEdgeNotes({
+            fundedRrRatio: undefined,
+            rrRatio: 1,
+            tradesPerDay: 3,
+            winrate: fraction(0.7),
+        });
+        expect(note).toContain(
+            'at 3 trades per day over 21 trading days that compounds to 178.36x',
+        );
+    });
+
+    it('names what the compound start becomes when it is given under the cap', () => {
+        const [note] = tradingEdgeNotes({
+            compoundStartDollars: 5000,
+            fundedRrRatio: undefined,
+            rrRatio: 1,
+            tradesPerDay: 3,
+            winrate: fraction(0.7),
+        });
+        expect(note).toContain('so $5,000 becomes $891,815');
+    });
+
+    it('drops what the compound start becomes above the 1,000x cap', () => {
         const [note] = tradingEdgeNotes({
             compoundStartDollars: 5000,
             fundedRrRatio: undefined,
@@ -1029,7 +1064,9 @@ describe('edgePlausibilityNote (PT-54, F-V22)', () => {
             tradesPerDay: 4,
             winrate: fraction(0.7),
         });
-        expect(note).toContain('so $5,000 becomes $5,020,073');
+        expect(note).toContain('compounds to more than 1,000x (');
+        expect(note).not.toContain('becomes');
+        expect(note).not.toContain('$5,020,073');
     });
 
     it('prints the growth without a pace sentence when the trades per day are not given, and nothing at a typical edge', () => {

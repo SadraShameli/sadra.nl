@@ -3,63 +3,33 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MoneybirdClient } from '~/lib/accounting/providers/moneybird/client';
 import { MoneybirdSession } from '~/lib/accounting/providers/moneybird/provider';
 
-const purchaseInvoiceJson = {
-    currency: 'EUR',
-    date: '2026-09-02',
-    details: [
-        {
-            amount_decimal: '3.0',
-            ledger_account_id: 'ledger-1',
-            price: '100.0',
-            tax_rate_id: 'tax-rate-1',
-        },
-    ],
-    id: 'inv-eur',
-    payments: [],
-    reference: 'REF-EUR',
-    total_price_incl_tax: '363.0',
-};
-
-const salesInvoiceJson = {
-    currency: 'USD',
-    date: '2026-09-01',
-    details: [
-        {
-            amount_decimal: '1.0',
-            ledger_account_id: 'ledger-2',
-            price: '100.0',
-            tax_rate_id: 'tax-rate-1',
-        },
-    ],
-    id: 'inv-usd',
-    payments: [],
-    reference: 'REF-USD',
-    total_price_incl_tax: '121.0',
-};
-
-function jsonResponse(body: unknown) {
-    return { status: 200, text: () => Promise.resolve(JSON.stringify(body)) };
-}
+import { FakeMoneybirdApi } from './moneybird-fake-api';
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 describe('MoneybirdSession.listMutations amounts', () => {
     it('reports the invoice total in euros and leaves other currencies blank', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn((url: URL) => {
-                const path = url.pathname;
-                if (path.endsWith('/documents/purchase_invoices.json')) {
-                    return Promise.resolve(jsonResponse([purchaseInvoiceJson]));
-                }
-                if (path.endsWith('/external_sales_invoices.json')) {
-                    return Promise.resolve(jsonResponse([salesInvoiceJson]));
-                }
-                throw new Error(`Unexpected request: ${path}`);
-            }),
-        );
+        FakeMoneybirdApi.serve({
+            externalSalesInvoices: [
+                {
+                    currency: 'USD',
+                    date: '2026-09-01',
+                    id: 'inv-usd',
+                    totalPriceInclTax: '121.0',
+                },
+            ],
+            purchaseInvoices: [
+                {
+                    currency: 'EUR',
+                    date: '2026-09-02',
+                    id: 'inv-eur',
+                    totalPriceInclTax: '363.0',
+                },
+            ],
+        });
 
         const session = new MoneybirdSession(
             new MoneybirdClient('tok', 'admin-1'),
@@ -72,5 +42,19 @@ describe('MoneybirdSession.listMutations amounts', () => {
             ['inv-eur', 363],
             ['inv-usd', null],
         ]);
+    });
+});
+
+describe('MoneybirdSession.countMutations', () => {
+    it('says it cannot know the total instead of guessing one', async () => {
+        const fetch = vi.fn();
+        vi.stubGlobal('fetch', fetch);
+
+        const session = new MoneybirdSession(
+            new MoneybirdClient('tok', 'admin-1'),
+        );
+
+        await expect(session.countMutations()).resolves.toBeNull();
+        expect(fetch).not.toHaveBeenCalled();
     });
 });

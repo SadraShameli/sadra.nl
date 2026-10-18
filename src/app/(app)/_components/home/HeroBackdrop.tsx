@@ -14,7 +14,7 @@ const SIGNAL_BARS = new DecorativeSeries(11).signalBars(96);
 const CANDLE_BODY_CLASS: Readonly<Record<CandleKind, string>> = {
     [CandleKind.Falling]: 'border-line-strong bg-line',
     [CandleKind.Last]: 'border-camel bg-camel',
-    [CandleKind.Rising]: 'border-line-camel bg-transparent',
+    [CandleKind.Rising]: 'border-line-strong bg-transparent',
 };
 
 const CANDLE_WICK_CLASS: Readonly<Record<CandleKind, string>> = {

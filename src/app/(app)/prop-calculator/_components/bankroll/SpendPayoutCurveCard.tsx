@@ -66,12 +66,12 @@ const TOO_MANY_BUDGETS_TEXT = `Enter at most ${String(MAX_BUDGETS)} budgets.`;
 
 const chartConfig: ChartConfig = {
     band: {
-        color: 'color-mix(in oklab, var(--info) 18%, transparent)',
+        color: 'color-mix(in oklab, var(--chart-1) 18%, transparent)',
         label: 'Net P10 to P90',
     },
-    expectedNet: { color: 'var(--info)', label: 'Expected net' },
-    expectedPayouts: { color: 'var(--success)', label: 'Expected payouts' },
-    expectedSpend: { color: 'var(--destructive)', label: 'Expected spend' },
+    expectedNet: { color: 'var(--chart-1)', label: 'Expected net' },
+    expectedPayouts: { color: 'var(--chart-2)', label: 'Expected payouts' },
+    expectedSpend: { color: 'var(--chart-3)', label: 'Expected spend' },
 };
 
 export function SpendPayoutCurveCard() {
@@ -218,7 +218,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                 />
                 <Area
                     dataKey="range"
-                    fill="var(--info)"
+                    fill="var(--color-expectedNet)"
                     fillOpacity={0.18}
                     isAnimationActive={false}
                     legendType="none"
@@ -229,7 +229,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     dataKey="expectedSpend"
                     dot
                     isAnimationActive={false}
-                    stroke="var(--destructive)"
+                    stroke="var(--color-expectedSpend)"
                     strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
@@ -237,7 +237,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     dataKey="expectedPayouts"
                     dot
                     isAnimationActive={false}
-                    stroke="var(--success)"
+                    stroke="var(--color-expectedPayouts)"
                     strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
@@ -245,7 +245,7 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     dataKey="expectedNet"
                     dot
                     isAnimationActive={false}
-                    stroke="var(--info)"
+                    stroke="var(--color-expectedNet)"
                     strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />

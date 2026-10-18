@@ -23,7 +23,7 @@ interface ExerciseProgressProperties {
 }
 
 const E1RM_CHART_CONFIG = {
-    e1rm: { color: 'var(--muted-foreground)', label: 'Est. 1RM' },
+    e1rm: { color: 'var(--chart-1)', label: 'Est. 1RM' },
 } as const;
 
 const E1RM_RANGE_VALUES = ['30', '90', '365', 'all'] as const;

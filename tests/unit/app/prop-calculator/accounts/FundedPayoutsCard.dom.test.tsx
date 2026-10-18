@@ -17,6 +17,7 @@ import { FundedPayoutsCard } from '~/app/(app)/prop-calculator/accounts/_compone
 import { type FundedPayoutsCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
 import { infoText } from '../infoPopover';
+import { inlineWarningNotes, warningNotes } from './warningNotes';
 
 type Row = FundedPayoutsCardModel['rows'][number];
 
@@ -39,6 +40,7 @@ function row(overrides: Partial<Row> = {}): Row {
         modeledCounts: ['60.0%', '20.0%', '10.0%'],
         modeledFundedValue: '$900.00',
         modeledProbabilities: [0.6, 0.2, 0.1, 0.05, 0.03, 0.02, 0, 0, 0, 0, 0],
+        modeledUnavailableReason: null,
         openAccounts: '1',
         plan: 'Alpha Prop $50K',
         realizedFundedValue: '$100.00, n = 4',
@@ -127,6 +129,27 @@ describe('FundedPayoutsCard', () => {
         ).toHaveLength(1);
     });
 
+    it('says the modeled distribution could not be computed, with the reason, when the engine failed or refused the plan', () => {
+        render(
+            model([
+                row({
+                    modeledCounts: null,
+                    modeledFundedValue: 'Not available',
+                    modeledProbabilities: null,
+                    modeledUnavailableReason:
+                        'Web workers are not available in this browser.',
+                }),
+            ]),
+        );
+        expect(container.textContent).not.toContain(
+            'the engine has none for this plan',
+        );
+        expect(container.textContent).toContain('Modeled distribution:');
+        expect(infoText(container, 'Not available')).toContain(
+            'Web workers are not available in this browser.',
+        );
+    });
+
     it('keeps the counts table with the too young column and the disclosures', () => {
         render(model([row()]));
         const headers = [...container.querySelectorAll(':scope thead th')].map(
@@ -137,5 +160,38 @@ describe('FundedPayoutsCard', () => {
         expect(infoText(container, 'Payouts per funded account')).toContain(
             'listed open',
         );
+    });
+
+    it('starts the funded value flag on its own line under the modeled figure', () => {
+        render(
+            model([
+                row({
+                    fundedValueFlag:
+                        'The modeled value is above the realized value by more than its spread.',
+                }),
+            ]),
+        );
+        const table = container.querySelector('table');
+        if (table === null) throw new Error('no funded payouts table');
+        expect(warningNotes(table)).toHaveLength(1);
+        expect(inlineWarningNotes(table)).toEqual([]);
+    });
+
+    it('tells the modeled share row apart by its label, never by a muted tint', () => {
+        render(model([row()]));
+        const rows = [...container.querySelectorAll(':scope tbody tr')];
+        const modeled = rows.find((line) =>
+            line.textContent.includes('(modeled share)'),
+        );
+        if (modeled === undefined) throw new Error('no modeled share row');
+        const tinted = rows.flatMap((line) => [
+            line,
+            ...line.querySelectorAll('*'),
+        ]);
+        expect(
+            tinted.filter((node) =>
+                node.classList.contains('text-muted-foreground'),
+            ),
+        ).toEqual([]);
     });
 });

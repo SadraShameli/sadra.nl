@@ -7,7 +7,10 @@ import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sen
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { formatDisplayDate, NOT_APPLICABLE } from '~/lib/format';
 
-import { type ReadinessBoardCardModel } from './overviewModel';
+import {
+    isAwaitingOnlySnapshots,
+    type ReadinessBoardCardModel,
+} from './overviewModel';
 import { OverviewEmptyPanel, OverviewPanel } from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 
@@ -31,7 +34,7 @@ export const ReadinessBoardCard = memo(function ReadinessBoardCard({
 }: {
     readonly model: ReadinessBoardCardModel;
 }) {
-    if (model.rows.length === 0) {
+    if (model.rows.length === 0 && isAwaitingOnlySnapshots(model.unavailable)) {
         return (
             <OverviewEmptyPanel
                 action={

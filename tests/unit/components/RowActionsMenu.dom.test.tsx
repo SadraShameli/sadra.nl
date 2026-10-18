@@ -13,7 +13,7 @@ import {
 import {
     DataTable,
     type DataTableColumn,
-    DataTablePhoneLayout,
+    DataTableNarrowLayout,
 } from '~/components/ui/data-table';
 
 import {
@@ -108,6 +108,13 @@ describe('the row actions menu', () => {
             });
         });
         expect(document.activeElement).toBe(trigger);
+    });
+
+    it('styles only a destructive action as destructive, through the menu item variant', () => {
+        renderFeeMenu(vi.fn(), vi.fn());
+        openRowActions(FEE_LABEL);
+        expect(rowActionItem('Delete').dataset.variant).toBe('destructive');
+        expect(rowActionItem('Edit').dataset.variant).toBe('default');
     });
 
     it('marks an action it cannot run as disabled', () => {
@@ -231,7 +238,7 @@ describe('the row actions menu', () => {
                     <DataTable
                         columns={columns(vi.fn())}
                         data={FEES}
-                        phoneLayout={DataTablePhoneLayout.Scroll}
+                        narrowLayout={DataTableNarrowLayout.Scroll}
                     />,
                 );
             });

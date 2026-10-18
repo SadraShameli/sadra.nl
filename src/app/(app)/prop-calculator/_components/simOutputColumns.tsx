@@ -5,9 +5,9 @@ import { type SimOutputs } from '~/lib/prop-calculator';
 import { NO_COST_ROI_REASON, NO_PASS_DAYS_REASON } from './missingReasons';
 import { ValueOrMissing } from './ValueOrMissing';
 
-export function passDaysColumn<
-    Row extends { out: SimOutputs },
->(): DataTableColumn<Row> {
+export function passDaysColumn<Row extends { out: SimOutputs }>(
+    header = 'Days',
+): DataTableColumn<Row> {
     return {
         accessorFn: (r) => r.out.daysToPassP50,
         cell: ({ row }) => (
@@ -16,7 +16,7 @@ export function passDaysColumn<
                 value={formatDays(row.original.out.daysToPassP50)}
             />
         ),
-        header: 'Days',
+        header,
         id: 'days',
     };
 }

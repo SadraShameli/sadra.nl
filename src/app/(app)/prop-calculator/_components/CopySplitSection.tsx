@@ -21,6 +21,7 @@ import { Badge } from '~/components/ui/badge';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Field, FieldError } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { WarningNote } from '~/components/WarningNote';
 import { CENTS_PER_DOLLAR } from '~/lib/prop-calculator';
 import { type CopySplitFundedSizing } from '~/lib/prop-calculator/advisor/policy';
 import { stableJson } from '~/lib/stableJson';
@@ -375,9 +376,9 @@ export default function CopySplitSection() {
                         rowId={(row) => String(row.splitCount)}
                         rowMessage={(row) =>
                             row.isRefused ? (
-                                <span className="text-warning">
+                                <WarningNote>
                                     Refused: {row.refusal}
-                                </span>
+                                </WarningNote>
                             ) : undefined
                         }
                     />

@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building2, Pencil, TriangleAlert } from 'lucide-react';
+import { Building2, Pencil } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -19,12 +19,18 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import {
+    EngagementsErrorNotice,
+    JournalErrorNotice,
+    QueryErrorNotice,
+    RulebookErrorNotice,
+    UnlistedFirmsErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
 import { FormDialog } from '~/components/FormDialog';
 import { MissingValue } from '~/components/MissingValue';
 import { RowActionKind, rowActionsColumn } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Dialog } from '~/components/ui/dialog';
@@ -186,11 +192,10 @@ export function FirmsView() {
         ].find((query) => query.isError);
         if (failed?.error) {
             return (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>The firms page could not be loaded</AlertTitle>
-                    <AlertDescription>{failed.error.message}</AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    message={failed.error.message}
+                    title="The firms page could not be loaded"
+                />
             );
         }
         return <FirmsSkeleton />;
@@ -200,19 +205,15 @@ export function FirmsView() {
         <div className="flex flex-col gap-6">
             {externalFirmsQuery.isError &&
                 externalFirmsQuery.data === undefined && (
-                    <p className="text-xs text-destructive">
-                        Your firms could not be loaded, so external firms show
-                        as an unlisted firm until they load:{' '}
-                        {externalFirmsQuery.error.message}
-                    </p>
+                    <UnlistedFirmsErrorNotice
+                        message={externalFirmsQuery.error.message}
+                    />
                 )}
             {engagementsQuery.isError &&
                 engagementsQuery.data === undefined && (
-                    <p className="text-xs text-destructive">
-                        Your firm status could not be loaded, so every firm
-                        shows as Active until it loads:{' '}
-                        {engagementsQuery.error.message}
-                    </p>
+                    <EngagementsErrorNotice
+                        message={engagementsQuery.error.message}
+                    />
                 )}
             {areEngagementsLoading && (
                 <p className="text-xs text-muted-foreground">
@@ -221,17 +222,10 @@ export function FirmsView() {
                 </p>
             )}
             {rulebookQuery.isError && rulebookQuery.data === undefined && (
-                <p className="text-xs text-destructive">
-                    Your rulebook could not be loaded, so this page is using
-                    default thresholds instead of yours:{' '}
-                    {rulebookQuery.error.message}
-                </p>
+                <RulebookErrorNotice message={rulebookQuery.error.message} />
             )}
             {edgeQuery.isError && edgeQuery.data === undefined && (
-                <p className="text-xs text-destructive">
-                    Your journal could not be loaded, so the scale gate treats
-                    your trade count as zero: {edgeQuery.error.message}
-                </p>
+                <JournalErrorNotice message={edgeQuery.error.message} />
             )}
             <ScaleGateCard
                 isLoading={isScaleGateLoading}

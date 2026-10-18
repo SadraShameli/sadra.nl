@@ -293,7 +293,7 @@ export default function LadderLabPanel({
                     <span className="font-mono">
                         {ladderLabel(row.original.ladder)}
                         {row.original.ladder.join(',') === starKey && (
-                            <span className="ml-1 text-success">★</span>
+                            <span className="ml-1">★</span>
                         )}
                     </span>
                 ),
@@ -659,15 +659,13 @@ export default function LadderLabPanel({
                                 columns={columns}
                                 data={rows}
                                 initialSorting={[{ desc: false, id: 'days' }]}
-                                rowClassName={(r) =>
+                                isCurrentRow={(r) =>
                                     isActiveLadderRow(
                                         view,
                                         r,
                                         activePolicy,
                                         activeRungSizing,
                                     )
-                                        ? 'bg-success/10'
-                                        : undefined
                                 }
                                 rowId={(r) => r.ladder.join(',')}
                             />

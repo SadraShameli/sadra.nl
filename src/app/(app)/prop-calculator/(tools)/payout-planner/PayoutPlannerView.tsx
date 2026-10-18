@@ -116,7 +116,6 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import { noiseVerdict, NoiseVerdict } from '~/lib/prop-calculator/stats';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
-import { cn } from '~/lib/utilities';
 
 const INPUTS_HEADING_ID = 'payout-planner-inputs-heading';
 const OUTLOOK_HEADING_ID = 'payout-planner-outlook-heading';
@@ -371,7 +370,7 @@ export function PayoutPlannerView() {
                                     (isInputValid &&
                                         result !== null &&
                                         isPlanned(result) &&
-                                        isTaskRunning(outlookTask))
+                                        isAwaitingTaskResult(outlookTask))
                                 }
                                 title="Path to payout"
                                 titleId={OUTLOOK_HEADING_ID}
@@ -406,7 +405,7 @@ export function PayoutPlannerView() {
                                     isRulebookLoading ||
                                     (rulebook !== null &&
                                         isRequestSizeValid &&
-                                        isTaskRunning(sweepTask))
+                                        isAwaitingTaskResult(sweepTask))
                                 }
                                 title="Payout-size sweep"
                                 titleId={SWEEP_HEADING_ID}
@@ -543,6 +542,15 @@ function invalidFieldsWith(
     return next;
 }
 
+function isAwaitingTaskResult<TResult>(
+    task: WorkerTaskState<never, TResult>,
+): boolean {
+    return (
+        task.phase === WorkerTaskPhase.Idle ||
+        task.phase === WorkerTaskPhase.Running
+    );
+}
+
 function isNotModeled(
     outcome: PayoutStakeComparisonOutcome,
 ): outcome is ValueNotModeledResult {
@@ -562,15 +570,6 @@ function isPlanned(
     return (
         result.kind === PayoutPlannerResultKind.Blocked ||
         result.kind === PayoutPlannerResultKind.Ready
-    );
-}
-
-function isTaskRunning<TResult>(
-    task: WorkerTaskState<never, TResult>,
-): boolean {
-    return (
-        task.phase === WorkerTaskPhase.Idle ||
-        task.phase === WorkerTaskPhase.Running
     );
 }
 
@@ -1021,23 +1020,18 @@ function PayoutPlannerOutlookSection({
             <ul className="flex flex-col gap-1.5">
                 {result.path.map((step) => (
                     <li
-                        className={cn(
-                            'flex items-start gap-2',
-                            step.satisfied
-                                ? 'text-muted-foreground'
-                                : 'text-foreground',
-                        )}
+                        className="flex items-start gap-2 text-foreground"
                         key={step.gate}
                     >
                         {step.satisfied ? (
                             <CircleCheck
                                 aria-hidden="true"
-                                className="mt-0.5 size-4 shrink-0 text-success"
+                                className="mt-0.5 size-4 shrink-0"
                             />
                         ) : (
                             <CircleAlert
                                 aria-hidden="true"
-                                className="mt-0.5 size-4 shrink-0 text-warning"
+                                className="mt-0.5 size-4 shrink-0"
                             />
                         )}
                         <span className="first-letter:uppercase">
@@ -1406,11 +1400,6 @@ function PayoutSweepOutcome({
                 data={[...optimum.rows]}
                 isSortable={false}
                 pageSize={null}
-                rowClassName={(row) =>
-                    row.requestSize === documentedSize
-                        ? 'font-semibold text-foreground'
-                        : 'text-muted-foreground'
-                }
                 rowId={(row) => String(row.requestSize)}
             />
             <ul className="flex flex-col gap-1 text-xs text-muted-foreground">

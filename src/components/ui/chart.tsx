@@ -74,6 +74,11 @@ export const CHART_REFERENCE_LINE_PROPS = {
     strokeDasharray: '4 4',
 } as const;
 
+export const CHART_REFERENCE_LABEL_PROPS = {
+    fill: 'var(--muted-foreground)',
+    fontSize: 11,
+} as const;
+
 export const CHART_STROKE_WIDTH = 1.6;
 
 const CHART_BAR_RADIUS: [number, number, number, number] = [3, 3, 0, 0];

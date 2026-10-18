@@ -3,20 +3,38 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MutationsBrowser } from '~/app/(app)/accounting/_components/MutationsBrowser';
+import { DATA_TABLE_PAGE_SIZE } from '~/components/ui/data-table';
 import { Eur } from '~/lib/accounting/core/money';
 import { MutationType } from '~/lib/accounting/providers/eboekhouden/enums';
 import { routes } from '~/lib/site/routes';
 
 import { pickOption } from '../prop-calculator/accounts/pickOption';
 
-const harness = vi.hoisted(() => ({
-    credentials: [] as {
+interface CountInput {
+    credentialId: string;
+    dateFrom?: string;
+    dateTo?: string;
+}
+
+interface Harness {
+    countInputs: CountInput[];
+    credentials: {
         id: string;
         isActive: boolean;
         kind: string;
         label: string;
-    }[],
-    ledgersError: null as null | { message: string },
+    }[];
+    ledgersError: null | { message: string };
+    listOffsets: number[];
+    totalCount: null | number;
+}
+
+const harness = vi.hoisted((): Harness => ({
+    countInputs: [],
+    credentials: [],
+    ledgersError: null,
+    listOffsets: [],
+    totalCount: 137,
 }));
 
 const BANK_LEDGER_ID = '46557223';
@@ -70,24 +88,39 @@ vi.mock('~/trpc/react', () => ({
                 },
             },
             mutations: {
+                count: {
+                    useQuery: (input: CountInput) => {
+                        harness.countInputs.push(input);
+                        return { data: harness.totalCount };
+                    },
+                },
                 list: {
-                    useQuery: ({ limit }: { limit: number }) => ({
-                        data: Array.from({ length: limit }, (_, index) => ({
-                            amount: index === 0 ? 1906.86 : 12,
-                            date: '2026-10-07',
-                            description: null,
-                            externalId: String(index + 1),
-                            ledgerId: BANK_LEDGER_ID,
-                            paymentReference: null,
-                            rows: [],
-                            type:
-                                index === 0
-                                    ? MutationType.MoneyReceived
-                                    : MutationType.MoneySent,
-                        })),
-                        error: null,
-                        isPending: false,
-                    }),
+                    useQuery: ({
+                        limit,
+                        offset,
+                    }: {
+                        limit: number;
+                        offset: number;
+                    }) => {
+                        harness.listOffsets.push(offset);
+                        return {
+                            data: Array.from({ length: limit }, (_, index) => ({
+                                amount: index === 0 ? 1906.86 : 12,
+                                date: '2026-10-07',
+                                description: null,
+                                externalId: String(offset + index + 1),
+                                ledgerId: BANK_LEDGER_ID,
+                                paymentReference: null,
+                                rows: [],
+                                type:
+                                    index === 0
+                                        ? MutationType.MoneyReceived
+                                        : MutationType.MoneySent,
+                            })),
+                            error: null,
+                            isPending: false,
+                        };
+                    },
                 },
             },
         },
@@ -113,8 +146,11 @@ describe('the mutations table', () => {
 
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.countInputs = [];
         harness.credentials = [BOOKS];
         harness.ledgersError = null;
+        harness.listOffsets = [];
+        harness.totalCount = 137;
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -183,6 +219,64 @@ describe('the mutations table', () => {
             container.querySelectorAll(':scope tbody tr:not([aria-hidden])'),
         ).toHaveLength(1);
         expect(next?.disabled).toBe(false);
+    });
+
+    it('drops the backend total from the footer while a type filter hides rows', async () => {
+        render();
+        const typeFilter = [
+            ...container.querySelectorAll<HTMLElement>('[role="combobox"]'),
+        ].find((trigger) => trigger.textContent === 'All types');
+        if (typeFilter === undefined) throw new Error('no type filter');
+        await pickOption(typeFilter, 'Money received');
+        expect(container.textContent).toContain('1 to 1');
+        expect(container.textContent).not.toContain('of 137');
+    });
+
+    it('reads the total the backend counts in the page footer', () => {
+        render();
+        expect(container.textContent).toContain('1 to 25 of 137');
+    });
+
+    it('keeps one count for every page of the same date range', () => {
+        render();
+        const next = [...container.querySelectorAll('button')].find(
+            (button) => button.textContent === 'Next',
+        );
+        if (next === undefined) throw new Error('no next button');
+        act(() => {
+            next.click();
+        });
+        expect(harness.listOffsets).toContain(DATA_TABLE_PAGE_SIZE);
+        expect(container.textContent).toContain('26 to 50 of 137');
+        expect(harness.countInputs.length).toBeGreaterThan(0);
+        for (const input of harness.countInputs) {
+            expect(input).toEqual({
+                credentialId: BOOKS.id,
+                dateFrom: undefined,
+                dateTo: undefined,
+            });
+        }
+    });
+
+    it('pages on a full page when the backend cannot count its mutations', () => {
+        harness.totalCount = null;
+        render();
+        const next = [...container.querySelectorAll('button')].find(
+            (button) => button.textContent === 'Next',
+        );
+        expect(container.textContent).toContain('1 to 25');
+        expect(container.textContent).not.toContain('1 to 25 of');
+        expect(next?.disabled).toBe(false);
+    });
+
+    it('stops at the last page the backend counts', () => {
+        harness.totalCount = 25;
+        render();
+        const next = [...container.querySelectorAll('button')].find(
+            (button) => button.textContent === 'Next',
+        );
+        expect(container.textContent).toContain('1 to 25 of 25');
+        expect(next?.disabled).toBe(true);
     });
 
     it('sends you to Connections when no accounting connection exists', () => {

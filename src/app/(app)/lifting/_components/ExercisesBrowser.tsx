@@ -109,7 +109,7 @@ export function ExercisesBrowser() {
                 enableSorting: false,
                 header: () => <span className="sr-only">Open</span>,
                 id: 'open',
-                meta: { isPhoneHidden: true },
+                meta: { isHiddenInCards: true },
             },
         ],
         [],

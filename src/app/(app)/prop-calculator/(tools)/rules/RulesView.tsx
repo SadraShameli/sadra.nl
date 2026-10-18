@@ -1,4 +1,5 @@
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import { NO_EVAL_PHASE_REASON } from '~/app/(app)/prop-calculator/_components/missingReasons';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
@@ -25,8 +26,6 @@ export enum RulesUrlParameter {
 }
 
 const DEFAULT_RULES_FIRM_ID = defaultCalculatorState().firm.id;
-
-const INSTANT_FUNDED_REASON = 'Instant-funded plan: there is no eval phase.';
 
 export function RulesView() {
     const tabs: PageTab<FirmId>[] = ALL_FIRMS.map((firm) => ({
@@ -95,7 +94,7 @@ function PlanRules({ plan }: { plan: Plan }) {
                             label: PLAN_RULE_SEGMENT_LABEL[segment.kind],
                             value: (
                                 <ValueOrMissing
-                                    reason={INSTANT_FUNDED_REASON}
+                                    reason={NO_EVAL_PHASE_REASON}
                                     value={segment.value}
                                 />
                             ),

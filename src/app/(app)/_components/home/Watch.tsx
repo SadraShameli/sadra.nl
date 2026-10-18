@@ -76,10 +76,8 @@ export function Watch() {
 
                     <div className="absolute bottom-[25%] left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-line-strong bg-scrim px-2.5 py-1.25">
                         <span
-                            className={cn(
-                                'size-1.5 rounded-full',
-                                isOpen ? 'bg-signal-open' : 'bg-signal-closed',
-                            )}
+                            aria-hidden
+                            className="size-1.5 rounded-full bg-camel"
                         />
                         <span className="type-micro text-ink">
                             NYSE {bell?.status ?? MarketStatus.Closed}

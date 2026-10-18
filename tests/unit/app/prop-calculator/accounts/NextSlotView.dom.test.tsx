@@ -37,6 +37,7 @@ import {
     pickObjective,
 } from '../objectiveSelect';
 import { pickOption } from './pickOption';
+import { inlineWarningNotes, warningNotes } from './warningNotes';
 
 interface FakeQuery {
     data: unknown;
@@ -373,6 +374,18 @@ describe('NextSlotView', () => {
         expect(container.querySelector('[role="status"]')).toBeNull();
     });
 
+    it('starts each plan note of a ranked row on its own line under the plan name', () => {
+        answerEverything();
+        verifyEveryFirm();
+        render();
+        const region = container.querySelector(
+            '[role="region"][aria-labelledby="next-slot-ranked"]',
+        );
+        if (region === null) throw new Error('no ranked region');
+        expect(warningNotes(region).length).toBeGreaterThan(0);
+        expect(inlineWarningNotes(region)).toEqual([]);
+    });
+
     it('labels every other table with its section heading', () => {
         answerEverything();
         render();
@@ -436,7 +449,9 @@ describe('NextSlotView', () => {
             isPending: false,
         });
         render();
-        expect(container.textContent).toContain('journal down');
+        expect(container.textContent).toContain(
+            'journal down. The scale gate treats your trade count as zero until it loads.',
+        );
         expect(container.querySelectorAll('h2').length).toBeGreaterThan(0);
     });
 

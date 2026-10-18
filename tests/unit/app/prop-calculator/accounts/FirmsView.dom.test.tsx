@@ -375,7 +375,12 @@ describe('FirmsView', () => {
         );
         harness.queries.set('firmEngagement.list', failed('status down'));
         render();
-        expect(container.textContent).toContain('status down');
+        expect(container.textContent).toContain(
+            'Your firm statuses could not be loaded',
+        );
+        expect(container.textContent).toContain(
+            'status down. Every firm counts as active until they load.',
+        );
         expect(container.textContent).toContain(FIRST_FIRM.displayName);
     });
 
@@ -475,7 +480,9 @@ describe('FirmsView', () => {
     it('warns when the journal could not be loaded, without blocking the scale gate', () => {
         harness.queries.set('edge.summary', failed('journal down'));
         render();
-        expect(container.textContent).toContain('journal down');
+        expect(container.textContent).toContain(
+            'journal down. The scale gate treats your trade count as zero until it loads.',
+        );
         expect(container.textContent).toContain('Scale gate');
     });
 

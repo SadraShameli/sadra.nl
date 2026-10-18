@@ -49,10 +49,7 @@ export function ProfileFormFooter({
                     Cancel
                 </Button>
             )}
-            <Button
-                disabled={isPending || isSaveDisabled}
-                type="submit"
-            >
+            <Button disabled={isPending || isSaveDisabled} type="submit">
                 {isPending ? SAVING_LABEL : SAVE_LABEL}
             </Button>
         </div>

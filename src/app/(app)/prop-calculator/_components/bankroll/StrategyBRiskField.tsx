@@ -1,6 +1,7 @@
 'use client';
 
 import { FieldDescription } from '~/components/ui/field';
+import { WarningNote } from '~/components/WarningNote';
 import { type Dollars } from '~/lib/prop-calculator';
 import { BankrollLeverLabel } from '~/lib/prop-calculator/economics';
 
@@ -30,11 +31,10 @@ export function StrategyBRiskField({
             placeholder="e.g. 500"
         >
             {risk === null ? null : (
-                <FieldDescription
-                    className="text-xs text-warning"
-                    id={conflictId}
-                >
-                    Strategy B: {BankrollLeverLabel.ConflictsWithHardRule3}
+                <FieldDescription className="text-xs" id={conflictId}>
+                    <WarningNote>
+                        Strategy B: {BankrollLeverLabel.ConflictsWithHardRule3}
+                    </WarningNote>
                 </FieldDescription>
             )}
         </BankrollField>

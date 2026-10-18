@@ -10,7 +10,7 @@ import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
-    DataTablePhoneLayout,
+    DataTableNarrowLayout,
 } from '~/components/ui/data-table';
 import { formatDisplayMonth } from '~/lib/format';
 
@@ -122,8 +122,8 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
                         ]}
                         data={[...model.months]}
                         isSortable={false}
+                        narrowLayout={DataTableNarrowLayout.Scroll}
                         pageSize={null}
-                        phoneLayout={DataTablePhoneLayout.Scroll}
                         rowId={(month) => month.key}
                     />
                 </div>

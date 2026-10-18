@@ -33,7 +33,11 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '~/components/ui/dialog';
-import { EmptyState, EmptyStateSize, NoMatchesState } from '~/components/ui/empty-state';
+import {
+    EmptyState,
+    EmptyStateSize,
+    NoMatchesState,
+} from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -232,10 +236,7 @@ export function SensorsPanel() {
                             columns={columns}
                             data={rows}
                             emptyState={
-                                <NoMatchesState
-                                    icon={Radio}
-                                    noun="sensors"
-                                />
+                                <NoMatchesState icon={Radio} noun="sensors" />
                             }
                             filterPlaceholder="Search sensors…"
                             hasExternalFilters={scope.isActive}

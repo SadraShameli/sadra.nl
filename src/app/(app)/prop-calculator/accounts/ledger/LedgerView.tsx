@@ -25,7 +25,10 @@ import {
     LEDGER_LIST_INPUT,
     payoutStatusLabel,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import {
+    ErrorNoticeTitle,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import {
     firmColumnsFromSelectValue,
     firmSelectOptions,
@@ -39,7 +42,7 @@ import {
     editRowAction,
     rowActionsColumn,
 } from '~/components/RowActionsMenu';
-import { StatStrip, StatTone } from '~/components/StatStrip';
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
@@ -118,7 +121,6 @@ import {
     firmStatementCreateSchema,
     firmStatementUpdateSchema,
 } from '~/lib/schemas/propAccounts';
-import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 enum LedgerColumn {
@@ -338,10 +340,11 @@ export function LedgerView() {
                     </InfoPopover>
                 </LedgerFilterBar>
                 {externalFirmsQuery.isError && externalFirms === undefined && (
-                    <p className="text-xs text-destructive">
-                        Your firms could not be loaded, so the export is paused
-                        until they load: {externalFirmsQuery.error.message}
-                    </p>
+                    <QueryErrorNotice
+                        consequence="The export is paused until they load."
+                        message={externalFirmsQuery.error.message}
+                        title={ErrorNoticeTitle.Firms}
+                    />
                 )}
                 <LedgerTotals entries={visible} />
                 {visible.length === 0 ? (
@@ -670,7 +673,7 @@ function FirmReconciliationSection({
                                             entry.reportedPayoutCents,
                                         )}
                                         {entry.decreasedFromPrevious && (
-                                            <div className="text-xs text-warning">
+                                            <div className="text-xs">
                                                 Down from the previous statement
                                             </div>
                                         )}
@@ -698,12 +701,7 @@ function FirmReconciliationSection({
                             },
                             {
                                 cell: ({ row: { original: entry } }) => (
-                                    <div
-                                        className={cn(
-                                            !entry.withinTolerance &&
-                                                'text-warning',
-                                        )}
-                                    >
+                                    <div>
                                         {formatUsdCents(
                                             usdCents(entry.differenceCents),
                                         )}
@@ -908,21 +906,8 @@ const LEDGER_COLUMNS: DataTableColumn<LedgerEntry>[] = [
         id: LedgerColumn.ApprovedOn,
     },
     {
-        cell: ({ row: { original: entry } }) => {
-            const cashFlow = ledgerCashFlow(entry);
-            return (
-                <span
-                    className={cn(
-                        cashFlow === LedgerCashFlow.In && 'text-success',
-                        cashFlow === LedgerCashFlow.Out && 'text-warning',
-                        cashFlow === LedgerCashFlow.None &&
-                            'text-muted-foreground',
-                    )}
-                >
-                    {CASH_FLOW_LABEL[cashFlow]}
-                </span>
-            );
-        },
+        cell: ({ row: { original: entry } }) =>
+            CASH_FLOW_LABEL[ledgerCashFlow(entry)],
         header: 'Cash flow',
         id: LedgerColumn.CashFlow,
     },
@@ -969,8 +954,6 @@ function LedgerTotals({ entries }: { entries: readonly LedgerEntry[] }) {
                     {
                         id: 'net',
                         label: 'Net in these rows',
-                        tone:
-                            cash.net < 0 ? StatTone.Warning : StatTone.Positive,
                         value: formatUsdCents(cash.net),
                     },
                 ]}

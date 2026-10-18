@@ -281,7 +281,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                             >
                                 <Button
                                     aria-label="Delete workout"
-                                    className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
+                                    className="shrink-0 gap-2"
                                     type="button"
                                     variant="outline"
                                 >
@@ -444,7 +444,6 @@ function SaveAsRoutineButton({ workout }: { workout: WorkoutDetail }) {
         () => RoutineDraft.blocksOf(workout.exercises),
         [workout.exercises],
     );
-    const leftOut = RoutineDraft.leftOutCount(workout.exercises);
     const form = useForm<RoutineNameValues>({
         defaultValues: { name: workoutName(workout) },
         resolver: zodResolver(routineNameSchema),
@@ -478,11 +477,7 @@ function SaveAsRoutineButton({ workout }: { workout: WorkoutDetail }) {
                 </Button>
             </DialogTrigger>
             <FormDialog
-                description={
-                    leftOut === 0
-                        ? 'Start future workouts with these exercises in one tap.'
-                        : `Start future workouts with these exercises in one tap. ${leftOut} custom ${leftOut === 1 ? 'exercise is' : 'exercises are'} left out: routines use built-in exercises only.`
-                }
+                description="Start future workouts with these exercises in one tap."
                 form={form}
                 onCancel={() => setIsOpen(false)}
                 onSubmit={(values) =>

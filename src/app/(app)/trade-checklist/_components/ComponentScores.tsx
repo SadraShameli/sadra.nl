@@ -8,6 +8,8 @@ import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 
 const FULL_PERCENT = 100;
 
+const NOT_WEIGHTED_LABEL = 'Not weighted';
+
 export function ComponentScoreMeter({
     label,
     score,
@@ -27,7 +29,9 @@ export function ComponentScoreMeter({
                         {score.earned.toFixed(1)} / {score.max.toFixed(0)}
                     </span>
                 ) : (
-                    <span className="text-xs text-ink-muted">Skipped</span>
+                    <span className="text-xs text-ink-muted">
+                        {NOT_WEIGHTED_LABEL}
+                    </span>
                 )}
             </div>
             {isScored && (

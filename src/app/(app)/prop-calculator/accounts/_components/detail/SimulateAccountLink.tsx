@@ -97,7 +97,7 @@ export function SimulateAccountLink({
                 </>
             )}
             {link.flags.length > 0 && (
-                <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-warning">
+                <ul className="flex list-disc flex-col gap-1 pl-5 text-xs">
                     {link.flags.map((flag) => (
                         <li key={flag}>
                             {ACCOUNT_CALCULATOR_LINK_FLAG_TEXT[flag]}

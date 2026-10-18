@@ -29,6 +29,7 @@ import {
     type AccountReadIssue,
     AccountReadIssueKind,
     AccountStage,
+    AccountStateUnavailableKind,
     AccountStatus,
     AccountTracking,
     AlertKind,
@@ -67,6 +68,7 @@ import {
     LiveTriggerCoverage,
     PayoutBlockReasonKind,
     PayoutWaitBasis,
+    ReconstructionErrorReason,
 } from '~/lib/prop-calculator/advisor';
 
 const GROUP_A = '0f3e2d1c-0000-4000-8000-00000000000a';
@@ -146,6 +148,19 @@ function ledgerAccount(
 
 function modeledFirmKey(firmId: FirmId): FirmKey {
     return { firmId, kind: FirmKeyKind.Modeled };
+}
+
+function reasonsOf(
+    accounts: readonly AccountListAccount[],
+    snapshots: readonly AccountListSnapshot[],
+    boards: AccountListBoards | null,
+): ReadonlyMap<string, null | string> {
+    return new Map(
+        buildAccountListRows(accounts, snapshots, boards).map((row) => [
+            row.account.id,
+            row.cushionMissingReason,
+        ]),
+    );
 }
 
 function searchedIds(search: string): readonly string[] {
@@ -1284,5 +1299,99 @@ describe('alertSubjectView keys for portfolio alerts (PT-69b)', () => {
             alertSubjectView(second).key,
         );
         expect(alertSubjectView(first).label).toBe('Portfolio');
+    });
+});
+
+describe('buildAccountListRows explains each missing cushion', () => {
+    const asOf = '2026-09-24';
+    const NO_FLOOR =
+        'The latest snapshot has no drawdown floor from the firm dashboard, so the cushion cannot be computed.';
+
+    it('gives the account state reason from the cushion board, not a missing dashboard floor, once the boards are in', () => {
+        const reasons = reasonsOf(
+            [
+                account('peak'),
+                account('ledger'),
+                account('archived', { archivedAt: new Date('2026-09-20') }),
+                account('ranked'),
+                account('unfloored'),
+            ],
+            ['peak', 'ledger', 'archived', 'ranked', 'unfloored'].map((id) =>
+                snapshot(id, asOf, 5_200_000, 5_000_000),
+            ),
+            {
+                cushion: {
+                    rows: [
+                        {
+                            accountId: 'ranked',
+                            asOf,
+                            cushionCents: usdCents(200_000),
+                            floorCents: usdCents(5_000_000),
+                            ratio: {
+                                basis: CushionRatioBasis.Funded,
+                                basisAmount: 250,
+                                cushion: 2000,
+                                floor: 50_000,
+                                ratio: 8,
+                            },
+                        },
+                        {
+                            accountId: 'unfloored',
+                            asOf,
+                            cushionCents: null,
+                            floorCents: null,
+                            ratio: {
+                                basis: CushionRatioBasis.Live,
+                                basisAmount: null,
+                                cushion: null,
+                                floor: null,
+                                ratio: null,
+                            },
+                        },
+                    ],
+                    unavailable: [
+                        {
+                            accountId: 'peak',
+                            reason: {
+                                kind: AccountStateUnavailableKind.ReconstructionError,
+                                reason: ReconstructionErrorReason.EodPeakRequired,
+                            },
+                        },
+                        {
+                            accountId: 'ledger',
+                            reason: {
+                                kind: AccountStateUnavailableKind.LedgerOnly,
+                            },
+                        },
+                    ],
+                },
+                readiness: { notApplicable: [], rows: [] },
+            },
+        );
+        expect(reasons.get('peak')).toBe(
+            'Its EOD-trailing drawdown needs the highest EOD balance on the snapshot.',
+        );
+        expect(reasons.get('ledger')).toBe(
+            'It is a ledger-only account with no state to reconstruct.',
+        );
+        expect(reasons.get('archived')).toBe(
+            'An archived account is not reconstructed, so its cushion is not computed.',
+        );
+        expect(reasons.get('ranked')).toBeNull();
+        expect(reasons.get('unfloored')).toBe(NO_FLOOR);
+    });
+
+    it('blames a missing dashboard floor only for a snapshot without one while no boards are given', () => {
+        const reasons = reasonsOf(
+            [account('floored'), account('unfloored'), account('empty')],
+            [
+                snapshot('floored', asOf, 5_200_000, 5_000_000),
+                snapshot('unfloored', asOf, 5_200_000, null),
+            ],
+            null,
+        );
+        expect(reasons.get('floored')).toBeNull();
+        expect(reasons.get('unfloored')).toBe(NO_FLOOR);
+        expect(reasons.get('empty')).toBeNull();
     });
 });

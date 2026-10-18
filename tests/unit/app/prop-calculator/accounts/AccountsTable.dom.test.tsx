@@ -8,6 +8,7 @@ import type { AccountValues } from '~/app/(app)/prop-calculator/accounts/_compon
 
 import {
     AccountStage,
+    AccountStateUnavailableKind,
     AccountStatus,
     AccountTracking,
     PayoutReadinessRowKind,
@@ -18,6 +19,7 @@ import {
     LiveTriggerCoverage,
     PayoutBlockReasonKind,
     PayoutWaitBasis,
+    ReconstructionErrorReason,
 } from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
 
@@ -28,8 +30,10 @@ import {
     rowActionItem,
     rowActionLabels,
 } from '../../../components/rowActionsMenu';
+import { withInfoTexts } from '../infoPopover';
 import { ariaLabelledSelect } from '../labelledControl';
 import { AccountsTable } from './AccountsTableWithData';
+import { warningNotes } from './warningNotes';
 
 interface FakeQuery {
     data: unknown;
@@ -305,6 +309,44 @@ describe('AccountsTable', () => {
         }
     });
 
+    it('explains a missing cushion with the reason the cushion board gives, not a missing dashboard floor', () => {
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
+        harness.queries.set(
+            'snapshot.latestTwoForAll',
+            answer([snapshotOf(ALPHA_ID, 5_200_000)]),
+        );
+        harness.values = {
+            boards: {
+                cushion: {
+                    rows: [],
+                    unavailable: [
+                        {
+                            accountId: ALPHA_ID,
+                            reason: {
+                                kind: AccountStateUnavailableKind.ReconstructionError,
+                                reason: ReconstructionErrorReason.EodPeakRequired,
+                            },
+                        },
+                    ],
+                },
+                readiness: { notApplicable: [], rows: [] },
+            },
+            columns: new Map(),
+            notice: null,
+        };
+        render();
+        const alpha = withInfoTexts(rowOf(container, 'Alpha'));
+        expect(alpha).toContain(
+            'Its EOD-trailing drawdown needs the highest EOD balance on the snapshot.',
+        );
+        expect(alpha).not.toContain(
+            'no drawdown floor from the firm dashboard',
+        );
+    });
+
     describe('the row actions menu', () => {
         it('opens and edits the account through links, then offers archive and delete', () => {
             harness.queries.set(
@@ -424,6 +466,25 @@ describe('AccountsTable', () => {
         expect(container.querySelectorAll('[role="alert"]')).toHaveLength(0);
     });
 
+    it('starts the read-only note on its own line with its info button beside the sentence, not inside it', () => {
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha', 'no-such-plan')]),
+        );
+        render();
+        const [note] = warningNotes(container);
+        if (note === undefined) throw new Error('no read-only note');
+        expect(note.textContent).toContain('Read-only.');
+        expect(note.querySelector('button')).toBeNull();
+        const line = note.parentElement;
+        expect(line?.tagName).toBe('DIV');
+        expect(
+            line?.querySelector(
+                ':scope > button[aria-label="About Read-only account: Alpha"]',
+            ),
+        ).not.toBeNull();
+    });
+
     it('keeps the table and shows the error beside it when a refetch of the accounts fails', () => {
         harness.queries.set('account.list', {
             data: [account(ALPHA_ID, 'Alpha')],
@@ -437,7 +498,35 @@ describe('AccountsTable', () => {
         expect(container.textContent).toContain(
             'The accounts could not be refreshed',
         );
-        expect(container.textContent).toContain('Failed to fetch');
+        expect(container.textContent).toContain(
+            'Failed to fetch. The table shows the last loaded accounts.',
+        );
+    });
+
+    it('ends the firm list failure with a full stop before saying how accounts at your own firms show', () => {
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
+        harness.queries.set('externalFirm.list', {
+            data: undefined,
+            error: new Error('UNAUTHORIZED'),
+            isError: true,
+            isPending: false,
+        });
+        render();
+        const alert = [...container.querySelectorAll('[role="alert"]')].find(
+            (candidate) =>
+                candidate.textContent.includes(
+                    'Your firms could not be loaded',
+                ),
+        );
+        expect(
+            alert?.querySelector('[data-slot="alert-description"]')
+                ?.textContent,
+        ).toBe(
+            'UNAUTHORIZED. Accounts at a firm you added show it as an unlisted firm until your firms load.',
+        );
     });
 
     it('shows only the error when the accounts never loaded', () => {
@@ -449,7 +538,7 @@ describe('AccountsTable', () => {
         });
         render();
         expect(container.querySelector('table')).toBeNull();
-        expect(container.textContent).toContain(
+        expect(container.querySelector('h2')?.textContent).toBe(
             'The accounts could not be loaded',
         );
     });

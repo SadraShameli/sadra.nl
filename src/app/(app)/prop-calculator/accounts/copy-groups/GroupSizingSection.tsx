@@ -10,11 +10,11 @@ import {
     type RungTableRow,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/RungTable';
 import { type CopyGroupRow } from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
 import { InfoNote } from '~/components/InfoNote';
 import { StatStrip, type StatStripItem } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
-import { Alert, AlertDescription } from '~/components/ui/alert';
 import {
     formatConjunctionList,
     formatCurrency,
@@ -80,11 +80,10 @@ export function GroupSizingSection({
     }
     if (sizing.kind === GroupSizingViewKind.Failed) {
         return (
-            <Alert variant="destructive">
-                <AlertDescription>
-                    Sizing and exposure could not be checked: {sizing.message}
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                message={sizing.message}
+                title="Sizing and exposure could not be checked"
+            />
         );
     }
     return (
@@ -280,12 +279,11 @@ function ReadyGroupSizing({
 function RefreshFailure({ message }: { readonly message: null | string }) {
     if (message === null) return null;
     return (
-        <Alert variant="destructive">
-            <AlertDescription>
-                Sizing and exposure may be out of date, the latest refresh
-                failed: {message}
-            </AlertDescription>
-        </Alert>
+        <QueryErrorNotice
+            consequence="The sizing and exposure shown may be out of date."
+            message={message}
+            title="Sizing and exposure could not be refreshed"
+        />
     );
 }
 

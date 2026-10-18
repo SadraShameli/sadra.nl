@@ -100,12 +100,9 @@ export function SubscriptionsPanel() {
                 id: 'description',
             },
             {
-                cell: ({ row }) =>
-                    row.original.enabled ? (
-                        <MutedCell className="text-success">On</MutedCell>
-                    ) : (
-                        <MutedCell>Off</MutedCell>
-                    ),
+                cell: ({ row }) => (
+                    <MutedCell>{row.original.enabled ? 'On' : 'Off'}</MutedCell>
+                ),
                 enableSorting: false,
                 header: 'Email',
                 id: 'email',

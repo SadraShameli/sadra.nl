@@ -64,11 +64,23 @@ describe('tradingEdgePlausibilityNote (F-V22)', () => {
         expect(note).toContain('No edge');
     });
 
-    it('names both expectancy sources while QV-20 is open', () => {
+    it('names no internal ticket and no second source for a 90% edge at 1:2', () => {
         const note = tradingEdgePlausibilityNote(0.9, 2);
-        expect(note).toContain('QV-20');
-        expect(note).toContain('+0.20R from 40% at 1:2');
-        expect(note).toContain('+0.26R');
+        expect(note).not.toContain('QV-20');
+        expect(note).not.toContain('trading skill');
+        expect(note).not.toContain('+0.26R');
+    });
+
+    it("adds the trading skill's +0.26R in plain words when the flagged edge is 40% at 1:2", () => {
+        const note = tradingEdgePlausibilityNote(0.4, 2, {
+            strongMaxExpectancyR: 0.15,
+            typicalMaxExpectancyR: 0.1,
+        });
+        expect(note).toContain('+0.20R per trade at 40% and 1:2.00');
+        expect(note).toContain(
+            "The trading skill's own numbers put this edge at +0.26R.",
+        );
+        expect(note).not.toContain('QV-20');
     });
 
     it('has no em dash', () => {
@@ -78,7 +90,9 @@ describe('tradingEdgePlausibilityNote (F-V22)', () => {
 
     it('is what TradingInputs renders next to the reward-to-risk slider', () => {
         const source = componentSource();
-        const noteAt = source.indexOf("{plausibilityNote ?? ''}");
+        const noteAt = source.indexOf(
+            '<WarningNote>{plausibilityNote}</WarningNote>',
+        );
         const rrSliderAt = source.indexOf('id="rr-ratio-label"');
         const tradesPerDayAt = source.indexOf('id="trades-per-day"');
         expect(noteAt).toBeGreaterThan(rrSliderAt);
@@ -91,7 +105,7 @@ describe('tradingEdgePlausibilityNote (F-V22)', () => {
 describe('tradingEdgePlausibilityNote Kelly growth and pace (F-V22, PT-86)', () => {
     const growth = kellyGrowthPerTrade(fraction(0.7), 1).value ?? NaN;
     const multiple =
-        compoundedMultiple(growth, 4 * TRADING_DAYS_PER_MONTH).value ?? NaN;
+        compoundedMultiple(growth, 3 * TRADING_DAYS_PER_MONTH).value ?? NaN;
 
     it('shows the growth per trade, labelled information, for a 70% edge at 1:1', () => {
         const note = tradingEdgePlausibilityNote(0.7, 1);
@@ -109,9 +123,9 @@ describe('tradingEdgePlausibilityNote Kelly growth and pace (F-V22, PT-86)', () 
             0.7,
             1,
             DEFAULT_RULEBOOK.plausibility,
-            { tradesPerDay: 4 },
+            { tradesPerDay: 3 },
         );
-        expect(note).toContain('4 trades per day');
+        expect(note).toContain('3 trades per day');
         expect(note).toContain(
             `compounds to ${multiple.toLocaleString('en-US', { maximumFractionDigits: 2 })}x`,
         );
@@ -122,9 +136,21 @@ describe('tradingEdgePlausibilityNote Kelly growth and pace (F-V22, PT-86)', () 
             0.7,
             1,
             DEFAULT_RULEBOOK.plausibility,
-            { compoundStartDollars: 5000, tradesPerDay: 4 },
+            { compoundStartDollars: 5000, tradesPerDay: 3 },
         );
         expect(note).toContain(formatCurrency(5000 * multiple));
+    });
+
+    it('says more than 1,000x and drops the amount once a month compounds past the cap', () => {
+        const note = tradingEdgePlausibilityNote(
+            0.9,
+            2,
+            DEFAULT_RULEBOOK.plausibility,
+            { compoundStartDollars: 5000, tradesPerDay: 4 },
+        );
+        expect(note).toContain('compounds to more than 1,000x');
+        expect(note).not.toContain('becomes');
+        expect(note).not.toContain(formatCurrency(5000));
     });
 
     it('shows no note for a typical edge even with a pace and a start', () => {

@@ -772,12 +772,6 @@ function StrategyLabTable({
                 accessorFn: (r) => r.result?.expectedMonthlyNet ?? -Infinity,
                 cell: ({ row }) => (
                     <ResultCell
-                        className={
-                            row.original.result &&
-                            (row.original.result.expectedMonthlyNet > 0
-                                ? 'text-success'
-                                : 'text-destructive')
-                        }
                         isComputing={row.original.isComputing}
                         value={row.original.result?.expectedMonthlyNet}
                     >

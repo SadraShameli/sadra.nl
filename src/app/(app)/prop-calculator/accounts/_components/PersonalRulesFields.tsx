@@ -7,6 +7,7 @@ import {
     FieldLabel,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { WarningNote } from '~/components/WarningNote';
 
 import {
     PERSONAL_RULE_FIELDS,
@@ -74,13 +75,13 @@ export function PersonalRulesFields({
                             {field.hint}
                         </FieldDescription>
                         {notice !== null && (
-                            <FieldDescription
-                                className="text-warning"
+                            <WarningNote
+                                className="text-sm/normal"
                                 id={noticeId}
                                 role="note"
                             >
                                 {notice}
-                            </FieldDescription>
+                            </WarningNote>
                         )}
                         {error !== undefined && (
                             <FieldError id={errorId}>{error}</FieldError>

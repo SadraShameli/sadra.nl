@@ -501,7 +501,9 @@ describe('the account form in ledger-only mode', () => {
         expect(container.textContent).toContain(
             'Your firms could not be loaded',
         );
-        expect(container.textContent).toContain('Failed to fetch');
+        expect(container.textContent).toContain(
+            'Failed to fetch. You can still add an account at a listed firm; a firm you added will not show in the picker until this loads.',
+        );
         expect(container.querySelector('form')).not.toBeNull();
     });
 });

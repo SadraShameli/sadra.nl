@@ -158,7 +158,7 @@ export function BodyView() {
 }
 
 const TREND_CHART_CONFIG = {
-    value: { color: 'var(--muted-foreground)', label: 'Value' },
+    value: { color: 'var(--chart-1)', label: 'Value' },
 } as const;
 
 function AddMeasurementCard({
@@ -528,9 +528,7 @@ function MeasurementsHistoryTable({
         <DataTable<MeasurementRow>
             columns={columns}
             data={rows}
-            emptyState={
-                <NoMatchesState icon={Ruler} noun="measurements" />
-            }
+            emptyState={<NoMatchesState icon={Ruler} noun="measurements" />}
             headerActions={headerActions}
             initialColumnVisibility={{ unit: false }}
             isLoading={isLoading}

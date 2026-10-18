@@ -17,7 +17,7 @@ import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import { PushPanel } from './PushPanel';
-import { BookingsTable, warningToneFor } from './ResultTables';
+import { BookingsTable } from './ResultTables';
 import { RunStatusBadge } from './RunStatusBadge';
 
 type RunDetailData = RouterOutputs['accounting']['runs']['get'];
@@ -150,13 +150,11 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
                     {
                         id: 'unknown',
                         label: 'Unknown txns',
-                        tone: warningToneFor(run.summary.unknownsCount),
                         value: run.summary.unknownsCount.toString(),
                     },
                     {
                         id: 'skipped',
                         label: 'Skipped',
-                        tone: warningToneFor(skippedCount),
                         value: skippedCount.toString(),
                     },
                 ]}

@@ -63,7 +63,6 @@ export function MonthlyPayoutChart({
                     <ReferenceLine
                         {...CHART_REFERENCE_LINE_PROPS}
                         label="Target"
-                        stroke="var(--warning)"
                         y={targetDollars}
                     />
                 )}

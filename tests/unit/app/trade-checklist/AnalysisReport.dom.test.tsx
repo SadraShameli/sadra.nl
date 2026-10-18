@@ -2,11 +2,15 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Recommendation } from '~/lib/trading/types';
+import type { Recommendation, TradeAssessmentRow } from '~/lib/trading/types';
 
 import { AnalysisReport } from '~/app/(app)/trade-checklist/_components/AnalysisReport';
 
-import { statStripValue } from '../prop-calculator/statStripValue';
+import {
+    statStripCaption,
+    statStripLabels,
+    statStripValue,
+} from '../prop-calculator/statStripValue';
 import { assessment } from './assessmentFixture';
 
 vi.mock('~/lib/trading/actions', () => ({
@@ -49,10 +53,12 @@ describe('the analysis report', () => {
 
     function render({
         evalDollars,
+        history = [],
         recommendation,
         suggestedSizeMultiplier,
     }: {
         evalDollars: number;
+        history?: TradeAssessmentRow[];
         recommendation: Recommendation;
         suggestedSizeMultiplier: number;
     }) {
@@ -61,7 +67,7 @@ describe('the analysis report', () => {
             root.render(
                 <AnalysisReport
                     answers={row.answers}
-                    history={[]}
+                    history={history}
                     onRestart={vi.fn()}
                     onSaved={vi.fn()}
                     plan={{
@@ -110,6 +116,30 @@ describe('the analysis report', () => {
         );
         expect(statStripValue(container, 'Recommended risk')?.textContent).toBe(
             '$94',
+        );
+    });
+
+    it('shows the hindsight expectancy once, over the outcomes with R like the KPI strip', () => {
+        render({
+            evalDollars: 100,
+            history: [
+                assessment({ id: 'a', outcome: 'win', outcomeR: 2 }),
+                assessment({ id: 'b', outcome: 'loss', outcomeR: -1 }),
+                assessment({ id: 'c', outcome: 'win', outcomeR: null }),
+            ],
+            recommendation: 'take',
+            suggestedSizeMultiplier: 1,
+        });
+        const labels = statStripLabels(container);
+        expect(labels).not.toContain('Avg R');
+        expect(labels.filter((label) => label === 'Expectancy')).toHaveLength(
+            1,
+        );
+        expect(statStripValue(container, 'Expectancy')?.textContent).toBe(
+            '+0.50R',
+        );
+        expect(statStripCaption(container, 'Expectancy')?.textContent).toBe(
+            'avg R over 2 outcomes with R',
         );
     });
 });

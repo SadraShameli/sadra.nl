@@ -2,17 +2,26 @@ import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 import type { TaxCodeCatalog } from '~/lib/accounting/core/tax-code';
 import type { Booking } from '~/lib/accounting/core/types';
 
+import { IsoDate } from '~/lib/accounting/core/date';
+import {
+    type DateBounds,
+    DateFilter,
+} from '~/lib/accounting/providers/date-filter';
+
 export interface AccountingProvider {
     readonly id: string;
     readonly label: string;
     openSession(options: OpenSessionOptions): Promise<ProviderSession>;
 }
 
-export interface ListMutationsOptions {
-    dateFrom?: string;
-    dateTo?: string;
+export interface ListMutationsOptions extends MutationDateRange {
     limit: number;
     offset?: number;
+}
+
+export interface MutationDateRange {
+    dateFrom?: string;
+    dateTo?: string;
 }
 
 export interface OpenSessionOptions {
@@ -52,6 +61,7 @@ export interface ProviderMutationRow {
 
 export interface ProviderSession {
     close(): Promise<void>;
+    countMutations(range: MutationDateRange): Promise<null | number>;
     latestMutationDate(): Promise<null | string>;
     listLedgers(options?: { category?: string }): Promise<ProviderLedger[]>;
     listMutations(options: ListMutationsOptions): Promise<ProviderMutation[]>;
@@ -88,6 +98,7 @@ export class ProviderRegistry {
 
 export abstract class ProviderSessionBase implements ProviderSession {
     abstract close(): Promise<void>;
+    abstract countMutations(range: MutationDateRange): Promise<null | number>;
     abstract latestMutationDate(): Promise<null | string>;
     abstract listLedgers(options?: {
         category?: string;
@@ -97,6 +108,22 @@ export abstract class ProviderSessionBase implements ProviderSession {
     ): Promise<ProviderMutation[]>;
     abstract postBooking(booking: Booking): Promise<PostBookingResult>;
     abstract taxCodes(): Promise<TaxCodeCatalog>;
+
+    protected async collectNewestFirst<T>(
+        bounds: DateBounds,
+        atLeast: number,
+        within: (slice: DateBounds) => Promise<T[]>,
+    ): Promise<T[]> {
+        const found: T[] = [];
+        for (const slice of DateFilter.newestFirstSlices(
+            bounds,
+            IsoDate.today(),
+        )) {
+            found.push(...(await within(slice)));
+            if (found.length >= atLeast) break;
+        }
+        return found;
+    }
 
     protected async paginate<T>(
         fetchPage: (offset: number) => Promise<T[]>,
@@ -112,4 +139,14 @@ export abstract class ProviderSessionBase implements ProviderSession {
         }
         return results;
     }
+}
+
+export function newestMutationFirst(
+    a: ProviderMutation,
+    b: ProviderMutation,
+): number {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return b.externalId.localeCompare(a.externalId, undefined, {
+        numeric: true,
+    });
 }

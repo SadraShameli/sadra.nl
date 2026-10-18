@@ -1,6 +1,9 @@
 export const NO_PASS_DAYS_REASON =
     'No simulated attempt passed the evaluation, or the plan has no evaluation.';
 
+export const NO_EVAL_PHASE_REASON =
+    'Instant-funded plan: there is no eval phase.';
+
 export const NO_COST_ROI_REASON =
     'Nothing was spent, so a return on cost has no ratio.';
 

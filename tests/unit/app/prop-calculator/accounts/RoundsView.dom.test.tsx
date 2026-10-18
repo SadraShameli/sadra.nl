@@ -508,7 +508,9 @@ describe('RoundsView', () => {
     it('warns when the external firms could not be loaded, without blocking the rest of the page', () => {
         harness.queries.set('externalFirm.list', failed('firms down'));
         render();
-        expect(container.textContent).toContain('firms down');
+        expect(container.textContent).toContain(
+            'firms down. External firms show as an unlisted firm until they load.',
+        );
         expect(container.textContent).toContain('Your rounds');
         expect(container.textContent).toContain('No rounds yet');
     });
@@ -516,7 +518,9 @@ describe('RoundsView', () => {
     it('warns when the rulebook could not be loaded, without blocking the rest of the page', () => {
         harness.queries.set('rulebook.get', failed('rulebook down'));
         render();
-        expect(container.textContent).toContain('rulebook down');
+        expect(container.textContent).toContain(
+            'rulebook down. This page uses the default thresholds instead of yours until it loads.',
+        );
         expect(container.textContent).toContain('Your rounds');
         expect(container.textContent).toContain('No rounds yet');
     });
@@ -545,7 +549,9 @@ describe('RoundsView', () => {
         );
         harness.queries.set('bankroll.summary', failed('bankroll down'));
         render();
-        expect(container.textContent).toContain('bankroll down');
+        expect(container.textContent).toContain(
+            'bankroll down. Option B on the "Next round" card is capped at option A\'s budget until it loads.',
+        );
         expect(container.textContent).toContain('Your rounds');
     });
 

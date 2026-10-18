@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { WarningNote } from '~/components/WarningNote';
 import { formatDisplayMonth } from '~/lib/format';
 
 import { type TiltVarianceCardModel } from './overviewModel';
@@ -86,7 +87,9 @@ export const TiltVarianceCard = memo(function TiltVarianceCard({
                 />
             )}
             {model.droppedNote !== null && (
-                <p className="text-xs text-warning">{model.droppedNote}</p>
+                <WarningNote className="text-xs">
+                    {model.droppedNote}
+                </WarningNote>
             )}
         </OverviewPanel>
     );

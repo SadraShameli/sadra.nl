@@ -3,6 +3,7 @@ import { Badge } from '~/components/ui/badge';
 import { Card } from '~/components/ui/card';
 import { DataTable } from '~/components/ui/data-table';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { cn } from '~/lib/utilities';
 
 import {
     type DpAdviceRecordInput,
@@ -121,7 +122,7 @@ function DpAdviceRowCard({ row }: { readonly row: DpAdviceRowView }) {
                 </div>
                 <p>{row.validationText}</p>
                 <p>{row.eligibilityText}</p>
-                <TextList className="text-destructive" texts={row.staleTexts} />
+                <TextList texts={row.staleTexts} />
                 <DpSamples row={row} />
                 <TextList
                     className="text-xs text-muted-foreground"
@@ -182,12 +183,12 @@ function TextList({
     className,
     texts,
 }: {
-    readonly className: string;
+    readonly className?: string;
     readonly texts: readonly string[];
 }) {
     if (texts.length === 0) return null;
     return (
-        <ul className={`flex list-none flex-col gap-0.5 ${className}`}>
+        <ul className={cn('flex list-none flex-col gap-0.5', className)}>
             {texts.map((text) => (
                 <li key={text}>{text}</li>
             ))}

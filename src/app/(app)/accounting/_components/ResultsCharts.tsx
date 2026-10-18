@@ -1,13 +1,14 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Bar, BarChart, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import type { ConversionResult } from '~/lib/accounting/core/types';
 
 import { ToolPanel } from '~/components/ToolPanel';
 import {
     CHART_BAR_PROPS,
+    CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
@@ -22,8 +23,8 @@ const TOP_COUNTERPART_COUNT = 10;
 const FULL_WIDTH_PERCENT = 100;
 
 const perDayConfig = {
-    in: { color: 'var(--success)', label: 'IN' },
-    out: { color: 'var(--destructive)', label: 'OUT' },
+    in: { color: 'var(--chart-1)', label: 'In' },
+    out: { color: 'var(--chart-1)', label: 'Out' },
 } satisfies ChartConfig;
 
 export function ResultsCharts({ result }: { result: ConversionResult }) {
@@ -40,7 +41,7 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
                 out: 0,
             };
             if (b.direction === 'IN') row.in += b.amountEur;
-            else row.out += b.amountEur;
+            else row.out -= b.amountEur;
             map.set(b.date, row);
         }
         return map
@@ -67,11 +68,11 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
     return result.bookings.length === 0 ? null : (
         <div className="grid gap-6 lg:grid-cols-2">
             <ToolPanel
-                description="IN and OUT stacked per booking date."
+                description="Money in above the zero line and money out below it, per booking date."
                 title="Per day"
             >
                 <ChartContainer config={perDayConfig}>
-                    <BarChart data={byDay}>
+                    <BarChart data={byDay} stackOffset="sign">
                         <XAxis {...CHART_X_AXIS_PROPS} dataKey="dateLabel" />
                         <YAxis
                             {...CHART_Y_AXIS_PROPS}
@@ -96,18 +97,19 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
                                 />
                             }
                         />
+                        <ReferenceLine {...CHART_REFERENCE_LINE_PROPS} y={0} />
                         <Bar
                             {...CHART_BAR_PROPS}
                             dataKey="in"
                             fill="var(--color-in)"
-                            name="IN"
+                            name="In"
                             stackId="stack"
                         />
                         <Bar
                             {...CHART_BAR_PROPS}
                             dataKey="out"
                             fill="var(--color-out)"
-                            name="OUT"
+                            name="Out"
                             stackId="stack"
                         />
                     </BarChart>

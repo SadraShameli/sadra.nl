@@ -19,7 +19,7 @@ import { CumulativeRChart } from './analytics/CumulativeRChart';
 import { ExecutionImpactPanel } from './analytics/ExecutionImpactPanel';
 import { GradeCalibrationChart } from './analytics/GradeCalibrationChart';
 import { KpiStrip } from './analytics/KpiStrip';
-import { OutcomeDonut } from './analytics/OutcomeDonut';
+import { OutcomeDistribution } from './analytics/OutcomeDistribution';
 import { PerWindowChart } from './analytics/PerWindowChart';
 import { WinRateByGradeChart } from './analytics/WinRateByGradeChart';
 
@@ -88,7 +88,7 @@ export function AnalyticsDashboard({
                 </ToolPanel>
 
                 <ToolPanel title="Outcome distribution">
-                    <OutcomeDonut assessments={filtered} />
+                    <OutcomeDistribution assessments={filtered} />
                 </ToolPanel>
             </div>
 

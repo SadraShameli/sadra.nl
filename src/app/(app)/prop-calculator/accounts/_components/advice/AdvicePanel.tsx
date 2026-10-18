@@ -23,15 +23,19 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import {
+    ErrorNoticeTitle,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { StoredDateFix } from '~/app/(app)/prop-calculator/accounts/_components/storedDateFix';
 import { InfoNote } from '~/components/InfoNote';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
+import { WarningNote } from '~/components/WarningNote';
 import { useSession } from '~/lib/auth/client';
 import {
     type AccountStage,
@@ -237,14 +241,11 @@ export function AdvicePanel({ id }: { readonly id: string }) {
             : null;
     const rebuyLagFailureAlert =
         rebuyLagLine?.kind === RebuyLagLineKind.Failed ? (
-            <Alert variant="destructive">
-                <AlertTitle>The rebuy lag could not be measured</AlertTitle>
-                <AlertDescription>
-                    {rebuyLagLine.message} The advice below assumes a zero-day
-                    rebuy lag, which is optimistic. Fix the stored date listed
-                    in the alerts on the accounts overview.
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                consequence={`The advice below assumes a zero-day rebuy lag, which is optimistic. ${StoredDateFix.OnOverview}`}
+                message={rebuyLagLine.message}
+                title={ErrorNoticeTitle.RebuyLag}
+            />
         ) : null;
 
     const today = useTodayIsoDate();
@@ -315,16 +316,11 @@ export function AdvicePanel({ id }: { readonly id: string }) {
     );
     const firmCountFailureAlert =
         firmPayoutCount.kind === FirmPayoutCountKind.Failed ? (
-            <Alert variant="destructive">
-                <AlertTitle>
-                    The firm payout count could not be loaded
-                </AlertTitle>
-                <AlertDescription>
-                    {firmPayoutCount.message} The advice below does not check a
-                    firm-wide live trigger, so a payout it shows may be one the
-                    firm moves live.
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                consequence="The advice below does not check a firm-wide live trigger, so a payout it shows may be one the firm moves live."
+                message={firmPayoutCount.message}
+                title={ErrorNoticeTitle.FirmPayoutCount}
+            />
         ) : null;
 
     const built = useMemo(
@@ -751,10 +747,10 @@ function ComputedAdvice({
     if (adviceState.phase === AccountAdvicePhase.Failed) {
         return (
             <div className="flex flex-col gap-2">
-                <Alert variant="destructive">
-                    <AlertTitle>The advice could not be computed</AlertTitle>
-                    <AlertDescription>{adviceState.reason}</AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    message={adviceState.reason}
+                    title="The advice could not be computed"
+                />
                 <Button
                     className="self-start"
                     onClick={adviceState.retry}
@@ -977,9 +973,9 @@ function ComputedAdvice({
                     <PanelSubheading>Payout advice</PanelSubheading>
                     <PayoutAdviceCard view={view.payoutAdvice} />
                     {view.payoutAdvice.personalOverrideWarningText !== null && (
-                        <p className="text-sm text-destructive" role="alert">
+                        <WarningNote className="text-sm" role="alert">
                             {view.payoutAdvice.personalOverrideWarningText}
-                        </p>
+                        </WarningNote>
                     )}
                 </section>
             )}

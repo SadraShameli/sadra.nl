@@ -9,11 +9,11 @@ import { routineInputSchema } from '~/lib/lifting/schemas';
 function exercise(
     slug: string,
     reps: readonly (null | number)[],
-    ownerId: null | string = null,
+    isCustom = false,
 ): RoutineSourceExercise {
     return {
-        exercise: { ownerId, slug },
-        sets: reps.map((count) => ({ reps: count })),
+        exercise: { isCustom, slug },
+        sets: reps.map((count) => ({ reps: count, type: 'working' })),
     };
 }
 
@@ -25,20 +25,88 @@ describe('RoutineDraft', () => {
                 exercise('plank', [null]),
             ]),
         ).toEqual([
-            { exerciseSlug: 'barbell-bench-press', sets: 3, targetReps: 8 },
-            { exerciseSlug: 'plank', sets: 1, targetReps: undefined },
+            {
+                exerciseSlug: 'barbell-bench-press',
+                isCustom: false,
+                sets: 3,
+                targetReps: 8,
+            },
+            {
+                exerciseSlug: 'plank',
+                isCustom: false,
+                sets: 1,
+                targetReps: undefined,
+            },
         ]);
     });
 
-    it('leaves out custom exercises, which a routine cannot start', () => {
-        const exercises = [
-            exercise('barbell-squat', [5]),
-            exercise('my-sled-push', [10], 'lifter'),
-        ];
+    it('builds the block from the working sets, leaving warm-ups out of the count and the reps', () => {
         expect(
-            RoutineDraft.blocksOf(exercises).map((block) => block.exerciseSlug),
-        ).toEqual(['barbell-squat']);
-        expect(RoutineDraft.leftOutCount(exercises)).toBe(1);
+            RoutineDraft.blocksOf([
+                {
+                    exercise: { isCustom: false, slug: 'barbell-squat' },
+                    sets: [
+                        { reps: 10, type: 'warmup' },
+                        { reps: 5, type: 'warmup' },
+                        { reps: 5, type: 'working' },
+                        { reps: 5, type: 'working' },
+                        { reps: 5, type: 'working' },
+                    ],
+                },
+            ]),
+        ).toEqual([
+            {
+                exerciseSlug: 'barbell-squat',
+                isCustom: false,
+                sets: 3,
+                targetReps: 5,
+            },
+        ]);
+    });
+
+    it('keeps an exercise logged only as warm-ups, counting those sets', () => {
+        expect(
+            RoutineDraft.blocksOf([
+                {
+                    exercise: { isCustom: false, slug: 'face-pull' },
+                    sets: [
+                        { reps: 15, type: 'warmup' },
+                        { reps: 12, type: 'warmup' },
+                    ],
+                },
+            ]),
+        ).toEqual([
+            {
+                exerciseSlug: 'face-pull',
+                isCustom: false,
+                sets: 2,
+                targetReps: 15,
+            },
+        ]);
+    });
+
+    it('keeps custom exercises, which a routine now starts', () => {
+        expect(
+            RoutineDraft.blocksOf([
+                exercise('barbell-squat', [5]),
+                exercise('my-sled-push', [10]),
+            ]).map((block) => block.exerciseSlug),
+        ).toEqual(['barbell-squat', 'my-sled-push']);
+    });
+
+    it('marks each block built-in or custom, so the routine starts the same exercise when slugs match', () => {
+        expect(
+            RoutineDraft.blocksOf([
+                exercise('barbell-squat', [5]),
+                exercise('barbell-squat', [8], true),
+            ]).map(({ exerciseSlug, isCustom }) => ({
+                exerciseSlug,
+                isCustom,
+            })),
+        ).toEqual([
+            { exerciseSlug: 'barbell-squat', isCustom: false },
+            { exerciseSlug: 'barbell-squat', isCustom: true },
+        ]);
     });
 
     it('keeps every block inside the limits the routine API accepts', () => {

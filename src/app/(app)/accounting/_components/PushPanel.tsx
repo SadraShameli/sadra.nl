@@ -247,12 +247,12 @@ function RowIcon({
     status: PostRowStatus;
 }) {
     if (status === 'posted')
-        return <CheckCircle2 className="size-3.5 text-success" />;
+        return <CheckCircle2 aria-hidden className="size-3.5 text-ink" />;
     if (status === 'failed')
-        return <XCircle className="size-3.5 text-destructive" />;
+        return <XCircle aria-hidden className="size-3.5 text-ink" />;
     return isPosting ? (
-        <Spinner className="size-3.5 text-muted-foreground" />
+        <Spinner className="size-3.5 text-ink" />
     ) : (
-        <Circle aria-hidden className="size-3.5 text-muted-foreground" />
+        <Circle aria-hidden className="size-3.5 text-ink" />
     );
 }

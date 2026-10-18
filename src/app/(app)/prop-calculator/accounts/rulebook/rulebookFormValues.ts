@@ -341,10 +341,10 @@ export const TEXT_FIELDS: Readonly<Record<TextFieldName, TextFieldSpec>> = {
         source: null,
     },
     'display.nextPayoutHighlightDays': {
-        hint: 'A funded account whose next payout is expected within this many calendar days is highlighted on the account list. It also needs most simulated trials to reach a payout.',
+        hint: 'A funded account whose next payout is expected within this many calendar days is marked soon on the account list. It also needs most simulated trials to reach a payout.',
         isOptional: false,
         kind: FieldKind.Count,
-        label: 'Highlight a next payout within (days)',
+        label: 'Mark a next payout as soon within (days)',
         read: (v) => v.display.nextPayoutHighlightDays,
         source: null,
     },

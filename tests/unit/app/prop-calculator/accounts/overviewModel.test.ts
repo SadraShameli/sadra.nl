@@ -35,7 +35,7 @@ import {
     ExpectedNetStatus,
     feeKindLabel,
     hubPortfolioOf,
-    KpiTone,
+    KpiState,
     ledgerOrDateFailure,
     NO_OVERVIEW_ENGINE,
     OVERVIEW_TIMELINE_LIMIT,
@@ -70,6 +70,7 @@ import {
     scaleAtMultipleModel,
     scaleModelAtBudget,
     setupChecklistCardOf,
+    SetupRowStatus,
     violationsFor,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import {
@@ -120,7 +121,6 @@ import {
     SampleLevel,
     setupChecklistOf,
     SetupStep,
-    SetupStepStatus,
     usdCents,
     usdCentsFromDollars,
     ViolationSource,
@@ -302,6 +302,15 @@ function answered(rows: PortfolioRows): PortfolioQueries {
         [PortfolioSource.Transfers]: { data: rows.transfers, error: null },
         [PortfolioSource.Violations]: { data: rows.violations, error: null },
     };
+}
+
+function awaitingOf(
+    unavailable: readonly {
+        readonly account: string;
+        readonly isAwaitingSnapshot: boolean;
+    }[],
+): readonly (readonly [string, boolean])[] {
+    return unavailable.map((row) => [row.account, row.isAwaitingSnapshot]);
 }
 
 function capAlertOf(rows: PortfolioRows): OverviewAlert | undefined {
@@ -830,77 +839,77 @@ describe('buildOverview KPI row', () => {
     it('pins the ledger figures of one fixture', () => {
         const cards = readyCards(buildOverview(pinnedFixture()).ledger);
         expect(
-            cards.kpis.map(({ detail, label, tone, value }) => ({
+            cards.kpis.map(({ detail, label, state, value }) => ({
                 detail,
                 label,
-                tone,
+                state,
                 value,
             })),
         ).toEqual([
             {
                 detail: `After ${cents(3000)} in refunds`,
                 label: 'Spend',
-                tone: KpiTone.Neutral,
+                state: KpiState.Ready,
                 value: cents(35_000),
             },
             {
                 detail: '1 paid payout',
                 label: 'Payouts received',
-                tone: KpiTone.Neutral,
+                state: KpiState.Ready,
                 value: cents(90_000),
             },
             {
                 detail: 'Payouts received minus spend',
                 label: 'Net',
-                tone: KpiTone.Positive,
+                state: KpiState.Ready,
                 value: cents(55_000),
             },
             {
                 detail: `Pooled over 4 months and 3.2 funded slot-months, SE ${cents(30_390)}`,
                 label: 'Realized net per slot per month',
-                tone: KpiTone.Positive,
+                state: KpiState.Ready,
                 value: cents(17_010),
             },
             {
                 detail: 'Modeled monthly net per slot under your documented rule: pending the engine cards',
                 label: 'Expected net per slot per month',
-                tone: KpiTone.Pending,
+                state: KpiState.Pending,
                 value: 'Pending',
             },
             {
                 detail: 'Annual ROI on fees: 486.4%',
                 label: 'ROI on cost',
-                tone: KpiTone.Positive,
+                state: KpiState.Ready,
                 value: '157.1%',
             },
             {
                 detail: 'Payouts received divided by spend',
                 label: 'Payout multiple',
-                tone: KpiTone.Positive,
+                state: KpiState.Ready,
                 value: '2.57x',
             },
             {
                 detail: `Information only: nominal account size, not money you hold. Evals in progress: ${cents(0)} across 0 accounts.`,
                 label: 'Total nominal funding',
-                tone: KpiTone.Neutral,
+                state: KpiState.Ready,
                 value: cents(EVAL_PLAN.plan.id.accountSize * 100),
             },
             {
                 detail: null,
                 label: 'Average payout',
-                tone: KpiTone.Neutral,
+                state: KpiState.Ready,
                 value: `${cents(90_000)}, n = 1`,
             },
             {
                 detail: 'No active account could be compared with a previous snapshot yet',
                 label: 'Worst day loss',
-                tone: KpiTone.Neutral,
+                state: KpiState.Ready,
                 value: 'n/a',
             },
             {
                 detail: 'No sizing decision recorded yet',
                 label: 'Followed recommendations',
-                tone: KpiTone.Neutral,
+                state: KpiState.Ready,
                 value: 'n/a',
             },
         ]);
@@ -917,10 +926,10 @@ describe('buildOverview KPI row', () => {
         );
         expect(byKind.get(OverviewKpiKind.RealizedNetPerSlot)).toMatchObject({
             detail: 'No funded slot-month yet',
-            tone: KpiTone.Neutral,
+            state: KpiState.Ready,
             value: 'n/a',
         });
-        expect(byKind.get(OverviewKpiKind.Net)?.tone).toBe(KpiTone.Neutral);
+        expect(byKind.get(OverviewKpiKind.Net)?.state).toBe(KpiState.Ready);
     });
 
     it('shows a null standard error as n/a and flags payouts counted at gross', () => {
@@ -4284,7 +4293,7 @@ describe('buildOverview expected net card (F-85, F-152)', () => {
             (candidate) => candidate.kind === OverviewKpiKind.ExpectedNet,
         );
         expect(kpi?.value).toBe(formatCurrency((2 * 1111 + 900) / 3));
-        expect(kpi?.tone).toBe(KpiTone.Positive);
+        expect(kpi?.state).toBe(KpiState.Ready);
         expect(kpi?.detail).toContain('credit-free');
         expect(kpi?.detail).toContain('credit-inclusive');
     });
@@ -4312,7 +4321,7 @@ describe('buildOverview expected net card (F-85, F-152)', () => {
         const pending = readyCards(buildOverview(pinnedFixture()).ledger).kpis;
         expect(
             pending.find((kpi) => kpi.kind === OverviewKpiKind.ExpectedNet),
-        ).toMatchObject({ tone: KpiTone.Pending, value: 'Pending' });
+        ).toMatchObject({ state: KpiState.Pending, value: 'Pending' });
         const failed = engineCards(
             multiSlotRows(),
             {},
@@ -4675,9 +4684,52 @@ describe('buildOverview cushion and payout readiness boards (F-80, F-81)', () =>
         expect(boards.cushion.unavailable).toEqual([
             {
                 account: 'No snapshot',
+                isAwaitingSnapshot: true,
                 key: unsnapshotted.id,
                 reason: 'it has no snapshot yet',
             },
+        ]);
+    });
+
+    it('marks only an account that lacks a snapshot as awaiting one, never a ledger-only account a balance cannot fix', () => {
+        const unsnapshotted = account(mffProEntry(), {
+            fundedOn: '2026-08-01',
+            label: 'No snapshot',
+            purchasedOn: '2026-07-01',
+            stage: AccountStage.Funded,
+        });
+        const ledgerOnly = account(EVAL_PLAN, {
+            accountSize: 150_000,
+            fundedOn: '2026-08-01',
+            label: 'Ledger only',
+            planLabel: 'Rapid 150K',
+            planSerial: null,
+            purchasedOn: '2026-07-01',
+            stage: AccountStage.Funded,
+            tracking: AccountTracking.LedgerOnly,
+        });
+        const rows = rowsOf({
+            accounts: [unsnapshotted, ledgerOnly].map(overviewAccount),
+        });
+        const { boards } = buildOverview(inputs(rows));
+        if (boards.kind !== OverviewSectionStatus.Ready) {
+            throw new Error(`boards not ready: ${boards.kind}`);
+        }
+        expect(awaitingOf(boards.cushion.unavailable)).toEqual([
+            ['No snapshot', true],
+            ['Ledger only', false],
+        ]);
+        expect(awaitingOf(boards.readiness.unavailable)).toEqual([
+            ['No snapshot', true],
+            ['Ledger only', false],
+        ]);
+        const exposure = buildOverview(inputs(rows)).exposure;
+        if (exposure.kind !== OverviewSectionStatus.Ready) {
+            throw new Error(`exposure not ready: ${exposure.kind}`);
+        }
+        expect(awaitingOf(exposure.model.unavailable)).toEqual([
+            ['No snapshot', true],
+            ['Ledger only', false],
         ]);
     });
 
@@ -7750,11 +7802,11 @@ describe('buildOverview setup checklist (PT-69, F-V28)', () => {
         expect(setup.isComplete).toBe(false);
         expect(setup.totalSteps).toBe(5);
         expect(setup.steps.map((step) => [step.key, step.status])).toEqual([
-            [SetupStep.BudgetSet, SetupStepStatus.Missing],
-            [SetupStep.FirmRulesVerified, SetupStepStatus.Done],
-            [SetupStep.StagesCaptured, SetupStepStatus.Missing],
-            [SetupStep.ExpectedValueComputed, SetupStepStatus.NotChecked],
-            [SetupStep.CostsEntered, SetupStepStatus.Done],
+            [SetupStep.BudgetSet, SetupRowStatus.Missing],
+            [SetupStep.FirmRulesVerified, SetupRowStatus.Done],
+            [SetupStep.StagesCaptured, SetupRowStatus.Missing],
+            [SetupStep.ExpectedValueComputed, SetupRowStatus.NotChecked],
+            [SetupStep.CostsEntered, SetupRowStatus.Done],
         ]);
         const byKey = new Map(setup.steps.map((step) => [step.key, step]));
         expect(byKey.get(SetupStep.BudgetSet)?.href).toBe(
@@ -7800,11 +7852,11 @@ describe('buildOverview setup checklist (PT-69, F-V28)', () => {
             buildOverview({ ...inputs(complete), engine }),
         );
         expect(setup.steps.map((step) => step.status)).toEqual([
-            SetupStepStatus.Done,
-            SetupStepStatus.Done,
-            SetupStepStatus.Done,
-            SetupStepStatus.Done,
-            SetupStepStatus.Done,
+            SetupRowStatus.Done,
+            SetupRowStatus.Done,
+            SetupRowStatus.Done,
+            SetupRowStatus.Done,
+            SetupRowStatus.Done,
         ]);
         expect(setup.isComplete).toBe(true);
         expect(setup.doneCount).toBe(5);
@@ -7819,10 +7871,36 @@ describe('buildOverview setup checklist (PT-69, F-V28)', () => {
         const step = setup.steps.find(
             (candidate) => candidate.key === SetupStep.ExpectedValueComputed,
         );
-        expect(step?.status).toBe(SetupStepStatus.Missing);
+        expect(step?.status).toBe(SetupRowStatus.Missing);
         expect(step?.items.map((item) => item.label)).toEqual([
             planName(EVAL_PLAN),
         ]);
+    });
+
+    it('shows the expected value step as failed with the engine reason, not waiting, when the engine fails, and keeps the count at the steps done', () => {
+        const failure = 'Web workers are not available in this browser.';
+        const failedInputs = engineInputs(pinnedRows(), {}, failure);
+        const setup = readySetup(buildOverview(failedInputs));
+        const step = setup.steps.find(
+            (candidate) => candidate.key === SetupStep.ExpectedValueComputed,
+        );
+        expect(step?.statusLabel).toBe('The engine failed');
+        expect(step?.detail).toBe(
+            `The expected net could not be computed: ${failure}`,
+        );
+        expect(setup.isCounting).toBe(false);
+        expect(setup.doneCount).toBe(2);
+        expect(setup.totalSteps).toBe(5);
+    });
+
+    it('keeps the expected value step waiting, not failed, while the engine has not answered', () => {
+        const pendingInputs = inputs(pinnedRows());
+        const setup = readySetup(buildOverview(pendingInputs));
+        const step = setup.steps.find(
+            (candidate) => candidate.key === SetupStep.ExpectedValueComputed,
+        );
+        expect(step?.statusLabel).toBe('Waiting for the engine');
+        expect(setup.isCounting).toBe(true);
     });
 
     it('asks a new user to add an account first instead of showing the account steps as done', () => {
@@ -7832,7 +7910,7 @@ describe('buildOverview setup checklist (PT-69, F-V28)', () => {
                 .filter((step) => step.key !== SetupStep.BudgetSet)
                 .every(
                     (step) =>
-                        step.status === SetupStepStatus.NotApplicable &&
+                        step.status === SetupRowStatus.NotApplicable &&
                         step.statusLabel === 'Add an account first',
                 ),
         ).toBe(true);
@@ -7847,9 +7925,9 @@ describe('setupChecklistCardOf (PT-69, F-V28)', () => {
         const labels = new Map(
             card.steps.map((step) => [step.status, step.statusLabel]),
         );
-        expect(labels.get(SetupStepStatus.Done)).toBe('Done');
-        expect(labels.get(SetupStepStatus.Missing)).toBe('Missing');
-        expect(labels.get(SetupStepStatus.NotChecked)).toBe(
+        expect(labels.get(SetupRowStatus.Done)).toBe('Done');
+        expect(labels.get(SetupRowStatus.Missing)).toBe('Missing');
+        expect(labels.get(SetupRowStatus.NotChecked)).toBe(
             'Waiting for the engine',
         );
         expect(card.doneCount).toBe(2);
@@ -7876,11 +7954,11 @@ describe('setupChecklistCardOf (PT-69, F-V28)', () => {
         };
         const complete = hubPortfolioOf(hubInputs).setup;
         expect(complete?.steps.map((step) => step.status)).toEqual([
-            SetupStepStatus.Done,
-            SetupStepStatus.Done,
-            SetupStepStatus.Done,
-            SetupStepStatus.NotChecked,
-            SetupStepStatus.Done,
+            SetupRowStatus.Done,
+            SetupRowStatus.Done,
+            SetupRowStatus.Done,
+            SetupRowStatus.NotChecked,
+            SetupRowStatus.Done,
         ]);
         expect(complete?.isComplete).toBe(true);
         expect(complete?.doneCount).toBe(4);
@@ -7909,7 +7987,7 @@ describe('setupChecklistCardOf (PT-69, F-V28)', () => {
                 rulebook: DEFAULT_RULEBOOK,
                 staleSnapshotNotes: new Map(),
             }),
-            false,
+            { expectedValueFailure: null, isCounting: false },
         );
         expect(card.steps).toHaveLength(5);
         expect(card.steps[0]?.key).toBe(SetupStep.BudgetSet);
@@ -8236,7 +8314,7 @@ describe('buildOverview worst day and followed recommendations KPIs (PT-69, F-V2
         );
         expect(expected).toBeGreaterThan(0);
         expect(kpi.value).toBe(formatUsdCents(expected));
-        expect(kpi.tone).toBe(KpiTone.Negative);
+        expect(kpi.state).toBe(KpiState.Ready);
         expect(kpi.detail).toContain(formatDisplayDate(TODAY));
         expect(kpi.detail).toContain('of your available bankroll');
         expect(kpi.note).toContain('approximation');
@@ -8325,7 +8403,7 @@ describe('buildOverview worst day and followed recommendations KPIs (PT-69, F-V2
         expect(kpi.detail).toContain('1 without an actual risk');
         expect(kpi.note).toContain('accepted risk, not the documented rung');
         expect(kpi.note).toContain('less than the accepted risk');
-        expect(kpi.tone).toBe(KpiTone.Neutral);
+        expect(kpi.state).toBe(KpiState.Ready);
     });
 
     it('is pending while the decisions load and says why when they cannot load', () => {
@@ -8337,7 +8415,7 @@ describe('buildOverview worst day and followed recommendations KPIs (PT-69, F-V2
             OverviewKpiKind.FollowedRecommendations,
         );
         expect(pending.value).toBe('Pending');
-        expect(pending.tone).toBe(KpiTone.Pending);
+        expect(pending.state).toBe(KpiState.Pending);
         const failedModel = pinnedModelWith({
             [PortfolioSource.Decisions]: {
                 data: undefined,
@@ -9115,7 +9193,7 @@ describe('buildOverview setup checklist on the hub and the overview (PT-96 step 
         const rows = pinnedRows();
         const hub = hubSetupOf(rows);
         expect(
-            hub?.steps.some((step) => step.status === SetupStepStatus.Missing),
+            hub?.steps.some((step) => step.status === SetupRowStatus.Missing),
         ).toBe(true);
         expect(hub?.isComplete).toBe(false);
     });
@@ -10049,3 +10127,79 @@ function withFutureRows(): PortfolioRows {
         ],
     };
 }
+
+describe('the engine cards while the rulebook is missing', () => {
+    it('fails the expected net, the projection and the expected net KPI with the rulebook as the cause once the rulebook cannot be loaded', () => {
+        const built = buildOverview(
+            inputs(multiSlotRows(), {
+                [PortfolioSource.Rulebook]: unreadableRulebook(),
+            }),
+        );
+        const cards = readyCards(built.ledger);
+        expect(cards.expectedNet.status).toBe(ExpectedNetStatus.Failed);
+        expect(cards.expectedNet.statusNote).toBe(
+            'The expected net could not be computed because your rulebook could not be loaded.',
+        );
+        const projection = readyProjection(built.projection);
+        expect(projection.status).toBe(ExpectedNetStatus.Failed);
+        expect(projection.statusNote).toBe(
+            'The projection could not be computed because your rulebook could not be loaded.',
+        );
+        const kpi = kpiOf(built, OverviewKpiKind.ExpectedNet);
+        expect(kpi.state).toBe(KpiState.Failed);
+        expect(kpi.value).toBe(NOT_APPLICABLE);
+        expect(kpi.detail).toBe('Your rulebook could not be loaded');
+    });
+
+    it('keeps the engine cards and the expected net KPI pending while the rulebook is still loading', () => {
+        const built = buildOverview(
+            inputs(multiSlotRows(), {
+                [PortfolioSource.Rulebook]: { data: undefined, error: null },
+            }),
+        );
+        const cards = readyCards(built.ledger);
+        expect(cards.expectedNet.status).toBe(ExpectedNetStatus.Pending);
+        expect(cards.expectedNet.statusNote).toBe(
+            'The expected net waits for your rulebook to load.',
+        );
+        expect(readyProjection(built.projection).status).toBe(
+            ExpectedNetStatus.Pending,
+        );
+        expect(kpiOf(built, OverviewKpiKind.ExpectedNet).state).toBe(
+            KpiState.Pending,
+        );
+    });
+});
+
+describe('the KPI state of a figure that could not be computed', () => {
+    it('marks the expected net KPI failed when the engine fails for a held plan', () => {
+        const failed = engineCards(
+            multiSlotRows(),
+            {},
+            'The background worker failed.',
+        ).kpis.find((kpi) => kpi.kind === OverviewKpiKind.ExpectedNet);
+        expect(failed?.state).toBe(KpiState.Failed);
+    });
+
+    it('marks the followed recommendations KPI failed when the decisions cannot be loaded', () => {
+        const failed = kpiOf(
+            pinnedModelWith({
+                [PortfolioSource.Decisions]: {
+                    data: undefined,
+                    error: new Error('down'),
+                },
+            }),
+            OverviewKpiKind.FollowedRecommendations,
+        );
+        expect(failed.state).toBe(KpiState.Failed);
+    });
+
+    it('keeps a KPI with no figure for an ordinary reason ready, not failed', () => {
+        const none = kpiOf(
+            buildOverview(pinnedFixture()),
+            OverviewKpiKind.FollowedRecommendations,
+        );
+        expect(none.value).toBe(NOT_APPLICABLE);
+        expect(none.state).toBe(KpiState.Ready);
+    });
+});

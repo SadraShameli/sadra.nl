@@ -16,20 +16,6 @@ export enum StatusTone {
     Warn = 'warn',
 }
 
-const STATUS_TONE_CLASS: Readonly<Record<StatusTone, string>> = {
-    [StatusTone.Fail]: 'bg-destructive/15 text-destructive',
-    [StatusTone.Neutral]: 'bg-muted text-ink-muted',
-    [StatusTone.Pass]: 'bg-success/15 text-success',
-    [StatusTone.Warn]: 'bg-warning/15 text-warning',
-};
-
-const STATUS_METER_CLASS: Readonly<Record<StatusTone, string>> = {
-    [StatusTone.Fail]: 'bg-destructive',
-    [StatusTone.Neutral]: 'bg-ink-muted',
-    [StatusTone.Pass]: 'bg-success',
-    [StatusTone.Warn]: 'bg-warning',
-};
-
 const STATUS_ICON: Readonly<Record<StatusTone, LucideIcon>> = {
     [StatusTone.Fail]: CircleX,
     [StatusTone.Neutral]: Circle,
@@ -65,12 +51,7 @@ export function StatusRow({
             role="status"
         >
             <div className="flex flex-wrap items-center gap-3">
-                <span
-                    className={cn(
-                        'flex size-9 shrink-0 items-center justify-center rounded-full',
-                        STATUS_TONE_CLASS[tone],
-                    )}
-                >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-ink">
                     <Icon aria-hidden className="size-4.5" />
                 </span>
                 <div className="flex min-w-0 flex-1 basis-48 flex-col gap-0.5">
@@ -100,8 +81,7 @@ export function StatusRow({
                         <span
                             className={cn(
                                 'h-1.5 flex-1 rounded-full bg-muted',
-                                index < meter.filled &&
-                                    STATUS_METER_CLASS[tone],
+                                index < meter.filled && 'bg-camel',
                             )}
                             key={index}
                         />

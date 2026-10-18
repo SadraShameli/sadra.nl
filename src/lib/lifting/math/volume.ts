@@ -76,8 +76,12 @@ export class VolumeAnalyzer {
     }
 
     workingSets(sets: readonly VolumeSet[]): VolumeSet[] {
-        return sets.filter((s) => WORKING_SET_TYPES.has(s.type));
+        return sets.filter((s) => isWorkingSetType(s.type));
     }
+}
+
+export function isWorkingSetType(type: SetType): boolean {
+    return WORKING_SET_TYPES.has(type);
 }
 
 function applySecondaryMuscles(

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '~/components/ui/button';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { WarningNote } from '~/components/WarningNote';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatCurrency } from '~/lib/format';
 import { RuleViolationKind } from '~/lib/prop-accounts';
@@ -150,9 +151,9 @@ function VerdictBlock({
                 {view.verdictText}
             </p>
             {view.placementText !== null && (
-                <p className="text-sm font-medium text-warning">
+                <WarningNote className="text-sm">
                     {view.placementText}
-                </p>
+                </WarningNote>
             )}
             {violation !== null && view.isViolationOffered && (
                 <ViolationControl violation={violation} />

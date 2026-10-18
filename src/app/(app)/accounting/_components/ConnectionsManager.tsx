@@ -399,10 +399,13 @@ function EditCredentialForm({
                 <DialogHeader>
                     <DialogTitle>Edit credential</DialogTitle>
                 </DialogHeader>
-                <p className="text-sm text-destructive">
-                    Unknown credential kind &quot;{credential.kind}&quot;: no
-                    descriptor registered.
-                </p>
+                <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                        Unknown credential kind &quot;{credential.kind}&quot;:
+                        no descriptor registered.
+                    </AlertDescription>
+                </Alert>
                 <DialogFooter>
                     <Button onClick={onClose} variant="ghost">
                         Close

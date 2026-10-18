@@ -112,9 +112,7 @@ function ToggleCard({
                         </FieldDescription>
                     )}
                 </FieldContent>
-                {isChecked && flag !== undefined && (
-                    <Badge variant="outline">{flag}</Badge>
-                )}
+                {isChecked && flag !== undefined && <Badge>{flag}</Badge>}
             </Field>
         </FieldLabel>
     );

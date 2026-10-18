@@ -224,7 +224,7 @@ export const FunnelCard = memo(function FunnelCard({
             {model.diagnosticIssues.length > 0 && (
                 <ul
                     aria-label="Funnel diagnostic issues by plan"
-                    className="flex flex-col gap-1 text-sm text-warning"
+                    className="flex flex-col gap-1 text-sm"
                 >
                     {model.diagnosticIssues.map((issue) => (
                         <li key={issue.key}>

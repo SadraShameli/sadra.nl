@@ -149,14 +149,10 @@ export default function TakeProfitWhatIf() {
                             },
                         ]}
                         data={rows === null ? [] : [...rows]}
+                        isCurrentRow={(row) => row.isAnchor}
                         isLoading={rows === null}
                         isSortable={false}
                         pageSize={null}
-                        rowClassName={(row) =>
-                            row.isAnchor
-                                ? 'font-semibold text-foreground'
-                                : undefined
-                        }
                         rowId={(row) => String(row.rrRatio)}
                     />
                 )}

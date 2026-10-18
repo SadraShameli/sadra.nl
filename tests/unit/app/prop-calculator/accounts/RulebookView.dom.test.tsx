@@ -712,7 +712,7 @@ describe('RulebookView v2 sections', () => {
         expect(note?.textContent).toContain('1:2.00');
     });
 
-    it('adds the full-Kelly growth and the one-month multiple at the strategy trades per day to the note (F-V22, PT-86)', () => {
+    it('adds the full-Kelly growth and a capped one-month multiple at the strategy trades per day to the note (F-V22, PT-86)', () => {
         typeInto(inputLabelled('Win rate'), '90');
         const growth =
             kellyGrowthPerTrade(fraction(0.9), DEFAULT_RULEBOOK.strategy.rr)
@@ -730,8 +730,10 @@ describe('RulebookView v2 sections', () => {
         expect(text).toContain(
             `${String(DEFAULT_RULEBOOK.strategy.tradesPerDayMax)} trades per day`,
         );
-        expect(text).toContain(
-            `compounds to ${multiple.toLocaleString('en-US', { maximumFractionDigits: 2 })}x`,
+        expect(multiple).toBeGreaterThan(1000);
+        expect(text).toContain('compounds to more than 1,000x');
+        expect(text).not.toContain(
+            multiple.toLocaleString('en-US', { maximumFractionDigits: 2 }),
         );
         expect(text).toContain(
             'information, not sizing; Kelly is not prop-firm sizing',
@@ -776,12 +778,14 @@ describe('RulebookView v2 sections', () => {
         expect(inputLabelled('Typical edge up to').value).toBe('0.3');
         expect(inputLabelled('Strong edge up to').value).toBe('0.35');
         expect(itemOf('Show risk as').textContent).toContain('Account dollars');
-        expect(inputLabelled('Highlight a next payout within').value).toBe('7');
+        expect(inputLabelled('Mark a next payout as soon within').value).toBe(
+            '7',
+        );
         expect(inputLabelled('My Funded Futures').value).toBe('');
     });
 
-    it('saves the next payout highlight window the user sets, in whole days', async () => {
-        typeInto(inputLabelled('Highlight a next payout within'), '10');
+    it('saves the window that marks a next payout as soon, in whole days', async () => {
+        typeInto(inputLabelled('Mark a next payout as soon within'), '10');
         await save();
 
         expect(harness.upsert).toHaveBeenCalledWith({

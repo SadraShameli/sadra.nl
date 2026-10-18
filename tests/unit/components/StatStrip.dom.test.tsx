@@ -90,7 +90,7 @@ describe('the stat strip', () => {
         ).toHaveLength(1);
     });
 
-    it('tones a figure and names the strip as a group', () => {
+    it('mutes a secondary figure without colour coding it, and names the strip as a group', () => {
         act(() => {
             root.render(
                 <StatStrip
@@ -98,7 +98,7 @@ describe('the stat strip', () => {
                         {
                             id: 'loss',
                             label: 'Worst day',
-                            tone: StatTone.Negative,
+                            tone: StatTone.Muted,
                             value: '-$480',
                         },
                     ]}
@@ -107,7 +107,7 @@ describe('the stat strip', () => {
             );
         });
         expect(container.querySelector(':scope dd')?.className).toContain(
-            'text-destructive',
+            'text-ink-muted',
         );
         expect(
             container

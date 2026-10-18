@@ -12,7 +12,6 @@ import {
     ProfileDateCell,
     ProfileDatePrecision,
 } from '~/app/(app)/profile/_components/ProfileTable';
-import { NoMatchesState } from '~/components/ui/empty-state';
 import {
     deleteRowAction,
     linkRowAction,
@@ -29,6 +28,7 @@ import {
     type DataTableInstance,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';

@@ -14,19 +14,21 @@ import type {
     UnknownMerchant,
 } from '~/lib/accounting/core/types';
 
+import { DetailList } from '~/components/DetailList';
 import { FormDialog } from '~/components/FormDialog';
 import {
     editRowAction,
     RowActionKind,
     rowActionsColumn,
 } from '~/components/RowActionsMenu';
-import { StatStrip, StatTone } from '~/components/StatStrip';
+import { StatStrip } from '~/components/StatStrip';
 import { SwitchCard } from '~/components/ToggleCard';
 import { Badge } from '~/components/ui/badge';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
+    dataTableExpanderColumn,
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
@@ -121,6 +123,10 @@ export function BookingsTable({
     const columns = useMemo<DataTableColumn<Booking>[]>(
         () => [
             {
+                ...dataTableExpanderColumn<Booking>(),
+                meta: { label: 'Details' },
+            },
+            {
                 accessorKey: 'date',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs">
@@ -179,20 +185,7 @@ export function BookingsTable({
                 header: 'VAT',
             },
             {
-                accessorKey: 'notes',
-                cell: ({ row }) => (
-                    <ConversionNotes notes={row.original.notes} />
-                ),
-                enableSorting: false,
-                header: 'Conversion',
-            },
-            {
                 accessorKey: 'txnId',
-                cell: ({ row }) => (
-                    <span className="font-mono text-xs text-muted-foreground">
-                        {row.original.txnId}
-                    </span>
-                ),
                 header: 'Reference',
             },
             rowActionsColumn<Booking>({
@@ -223,6 +216,7 @@ export function BookingsTable({
                     />
                 }
                 filterPlaceholder="Filter bookings…"
+                getRowCanExpand={() => true}
                 hasExternalFilters={hasFilters}
                 headerActions={(table) => (
                     <>
@@ -263,8 +257,14 @@ export function BookingsTable({
                         />
                     </>
                 )}
-                initialColumnVisibility={{ sourceCurrency: false }}
+                initialColumnVisibility={{
+                    sourceCurrency: false,
+                    txnId: false,
+                }}
                 onResetFilters={reset}
+                renderExpanded={(row) => (
+                    <BookingDetail booking={row.original} />
+                )}
                 rowId={(r) => r.txnId}
                 showFilter
             />
@@ -531,13 +531,11 @@ export function TotalPanel({ result }: { result: ConversionResult }) {
                 {
                     id: 'unknown',
                     label: 'Unknown txns',
-                    tone: warningToneFor(totals.unknownCount),
                     value: `${totals.unknownCount} / ${totals.unknownNames} names`,
                 },
                 {
                     id: 'skipped',
                     label: 'Skipped currency',
-                    tone: warningToneFor(totals.skipped),
                     value: totals.skipped.toString(),
                 },
             ]}
@@ -705,8 +703,29 @@ export function UnknownsTable({
     );
 }
 
-export function warningToneFor(count: number): StatTone {
-    return count > 0 ? StatTone.Warning : StatTone.Default;
+function BookingDetail({ booking }: { readonly booking: Booking }) {
+    return (
+        <DetailList
+            className="bg-surface-sunken px-4 py-3 text-xs"
+            items={[
+                {
+                    id: 'conversion',
+                    label: 'Conversion',
+                    value: <ConversionNotes notes={booking.notes} />,
+                },
+                {
+                    id: 'reference',
+                    label: 'Reference',
+                    value: (
+                        <span className="font-mono text-muted-foreground">
+                            {booking.txnId}
+                        </span>
+                    ),
+                },
+            ]}
+            label={`Details of the ${booking.counterpartName} booking`}
+        />
+    );
 }
 
 function BookingEditDialog({

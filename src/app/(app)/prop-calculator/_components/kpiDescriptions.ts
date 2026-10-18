@@ -1,5 +1,7 @@
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator';
 
+import { PTDD_BENCH_SCALE } from './ptddBench';
+
 export const kpiDescriptions = {
     avgDaysToPass:
         "Mean trading days needed to reach the target across passing trials. Doesn't include eval failures.",
@@ -61,10 +63,10 @@ export const panelDescriptions = {
     'days-to-pass-hist':
         'Distribution of trading days needed to reach the profit target. Concentration near the median = consistent timing. A long right tail = some trials grind for many days before passing.',
     drawdown:
-        "Each line shows how far below its rolling peak a trial fell at every step. The bold line is the median drawdown. The red dashed line marks the firm's bust limit. Useful for seeing how close paths typically come to busting.",
+        "Each line shows how far below its rolling peak a trial fell at every step. The bold line is the median drawdown. The dashed line labelled Bust limit marks the firm's bust limit. Useful for seeing how close paths typically come to busting.",
     drawdownDuration:
         'Analyses the 50 sampled equity paths to measure how long drawdown episodes last and how quickly they recover. Time underwater is the share of trading days spent below a prior peak. V-shape episodes recover in under 40% of their total duration: the faster that number, the less psychological and capital drag the strategy produces. Recovery tax shows the extra return required to get back to breakeven after typical drawdowns.',
-    equity: 'Each faint line is one Monte Carlo trial. The bold line is the day-by-day median across all sampled paths. The green dashed line marks the profit target; the red dashed line marks the drawdown threshold. Use it to see typical paths AND outliers in one view.',
+    equity: 'Each faint line is one Monte Carlo trial. The bold line is the day-by-day median across all sampled paths. The dashed line labelled Target marks the profit target and the one labelled Drawdown marks the drawdown threshold. Use it to see typical paths AND outliers in one view.',
     'final-balance-hist':
         'Distribution of final account balances across all trials. A bimodal shape (two humps) means many trials either bust or pass cleanly. Reference lines show starting balance and target.',
     firmComparison:
@@ -73,8 +75,7 @@ export const panelDescriptions = {
         'Runs the simulator at 10 different risk-per-trade levels (0.25% to 5%) holding all your other inputs constant. The current risk row is highlighted, and the engine optimum for the active objective is marked with a star: the highest monthly net, or the highest cycle net under the cycle cash objective.',
     'pass-rate':
         'Cumulative share of trials that have hit the profit target by each day. Steepens early when most passes happen quickly; flattens late when the eval is dragging on. The asymptote = total eval pass probability.',
-    planComparison:
-        'Compares every plan offered by the selected firm at your current trading inputs. PT:DD is the profit-target-to-drawdown ratio: a lower value means you need less profit relative to your downside risk to pass the evaluation. Green ≤ 1.0×, amber 1.5–2.0×, red > 2.0×. Exp. spend is the total expected outlay across all eval attempts (including resets) until you get funded. P(no payout) = share of trials that reached funded and took no payout within the funded horizon. Use the table to find the account size with the most favourable challenge structure for your edge.',
+    planComparison: `Compares every plan offered by the selected firm at your current trading inputs. PT:DD is the profit-target-to-drawdown ratio: a lower value means you need less profit relative to your downside risk to pass the evaluation. Each ratio carries a grade: ${PTDD_BENCH_SCALE}. Exp. spend is the total expected outlay across all eval attempts (including resets) until you get funded. P(no payout) = share of trials that reached funded and took no payout within the funded horizon. Use the table to find the account size with the most favourable challenge structure for your edge.`,
     portfolio:
         "Build a basket of accounts across any mix of firms and plans. Each row simulates your current trading inputs against that firm's rules. Combined totals show your aggregate expected monthly income, total eval spend, and portfolio ROI: the same view as copy-trading but across different firms.",
     resilience:

@@ -4,7 +4,6 @@ import { PanelSubheading } from '~/components/PanelSubheading';
 import { Badge } from '~/components/ui/badge';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { AlertSeverity } from '~/lib/prop-accounts';
-import { cn } from '~/lib/utilities';
 
 import { type AlertGroup, groupAlertsByKind } from './AlertGroups';
 import { AlertSubjectLabel, AlertSubjectsTable } from './AlertSubjectsTable';
@@ -78,7 +77,7 @@ function AlertGroupItem({ group }: { readonly group: AlertGroup }) {
 }
 
 function AlertIcon({ severity }: { readonly severity: AlertSeverity }) {
-    const className = cn('size-4 shrink-0', severityTextClass(severity));
+    const className = 'size-4 shrink-0';
     switch (severity) {
         case AlertSeverity.Critical: {
             return <CircleAlert aria-hidden className={className} />;
@@ -88,20 +87,6 @@ function AlertIcon({ severity }: { readonly severity: AlertSeverity }) {
         }
         case AlertSeverity.Warning: {
             return <TriangleAlert aria-hidden className={className} />;
-        }
-    }
-}
-
-function severityTextClass(severity: AlertSeverity): string {
-    switch (severity) {
-        case AlertSeverity.Critical: {
-            return 'text-destructive';
-        }
-        case AlertSeverity.Info: {
-            return 'text-muted-foreground';
-        }
-        case AlertSeverity.Warning: {
-            return 'text-warning';
         }
     }
 }

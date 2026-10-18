@@ -33,10 +33,10 @@ import { InfoNote } from '~/components/InfoNote';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard } from '~/components/ToggleCard';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Dialog } from '~/components/ui/dialog';
 import { EmptyStatePanel } from '~/components/ui/empty-state';
+import { FieldError } from '~/components/ui/field';
 import InfoPopover from '~/components/ui/info-popover';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import { formatDisplayDate } from '~/lib/format';
@@ -145,6 +145,14 @@ export function WeeklyReviewView() {
         null,
     );
     const [activeAccountId, setActiveAccountId] = useState<null | string>(null);
+    const activeHeadingReference = useRef<HTMLHeadingElement>(null);
+    const isHeadingFocusPendingReference = useRef(false);
+
+    useEffect(() => {
+        if (!isHeadingFocusPendingReference.current) return;
+        isHeadingFocusPendingReference.current = false;
+        activeHeadingReference.current?.focus();
+    }, [activeAccountId]);
 
     const accounts = useMemo(
         () =>
@@ -446,6 +454,11 @@ export function WeeklyReviewView() {
         result.rows.find((row) => row.accountId === activeAccountId) ??
         result.rows[0];
 
+    const stepToAccount = (accountId: string) => {
+        isHeadingFocusPendingReference.current = true;
+        setActiveAccountId(accountId);
+    };
+
     return (
         <div className="flex flex-col gap-6">
             {hasRefreshError && (
@@ -472,21 +485,13 @@ export function WeeklyReviewView() {
                 />
             )}
             {result.corruptRows.length > 0 && (
-                <Alert variant="destructive">
-                    <AlertTitle>
-                        {result.corruptRows.length} account
-                        {result.corruptRows.length === 1 ? '' : 's'} skipped
-                    </AlertTitle>
-                    <AlertDescription>
-                        <ul className="flex flex-col gap-1">
-                            {result.corruptRows.map((row) => (
-                                <li key={row.accountId}>
-                                    {row.label}: {row.reasons.join('; ')}
-                                </li>
-                            ))}
-                        </ul>
-                    </AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    items={result.corruptRows.map((row) => ({
+                        key: row.accountId,
+                        text: `${row.label}: ${row.reasons.join('; ')}`,
+                    }))}
+                    title={`${String(result.corruptRows.length)} account${result.corruptRows.length === 1 ? '' : 's'} skipped`}
+                />
             )}
             {activeRow === undefined ? (
                 <EmptyStatePanel
@@ -545,6 +550,11 @@ export function WeeklyReviewView() {
                                     hidden={!isActive}
                                     key={row.accountId}
                                     title={row.label}
+                                    titleReference={
+                                        isActive
+                                            ? activeHeadingReference
+                                            : undefined
+                                    }
                                 >
                                     <SnapshotFields
                                         fieldWarnings={row.fieldWarnings}
@@ -598,20 +608,12 @@ export function WeeklyReviewView() {
                                             {formatDisplayDate(result.asOf)}
                                         </p>
                                     )}
-                                    {row.missingFieldLabels.length > 0 && (
-                                        <p
-                                            className={
-                                                valuesByAccount.has(
-                                                    row.accountId,
-                                                )
-                                                    ? 'text-sm text-destructive'
-                                                    : 'text-sm text-muted-foreground'
-                                            }
-                                        >
-                                            Needs:{' '}
-                                            {row.missingFieldLabels.join('; ')}
-                                        </p>
-                                    )}
+                                    <MissingFieldsLine
+                                        isEntered={valuesByAccount.has(
+                                            row.accountId,
+                                        )}
+                                        labels={row.missingFieldLabels}
+                                    />
                                     <div className="flex flex-col gap-1 border-t border-border pt-4 text-sm">
                                         <SizingSummary
                                             diffCents={row.diffCents}
@@ -675,7 +677,7 @@ export function WeeklyReviewView() {
                                             disabled={previous === undefined}
                                             onClick={() => {
                                                 if (previous !== undefined) {
-                                                    setActiveAccountId(
+                                                    stepToAccount(
                                                         previous.accountId,
                                                     );
                                                 }
@@ -691,7 +693,7 @@ export function WeeklyReviewView() {
                                             disabled={next === undefined}
                                             onClick={() => {
                                                 if (next !== undefined) {
-                                                    setActiveAccountId(
+                                                    stepToAccount(
                                                         next.accountId,
                                                     );
                                                 }
@@ -935,6 +937,22 @@ function LogViolationSection({
             return null;
         }
     }
+}
+
+function MissingFieldsLine({
+    isEntered,
+    labels,
+}: {
+    readonly isEntered: boolean;
+    readonly labels: readonly string[];
+}) {
+    if (labels.length === 0) return null;
+    const text = `Needs: ${labels.join('; ')}`;
+    return isEntered ? (
+        <FieldError>{text}</FieldError>
+    ) : (
+        <p className="text-sm text-muted-foreground">{text}</p>
+    );
 }
 
 function SizingSummary({

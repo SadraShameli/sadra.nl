@@ -595,7 +595,7 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
     it('names the highlight window and the paying share floor in the note, so the user can see why a row is or is not highlighted', () => {
         const near = columnsOf(funded(3.4), { highlightWithinDays: 10 });
         expect(near.nextPayout.note).toContain(
-            'Highlighted when the first payout is expected within 10 calendar days and at least 50.0% of the simulated trials reach one.',
+            'Marked soon when the first payout is expected within 10 calendar days and at least 50.0% of the simulated trials reach one.',
         );
         const far = columnsOf(funded(20, 1200), { highlightWithinDays: 3 });
         expect(far.nextPayout.isSoon).toBe(false);

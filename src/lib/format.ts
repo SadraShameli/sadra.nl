@@ -143,6 +143,7 @@ function fixedNumberFormat(fractionDigits: number): Intl.NumberFormat {
 const DISPLAY_DATE_PATTERN = 'd MMM yyyy';
 const DISPLAY_DAY_MONTH_PATTERN = 'd MMM';
 const DISPLAY_DATE_TIME_PATTERN = 'd MMM yyyy, HH:mm';
+const DISPLAY_DAY_MONTH_TIME_PATTERN = 'd MMM, HH:mm';
 const DISPLAY_MONTH_PATTERN = 'MMM yyyy';
 const DISPLAY_TIME_PATTERN = 'HH:mm';
 const DISPLAY_WEEKDAY_DATE_PATTERN = 'EEEE d MMM yyyy';
@@ -171,6 +172,14 @@ export function formatDisplayDateRange(
 
 export function formatDisplayDateTime(value: Date | string): string {
     return format(displayDateOf(value), DISPLAY_DATE_TIME_PATTERN);
+}
+
+export function formatDisplayDayMonth(value: Date | string): string {
+    return format(displayDateOf(value), DISPLAY_DAY_MONTH_PATTERN);
+}
+
+export function formatDisplayDayMonthTime(value: Date | string): string {
+    return format(displayDateOf(value), DISPLAY_DAY_MONTH_TIME_PATTERN);
 }
 
 export function formatDisplayMonth(value: Date | string): string {

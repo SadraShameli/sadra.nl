@@ -3,6 +3,7 @@
 import { Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_REFERENCE_LABEL_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_STROKE_WIDTH,
     CHART_X_AXIS_PROPS,
@@ -65,23 +66,19 @@ export default function EquityCurveChartView({ result }: Properties) {
                 <ReferenceLine
                     {...CHART_REFERENCE_LINE_PROPS}
                     label={{
-                        fill: 'var(--success)',
-                        fontSize: 11,
+                        ...CHART_REFERENCE_LABEL_PROPS,
                         position: 'right',
                         value: 'Target',
                     }}
-                    stroke="var(--success)"
                     y={targetLine}
                 />
                 <ReferenceLine
                     {...CHART_REFERENCE_LINE_PROPS}
                     label={{
-                        fill: 'var(--destructive)',
-                        fontSize: 11,
+                        ...CHART_REFERENCE_LABEL_PROPS,
                         position: 'right',
                         value: 'Drawdown',
                     }}
-                    stroke="var(--destructive)"
                     y={drawdownLine}
                 />
                 {Array.from({ length: pathCount }, (_, index) => (

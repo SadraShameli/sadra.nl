@@ -15,6 +15,7 @@ import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_compone
 import { ComputingFigure } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
 import { MissingValue } from '~/components/MissingValue';
+import { Badge } from '~/components/ui/badge';
 import { Collapsible, CollapsibleContent } from '~/components/ui/collapsible';
 import InfoPopover from '~/components/ui/info-popover';
 import { AccountAction } from '~/lib/prop-calculator/advisor';
@@ -27,6 +28,8 @@ const MUTED_NEXT_PAYOUT_KINDS: ReadonlySet<NextPayoutKind> = new Set([
 ]);
 
 const EV_PER_ATTEMPT_LABEL = 'EV per attempt:';
+
+const NEXT_PAYOUT_SOON_LABEL = 'Soon';
 
 const NEXT_ACTION_REASON_TITLE = 'Why this action';
 
@@ -136,14 +139,20 @@ export function NextPayoutValue({
             return <ComputingFigure />;
         }
     }
+    if (nextPayout.isSoon) {
+        return (
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+                <span data-soon="true">{nextPayout.text}</span>
+                <Badge>{NEXT_PAYOUT_SOON_LABEL}</Badge>
+            </span>
+        );
+    }
     return (
         <span
             className={cn(
                 MUTED_NEXT_PAYOUT_KINDS.has(nextPayout.kind) &&
                     'text-muted-foreground',
-                nextPayout.isSoon && 'font-medium text-success',
             )}
-            data-soon={nextPayout.isSoon ? 'true' : undefined}
         >
             {nextPayout.text}
         </span>
@@ -184,9 +193,9 @@ function EvPerAttemptLines({
     switch (evPerAttempt.kind) {
         case EvPerAttemptKind.Pending: {
             return (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-1 text-xs text-muted-foreground">
                     {EV_PER_ATTEMPT_LABEL} <ComputingFigure />
-                </p>
+                </div>
             );
         }
         case EvPerAttemptKind.Ready: {

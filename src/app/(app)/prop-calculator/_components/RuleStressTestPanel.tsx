@@ -1,6 +1,6 @@
 'use client';
 
-import { ShieldAlert, TriangleAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { MissingValue } from '~/components/MissingValue';
@@ -8,6 +8,7 @@ import { ChartSkeleton } from '~/components/ui/chart';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
+import { WarningNote } from '~/components/WarningNote';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type SimInputs,
@@ -87,10 +88,9 @@ export default function RuleStressTestPanel({
                             {row.original.label}
                         </span>
                         {row.original.isNoOp && (
-                            <span className="flex items-center gap-1 text-xs text-warning">
-                                <TriangleAlert className="size-3" />
+                            <WarningNote className="text-xs">
                                 no DLL on this plan, so no effect
-                            </span>
+                            </WarningNote>
                         )}
                     </div>
                 ),
@@ -114,11 +114,7 @@ export default function RuleStressTestPanel({
                     const delta =
                         row.original.out.expectedMonthlyNet -
                         baseline.out.expectedMonthlyNet;
-                    return (
-                        <span className={deltaClass(delta)}>
-                            {formatSignedCurrency(delta)}
-                        </span>
-                    );
+                    return formatSignedCurrency(delta);
                 },
                 header: 'Δ$ vs baseline',
                 id: 'deltaDollars',
@@ -133,11 +129,7 @@ export default function RuleStressTestPanel({
                         row.original.out.expectedMonthlyNet,
                         baseline,
                     );
-                    return (
-                        <span className={deltaClass(pct)}>
-                            {formatSignedPercent(pct)}
-                        </span>
-                    );
+                    return formatSignedPercent(pct);
                 },
                 header: 'Δ% vs baseline',
                 id: 'deltaPercent',
@@ -205,11 +197,6 @@ export default function RuleStressTestPanel({
 
 function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
     return simInputsCacheKey(inputs);
-}
-
-function deltaClass(delta: number): string {
-    if (Math.abs(delta) < 1e-9) return 'text-muted-foreground';
-    return delta > 0 ? 'text-success' : 'text-destructive';
 }
 
 function formatSignedCurrency(n: number): string {

@@ -12,7 +12,6 @@ import {
     SheetTitle,
 } from '~/components/ui/sheet';
 import { DurationFormat } from '~/lib/lifting/format';
-import { cn } from '~/lib/utilities';
 
 interface RestTimerOverlayProperties {
     onClose: () => void;
@@ -86,27 +85,19 @@ export function RestTimerOverlay({
                 <SheetTitle className="text-xs font-normal tracking-[0.4em] text-muted-foreground uppercase">
                     Rest
                 </SheetTitle>
-                <span
-                    className={cn(
-                        'mt-2 type-display-closing tabular-nums',
-                        isOverrun ? 'text-success' : 'text-foreground',
-                    )}
-                >
+                <span className="mt-2 type-display-closing text-foreground tabular-nums">
                     {DurationFormat.seconds(remaining)}
                 </span>
                 <SheetDescription className="mt-2 tabular-nums">
                     Target {DurationFormat.seconds(seconds)}
                     {isOverrun && (
-                        <span className="ml-2 text-success">
-                            +{DurationFormat.seconds(elapsed - seconds)}
+                        <span className="ml-2 text-foreground">
+                            +{DurationFormat.seconds(elapsed - seconds)} over
                         </span>
                     )}
                 </SheetDescription>
                 <Progress
-                    className={cn(
-                        'mt-8 h-1.5 w-[min(80vw,420px)] bg-foreground/5',
-                        isOverrun && '*:data-state:bg-success',
-                    )}
+                    className="mt-8 h-1.5 w-[min(80vw,420px)] bg-foreground/5"
                     value={progressPct}
                 />
                 <Button

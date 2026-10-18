@@ -105,18 +105,13 @@ describe('the run totals strip', () => {
         expect(figureFor(container, 'Skipped currency').textContent).toBe('0');
     });
 
-    it('flags unknown transactions as a warning and leaves an empty skip count plain', () => {
+    it('shows unknown and skipped counts in the default ink, never a warning colour', () => {
         const container = render();
 
-        expect(
-            figureFor(container, 'Unknown txns').classList.contains(
-                'text-warning',
-            ),
-        ).toBe(true);
-        expect(
-            figureFor(container, 'Skipped currency').classList.contains(
-                'text-warning',
-            ),
-        ).toBe(false);
+        for (const label of ['Unknown txns', 'Skipped currency']) {
+            const figure = figureFor(container, label);
+            expect(figure.classList.contains('text-ink')).toBe(true);
+            expect(figure.classList.contains('text-warning')).toBe(false);
+        }
     });
 });

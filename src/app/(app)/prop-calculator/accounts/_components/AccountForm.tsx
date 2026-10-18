@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type BaseSyntheticEvent, useId, useState } from 'react';
@@ -19,7 +18,6 @@ import { DetailList } from '~/components/DetailList';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import {
     Field,
@@ -117,6 +115,7 @@ import {
     ExternalFirmPicker,
 } from './ExternalFirmPicker';
 import { PersonalRulesFields } from './PersonalRulesFields';
+import { ErrorNoticeTitle, QueryErrorNotice } from './QueryErrorNotice';
 import { OPTIONAL_REQUIREMENT, RequirementLabel } from './RequirementLabel';
 import {
     emptySnapshotFormValues,
@@ -352,7 +351,6 @@ interface ExternalFirmSource {
     readonly create: CreateExternalFirm;
     readonly error: null | { readonly message: string };
     readonly firms: readonly ExternalFirmName[] | undefined;
-    readonly isError: boolean;
     readonly isPending: boolean;
 }
 
@@ -385,16 +383,13 @@ export function AccountCreator({
     const [stage] = plan === null ? [] : accountStageOptions(plan);
     return (
         <>
-            {externalFirms.isError && (
-                <Alert className="mb-6" variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>Your firms could not be loaded</AlertTitle>
-                    <AlertDescription>
-                        {externalFirms.error?.message} You can still add an
-                        account at a listed firm; a firm you added will not show
-                        in the picker until this loads.
-                    </AlertDescription>
-                </Alert>
+            {externalFirms.error !== null && (
+                <QueryErrorNotice
+                    className="mb-6"
+                    consequence="You can still add an account at a listed firm; a firm you added will not show in the picker until this loads."
+                    message={externalFirms.error.message}
+                    title={ErrorNoticeTitle.Firms}
+                />
             )}
             <AccountForm
                 defaults={{
@@ -441,13 +436,11 @@ export function AccountEditor({ id }: { id: string }) {
         );
     if (accountQuery.isError) {
         return (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle as="h2">The account could not be loaded</AlertTitle>
-                <AlertDescription>
-                    {accountQuery.error.message}
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                message={accountQuery.error.message}
+                title={ErrorNoticeTitle.Account}
+                titleAs="h2"
+            />
         );
     }
     const account = trackedAccountOf(accountQuery.data);
@@ -460,15 +453,13 @@ export function AccountEditor({ id }: { id: string }) {
             />
         );
     }
-    if (externalFirms.isError && account.externalFirmId !== null) {
+    if (externalFirms.error !== null && account.externalFirmId !== null) {
         return (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle as="h2">Your firms could not be loaded</AlertTitle>
-                <AlertDescription>
-                    {externalFirms.error?.message}
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                message={externalFirms.error.message}
+                title={ErrorNoticeTitle.Firms}
+                titleAs="h2"
+            />
         );
     }
     const knownFirms = externalFirms.firms ?? [];
@@ -1447,11 +1438,7 @@ function PlanCard({
                         Stage and status change through lifecycle events on the
                         account page, not here.
                     </span>
-                    {errors.stage?.message !== undefined && (
-                        <span className="text-destructive">
-                            {errors.stage.message}
-                        </span>
-                    )}
+                    <FieldError errors={[errors.stage]} />
                 </div>
             )}
             <DashboardConventionField control={form.control} />
@@ -1958,7 +1945,6 @@ function useExternalFirms(): ExternalFirmSource {
         },
         error: listQuery.error,
         firms: listQuery.data,
-        isError: listQuery.isError,
         isPending: listQuery.isPending,
     };
 }

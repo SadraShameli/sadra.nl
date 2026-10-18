@@ -1,20 +1,21 @@
 'use client';
 
-import { TriangleAlert } from 'lucide-react';
-
 import {
     ExpectedPayoutsValue,
     NextActionValue,
     NextPayoutValue,
     ValueDetailLines,
 } from '~/app/(app)/prop-calculator/accounts/_components/AccountValueCells';
+import {
+    ErrorNoticeTitle,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
 import {
     type AccountValues,
     hasPendingValues,
 } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import { StatStrip } from '~/components/StatStrip';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Skeleton } from '~/components/ui/skeleton';
 
 import { FROM_STATE_PERSONAL_RULES_NOTE } from './fromStateDetail';
@@ -29,11 +30,10 @@ export function DetailHeaderFigures({
     const columns = values.columns.get(accountId);
     if (values.notice !== null) {
         return (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>Values could not be computed</AlertTitle>
-                <AlertDescription>{values.notice}</AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                message={values.notice}
+                title={ErrorNoticeTitle.Values}
+            />
         );
     }
     if (columns === undefined) {

@@ -35,14 +35,7 @@ export function GradeCalibrationChart({
     assessments: LightAssessment[];
 }) {
     const data = useMemo(
-        () =>
-            gradeCalibration(assessments)
-                .filter((d) => d.count > 0)
-                .map((d) => ({
-                    ...d,
-                    fill: d.avgR > 0 ? 'var(--success)' : 'var(--destructive)',
-                    fillOpacity: d.count < 3 ? 0.35 : 0.85,
-                })),
+        () => gradeCalibration(assessments).filter((d) => d.count > 0),
         [assessments],
     );
 
@@ -71,7 +64,11 @@ export function GradeCalibrationChart({
                     stroke="var(--muted-foreground)"
                     y={0}
                 />
-                <Bar {...CHART_BAR_PROPS} dataKey="avgR">
+                <Bar
+                    {...CHART_BAR_PROPS}
+                    dataKey="avgR"
+                    fill="var(--color-avgR)"
+                >
                     <LabelList
                         dataKey="count"
                         fill="var(--muted-foreground)"

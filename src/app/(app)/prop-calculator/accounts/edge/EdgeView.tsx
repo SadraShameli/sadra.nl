@@ -1,6 +1,6 @@
 'use client';
 
-import { NotebookPen, TriangleAlert } from 'lucide-react';
+import { NotebookPen } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -8,6 +8,7 @@ import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/
 import { pageEncodeOptions } from '~/app/(app)/prop-calculator/_components/calculatorUrlSync';
 import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
 import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { FilterToolbar } from '~/components/FilterToolbar';
 import { InfoNote } from '~/components/InfoNote';
 import { MissingValue } from '~/components/MissingValue';
@@ -16,11 +17,11 @@ import { StatStrip } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { EmptyStatePanel } from '~/components/ui/empty-state';
+import { FieldError } from '~/components/ui/field';
 import { FilterIsoDateRange } from '~/components/ui/filter-iso-date-range';
 import { Skeleton } from '~/components/ui/skeleton';
 import { formatPercent, formatR } from '~/lib/format';
@@ -137,13 +138,12 @@ export function EdgeView() {
                     sizing advice.
                 </InfoNote>
                 {[...rangeCheck.issues].map(([field, issue]) => (
-                    <p
-                        className="text-xs text-destructive first-letter:uppercase"
+                    <FieldError
+                        className="text-xs first-letter:uppercase"
                         key={field}
-                        role="alert"
                     >
                         {issue}
-                    </p>
+                    </FieldError>
                 ))}
             </div>
             {rangeCheck.isValid && summaryQuery.isPending && (
@@ -159,15 +159,10 @@ export function EdgeView() {
                 </div>
             )}
             {summaryQuery.isError && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>
-                        The journal edge could not be loaded
-                    </AlertTitle>
-                    <AlertDescription>
-                        {summaryQuery.error.message}
-                    </AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    message={summaryQuery.error.message}
+                    title="The journal edge could not be loaded"
+                />
             )}
             {summaryQuery.isSuccess && (
                 <EdgeResult

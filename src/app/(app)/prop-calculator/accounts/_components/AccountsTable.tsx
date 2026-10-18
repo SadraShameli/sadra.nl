@@ -6,7 +6,6 @@ import {
     ArrowDownUp,
     ExternalLink,
     Pencil,
-    TriangleAlert,
     Wallet,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -24,7 +23,6 @@ import {
 } from '~/components/RowActionsMenu';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
@@ -41,6 +39,7 @@ import InfoPopover from '~/components/ui/info-popover';
 import { Input } from '~/components/ui/input';
 import { Skeleton } from '~/components/ui/skeleton';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
+import { WarningNote } from '~/components/WarningNote';
 import { formatDisplayDate } from '~/lib/format';
 import {
     AccountStage,
@@ -87,6 +86,8 @@ import {
     ledgerOnlyFirmOptions,
 } from './externalFirmOptions';
 import { ComputingFigure } from './FigureText';
+import { ErrorNoticeTitle, QueryErrorNotice } from './QueryErrorNotice';
+import { messageWithConsequence } from './sentenceText';
 import {
     ACCOUNT_DELETE_DESCRIPTION,
     accountDeleteTitle,
@@ -196,15 +197,11 @@ export function AccountsTableWithValues({
     }
     if (accounts === undefined) {
         return (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle as="h2">
-                    The accounts could not be loaded
-                </AlertTitle>
-                <AlertDescription>
-                    {accountsQuery.error.message}
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                message={accountsQuery.error.message}
+                title={ErrorNoticeTitle.Accounts}
+                titleAs="h2"
+            />
         );
     }
     if (accounts.length === 0) {
@@ -256,30 +253,26 @@ export function AccountsTableWithValues({
             >
                 {accountsQuery.isError && (
                     <StatusRow
-                        detail={`${accountsQuery.error.message} The table shows the last loaded accounts.`}
+                        detail={messageWithConsequence(
+                            accountsQuery.error.message,
+                            'The table shows the last loaded accounts.',
+                        )}
                         title="The accounts could not be refreshed"
                         tone={StatusTone.Warn}
                     />
                 )}
                 {snapshotsQuery.isError && (
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>Balances could not be loaded</AlertTitle>
-                        <AlertDescription>
-                            {snapshotsQuery.error.message}
-                        </AlertDescription>
-                    </Alert>
+                    <QueryErrorNotice
+                        message={snapshotsQuery.error.message}
+                        title="Balances could not be loaded"
+                    />
                 )}
                 {externalFirmsQuery.isError && (
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>Your firms could not be loaded</AlertTitle>
-                        <AlertDescription>
-                            {externalFirmsQuery.error.message} Accounts at a
-                            firm you added show it as an unlisted firm until
-                            your firms load.
-                        </AlertDescription>
-                    </Alert>
+                    <QueryErrorNotice
+                        consequence="Accounts at a firm you added show it as an unlisted firm until your firms load."
+                        message={externalFirmsQuery.error.message}
+                        title={ErrorNoticeTitle.Firms}
+                    />
                 )}
                 <AccountListFilterBar
                     filters={filters}
@@ -289,11 +282,10 @@ export function AccountsTableWithValues({
                     sort={sort}
                 />
                 {values.notice !== null && (
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>Values could not be computed</AlertTitle>
-                        <AlertDescription>{values.notice}</AlertDescription>
-                    </Alert>
+                    <QueryErrorNotice
+                        message={values.notice}
+                        title={ErrorNoticeTitle.Values}
+                    />
                 )}
                 {sort.key === AccountSortKey.Readiness &&
                     values.boards === null && (
@@ -334,11 +326,6 @@ export function AccountsTableWithValues({
                         data={[...visible]}
                         isSortable={false}
                         pageSize={null}
-                        rowClassName={(row) =>
-                            row.account.archivedAt === null
-                                ? undefined
-                                : 'opacity-60'
-                        }
                         rowId={(row) => row.account.id}
                         tableClassName="[&_tbody_th]:align-top [&_td]:align-top"
                     />
@@ -549,9 +536,6 @@ const NO_COPY_GROUP = 'None';
 const NO_BALANCE_REASON =
     'No balance snapshot is recorded for this account yet.';
 
-const NO_FLOOR_REASON =
-    'The latest snapshot has no drawdown floor from the firm dashboard, so the cushion cannot be computed.';
-
 interface AccountColumnsInput {
     readonly externalFirms: readonly ExternalFirmName[];
     readonly groupNames: ReadonlyMap<string, string>;
@@ -611,9 +595,10 @@ function accountColumns({
                         <Badge className="mt-1">Ledger only</Badge>
                     )}
                     {row.planIssue !== null && (
-                        <p className="mt-1 flex items-start gap-1 text-xs text-warning">
-                            <TriangleAlert className="mt-0.5 size-3 shrink-0" />
-                            <span>{row.planIssue}. Read-only.</span>
+                        <div className="mt-1 flex items-start gap-1.5 text-xs">
+                            <WarningNote>
+                                {row.planIssue}. Read-only.
+                            </WarningNote>
                             {row.readOnlyNotice !== null && (
                                 <InfoPopover
                                     title={readOnlyAlertTitle(
@@ -623,7 +608,7 @@ function accountColumns({
                                     <p>{row.readOnlyNotice}</p>
                                 </InfoPopover>
                             )}
-                        </p>
+                        </div>
                     )}
                 </>
             ),
@@ -711,7 +696,7 @@ function accountColumns({
                         reason={
                             row.latestSnapshot === null
                                 ? NO_BALANCE_REASON
-                                : NO_FLOOR_REASON
+                                : (row.cushionMissingReason ?? undefined)
                         }
                     />
                 ) : (

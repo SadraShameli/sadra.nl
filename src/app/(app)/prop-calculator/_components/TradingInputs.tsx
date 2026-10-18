@@ -33,6 +33,7 @@ import { Separator } from '~/components/ui/separator';
 import { Slider } from '~/components/ui/slider';
 import { Toggle } from '~/components/ui/toggle';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
+import { WarningNote } from '~/components/WarningNote';
 import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
@@ -676,12 +677,10 @@ export default function TradingInputs({
                     step={0.1}
                     value={[rrRatio]}
                 />
-                <FieldDescription
-                    className="text-warning"
-                    id={PLAUSIBILITY_NOTE_ID}
-                    role="status"
-                >
-                    {plausibilityNote ?? ''}
+                <FieldDescription id={PLAUSIBILITY_NOTE_ID} role="status">
+                    {plausibilityNote === null ? null : (
+                        <WarningNote>{plausibilityNote}</WarningNote>
+                    )}
                 </FieldDescription>
             </Field>
             {plausibilityNote !== null && (

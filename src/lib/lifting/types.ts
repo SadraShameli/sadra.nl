@@ -187,6 +187,7 @@ export interface PyramidBlock {
 
 export interface RoutineBlock {
     exerciseSlug: string;
+    isCustom?: boolean;
     notes?: string;
     restSeconds?: number;
     sets: number;

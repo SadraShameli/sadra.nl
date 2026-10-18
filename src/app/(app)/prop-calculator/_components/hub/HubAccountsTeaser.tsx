@@ -18,7 +18,7 @@ import {
     type SetupChecklistCardModel,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SetupChecklistCompact } from '~/app/(app)/prop-calculator/accounts/_components/overview/SetupChecklistCard';
-import { StatStrip, StatTone } from '~/components/StatStrip';
+import { StatStrip } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
@@ -233,10 +233,6 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
                     {
                         id: 'net',
                         label: 'Net',
-                        tone:
-                            summary.net < 0
-                                ? StatTone.Negative
-                                : StatTone.Positive,
                         value: formatUsdCents(summary.net),
                     },
                     {
@@ -247,11 +243,6 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
                     {
                         id: 'alerts',
                         label: 'Alerts',
-                        tone:
-                            summary.alertCount !== null &&
-                            summary.alertCount > 0
-                                ? StatTone.Warning
-                                : StatTone.Default,
                         value: (
                             <ValueOrMissing
                                 value={

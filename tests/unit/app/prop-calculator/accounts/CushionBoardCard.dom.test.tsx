@@ -59,7 +59,12 @@ describe('CushionBoardCard', () => {
                 }),
             ],
             unavailable: [
-                { account: 'TopStep C', key: 'c', reason: 'no snapshot yet' },
+                {
+                    account: 'TopStep C',
+                    isAwaitingSnapshot: true,
+                    key: 'c',
+                    reason: 'no snapshot yet',
+                },
             ],
         };
         act(() => {
@@ -109,6 +114,67 @@ describe('CushionBoardCard', () => {
         );
         expect(container.textContent).not.toContain(
             'No account has a usable balance snapshot yet.',
+        );
+    });
+
+    function render(model: CushionBoardCardModel) {
+        act(() => {
+            root.render(<CushionBoardCard model={model} />);
+        });
+    }
+
+    it('asks for balances when every account without a cushion only lacks a snapshot', () => {
+        render({
+            disclosure: 'Ranked by cushion in risk units.',
+            rows: [],
+            unavailable: [
+                {
+                    account: 'TopStep C',
+                    isAwaitingSnapshot: true,
+                    key: 'c',
+                    reason: 'it has no snapshot yet',
+                },
+            ],
+        });
+        expect(container.textContent).toContain(
+            'Enter balances to see the cushion board',
+        );
+        expect(container.querySelector('table')).toBeNull();
+    });
+
+    it('lists each account and its reason, not a request for balances, when no account has a cushion for a reason a balance does not fix', () => {
+        render({
+            disclosure: 'Ranked by cushion in risk units.',
+            rows: [],
+            unavailable: [
+                {
+                    account: 'Hola',
+                    isAwaitingSnapshot: false,
+                    key: 'h',
+                    reason: 'it is a ledger-only account with no state to reconstruct',
+                },
+                {
+                    account: 'TopStep C',
+                    isAwaitingSnapshot: true,
+                    key: 'c',
+                    reason: 'it has no snapshot yet',
+                },
+            ],
+        });
+        expect(container.textContent).not.toContain('Enter balances');
+        const rows = [...container.querySelectorAll(':scope tbody tr')];
+        expect(rows.map((tr) => tr.querySelector('th')?.textContent)).toEqual([
+            'Hola',
+            'TopStep C',
+        ]);
+        expect(rows[0] === undefined ? '' : withInfoTexts(rows[0])).toContain(
+            'It is a ledger-only account with no state to reconstruct.',
+        );
+        expect(rows[1] === undefined ? '' : withInfoTexts(rows[1])).toContain(
+            'It has no snapshot yet.',
+        );
+        expect(infoText(container, 'Cushion board')).toContain(
+            'Ranked by cushion in risk units.',
         );
     });
 });

@@ -1,9 +1,6 @@
 'use client';
 
-import { TriangleAlert } from 'lucide-react';
-
 import { StatusRow, StatusTone } from '~/components/StatusRow';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import {
     Field,
     FieldDescription,
@@ -13,6 +10,7 @@ import {
 import InfoPopover from '~/components/ui/info-popover';
 import { Input } from '~/components/ui/input';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
+import { WarningNote } from '~/components/WarningNote';
 import {
     AccountTracking,
     type SnapshotField,
@@ -21,6 +19,7 @@ import {
     SnapshotInputKind,
 } from '~/lib/prop-accounts';
 
+import { QueryErrorNotice } from './QueryErrorNotice';
 import {
     MONEY_UNIT,
     OPTIONAL_REQUIREMENT,
@@ -101,22 +100,14 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                 </p>
             )}
             {formIssues.length > 0 && (
-                <Alert
+                <QueryErrorNotice
                     className="md:col-span-2 lg:col-span-3"
-                    variant="destructive"
-                >
-                    <TriangleAlert />
-                    <AlertTitle>
-                        This snapshot does not fit the account
-                    </AlertTitle>
-                    <AlertDescription>
-                        <ul className="flex flex-col gap-1">
-                            {formIssues.map((message) => (
-                                <li key={message}>{message}</li>
-                            ))}
-                        </ul>
-                    </AlertDescription>
-                </Alert>
+                    items={formIssues.map((message) => ({
+                        key: message,
+                        text: message,
+                    }))}
+                    title="This snapshot does not fit the account"
+                />
             )}
             {formWarnings.length > 0 && (
                 <StatusRow
@@ -213,12 +204,12 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                             <FieldError id={errorId}>{issue}</FieldError>
                         )}
                         {warning !== undefined && (
-                            <FieldDescription
-                                className="text-warning"
+                            <WarningNote
+                                className="text-sm/normal"
                                 id={warningId}
                             >
                                 {warning}
-                            </FieldDescription>
+                            </WarningNote>
                         )}
                     </Field>
                 );

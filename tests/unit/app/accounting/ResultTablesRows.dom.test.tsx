@@ -139,7 +139,7 @@ describe('the run result rows', () => {
         });
     });
 
-    it('reads each conversion as a sentence with the fee on its own line', () => {
+    it('keeps each conversion and reference in the row detail, read as a sentence with the fee on its own line', () => {
         act(() => {
             root.render(
                 <BookingsTable
@@ -154,7 +154,18 @@ describe('the run result rows', () => {
                 />,
             );
         });
+        expect(container.querySelector('tbody')?.textContent).not.toContain(
+            'EUR, no conversion',
+        );
+        for (const expander of container.querySelectorAll<HTMLButtonElement>(
+            ':scope tbody tr > td:first-child button',
+        )) {
+            act(() => {
+                expander.click();
+            });
+        }
         const body = container.querySelector('tbody')?.textContent ?? '';
+        expect(body).toContain('card-2');
         expect(body).toContain('USD → EUR at 1.1188 (ECB)');
         expect(body).toContain('EUR, no conversion');
         expect(body).toContain('Fee €0.50');

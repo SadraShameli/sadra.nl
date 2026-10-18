@@ -9,6 +9,7 @@ import {
     AccountTracking,
     BankrollTransferKind,
     DashboardBalanceConvention,
+    PayoutStatus,
     ReportedPayoutBasis,
 } from '~/lib/prop-accounts';
 import {
@@ -49,6 +50,7 @@ const USER_ID = 'user-a';
 const ACCOUNT_ID = '2a4c6e8f-1b3d-4f5a-9c7e-0d2f4a6c8e1b';
 const TRANSFER_ID = '5b0c3f7e-8a51-4c4e-9f0a-3d0f1c2b4a61';
 const STATEMENT_ID = '9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f';
+const PAYOUT_ID = '7e9a1c3d-5f2b-4d8e-a6c0-2b4d6f8a0c1e';
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
@@ -218,6 +220,23 @@ function openRecordDialog(scope: ParentNode, trigger: string, title: string) {
         buttonLabelled(scope, trigger).click();
     });
     return element(dialogTitled(title), 'form');
+}
+
+function paidPayout() {
+    return {
+        accountId: ACCOUNT_ID,
+        approvedOn: null,
+        createdAt: new Date('2026-09-10T12:00:00Z'),
+        grossCents: 50_000,
+        id: PAYOUT_ID,
+        netCents: null,
+        note: null,
+        paidOn: '2026-09-12',
+        requestedOn: '2026-09-10',
+        status: PayoutStatus.Paid,
+        updatedAt: new Date('2026-09-10T12:00:00Z'),
+        userId: USER_ID,
+    };
 }
 
 function selectOffering(scope: ParentNode, value: string): HTMLSelectElement {
@@ -489,6 +508,16 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
         if (section === null) throw new Error('no reconciliation section');
         expect(section.textContent).toContain('payouts down');
         expect(section.querySelector('table')).toBeNull();
+    });
+
+    it('ends the firms load error with a full stop before saying the export is paused', () => {
+        harness.queries.set('account.list', answer([account()]));
+        harness.queries.set('payout.list', answer([paidPayout()]));
+        harness.queries.set('externalFirm.list', failed('UNAUTHORIZED'));
+        render();
+        expect(container.textContent).toContain(
+            'UNAUTHORIZED. The export is paused until they load.',
+        );
     });
 
     it('ends each deposit and withdrawal row in an icon-only actions menu that offers Edit and Delete', () => {

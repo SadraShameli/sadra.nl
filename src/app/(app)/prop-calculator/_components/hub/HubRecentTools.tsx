@@ -1,6 +1,5 @@
 'use client';
 
-import { History } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -17,6 +16,7 @@ import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
+import { cn } from '~/lib/utilities';
 
 interface RecentToolsState {
     lastQuery: null | string;
@@ -24,6 +24,8 @@ interface RecentToolsState {
 }
 
 const RECENT_TOOL_PLACEHOLDERS = ['first', 'second', 'third'] as const;
+const RECENT_ROW_HEIGHT_CLASS = 'min-h-9';
+const RECENT_ROW_CLASS = cn('flex flex-wrap gap-2', RECENT_ROW_HEIGHT_CLASS);
 
 export function HubRecentTools() {
     const [recent, setRecent] = useState<null | RecentToolsState>(null);
@@ -43,7 +45,7 @@ export function HubRecentTools() {
                 titleId="hub-recent-tools"
             >
                 {recent === null ? (
-                    <div aria-hidden className="flex min-h-9 flex-wrap gap-2">
+                    <div aria-hidden className={RECENT_ROW_CLASS}>
                         {RECENT_TOOL_PLACEHOLDERS.map((key) => (
                             <Skeleton
                                 className="h-9 w-36 rounded-md"
@@ -53,13 +55,12 @@ export function HubRecentTools() {
                     </div>
                 ) : recent.tools.length === 0 ? (
                     <EmptyState
-                        description="The tools you open show up here."
-                        icon={History}
+                        className={cn(RECENT_ROW_HEIGHT_CLASS, 'p-0 md:p-0')}
                         size={EmptyStateSize.Compact}
                         title="No tools opened yet"
                     />
                 ) : (
-                    <ul className="flex min-h-9 flex-wrap gap-2">
+                    <ul className={RECENT_ROW_CLASS}>
                         {recent.tools.map((entry) => {
                             const Icon = entry.icon;
                             return (

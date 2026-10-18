@@ -5,7 +5,9 @@ import {
     type FigureColumn,
     figureColumns,
 } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { WarningNote } from '~/components/WarningNote';
 
 import { ModelFailureNote, ModelStatusPanel } from './ModelStatusPanel';
 import { type ExpectedNetCardModel, ExpectedNetStatus } from './overviewModel';
@@ -133,9 +135,9 @@ export const ExpectedNetCard = memo(function ExpectedNetCard({
                             <>
                                 {row.original.plan}
                                 {row.original.policySensitiveNote !== null && (
-                                    <span className="block text-xs text-warning">
+                                    <WarningNote className="flex text-xs">
                                         {row.original.policySensitiveNote}
-                                    </span>
+                                    </WarningNote>
                                 )}
                             </>
                         ),
@@ -151,16 +153,13 @@ export const ExpectedNetCard = memo(function ExpectedNetCard({
                 rowId={(row) => row.key}
             />
             {model.refused.length > 0 && (
-                <ul
-                    aria-label="Runs the engine refused"
-                    className="flex list-disc flex-col gap-1 pl-5 text-sm text-destructive"
-                >
-                    {model.refused.map((refusal) => (
-                        <li key={refusal.key}>
-                            {refusal.plan}, {refusal.run}: {refusal.reason}
-                        </li>
-                    ))}
-                </ul>
+                <QueryErrorNotice
+                    items={model.refused.map((refusal) => ({
+                        key: refusal.key,
+                        text: `${refusal.plan}, ${refusal.run}: ${refusal.reason}`,
+                    }))}
+                    title="Runs the engine refused"
+                />
             )}
         </OverviewPanel>
     );

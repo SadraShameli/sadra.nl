@@ -11,6 +11,7 @@ import {
     ChartTooltipContent,
 } from '~/components/ui/chart';
 import { ChartAreaGradient } from '~/components/ui/chart/chart-area-gradient';
+import { type TimeAxis } from '~/components/ui/chart/time-axis';
 
 type AreaChartNewProperties = {
     area: {
@@ -26,6 +27,7 @@ type AreaChartNewProperties = {
     };
     xAxis: {
         dataKey: string;
+        time?: TimeAxis;
     };
     yAxis: {
         tickFormatter: (value: number, index: number) => string;
@@ -45,10 +47,22 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
                     <ChartAreaGradient id={id} />
                 </defs>
 
-                <XAxis
-                    {...CHART_X_AXIS_PROPS}
-                    dataKey={properties.xAxis.dataKey}
-                />
+                {properties.xAxis.time === undefined ? (
+                    <XAxis
+                        {...CHART_X_AXIS_PROPS}
+                        dataKey={properties.xAxis.dataKey}
+                    />
+                ) : (
+                    <XAxis
+                        {...CHART_X_AXIS_PROPS}
+                        dataKey={properties.xAxis.dataKey}
+                        domain={[...properties.xAxis.time.domain]}
+                        scale="time"
+                        tickFormatter={properties.xAxis.time.format}
+                        ticks={[...properties.xAxis.time.ticks]}
+                        type="number"
+                    />
+                )}
 
                 <YAxis
                     {...CHART_Y_AXIS_PROPS}
