@@ -32,14 +32,13 @@ import type {
 
 import Eyebrow from '~/components/Eyebrow';
 import { useBlockNavigationWhile } from '~/components/NavigationBlocker';
+import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Checkbox } from '~/components/ui/checkbox';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Slider } from '~/components/ui/slider';
-import { Switch } from '~/components/ui/switch';
 import { TimeInput } from '~/components/ui/time-input';
 import {
     type UpdateTradingPlanInput,
@@ -381,16 +380,16 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                             c,
                                         );
                                     return (
-                                        <label
-                                            className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 p-2 text-sm transition hover:border-border"
+                                        <CheckboxCard
+                                            checked={isActive}
+                                            id={`plan-confluence-${c}`}
                                             key={c}
-                                        >
-                                            <Checkbox
-                                                checked={isActive}
-                                                onCheckedChange={(v) =>
-                                                    updateConfig('setup', {
-                                                        ...config.setup,
-                                                        allowedConfluences: v
+                                            label={c}
+                                            onCheckedChange={(isChecked) =>
+                                                updateConfig('setup', {
+                                                    ...config.setup,
+                                                    allowedConfluences:
+                                                        isChecked
                                                             ? [
                                                                   ...config
                                                                       .setup
@@ -402,11 +401,9 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                                                       x: ConfluenceKey,
                                                                   ) => x !== c,
                                                               ),
-                                                    })
-                                                }
-                                            />
-                                            {c}
-                                        </label>
+                                                })
+                                            }
+                                        />
                                     );
                                 })}
                             </div>
@@ -486,21 +483,18 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 <Eyebrow as="h3">Knockout rules</Eyebrow>
                 <div className="grid gap-2 md:grid-cols-2">
                     {KNOCKOUT_RULES.map((rule) => (
-                        <label
-                            className="flex cursor-pointer items-center justify-between rounded-md border border-border/60 p-3"
+                        <SwitchCard
+                            checked={config.knockouts[rule.key]}
+                            id={`plan-knockout-${rule.key}`}
                             key={rule.key}
-                        >
-                            <span className="text-sm">{rule.label}</span>
-                            <Switch
-                                checked={config.knockouts[rule.key]}
-                                onCheckedChange={(v) =>
-                                    updateConfig('knockouts', {
-                                        ...config.knockouts,
-                                        [rule.key]: v,
-                                    })
-                                }
-                            />
-                        </label>
+                            label={rule.label}
+                            onCheckedChange={(isChecked) =>
+                                updateConfig('knockouts', {
+                                    ...config.knockouts,
+                                    [rule.key]: isChecked,
+                                })
+                            }
+                        />
                     ))}
                 </div>
             </section>

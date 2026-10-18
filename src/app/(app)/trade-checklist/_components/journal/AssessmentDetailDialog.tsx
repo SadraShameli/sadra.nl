@@ -1,18 +1,12 @@
 'use client';
 
 import { format } from 'date-fns';
-import {
-    AlertTriangle,
-    ArrowRight,
-    CheckCircle2,
-    NotebookPen,
-    ShieldAlert,
-} from 'lucide-react';
 
 import type { TradeAssessmentRow } from '~/lib/trading/types';
 
+import { ReasonListPanel } from '~/app/(app)/trade-checklist/_components/ReasonListPanel';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -175,105 +169,33 @@ export function AssessmentDetailDialog({
                         </div>
 
                         {result.redFlags.length > 0 && (
-                            <Card
-                                className={cn(
-                                    'app-trade-checklist__red-flags',
-                                    'border-l-4 border-l-rose-500',
-                                )}
-                            >
-                                <CardHeader className="flex flex-row items-center justify-start gap-2">
-                                    <ShieldAlert className="size-4 text-destructive" />
-                                    <CardTitle className="text-base">
-                                        Red flags
-                                    </CardTitle>
-                                </CardHeader>
-                                <Separator />
-                                <CardContent>
-                                    <ul
-                                        className={cn(
-                                            'app-trade-checklist__red-flags-list',
-                                            'flex flex-col gap-2 text-sm',
-                                        )}
-                                    >
-                                        {result.redFlags.map((f, index) => (
-                                            <li
-                                                className="flex items-start gap-2"
-                                                key={index}
-                                            >
-                                                <ArrowRight className="mt-0.5 size-4 shrink-0 text-destructive" />
-                                                <span>{f}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </CardContent>
-                            </Card>
+                            <ReasonListPanel
+                                className="app-trade-checklist__red-flags"
+                                items={result.redFlags}
+                                title="Red flags"
+                            />
                         )}
 
                         {result.strengths.length > 0 && (
-                            <Card className="border-l-4 border-l-emerald-500">
-                                <CardHeader className="flex flex-row items-center justify-start gap-2">
-                                    <CheckCircle2 className="size-4 text-success" />
-                                    <CardTitle className="text-base">
-                                        Strengths
-                                    </CardTitle>
-                                </CardHeader>
-                                <Separator />
-                                <CardContent>
-                                    <ul className="flex flex-col gap-2 text-sm">
-                                        {result.strengths.map((s, index) => (
-                                            <li
-                                                className="flex items-start gap-2"
-                                                key={index}
-                                            >
-                                                <ArrowRight className="mt-0.5 size-4 shrink-0 text-success" />
-                                                <span>{s}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </CardContent>
-                            </Card>
+                            <ReasonListPanel
+                                items={result.strengths}
+                                title="Strengths"
+                            />
                         )}
 
                         {result.weaknesses.length > 0 && (
-                            <Card className="border-l-4 border-l-amber-500">
-                                <CardHeader className="flex flex-row items-center justify-start gap-2">
-                                    <AlertTriangle className="size-4 text-warning" />
-                                    <CardTitle className="text-base">
-                                        Weaknesses
-                                    </CardTitle>
-                                </CardHeader>
-                                <Separator />
-                                <CardContent>
-                                    <ul className="flex flex-col gap-2 text-sm">
-                                        {result.weaknesses.map((w, index) => (
-                                            <li
-                                                className="flex items-start gap-2"
-                                                key={index}
-                                            >
-                                                <ArrowRight className="mt-0.5 size-4 shrink-0 text-warning" />
-                                                <span>{w}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </CardContent>
-                            </Card>
+                            <ReasonListPanel
+                                items={result.weaknesses}
+                                title="Weaknesses"
+                            />
                         )}
 
                         {answers.finals.notes && (
-                            <Card className="border-l-4 border-l-sky-500">
-                                <CardHeader className="flex flex-row items-center justify-start gap-2">
-                                    <NotebookPen className="size-4 text-info" />
-                                    <CardTitle className="text-base">
-                                        Notes
-                                    </CardTitle>
-                                </CardHeader>
-                                <Separator />
-                                <CardContent>
-                                    <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-                                        {answers.finals.notes}
-                                    </p>
-                                </CardContent>
-                            </Card>
+                            <ToolPanel title="Notes">
+                                <p className="m-0 text-sm whitespace-pre-wrap text-muted-foreground">
+                                    {answers.finals.notes}
+                                </p>
+                            </ToolPanel>
                         )}
                     </div>
                 </ScrollArea>

@@ -19,6 +19,7 @@ import type { TradingPlanRow } from '~/lib/schemas/tradingRows';
 import type { ConfluenceKey } from '~/lib/trading/types';
 
 import Eyebrow from '~/components/Eyebrow';
+import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -39,14 +40,12 @@ import { findCurrentWindow, scoreAssessment } from '~/lib/trading/scoring';
 import { cn } from '~/lib/utilities';
 
 import {
-    CheckboxCard,
     ChoiceCards,
     type ChoiceOption,
     MultiChoiceCards,
     NumberCard,
     StatusRow,
     StatusTone,
-    SwitchCard,
     WIZARD_CARD_CLASS,
 } from './WizardFields';
 

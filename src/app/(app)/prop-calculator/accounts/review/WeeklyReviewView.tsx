@@ -15,11 +15,10 @@ import {
     type SnapshotFormValues,
 } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import { SnapshotFields } from '~/app/(app)/prop-calculator/accounts/_components/SnapshotFields';
+import { CheckboxCard } from '~/components/ToggleCard';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import { Checkbox } from '~/components/ui/checkbox';
-import { Field, FieldLabel } from '~/components/ui/field';
 import { Skeleton } from '~/components/ui/skeleton';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
@@ -554,35 +553,25 @@ export function WeeklyReviewView() {
                             {row.isRecorded &&
                                 sizing.kind ===
                                     WeeklyReviewSizingKind.Ready && (
-                                    <Field
-                                        className="text-sm"
-                                        orientation="horizontal"
-                                    >
-                                        <Checkbox
-                                            checked={isAccepted}
-                                            id={`accept-${row.accountId}`}
-                                            onCheckedChange={(checked) => {
-                                                const next = new Map(
-                                                    acceptedHeadlines,
+                                    <CheckboxCard
+                                        checked={isAccepted}
+                                        id={`accept-${row.accountId}`}
+                                        label="Accept this size into the decision log"
+                                        onCheckedChange={(isChecked) => {
+                                            const next = new Map(
+                                                acceptedHeadlines,
+                                            );
+                                            if (isChecked) {
+                                                next.set(
+                                                    row.accountId,
+                                                    sizing.headlineRiskCents,
                                                 );
-                                                if (checked === true) {
-                                                    next.set(
-                                                        row.accountId,
-                                                        sizing.headlineRiskCents,
-                                                    );
-                                                } else {
-                                                    next.delete(row.accountId);
-                                                }
-                                                setAcceptedHeadlines(next);
-                                            }}
-                                        />
-                                        <FieldLabel
-                                            htmlFor={`accept-${row.accountId}`}
-                                        >
-                                            Accept this size into the decision
-                                            log
-                                        </FieldLabel>
-                                    </Field>
+                                            } else {
+                                                next.delete(row.accountId);
+                                            }
+                                            setAcceptedHeadlines(next);
+                                        }}
+                                    />
                                 )}
                         </CardContent>
                     </Card>
@@ -849,18 +838,12 @@ function UnchangedControl({
                 Unchanged since {since ?? NOT_APPLICABLE}
             </p>
             {!isBlocked && (
-                <Field orientation="horizontal">
-                    <Checkbox
-                        checked={isConfirmed}
-                        id={`unchanged-${rowId}`}
-                        onCheckedChange={(checked) => {
-                            onToggle(checked === true);
-                        }}
-                    />
-                    <FieldLabel htmlFor={`unchanged-${rowId}`}>
-                        Record as unchanged
-                    </FieldLabel>
-                </Field>
+                <CheckboxCard
+                    checked={isConfirmed}
+                    id={`unchanged-${rowId}`}
+                    label="Record as unchanged"
+                    onCheckedChange={onToggle}
+                />
             )}
         </div>
     );

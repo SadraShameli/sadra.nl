@@ -16,9 +16,9 @@ import {
     type AccountListAccount,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { CheckboxCard } from '~/components/ToggleCard';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import { Checkbox } from '~/components/ui/checkbox';
 import {
     Field,
     FieldDescription,
@@ -501,20 +501,15 @@ function EventForm({
             )}
             {exclusivity !== null &&
                 exclusivity.confirmedAccountIds.length > 0 && (
-                    <Field className="md:col-span-2" orientation="horizontal">
-                        <Checkbox
-                            checked={suspendedIds.length > 0}
-                            id={suspendId}
-                            onCheckedChange={(checked) => {
-                                setSuspendedKey(
-                                    checked === true ? exclusivityKey : null,
-                                );
-                            }}
-                        />
-                        <FieldLabel htmlFor={suspendId}>
-                            Suspend these accounts when recording
-                        </FieldLabel>
-                    </Field>
+                    <CheckboxCard
+                        checked={suspendedIds.length > 0}
+                        className="md:col-span-2"
+                        id={suspendId}
+                        label="Suspend these accounts when recording"
+                        onCheckedChange={(isChecked) => {
+                            setSuspendedKey(isChecked ? exclusivityKey : null);
+                        }}
+                    />
                 )}
             {isAwaitingSuspensions && (
                 <p className="text-sm text-muted-foreground md:col-span-2">
@@ -523,18 +518,15 @@ function EventForm({
                 </p>
             )}
             {shown?.requiresConfirmation === true && (
-                <Field className="md:col-span-2" orientation="horizontal">
-                    <Checkbox
-                        checked={isConfirmed}
-                        id={confirmId}
-                        onCheckedChange={(checked) => {
-                            setConfirmedKey(checked === true ? shownKey : null);
-                        }}
-                    />
-                    <FieldLabel htmlFor={confirmId}>
-                        I have read what recording this event changes
-                    </FieldLabel>
-                </Field>
+                <CheckboxCard
+                    checked={isConfirmed}
+                    className="md:col-span-2"
+                    id={confirmId}
+                    label="I have read what recording this event changes"
+                    onCheckedChange={(isChecked) => {
+                        setConfirmedKey(isChecked ? shownKey : null);
+                    }}
+                />
             )}
             <div className="md:col-span-2">
                 <Button

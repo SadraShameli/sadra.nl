@@ -5,28 +5,49 @@ import { ClipboardList } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 
-import type { TradeAssessmentRow } from '~/lib/trading/types';
+import type { Outcome, TradeAssessmentRow } from '~/lib/trading/types';
 
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import {
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { dateKey, filterAssessments } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
 
+import {
+    GradeTile,
+    MENTAL_FLAG_LABEL,
+    MENTAL_FLAGS,
+    type MentalFlag,
+    OutcomeBadge,
+} from './AssessmentBadges';
 import { AssessmentDetailDialog } from './journal/AssessmentDetailDialog';
 import {
     JournalFilters,
     type JournalFilterState,
 } from './journal/JournalFilters';
-import { JournalRowBody, type JournalRowData } from './journal/JournalRow';
 
 interface JournalViewProperties {
     history: TradeAssessmentRow[];
     plans: { id: string; name: string }[];
 }
 
-type Row = JournalRowData & { raw: TradeAssessmentRow };
+interface Row {
+    createdAt: Date | string;
+    grade: string;
+    id: string;
+    mentalFlags: MentalFlag[];
+    notesSnippet: string;
+    outcome: null | Outcome;
+    outcomeR: null | number;
+    raw: TradeAssessmentRow;
+    score: number;
+    windowLabel: null | string;
+}
 
 export function JournalView({ history, plans }: JournalViewProperties) {
     const router = useRouter();
@@ -43,14 +64,9 @@ export function JournalView({ history, plans }: JournalViewProperties) {
     const projected = useMemo(
         () =>
             history.map((r) => {
-                const mentalFlags: string[] = [
-                    ...(r.answers.mental.hesitation ? ['hesitation'] : []),
-                    ...(r.answers.mental.distracted ? ['distracted'] : []),
-                    ...(r.answers.mental.revengeOrFomo
-                        ? ['revengeOrFomo']
-                        : []),
-                    ...(r.answers.mental.boredomHunt ? ['boredomHunt'] : []),
-                ];
+                const mentalFlags = MENTAL_FLAGS.filter(
+                    (flag) => r.answers.mental[flag],
+                );
                 const notesSnippet = [
                     r.answers.finals.notes,
                     r.outcomeNotes ?? '',
@@ -138,24 +154,85 @@ export function JournalView({ history, plans }: JournalViewProperties) {
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
             {
+                accessorKey: 'grade',
+                cell: ({ row }) => <GradeTile grade={row.original.grade} />,
+                enableSorting: false,
+                header: 'Grade',
+                id: 'grade',
+            },
+            {
+                accessorKey: 'score',
                 cell: ({ row }) => (
-                    <Button
-                        className="-mx-2 -my-1 block h-auto w-full justify-start px-2 py-1 text-left font-normal"
-                        onClick={() => setSelectedRow(row.original.raw)}
-                        type="button"
-                        variant="ghost"
+                    <span className="font-mono tabular-nums">
+                        {row.original.score.toFixed(0)}
+                        <span className="text-muted-foreground">/100</span>
+                    </span>
+                ),
+                header: 'Score',
+                id: 'score',
+                sortDescFirst: true,
+            },
+            {
+                cell: ({ row }) =>
+                    row.original.outcome === null ? (
+                        <span className="text-muted-foreground">Open</span>
+                    ) : (
+                        <OutcomeBadge
+                            outcome={row.original.outcome}
+                            outcomeR={row.original.outcomeR}
+                        />
+                    ),
+                enableSorting: false,
+                header: 'Outcome',
+                id: 'outcome',
+            },
+            {
+                cell: ({ row }) => (
+                    <span
+                        className={cn(
+                            'whitespace-nowrap',
+                            row.original.windowLabel === null &&
+                                'text-muted-foreground',
+                        )}
                     >
-                        <JournalRowBody row={row.original} />
-                    </Button>
+                        {row.original.windowLabel ?? 'Outside window'}
+                    </span>
                 ),
                 enableSorting: false,
-                header: 'Assessment',
-                id: 'assessment',
+                header: 'Window',
+                id: 'window',
+            },
+            {
+                cell: ({ row }) =>
+                    row.original.mentalFlags.length === 0 ? (
+                        <span className="text-muted-foreground">None</span>
+                    ) : (
+                        <div className="flex flex-wrap gap-1">
+                            {row.original.mentalFlags.map((flag) => (
+                                <Badge key={flag} variant="outline">
+                                    {MENTAL_FLAG_LABEL[flag]}
+                                </Badge>
+                            ))}
+                        </div>
+                    ),
+                enableSorting: false,
+                header: 'Mental flags',
+                id: 'mental',
+            },
+            {
+                cell: ({ row }) => (
+                    <p className="m-0 line-clamp-2 max-w-80 text-muted-foreground">
+                        {row.original.notesSnippet || 'No notes'}
+                    </p>
+                ),
+                enableSorting: false,
+                header: 'Notes',
+                id: 'notes',
             },
             {
                 accessorFn: (r) => new Date(r.createdAt).getTime(),
                 cell: ({ row }) => (
-                    <span className="text-xs whitespace-nowrap text-muted-foreground">
+                    <span className="whitespace-nowrap text-muted-foreground">
                         {formatDistanceToNow(new Date(row.original.createdAt), {
                             addSuffix: true,
                         })}
@@ -164,6 +241,23 @@ export function JournalView({ history, plans }: JournalViewProperties) {
                 header: 'When',
                 id: 'when',
                 sortDescFirst: true,
+            },
+            {
+                cell: ({ row }) => (
+                    <Button
+                        className="app-trade-checklist__journal-open"
+                        onClick={() => setSelectedRow(row.original.raw)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                    >
+                        View
+                    </Button>
+                ),
+                enableSorting: false,
+                header: () => <span className="sr-only">Actions</span>,
+                id: 'actions',
+                meta: { align: DataTableAlign.End },
             },
         ],
         [],

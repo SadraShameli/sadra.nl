@@ -15,13 +15,12 @@ import {
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
-import { Checkbox } from '~/components/ui/checkbox';
 import {
     Field,
-    FieldContent,
     FieldDescription,
     FieldError,
     FieldLabel,
@@ -35,7 +34,6 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
-import { Switch } from '~/components/ui/switch';
 import { Textarea } from '~/components/ui/textarea';
 import { errorMessage } from '~/lib/errorMessage';
 import {
@@ -882,25 +880,15 @@ function DetailsCard({
                     control={control}
                     name="overrideRoundBudget"
                     render={({ field }) => (
-                        <Field orientation="horizontal">
-                            <Checkbox
-                                aria-describedby="account-override-round-budget-hint"
-                                checked={field.value}
-                                id="account-override-round-budget"
-                                onCheckedChange={(checked) => {
-                                    field.onChange(checked === true);
-                                }}
-                            />
-                            <FieldContent>
-                                <FieldLabel htmlFor="account-override-round-budget">
-                                    Override the round budget
-                                </FieldLabel>
-                                <FieldDescription id="account-override-round-budget-hint">
-                                    Adds this account to its round even if the
-                                    round has already spent its budget.
-                                </FieldDescription>
-                            </FieldContent>
-                        </Field>
+                        <CheckboxCard
+                            aria-describedby="account-override-round-budget-hint"
+                            checked={field.value}
+                            description="Adds this account to its round even if the round has already spent its budget."
+                            descriptionId="account-override-round-budget-hint"
+                            id="account-override-round-budget"
+                            label="Override the round budget"
+                            onCheckedChange={field.onChange}
+                        />
                     )}
                 />
                 <Controller
@@ -1003,16 +991,12 @@ function InitialSnapshotCard({ submit }: { submit: AccountFormSubmit }) {
                 <AccountsCardHeading>Initial snapshot</AccountsCardHeading>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-                <Field orientation="horizontal">
-                    <Switch
-                        checked={submit.includeSnapshot}
-                        id="account-include-snapshot"
-                        onCheckedChange={submit.setIncludeSnapshot}
-                    />
-                    <FieldLabel htmlFor="account-include-snapshot">
-                        Enter today&rsquo;s balance now
-                    </FieldLabel>
-                </Field>
+                <SwitchCard
+                    checked={submit.includeSnapshot}
+                    id="account-include-snapshot"
+                    label="Enter today’s balance now"
+                    onCheckedChange={submit.setIncludeSnapshot}
+                />
                 {submit.includeSnapshot && (
                     <InitialSnapshotFields submit={submit} />
                 )}
@@ -1233,46 +1217,36 @@ function LedgerOnlySwitch({
         AccountTracking.LedgerOnly;
     return (
         <div className="flex flex-col gap-1">
-            <Field orientation="horizontal">
-                <Switch
-                    checked={isLedgerOnly}
-                    disabled={isLocked}
-                    id="account-ledger-only"
-                    onCheckedChange={(checked) => {
-                        if (!checked) {
-                            form.setValue('tracking', AccountTracking.Modeled, {
-                                shouldDirty: true,
-                            });
-                            onModeled();
-                            return;
-                        }
-                        form.setValue('tracking', AccountTracking.LedgerOnly, {
+            <SwitchCard
+                checked={isLedgerOnly}
+                disabled={isLocked}
+                id="account-ledger-only"
+                label="Firm not listed or size not modeled"
+                onCheckedChange={(checked) => {
+                    if (!checked) {
+                        form.setValue('tracking', AccountTracking.Modeled, {
                             shouldDirty: true,
                         });
-                        form.setValue('copyGroupId', NONE, {
-                            shouldDirty: true,
-                        });
-                        form.setValue('ledgerFirmId', selection.firmId);
-                        form.setValue('ledgerExternalFirmId', '');
-                        form.setValue(
-                            'ledgerSize',
-                            String(selection.accountSize),
-                        );
-                        form.setValue(
-                            'planLabel',
-                            plan === null
-                                ? ''
-                                : ledgerOnlyPlanLabel(
-                                      plan,
-                                      selection.accountSize,
-                                  ),
-                        );
-                    }}
-                />
-                <FieldLabel htmlFor="account-ledger-only">
-                    Firm not listed or size not modeled
-                </FieldLabel>
-            </Field>
+                        onModeled();
+                        return;
+                    }
+                    form.setValue('tracking', AccountTracking.LedgerOnly, {
+                        shouldDirty: true,
+                    });
+                    form.setValue('copyGroupId', NONE, {
+                        shouldDirty: true,
+                    });
+                    form.setValue('ledgerFirmId', selection.firmId);
+                    form.setValue('ledgerExternalFirmId', '');
+                    form.setValue('ledgerSize', String(selection.accountSize));
+                    form.setValue(
+                        'planLabel',
+                        plan === null
+                            ? ''
+                            : ledgerOnlyPlanLabel(plan, selection.accountSize),
+                    );
+                }}
+            />
             {isLocked && isLedgerOnly && (
                 <span className="text-sm text-muted-foreground">
                     This account is ledger only. Upgrade it from its account

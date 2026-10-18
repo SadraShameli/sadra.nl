@@ -21,8 +21,8 @@ import {
     RowActionButton,
     RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { CheckboxCard } from '~/components/ToggleCard';
 import { Button } from '~/components/ui/button';
-import { Checkbox } from '~/components/ui/checkbox';
 import {
     DataTable,
     type DataTableColumn,
@@ -488,25 +488,16 @@ function ManageSensorsDialog({
                     Sensors for {device?.name ?? `device #${deviceId}`}
                 </DialogTitle>
             </DialogHeader>
-            <div className="flex max-h-80 flex-col gap-2 overflow-y-auto py-2">
+            <div className="grid max-h-80 gap-2 overflow-y-auto py-2 sm:grid-cols-2">
                 {(allSensors.data ?? []).map((s) => (
-                    <label
-                        className="flex cursor-pointer items-center gap-3 rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-                        htmlFor={`sensor-${s.id}`}
+                    <CheckboxCard
+                        checked={selected.has(s.id)}
+                        description={s.unit}
+                        id={`sensor-${s.id}`}
                         key={s.id}
-                    >
-                        <Checkbox
-                            checked={selected.has(s.id)}
-                            id={`sensor-${s.id}`}
-                            onCheckedChange={() => toggle(s.id)}
-                        />
-                        <span className="flex-1">
-                            {s.name}{' '}
-                            <span className="text-xs text-muted-foreground">
-                                ({s.unit})
-                            </span>
-                        </span>
-                    </label>
+                        label={s.name}
+                        onCheckedChange={() => toggle(s.id)}
+                    />
                 ))}
                 {(allSensors.data ?? []).length === 0 && (
                     <p className="py-2 text-center text-sm text-muted-foreground">

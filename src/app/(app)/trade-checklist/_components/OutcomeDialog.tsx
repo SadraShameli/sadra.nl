@@ -13,8 +13,13 @@ import type {
     TradeAssessmentRow,
 } from '~/lib/trading/types';
 
-import { badgeVariants } from '~/components/ui/badge';
+import { SwitchCard } from '~/components/ToggleCard';
 import { Button } from '~/components/ui/button';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '~/components/ui/collapsible';
 import {
     Dialog,
     DialogContent,
@@ -23,21 +28,27 @@ import {
     DialogHeader,
     DialogTitle,
 } from '~/components/ui/dialog';
-import { Field, FieldLabel } from '~/components/ui/field';
+import {
+    Field,
+    FieldGroup,
+    FieldLabel,
+    FieldLegend,
+    FieldSet,
+} from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
-import { Label } from '~/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '~/components/ui/radio-group';
-import { Switch } from '~/components/ui/switch';
 import { Textarea } from '~/components/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { executionDeviationSchema, outcomeSchema } from '~/lib/schemas/trading';
 import { recordAssessmentOutcome } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 
-const OUTCOMES: { label: string; tone: string; value: Outcome }[] = [
-    { label: 'Win', tone: 'border-success/50', value: 'win' },
-    { label: 'Loss', tone: 'border-destructive/50', value: 'loss' },
-    { label: 'Breakeven', tone: 'border-warning/50', value: 'breakeven' },
-    { label: 'No trade', tone: 'border-border/60', value: 'no-trade' },
+import { ChoiceCards, type ChoiceOption } from './WizardFields';
+
+const OUTCOMES: readonly ChoiceOption<Outcome>[] = [
+    { label: 'Win', value: 'win' },
+    { label: 'Loss', value: 'loss' },
+    { label: 'Breakeven', value: 'breakeven' },
+    { label: 'No trade', value: 'no-trade' },
 ];
 
 const DEVIATIONS: { label: string; value: ExecutionDeviation }[] = [
@@ -141,18 +152,6 @@ function OutcomeForm({
     const formId = useId();
 
     const deviations = useWatch({ control: form.control, name: 'deviations' });
-    const outcome = useWatch({ control: form.control, name: 'outcome' });
-
-    const toggleDeviation = (key: ExecutionDeviation) => {
-        const current = form.getValues('deviations');
-        form.setValue(
-            'deviations',
-            current.includes(key)
-                ? current.filter((d) => d !== key)
-                : [...current, key],
-            { shouldDirty: true },
-        );
-    };
 
     const submit = form.handleSubmit((values) => {
         const risk = parseNullableNumber(values.actualRisk);
@@ -180,34 +179,14 @@ function OutcomeForm({
             <Controller
                 control={form.control}
                 name="outcome"
-                render={({ field, fieldState }) => (
-                    <Field data-invalid={fieldState.invalid}>
-                        <RadioGroup
-                            aria-invalid={fieldState.invalid}
-                            className="grid grid-cols-2 gap-2"
-                            id={`${formId}-outcome`}
-                            onValueChange={field.onChange}
-                            value={field.value}
-                        >
-                            {OUTCOMES.map((o) => (
-                                <label
-                                    className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition ${
-                                        outcome === o.value
-                                            ? o.tone
-                                            : 'border-border/60 hover:border-border'
-                                    }`}
-                                    htmlFor={`outcome-${o.value}`}
-                                    key={o.value}
-                                >
-                                    <RadioGroupItem
-                                        id={`outcome-${o.value}`}
-                                        value={o.value}
-                                    />
-                                    {o.label}
-                                </label>
-                            ))}
-                        </RadioGroup>
-                    </Field>
+                render={({ field }) => (
+                    <ChoiceCards
+                        className="md:grid-cols-4"
+                        legend="Outcome"
+                        onValueChange={field.onChange}
+                        options={OUTCOMES}
+                        value={field.value}
+                    />
                 )}
             />
 
@@ -216,10 +195,7 @@ function OutcomeForm({
                 name="outcomeR"
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel
-                            className="text-sm"
-                            htmlFor={`${formId}-outcomeR`}
-                        >
+                        <FieldLabel htmlFor={`${formId}-outcomeR`}>
                             Actual R (optional)
                         </FieldLabel>
                         <Input
@@ -239,10 +215,7 @@ function OutcomeForm({
                 name="notes"
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel
-                            className="text-sm"
-                            htmlFor={`${formId}-notes`}
-                        >
+                        <FieldLabel htmlFor={`${formId}-notes`}>
                             Notes
                         </FieldLabel>
                         <Textarea
@@ -256,35 +229,35 @@ function OutcomeForm({
                 )}
             />
 
-            <div className="rounded-md border border-border/40">
-                <Button
-                    className={cn(
-                        'app-trade-checklist__outcome-execution-toggle',
-                        'h-auto w-full justify-between rounded-md px-3 py-2 text-sm font-medium',
-                    )}
-                    data-state={executionOpen ? 'open' : 'closed'}
-                    onClick={() => setExecutionOpen((o) => !o)}
-                    type="button"
-                    variant="ghost"
-                >
-                    <span>Execution details (optional)</span>
-                    <ChevronDown
+            <Collapsible
+                className="rounded-2xl border border-line"
+                onOpenChange={setExecutionOpen}
+                open={executionOpen}
+            >
+                <CollapsibleTrigger asChild>
+                    <Button
                         className={cn(
-                            'size-4 transition-transform',
-                            executionOpen && 'rotate-180',
+                            'app-trade-checklist__outcome-execution-toggle',
+                            'group h-auto w-full justify-between px-4 py-3',
                         )}
-                    />
-                </Button>
-
-                {executionOpen && (
-                    <div className="flex flex-col gap-4 border-t border-border/40 p-3">
+                        type="button"
+                        variant="ghost"
+                    >
+                        Execution details (optional)
+                        <ChevronDown
+                            className="transition-transform group-data-[state=open]:rotate-180"
+                            data-icon="inline-end"
+                        />
+                    </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <FieldGroup className="gap-4 border-t border-line p-4">
                         <Controller
                             control={form.control}
                             name="actualRisk"
                             render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel
-                                        className="text-sm"
                                         htmlFor={`${formId}-actualRisk`}
                                     >
                                         Actual risk taken ($)
@@ -304,54 +277,50 @@ function OutcomeForm({
                         <Controller
                             control={form.control}
                             name="followedPlan"
-                            render={({ field, fieldState }) => (
-                                <Field
-                                    className="flex flex-row items-center justify-between gap-2"
-                                    data-invalid={fieldState.invalid}
-                                >
-                                    <FieldLabel
-                                        className="text-sm"
-                                        htmlFor={`${formId}-followedPlan`}
-                                    >
-                                        Followed the plan as written
-                                    </FieldLabel>
-                                    <Switch
-                                        aria-invalid={fieldState.invalid}
-                                        checked={field.value}
-                                        id={`${formId}-followedPlan`}
-                                        onCheckedChange={field.onChange}
-                                    />
-                                </Field>
+                            render={({ field }) => (
+                                <SwitchCard
+                                    checked={field.value}
+                                    id={`${formId}-followedPlan`}
+                                    label="Followed the plan as written"
+                                    onCheckedChange={field.onChange}
+                                />
                             )}
                         />
 
-                        <div>
-                            <Label className="text-sm">Deviations</Label>
-                            <div className="mt-2 flex flex-wrap gap-1.5">
+                        <FieldSet>
+                            <FieldLegend variant="label">
+                                Deviations
+                            </FieldLegend>
+                            <ToggleGroup
+                                aria-label="Deviations"
+                                className="flex flex-wrap justify-start gap-2"
+                                onValueChange={(selected) =>
+                                    form.setValue(
+                                        'deviations',
+                                        DEVIATIONS.filter((d) =>
+                                            selected.includes(d.value),
+                                        ).map((d) => d.value),
+                                        { shouldDirty: true },
+                                    )
+                                }
+                                size="sm"
+                                type="multiple"
+                                value={deviations}
+                                variant="outline"
+                            >
                                 {DEVIATIONS.map((d) => (
-                                    <button
-                                        className={cn(
-                                            badgeVariants({
-                                                variant: deviations.includes(
-                                                    d.value,
-                                                )
-                                                    ? 'warning'
-                                                    : 'outline',
-                                            }),
-                                            'cursor-pointer transition',
-                                        )}
+                                    <ToggleGroupItem
                                         key={d.value}
-                                        onClick={() => toggleDeviation(d.value)}
-                                        type="button"
+                                        value={d.value}
                                     >
                                         {d.label}
-                                    </button>
+                                    </ToggleGroupItem>
                                 ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
+                            </ToggleGroup>
+                        </FieldSet>
+                    </FieldGroup>
+                </CollapsibleContent>
+            </Collapsible>
 
             <DialogFooter>
                 <Button

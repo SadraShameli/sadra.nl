@@ -37,6 +37,7 @@ import {
     isActiveAccount,
 } from '~/lib/prop-accounts';
 import { routes } from '~/lib/site/routes';
+import { parseEnum } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import {
@@ -533,13 +534,6 @@ function AccountListFilterBar({
 
 function encodeOption(value: string): string {
     return `${OPTION_PREFIX}${value}`;
-}
-
-function parseEnum<T extends string>(
-    enumObject: Readonly<Record<string, T>>,
-    value: null | string,
-): null | T {
-    return Object.values(enumObject).find((member) => member === value) ?? null;
 }
 
 const NO_COPY_GROUP = 'None';

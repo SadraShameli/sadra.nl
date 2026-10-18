@@ -9,11 +9,10 @@ import { z } from 'zod';
 
 import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
 
+import { SwitchCard } from '~/components/ToggleCard';
 import { Button } from '~/components/ui/button';
 import { Field, FieldLabel } from '~/components/ui/field';
-import { Label } from '~/components/ui/label';
 import { Progress } from '~/components/ui/progress';
-import { Switch } from '~/components/ui/switch';
 import { Textarea } from '~/components/ui/textarea';
 import { prepChecksSchema } from '~/lib/schemas/trading';
 import { deletePrep, savePrep } from '~/lib/trading/actions';
@@ -143,44 +142,28 @@ export function PrepChecklist({
                 <Progress className="mt-2 h-2" value={score} />
             </div>
 
-            <ul
+            <div
                 className={cn(
                     'app-trade-checklist__prep-items',
-                    'flex flex-col gap-2',
+                    'grid gap-2 md:grid-cols-2',
                 )}
             >
                 {PREP_CHECK_KEYS.map((key) => {
                     const meta = CHECK_META[key];
                     return (
-                        <li
-                            className={cn(
-                                'app-trade-checklist__prep-item',
-                                'flex items-center gap-3 rounded-md border border-border/40 p-3',
-                            )}
-                            data-state={checks[key] ? 'checked' : 'unchecked'}
+                        <SwitchCard
+                            checked={checks[key]}
+                            className="app-trade-checklist__prep-item"
+                            description={meta.hint}
+                            disabled={!isToday || pending}
+                            id={`prep-${key}`}
                             key={key}
-                        >
-                            <div className="min-w-0 flex-1">
-                                <Label
-                                    className="text-sm font-medium"
-                                    htmlFor={`prep-${key}`}
-                                >
-                                    {meta.label}
-                                </Label>
-                                <p className="text-xs text-muted-foreground">
-                                    {meta.hint}
-                                </p>
-                            </div>
-                            <Switch
-                                checked={checks[key]}
-                                disabled={!isToday || pending}
-                                id={`prep-${key}`}
-                                onCheckedChange={() => toggle(key)}
-                            />
-                        </li>
+                            label={meta.label}
+                            onCheckedChange={() => toggle(key)}
+                        />
                     );
                 })}
-            </ul>
+            </div>
 
             <Controller
                 control={form.control}

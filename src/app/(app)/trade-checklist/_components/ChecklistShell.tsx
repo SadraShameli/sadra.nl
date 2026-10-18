@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, History, Pencil, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
@@ -12,16 +12,13 @@ import type {
 } from '~/lib/trading/types';
 
 import Eyebrow from '~/components/Eyebrow';
-import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from '~/components/ui/popover';
-import { ScrollArea } from '~/components/ui/scroll-area';
-import { Separator } from '~/components/ui/separator';
 import { profileTabs, routes, withQuery } from '~/lib/site/routes';
 import {
     deleteAllAssessments,
@@ -31,7 +28,7 @@ import {
 import { cn } from '~/lib/utilities';
 
 import { AnalysisReport, type ReportPlan } from './AnalysisReport';
-import { HistoryStrip } from './HistoryStrip';
+import { HistoryPanel } from './HistoryPanel';
 import { WizardStepper } from './WizardStepper';
 
 type SubmissionState =
@@ -147,38 +144,13 @@ export function ChecklistShell({
                     'flex flex-col gap-4',
                 )}
             >
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between gap-2">
-                        <CardTitle className="flex items-center gap-2 text-base">
-                            <History className="size-4" />
-                            Recent
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{history.length}</Badge>
-                            {history.length > 0 && (
-                                <Button
-                                    className="size-7"
-                                    disabled={isDeletePending}
-                                    onClick={handleClearAll}
-                                    size="icon"
-                                    variant="ghost"
-                                >
-                                    <Trash2 className="size-3.5 text-muted-foreground" />
-                                </Button>
-                            )}
-                        </div>
-                    </CardHeader>
-                    <Separator />
-                    <CardContent className="p-0">
-                        <ScrollArea className="h-115">
-                            <HistoryStrip
-                                history={history}
-                                onDelete={handleDelete}
-                                onSelect={handleSelect}
-                            />
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
+                <HistoryPanel
+                    history={history}
+                    isDeletePending={isDeletePending}
+                    onDelete={handleDelete}
+                    onDeleteAll={handleClearAll}
+                    onSelect={handleSelect}
+                />
             </aside>
         </div>
     );

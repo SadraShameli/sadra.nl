@@ -11,6 +11,7 @@ import { STICKY_ACTION_BAR_PROPS } from '~/app/(app)/_components/ScrollToTop';
 import { DAY_STOP_KIND_LABELS } from '~/app/(app)/prop-calculator/_components/describeDayStopRule';
 import { AccountsCardHeading } from '~/app/(app)/prop-calculator/accounts/_components/AccountsCardHeading';
 import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
+import { SwitchCard } from '~/components/ToggleCard';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -31,7 +32,6 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
-import { Switch } from '~/components/ui/switch';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatPercent } from '~/lib/format';
 import { formatUsdCents, usdCents } from '~/lib/prop-accounts';
@@ -941,20 +941,13 @@ function PayoutCard({ control }: { control: Control<RulebookFormValues> }) {
                         className="md:col-span-2"
                         data-invalid={fieldState.invalid}
                     >
-                        <div className="flex items-center gap-2">
-                            <Switch
-                                aria-invalid={fieldState.invalid}
-                                checked={field.value}
-                                id={`${formId}-payout.allowBelowHardRule2`}
-                                onCheckedChange={field.onChange}
-                            />
-                            <FieldLabel
-                                htmlFor={`${formId}-payout.allowBelowHardRule2`}
-                            >
-                                Allow a retained cushion below{' '}
-                                {RULE_SOURCE_LABEL[RuleSource.HardRule2]}
-                            </FieldLabel>
-                        </div>
+                        <SwitchCard
+                            aria-invalid={fieldState.invalid}
+                            checked={field.value}
+                            id={`${formId}-payout.allowBelowHardRule2`}
+                            label={`Allow a retained cushion below ${RULE_SOURCE_LABEL[RuleSource.HardRule2]}`}
+                            onCheckedChange={field.onChange}
+                        />
                         <FieldError errors={[fieldState.error]} />
                     </Field>
                 )}

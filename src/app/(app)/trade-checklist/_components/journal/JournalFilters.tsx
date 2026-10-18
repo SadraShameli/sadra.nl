@@ -2,6 +2,12 @@
 
 import { useMemo } from 'react';
 
+import {
+    MENTAL_FLAG_LABEL,
+    MENTAL_FLAGS,
+    type MentalFlag,
+    OUTCOME_LABEL,
+} from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
 import Eyebrow from '~/components/Eyebrow';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
@@ -15,9 +21,7 @@ export interface JournalFilterState {
     dateFrom: null | string;
     dateTo: null | string;
     grades: string[];
-    mentalFlags: (
-        'boredomHunt' | 'distracted' | 'hesitation' | 'revengeOrFomo'
-    )[];
+    mentalFlags: MentalFlag[];
     outcomes: string[];
     planIds: string[];
     query: null | string;
@@ -40,16 +44,10 @@ const GRADES = [
     'F',
 ] as const;
 
-const MENTAL_FLAG_OPTIONS: {
-    key: JournalFilterState['mentalFlags'][number];
-    label: string;
-}[] = [
-    { key: 'hesitation', label: 'Hesitation' },
-    { key: 'distracted', label: 'Distracted' },
-    { key: 'revengeOrFomo', label: 'Revenge/FOMO' },
-    { key: 'boredomHunt', label: 'Boredom' },
-];
-
+const MENTAL_FLAG_OPTIONS = MENTAL_FLAGS.map((key) => ({
+    key,
+    label: MENTAL_FLAG_LABEL[key],
+}));
 interface ChipRowProperties<T extends string> {
     label: string;
     onChange: (v: T[]) => void;
@@ -144,10 +142,7 @@ export function JournalFilters({
                 onChange={(outcomes) => onChange({ ...state, outcomes })}
                 options={OUTCOME_VALUES.map((o) => ({
                     key: o,
-                    label:
-                        o === 'no-trade'
-                            ? 'Skipped'
-                            : o.charAt(0).toUpperCase() + o.slice(1),
+                    label: OUTCOME_LABEL[o],
                 }))}
                 selected={state.outcomes}
             />

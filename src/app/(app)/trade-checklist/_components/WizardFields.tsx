@@ -8,19 +8,14 @@ import {
 } from 'lucide-react';
 import { type ReactNode } from 'react';
 
-import { Badge } from '~/components/ui/badge';
-import { Checkbox } from '~/components/ui/checkbox';
 import {
     Field,
-    FieldContent,
     FieldDescription,
     FieldLabel,
     FieldLegend,
     FieldSet,
-    FieldTitle,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
-import { Switch } from '~/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { cn } from '~/lib/utilities';
 
@@ -39,35 +34,6 @@ export interface ChoiceOption<T extends string> {
     hint?: ReactNode;
     label: ReactNode;
     value: T;
-}
-
-interface ToggleCardProperties {
-    checked: boolean;
-    description?: ReactNode;
-    flag?: string;
-    id: string;
-    label: ReactNode;
-    onCheckedChange: (isChecked: boolean) => void;
-}
-
-export function CheckboxCard({
-    checked,
-    onCheckedChange,
-    ...card
-}: ToggleCardProperties) {
-    return (
-        <ControlCard
-            {...card}
-            control={
-                <Checkbox
-                    checked={checked}
-                    id={card.id}
-                    onCheckedChange={(state) => onCheckedChange(state === true)}
-                />
-            }
-            isChecked={checked}
-        />
-    );
 }
 
 export function ChoiceCards<T extends string>({
@@ -203,65 +169,6 @@ export function NumberCard({
                 <FieldDescription>{description}</FieldDescription>
             )}
         </Field>
-    );
-}
-
-export function SwitchCard({
-    checked,
-    onCheckedChange,
-    ...card
-}: ToggleCardProperties) {
-    return (
-        <ControlCard
-            {...card}
-            control={
-                <Switch
-                    checked={checked}
-                    id={card.id}
-                    onCheckedChange={onCheckedChange}
-                />
-            }
-            isChecked={checked}
-        />
-    );
-}
-
-function ControlCard({
-    control,
-    description,
-    flag,
-    id,
-    isChecked,
-    label,
-}: {
-    control: ReactNode;
-    description?: ReactNode;
-    flag?: string;
-    id: string;
-    isChecked: boolean;
-    label: ReactNode;
-}) {
-    const isFlagged = isChecked && flag !== undefined;
-    return (
-        <FieldLabel
-            className={cn(
-                'cursor-pointer rounded-2xl border-line transition-colors select-none hover:border-ink-muted/40 *:data-[slot=field]:px-4 *:data-[slot=field]:py-3',
-                isFlagged &&
-                    'has-data-[state=checked]:border-destructive/50 has-data-[state=checked]:bg-destructive/5 dark:has-data-[state=checked]:bg-destructive/10',
-            )}
-            htmlFor={id}
-        >
-            <Field orientation="horizontal">
-                {control}
-                <FieldContent>
-                    <FieldTitle>{label}</FieldTitle>
-                    {description !== undefined && (
-                        <FieldDescription>{description}</FieldDescription>
-                    )}
-                </FieldContent>
-                {isFlagged && <Badge variant="destructive">{flag}</Badge>}
-            </Field>
-        </FieldLabel>
     );
 }
 

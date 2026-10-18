@@ -13,6 +13,7 @@ import type {
     UnknownMerchant,
 } from '~/lib/accounting/core/types';
 
+import { SwitchCard } from '~/components/ToggleCard';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -44,7 +45,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { Switch } from '~/components/ui/switch';
 import { Eur } from '~/lib/accounting/core/money';
 import { cn } from '~/lib/utilities';
 
@@ -844,22 +844,18 @@ function BookingEditDialog({
                         </Select>
                     </Field>
                     {direction === 'IN' && (
-                        <Field>
-                            <FieldLabel htmlFor={refundId}>Refund</FieldLabel>
-                            <div className="flex items-center gap-2 text-xs">
-                                <Switch
-                                    checked={isRefund}
-                                    disabled={!purchaseRule}
-                                    id={refundId}
-                                    onCheckedChange={toggleRefund}
-                                />
-                                <span className="text-muted-foreground">
-                                    {purchaseRule
-                                        ? `Reverse the purchase → ${purchaseRule.ledger.label}`
-                                        : 'No purchase rule for this counterpart'}
-                                </span>
-                            </div>
-                        </Field>
+                        <SwitchCard
+                            checked={isRefund}
+                            description={
+                                purchaseRule
+                                    ? `Reverse the purchase → ${purchaseRule.ledger.label}`
+                                    : 'No purchase rule for this counterpart'
+                            }
+                            disabled={!purchaseRule}
+                            id={refundId}
+                            label="Refund"
+                            onCheckedChange={toggleRefund}
+                        />
                     )}
                     <Field>
                         <FieldLabel htmlFor={counterpartId}>

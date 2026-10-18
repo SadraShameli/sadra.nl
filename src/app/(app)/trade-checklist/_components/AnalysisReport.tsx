@@ -1,15 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import {
-    ArrowRight,
-    BookmarkCheck,
-    CheckCircle2,
-    RotateCcw,
-    Save,
-    Sparkles,
-    XCircle,
-} from 'lucide-react';
+import { BookmarkCheck, RotateCcw, Save } from 'lucide-react';
 import { useMemo, useState, useTransition } from 'react';
 
 import type {
@@ -34,6 +26,7 @@ import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 
 import { OutcomeDialog } from './OutcomeDialog';
+import { ReasonListPanel } from './ReasonListPanel';
 
 export interface ReportPlan {
     readonly config: TradingPlanConfig;
@@ -259,98 +252,26 @@ export function AnalysisReport({
             </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
-                <Card className="border-l-4 border-l-emerald-500">
-                    <CardHeader className="flex flex-row items-center justify-start gap-2">
-                        <CheckCircle2 className="size-4 text-success" />
-                        <CardTitle className="text-base">
-                            Why to take it
-                        </CardTitle>
-                    </CardHeader>
-                    <Separator />
-                    <CardContent>
-                        {result.strengths.length > 0 ? (
-                            <ul
-                                className={cn(
-                                    'app-trade-checklist__strengths-list',
-                                    'flex flex-col gap-2 text-sm',
-                                )}
-                            >
-                                {result.strengths.map((s, index) => (
-                                    <li
-                                        className="flex items-start gap-2"
-                                        key={index}
-                                    >
-                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-success" />
-                                        <span>{s}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">
-                                No clear strengths identified.
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
+                <ReasonListPanel
+                    className="app-trade-checklist__strengths"
+                    emptyText="No clear strengths identified."
+                    items={result.strengths}
+                    title="Why to take it"
+                />
 
-                <Card className="border-l-4 border-l-rose-500">
-                    <CardHeader className="flex flex-row items-center justify-start gap-2">
-                        <XCircle className="size-4 text-destructive" />
-                        <CardTitle className="text-base">
-                            Why to skip it
-                        </CardTitle>
-                    </CardHeader>
-                    <Separator />
-                    <CardContent>
-                        {result.weaknesses.length > 0 ? (
-                            <ul
-                                className={cn(
-                                    'app-trade-checklist__weaknesses-list',
-                                    'flex flex-col gap-2 text-sm',
-                                )}
-                            >
-                                {result.weaknesses.map((w, index) => (
-                                    <li
-                                        className="flex items-start gap-2"
-                                        key={index}
-                                    >
-                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-destructive" />
-                                        <span>{w}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">
-                                No significant weaknesses detected.
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
+                <ReasonListPanel
+                    className="app-trade-checklist__weaknesses"
+                    emptyText="No significant weaknesses detected."
+                    items={result.weaknesses}
+                    title="Why to skip it"
+                />
             </div>
 
             {result.improvements.length > 0 && (
-                <Card className="border-l-4 border-l-sky-500">
-                    <CardHeader className="flex flex-row items-center justify-start gap-2">
-                        <Sparkles className="size-4 text-info" />
-                        <CardTitle className="text-base">
-                            How to upgrade this setup
-                        </CardTitle>
-                    </CardHeader>
-                    <Separator />
-                    <CardContent>
-                        <ul className="flex flex-col gap-2 text-sm">
-                            {result.improvements.map((imp, index) => (
-                                <li
-                                    className="flex items-start gap-2"
-                                    key={index}
-                                >
-                                    <ArrowRight className="mt-0.5 size-4 shrink-0 text-info" />
-                                    <span>{imp}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </CardContent>
-                </Card>
+                <ReasonListPanel
+                    items={result.improvements}
+                    title="How to upgrade this setup"
+                />
             )}
 
             <Card>
@@ -402,18 +323,15 @@ export function AnalysisReport({
 
             <div className="flex flex-wrap items-center justify-end gap-2 pt-4">
                 <Button onClick={onRestart} variant="ghost">
-                    <RotateCcw className="mr-1 size-4" />
+                    <RotateCcw data-icon="inline-start" />
                     Restart
                 </Button>
                 {savedId ? (
                     <>
-                        <Badge
-                            className="font-mono text-xs"
-                            variant="secondary"
-                        >
-                            <BookmarkCheck className="mr-1 size-3" />
+                        <Button disabled variant="outline">
+                            <BookmarkCheck data-icon="inline-start" />
                             Saved
-                        </Badge>
+                        </Button>
                         <Button onClick={() => setOutcomeOpen(true)}>
                             Record outcome
                         </Button>
@@ -425,7 +343,7 @@ export function AnalysisReport({
                             onClick={() => persist()}
                             variant="outline"
                         >
-                            <Save className="mr-1 size-4" />
+                            <Save data-icon="inline-start" />
                             Save assessment
                         </Button>
                         <Button

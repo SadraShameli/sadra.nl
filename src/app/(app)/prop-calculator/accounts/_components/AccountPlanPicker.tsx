@@ -1,7 +1,7 @@
 'use client';
 
+import { CheckboxCard } from '~/components/ToggleCard';
 import { Badge } from '~/components/ui/badge';
-import { Checkbox } from '~/components/ui/checkbox';
 import {
     Field,
     FieldError,
@@ -220,34 +220,29 @@ export function AccountPlanPicker({
                             This plan offers no opt-in options.
                         </p>
                     ) : (
-                        optInOptions.map((option) => {
-                            const id = `account-opt-in-${option.optIn}`;
-                            return (
-                                <Field
-                                    key={option.optIn}
-                                    orientation="horizontal"
-                                >
-                                    <Checkbox
+                        <div className="grid gap-2 md:grid-cols-2">
+                            {optInOptions.map((option) => {
+                                const id = `account-opt-in-${option.optIn}`;
+                                return (
+                                    <CheckboxCard
                                         {...errorProperties}
                                         checked={value.optIns[option.field]}
                                         id={id}
-                                        onCheckedChange={(checked) => {
+                                        key={option.optIn}
+                                        label={`Takes the ${option.label}`}
+                                        onCheckedChange={(isChecked) => {
                                             onChange({
                                                 ...value,
                                                 optIns: {
                                                     ...value.optIns,
-                                                    [option.field]:
-                                                        checked === true,
+                                                    [option.field]: isChecked,
                                                 },
                                             });
                                         }}
                                     />
-                                    <FieldLabel htmlFor={id}>
-                                        Takes the {option.label}
-                                    </FieldLabel>
-                                </Field>
-                            );
-                        })
+                                );
+                            })}
+                        </div>
                     )}
                 </FieldSet>
             )}

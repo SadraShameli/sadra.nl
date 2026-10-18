@@ -39,13 +39,12 @@ import {
     PortfolioSource,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useAccountDetailValues } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
+import { CheckboxCard } from '~/components/ToggleCard';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
-import { Checkbox } from '~/components/ui/checkbox';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
-import { Field, FieldLabel } from '~/components/ui/field';
 import { Skeleton } from '~/components/ui/skeleton';
 import { errorMessage } from '~/lib/errorMessage';
 import {
@@ -1352,19 +1351,13 @@ function UpgradeToModeled({
                 ))}
             </div>
             {requiresConfirmation && (
-                <Field className="text-sm" orientation="horizontal">
-                    <Checkbox
-                        aria-describedby={changesId}
-                        checked={isConfirmed}
-                        id="account-upgrade-confirm"
-                        onCheckedChange={(checked) => {
-                            setConfirmed(checked === true);
-                        }}
-                    />
-                    <FieldLabel htmlFor="account-upgrade-confirm">
-                        I confirm this change
-                    </FieldLabel>
-                </Field>
+                <CheckboxCard
+                    aria-describedby={changesId}
+                    checked={isConfirmed}
+                    id="account-upgrade-confirm"
+                    label="I confirm this change"
+                    onCheckedChange={setConfirmed}
+                />
             )}
             <Button
                 aria-describedby={requiresConfirmation ? changesId : undefined}

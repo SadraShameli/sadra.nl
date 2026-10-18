@@ -2,7 +2,7 @@ import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CheckboxCard } from '~/app/(app)/trade-checklist/_components/WizardFields';
+import { CheckboxCard } from '~/components/ToggleCard';
 
 const mounted: { container: HTMLDivElement; root: Root }[] = [];
 
@@ -34,7 +34,7 @@ function StatefulCheckboxCard() {
     );
 }
 
-describe('the wizard checkbox card', () => {
+describe('the checkbox card', () => {
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     });

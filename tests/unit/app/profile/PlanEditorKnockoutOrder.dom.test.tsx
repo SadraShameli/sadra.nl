@@ -70,8 +70,10 @@ describe('PlanEditor knockout rules', () => {
         });
         const section = container.querySelector('.app-profile__plan-knockouts');
         return [
-            ...(section?.querySelectorAll(':scope label > span') ?? []),
-        ].map((span) => span.textContent);
+            ...(section?.querySelectorAll(
+                ':scope [data-slot="field-content"] > [data-slot="field-label"]',
+            ) ?? []),
+        ].map((title) => title.textContent);
     }
 
     it.each([

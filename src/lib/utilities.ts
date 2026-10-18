@@ -44,3 +44,10 @@ const twMerge = extendTailwindMerge<'glass' | 'selected-pill' | 'type-scale'>({
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
+
+export function parseEnum<T extends string>(
+    enumObject: Readonly<Record<string, T>>,
+    value: null | string,
+): null | T {
+    return Object.values(enumObject).find((member) => member === value) ?? null;
+}
