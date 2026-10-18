@@ -316,7 +316,7 @@ export const homepageContent: HomepageData = {
         ],
         heading: { before: 'More', emphasis: 'about me.' },
         spotifyEmbedUrl:
-            'https://open.spotify.com/embed/track/74Jja0PIrdXE0aK0a6hxPN?utm_source=generator&theme=0',
+            'https://open.spotify.com/embed/track/0BxE4FqsDD1Ot4YuBXwAPp?theme=0',
         spotifyLabel: 'On repeat',
     },
     closing: {
