@@ -189,6 +189,19 @@ function FieldSet({
     );
 }
 
+function FieldTitle({ className, ...properties }: React.ComponentProps<'div'>) {
+    return (
+        <div
+            className={cn(
+                'flex w-fit items-center gap-2 text-sm/snug font-medium group-data-[disabled=true]/field:opacity-50',
+                className,
+            )}
+            data-slot="field-label"
+            {...properties}
+        />
+    );
+}
+
 export {
     Field,
     FieldContent,
@@ -198,4 +211,5 @@ export {
     FieldLabel,
     FieldLegend,
     FieldSet,
+    FieldTitle,
 };

@@ -1,8 +1,15 @@
 'use client';
 
+import {
+    CircleCheck,
+    CircleX,
+    type LucideIcon,
+    TriangleAlert,
+} from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import { Badge } from '~/components/ui/badge';
+import { Checkbox } from '~/components/ui/checkbox';
 import {
     Field,
     FieldContent,
@@ -10,6 +17,7 @@ import {
     FieldLabel,
     FieldLegend,
     FieldSet,
+    FieldTitle,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Switch } from '~/components/ui/switch';
@@ -21,10 +29,45 @@ export const WIZARD_CARD_CLASS = 'rounded-2xl border border-line px-4 py-3';
 const CHOICE_CARD_CLASS =
     'h-auto w-full flex-col items-start gap-0.5 rounded-2xl px-4 py-3 text-left whitespace-normal';
 
+export enum StatusTone {
+    Fail = 'fail',
+    Pass = 'pass',
+    Warn = 'warn',
+}
+
 export interface ChoiceOption<T extends string> {
     hint?: ReactNode;
     label: ReactNode;
     value: T;
+}
+
+interface ToggleCardProperties {
+    checked: boolean;
+    description?: ReactNode;
+    flag?: string;
+    id: string;
+    label: ReactNode;
+    onCheckedChange: (isChecked: boolean) => void;
+}
+
+export function CheckboxCard({
+    checked,
+    onCheckedChange,
+    ...card
+}: ToggleCardProperties) {
+    return (
+        <ControlCard
+            {...card}
+            control={
+                <Checkbox
+                    checked={checked}
+                    id={card.id}
+                    onCheckedChange={(state) => onCheckedChange(state === true)}
+                />
+            }
+            isChecked={checked}
+        />
+    );
 }
 
 export function ChoiceCards<T extends string>({
@@ -126,46 +169,6 @@ export function MultiChoiceCards<T extends string>({
     );
 }
 
-export function SwitchCard({
-    checked,
-    description,
-    flag,
-    id,
-    label,
-    onCheckedChange,
-}: {
-    checked: boolean;
-    description?: ReactNode;
-    flag?: string;
-    id: string;
-    label: ReactNode;
-    onCheckedChange: (checked: boolean) => void;
-}) {
-    const isFlagged = checked && flag !== undefined;
-    return (
-        <Field
-            className={cn(
-                WIZARD_CARD_CLASS,
-                isFlagged && 'border-destructive/50',
-            )}
-            orientation="horizontal"
-        >
-            <Switch
-                checked={checked}
-                id={id}
-                onCheckedChange={onCheckedChange}
-            />
-            <FieldContent>
-                <FieldLabel htmlFor={id}>{label}</FieldLabel>
-                {description !== undefined && (
-                    <FieldDescription>{description}</FieldDescription>
-                )}
-            </FieldContent>
-            {isFlagged && <Badge variant="destructive">{flag}</Badge>}
-        </Field>
-    );
-}
-
 export function NumberCard({
     description,
     id,
@@ -200,5 +203,144 @@ export function NumberCard({
                 <FieldDescription>{description}</FieldDescription>
             )}
         </Field>
+    );
+}
+
+export function SwitchCard({
+    checked,
+    onCheckedChange,
+    ...card
+}: ToggleCardProperties) {
+    return (
+        <ControlCard
+            {...card}
+            control={
+                <Switch
+                    checked={checked}
+                    id={card.id}
+                    onCheckedChange={onCheckedChange}
+                />
+            }
+            isChecked={checked}
+        />
+    );
+}
+
+function ControlCard({
+    control,
+    description,
+    flag,
+    id,
+    isChecked,
+    label,
+}: {
+    control: ReactNode;
+    description?: ReactNode;
+    flag?: string;
+    id: string;
+    isChecked: boolean;
+    label: ReactNode;
+}) {
+    const isFlagged = isChecked && flag !== undefined;
+    return (
+        <FieldLabel
+            className={cn(
+                'cursor-pointer rounded-2xl border-line transition-colors select-none hover:border-ink-muted/40 *:data-[slot=field]:px-4 *:data-[slot=field]:py-3',
+                isFlagged &&
+                    'has-data-[state=checked]:border-destructive/50 has-data-[state=checked]:bg-destructive/5 dark:has-data-[state=checked]:bg-destructive/10',
+            )}
+            htmlFor={id}
+        >
+            <Field orientation="horizontal">
+                {control}
+                <FieldContent>
+                    <FieldTitle>{label}</FieldTitle>
+                    {description !== undefined && (
+                        <FieldDescription>{description}</FieldDescription>
+                    )}
+                </FieldContent>
+                {isFlagged && <Badge variant="destructive">{flag}</Badge>}
+            </Field>
+        </FieldLabel>
+    );
+}
+
+const STATUS_TONE_CLASS: Record<StatusTone, string> = {
+    [StatusTone.Fail]: 'bg-destructive/15 text-destructive',
+    [StatusTone.Pass]: 'bg-success/15 text-success',
+    [StatusTone.Warn]: 'bg-warning/15 text-warning',
+};
+
+const STATUS_METER_CLASS: Record<StatusTone, string> = {
+    [StatusTone.Fail]: 'bg-destructive',
+    [StatusTone.Pass]: 'bg-success',
+    [StatusTone.Warn]: 'bg-warning',
+};
+
+const STATUS_ICON: Record<StatusTone, LucideIcon> = {
+    [StatusTone.Fail]: CircleX,
+    [StatusTone.Pass]: CircleCheck,
+    [StatusTone.Warn]: TriangleAlert,
+};
+
+export function StatusRow({
+    detail,
+    meter,
+    title,
+    tone,
+    value,
+}: {
+    detail?: ReactNode;
+    meter?: { filled: number; total: number };
+    title: ReactNode;
+    tone: StatusTone;
+    value?: ReactNode;
+}) {
+    const Icon = STATUS_ICON[tone];
+    return (
+        <div
+            className={cn(WIZARD_CARD_CLASS, 'flex flex-col gap-3')}
+            role="status"
+        >
+            <div className="flex items-center gap-3">
+                <span
+                    className={cn(
+                        'flex size-9 shrink-0 items-center justify-center rounded-full',
+                        STATUS_TONE_CLASS[tone],
+                    )}
+                >
+                    <Icon aria-hidden className="size-4.5" />
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <p className="m-0 text-sm font-medium text-foreground">
+                        {title}
+                    </p>
+                    {detail !== undefined && (
+                        <p className="m-0 text-xs text-muted-foreground">
+                            {detail}
+                        </p>
+                    )}
+                </div>
+                {value !== undefined && (
+                    <span className="font-mono text-lg text-foreground tabular-nums">
+                        {value}
+                    </span>
+                )}
+            </div>
+            {meter !== undefined && (
+                <div aria-hidden className="flex gap-1">
+                    {Array.from({ length: meter.total }, (_, index) => (
+                        <span
+                            className={cn(
+                                'h-1.5 flex-1 rounded-full bg-muted',
+                                index < meter.filled &&
+                                    STATUS_METER_CLASS[tone],
+                            )}
+                            key={index}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }

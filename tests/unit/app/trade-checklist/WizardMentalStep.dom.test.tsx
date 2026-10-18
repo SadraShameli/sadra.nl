@@ -73,10 +73,19 @@ describe('the wizard mental-state step', () => {
 
     it('flags a knockout when its row text is clicked', () => {
         const container = renderWizard();
-        const label = switchesIn(container)[0]
-            ?.closest('[data-slot="field"]')
-            ?.querySelector('label');
+        const label = switchesIn(container)[0]?.closest('label');
         act(() => label?.click());
+        expect(switchesIn(container)[0]?.getAttribute('aria-checked')).toBe(
+            'true',
+        );
+    });
+
+    it('flags a knockout when anywhere on its card is clicked', () => {
+        const container = renderWizard();
+        const description = switchesIn(container)[0]
+            ?.closest('[data-slot="field"]')
+            ?.querySelector<HTMLElement>('[data-slot="field-description"]');
+        act(() => description?.click());
         expect(switchesIn(container)[0]?.getAttribute('aria-checked')).toBe(
             'true',
         );
