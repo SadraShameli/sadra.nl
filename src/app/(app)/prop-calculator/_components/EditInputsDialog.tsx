@@ -34,7 +34,7 @@ export function EditInputsDialog({
                     Edit inputs
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl">
+            <DialogContent className="max-h-[85dvh] sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Edit inputs</DialogTitle>
                     <DialogDescription>

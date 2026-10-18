@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WeeklyReviewView } from '~/app/(app)/prop-calculator/accounts/review/WeeklyReviewView';
+import { formatDisplayDate } from '~/lib/format';
 import {
     AccountStage,
     AccountStatus,
@@ -22,6 +23,9 @@ import {
     TradingPhase,
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+
+import { typeInto } from '../../../components/formDialog';
+import { infoText } from '../infoPopover';
 
 const FIRST_ID = 'a1111111-1111-4111-8111-111111111111';
 const SECOND_ID = 'a2222222-2222-4222-8222-222222222222';
@@ -271,13 +275,6 @@ function tick(card: HTMLElement, id: string) {
     });
 }
 
-function typeInto(input: HTMLInputElement, value: string) {
-    act(() => {
-        Reflect.set(HTMLInputElement.prototype, 'value', value, input);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-}
-
 describe('WeeklyReviewView form', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -334,7 +331,7 @@ describe('WeeklyReviewView form', () => {
 
     it('shows a row nobody touched as unchanged since the previous snapshot and counts the rows not updated', () => {
         expect(cardOf('Eval one').textContent).toContain(
-            `Unchanged since ${PREVIOUS_ON}`,
+            `Unchanged since ${formatDisplayDate(PREVIOUS_ON)}`,
         );
         expect(container.textContent).toContain('2 accounts not updated');
     });
@@ -586,7 +583,7 @@ describe('WeeklyReviewView form', () => {
                 .value,
         ).toBe('5');
         expect(cardOf('Eval one').textContent).not.toContain(
-            `Unchanged since ${PREVIOUS_ON}`,
+            `Unchanged since ${formatDisplayDate(PREVIOUS_ON)}`,
         );
         harness.queries.set(
             'snapshot.latestForAll',
@@ -607,7 +604,7 @@ describe('WeeklyReviewView form', () => {
         });
         const first = cardOf('Eval one');
         expect(first.textContent).toContain(
-            `Already recorded for ${REVIEW_ON}`,
+            `Already recorded for ${formatDisplayDate(REVIEW_ON)}`,
         );
         expect(first.querySelector(`#unchanged-${FIRST_ID}`)).toBeNull();
         expect(container.textContent).toContain('1 account not updated');
@@ -635,7 +632,7 @@ describe('WeeklyReviewView form', () => {
         );
         const text = cardOf('Eval one').textContent;
         expect(text).toContain('Risk per trade under your documented rule:');
-        expect(text).toContain(
+        expect(infoText(cardOf('Eval one'), 'Sizing assumptions')).toContain(
             'Assumes no payout is pending and does not check the live triggers',
         );
     });
@@ -789,7 +786,7 @@ describe('WeeklyReviewView form', () => {
                 submitted().snapshots.map((snapshot) => snapshot.accountId),
             ).toEqual([SECOND_ID]);
             expect(cardOf('Eval one').textContent).toContain(
-                `Already recorded for ${REVIEW_ON}`,
+                `Already recorded for ${formatDisplayDate(REVIEW_ON)}`,
             );
         });
 

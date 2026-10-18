@@ -11,16 +11,28 @@ import {
 } from '~/components/ui/popover';
 import { cn } from '~/lib/utilities';
 
+export enum InfoPopoverWidth {
+    Default = 'default',
+    Wide = 'wide',
+}
+
+const WIDTH_CLASS: Record<InfoPopoverWidth, string> = {
+    [InfoPopoverWidth.Default]: 'w-80',
+    [InfoPopoverWidth.Wide]: 'w-xl',
+};
+
 interface InfoPopoverProperties {
     children: React.ReactNode;
     className?: string;
     title: string;
+    width?: InfoPopoverWidth;
 }
 
 export default function InfoPopover({
     children,
     className,
     title,
+    width = InfoPopoverWidth.Default,
 }: InfoPopoverProperties) {
     return (
         <Popover>
@@ -39,7 +51,13 @@ export default function InfoPopover({
                     <Info className="size-3.5" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80">
+            <PopoverContent
+                align="end"
+                className={cn(
+                    WIDTH_CLASS[width],
+                    'max-h-(--radix-popover-content-available-height) max-w-[calc(100vw-2rem)] overflow-y-auto',
+                )}
+            >
                 <div className="flex flex-col gap-2">
                     <div className="text-sm font-semibold">{title}</div>
                     <div className="text-sm/relaxed text-muted-foreground [&_p:not([class*='text-'])]:text-sm">

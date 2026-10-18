@@ -42,6 +42,7 @@ export function SizingView() {
 
                 <ToolSection
                     id={LegacySection.OptimalRisk}
+                    isPanel
                     title="Optimal risk"
                 >
                     <OptimalRiskTable

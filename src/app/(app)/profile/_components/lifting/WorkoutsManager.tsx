@@ -1,26 +1,28 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Calendar, ExternalLink, Pencil, Play } from 'lucide-react';
+import { Calendar, ExternalLink, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
     ProfileDateCell,
     ProfileDatePrecision,
     ProfileTableEmpty,
-    RowActionButton,
-    RowActionLink,
-    RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { FormDialog } from '~/components/FormDialog';
+import {
+    deleteRowAction,
+    editRowAction,
+    linkRowAction,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import {
     DataTable,
@@ -41,6 +43,7 @@ import {
     WORKOUT_DURATION_BUCKETS,
     WorkoutDuration,
 } from '~/lib/lifting/workout-duration';
+import { workoutName } from '~/lib/lifting/workout-name';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -106,12 +109,11 @@ export function WorkoutsManager() {
                         className="hover:underline"
                         href={routes.lifting.workout(row.original.id)}
                     >
-                        <PrimaryCell>
-                            {row.original.name ?? 'Workout'}
-                        </PrimaryCell>
+                        <PrimaryCell>{workoutName(row.original)}</PrimaryCell>
                     </Link>
                 ),
                 header: 'Workout',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => new Date(r.startedAt).getTime(),
@@ -153,26 +155,25 @@ export function WorkoutsManager() {
                 header: 'Status',
                 id: WorkoutColumn.Status,
             },
-            profileActionsColumn<WorkoutRow>((workout) => (
-                <>
-                    <RowActionLink
-                        href={routes.lifting.workout(workout.id)}
-                        icon={ExternalLink}
-                        label="Open workout"
-                    />
-                    <RowActionButton
-                        icon={Pencil}
-                        label="Edit workout"
-                        onClick={() => setEditing(workout)}
-                    />
-                    <RowConfirmAction
-                        description="Removes the workout and all its sets permanently."
-                        label="Delete workout"
-                        onConfirm={() => remove.mutate({ id: workout.id })}
-                        title={`Delete “${workout.name ?? 'Workout'}”?`}
-                    />
-                </>
-            )),
+            rowActionsColumn<WorkoutRow>({
+                actionsOf: (workout) => [
+                    linkRowAction({
+                        href: routes.lifting.workout(workout.id),
+                        icon: ExternalLink,
+                        label: 'Open',
+                    }),
+                    editRowAction(() => setEditing(workout)),
+                    deleteRowAction({
+                        description:
+                            'Removes the workout and all its sets permanently.',
+                        onDelete: () => remove.mutate({ id: workout.id }),
+                        title: `Delete “${workoutName(workout)}”?`,
+                    }),
+                ],
+                isPendingOf: (workout) =>
+                    remove.isPending && remove.variables.id === workout.id,
+                labelOf: workoutName,
+            }),
         ],
         [remove],
     );
@@ -188,8 +189,8 @@ export function WorkoutsManager() {
 
     return (
         <>
-            <ProfilePanel
-                action={logButton}
+            <ToolPanel
+                actions={logButton}
                 description="Every workout you logged. Edit the details here or open one to manage its sets."
                 title="Workouts"
             >
@@ -229,7 +230,7 @@ export function WorkoutsManager() {
                     rowId={(r) => r.id}
                     showFilter
                 />
-            </ProfilePanel>
+            </ToolPanel>
 
             {editing && (
                 <WorkoutEditDialog
@@ -308,7 +309,7 @@ function WorkoutEditDialog({
             }}
             open
         >
-            <ProfileFormDialog
+            <FormDialog
                 form={form}
                 onCancel={onClose}
                 onSubmit={onSubmit}
@@ -398,7 +399,7 @@ function WorkoutEditDialog({
                         </Field>
                     )}
                 />
-            </ProfileFormDialog>
+            </FormDialog>
         </Dialog>
     );
 }

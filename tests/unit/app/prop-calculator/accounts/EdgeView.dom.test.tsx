@@ -119,6 +119,24 @@ describe('EdgeView', () => {
         );
     });
 
+    it('nests the metric panels as h3 headings under the one Journal edge h2', () => {
+        harness.queries.set(
+            'edge.summary',
+            answer({ summary: edgeSummary(10), truncated: false }),
+        );
+        render();
+        expect(
+            [...container.querySelectorAll('h2')].map(
+                (heading) => heading.textContent,
+            ),
+        ).toEqual(['Journal edge']);
+        expect(
+            [...container.querySelectorAll('h3')].map(
+                (heading) => heading.textContent,
+            ),
+        ).toEqual(['Win rate', 'Expectancy']);
+    });
+
     it('prints no interval when the journal has no counted trade', () => {
         harness.queries.set(
             'edge.summary',

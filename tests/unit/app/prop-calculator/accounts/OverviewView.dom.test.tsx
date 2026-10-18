@@ -19,6 +19,7 @@ import {
 import { type AccountListAccount } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { OverviewView } from '~/app/(app)/prop-calculator/accounts/_components/overview/OverviewView';
 import PropAccountsPage from '~/app/(app)/prop-calculator/accounts/page';
+import { formatDisplayDate } from '~/lib/format';
 import {
     AccountEventKind,
     AccountStage,
@@ -53,6 +54,7 @@ import {
 import { routes } from '~/lib/site/routes';
 
 import { resolveServerTree } from '../../resolveServerTree';
+import { infoText } from '../infoPopover';
 import { openDisclosure } from './openDisclosure';
 
 interface FakeQuery {
@@ -511,7 +513,11 @@ describe('OverviewView', () => {
 
     function headingOf(section: HTMLElement): HTMLElement | null {
         const id = section.getAttribute('aria-labelledby') ?? '';
-        return container.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+        return (
+            container
+                .querySelector(`#${CSS.escape(id)}`)
+                ?.closest<HTMLElement>('h2') ?? null
+        );
     }
 
     function sectionNamed(title: string): HTMLElement | undefined {
@@ -810,7 +816,7 @@ describe('OverviewView', () => {
         harness.queries.set('payout.list', answer([paidPayout]));
         render();
         const statement = sectionNamed('Monthly statement');
-        expect(statement?.textContent).toContain('2026-06');
+        expect(statement?.textContent).toContain('Jun 2026');
         const cohortTab = [
             ...(statement?.querySelectorAll('[role="tab"]') ?? []),
         ].find((tab) => tab.textContent === 'By purchase cohort');
@@ -823,7 +829,7 @@ describe('OverviewView', () => {
             );
         });
         expect(statement?.textContent).toContain('In progress');
-        expect(statement?.textContent).toContain('2026-06');
+        expect(statement?.textContent).toContain('Jun 2026');
     });
 
     it('shows an attempts-per-month card (F-V7)', () => {
@@ -831,7 +837,7 @@ describe('OverviewView', () => {
         answerEverything([alpha]);
         render();
         const section = sectionNamed('Attempt throughput');
-        expect(section?.textContent).toContain('2026-06');
+        expect(section?.textContent).toContain('Jun 2026');
         expect(section?.textContent).toContain(firm.displayName);
     });
 
@@ -868,7 +874,7 @@ describe('OverviewView', () => {
             'No account with a modeled plan yet.',
         );
         expect(attemptEconomics?.textContent).toContain(firm.displayName);
-        expect(attemptEconomics?.textContent).toContain(
+        expect(infoText(container, 'Your attempt economics')).toContain(
             'Realized EV per attempt: ignores time.',
         );
     });
@@ -1198,9 +1204,17 @@ describe('OverviewView', () => {
         answerEverything([overviewAccount('alpha')]);
         render();
         const tile = sectionNamed('Firms');
-        expect(tile?.textContent).toContain(
-            '1 firms used, 1 active, 0 sent live.',
+        const figures = Object.fromEntries(
+            [...(tile?.querySelectorAll('dt') ?? [])].map((term) => [
+                term.textContent,
+                term.nextElementSibling?.textContent,
+            ]),
         );
+        expect(figures).toMatchObject({
+            Active: '1',
+            'Firms used': '1',
+            'Sent live': '0',
+        });
         expect(tile?.textContent).toContain('Sample thresholds not set');
         expect(
             [...(tile?.querySelectorAll('a') ?? [])]
@@ -1216,7 +1230,7 @@ describe('OverviewView', () => {
             harness.queries.delete(pendingQuery);
             render();
             const tile = sectionNamed('Firms');
-            expect(tile?.textContent).not.toContain('firms used');
+            expect(tile?.textContent).not.toContain('Firms used');
             expect(tile?.textContent).not.toContain('Scale gate');
             expect(tile?.querySelector('.animate-pulse')).not.toBeNull();
         },
@@ -1244,7 +1258,9 @@ describe('OverviewView', () => {
         expect(ev?.textContent).toContain(
             'Conversion EV per attempt (modeled)',
         );
-        expect(ev?.textContent).toContain('not the ranking objective');
+        expect(infoText(container, 'Where EV comes from')).toContain(
+            'not the ranking objective',
+        );
         expect(ev?.textContent).toContain(firm.displayName);
     });
 
@@ -1286,7 +1302,7 @@ describe('OverviewView', () => {
         render();
         const kpis = sectionNamed('Key figures')?.textContent ?? '';
         expect(kpis).toContain('Worst day loss');
-        expect(kpis).toContain(`On ${TODAY}`);
+        expect(kpis).toContain(`On ${formatDisplayDate(TODAY)}`);
     });
 
     it('does not request the one-snapshot-per-account list for the overview data', () => {
@@ -1349,8 +1365,10 @@ describe('OverviewView', () => {
         );
         render();
         const table = sectionNamed('Accounts');
-        expect(table?.textContent).toContain(`as of ${TODAY}`);
-        expect(table?.textContent).not.toContain('as of 2026-09-25');
+        expect(table?.textContent).toContain(
+            `as of ${formatDisplayDate(TODAY)}`,
+        );
+        expect(table?.textContent).not.toContain('as of 25 Sep 2026');
     });
 
     it('lists the capacity alert in the alerts center once the accounts exceed the daily capacity (PT-69, F-V27)', () => {
@@ -1618,7 +1636,9 @@ describe('OverviewView', () => {
             );
             const expectedNet = sectionNamed('Expected net');
             expect(expectedNet?.textContent).toContain('$1,111 (SE $9)');
-            expect(expectedNet?.textContent).toContain('1,234 trials');
+            expect(infoText(container, 'Expected net')).toContain(
+                '1,234 trials',
+            );
             expect(expectedNet?.textContent).toContain(
                 'one ES contract risks more than your risk',
             );

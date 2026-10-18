@@ -10,10 +10,11 @@ import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useToda
 import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
 import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
+import { InfoNote } from '~/components/InfoNote';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
 import { Collapsible, CollapsibleContent } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
 import {
@@ -21,7 +22,6 @@ import {
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import { AlertsCenter } from './AlertsCenter';
@@ -61,11 +61,11 @@ import {
     type PortfolioLoadIssue,
     PortfolioSource,
 } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
 import {
     OVERVIEW_READY_LAYOUT,
     OVERVIEW_SECTION_TITLE,
     overviewSectionAnchor,
-    overviewSectionHeadingId,
     OverviewSectionId,
 } from './overviewSections';
 import { PayoutSizesCard } from './PayoutSizesCard';
@@ -128,10 +128,10 @@ export function OverviewView({ userId }: { readonly userId: string }) {
     );
     return (
         <div className="flex flex-col gap-8">
-            <LoadIssues issues={load.failures} variant="destructive" />
-            <LoadIssues issues={load.stale} variant="warning" />
+            <LoadFailures issues={load.failures} />
+            <StaleLoads issues={load.stale} />
             {externalFirmsQuery.isError && (
-                <Alert variant="warning">
+                <Alert variant="destructive">
                     <TriangleAlert />
                     <AlertTitle>Your firms could not be loaded</AlertTitle>
                     <AlertDescription>
@@ -161,20 +161,18 @@ export function OverviewView({ userId }: { readonly userId: string }) {
 
 function AlertsSection({ alerts }: { readonly alerts: OverviewAlerts }) {
     return (
-        <OverviewSection section={OverviewSectionId.Alerts}>
+        <OverviewPanel section={OverviewSectionId.Alerts}>
             {alerts.kind === OverviewSectionStatus.Ready ? (
                 <>
                     {alerts.accountStatesCaveat !== null && (
-                        <p className="mb-3 text-sm text-muted-foreground">
-                            {alerts.accountStatesCaveat}
-                        </p>
+                        <InfoNote>{alerts.accountStatesCaveat}</InfoNote>
                     )}
                     <AlertsCenter alerts={alerts.alerts} />
                 </>
             ) : (
                 <SectionGap gap={alerts} loadingLabel="Loading the alerts" />
             )}
-        </OverviewSection>
+        </OverviewPanel>
     );
 }
 
@@ -236,24 +234,24 @@ function JumpNav({
     );
 }
 
-function LoadIssues({
+function LoadFailures({
     issues,
-    variant,
 }: {
     readonly issues: readonly PortfolioLoadIssue[];
-    readonly variant: 'destructive' | 'warning';
 }) {
     if (issues.length === 0) return null;
     return (
         <div className="flex flex-col gap-3">
             {issues.map((issue) => (
-                <Alert key={issue.source} variant={variant}>
+                <Alert key={issue.source} variant="destructive">
                     <TriangleAlert />
                     <AlertTitle>{issue.title}</AlertTitle>
                     <AlertDescription>
                         {issue.message}
                         {issue.source === PortfolioSource.Rulebook && (
-                            <RulebookRepairLink />
+                            <div className="mt-2">
+                                <RulebookRepairLink />
+                            </div>
                         )}
                     </AlertDescription>
                 </Alert>
@@ -273,35 +271,6 @@ function NoticeList({
                 <li key={notice.kind}>{notice.message}</li>
             ))}
         </ul>
-    );
-}
-
-function OverviewSection({
-    children,
-    section,
-}: {
-    readonly children: ReactNode;
-    readonly section: OverviewSectionId;
-}) {
-    const headingId = overviewSectionHeadingId(section);
-    return (
-        <section
-            aria-labelledby={headingId}
-            className={cn(
-                'app-prop-accounts__overview-card',
-                HEADER_SCROLL_MARGIN,
-            )}
-            id={overviewSectionAnchor(section)}
-        >
-            <Card>
-                <CardHeader>
-                    <ToolSectionHeading id={headingId}>
-                        {OVERVIEW_SECTION_TITLE[section]}
-                    </ToolSectionHeading>
-                </CardHeader>
-                <CardContent>{children}</CardContent>
-            </Card>
-        </section>
     );
 }
 
@@ -404,273 +373,172 @@ function ReadySection({
             return <AlertsSection alerts={model.alerts} />;
         }
         case OverviewSectionId.AttemptEconomics: {
-            return (
-                <OverviewSection section={section}>
-                    <AttemptEconomicsCard model={cards.attemptEconomics} />
-                </OverviewSection>
-            );
+            return <AttemptEconomicsCard model={cards.attemptEconomics} />;
         }
         case OverviewSectionId.AttemptThroughput: {
-            return (
-                <OverviewSection section={section}>
-                    <AttemptThroughputCard model={cards.attemptThroughput} />
-                </OverviewSection>
-            );
+            return <AttemptThroughputCard model={cards.attemptThroughput} />;
         }
         case OverviewSectionId.Bankroll: {
-            return (
-                <OverviewSection section={section}>
-                    <BankrollCard model={cards.bankroll} />
-                </OverviewSection>
-            );
+            return <BankrollCard model={cards.bankroll} />;
         }
         case OverviewSectionId.CapUsage: {
-            return (
-                <OverviewSection section={section}>
-                    <CapUsageCard model={cards.capUsage} />
-                </OverviewSection>
-            );
+            return <CapUsageCard model={cards.capUsage} />;
         }
         case OverviewSectionId.Costs: {
-            return (
-                <OverviewSection section={section}>
-                    <CostCard model={cards.cost} />
-                </OverviewSection>
-            );
+            return <CostCard model={cards.cost} />;
         }
         case OverviewSectionId.CushionBoard: {
             const { boards } = model;
-            return (
-                <OverviewSection section={section}>
-                    {boards.kind === OverviewSectionStatus.Ready ? (
-                        <CushionBoardCard model={boards.cushion} />
-                    ) : (
-                        <SectionGap
-                            gap={boards}
-                            loadingLabel="Loading the cushion board"
-                        />
-                    )}
-                </OverviewSection>
+            return boards.kind === OverviewSectionStatus.Ready ? (
+                <CushionBoardCard model={boards.cushion} />
+            ) : (
+                <SectionGapPanel
+                    gap={boards}
+                    loadingLabel="Loading the cushion board"
+                    section={section}
+                />
             );
         }
         case OverviewSectionId.DataNotes: {
             return (
-                <OverviewSection section={section}>
+                <OverviewPanel section={section}>
                     <NoticeList notices={cards.notices} />
-                </OverviewSection>
+                </OverviewPanel>
             );
         }
         case OverviewSectionId.Diversification: {
-            return (
-                <OverviewSection section={section}>
-                    <DiversificationCard model={cards.diversification} />
-                </OverviewSection>
-            );
+            return <DiversificationCard model={cards.diversification} />;
         }
         case OverviewSectionId.EvSources: {
             const { evSources } = model;
-            return (
-                <OverviewSection section={section}>
-                    {evSources.kind === OverviewSectionStatus.Ready ? (
-                        <EvSourcesCard model={evSources.model} />
-                    ) : (
-                        <SectionGap
-                            gap={evSources}
-                            loadingLabel="Loading where EV comes from"
-                        />
-                    )}
-                </OverviewSection>
+            return evSources.kind === OverviewSectionStatus.Ready ? (
+                <EvSourcesCard model={evSources.model} />
+            ) : (
+                <SectionGapPanel
+                    gap={evSources}
+                    loadingLabel="Loading where EV comes from"
+                    section={section}
+                />
             );
         }
         case OverviewSectionId.ExpectedNet: {
-            return (
-                <OverviewSection section={section}>
-                    <ExpectedNetCard model={cards.expectedNet} />
-                </OverviewSection>
-            );
+            return <ExpectedNetCard model={cards.expectedNet} />;
         }
         case OverviewSectionId.Exposure: {
             const { exposure } = model;
-            return (
-                <OverviewSection section={section}>
-                    {exposure.kind === OverviewSectionStatus.Ready ? (
-                        <ExposureCard model={exposure.model} />
-                    ) : (
-                        <SectionGap
-                            gap={exposure}
-                            loadingLabel="Loading the exposure"
-                        />
-                    )}
-                </OverviewSection>
+            return exposure.kind === OverviewSectionStatus.Ready ? (
+                <ExposureCard model={exposure.model} />
+            ) : (
+                <SectionGapPanel
+                    gap={exposure}
+                    loadingLabel="Loading the exposure"
+                    section={section}
+                />
             );
         }
         case OverviewSectionId.FirmReturns: {
-            return (
-                <OverviewSection section={section}>
-                    <FirmReturnsCard model={cards.firmReturns} />
-                </OverviewSection>
-            );
+            return <FirmReturnsCard model={cards.firmReturns} />;
         }
         case OverviewSectionId.Firms: {
             return (
-                <OverviewSection section={section}>
+                <OverviewPanel section={section}>
                     <FirmsTile load={load} userId={userId} />
-                </OverviewSection>
+                </OverviewPanel>
             );
         }
         case OverviewSectionId.FreshStartProjection: {
             const { projection } = model;
-            return (
-                <OverviewSection section={section}>
-                    {projection.kind === OverviewSectionStatus.Ready ? (
-                        <ProjectionCard model={projection.model} />
-                    ) : (
-                        <SectionGap
-                            gap={projection}
-                            loadingLabel="Loading the fresh-start projection"
-                        />
-                    )}
-                </OverviewSection>
+            return projection.kind === OverviewSectionStatus.Ready ? (
+                <ProjectionCard model={projection.model} />
+            ) : (
+                <SectionGapPanel
+                    gap={projection}
+                    loadingLabel="Loading the fresh-start projection"
+                    section={section}
+                />
             );
         }
         case OverviewSectionId.FundedPayouts: {
-            return (
-                <OverviewSection section={section}>
-                    <FundedPayoutsCard model={cards.fundedPayouts} />
-                </OverviewSection>
-            );
+            return <FundedPayoutsCard model={cards.fundedPayouts} />;
         }
         case OverviewSectionId.Funnel: {
-            return (
-                <OverviewSection section={section}>
-                    <FunnelCard model={cards.funnel} />
-                </OverviewSection>
-            );
+            return <FunnelCard model={cards.funnel} />;
         }
         case OverviewSectionId.Kpis: {
             return (
-                <OverviewSection section={section}>
+                <OverviewPanel section={section}>
                     <KpiRow kpis={cards.kpis} />
-                </OverviewSection>
+                </OverviewPanel>
             );
         }
         case OverviewSectionId.LiveProximity: {
-            return (
-                <OverviewSection section={section}>
-                    <LiveProximityCard model={cards.liveProximity} />
-                </OverviewSection>
-            );
+            return <LiveProximityCard model={cards.liveProximity} />;
         }
         case OverviewSectionId.NextPayout: {
             const { nextPayout } = model;
-            return (
-                <OverviewSection section={section}>
-                    {nextPayout.kind === OverviewSectionStatus.Ready ? (
-                        <NextPayoutCard model={nextPayout.model} />
-                    ) : (
-                        <SectionGap
-                            gap={nextPayout}
-                            loadingLabel="Loading the figures from each account's own state"
-                        />
-                    )}
-                </OverviewSection>
+            return nextPayout.kind === OverviewSectionStatus.Ready ? (
+                <NextPayoutCard model={nextPayout.model} />
+            ) : (
+                <SectionGapPanel
+                    gap={nextPayout}
+                    loadingLabel="Loading the figures from each account's own state"
+                    section={section}
+                />
             );
         }
         case OverviewSectionId.Outcomes: {
-            return (
-                <OverviewSection section={section}>
-                    <RealizedOutcomesCard model={cards.outcomes} />
-                </OverviewSection>
-            );
+            return <RealizedOutcomesCard model={cards.outcomes} />;
         }
         case OverviewSectionId.PayoutSizes: {
-            return (
-                <OverviewSection section={section}>
-                    <PayoutSizesCard model={cards.payoutSizes} />
-                </OverviewSection>
-            );
+            return <PayoutSizesCard model={cards.payoutSizes} />;
         }
         case OverviewSectionId.PayoutTiming: {
-            return (
-                <OverviewSection section={section}>
-                    <PayoutTimingCard model={cards.payoutTiming} />
-                </OverviewSection>
-            );
+            return <PayoutTimingCard model={cards.payoutTiming} />;
         }
         case OverviewSectionId.PooledCaps: {
-            return (
-                <OverviewSection section={section}>
-                    <PooledCapCard model={cards.pooledCaps} />
-                </OverviewSection>
-            );
+            return <PooledCapCard model={cards.pooledCaps} />;
         }
         case OverviewSectionId.ProfitConcentration: {
             const { concentration } = model;
-            return (
-                <OverviewSection section={section}>
-                    {concentration.kind === OverviewSectionStatus.Ready ? (
-                        <ProfitConcentrationCard model={concentration.model} />
-                    ) : (
-                        <SectionGap
-                            gap={concentration}
-                            loadingLabel="Loading the profit concentration"
-                        />
-                    )}
-                </OverviewSection>
+            return concentration.kind === OverviewSectionStatus.Ready ? (
+                <ProfitConcentrationCard model={concentration.model} />
+            ) : (
+                <SectionGapPanel
+                    gap={concentration}
+                    loadingLabel="Loading the profit concentration"
+                    section={section}
+                />
             );
         }
         case OverviewSectionId.ReadinessBoard: {
             const { boards } = model;
-            return (
-                <OverviewSection section={section}>
-                    {boards.kind === OverviewSectionStatus.Ready ? (
-                        <ReadinessBoardCard model={boards.readiness} />
-                    ) : (
-                        <SectionGap
-                            gap={boards}
-                            loadingLabel="Loading the payout readiness board"
-                        />
-                    )}
-                </OverviewSection>
+            return boards.kind === OverviewSectionStatus.Ready ? (
+                <ReadinessBoardCard model={boards.readiness} />
+            ) : (
+                <SectionGapPanel
+                    gap={boards}
+                    loadingLabel="Loading the payout readiness board"
+                    section={section}
+                />
             );
         }
         case OverviewSectionId.Repeatability: {
-            return (
-                <OverviewSection section={section}>
-                    <RepeatabilityCard model={cards.repeatability} />
-                </OverviewSection>
-            );
+            return <RepeatabilityCard model={cards.repeatability} />;
         }
         case OverviewSectionId.Replacement: {
-            return (
-                <OverviewSection section={section}>
-                    <ReplacementCard model={cards.replacement} />
-                </OverviewSection>
-            );
+            return <ReplacementCard model={cards.replacement} />;
         }
         case OverviewSectionId.Setup: {
             return <SetupSection setup={model.setup} />;
         }
         case OverviewSectionId.Statement: {
-            return (
-                <OverviewSection section={section}>
-                    <StatementCard model={cards.statement} />
-                </OverviewSection>
-            );
+            return <StatementCard model={cards.statement} />;
         }
         case OverviewSectionId.TiltVariance: {
-            return (
-                <OverviewSection section={section}>
-                    <TiltVarianceCard model={cards.tiltVariance} />
-                </OverviewSection>
-            );
+            return <TiltVarianceCard model={cards.tiltVariance} />;
         }
         case OverviewSectionId.Timeline: {
-            return (
-                <OverviewSection section={section}>
-                    <TimelineCard model={cards.timeline} />
-                </OverviewSection>
-            );
+            return <TimelineCard model={cards.timeline} />;
         }
         case OverviewSectionId.Violations: {
             return <ViolationsSummarySection violations={model.violations} />;
@@ -682,13 +550,11 @@ function RulebookRepairLink() {
     const { error } = api.propAccounts.rulebook.get.useQuery();
     if (!isInvalidStoredRecord(error, PropRecord.Rulebook)) return null;
     return (
-        <div className="mt-2">
-            <Button asChild size="sm" variant="outline">
-                <Link href={routes.propCalculator.accounts.rulebook}>
-                    Repair the rulebook
-                </Link>
-            </Button>
-        </div>
+        <Button asChild size="sm" variant="outline">
+            <Link href={routes.propCalculator.accounts.rulebook}>
+                Repair the rulebook
+            </Link>
+        </Button>
     );
 }
 
@@ -709,6 +575,22 @@ function SectionGap({
     }
 }
 
+function SectionGapPanel({
+    gap,
+    loadingLabel,
+    section,
+}: {
+    readonly gap: OverviewSectionGap;
+    readonly loadingLabel: string;
+    readonly section: OverviewSectionId;
+}) {
+    return (
+        <OverviewPanel section={section}>
+            <SectionGap gap={gap} loadingLabel={loadingLabel} />
+        </OverviewPanel>
+    );
+}
+
 function SectionSkeleton({ label }: { readonly label: string }) {
     return (
         <div aria-busy="true" aria-label={label} role="status">
@@ -721,9 +603,9 @@ function SetupSection({ setup }: { readonly setup: OverviewSetup }) {
     switch (setup.kind) {
         case OverviewSectionStatus.Failed: {
             return (
-                <OverviewSection section={OverviewSectionId.Setup}>
+                <OverviewPanel section={OverviewSectionId.Setup}>
                     <p className="text-sm text-destructive">{setup.message}</p>
-                </OverviewSection>
+                </OverviewPanel>
             );
         }
         case OverviewSectionStatus.Pending: {
@@ -731,12 +613,35 @@ function SetupSection({ setup }: { readonly setup: OverviewSetup }) {
         }
         case OverviewSectionStatus.Ready: {
             return setup.model.isComplete ? null : (
-                <OverviewSection section={OverviewSectionId.Setup}>
-                    <SetupChecklistCard model={setup.model} />
-                </OverviewSection>
+                <SetupChecklistCard model={setup.model} />
             );
         }
     }
+}
+
+function StaleLoads({
+    issues,
+}: {
+    readonly issues: readonly PortfolioLoadIssue[];
+}) {
+    if (issues.length === 0) return null;
+    return (
+        <div className="flex flex-col gap-3">
+            {issues.map((issue) => (
+                <StatusRow
+                    actions={
+                        issue.source === PortfolioSource.Rulebook ? (
+                            <RulebookRepairLink />
+                        ) : undefined
+                    }
+                    detail={issue.message}
+                    key={issue.source}
+                    title={issue.title}
+                    tone={StatusTone.Warn}
+                />
+            ))}
+        </div>
+    );
 }
 
 function useOverviewPortfolioData(): PortfolioLoad {
@@ -774,16 +679,13 @@ function ViolationsSummarySection({
 }: {
     readonly violations: OverviewViolations;
 }) {
-    return (
-        <OverviewSection section={OverviewSectionId.Violations}>
-            {violations.kind === OverviewSectionStatus.Ready ? (
-                <ViolationsCard model={violations.model} />
-            ) : (
-                <SectionGap
-                    gap={violations}
-                    loadingLabel="Loading your rule violations"
-                />
-            )}
-        </OverviewSection>
+    return violations.kind === OverviewSectionStatus.Ready ? (
+        <ViolationsCard model={violations.model} />
+    ) : (
+        <SectionGapPanel
+            gap={violations}
+            loadingLabel="Loading your rule violations"
+            section={OverviewSectionId.Violations}
+        />
     );
 }

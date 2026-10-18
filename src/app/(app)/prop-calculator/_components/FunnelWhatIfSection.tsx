@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type UseFormRegisterReturn, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
+import { StatStrip } from '~/components/StatStrip';
 import {
     Field,
     FieldDescription,
@@ -24,8 +25,6 @@ import {
     funnelWhatIf,
     type FunnelWhatIf,
 } from '~/lib/prop-calculator/economics';
-
-import StatCard from './StatCard';
 
 const WHAT_IF_VALIDATION_MESSAGE =
     'enter a valid pass rate, payout rate, attempts, average payout and attempt cost';
@@ -197,44 +196,60 @@ export default function FunnelWhatIfSection() {
             </FieldSet>
             {outcome === null ? null : (
                 <>
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-                        <StatCard
-                            label="Passed"
-                            value={outcome.result.passed.toFixed(1)}
-                        />
-                        <StatCard
-                            label="Paid"
-                            value={outcome.result.paid.toFixed(1)}
-                        />
-                        <StatCard
-                            label="Fees"
-                            value={formatCompactCurrency(outcome.result.fees)}
-                        />
-                        <StatCard
-                            label="Payouts"
-                            value={formatCompactCurrency(
-                                outcome.result.payouts,
-                            )}
-                        />
-                        <StatCard
-                            label="Net"
-                            value={formatCompactCurrency(outcome.result.net)}
-                            valueClassName={
-                                outcome.result.net >= 0
-                                    ? 'text-success'
-                                    : 'text-destructive'
-                            }
-                        />
-                        <StatCard
-                            label="Payout multiple"
-                            value={
-                                outcome.result.payoutMultiple.value === null
-                                    ? NOT_APPLICABLE
-                                    : `${outcome.result.payoutMultiple.value.toFixed(2)}:1`
-                            }
-                        />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
+                    <StatStrip
+                        items={[
+                            {
+                                id: 'passed',
+                                label: 'Passed',
+                                value: outcome.result.passed.toFixed(1),
+                            },
+                            {
+                                id: 'paid',
+                                label: 'Paid',
+                                value: outcome.result.paid.toFixed(1),
+                            },
+                            {
+                                id: 'fees',
+                                label: 'Fees',
+                                value: formatCompactCurrency(
+                                    outcome.result.fees,
+                                ),
+                            },
+                            {
+                                id: 'payouts',
+                                label: 'Payouts',
+                                value: formatCompactCurrency(
+                                    outcome.result.payouts,
+                                ),
+                            },
+                            {
+                                id: 'net',
+                                label: 'Net',
+                                value: (
+                                    <span
+                                        className={
+                                            outcome.result.net >= 0
+                                                ? 'text-success'
+                                                : 'text-destructive'
+                                        }
+                                    >
+                                        {formatCompactCurrency(
+                                            outcome.result.net,
+                                        )}
+                                    </span>
+                                ),
+                            },
+                            {
+                                id: 'payout-multiple',
+                                label: 'Payout multiple',
+                                value:
+                                    outcome.result.payoutMultiple.value === null
+                                        ? NOT_APPLICABLE
+                                        : `${outcome.result.payoutMultiple.value.toFixed(2)}:1`,
+                            },
+                        ]}
+                    />
+                    <p className="text-xs text-muted-foreground">
                         {outcome.disclosures
                             .map(
                                 (disclosure) =>

@@ -12,7 +12,7 @@ import {
     DialogTitle,
 } from '~/components/ui/dialog';
 
-export function ProfileFormDialog<
+export function FormDialog<
     TFieldValues extends FieldValues,
     TTransformedValues,
 >({
@@ -22,6 +22,7 @@ export function ProfileFormDialog<
     onCancel,
     onSubmit,
     pending,
+    pendingLabel = 'Saving…',
     submitDisabled = false,
     submitLabel,
     title,
@@ -32,6 +33,7 @@ export function ProfileFormDialog<
     onCancel: () => void;
     onSubmit: (values: TTransformedValues) => unknown;
     pending: boolean;
+    pendingLabel?: string;
     submitDisabled?: boolean;
     submitLabel: string;
     title: string;
@@ -40,6 +42,7 @@ export function ProfileFormDialog<
         <DialogContent>
             <form
                 className="flex flex-col gap-5"
+                noValidate
                 onSubmit={form.handleSubmit(onSubmit)}
             >
                 <DialogHeader>
@@ -54,7 +57,7 @@ export function ProfileFormDialog<
                         Cancel
                     </Button>
                     <Button disabled={pending || submitDisabled} type="submit">
-                        {pending ? 'Saving…' : submitLabel}
+                        {pending ? pendingLabel : submitLabel}
                     </Button>
                 </DialogFooter>
             </form>

@@ -5,13 +5,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { subnavHref } from '~/app/(app)/_components/routeSubnavLinks';
+import { ToolPanel } from '~/components/ToolPanel';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
-import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '~/components/ui/card';
 import { cn } from '~/lib/utilities';
 
 import { readLastToolQuery } from './lastToolQuery';
@@ -90,23 +85,23 @@ export function HubToolCards() {
                                         )}
                                         prefetch={false}
                                     >
-                                        <Card className="h-full transition-colors group-hover:border-primary/60">
-                                            <CardHeader>
-                                                <CardTitle
-                                                    as="h3"
-                                                    className="flex items-center gap-2"
-                                                >
+                                        <ToolPanel
+                                            className="h-full gap-3 transition-colors group-hover:border-primary/60"
+                                            title={
+                                                <span className="flex items-center gap-2">
                                                     <Icon
                                                         aria-hidden
                                                         className="size-4 text-primary"
                                                     />
                                                     {entry.label}
-                                                </CardTitle>
-                                                <CardDescription>
-                                                    {entry.blurb}
-                                                </CardDescription>
-                                            </CardHeader>
-                                        </Card>
+                                                </span>
+                                            }
+                                            titleAs="h3"
+                                        >
+                                            <p className="m-0 text-sm text-ink-muted">
+                                                {entry.blurb}
+                                            </p>
+                                        </ToolPanel>
                                     </Link>
                                 </li>
                             );

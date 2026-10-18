@@ -15,10 +15,11 @@ import {
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import {
     Field,
     FieldDescription,
@@ -37,6 +38,7 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { Textarea } from '~/components/ui/textarea';
 import { errorMessage } from '~/lib/errorMessage';
+import { formatDisplayDate } from '~/lib/format';
 import {
     AccountStage,
     accountStageLabel,
@@ -106,7 +108,6 @@ import {
     usdCentsToText,
 } from './accountPlanOptions';
 import { AccountPlanPicker } from './AccountPlanPicker';
-import { AccountsCardHeading } from './AccountsCardHeading';
 import { ArchiveAccountButton } from './AccountsTable';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
 import { nullIfBlank, parsedOrIssues } from './detail/formParsing';
@@ -377,7 +378,7 @@ export function AccountCreator({
     return (
         <>
             {externalFirms.isError && (
-                <Alert className="mb-6" variant="warning">
+                <Alert className="mb-6" variant="destructive">
                     <TriangleAlert />
                     <AlertTitle>Your firms could not be loaded</AlertTitle>
                     <AlertDescription>
@@ -578,26 +579,19 @@ function AccountForm({
                 rounds={roundsQuery.data ?? []}
             />
 
-            <Card>
-                <CardHeader>
-                    <AccountsCardHeading>
-                        Personal stricter rules
-                    </AccountsCardHeading>
-                </CardHeader>
-                <CardContent>
-                    <PersonalRulesFields
-                        errors={personalRuleErrors}
-                        onChange={(key, value) => {
-                            form.setValue(`personalRules.${key}`, value, {
-                                shouldDirty: true,
-                                shouldValidate: form.formState.isSubmitted,
-                            });
-                        }}
-                        payoutNotice={payoutNotice}
-                        values={personalRulesText}
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel title="Personal stricter rules">
+                <PersonalRulesFields
+                    errors={personalRuleErrors}
+                    onChange={(key, value) => {
+                        form.setValue(`personalRules.${key}`, value, {
+                            shouldDirty: true,
+                            shouldValidate: form.formState.isSubmitted,
+                        });
+                    }}
+                    payoutNotice={payoutNotice}
+                    values={personalRulesText}
+                />
+            </ToolPanel>
 
             {isCreate && <InitialSnapshotCard submit={submit} />}
 
@@ -723,118 +717,73 @@ function DetailsCard({
 }) {
     const formId = useId();
     return (
-        <Card>
-            <CardHeader>
-                <AccountsCardHeading>Details</AccountsCardHeading>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-                <Controller
-                    control={control}
-                    name="label"
-                    render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                            <FieldLabel htmlFor={`${formId}-label`}>
-                                Label
-                            </FieldLabel>
-                            <Input
-                                aria-invalid={fieldState.invalid}
-                                id={`${formId}-label`}
-                                {...field}
-                            />
-                            <FieldError errors={[fieldState.error]} />
-                        </Field>
-                    )}
-                />
-                <Controller
-                    control={control}
-                    name="externalAlias"
-                    render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                            <FieldLabel htmlFor={`${formId}-externalAlias`}>
-                                Alias
-                                <FieldRequirementMark text="optional" />
-                            </FieldLabel>
-                            <Input
-                                aria-invalid={fieldState.invalid}
-                                autoComplete="off"
-                                id={`${formId}-externalAlias`}
-                                {...field}
-                            />
-                            <FieldDescription>
-                                A non-secret hint to recognize the account, such
-                                as the last 4 characters of its number. Never
-                                paste credentials, passwords or API keys here.
-                            </FieldDescription>
-                            <FieldError errors={[fieldState.error]} />
-                        </Field>
-                    )}
-                />
-                <DateField
-                    control={control}
-                    label="Purchased on"
-                    name="purchasedOn"
-                />
-                <DateField
-                    control={control}
-                    isOptional
-                    label="Funded on"
-                    name="fundedOn"
-                />
-                <DateField
-                    control={control}
-                    isOptional
-                    label="First funded trade on"
-                    name="firstFundedTradeOn"
-                />
-                {!isLedgerOnly && (
-                    <Controller
-                        control={control}
-                        name="copyGroupId"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-copyGroupId`}>
-                                    Copy group
-                                </FieldLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                >
-                                    <SelectTrigger
-                                        aria-invalid={fieldState.invalid}
-                                        id={`${formId}-copyGroupId`}
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={NONE}>
-                                            None (traded on its own)
-                                        </SelectItem>
-                                        {groups.map((group) => (
-                                            <SelectItem
-                                                key={group.id}
-                                                value={group.id}
-                                            >
-                                                {group.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FieldDescription>
-                                    Every account in a group must be in the same
-                                    stage.
-                                </FieldDescription>
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
+        <ToolPanel contentClassName="grid gap-4 md:grid-cols-2" title="Details">
+            <Controller
+                control={control}
+                name="label"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-label`}>
+                            Label
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-label`}
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
+            />
+            <Controller
+                control={control}
+                name="externalAlias"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-externalAlias`}>
+                            Alias
+                            <FieldRequirementMark text="optional" />
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="off"
+                            id={`${formId}-externalAlias`}
+                            {...field}
+                        />
+                        <FieldDescription>
+                            A non-secret hint to recognize the account, such as
+                            the last 4 characters of its number. Never paste
+                            credentials, passwords or API keys here.
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <DateField
+                control={control}
+                label="Purchased on"
+                name="purchasedOn"
+            />
+            <DateField
+                control={control}
+                isOptional
+                label="Funded on"
+                name="fundedOn"
+            />
+            <DateField
+                control={control}
+                isOptional
+                label="First funded trade on"
+                name="firstFundedTradeOn"
+            />
+            {!isLedgerOnly && (
                 <Controller
                     control={control}
-                    name="roundId"
+                    name="copyGroupId"
                     render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
-                            <FieldLabel htmlFor={`${formId}-roundId`}>
-                                Round
+                            <FieldLabel htmlFor={`${formId}-copyGroupId`}>
+                                Copy group
                             </FieldLabel>
                             <Select
                                 onValueChange={field.onChange}
@@ -842,138 +791,176 @@ function DetailsCard({
                             >
                                 <SelectTrigger
                                     aria-invalid={fieldState.invalid}
-                                    id={`${formId}-roundId`}
+                                    id={`${formId}-copyGroupId`}
                                 >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value={NONE}>
-                                        None (not in a round)
+                                        None (traded on its own)
                                     </SelectItem>
-                                    {rounds.map((round) => (
+                                    {groups.map((group) => (
                                         <SelectItem
-                                            disabled={
-                                                round.status ===
-                                                RoundStatus.Closed
-                                            }
-                                            key={round.id}
-                                            value={round.id}
+                                            key={group.id}
+                                            value={group.id}
                                         >
-                                            {round.label}
-                                            {round.status ===
-                                                RoundStatus.Closed &&
-                                                ' (closed)'}
+                                            {group.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                             <FieldDescription>
-                                Groups this account&apos;s spend and payouts
-                                against a round budget. Only your own open
-                                rounds accept new members.
+                                Every account in a group must be in the same
+                                stage.
                             </FieldDescription>
                             <FieldError errors={[fieldState.error]} />
                         </Field>
                     )}
                 />
-                <Controller
-                    control={control}
-                    name="overrideRoundBudget"
-                    render={({ field }) => (
-                        <CheckboxCard
-                            aria-describedby="account-override-round-budget-hint"
-                            checked={field.value}
-                            description="Adds this account to its round even if the round has already spent its budget."
-                            descriptionId="account-override-round-budget-hint"
-                            id="account-override-round-budget"
-                            label="Override the round budget"
-                            onCheckedChange={field.onChange}
-                        />
-                    )}
-                />
-                <Controller
-                    control={control}
-                    name="replacesAccountId"
-                    render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                            <FieldLabel htmlFor={`${formId}-replacesAccountId`}>
-                                Replaces account
-                            </FieldLabel>
-                            <Select
-                                onValueChange={field.onChange}
-                                value={field.value}
-                            >
-                                <SelectTrigger
-                                    aria-invalid={fieldState.invalid}
-                                    id={`${formId}-replacesAccountId`}
-                                >
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={NONE}>None</SelectItem>
-                                    {otherAccounts.map((account) => (
-                                        <SelectItem
-                                            key={account.id}
-                                            value={account.id}
-                                        >
-                                            {account.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FieldDescription>
-                                The busted or closed account this one replaces,
-                                if any.
-                            </FieldDescription>
-                            <FieldError errors={[fieldState.error]} />
-                        </Field>
-                    )}
-                />
-                <Controller
-                    control={control}
-                    name="tags"
-                    render={({ field, fieldState }) => (
-                        <Field data-invalid={fieldState.invalid}>
-                            <FieldLabel htmlFor={`${formId}-tags`}>
-                                Tags
-                                <FieldRequirementMark text="optional" />
-                            </FieldLabel>
-                            <Input
-                                aria-invalid={fieldState.invalid}
-                                id={`${formId}-tags`}
-                                {...field}
-                            />
-                            <FieldDescription>
-                                Separate tags with commas.
-                            </FieldDescription>
-                            <FieldError errors={[fieldState.error]} />
-                        </Field>
-                    )}
-                />
-                <Controller
-                    control={control}
-                    name="notes"
-                    render={({ field, fieldState }) => (
-                        <Field
-                            className="md:col-span-2"
-                            data-invalid={fieldState.invalid}
+            )}
+            <Controller
+                control={control}
+                name="roundId"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-roundId`}>
+                            Round
+                        </FieldLabel>
+                        <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
                         >
-                            <FieldLabel htmlFor={`${formId}-notes`}>
-                                Notes
-                                <FieldRequirementMark text="optional" />
-                            </FieldLabel>
-                            <Textarea
+                            <SelectTrigger
                                 aria-invalid={fieldState.invalid}
-                                id={`${formId}-notes`}
-                                rows={3}
-                                {...field}
-                            />
-                            <FieldError errors={[fieldState.error]} />
-                        </Field>
-                    )}
-                />
-            </CardContent>
-        </Card>
+                                id={`${formId}-roundId`}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={NONE}>
+                                    None (not in a round)
+                                </SelectItem>
+                                {rounds.map((round) => (
+                                    <SelectItem
+                                        disabled={
+                                            round.status === RoundStatus.Closed
+                                        }
+                                        key={round.id}
+                                        value={round.id}
+                                    >
+                                        {round.label}
+                                        {round.status === RoundStatus.Closed &&
+                                            ' (closed)'}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                            Groups this account&apos;s spend and payouts against
+                            a round budget. Only your own open rounds accept new
+                            members.
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={control}
+                name="overrideRoundBudget"
+                render={({ field }) => (
+                    <CheckboxCard
+                        aria-describedby="account-override-round-budget-hint"
+                        checked={field.value}
+                        description="Adds this account to its round even if the round has already spent its budget."
+                        descriptionId="account-override-round-budget-hint"
+                        id="account-override-round-budget"
+                        label="Override the round budget"
+                        onCheckedChange={field.onChange}
+                    />
+                )}
+            />
+            <Controller
+                control={control}
+                name="replacesAccountId"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-replacesAccountId`}>
+                            Replaces account
+                        </FieldLabel>
+                        <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                        >
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-replacesAccountId`}
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={NONE}>None</SelectItem>
+                                {otherAccounts.map((account) => (
+                                    <SelectItem
+                                        key={account.id}
+                                        value={account.id}
+                                    >
+                                        {account.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                            The busted or closed account this one replaces, if
+                            any.
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={control}
+                name="tags"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-tags`}>
+                            Tags
+                            <FieldRequirementMark text="optional" />
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-tags`}
+                            {...field}
+                        />
+                        <FieldDescription>
+                            Separate tags with commas.
+                        </FieldDescription>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Controller
+                control={control}
+                name="notes"
+                render={({ field, fieldState }) => (
+                    <Field
+                        className="md:col-span-2"
+                        data-invalid={fieldState.invalid}
+                    >
+                        <FieldLabel htmlFor={`${formId}-notes`}>
+                            Notes
+                            <FieldRequirementMark text="optional" />
+                        </FieldLabel>
+                        <Textarea
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-notes`}
+                            rows={3}
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+        </ToolPanel>
     );
 }
 
@@ -986,22 +973,17 @@ function everyStageOption(): readonly AccountStageOption[] {
 
 function InitialSnapshotCard({ submit }: { submit: AccountFormSubmit }) {
     return (
-        <Card>
-            <CardHeader>
-                <AccountsCardHeading>Initial snapshot</AccountsCardHeading>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-                <SwitchCard
-                    checked={submit.includeSnapshot}
-                    id="account-include-snapshot"
-                    label="Enter today’s balance now"
-                    onCheckedChange={submit.setIncludeSnapshot}
-                />
-                {submit.includeSnapshot && (
-                    <InitialSnapshotFields submit={submit} />
-                )}
-            </CardContent>
-        </Card>
+        <ToolPanel contentClassName="gap-4" title="Initial snapshot">
+            <SwitchCard
+                checked={submit.includeSnapshot}
+                id="account-include-snapshot"
+                label="Enter today’s balance now"
+                onCheckedChange={submit.setIncludeSnapshot}
+            />
+            {submit.includeSnapshot && (
+                <InitialSnapshotFields submit={submit} />
+            )}
+        </ToolPanel>
     );
 }
 
@@ -1378,74 +1360,68 @@ function PlanCard({
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <AccountsCardHeading>Firm and plan</AccountsCardHeading>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-                <LedgerOnlySwitch
+        <ToolPanel contentClassName="gap-4" title="Firm and plan">
+            <LedgerOnlySwitch
+                form={form}
+                isLocked={stored !== null}
+                onModeled={() => {
+                    setSelection(
+                        initialPlanSelection(
+                            selection.firmId,
+                            selection.planSerial,
+                            selection.optIns,
+                        ),
+                    );
+                }}
+                plan={plan}
+                selection={selection}
+            />
+            {isLedgerOnly ? (
+                <LedgerOnlyPlanFields
+                    externalFirms={externalFirms}
                     form={form}
-                    isLocked={stored !== null}
-                    onModeled={() => {
-                        setSelection(
-                            initialPlanSelection(
-                                selection.firmId,
-                                selection.planSerial,
-                                selection.optIns,
-                            ),
-                        );
-                    }}
-                    plan={plan}
+                    intent={intent}
+                    onCreateExternalFirm={onCreateExternalFirm}
                     selection={selection}
                 />
-                {isLedgerOnly ? (
-                    <LedgerOnlyPlanFields
-                        externalFirms={externalFirms}
-                        form={form}
-                        intent={intent}
-                        onCreateExternalFirm={onCreateExternalFirm}
-                        selection={selection}
-                    />
-                ) : (
-                    <AccountPlanPicker
-                        errors={planErrors}
-                        intent={intent}
-                        onChange={setSelection}
-                        value={selection}
-                    />
-                )}
-                {stored === null ? (
-                    <StageField
-                        form={form}
-                        isInstantFunded={plan?.isInstantFunded === true}
-                        options={stageOptions}
-                    />
-                ) : (
-                    <div className="flex flex-col gap-1 text-sm">
-                        <span className="font-medium">
-                            Stage: {accountStageLabel(stored.stage)}
-                            {', status: '}
-                            {accountStatusLabel(stored.status)}
+            ) : (
+                <AccountPlanPicker
+                    errors={planErrors}
+                    intent={intent}
+                    onChange={setSelection}
+                    value={selection}
+                />
+            )}
+            {stored === null ? (
+                <StageField
+                    form={form}
+                    isInstantFunded={plan?.isInstantFunded === true}
+                    options={stageOptions}
+                />
+            ) : (
+                <div className="flex flex-col gap-1 text-sm">
+                    <span className="font-medium">
+                        Stage: {accountStageLabel(stored.stage)}
+                        {', status: '}
+                        {accountStatusLabel(stored.status)}
+                    </span>
+                    <span className="text-muted-foreground">
+                        Stage and status change through lifecycle events on the
+                        account page, not here.
+                    </span>
+                    {errors.stage?.message !== undefined && (
+                        <span className="text-destructive">
+                            {errors.stage.message}
                         </span>
-                        <span className="text-muted-foreground">
-                            Stage and status change through lifecycle events on
-                            the account page, not here.
-                        </span>
-                        {errors.stage?.message !== undefined && (
-                            <span className="text-destructive">
-                                {errors.stage.message}
-                            </span>
-                        )}
-                    </div>
-                )}
-                <DashboardConventionField control={form.control} />
-                {(isLiveStartBalanceShown(stage) ||
-                    (stored !== null &&
-                        stored.liveStartBalanceCents !== null)) && (
-                    <LiveStartBalanceField control={form.control} />
-                )}
-            </CardContent>
-        </Card>
+                    )}
+                </div>
+            )}
+            <DashboardConventionField control={form.control} />
+            {(isLiveStartBalanceShown(stage) ||
+                (stored !== null && stored.liveStartBalanceCents !== null)) && (
+                <LiveStartBalanceField control={form.control} />
+            )}
+        </ToolPanel>
     );
 }
 
@@ -1468,11 +1444,11 @@ function ReadOnlyAccount({
     const router = useRouter();
     return (
         <div className="flex flex-col gap-4">
-            <Alert role="status" variant="warning">
-                <TriangleAlert />
-                <AlertTitle>This account is read-only</AlertTitle>
-                <AlertDescription>{notice}</AlertDescription>
-            </Alert>
+            <StatusRow
+                detail={notice}
+                title="This account is read-only"
+                tone={StatusTone.Warn}
+            />
             <dl
                 className={cn(
                     'grid gap-2 text-sm md:grid-cols-[max-content_1fr]',
@@ -1489,7 +1465,7 @@ function ReadOnlyAccount({
                 <dt className="text-muted-foreground">Status</dt>
                 <dd>{accountStatusLabel(account.status)}</dd>
                 <dt className="text-muted-foreground">Purchased on</dt>
-                <dd>{account.purchasedOn}</dd>
+                <dd>{formatDisplayDate(account.purchasedOn)}</dd>
                 {account.archivedAt !== null && (
                     <>
                         <dt className="text-muted-foreground">Archived</dt>

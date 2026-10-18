@@ -3,6 +3,8 @@ import { memo } from 'react';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type ExposureCardModel } from './overviewModel';
+import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum AccountExposureColumn {
     Account = 'account',
@@ -27,7 +29,10 @@ export const ExposureCard = memo(function ExposureCard({
     readonly model: ExposureCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.Exposure}
+        >
             {model.accounts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No active account has a usable balance snapshot yet.
@@ -39,6 +44,7 @@ export const ExposureCard = memo(function ExposureCard({
                             cell: ({ row }) => <>{row.original.account}</>,
                             header: 'Account',
                             id: AccountExposureColumn.Account,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => (
@@ -95,6 +101,7 @@ export const ExposureCard = memo(function ExposureCard({
                             ),
                             header: 'Copy group',
                             id: CopyGroupExposureColumn.CopyGroup,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.accounts}</>,
@@ -128,11 +135,6 @@ export const ExposureCard = memo(function ExposureCard({
                     rowId={(row) => row.key}
                 />
             )}
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
             {model.unavailable.length > 0 && (
                 <ul
                     aria-label="Accounts without an exposure"
@@ -145,6 +147,6 @@ export const ExposureCard = memo(function ExposureCard({
                     ))}
                 </ul>
             )}
-        </div>
+        </OverviewPanel>
     );
 });

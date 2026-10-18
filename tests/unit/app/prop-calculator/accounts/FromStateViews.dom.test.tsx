@@ -46,6 +46,7 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import { routes } from '~/lib/site/routes';
 
+import { infoContent, infoText, withInfoTexts } from '../infoPopover';
 import { NextPayoutSectionWithWorker } from './NextPayoutSectionWithWorker';
 
 vi.mock('next/navigation', () => ({
@@ -365,7 +366,7 @@ describe('from-state views', () => {
                 const text = container.textContent;
                 expect(text).toContain('Value from this state, credit-free');
                 expect(text).toContain(
-                    'From the account state as of 2026-03-02, not a fresh start',
+                    'From the account state as of 2 Mar 2026, not a fresh start',
                 );
                 expect(text).toContain('Expected time to the next payout');
                 expect(text).toContain('Path to the next payout');
@@ -373,7 +374,7 @@ describe('from-state views', () => {
                     'Position in the value chain of the plan',
                 );
                 expect(text).toContain('Keep or start a fresh account');
-                expect(text).toContain('Information only');
+                expect(withInfoTexts(container)).toContain('Information only');
                 const kinds = posted.flatMap((request) =>
                     request.requests.map((candidate) => candidate.kind),
                 );
@@ -412,12 +413,15 @@ describe('from-state views', () => {
                     />,
                 );
                 await settle();
-                const list = container.querySelector(
+                const list = infoContent(
+                    container,
+                    'Position in the value chain of the plan',
+                ).querySelector(
                     'ul[aria-label="First payout eligible assumptions"]',
                 );
                 expect(list).not.toBeNull();
                 expect(list?.querySelectorAll('li').length).toBeGreaterThan(1);
-                expect(container.textContent).toContain(
+                expect(withInfoTexts(container)).toContain(
                     'First payout eligible assumptions',
                 );
             },
@@ -810,7 +814,9 @@ describe('from-state views', () => {
             expect(text).toContain('Not funded yet');
             expect(text).toContain('Pending');
             expect(text).toContain('Charlie: the stop is too wide');
-            expect(text).toContain('never merged');
+            expect(
+                infoText(container, "Next payout and value from today's state"),
+            ).toContain('never merged');
             expect(container.querySelectorAll(':scope tbody tr')).toHaveLength(
                 3,
             );

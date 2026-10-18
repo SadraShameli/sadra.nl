@@ -1,4 +1,4 @@
-import { formatCurrency } from '~/lib/format';
+import { formatCurrency, formatDisplayDate } from '~/lib/format';
 import {
     AssumptionKind,
     assumptionText,
@@ -32,7 +32,7 @@ export function StateCard({ view }: { readonly view: StateCardView }) {
             return (
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-muted-foreground">
-                        As of {view.asOf}
+                        As of {formatDisplayDate(view.asOf)}
                     </p>
                     <dl className="grid gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
                         <div className="contents">

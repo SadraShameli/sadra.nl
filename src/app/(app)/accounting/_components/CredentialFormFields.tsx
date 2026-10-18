@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
@@ -49,7 +50,11 @@ export function CredentialFormFields({
     return (
         <>
             <div className="flex flex-col gap-2">
-                <Label htmlFor="cred-kind">Provider</Label>
+                <LabelWithInfo
+                    htmlFor="cred-kind"
+                    info={descriptor.description}
+                    label="Provider"
+                />
                 {kindEditable === true && descriptors && onKindChange ? (
                     <Select
                         onValueChange={(v) =>
@@ -74,11 +79,6 @@ export function CredentialFormFields({
                         id="cred-kind"
                         value={`${descriptor.label} (${descriptor.role})`}
                     />
-                )}
-                {descriptor.description && (
-                    <p className="text-xs text-muted-foreground">
-                        {descriptor.description}
-                    </p>
                 )}
             </div>
 

@@ -251,6 +251,7 @@ function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                     ),
                     header: 'Budget',
                     id: CurveColumn.Budget,
+                    meta: { isRowHeader: true },
                 },
                 {
                     cell: ({ row: { original: row } }) => (

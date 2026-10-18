@@ -4,7 +4,6 @@ import {
     CredentialKind,
     CredentialRegistry,
     CredentialRole,
-    CredentialTone,
     MetaFieldType,
 } from '~/lib/accounting/credentials/registry';
 
@@ -39,6 +38,5 @@ CredentialRegistry.instance.register({
         minLength: 16,
         placeholder: 'wise-…',
     },
-    tone: CredentialTone.Sky,
     transactionSourceId: 'wise-api',
 });

@@ -17,10 +17,10 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import {
     Field,
@@ -48,6 +48,7 @@ import {
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useSession } from '~/lib/auth/client';
+import { formatDisplayDate, formatDisplayDateRange } from '~/lib/format';
 import {
     EntryTextKind,
     parseMoneyText,
@@ -284,242 +285,219 @@ export function RoundsView() {
                 />
             )}
             {(model.perFirm.length > 0 || model.unassignedRoundCount > 0) && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle as="h2">Rounds by firm</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
-                        {model.perFirm.length > 0 && (
-                            <DataTable
-                                aria-label="Rounds by firm"
-                                columns={[
-                                    {
-                                        cell: ({ row }) => (
-                                            <>{row.original.firm}</>
-                                        ),
-                                        header: 'Firm',
-                                        id: RoundsByFirmColumn.Firm,
-                                    },
-                                    {
-                                        cell: ({ row }) => (
-                                            <>{row.original.rounds}</>
-                                        ),
-                                        header: 'Rounds',
-                                        id: RoundsByFirmColumn.Rounds,
-                                        meta: { align: DataTableAlign.End },
-                                    },
-                                    {
-                                        cell: ({ row }) => (
-                                            <>{row.original.closedRounds}</>
-                                        ),
-                                        header: 'Closed',
-                                        id: RoundsByFirmColumn.Closed,
-                                        meta: { align: DataTableAlign.End },
-                                    },
-                                    {
-                                        cell: ({ row }) => (
-                                            <>{row.original.min}</>
-                                        ),
-                                        header: 'Min multiple',
-                                        id: RoundsByFirmColumn.MinMultiple,
-                                        meta: { align: DataTableAlign.End },
-                                    },
-                                    {
-                                        cell: ({ row }) => (
-                                            <>{row.original.mean}</>
-                                        ),
-                                        header: 'Mean multiple',
-                                        id: RoundsByFirmColumn.MeanMultiple,
-                                        meta: { align: DataTableAlign.End },
-                                    },
-                                    {
-                                        cell: ({ row }) => (
-                                            <>{row.original.max}</>
-                                        ),
-                                        header: 'Max multiple',
-                                        id: RoundsByFirmColumn.MaxMultiple,
-                                        meta: { align: DataTableAlign.End },
-                                    },
-                                    {
-                                        cell: ({ row }) => (
-                                            <>{row.original.sharePositive}</>
-                                        ),
-                                        header: 'Share positive',
-                                        id: RoundsByFirmColumn.SharePositive,
-                                        meta: { align: DataTableAlign.End },
-                                    },
-                                    {
-                                        cell: ({ row }) => (
-                                            <>
-                                                <SampleBadge
-                                                    level={
-                                                        row.original.sampleLevel
-                                                    }
-                                                />
-                                            </>
-                                        ),
-                                        header: 'Sample',
-                                        id: RoundsByFirmColumn.Sample,
-                                    },
-                                ]}
-                                data={[...model.perFirm]}
-                                isSortable={false}
-                                pageSize={null}
-                                rowId={(row) => row.key}
-                            />
-                        )}
-                        {model.perFirm.length > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                                Multiples and share positive use closed rounds
-                                only; open rounds count in Rounds but not in the
-                                spread or its n.
-                            </p>
-                        )}
-                        {model.unassignedRoundCount > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                                Rounds without a firm:{' '}
-                                {model.unassignedRoundCount} (left out of this
-                                table)
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
-            <Card>
-                <CardHeader>
-                    <CardTitle as="h2">Your rounds</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {model.rounds.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            No rounds yet. Create one below, or accept a
-                            suggestion above.
-                        </p>
-                    ) : (
+                <ToolPanel
+                    contentClassName="gap-3"
+                    info={
+                        model.perFirm.length > 0
+                            ? 'Multiples and share positive use closed rounds only; open rounds count in Rounds but not in the spread or its n.'
+                            : undefined
+                    }
+                    title="Rounds by firm"
+                >
+                    {model.perFirm.length > 0 && (
                         <DataTable
-                            aria-label="Rounds"
+                            aria-label="Rounds by firm"
                             columns={[
-                                {
-                                    cell: ({ row }) => (
-                                        <>{row.original.label}</>
-                                    ),
-                                    header: 'Label',
-                                    id: RoundColumn.Label,
-                                },
                                 {
                                     cell: ({ row }) => <>{row.original.firm}</>,
                                     header: 'Firm',
-                                    id: RoundColumn.Firm,
+                                    id: RoundsByFirmColumn.Firm,
+                                    meta: { isRowHeader: true },
                                 },
                                 {
                                     cell: ({ row }) => (
-                                        <>{row.original.statusLabel}</>
+                                        <>{row.original.rounds}</>
                                     ),
-                                    header: 'Status',
-                                    id: RoundColumn.Status,
-                                },
-                                {
-                                    cell: ({ row }) => (
-                                        <>
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-xs text-muted-foreground">
-                                                    {row.original.budgetText}
-                                                </span>
-                                                {row.original
-                                                    .budgetPercentUsed !==
-                                                    null && (
-                                                    <Progress
-                                                        value={
-                                                            row.original
-                                                                .budgetPercentUsed
-                                                        }
-                                                    />
-                                                )}
-                                            </div>
-                                        </>
-                                    ),
-                                    header: 'Budget',
-                                    id: RoundColumn.Budget,
-                                },
-                                {
-                                    cell: ({ row }) => (
-                                        <>{row.original.netCents}</>
-                                    ),
-                                    header: 'Net',
-                                    id: RoundColumn.Net,
+                                    header: 'Rounds',
+                                    id: RoundsByFirmColumn.Rounds,
                                     meta: { align: DataTableAlign.End },
                                 },
                                 {
                                     cell: ({ row }) => (
-                                        <>{row.original.payoutsCents}</>
+                                        <>{row.original.closedRounds}</>
                                     ),
-                                    header: 'Payouts',
-                                    id: RoundColumn.Payouts,
+                                    header: 'Closed',
+                                    id: RoundsByFirmColumn.Closed,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row }) => <>{row.original.min}</>,
+                                    header: 'Min multiple',
+                                    id: RoundsByFirmColumn.MinMultiple,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row }) => <>{row.original.mean}</>,
+                                    header: 'Mean multiple',
+                                    id: RoundsByFirmColumn.MeanMultiple,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row }) => <>{row.original.max}</>,
+                                    header: 'Max multiple',
+                                    id: RoundsByFirmColumn.MaxMultiple,
                                     meta: { align: DataTableAlign.End },
                                 },
                                 {
                                     cell: ({ row }) => (
-                                        <>{row.original.realizedMultiple}</>
+                                        <>{row.original.sharePositive}</>
                                     ),
-                                    header: 'Realized multiple',
-                                    id: RoundColumn.RealizedMultiple,
-                                    meta: { align: DataTableAlign.End },
-                                },
-                                {
-                                    cell: ({ row }) => (
-                                        <>{row.original.toDateMultiple}</>
-                                    ),
-                                    header: 'To-date multiple',
-                                    id: RoundColumn.ToDateMultiple,
-                                    meta: { align: DataTableAlign.End },
-                                },
-                                {
-                                    cell: ({ row }) => (
-                                        <>{row.original.inProgressText}</>
-                                    ),
-                                    header: 'In progress',
-                                    id: RoundColumn.InProgress,
-                                    meta: { align: DataTableAlign.End },
-                                },
-                                {
-                                    cell: ({ row }) => (
-                                        <>{row.original.cycleDays}</>
-                                    ),
-                                    header: 'Cycle',
-                                    id: RoundColumn.Cycle,
+                                    header: 'Share positive',
+                                    id: RoundsByFirmColumn.SharePositive,
                                     meta: { align: DataTableAlign.End },
                                 },
                                 {
                                     cell: ({ row }) => (
                                         <>
-                                            <div>
-                                                {
-                                                    row.original
-                                                        .likeThisEndsNetNegativeModeled
-                                                }
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                Closed-form check:{' '}
-                                                {
-                                                    row.original
-                                                        .likeThisEndsNetNegativeClosedForm
-                                                }
-                                            </div>
+                                            <SampleBadge
+                                                level={row.original.sampleLevel}
+                                            />
                                         </>
                                     ),
-                                    header: 'P(round like this net negative)',
-                                    id: RoundColumn.PRoundLikeThisNetNegative,
-                                    meta: { align: DataTableAlign.End },
+                                    header: 'Sample',
+                                    id: RoundsByFirmColumn.Sample,
                                 },
                             ]}
-                            data={[...model.rounds]}
+                            data={[...model.perFirm]}
                             isSortable={false}
                             pageSize={null}
-                            rowId={(row) => row.id}
+                            rowId={(row) => row.key}
                         />
                     )}
-                </CardContent>
-            </Card>
+                    {model.unassignedRoundCount > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                            Rounds without a firm: {model.unassignedRoundCount}{' '}
+                            (left out of this table)
+                        </p>
+                    )}
+                </ToolPanel>
+            )}
+            <ToolPanel title="Your rounds">
+                {model.rounds.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                        No rounds yet. Create one below, or accept a suggestion
+                        above.
+                    </p>
+                ) : (
+                    <DataTable
+                        aria-label="Rounds"
+                        columns={[
+                            {
+                                cell: ({ row }) => <>{row.original.label}</>,
+                                header: 'Label',
+                                id: RoundColumn.Label,
+                                meta: { isRowHeader: true },
+                            },
+                            {
+                                cell: ({ row }) => <>{row.original.firm}</>,
+                                header: 'Firm',
+                                id: RoundColumn.Firm,
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>{row.original.statusLabel}</>
+                                ),
+                                header: 'Status',
+                                id: RoundColumn.Status,
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs text-muted-foreground">
+                                                {row.original.budgetText}
+                                            </span>
+                                            {row.original.budgetPercentUsed !==
+                                                null && (
+                                                <Progress
+                                                    value={
+                                                        row.original
+                                                            .budgetPercentUsed
+                                                    }
+                                                />
+                                            )}
+                                        </div>
+                                    </>
+                                ),
+                                header: 'Budget',
+                                id: RoundColumn.Budget,
+                            },
+                            {
+                                cell: ({ row }) => <>{row.original.netCents}</>,
+                                header: 'Net',
+                                id: RoundColumn.Net,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>{row.original.payoutsCents}</>
+                                ),
+                                header: 'Payouts',
+                                id: RoundColumn.Payouts,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>{row.original.realizedMultiple}</>
+                                ),
+                                header: 'Realized multiple',
+                                id: RoundColumn.RealizedMultiple,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>{row.original.toDateMultiple}</>
+                                ),
+                                header: 'To-date multiple',
+                                id: RoundColumn.ToDateMultiple,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>{row.original.inProgressText}</>
+                                ),
+                                header: 'In progress',
+                                id: RoundColumn.InProgress,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>{row.original.cycleDays}</>
+                                ),
+                                header: 'Cycle',
+                                id: RoundColumn.Cycle,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>
+                                        <div>
+                                            {
+                                                row.original
+                                                    .likeThisEndsNetNegativeModeled
+                                            }
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            Closed-form check:{' '}
+                                            {
+                                                row.original
+                                                    .likeThisEndsNetNegativeClosedForm
+                                            }
+                                        </div>
+                                    </>
+                                ),
+                                header: 'P(round like this net negative)',
+                                id: RoundColumn.PRoundLikeThisNetNegative,
+                                meta: { align: DataTableAlign.End },
+                            },
+                        ]}
+                        data={[...model.rounds]}
+                        isSortable={false}
+                        pageSize={null}
+                        rowId={(row) => row.id}
+                    />
+                )}
+            </ToolPanel>
             <RoundForm
                 externalFirms={externalFirms}
                 key={prefill === null ? 'empty' : JSON.stringify(prefill)}
@@ -548,65 +526,58 @@ function NextRoundCard({
     readonly result: NextRoundResultSummary | null;
 }) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle as="h2">Next round</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-                <p className="text-sm text-muted-foreground">
-                    After {model.roundLabel} closed ({model.planLabel}), modeled
-                    at {(model.modeledWinrate * 100).toFixed(0)}% win rate and{' '}
-                    {model.modeledRr}:1
-                    {model.realizedPassRate !== null && (
-                        <>
-                            {' '}
-                            (your realized pass rate is{' '}
-                            {(model.realizedPassRate.value * 100).toFixed(0)}%
-                            over {model.realizedPassRate.n})
-                        </>
-                    )}
-                    .
+        <ToolPanel contentClassName="gap-4" title="Next round">
+            <p className="text-sm text-muted-foreground">
+                After {model.roundLabel} closed ({model.planLabel}), modeled at{' '}
+                {(model.modeledWinrate * 100).toFixed(0)}% win rate and{' '}
+                {model.modeledRr}:1
+                {model.realizedPassRate !== null && (
+                    <>
+                        {' '}
+                        (your realized pass rate is{' '}
+                        {(model.realizedPassRate.value * 100).toFixed(0)}% over{' '}
+                        {model.realizedPassRate.n})
+                    </>
+                )}
+                .
+            </p>
+            {model.leftOutLabels.length > 0 && (
+                <p className="text-xs text-warning">
+                    This round also has{' '}
+                    {model.leftOutLabels.length === 1 ? 'a member' : 'members'}{' '}
+                    whose plan agreement was not checked, so its spend and
+                    payouts are left out: {model.leftOutLabels.join(', ')}.
                 </p>
-                {model.leftOutLabels.length > 0 && (
-                    <p className="text-xs text-warning">
-                        This round also has{' '}
-                        {model.leftOutLabels.length === 1
-                            ? 'a member'
-                            : 'members'}{' '}
-                        whose plan agreement was not checked, so its spend and
-                        payouts are left out: {model.leftOutLabels.join(', ')}.
-                    </p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                    {model.rebuyLagNote}
-                </p>
-                {failureReason !== null && (
-                    <p className="text-xs text-destructive">{failureReason}</p>
-                )}
-                {result === null ? (
-                    <Skeleton className="h-24 w-full" />
-                ) : (
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <NextRoundOption
-                            label="Option A: repeat with the same budget"
-                            recommended={
-                                result.recommended ===
-                                NextRoundRecommendation.OptionA
-                            }
-                            summary={result.optionA}
-                        />
-                        <NextRoundOption
-                            label="Option B: budget plus attributed payouts"
-                            recommended={
-                                result.recommended ===
-                                NextRoundRecommendation.OptionB
-                            }
-                            summary={result.optionB}
-                        />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+            )}
+            <p className="text-xs text-muted-foreground">
+                {model.rebuyLagNote}
+            </p>
+            {failureReason !== null && (
+                <p className="text-xs text-destructive">{failureReason}</p>
+            )}
+            {result === null ? (
+                <Skeleton className="h-24 w-full" />
+            ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                    <NextRoundOption
+                        label="Option A: repeat with the same budget"
+                        recommended={
+                            result.recommended ===
+                            NextRoundRecommendation.OptionA
+                        }
+                        summary={result.optionA}
+                    />
+                    <NextRoundOption
+                        label="Option B: budget plus attributed payouts"
+                        recommended={
+                            result.recommended ===
+                            NextRoundRecommendation.OptionB
+                        }
+                        summary={result.optionB}
+                    />
+                </div>
+            )}
+        </ToolPanel>
     );
 }
 
@@ -620,33 +591,39 @@ function NextRoundOption({
     readonly summary: NextRoundOptionSummary;
 }) {
     return (
-        <Card className="gap-2 p-3">
+        <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
                 <span className="text-sm font-medium">{label}</span>
-                {recommended && <Badge variant="outline">Recommended</Badge>}
+                {recommended && <Badge>Recommended</Badge>}
             </div>
-            <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm">
-                <dt className="text-muted-foreground">Budget</dt>
-                <dd className="text-right tabular-nums">
-                    {summary.startingBankroll}
-                </dd>
-                <dt className="text-muted-foreground">
-                    Median monthly net (P50)
-                </dt>
-                <dd className="text-right tabular-nums">
-                    {summary.medianMonthlyNet}
-                </dd>
-                <dt className="text-muted-foreground">P(round net negative)</dt>
-                <dd className="text-right tabular-nums">
-                    {summary.pRoundNetNegative}
-                </dd>
-                <dt className="text-muted-foreground">Path ruin</dt>
-                <dd className="text-right tabular-nums">{summary.pathRuin}</dd>
-            </dl>
+            <StatStrip
+                items={[
+                    {
+                        id: 'budget',
+                        label: 'Budget',
+                        value: summary.startingBankroll,
+                    },
+                    {
+                        id: 'median-monthly-net',
+                        label: 'Median monthly net (P50)',
+                        value: summary.medianMonthlyNet,
+                    },
+                    {
+                        id: 'round-net-negative',
+                        label: 'P(round net negative)',
+                        value: summary.pRoundNetNegative,
+                    },
+                    {
+                        id: 'path-ruin',
+                        label: 'Path ruin',
+                        value: summary.pathRuin,
+                    },
+                ]}
+            />
             {summary.scaleGateNote !== null && (
                 <p className="text-xs text-warning">{summary.scaleGateNote}</p>
             )}
-        </Card>
+        </div>
     );
 }
 
@@ -711,122 +688,117 @@ function RoundForm({
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle as="h2">New round</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <form
-                    aria-label="Add a round"
-                    className="grid gap-4 md:grid-cols-2"
-                    noValidate
-                    onSubmit={(event) => {
-                        void form.handleSubmit(save)(event);
-                    }}
-                >
-                    <Controller
-                        control={form.control}
-                        name="firmValue"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-firmValue`}>
-                                    Firm
-                                </FieldLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
+        <ToolPanel title="New round">
+            <form
+                aria-label="Add a round"
+                className="grid gap-4 md:grid-cols-2"
+                noValidate
+                onSubmit={(event) => {
+                    void form.handleSubmit(save)(event);
+                }}
+            >
+                <Controller
+                    control={form.control}
+                    name="firmValue"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-firmValue`}>
+                                Firm
+                            </FieldLabel>
+                            <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                            >
+                                <SelectTrigger
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-firmValue`}
+                                    ref={field.ref}
                                 >
-                                    <SelectTrigger
-                                        aria-invalid={fieldState.invalid}
-                                        id={`${formId}-firmValue`}
-                                        ref={field.ref}
-                                    >
-                                        <SelectValue placeholder="Choose a firm" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {options.map((option) => (
-                                            <SelectItem
-                                                key={option.value}
-                                                value={option.value}
-                                            >
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
-                    <Controller
-                        control={form.control}
-                        name="label"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-label`}>
-                                    Label
-                                </FieldLabel>
-                                <Input
-                                    aria-invalid={fieldState.invalid}
-                                    id={`${formId}-label`}
-                                    {...field}
-                                />
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
-                    <Controller
-                        control={form.control}
-                        name="openedOn"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-openedOn`}>
-                                    Opened on
-                                </FieldLabel>
-                                <IsoDatePicker
-                                    aria-invalid={fieldState.invalid}
-                                    id={`${formId}-openedOn`}
-                                    {...field}
-                                />
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
-                    <Controller
-                        control={form.control}
-                        name="budgetCents"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-budgetCents`}>
-                                    Budget (optional)
-                                </FieldLabel>
-                                <Input
-                                    aria-invalid={fieldState.invalid}
-                                    id={`${formId}-budgetCents`}
-                                    inputMode="decimal"
-                                    placeholder="0.00"
-                                    {...field}
-                                />
-                                <FieldDescription>
-                                    Leave blank for no budget.
-                                </FieldDescription>
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
-                    <div className="md:col-span-2">
-                        <Button
-                            disabled={
-                                create.isPending || form.formState.isSubmitting
-                            }
-                            type="submit"
-                        >
-                            Add round
-                        </Button>
-                    </div>
-                </form>
-            </CardContent>
-        </Card>
+                                    <SelectValue placeholder="Choose a firm" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {options.map((option) => (
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                        >
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <Controller
+                    control={form.control}
+                    name="label"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-label`}>
+                                Label
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-label`}
+                                {...field}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <Controller
+                    control={form.control}
+                    name="openedOn"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-openedOn`}>
+                                Opened on
+                            </FieldLabel>
+                            <IsoDatePicker
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-openedOn`}
+                                {...field}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <Controller
+                    control={form.control}
+                    name="budgetCents"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-budgetCents`}>
+                                Budget (optional)
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-budgetCents`}
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                {...field}
+                            />
+                            <FieldDescription>
+                                Leave blank for no budget.
+                            </FieldDescription>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <div className="md:col-span-2">
+                    <Button
+                        disabled={
+                            create.isPending || form.formState.isSubmitting
+                        }
+                        type="submit"
+                    >
+                        Add round
+                    </Button>
+                </div>
+            </form>
+        </ToolPanel>
     );
 }
 
@@ -887,8 +859,11 @@ function SuggestionsCard({
                             <ItemDescription>
                                 {row.memberCount} accounts purchased{' '}
                                 {row.earliestPurchase === row.latestPurchase
-                                    ? `on ${row.earliestPurchase}`
-                                    : `${row.earliestPurchase} to ${row.latestPurchase}`}
+                                    ? `on ${formatDisplayDate(row.earliestPurchase)}`
+                                    : formatDisplayDateRange(
+                                          row.earliestPurchase,
+                                          row.latestPurchase,
+                                      )}
                             </ItemDescription>
                         </ItemContent>
                         <ItemActions>

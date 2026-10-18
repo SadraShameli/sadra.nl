@@ -18,21 +18,13 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { SCALE_GATE_STATUS_VARIANT } from '~/app/(app)/prop-calculator/accounts/_components/scaleGateBadge';
+import { FormDialog } from '~/components/FormDialog';
+import { RowActionKind, rowActionsColumn } from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '~/components/ui/dialog';
+import { Dialog } from '~/components/ui/dialog';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
@@ -44,7 +36,7 @@ import {
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useSession } from '~/lib/auth/client';
-import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { formatDisplayDate, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
     type ExternalFirmName,
     type FirmColumns,
@@ -145,6 +137,7 @@ export function FirmsView() {
     const rulebook = rulebookQuery.data ?? DEFAULT_RULEBOOK;
     const trades = edgeQuery.data?.summary.sampleSize ?? 0;
     const isScaleGateLoading = rulebookQuery.isPending || edgeQuery.isPending;
+    const [editing, setEditing] = useState<FirmRosterEntry | null>(null);
 
     const model = useMemo(() => {
         if (
@@ -240,101 +233,131 @@ export function FirmsView() {
                 isLoading={isScaleGateLoading}
                 scaleGate={model.scaleGate}
             />
-            <Card>
-                <CardHeader>
-                    <CardTitle as="h2">Firm roster</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {model.roster.firms.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                            No firms yet. Add an account to see it here.
-                        </p>
-                    ) : (
-                        <DataTable
-                            columns={[
-                                {
-                                    cell: ({ row: { original: entry } }) =>
-                                        firmKeyLabel(
+            <ToolPanel title="Firm roster">
+                {model.roster.firms.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                        No firms yet. Add an account to see it here.
+                    </p>
+                ) : (
+                    <DataTable
+                        columns={[
+                            {
+                                cell: ({ row: { original: entry } }) =>
+                                    firmKeyLabel(entry.firmKey, externalFirms),
+                                header: 'Firm',
+                                id: FirmRosterColumn.Firm,
+                                meta: { isRowHeader: true },
+                            },
+                            {
+                                cell: ({ row: { original: entry } }) => (
+                                    <FirmStatusCell
+                                        entry={entry}
+                                        existingEngagement={firmEngagementFor(
                                             entry.firmKey,
-                                            externalFirms,
-                                        ),
-                                    header: 'Firm',
-                                    id: FirmRosterColumn.Firm,
-                                },
-                                {
-                                    cell: ({ row: { original: entry } }) => (
-                                        <FirmStatusCell
-                                            canEditEngagement={
-                                                canEditEngagement
-                                            }
-                                            entry={entry}
-                                            existingEngagement={firmEngagementFor(
-                                                entry.firmKey,
-                                                engagements,
-                                            )}
-                                            firmLabel={firmKeyLabel(
-                                                entry.firmKey,
-                                                externalFirms,
-                                            )}
-                                        />
-                                    ),
-                                    header: 'Status',
-                                    id: FirmRosterColumn.Status,
-                                },
-                                {
-                                    cell: ({ row: { original: entry } }) =>
-                                        entry.lifetimeAccounts,
-                                    header: 'Lifetime',
-                                    id: FirmRosterColumn.Lifetime,
-                                    meta: { align: DataTableAlign.End },
-                                },
-                                {
-                                    cell: ({ row: { original: entry } }) =>
-                                        entry.activeAccounts,
-                                    header: 'Active',
-                                    id: FirmRosterColumn.Active,
-                                    meta: { align: DataTableAlign.End },
-                                },
-                                {
-                                    cell: ({ row: { original: entry } }) =>
-                                        entry.movedLiveCount,
-                                    header: 'Moved live',
-                                    id: FirmRosterColumn.MovedLive,
-                                    meta: { align: DataTableAlign.End },
-                                },
-                                {
-                                    cell: ({ row: { original: entry } }) =>
-                                        entry.firstPurchaseOn ?? NOT_APPLICABLE,
-                                    header: 'First purchase',
-                                    id: FirmRosterColumn.FirstPurchase,
-                                },
-                                {
-                                    cell: ({ row: { original: entry } }) =>
-                                        entry.lastActivityOn ?? NOT_APPLICABLE,
-                                    header: 'Last activity',
-                                    id: FirmRosterColumn.LastActivity,
-                                },
-                                {
-                                    cell: ({ row: { original: entry } }) => (
-                                        <TransferRateCell
-                                            transferRate={transferRateFor(
-                                                entry.firmKey,
-                                                model.transferRate.perFirm,
-                                            )}
-                                        />
-                                    ),
-                                    header: 'Live-transfer rate',
-                                    id: FirmRosterColumn.TransferRate,
-                                },
-                            ]}
-                            data={[...model.roster.firms]}
-                            isSortable={false}
-                            pageSize={null}
-                            rowId={(entry) => firmKeyId(entry.firmKey)}
-                        />
-                    )}
-                </CardContent>
-            </Card>
+                                            engagements,
+                                        )}
+                                    />
+                                ),
+                                header: 'Status',
+                                id: FirmRosterColumn.Status,
+                            },
+                            {
+                                cell: ({ row: { original: entry } }) =>
+                                    entry.lifetimeAccounts,
+                                header: 'Lifetime',
+                                id: FirmRosterColumn.Lifetime,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row: { original: entry } }) =>
+                                    entry.activeAccounts,
+                                header: 'Active',
+                                id: FirmRosterColumn.Active,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row: { original: entry } }) =>
+                                    entry.movedLiveCount,
+                                header: 'Moved live',
+                                id: FirmRosterColumn.MovedLive,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row: { original: entry } }) =>
+                                    entry.firstPurchaseOn === null
+                                        ? NOT_APPLICABLE
+                                        : formatDisplayDate(
+                                              entry.firstPurchaseOn,
+                                          ),
+                                header: 'First purchase',
+                                id: FirmRosterColumn.FirstPurchase,
+                            },
+                            {
+                                cell: ({ row: { original: entry } }) =>
+                                    entry.lastActivityOn === null
+                                        ? NOT_APPLICABLE
+                                        : formatDisplayDate(
+                                              entry.lastActivityOn,
+                                          ),
+                                header: 'Last activity',
+                                id: FirmRosterColumn.LastActivity,
+                            },
+                            {
+                                cell: ({ row: { original: entry } }) => (
+                                    <TransferRateCell
+                                        transferRate={transferRateFor(
+                                            entry.firmKey,
+                                            model.transferRate.perFirm,
+                                        )}
+                                    />
+                                ),
+                                header: 'Live-transfer rate',
+                                id: FirmRosterColumn.TransferRate,
+                            },
+                            rowActionsColumn<FirmRosterEntry>({
+                                actionsOf: (entry) => [
+                                    {
+                                        icon: Pencil,
+                                        kind: RowActionKind.Select,
+                                        label: 'Change status',
+                                        onSelect: () => {
+                                            setEditing(entry);
+                                        },
+                                    },
+                                ],
+                                labelOf: (entry) =>
+                                    firmKeyLabel(entry.firmKey, externalFirms),
+                            }),
+                        ]}
+                        data={[...model.roster.firms]}
+                        isSortable={false}
+                        pageSize={null}
+                        rowId={(entry) => firmKeyId(entry.firmKey)}
+                    />
+                )}
+            </ToolPanel>
+            <Dialog
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) setEditing(null);
+                }}
+                open={editing !== null}
+            >
+                {editing !== null && (
+                    <FirmStatusForm
+                        canEditEngagement={canEditEngagement}
+                        entry={editing}
+                        existingEngagement={firmEngagementFor(
+                            editing.firmKey,
+                            engagements,
+                        )}
+                        firmLabel={firmKeyLabel(editing.firmKey, externalFirms)}
+                        key={String(canEditEngagement)}
+                        onClose={() => {
+                            setEditing(null);
+                        }}
+                    />
+                )}
+            </Dialog>
         </div>
     );
 }
@@ -346,59 +369,22 @@ function firmColumnsFromKey(key: FirmKey): FirmColumns {
 }
 
 function FirmStatusCell({
-    canEditEngagement,
     entry,
     existingEngagement,
-    firmLabel,
 }: {
-    readonly canEditEngagement: boolean;
     readonly entry: FirmRosterEntry;
     readonly existingEngagement: FirmEngagementRow | null;
-    readonly firmLabel: string;
 }) {
-    const [isOpen, setIsOpen] = useState(false);
     const status = existingEngagement?.status ?? FirmEngagementStatus.Active;
     const sinceOn = existingEngagement?.sinceOn ?? entry.firstPurchaseOn;
     return (
         <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{firmEngagementStatusLabel(status)}</Badge>
+            <Badge>{firmEngagementStatusLabel(status)}</Badge>
             {sinceOn !== null && (
                 <span className="font-mono text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                    since {sinceOn}
+                    since {formatDisplayDate(sinceOn)}
                 </span>
             )}
-            <Dialog onOpenChange={setIsOpen} open={isOpen}>
-                <DialogTrigger asChild>
-                    <Button
-                        aria-label={`Change the status of ${firmLabel}`}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                    >
-                        <Pencil data-icon="inline-start" />
-                        Edit
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>{firmLabel}</DialogTitle>
-                        <DialogDescription>
-                            Whether you are still buying accounts at this firm,
-                            and since when.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <FirmStatusForm
-                        canEditEngagement={canEditEngagement}
-                        entry={entry}
-                        existingEngagement={existingEngagement}
-                        firmLabel={firmLabel}
-                        key={String(canEditEngagement)}
-                        onSaved={() => {
-                            setIsOpen(false);
-                        }}
-                    />
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
@@ -408,13 +394,13 @@ function FirmStatusForm({
     entry,
     existingEngagement,
     firmLabel,
-    onSaved,
+    onClose,
 }: {
     readonly canEditEngagement: boolean;
     readonly entry: FirmRosterEntry;
     readonly existingEngagement: FirmEngagementRow | null;
     readonly firmLabel: string;
-    readonly onSaved: () => void;
+    readonly onClose: () => void;
 }) {
     const utilities = api.useUtils();
     const set = api.propAccounts.firmEngagement.set.useMutation();
@@ -447,7 +433,7 @@ function FirmStatusForm({
             toast.success(
                 `${firmEngagementStatusLabel(parsed.data.status)} saved`,
             );
-            onSaved();
+            onClose();
         } catch (error) {
             toast.error(
                 error instanceof Error ? error.message : 'Could not save',
@@ -458,17 +444,15 @@ function FirmStatusForm({
     };
 
     return (
-        <form
-            aria-label={`Edit status for ${firmLabel}`}
-            className="flex flex-col gap-4"
-            noValidate
-            onSubmit={(event) => {
-                if (!canEditEngagement) {
-                    event.preventDefault();
-                    return;
-                }
-                void form.handleSubmit(save)(event);
-            }}
+        <FormDialog
+            description="Whether you are still buying accounts at this firm, and since when."
+            form={form}
+            onCancel={onClose}
+            onSubmit={save}
+            pending={set.isPending || form.formState.isSubmitting}
+            submitDisabled={!canEditEngagement}
+            submitLabel="Save"
+            title={firmLabel}
         >
             <Controller
                 control={form.control}
@@ -584,20 +568,7 @@ function FirmStatusForm({
                     </Field>
                 )}
             />
-            <DialogFooter>
-                <Button
-                    disabled={
-                        set.isPending ||
-                        form.formState.isSubmitting ||
-                        !canEditEngagement
-                    }
-                    type="submit"
-                >
-                    Save
-                    <span className="sr-only"> the status of {firmLabel}</span>
-                </Button>
-            </DialogFooter>
-        </form>
+        </FormDialog>
     );
 }
 
@@ -638,46 +609,37 @@ function ScaleGateCard({
     readonly scaleGate: ScaleGate;
 }) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <h2>Scale gate</h2>
-                    {!isLoading && (
-                        <Badge
-                            variant={
-                                SCALE_GATE_STATUS_VARIANT[scaleGate.status]
-                            }
-                        >
-                            {SCALE_GATE_STATUS_TEXT[scaleGate.status]}
-                        </Badge>
-                    )}
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? (
-                    <p className="text-sm text-muted-foreground" role="status">
-                        Checking your thresholds and journal
-                    </p>
-                ) : scaleGate.status === ScaleGateStatus.ThresholdsNotSet ? (
-                    <p className="text-sm text-muted-foreground">
-                        Set your sample thresholds on the rulebook to see
-                        whether you are ready to scale.
-                    </p>
-                ) : scaleGate.unmetConditions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        Every scale-gate condition is met.
-                    </p>
-                ) : (
-                    <ul className="list-disc pl-5 text-sm text-muted-foreground">
-                        {scaleGate.unmetConditions.map((condition) => (
-                            <li key={condition}>
-                                {SCALE_GATE_UNMET_LABEL[condition]}
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </CardContent>
-        </Card>
+        <ToolPanel
+            actions={
+                isLoading ? undefined : (
+                    <Badge>{SCALE_GATE_STATUS_TEXT[scaleGate.status]}</Badge>
+                )
+            }
+            title="Scale gate"
+        >
+            {isLoading ? (
+                <p className="text-sm text-muted-foreground" role="status">
+                    Checking your thresholds and journal
+                </p>
+            ) : scaleGate.status === ScaleGateStatus.ThresholdsNotSet ? (
+                <p className="text-sm text-muted-foreground">
+                    Set your sample thresholds on the rulebook to see whether
+                    you are ready to scale.
+                </p>
+            ) : scaleGate.unmetConditions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                    Every scale-gate condition is met.
+                </p>
+            ) : (
+                <ul className="list-disc pl-5 text-sm text-muted-foreground">
+                    {scaleGate.unmetConditions.map((condition) => (
+                        <li key={condition}>
+                            {SCALE_GATE_UNMET_LABEL[condition]}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </ToolPanel>
     );
 }
 

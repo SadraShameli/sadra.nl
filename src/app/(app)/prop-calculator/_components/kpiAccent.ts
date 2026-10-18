@@ -1,3 +1,4 @@
+import { StatTone } from '~/components/StatStrip';
 import { type Roi } from '~/lib/prop-calculator';
 
 export enum KpiAccent {
@@ -6,10 +7,10 @@ export enum KpiAccent {
     Positive = 'positive',
 }
 
-export const KPI_ACCENT_TEXT_CLASS: Record<KpiAccent, string> = {
-    [KpiAccent.Negative]: 'text-destructive',
-    [KpiAccent.Neutral]: 'text-foreground',
-    [KpiAccent.Positive]: 'text-success',
+export const KPI_ACCENT_STAT_TONE: Readonly<Record<KpiAccent, StatTone>> = {
+    [KpiAccent.Negative]: StatTone.Negative,
+    [KpiAccent.Neutral]: StatTone.Default,
+    [KpiAccent.Positive]: StatTone.Positive,
 };
 
 export function probabilityAccent(probability: number): KpiAccent {

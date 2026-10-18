@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Info, TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -16,6 +16,8 @@ import {
     type AccountListAccount,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { InfoNote } from '~/components/InfoNote';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard } from '~/components/ToggleCard';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
@@ -34,6 +36,7 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
+import { formatDisplayDate } from '~/lib/format';
 import {
     AccountEventKind,
     type AccountLifecycleState,
@@ -130,7 +133,7 @@ export function EventsSection({
                         <li className="flex flex-col" key={row.id}>
                             <span>
                                 <span className="tabular-nums">
-                                    {row.occurredOn}
+                                    {formatDisplayDate(row.occurredOn)}
                                 </span>{' '}
                                 <span className="font-medium">
                                     {accountEventKindLabel(row.kind)}
@@ -454,29 +457,26 @@ function EventForm({
                 )}
             />
             {shown !== null && (
-                <Alert className="md:col-span-2">
-                    <Info />
-                    <AlertTitle>{shown.title}</AlertTitle>
-                    <AlertDescription>
-                        {shown.lines.map((line) => (
-                            <p key={line}>{line}</p>
-                        ))}
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    className="md:col-span-2"
+                    detail={<LineSpans lines={shown.lines} />}
+                    title={shown.title}
+                    tone={
+                        shown.requiresConfirmation
+                            ? StatusTone.Warn
+                            : StatusTone.Neutral
+                    }
+                />
             )}
             {isAwaitingAccounts && (
-                <Alert className="md:col-span-2">
-                    <Info />
-                    <AlertTitle>Loading your other accounts</AlertTitle>
-                    <AlertDescription>
-                        What the firm&apos;s rules do to your other accounts
-                        when this one goes live is shown once they are loaded;
-                        recording waits until then.
-                    </AlertDescription>
-                </Alert>
+                <InfoNote className="md:col-span-2">
+                    Loading your other accounts. What the firm&apos;s rules do
+                    to your other accounts when this one goes live is shown once
+                    they are loaded; recording waits until then.
+                </InfoNote>
             )}
             {isMovedLive && accountsFailed && (
-                <Alert className="md:col-span-2" variant="warning">
+                <Alert className="md:col-span-2" variant="destructive">
                     <TriangleAlert />
                     <AlertTitle>Other accounts not loaded</AlertTitle>
                     <AlertDescription>
@@ -488,15 +488,16 @@ function EventForm({
                 </Alert>
             )}
             {exclusivity !== null && (
-                <Alert className="md:col-span-2">
-                    <Info />
-                    <AlertTitle>{exclusivity.title}</AlertTitle>
-                    <AlertDescription>
-                        {exclusivity.lines.map((line) => (
-                            <p key={line}>{line}</p>
-                        ))}
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    className="md:col-span-2"
+                    detail={<LineSpans lines={exclusivity.lines} />}
+                    title={exclusivity.title}
+                    tone={
+                        exclusivity.effects.length === 0
+                            ? StatusTone.Neutral
+                            : StatusTone.Warn
+                    }
+                />
             )}
             {exclusivity !== null &&
                 exclusivity.confirmedAccountIds.length > 0 && (
@@ -584,6 +585,14 @@ function firmColumnsOf(
         : null;
 }
 
+function LineSpans({ lines }: { readonly lines: readonly string[] }) {
+    return lines.map((line) => (
+        <span className="block" key={line}>
+            {line}
+        </span>
+    ));
+}
+
 function MovedLiveSuggestion({
     externalFirms,
     firmColumns,
@@ -609,16 +618,9 @@ function MovedLiveSuggestion({
     });
 
     return (
-        <Alert className="mt-4">
-            <Info />
-            <AlertTitle>Mark {firmLabel} as sent live?</AlertTitle>
-            <AlertDescription>
-                <p>
-                    This account just moved live at {firmLabel}. Recording the
-                    firm as &quot;Retired: sent live&quot; flags any other
-                    account you still simulate there.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
+        <StatusRow
+            actions={
+                <>
                     <Button
                         disabled={engagementMutation.isPending}
                         onClick={() => {
@@ -644,9 +646,13 @@ function MovedLiveSuggestion({
                     >
                         Not now
                     </Button>
-                </div>
-            </AlertDescription>
-        </Alert>
+                </>
+            }
+            className="mt-4"
+            detail={`This account just moved live at ${firmLabel}. Recording the firm as "Retired: sent live" flags any other account you still simulate there.`}
+            title={`Mark ${firmLabel} as sent live?`}
+            tone={StatusTone.Neutral}
+        />
     );
 }
 

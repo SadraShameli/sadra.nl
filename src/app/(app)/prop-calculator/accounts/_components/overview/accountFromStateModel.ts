@@ -6,7 +6,11 @@ import {
     ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { PAYOUT_STAKE_REQUEST_NOW_TRANSFER_TEXT } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
-import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
+import {
+    formatCurrency,
+    formatDisplayDate,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import {
     type AccountStateEventRow,
     AccountStateKind,
@@ -376,7 +380,7 @@ function modelOf(
                 ? null
                 : nextPayoutModelOf(figures.nextPayout),
         stage: figures.stage,
-        startBasis: `From the account state as of ${asOf}, not a fresh start`,
+        startBasis: `From the account state as of ${formatDisplayDate(asOf)}, not a fresh start`,
         trials: formatTrials(figures.trials),
         value: {
             creditFree: estimateCurrency(valueNow.creditFree),

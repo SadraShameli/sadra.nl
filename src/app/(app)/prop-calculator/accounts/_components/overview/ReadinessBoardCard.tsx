@@ -1,8 +1,11 @@
 import { memo } from 'react';
 
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { formatDisplayDate } from '~/lib/format';
 
 import { type ReadinessBoardCardModel } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum ReadinessBoardCardColumn {
     Account = 'account',
@@ -19,7 +22,10 @@ export const ReadinessBoardCard = memo(function ReadinessBoardCard({
     readonly model: ReadinessBoardCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={model.disclosure}
+            section={OverviewSectionId.ReadinessBoard}
+        >
             {model.rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No funded account has a usable balance snapshot yet.
@@ -31,6 +37,7 @@ export const ReadinessBoardCard = memo(function ReadinessBoardCard({
                             cell: ({ row }) => <>{row.original.account}</>,
                             header: 'Account',
                             id: ReadinessBoardCardColumn.Account,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.status}</>,
@@ -66,7 +73,9 @@ export const ReadinessBoardCard = memo(function ReadinessBoardCard({
                             id: ReadinessBoardCardColumn.WhatUnlocksIt,
                         },
                         {
-                            cell: ({ row }) => <>{row.original.asOf}</>,
+                            cell: ({ row }) => (
+                                <>{formatDisplayDate(row.original.asOf)}</>
+                            ),
                             header: 'As of',
                             id: ReadinessBoardCardColumn.AsOf,
                         },
@@ -77,7 +86,6 @@ export const ReadinessBoardCard = memo(function ReadinessBoardCard({
                     rowId={(row) => row.key}
                 />
             )}
-            <p className="text-xs text-muted-foreground">{model.disclosure}</p>
             {model.notFundedCount > 0 && (
                 <p className="text-xs text-muted-foreground">
                     {model.notFundedCount === 1
@@ -97,6 +105,6 @@ export const ReadinessBoardCard = memo(function ReadinessBoardCard({
                     ))}
                 </ul>
             )}
-        </div>
+        </OverviewPanel>
     );
 });

@@ -13,10 +13,10 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
-import { Card } from '~/components/ui/card';
 import { DataTable } from '~/components/ui/data-table';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
@@ -142,23 +142,35 @@ export default function CopySplitSection() {
             : null;
     const header = result === null ? null : copySplitHeader(result);
     const rows = result === null ? [] : copySplitRowViews(result);
+    const noiseNote = header?.noiseNote ?? null;
+    const fallbackNote = header?.note ?? null;
 
     return (
-        <section
-            aria-labelledby="copy-split-heading"
-            className="flex flex-col gap-4"
-        >
-            <ToolSectionHeading id="copy-split-heading">
-                {header?.title ?? 'Split vs concentrate'}
-            </ToolSectionHeading>
-            <Card className="gap-4 p-5">
-                <p className="text-xs text-muted-foreground">
-                    The same total risk per trade across N copied accounts
-                    against one concentrated account, under your engine policy.
-                    The comparison unit is the whole group of accounts. It ranks
-                    the splits by the ranking objective chosen at the top of
-                    this page.
-                </p>
+        <section aria-labelledby="copy-split-heading">
+            <ToolPanel
+                description={header?.trialsText}
+                info={
+                    <>
+                        <p>
+                            The same total risk per trade across N copied
+                            accounts against one concentrated account, under
+                            your engine policy. The comparison unit is the whole
+                            group of accounts. It ranks the splits by the
+                            ranking objective chosen at the top of this page.
+                        </p>
+                        {header === null ? null : (
+                            <ul className="list-disc pl-4">
+                                {header.basisLines.map((line) => (
+                                    <li key={line}>{line}</li>
+                                ))}
+                            </ul>
+                        )}
+                        {noiseNote === null ? null : <p>{noiseNote}</p>}
+                    </>
+                }
+                title={header?.title ?? 'Split vs concentrate'}
+                titleId="copy-split-heading"
+            >
                 <RulebookSourceNotice source={rulebookSource} />
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Field data-invalid={totalRiskIssue !== null}>
@@ -243,27 +255,8 @@ export default function CopySplitSection() {
                         <AlertDescription>{failureReason}</AlertDescription>
                     </Alert>
                 )}
-                {header !== null && (
-                    <>
-                        <p className="text-xs text-muted-foreground">
-                            {header.trialsText}
-                        </p>
-                        <ul className="list-disc pl-4 text-xs text-muted-foreground">
-                            {header.basisLines.map((line) => (
-                                <li key={line}>{line}</li>
-                            ))}
-                        </ul>
-                        {header.note !== null && (
-                            <p className="text-xs text-warning">
-                                {header.note}
-                            </p>
-                        )}
-                        {header.noiseNote !== null && (
-                            <p className="text-xs text-warning">
-                                {header.noiseNote}
-                            </p>
-                        )}
-                    </>
+                {fallbackNote === null ? null : (
+                    <StatusRow title={fallbackNote} tone={StatusTone.Warn} />
                 )}
                 {rows.length > 0 && (
                     <DataTable
@@ -276,6 +269,7 @@ export default function CopySplitSection() {
                                 ),
                                 header: 'Split',
                                 id: CopySplitColumn.Split,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row: { original: row } }) => (
@@ -343,9 +337,7 @@ export default function CopySplitSection() {
                             {
                                 cell: ({ row: { original: row } }) =>
                                     row.isWithinNoise ? (
-                                        <Badge variant="warning">
-                                            within noise
-                                        </Badge>
+                                        <Badge>within noise</Badge>
                                     ) : null,
                                 header: 'Noise',
                                 id: CopySplitColumn.Noise,
@@ -364,7 +356,7 @@ export default function CopySplitSection() {
                         }
                     />
                 )}
-            </Card>
+            </ToolPanel>
         </section>
     );
 }

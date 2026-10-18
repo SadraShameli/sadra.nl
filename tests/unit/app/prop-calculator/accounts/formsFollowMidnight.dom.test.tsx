@@ -15,6 +15,7 @@ import {
     SnapshotField,
 } from '~/lib/prop-accounts';
 
+import { dialogTitled, typeInto } from '../../../components/formDialog';
 import { pickOption } from './pickOption';
 
 const ACCOUNT_ID = 'a1111111-1111-4111-8111-111111111111';
@@ -90,10 +91,16 @@ interface FormCase {
     readonly create: string;
     readonly date: (container: ParentNode) => HTMLInputElement;
     readonly dateKey: string;
+    readonly dialog?: FormDialogOpener;
     readonly fill?: (container: ParentNode) => Promise<void> | void;
     readonly name: string;
     readonly render: (root: Root) => void;
     readonly submit: string;
+}
+
+interface FormDialogOpener {
+    readonly title: string;
+    readonly trigger: string;
 }
 
 async function clickButton(scope: ParentNode, label: string) {
@@ -131,25 +138,12 @@ function inputLabelled(scope: ParentNode, label: string): HTMLInputElement {
     return control;
 }
 
-function typeInto(input: HTMLElement, text: string) {
-    act(() => {
-        Reflect.set(
-            input instanceof HTMLTextAreaElement
-                ? HTMLTextAreaElement.prototype
-                : HTMLInputElement.prototype,
-            'value',
-            text,
-            input,
-        );
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-}
-
 const CASES: readonly FormCase[] = [
     {
         create: 'propAccounts.fee.create',
         date: (container) => inputLabelled(container, 'Paid on'),
         dateKey: 'paidOn',
+        dialog: { title: 'Add a fee', trigger: 'Add fee' },
         fill: (container) => {
             typeInto(inputLabelled(container, 'Amount'), '99');
         },
@@ -171,6 +165,7 @@ const CASES: readonly FormCase[] = [
         create: 'propAccounts.payout.create',
         date: (container) => inputLabelled(container, 'Requested on'),
         dateKey: 'requestedOn',
+        dialog: { title: 'Add a payout', trigger: 'Add payout' },
         fill: (container) => {
             typeInto(inputLabelled(container, 'Gross amount'), '1000');
         },
@@ -191,6 +186,7 @@ const CASES: readonly FormCase[] = [
         create: 'propAccounts.violation.create',
         date: (container) => inputLabelled(container, 'Date'),
         dateKey: 'occurredOn',
+        dialog: { title: 'Add a violation', trigger: 'Add violation' },
         name: 'the violation form',
         render: (root) => {
             root.render(
@@ -290,36 +286,48 @@ describe('an open form follows the day across midnight while its date is untouch
     });
 
     describe.each(CASES)('$name', (formCase) => {
-        function mount() {
+        function mount(): ParentNode {
             act(() => {
                 formCase.render(root);
             });
+            const { dialog } = formCase;
+            if (dialog === undefined) return container;
+            const trigger = [...container.querySelectorAll('button')].find(
+                (candidate) => candidate.textContent.trim() === dialog.trigger,
+            );
+            if (trigger === undefined) {
+                throw new Error(`no button ${dialog.trigger}`);
+            }
+            act(() => {
+                trigger.click();
+            });
+            return dialogTitled(dialog.title);
         }
 
         it('shows the new day in an untouched date field', () => {
-            mount();
-            expect(formCase.date(container).value).toBe(FIRST_DAY);
+            const form = mount();
+            expect(formCase.date(form).value).toBe(FIRST_DAY);
             crossMidnight();
-            expect(formCase.date(container).value).toBe(NEXT_DAY);
+            expect(formCase.date(form).value).toBe(NEXT_DAY);
         });
 
         it('records the new day when submitted without touching the date', async () => {
-            mount();
+            const form = mount();
             crossMidnight();
-            await formCase.fill?.(container);
-            await clickButton(container, formCase.submit);
+            await formCase.fill?.(form);
+            await clickButton(form, formCase.submit);
             expect(harness.mutateAsyncOf(formCase.create)).toHaveBeenCalledWith(
                 expect.objectContaining({ [formCase.dateKey]: NEXT_DAY }),
             );
         });
 
         it('keeps a date the user already changed', async () => {
-            mount();
-            typeInto(formCase.date(container), EARLIER_DAY);
+            const form = mount();
+            typeInto(formCase.date(form), EARLIER_DAY);
             crossMidnight();
-            expect(formCase.date(container).value).toBe(EARLIER_DAY);
-            await formCase.fill?.(container);
-            await clickButton(container, formCase.submit);
+            expect(formCase.date(form).value).toBe(EARLIER_DAY);
+            await formCase.fill?.(form);
+            await clickButton(form, formCase.submit);
             expect(harness.mutateAsyncOf(formCase.create)).toHaveBeenCalledWith(
                 expect.objectContaining({ [formCase.dateKey]: EARLIER_DAY }),
             );

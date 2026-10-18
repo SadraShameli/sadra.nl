@@ -2,6 +2,7 @@ import { CircleAlert, CircleCheck, CircleDashed } from 'lucide-react';
 import Link from 'next/link';
 import { memo } from 'react';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Progress } from '~/components/ui/progress';
@@ -9,6 +10,8 @@ import { SetupStepStatus } from '~/lib/prop-accounts';
 import { cn } from '~/lib/utilities';
 
 import { type SetupChecklistCardModel } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 import { SetupAccountsTable } from './SetupAccountsTable';
 
 type SetupStepModel = SetupChecklistCardModel['steps'][number];
@@ -19,10 +22,10 @@ export const SetupChecklistCard = memo(function SetupChecklistCard({
     readonly model: SetupChecklistCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-4">
+        <OverviewPanel section={OverviewSectionId.Setup}>
             <SetupProgress model={model} />
             <SetupStepList steps={model.steps} />
-        </div>
+        </OverviewPanel>
     );
 });
 
@@ -37,12 +40,9 @@ export function SetupChecklistCompact({
             className="flex flex-col gap-3"
         >
             <div className="flex items-baseline justify-between gap-3">
-                <h3
-                    className="text-sm font-medium text-foreground"
-                    id="setup-checklist-compact"
-                >
+                <PanelSubheading id="setup-checklist-compact">
                     Finish the setup
-                </h3>
+                </PanelSubheading>
                 <SetupCount model={model} />
             </div>
             <SetupBar model={model} />
@@ -136,7 +136,6 @@ function SetupStepItem({ step }: { readonly step: SetupStepModel }) {
                             <Badge
                                 asChild
                                 className="font-medium hover:bg-accent"
-                                variant="outline"
                             >
                                 <Link href={item.href}>{item.label}</Link>
                             </Badge>

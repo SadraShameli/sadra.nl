@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import { Label } from '~/components/ui/label';
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import {
     Select,
     SelectContent,
@@ -42,7 +42,10 @@ export function CounterpartNameSelect({
 
     return (
         <div className="flex flex-col gap-2">
-            <Label>{label}</Label>
+            <LabelWithInfo
+                info="Sourced from your booking rules' counterpart names, so a payout lands on the same counterpart as its purchase."
+                label={label}
+            />
             <Select
                 onValueChange={(v) =>
                     onChange(v === SENTINEL_NONE ? undefined : v)
@@ -63,10 +66,6 @@ export function CounterpartNameSelect({
                     ))}
                 </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-                Sourced from your booking rules' counterpart names, so a payout
-                lands on the same counterpart as its purchase.
-            </p>
         </div>
     );
 }

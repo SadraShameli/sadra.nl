@@ -11,6 +11,8 @@ import { NOT_APPLICABLE } from '~/lib/format';
 import { compareText } from '~/lib/prop-accounts';
 
 import { type FirmReturnsCardModel } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 import { SampleBadge } from './SampleBadge';
 
 enum FirmReturnsColumn {
@@ -76,6 +78,7 @@ const FIRM_RETURNS_COLUMNS: DataTableColumn<FirmReturnRow>[] = [
         accessorFn: (row) => row.firm,
         header: 'Firm',
         id: FirmReturnsColumn.Firm,
+        meta: { isRowHeader: true },
         sortFn: (a, b) => compareText(a.original.firm, b.original.firm),
     },
     numericColumn(FirmReturnsColumn.Spend, 'Spend', 'spend'),
@@ -134,14 +137,16 @@ export const FirmReturnsCard = memo(function FirmReturnsCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No firm with a fee or payout recorded yet.
-            </p>
+            <OverviewPanel section={OverviewSectionId.FirmReturns}>
+                <p className="text-sm text-muted-foreground">
+                    No firm with a fee or payout recorded yet.
+                </p>
+            </OverviewPanel>
         );
     }
     const noted = model.rows.filter((row) => row.coverageNote !== null);
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel section={OverviewSectionId.FirmReturns}>
             <DataTable
                 columns={FIRM_RETURNS_COLUMNS}
                 data={[...model.rows]}
@@ -161,7 +166,7 @@ export const FirmReturnsCard = memo(function FirmReturnsCard({
                     ))}
                 </ul>
             )}
-        </div>
+        </OverviewPanel>
     );
 });
 

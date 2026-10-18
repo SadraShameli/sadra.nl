@@ -2,9 +2,13 @@
 
 import { useState } from 'react';
 
-import { Card } from '~/components/ui/card';
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip, StatTone } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Field, FieldLabel } from '~/components/ui/field';
-import InfoPopover from '~/components/ui/info-popover';
 import { Input } from '~/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import {
@@ -14,7 +18,6 @@ import {
 } from '~/lib/format';
 import { type SimInputs, TRADING_DAYS_PER_YEAR } from '~/lib/prop-calculator';
 import { median } from '~/lib/prop-calculator/stats';
-import { cn } from '~/lib/utilities';
 
 import { cashFlowRoiOnSpend } from './cashFlowRoi';
 import BreakevenMonthHistogramView from './charts/BreakevenMonthHistogramView';
@@ -22,10 +25,9 @@ import CashFlowBandChartView from './charts/CashFlowBandChartView';
 import CashFlowPaybackChartView from './charts/CashFlowPaybackChartView';
 import { clampInt } from './clamp';
 import FunnelWhatIfSection from './FunnelWhatIfSection';
-import { KPI_ACCENT_TEXT_CLASS } from './kpiAccent';
+import { KPI_ACCENT_STAT_TONE } from './kpiAccent';
 import { panelDescriptions } from './kpiDescriptions';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
-import StatCard from './StatCard';
 import {
     CASH_FLOW_MAX_TRADES_PER_DAY,
     useCashFlowSimulation,
@@ -128,16 +130,18 @@ export default function CashFlowPanel({
     const roiOnSpend = cashFlowRoiOnSpend(finalNet50, finalSpend50);
 
     return (
-        <Card className={cn('app-prop-calculator__cash-flow', 'p-5')}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">
-                        Cash flow over time
-                    </h3>
-                    <InfoPopover title="Cash flow over time">
-                        {panelDescriptions.cashFlow}
-                    </InfoPopover>
-                </div>
+        <ToolPanel
+            className="app-prop-calculator__cash-flow"
+            description={
+                pending
+                    ? 'computing…'
+                    : 'independent of the global trial/account settings above'
+            }
+            info={panelDescriptions.cashFlow}
+            title="Cash flow over time"
+            titleAs="h3"
+        >
+            <FilterToolbar label="Cash flow options">
                 <ToggleGroup
                     aria-label="Horizon"
                     onValueChange={(value: string) => {
@@ -160,191 +164,179 @@ export default function CashFlowPanel({
                         </ToggleGroupItem>
                     ))}
                 </ToggleGroup>
-            </div>
+                <Field className="w-auto" orientation="horizontal">
+                    <FieldLabel htmlFor="cash-flow-accounts">
+                        Accounts (max {accountCap})
+                    </FieldLabel>
+                    <Input
+                        className="w-24"
+                        id="cash-flow-accounts"
+                        max={accountCap}
+                        min={MIN_ACCOUNTS}
+                        onChange={(event) =>
+                            setAccounts(
+                                clampInt(
+                                    Number(event.target.value),
+                                    MIN_ACCOUNTS,
+                                    accountCap,
+                                    MIN_ACCOUNTS,
+                                ),
+                            )
+                        }
+                        step={1}
+                        type="number"
+                        value={effectiveAccounts}
+                    />
+                </Field>
+                <Field className="w-auto" orientation="horizontal">
+                    <FieldLabel htmlFor="cash-flow-trials">Trials</FieldLabel>
+                    <Input
+                        className="w-24"
+                        id="cash-flow-trials"
+                        max={MAX_TRIALS}
+                        min={MIN_TRIALS}
+                        onChange={(event) =>
+                            setTrials(
+                                clampInt(
+                                    Number(event.target.value),
+                                    MIN_TRIALS,
+                                    MAX_TRIALS,
+                                    MIN_TRIALS,
+                                ),
+                            )
+                        }
+                        step={25}
+                        type="number"
+                        value={trials}
+                    />
+                </Field>
+            </FilterToolbar>
 
-            <div className="flex flex-col gap-5">
-                <div className="flex flex-wrap items-end gap-4">
-                    <Field className="w-auto">
-                        <FieldLabel htmlFor="cash-flow-accounts">
-                            Accounts (max {accountCap})
-                        </FieldLabel>
-                        <Input
-                            className="w-24"
-                            id="cash-flow-accounts"
-                            max={accountCap}
-                            min={MIN_ACCOUNTS}
-                            onChange={(event) =>
-                                setAccounts(
-                                    clampInt(
-                                        Number(event.target.value),
-                                        MIN_ACCOUNTS,
-                                        accountCap,
-                                        MIN_ACCOUNTS,
-                                    ),
-                                )
-                            }
-                            step={1}
-                            type="number"
-                            value={effectiveAccounts}
-                        />
-                    </Field>
-                    <Field className="w-auto">
-                        <FieldLabel htmlFor="cash-flow-trials">
-                            Trials
-                        </FieldLabel>
-                        <Input
-                            className="w-24"
-                            id="cash-flow-trials"
-                            max={MAX_TRIALS}
-                            min={MIN_TRIALS}
-                            onChange={(event) =>
-                                setTrials(
-                                    clampInt(
-                                        Number(event.target.value),
-                                        MIN_TRIALS,
-                                        MAX_TRIALS,
-                                        MIN_TRIALS,
-                                    ),
-                                )
-                            }
-                            step={25}
-                            type="number"
-                            value={trials}
-                        />
-                    </Field>
-                    <span className="pb-2 text-xs text-muted-foreground">
-                        {pending
-                            ? 'computing…'
-                            : 'independent of the global trial/account settings above'}
-                    </span>
-                </div>
+            {maxAccounts < MAX_ACCOUNTS && (
+                <InfoNote>
+                    {firmDisplayName} allows at most {maxAccounts} funded
+                    account(s) at once on this plan
+                </InfoNote>
+            )}
 
-                {maxAccounts < MAX_ACCOUNTS && (
-                    <p className="text-[11px] text-muted-foreground">
-                        {firmDisplayName} allows at most {maxAccounts} funded
-                        account(s) at once on this plan
-                    </p>
-                )}
+            {isTradesPerDayCapped && (
+                <StatusRow
+                    detail="This simulation runs entirely on the main thread, so its own worst case has to stay bounded independently of the slider above."
+                    title={`Capped at ${String(CASH_FLOW_MAX_TRADES_PER_DAY)} effective trades/day for this panel (global setting is ${String(tradesPerDay)})`}
+                    tone={StatusTone.Warn}
+                />
+            )}
 
-                {isTradesPerDayCapped && (
-                    <p className="text-[11px] text-warning">
-                        Capped at {CASH_FLOW_MAX_TRADES_PER_DAY} effective
-                        trades/day for this panel (global setting is{' '}
-                        {tradesPerDay}): this simulation runs entirely on the
-                        main thread, so its own worst case has to stay bounded
-                        independently of the slider above.
-                    </p>
-                )}
-
-                {error === null ? (
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-                        <StatCard
-                            label="Median final net"
-                            sub={`through ${horizon.label}`}
-                            value={formatCompactCurrency(finalNet50)}
-                            valueClassName={
+            {error === null ? (
+                <StatStrip
+                    isLoading={result === null}
+                    items={[
+                        {
+                            caption: `through ${horizon.label}`,
+                            id: 'median-final-net',
+                            label: 'Median final net',
+                            tone:
                                 finalNet50 >= 0
-                                    ? 'text-success'
-                                    : 'text-destructive'
-                            }
-                        />
-                        <StatCard
-                            label="P10 final net"
-                            sub="10th percentile outcome"
-                            value={formatCompactCurrency(finalNet10)}
-                        />
-                        <StatCard
-                            label="P(ends net negative)"
-                            sub="share of trials with a negative final net"
-                            value={formatPercent(pFinalNetNegative)}
-                        />
-                        <StatCard
-                            label="P90 final net"
-                            sub="90th percentile outcome"
-                            value={formatCompactCurrency(finalNet90)}
-                        />
-                        <StatCard
-                            label="Median break-even"
-                            sub="month net turns positive"
-                            value={
+                                    ? StatTone.Positive
+                                    : StatTone.Negative,
+                            value: formatCompactCurrency(finalNet50),
+                        },
+                        {
+                            caption: '10th percentile outcome',
+                            id: 'p10-final-net',
+                            label: 'P10 final net',
+                            value: formatCompactCurrency(finalNet10),
+                        },
+                        {
+                            caption:
+                                'share of trials with a negative final net',
+                            id: 'p-final-net-negative',
+                            label: 'P(ends net negative)',
+                            value: formatPercent(pFinalNetNegative),
+                        },
+                        {
+                            caption: '90th percentile outcome',
+                            id: 'p90-final-net',
+                            label: 'P90 final net',
+                            value: formatCompactCurrency(finalNet90),
+                        },
+                        {
+                            caption: 'month net turns positive',
+                            id: 'median-break-even',
+                            label: 'Median break-even',
+                            tone:
+                                medianBreakEvenMonth === null
+                                    ? StatTone.Muted
+                                    : StatTone.Positive,
+                            value:
                                 medianBreakEvenMonth === null
                                     ? NOT_APPLICABLE
-                                    : `${medianBreakEvenMonth.toFixed(1)}mo`
-                            }
-                            valueClassName={
-                                medianBreakEvenMonth === null
-                                    ? 'text-muted-foreground'
-                                    : 'text-success'
-                            }
-                        />
-                        <StatCard
-                            label="P(ever break-even)"
-                            sub="within the horizon"
-                            value={formatPercent(pEverBreakEven)}
-                            valueClassName={
+                                    : `${medianBreakEvenMonth.toFixed(1)}mo`,
+                        },
+                        {
+                            caption: 'within the horizon',
+                            id: 'p-ever-break-even',
+                            label: 'P(ever break-even)',
+                            tone:
                                 pEverBreakEven >= 0.5
-                                    ? 'text-success'
-                                    : 'text-warning'
-                            }
-                        />
-                        <StatCard
-                            label="ROI on spend"
-                            sub="median final net ÷ median spend"
-                            value={roiOnSpend.text}
-                            valueClassName={
-                                KPI_ACCENT_TEXT_CLASS[roiOnSpend.accent]
-                            }
-                        />
-                    </div>
-                ) : null}
+                                    ? StatTone.Positive
+                                    : StatTone.Warning,
+                            value: formatPercent(pEverBreakEven),
+                        },
+                        {
+                            caption: 'median final net ÷ median spend',
+                            id: 'roi-on-spend',
+                            label: 'ROI on spend',
+                            tone: KPI_ACCENT_STAT_TONE[roiOnSpend.accent],
+                            value: roiOnSpend.text,
+                        },
+                    ]}
+                />
+            ) : null}
 
-                {result ? (
-                    <>
-                        <CashFlowBandChartView result={result} />
-                        <p className="text-[11px] text-muted-foreground">
-                            {trials} trials × {result.accountsSimulated}{' '}
-                            accounts · {effectiveTradesPerDay} trades/day ·
-                            shaded band: P10–P90 · bold line: median net
-                        </p>
+            {result ? (
+                <>
+                    <CashFlowBandChartView result={result} />
+                    <p className="text-xs text-muted-foreground">
+                        {trials} trials × {result.accountsSimulated} accounts ·{' '}
+                        {effectiveTradesPerDay} trades/day · shaded band:
+                        P10–P90 · bold line: median net
+                    </p>
 
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="flex min-w-0 flex-col gap-2">
-                                <p className="text-xs font-medium text-muted-foreground">
-                                    Spend vs payout (median)
-                                </p>
-                                <CashFlowPaybackChartView result={result} />
-                                <p className="text-[11px] text-muted-foreground">
-                                    <span
-                                        aria-hidden
-                                        className="text-destructive"
-                                    >
-                                        ■
-                                    </span>{' '}
-                                    Cumulative spend ·{' '}
-                                    <span aria-hidden className="text-success">
-                                        ■
-                                    </span>{' '}
-                                    Cumulative payout
-                                </p>
-                            </div>
-                            <div className="flex min-w-0 flex-col gap-2">
-                                <p className="text-xs font-medium text-muted-foreground">
-                                    Break-even month distribution
-                                </p>
-                                <BreakevenMonthHistogramView result={result} />
-                            </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="flex min-w-0 flex-col gap-2">
+                            <PanelSubheading as="h4">
+                                Spend vs payout (median)
+                            </PanelSubheading>
+                            <CashFlowPaybackChartView result={result} />
+                            <p className="text-xs text-muted-foreground">
+                                <span aria-hidden className="text-destructive">
+                                    ■
+                                </span>{' '}
+                                Cumulative spend ·{' '}
+                                <span aria-hidden className="text-success">
+                                    ■
+                                </span>{' '}
+                                Cumulative payout
+                            </p>
                         </div>
-                    </>
-                ) : error === null ? (
-                    <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                        Computing cash flow…
+                        <div className="flex min-w-0 flex-col gap-2">
+                            <PanelSubheading as="h4">
+                                Break-even month distribution
+                            </PanelSubheading>
+                            <BreakevenMonthHistogramView result={result} />
+                        </div>
                     </div>
-                ) : (
-                    <SimulationFailureNotice message={error} />
-                )}
+                </>
+            ) : error === null ? (
+                <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+                    Computing cash flow…
+                </div>
+            ) : (
+                <SimulationFailureNotice message={error} />
+            )}
 
-                <FunnelWhatIfSection />
-            </div>
-        </Card>
+            <FunnelWhatIfSection />
+        </ToolPanel>
     );
 }

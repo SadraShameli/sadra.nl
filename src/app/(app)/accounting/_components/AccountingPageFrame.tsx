@@ -1,6 +1,6 @@
 import { type ReactNode, Suspense } from 'react';
 
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { cn } from '~/lib/utilities';
 
@@ -26,9 +26,14 @@ export function AccountingPageFrame({
     return (
         <PageTransition>
             <main className={cn(className, 'container pt-spacing pb-24')}>
-                <ToolPageHeader
+                <PageHeader
                     actions={actions}
-                    eyebrow={ACCOUNTING_EYEBROW}
+                    backLink={page.backLink}
+                    eyebrow={
+                        page.backLink === undefined
+                            ? ACCOUNTING_EYEBROW
+                            : undefined
+                    }
                     lead={page.lead}
                     title={page.title}
                 />

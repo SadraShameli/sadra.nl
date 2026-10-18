@@ -4,7 +4,6 @@ import {
     CredentialKind,
     CredentialRegistry,
     CredentialRole,
-    CredentialTone,
     MetaFieldType,
 } from '~/lib/accounting/credentials/registry';
 
@@ -33,5 +32,4 @@ CredentialRegistry.instance.register({
         minLength: 16,
         placeholder: 'eyJxxx…',
     },
-    tone: CredentialTone.Amber,
 });

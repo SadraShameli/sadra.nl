@@ -1,8 +1,11 @@
 import { memo } from 'react';
 
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { formatDisplayMonth } from '~/lib/format';
 
 import { type TiltVarianceCardModel } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum TiltVarianceCardColumn {
     Firm = 'firm',
@@ -18,7 +21,10 @@ export const TiltVarianceCard = memo(function TiltVarianceCard({
     readonly model: TiltVarianceCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={model.disclosure}
+            section={OverviewSectionId.TiltVariance}
+        >
             {model.rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No months with net cash yet.
@@ -30,9 +36,12 @@ export const TiltVarianceCard = memo(function TiltVarianceCard({
                             cell: ({ row }) => <>{row.original.firm}</>,
                             header: 'Firm',
                             id: TiltVarianceCardColumn.Firm,
+                            meta: { isRowHeader: true },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.month}</>,
+                            cell: ({ row }) => (
+                                <>{formatDisplayMonth(row.original.month)}</>
+                            ),
                             header: 'Month',
                             id: TiltVarianceCardColumn.Month,
                         },
@@ -65,10 +74,9 @@ export const TiltVarianceCard = memo(function TiltVarianceCard({
                     rowId={(row) => row.key}
                 />
             )}
-            <p className="text-xs text-muted-foreground">{model.disclosure}</p>
             {model.droppedNote !== null && (
                 <p className="text-xs text-warning">{model.droppedNote}</p>
             )}
-        </div>
+        </OverviewPanel>
     );
 });

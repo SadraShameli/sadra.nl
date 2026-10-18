@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 
 import type { ProgramBlock } from '~/lib/lifting/types';
 
+import { InfoNote } from '~/components/InfoNote';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
@@ -87,9 +88,9 @@ export function ProgramEnrollCard({ program }: ProgramEnrollCardProperties) {
         <ToolPanel title="Enroll">
             <form className="flex flex-col gap-4" onSubmit={onEnroll}>
                 {liftSlugs.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
+                    <InfoNote>
                         This program doesn&apos;t require 1RM inputs.
-                    </p>
+                    </InfoNote>
                 ) : (
                     <div className="grid grid-cols-2 gap-3">
                         {liftSlugs.map((k) => (

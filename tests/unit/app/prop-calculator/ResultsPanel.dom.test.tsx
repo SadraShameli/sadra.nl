@@ -29,6 +29,7 @@ import {
     mffProLifetimeCapFixture,
     WINNING_TRADER,
 } from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
+import { statStripLabels, statStripValue } from './statStripValue';
 
 vi.mock('~/components/ui/info-popover', () => ({
     default: ({ children, title }: { children: ReactNode; title: string }) => (
@@ -163,9 +164,7 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
                 />,
             );
         });
-        const labels = [...container.querySelectorAll('.uppercase')].map(
-            (node) => node.textContent,
-        );
+        const labels = statStripLabels(container);
         const netIndex = labels.indexOf('Monthly net (est)');
         const evIndex = labels.indexOf('EV per attempt');
         expect(netIndex).toBeGreaterThanOrEqual(0);
@@ -254,12 +253,9 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
                 />,
             );
         });
-        const evLabel = [...container.querySelectorAll('.uppercase')].find(
-            (node) => node.textContent === 'EV per attempt',
-        );
-        const card = evLabel?.closest('[data-slot="card"]');
-        const valueSpan = card?.querySelector('.font-mono.text-2xl');
-        expect(valueSpan?.className).toContain('text-destructive');
+        expect(
+            statStripValue(container, 'EV per attempt')?.className,
+        ).toContain('text-destructive');
     });
 
     it('colors EV per attempt positive when the value is positive, like other signed KPIs', () => {
@@ -280,12 +276,9 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
                 />,
             );
         });
-        const evLabel = [...container.querySelectorAll('.uppercase')].find(
-            (node) => node.textContent === 'EV per attempt',
-        );
-        const card = evLabel?.closest('[data-slot="card"]');
-        const valueSpan = card?.querySelector('.font-mono.text-2xl');
-        expect(valueSpan?.className).toContain('text-success');
+        expect(
+            statStripValue(container, 'EV per attempt')?.className,
+        ).toContain('text-success');
     });
 });
 

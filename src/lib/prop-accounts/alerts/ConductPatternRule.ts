@@ -1,3 +1,4 @@
+import { formatDisplayDate } from '~/lib/format';
 import { AccountEventKind, isAccountDate } from '~/lib/prop-accounts/core';
 import {
     type ConductPattern,
@@ -43,7 +44,7 @@ export class ConductPatternRule extends AlertRule {
                 alertFor(
                     this.kind,
                     sameDayBust.accountIds,
-                    `${sameDayBust.accountIds.length} accounts at this firm were busted on ${sameDayBust.on}, matching "${rebuyPattern.consequence}"; the firm publishes no numeric threshold for this pattern (quote: "${rebuyPattern.source.quote}")`,
+                    `${sameDayBust.accountIds.length} accounts at this firm were busted on ${formatDisplayDate(sameDayBust.on)}, matching "${rebuyPattern.consequence}"; the firm publishes no numeric threshold for this pattern (quote: "${rebuyPattern.source.quote}")`,
                 ),
             );
         }

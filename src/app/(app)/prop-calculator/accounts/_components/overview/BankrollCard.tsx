@@ -1,8 +1,9 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, type ReactNode, useState } from 'react';
 
-import { FigureCard } from '~/app/(app)/prop-calculator/accounts/_components/FigureCard';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import { Field, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { ScaleAtMultipleKind } from '~/lib/prop-accounts/bankroll';
@@ -13,6 +14,8 @@ import {
     enteredMonthlyBudgetCentsOf,
     scaleModelAtBudget,
 } from './overviewModel';
+import { InfoStack, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 import { SampleBadge } from './SampleBadge';
 
 const CANDIDATE_BUDGET_LABEL = 'Candidate monthly budget (dollars)';
@@ -23,19 +26,34 @@ export const BankrollCard = memo(function BankrollCard({
     readonly model: BankrollCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-4">
-            <dl className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                <FigureCard
-                    label="Available bankroll"
-                    value={model.available}
-                />
-                <FigureCard label="Injected capital" value={model.deposits} />
-                <FigureCard
-                    label="Reinvested payouts"
-                    value={model.reinvestedPayouts}
-                />
-                <FigureCard label="Withdrawals" value={model.withdrawals} />
-            </dl>
+        <OverviewPanel
+            info={bankrollInfoOf(model)}
+            section={OverviewSectionId.Bankroll}
+        >
+            <StatStrip
+                items={[
+                    {
+                        id: 'available',
+                        label: 'Available bankroll',
+                        value: model.available,
+                    },
+                    {
+                        id: 'deposits',
+                        label: 'Injected capital',
+                        value: model.deposits,
+                    },
+                    {
+                        id: 'reinvested-payouts',
+                        label: 'Reinvested payouts',
+                        value: model.reinvestedPayouts,
+                    },
+                    {
+                        id: 'withdrawals',
+                        label: 'Withdrawals',
+                        value: model.withdrawals,
+                    },
+                ]}
+            />
             {model.grownFromText !== null && (
                 <p className="text-sm">{model.grownFromText}</p>
             )}
@@ -47,14 +65,28 @@ export const BankrollCard = memo(function BankrollCard({
                 initial={model.scale}
                 inputs={model.scaleInputs}
             />
-            {model.undatedPaidPayoutsCaveat !== null && (
-                <p className="text-xs text-muted-foreground">
-                    {model.undatedPaidPayoutsCaveat}
-                </p>
-            )}
-        </div>
+        </OverviewPanel>
     );
 });
+
+function bankrollInfoOf(model: BankrollCardModel): ReactNode {
+    const { lossRisk } = model;
+    const sampleNote =
+        lossRisk.kind === BankrollLossRiskKind.Unavailable
+            ? null
+            : lossRisk.sampleNote;
+    if (sampleNote === null && model.undatedPaidPayoutsCaveat === null) {
+        return undefined;
+    }
+    return (
+        <InfoStack>
+            {sampleNote !== null && <p>{sampleNote}</p>}
+            {model.undatedPaidPayoutsCaveat !== null && (
+                <p>{model.undatedPaidPayoutsCaveat}</p>
+            )}
+        </InfoStack>
+    );
+}
 
 function LossRiskBlock({
     lossRisk,
@@ -68,39 +100,39 @@ function LossRiskBlock({
     }
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-foreground">
-                Realized loss risk
-            </h3>
-            <dl className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                <FigureCard
-                    label="Realized P(an attempt pays)"
-                    value={lossRisk.attemptPays}
-                />
-                <FigureCard
-                    label={
-                        lossRisk.attemptsAtBankroll === null
-                            ? 'Realized P(net below zero)'
-                            : `Realized P(net below zero) at ${lossRisk.attemptsAtBankroll}`
-                    }
-                    value={lossRisk.batchLoss}
-                />
-                <FigureCard
-                    label="Realized P(no payout)"
-                    value={lossRisk.noPayout}
-                />
-                <FigureCard
-                    label="Realized minimum budget"
-                    value={lossRisk.minimumBudget}
-                />
-            </dl>
+            <PanelSubheading>Realized loss risk</PanelSubheading>
+            <StatStrip
+                items={[
+                    {
+                        id: 'attempt-pays',
+                        label: 'Realized P(an attempt pays)',
+                        value: lossRisk.attemptPays,
+                    },
+                    {
+                        id: 'batch-loss',
+                        label:
+                            lossRisk.attemptsAtBankroll === null
+                                ? 'Realized P(net below zero)'
+                                : `Realized P(net below zero) at ${lossRisk.attemptsAtBankroll}`,
+                        value: lossRisk.batchLoss,
+                    },
+                    {
+                        id: 'no-payout',
+                        label: 'Realized P(no payout)',
+                        value: lossRisk.noPayout,
+                    },
+                    {
+                        id: 'minimum-budget',
+                        label: 'Realized minimum budget',
+                        value: lossRisk.minimumBudget,
+                    },
+                ]}
+            />
             {lossRisk.minimumBudgetNote !== null && (
                 <p className="text-xs text-muted-foreground">
                     {lossRisk.minimumBudgetNote}
                 </p>
             )}
-            <p className="text-xs text-muted-foreground">
-                {lossRisk.sampleNote}
-            </p>
         </div>
     );
 }

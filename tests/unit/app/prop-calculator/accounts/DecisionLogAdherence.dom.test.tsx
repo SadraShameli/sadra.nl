@@ -5,11 +5,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountStage, usdCents } from '~/lib/prop-accounts';
 import { AdviceSource } from '~/lib/prop-calculator/advisor';
 
+import { dialogTitled, findDialogTitled } from '../../../components/formDialog';
+import {
+    chooseRowAction,
+    rowActionsTrigger,
+} from '../../../components/rowActionsMenu';
+
 vi.mock('sonner', () => ({
     toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 const mutate = vi.hoisted(() => vi.fn());
+const recordActual = vi.hoisted(() => vi.fn());
 
 vi.mock('~/trpc/react', () => ({
     api: {
@@ -19,7 +26,10 @@ vi.mock('~/trpc/react', () => ({
                     useMutation: () => ({ isPending: false, mutate }),
                 },
                 recordActual: {
-                    useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+                    useMutation: () => ({
+                        isPending: false,
+                        mutate: recordActual,
+                    }),
                 },
             },
         },
@@ -86,7 +96,8 @@ describe('the decision log shows adherence from the one library notion (PT-108 s
     function adherenceCells(): string[] {
         return [...container.querySelectorAll(':scope tbody tr')].map(
             (row) =>
-                row.querySelector(':scope td:last-child')?.textContent ?? '',
+                row.querySelector(':scope td[data-label="Adherence"]')
+                    ?.textContent ?? '',
         );
     }
 
@@ -103,6 +114,7 @@ describe('the decision log shows adherence from the one library notion (PT-108 s
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         mutate.mockClear();
+        recordActual.mockClear();
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -210,6 +222,55 @@ describe('the decision log shows adherence from the one library notion (PT-108 s
 
         expect(acceptButton().textContent).toBe('Accept size');
         expect(acceptButton().disabled).toBe(false);
+    });
+
+    it('offers to record the actual risk only on a decision that has none yet', () => {
+        render([
+            decisionOf({
+                actualRiskCents: usdCents(47_000),
+                decidedOn: '2026-09-25',
+                id: 'd1',
+            }),
+            decisionOf({ id: 'd2' }),
+        ]);
+
+        expect(() =>
+            rowActionsTrigger('the decision of 25 Sep 2026'),
+        ).toThrow();
+        chooseRowAction('the decision of 26 Sep 2026', 'Record actual risk');
+        expect(
+            findDialogTitled('Actual risk for the decision of 26 Sep 2026'),
+        ).not.toBeNull();
+        expect(container.textContent).toContain('Not recorded');
+    });
+
+    it('keeps the record button disabled while the actual risk is empty and rejects a negative amount with a message', async () => {
+        render([decisionOf()]);
+        chooseRowAction('the decision of 26 Sep 2026', 'Record actual risk');
+        const dialog = dialogTitled(
+            'Actual risk for the decision of 26 Sep 2026',
+        );
+        const submit = [...dialog.querySelectorAll('button')].find(
+            (button) => button.textContent === 'Record actual',
+        );
+        if (submit === undefined) throw new Error('no Record actual button');
+        expect(submit.disabled).toBe(true);
+        const input = dialog.querySelector('input');
+        if (input === null) throw new Error('no actual risk input');
+        act(() => {
+            Reflect.set(HTMLInputElement.prototype, 'value', '-5', input);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        expect(submit.disabled).toBe(false);
+        await act(async () => {
+            submit.click();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 0);
+            });
+        });
+
+        expect(dialog.textContent).toContain('Enter a valid risk amount');
+        expect(recordActual).not.toHaveBeenCalled();
     });
 
     it('accepts a new size once through the mutation', () => {

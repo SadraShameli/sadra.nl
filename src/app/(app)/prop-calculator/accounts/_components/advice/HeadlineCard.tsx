@@ -1,3 +1,4 @@
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { formatCurrency } from '~/lib/format';
 
 import { type ReadyAdviceViewModel } from './adviceViewModel';
@@ -10,9 +11,9 @@ export function HeadlineCard({
     const { documented } = view;
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium first-letter:uppercase">
+            <PanelSubheading className="first-letter:uppercase">
                 {view.headline}
-            </h3>
+            </PanelSubheading>
             {documented === null ? (
                 <p className="text-sm text-muted-foreground">
                     No documented sizing applies to this stage right now.

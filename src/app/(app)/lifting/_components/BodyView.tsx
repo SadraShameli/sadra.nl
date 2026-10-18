@@ -1,17 +1,18 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, subDays } from 'date-fns';
-import { LineChart, Plus, Ruler, Trash2 } from 'lucide-react';
+import { subDays } from 'date-fns';
+import { LineChart, Plus, Ruler } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { deleteRowAction, rowActionsColumn } from '~/components/RowActionsMenu';
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
 import AreaChartNew from '~/components/ui/chart/area-chart-new';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     type DataTableColumn,
@@ -34,6 +35,7 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { Textarea } from '~/components/ui/textarea';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
+import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import { MeasurementUnitConversion } from '~/lib/lifting/format';
 import {
     type CreateMeasurementInput,
@@ -103,7 +105,7 @@ export function BodyView() {
                 unitWeight={unitWeight}
             />
 
-            <BodyStatsCards stats={stats} />
+            <BodyStatStrip isLoading={measurements.isLoading} stats={stats} />
 
             <MeasurementTrendChart
                 unitLength={unitLength}
@@ -118,7 +120,7 @@ export function BodyView() {
                                 column={table.getColumn('kind')}
                                 format={(k) => (
                                     <span className="capitalize">
-                                        {k.replaceAll('_', ' ')}
+                                        {measurementKindName(k)}
                                     </span>
                                 )}
                                 label="Kind"
@@ -222,7 +224,7 @@ function AddMeasurementCard({
                                         {MEASUREMENT_KIND_VALUES.map((k) => (
                                             <SelectItem key={k} value={k}>
                                                 <span className="capitalize">
-                                                    {k.replaceAll('_', ' ')}
+                                                    {measurementKindName(k)}
                                                 </span>
                                             </SelectItem>
                                         ))}
@@ -356,7 +358,13 @@ function AddMeasurementCard({
     );
 }
 
-function BodyStatsCards({ stats }: { stats: Stats }) {
+function BodyStatStrip({
+    isLoading,
+    stats,
+}: {
+    isLoading: boolean;
+    stats: Stats;
+}) {
     const deltaLabel =
         stats.weightDelta30d === null
             ? '-'
@@ -369,41 +377,42 @@ function BodyStatsCards({ stats }: { stats: Stats }) {
               : 'text-success';
 
     return (
-        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatCard label="Entries" value={stats.total.toString()} />
-            <StatCard
-                label="Latest weight"
-                sub={
-                    stats.weight
-                        ? format(new Date(stats.weight.takenAt), 'MMM d')
-                        : 'no entries'
-                }
-                value={
-                    stats.weight
+        <StatStrip
+            isLoading={isLoading}
+            items={[
+                {
+                    id: 'entries',
+                    label: 'Entries',
+                    value: stats.total.toString(),
+                },
+                {
+                    caption: stats.weight
+                        ? formatDisplayDate(stats.weight.takenAt)
+                        : 'no entries',
+                    id: 'latest-weight',
+                    label: 'Latest weight',
+                    value: stats.weight
                         ? `${stats.weight.valueNumeric} ${stats.weight.unit}`
-                        : '-'
-                }
-            />
-            <StatCard
-                label="Latest bodyfat"
-                sub={
-                    stats.bodyfat
-                        ? format(new Date(stats.bodyfat.takenAt), 'MMM d')
-                        : 'no entries'
-                }
-                value={
-                    stats.bodyfat
+                        : '-',
+                },
+                {
+                    caption: stats.bodyfat
+                        ? formatDisplayDate(stats.bodyfat.takenAt)
+                        : 'no entries',
+                    id: 'latest-bodyfat',
+                    label: 'Latest bodyfat',
+                    value: stats.bodyfat
                         ? `${stats.bodyfat.valueNumeric} ${stats.bodyfat.unit}`
-                        : '-'
-                }
-            />
-            <StatCard
-                label="Weight 30-day"
-                sub="vs 30 days ago"
-                value={deltaLabel}
-                valueClass={deltaClass}
-            />
-        </section>
+                        : '-',
+                },
+                {
+                    caption: 'vs 30 days ago',
+                    id: 'weight-30-day',
+                    label: 'Weight 30-day',
+                    value: <span className={deltaClass}>{deltaLabel}</span>,
+                },
+            ]}
+        />
     );
 }
 
@@ -414,6 +423,14 @@ function defaultUnitFor(
 ): MeasurementUnit {
     if (kind === 'bodyfat') return '%';
     return TAPE_KINDS.has(kind) ? unitLength : unitWeight;
+}
+
+function measurementKindName(kind: string): string {
+    return kind.replaceAll('_', ' ');
+}
+
+function measurementLabel(measurement: MeasurementRow): string {
+    return `${measurementKindName(measurement.kind)} ${measurement.valueNumeric} ${measurement.unit}`;
 }
 
 function MeasurementsHistoryTable({
@@ -433,12 +450,13 @@ function MeasurementsHistoryTable({
                 accessorFn: (r) => r.kind,
                 cell: ({ row }) => (
                     <span className="capitalize">
-                        {row.original.kind.replaceAll('_', ' ')}
+                        {measurementKindName(row.original.kind)}
                     </span>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Kind',
                 id: 'kind',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.valueNumeric,
@@ -460,7 +478,7 @@ function MeasurementsHistoryTable({
                 accessorFn: (r) => new Date(r.takenAt).getTime(),
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {format(new Date(row.original.takenAt), 'MMM d HH:mm')}
+                        {formatDisplayDateTime(row.original.takenAt)}
                     </span>
                 ),
                 filterFn: DataTableFilterFunction.InNumberRange,
@@ -480,34 +498,16 @@ function MeasurementsHistoryTable({
                 header: 'Notes',
                 id: 'notes',
             },
-            {
-                cell: ({ row }) => (
-                    <ConfirmDialog
-                        confirmLabel="Delete"
-                        description={
-                            <>
-                                {row.original.kind.replaceAll('_', ' ')}{' '}
-                                {row.original.valueNumeric} {row.original.unit}{' '}
-                                will be removed from your history.
-                            </>
-                        }
-                        onConfirm={() => onDelete(row.original.id)}
-                        title="Delete measurement?"
-                        tooltip="Delete measurement"
-                    >
-                        <Button
-                            aria-label="Delete measurement"
-                            className="size-8 p-0"
-                            type="button"
-                            variant="ghost"
-                        >
-                            <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                    </ConfirmDialog>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            rowActionsColumn<MeasurementRow>({
+                actionsOf: (measurement) => [
+                    deleteRowAction({
+                        description: `${measurementLabel(measurement)} will be removed from your history.`,
+                        onDelete: () => onDelete(measurement.id),
+                        title: 'Delete measurement?',
+                    }),
+                ],
+                labelOf: measurementLabel,
+            }),
         ],
         [onDelete],
     );
@@ -556,7 +556,7 @@ function MeasurementTrendChart({
                     MeasurementUnitConversion.canDisplay(r.unit, displayUnit),
                 )
                 .map((r) => ({
-                    date: format(new Date(r.takenAt), 'MMM d'),
+                    date: formatDisplayDate(r.takenAt),
                     value: MeasurementUnitConversion.toDisplay(
                         r.valueNumeric,
                         r.unit,
@@ -567,8 +567,8 @@ function MeasurementTrendChart({
     );
 
     return (
-        <ToolPanel
-            actions={
+        <ToolPanel title="Trend">
+            <FilterToolbar label="Trend filters">
                 <ToolbarSelect
                     label="Trend measurement"
                     onValueChange={(v) => {
@@ -580,16 +580,14 @@ function MeasurementTrendChart({
                     options={MEASUREMENT_KIND_VALUES.map((k) => ({
                         label: (
                             <span className="capitalize">
-                                {k.replaceAll('_', ' ')}
+                                {measurementKindName(k)}
                             </span>
                         ),
                         value: k,
                     }))}
                     value={chartKind}
                 />
-            }
-            title="Trend"
-        >
+            </FilterToolbar>
             {trendData.isLoading ? (
                 <Skeleton className="h-48 w-full rounded-md" />
             ) : chartPoints.length === 0 ? (
@@ -613,38 +611,6 @@ function MeasurementTrendChart({
                 </div>
             )}
         </ToolPanel>
-    );
-}
-
-function StatCard({
-    label,
-    sub,
-    value,
-    valueClass = 'text-foreground',
-}: {
-    label: string;
-    sub?: string;
-    value: string;
-    valueClass?: string;
-}) {
-    return (
-        <Card className="gap-1 py-3">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <span
-                    className={`font-mono text-lg leading-none font-bold tabular-nums ${valueClass}`}
-                >
-                    {value}
-                </span>
-                {sub && (
-                    <span className="text-[10px] text-muted-foreground">
-                        {sub}
-                    </span>
-                )}
-            </CardContent>
-        </Card>
     );
 }
 

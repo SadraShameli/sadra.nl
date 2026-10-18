@@ -1,6 +1,15 @@
-import type { Outcome } from '~/lib/trading/types';
+import type {
+    ExecutionDeviation,
+    Outcome,
+    Recommendation,
+} from '~/lib/trading/types';
 
 import { Badge } from '~/components/ui/badge';
+import { formatDisplayDateTime } from '~/lib/format';
+import {
+    EXECUTION_DEVIATION_VALUES,
+    RECOMMENDATION_VALUES,
+} from '~/lib/trading/types';
 import { cn } from '~/lib/utilities';
 
 export const MENTAL_FLAGS = [
@@ -25,6 +34,43 @@ export const MENTAL_FLAG_LABEL: Record<MentalFlag, string> = {
     hesitation: 'Hesitation',
     revengeOrFomo: 'Revenge/FOMO',
 };
+
+export const RECOMMENDATION_LABEL: Record<Recommendation, string> = {
+    'hard-skip': 'Hard skip',
+    marginal: 'Marginal',
+    skip: 'Skip',
+    'strong-take': 'Strong take',
+    take: 'Take',
+};
+
+export const EXECUTION_DEVIATION_LABEL: Record<ExecutionDeviation, string> = {
+    'chased-entry': 'Chased entry',
+    'entered-late': 'Entered late',
+    'exited-before-target': 'Exited before target',
+    'exited-past-target': 'Exited past target',
+    'moved-stop-early': 'Moved stop early',
+    'moved-stop-to-be': 'Moved stop to BE',
+    'no-fill': 'No fill',
+    'sized-down': 'Sized down',
+    'sized-up': 'Sized up',
+};
+
+export function assessmentLabel({
+    createdAt,
+    grade,
+}: {
+    readonly createdAt: Date | string;
+    readonly grade: string;
+}): string {
+    return `${grade} assessment from ${formatDisplayDateTime(createdAt)}`;
+}
+
+export function executionDeviationLabel(value: string): string {
+    const known = EXECUTION_DEVIATION_VALUES.find(
+        (deviation) => deviation === value,
+    );
+    return known === undefined ? value : EXECUTION_DEVIATION_LABEL[known];
+}
 
 export function GradeTile({
     className,
@@ -53,7 +99,7 @@ export function OutcomeBadge({
     readonly outcomeR: null | number;
 }) {
     return (
-        <Badge className="gap-1.5" variant="outline">
+        <Badge className="gap-1.5">
             {OUTCOME_LABEL[outcome]}
             {outcomeR !== null && (
                 <span className="font-mono tabular-nums">
@@ -63,4 +109,11 @@ export function OutcomeBadge({
             )}
         </Badge>
     );
+}
+
+export function recommendationLabel(value: string): string {
+    const known = RECOMMENDATION_VALUES.find(
+        (recommendation) => recommendation === value,
+    );
+    return known === undefined ? value : RECOMMENDATION_LABEL[known];
 }

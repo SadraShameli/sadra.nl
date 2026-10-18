@@ -65,4 +65,52 @@ describe('SensitivityHeatmap shows an EV-per-attempt metric (F-V9, PT-61b)', () 
         expect(container.textContent).toContain('EV per attempt sensitivity');
         expect(container.textContent).toContain('per attempt');
     });
+
+    it('describes the cells in the camel and ink they are drawn in, never red or green', () => {
+        const baseInputs = buildSimInputs(defaultCalculatorState());
+        act(() => {
+            root.render(
+                <SensitivityHeatmap
+                    baseInputs={baseInputs}
+                    currentRR={baseInputs.rrRatio}
+                    currentWinrate={baseInputs.winrate}
+                />,
+            );
+        });
+        expect(container.textContent).not.toMatch(/\b(red|green)\b/i);
+        expect(container.textContent).toContain('camel = robust');
+        expect(container.textContent).toContain('camel = profit');
+    });
+
+    it('keeps each heatmap a scrolling winrate by RR grid on phone, never stacked cards', () => {
+        const baseInputs = buildSimInputs(defaultCalculatorState());
+        act(() => {
+            root.render(
+                <SensitivityHeatmap
+                    baseInputs={baseInputs}
+                    currentRR={baseInputs.rrRatio}
+                    currentWinrate={baseInputs.winrate}
+                />,
+            );
+        });
+        expect(container.querySelector('[data-label]')).toBeNull();
+        const firstTable = container.querySelector(':scope table');
+        expect(
+            [...(firstTable?.querySelectorAll(':scope thead th') ?? [])].map(
+                (header) => header.textContent,
+            ),
+        ).toEqual([
+            '↓ Winrate / RR →',
+            '1:1',
+            '1.5:1',
+            '2:1',
+            '2.5:1',
+            '3:1',
+            '3.5:1',
+            '4:1',
+        ]);
+        expect(
+            firstTable?.querySelectorAll(':scope tbody th[scope="row"]'),
+        ).toHaveLength(7);
+    });
 });

@@ -1,4 +1,4 @@
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { PageHeader } from '~/components/PageHeader';
 import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 
 export function LiftingPageHeader({
@@ -9,7 +9,7 @@ export function LiftingPageHeader({
     readonly title: string;
 }) {
     return (
-        <ToolPageHeader
+        <PageHeader
             eyebrow={siteToolTitle(ToolTicker.Lifting)}
             lead={description}
             title={title}

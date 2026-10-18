@@ -1,6 +1,6 @@
 import { type ReactNode, type Ref } from 'react';
 
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { PageHeader } from '~/components/PageHeader';
 import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 
 export function AccountsPageHeader({
@@ -15,7 +15,7 @@ export function AccountsPageHeader({
     readonly titleReference?: Ref<HTMLHeadingElement>;
 }) {
     return (
-        <ToolPageHeader
+        <PageHeader
             actions={action}
             eyebrow={siteToolTitle(ToolTicker.PropCalculator)}
             lead={description}

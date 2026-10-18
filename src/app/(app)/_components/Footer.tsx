@@ -2,6 +2,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { cacheLife } from 'next/cache';
 import Link from 'next/link';
 
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { SocialIcon } from '~/components/ui/social-icon';
 import { homepageContent, siteContent, siteTools } from '~/lib/site/content';
 import {
@@ -56,10 +57,10 @@ export default async function Footer() {
                         number={FOOTER_SECTION_NUMBER}
                         ruleClassName="max-w-40"
                     />
-                    <h2 className="m-0 type-display-closing text-ink">
+                    <ToolSectionHeading className="type-display-closing">
                         <EmphasisTitle heading={heading} />
-                    </h2>
-                    <p className="m-0 max-w-115 text-[19px] leading-[1.6] font-light text-pretty text-ink-muted">
+                    </ToolSectionHeading>
+                    <p className="m-0 max-w-115 type-body text-ink-muted">
                         {body}
                     </p>
                     <div className="flex flex-wrap gap-3">

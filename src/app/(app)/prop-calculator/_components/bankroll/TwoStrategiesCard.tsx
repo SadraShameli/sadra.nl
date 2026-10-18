@@ -2,9 +2,10 @@
 
 import { useCallback, useState } from 'react';
 
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import { formatGateCurrency, NOT_APPLICABLE } from '~/lib/format';
 import {
     type Dollars,
@@ -263,28 +264,31 @@ function StrategySummaryColumn({
 }) {
     return (
         <div className="grid gap-3">
-            <p className="text-xs font-medium text-muted-foreground">
-                Strategy {label}
-            </p>
-            <StatCard
-                label="Final bankroll (P10 / P50 / P90)"
-                value={`${formatGateCurrency(summary.finalCashP10)} / ${formatGateCurrency(summary.finalCashP50)} / ${formatGateCurrency(summary.finalCashP90)}`}
-            />
-            <StatCard
-                label="Multiple (P50 cash / start)"
-                value={
-                    summary.multiple === null
-                        ? NOT_APPLICABLE
-                        : `${summary.multiple.toFixed(2)}x`
-                }
-            />
-            <StatCard
-                label="Measured cycle days"
-                value={
-                    summary.measuredCycleDays === null
-                        ? NOT_APPLICABLE
-                        : summary.measuredCycleDays.toFixed(1)
-                }
+            <PanelSubheading>Strategy {label}</PanelSubheading>
+            <StatStrip
+                items={[
+                    {
+                        id: 'final-bankroll',
+                        label: 'Final bankroll (P10 / P50 / P90)',
+                        value: `${formatGateCurrency(summary.finalCashP10)} / ${formatGateCurrency(summary.finalCashP50)} / ${formatGateCurrency(summary.finalCashP90)}`,
+                    },
+                    {
+                        id: 'multiple',
+                        label: 'Multiple (P50 cash / start)',
+                        value:
+                            summary.multiple === null
+                                ? NOT_APPLICABLE
+                                : `${summary.multiple.toFixed(2)}x`,
+                    },
+                    {
+                        id: 'measured-cycle-days',
+                        label: 'Measured cycle days',
+                        value:
+                            summary.measuredCycleDays === null
+                                ? NOT_APPLICABLE
+                                : summary.measuredCycleDays.toFixed(1),
+                    },
+                ]}
             />
         </div>
     );

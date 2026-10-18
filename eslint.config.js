@@ -46,6 +46,55 @@ const NATIVE_CONTROL_RESTRICTIONS = [
     },
 ];
 
+const PANEL_RESTRICTIONS = [
+    {
+        message:
+            'Give a panel its heading through ToolPanel from ~/components/ToolPanel (serif title and optional description), not a hand-built CardHeader, CardTitle or CardDescription.',
+        selector:
+            'JSXOpeningElement[name.name=/^Card(Description|Header|Title)$/]',
+    },
+];
+
+const STATUS_RESTRICTIONS = [
+    {
+        message:
+            'Use Alert only with variant="destructive", for errors. Show a computed verdict or state with StatusRow from ~/components/StatusRow, and an explanation with InfoNote from ~/components/InfoNote or the info prop of ToolPanel.',
+        selector:
+            "JSXOpeningElement[name.name='Alert']:not(:has(JSXAttribute[name.name='variant'][value.value='destructive']))",
+    },
+    {
+        message:
+            'Badges are one neutral outline style: drop the variant prop and let the word carry the meaning.',
+        selector:
+            "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='variant']",
+    },
+];
+
+const HEADING_RESTRICTIONS = [
+    {
+        message:
+            'Use the shared headings: PageHeader for the page title, ToolPanel for a panel title, ToolSectionHeading above a group of panels, PanelSubheading for a sub-section inside a panel.',
+        selector: 'JSXOpeningElement[name.name=/^h[1-6]$/]',
+    },
+];
+
+const EDITORIAL_FILES = [
+    'src/app/(app)/_components/home/**/*.tsx',
+    'src/app/(app)/_components/Portfolio/**/*.tsx',
+];
+
+const DATE_FORMAT_MESSAGE =
+    'Format dates for display with formatDisplayDate, formatDisplayDateTime, formatDisplayDateRange or formatDisplayMonth from ~/lib/format, so every page shows one format (18 Oct 2026, 08:58).';
+
+const CHART_RESTRICTIONS = [
+    {
+        message:
+            'Spread CHART_BAR_PROPS from ~/components/ui/chart on every Bar, so a chart with one or two bars keeps a capped width instead of a slab.',
+        selector:
+            "JSXOpeningElement[name.name='Bar']:not(:has(JSXSpreadAttribute[argument.name='CHART_BAR_PROPS']))",
+    },
+];
+
 const config = defineConfig(
     {
         ignores: [
@@ -195,13 +244,96 @@ const config = defineConfig(
         },
     },
     {
-        files: ['src/**/*.tsx'],
-        ignores: ['src/components/ui/**'],
+        files: ['src/**/*.{ts,tsx}'],
+        ignores: ['src/components/ui/**', 'src/lib/email/**'],
+        plugins: { 'better-tailwindcss': betterTailwind },
+        rules: {
+            'better-tailwindcss/no-restricted-classes': [
+                'error',
+                {
+                    entryPoint: 'src/styles/styles.css',
+                    restrict: [
+                        {
+                            message:
+                                'Use a type-* utility (type-micro, type-eyebrow, type-small, type-body, type-lead) or text-xs, text-sm, text-base instead of an arbitrary font size.',
+                            pattern: String.raw`^(?:[\w\[\]&=:>*-]+:)*text-\[\d+(?:\.\d+)?(?:px|rem|em)\](?:\/.+)?$`,
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ['src/components/**/*.tsx'],
+        ignores: ['src/components/ui/**', 'src/components/ToolPanel.tsx'],
         rules: {
             'no-restricted-syntax': [
                 'error',
                 ...RHF_WATCH_RESTRICTIONS,
                 ...NATIVE_CONTROL_RESTRICTIONS,
+                ...CHART_RESTRICTIONS,
+                ...PANEL_RESTRICTIONS,
+            ],
+        },
+    },
+    {
+        files: ['src/app/**/*.tsx'],
+        ignores: EDITORIAL_FILES,
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                ...RHF_WATCH_RESTRICTIONS,
+                ...NATIVE_CONTROL_RESTRICTIONS,
+                ...CHART_RESTRICTIONS,
+                ...PANEL_RESTRICTIONS,
+                ...STATUS_RESTRICTIONS,
+                ...HEADING_RESTRICTIONS,
+            ],
+        },
+    },
+    {
+        files: EDITORIAL_FILES,
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                ...RHF_WATCH_RESTRICTIONS,
+                ...NATIVE_CONTROL_RESTRICTIONS,
+                ...CHART_RESTRICTIONS,
+                ...PANEL_RESTRICTIONS,
+                ...STATUS_RESTRICTIONS,
+            ],
+        },
+    },
+    {
+        files: ['src/app/**/*.{ts,tsx}'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    paths: [
+                        {
+                            importNames: ['format'],
+                            message: DATE_FORMAT_MESSAGE,
+                            name: 'date-fns',
+                        },
+                    ],
+                },
+            ],
+            'no-restricted-properties': [
+                'error',
+                {
+                    message: DATE_FORMAT_MESSAGE,
+                    property: 'toLocaleDateString',
+                },
+                {
+                    message: DATE_FORMAT_MESSAGE,
+                    property: 'toLocaleTimeString',
+                },
+                {
+                    message: DATE_FORMAT_MESSAGE,
+                    object: 'Intl',
+                    property: 'DateTimeFormat',
+                },
             ],
         },
     },

@@ -3,7 +3,6 @@
 import { TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/card';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
@@ -13,7 +12,6 @@ import {
     simulate,
 } from '~/lib/prop-calculator';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
-import { cn } from '~/lib/utilities';
 
 import RuleStressBarChartView from './charts/RuleStressBarChartView';
 import { ComputationId } from './ComputationId';
@@ -82,7 +80,7 @@ export default function RuleStressTestPanel({
                             {row.original.label}
                         </span>
                         {row.original.isNoOp && (
-                            <span className="flex items-center gap-1 text-[10px] text-warning">
+                            <span className="flex items-center gap-1 text-xs text-warning">
                                 <TriangleAlert className="size-3" />
                                 no DLL on this plan, so no effect
                             </span>
@@ -91,6 +89,7 @@ export default function RuleStressTestPanel({
                 ),
                 header: 'Scenario',
                 id: 'scenario',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.out.expectedMonthlyNet,
@@ -162,13 +161,9 @@ export default function RuleStressTestPanel({
     );
 
     return (
-        <Card
-            className={cn('app-prop-calculator__rule-stress-test', 'px-5 py-4')}
-        >
+        <div className="app-prop-calculator__rule-stress-test flex flex-col gap-4">
             {pending && (
-                <p className="self-end text-xs text-muted-foreground">
-                    computing…
-                </p>
+                <p className="m-0 text-xs text-muted-foreground">computing…</p>
             )}
 
             {rows.length === 0 ? (
@@ -192,7 +187,7 @@ export default function RuleStressTestPanel({
                     />
                 </div>
             )}
-        </Card>
+        </div>
     );
 }
 

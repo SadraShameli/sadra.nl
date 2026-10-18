@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
+import { ToolPanel } from '~/components/ToolPanel';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import InfoPopover from '~/components/ui/info-popover';
 import { type FirmId } from '~/lib/prop-calculator';
@@ -10,8 +11,10 @@ import { cn } from '~/lib/utilities';
 interface ToolSectionProperties {
     children: ReactNode;
     className?: string;
+    description?: ReactNode;
     id: `rules-${FirmId}` | LegacySection;
     info?: ReactNode;
+    isPanel?: boolean;
     srOnlyHeading?: boolean;
     title: string;
 }
@@ -19,8 +22,10 @@ interface ToolSectionProperties {
 export function ToolSection({
     children,
     className,
+    description,
     id,
     info,
+    isPanel = false,
     srOnlyHeading = false,
     title,
 }: ToolSectionProperties) {
@@ -44,15 +49,28 @@ export function ToolSection({
             )}
             id={id}
         >
-            {info === undefined ? (
-                heading
+            {isPanel ? (
+                <ToolPanel
+                    description={description}
+                    info={info}
+                    title={title}
+                    titleId={headingId}
+                >
+                    {children}
+                </ToolPanel>
             ) : (
-                <div className="flex items-center gap-2">
-                    {heading}
-                    <InfoPopover title={title}>{info}</InfoPopover>
-                </div>
+                <>
+                    {info === undefined ? (
+                        heading
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            {heading}
+                            <InfoPopover title={title}>{info}</InfoPopover>
+                        </div>
+                    )}
+                    {children}
+                </>
             )}
-            {children}
         </section>
     );
 }

@@ -21,6 +21,8 @@ import {
 import { RepeatabilityCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/RepeatabilityCard';
 import { StatementCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/StatementCard';
 
+import { infoText } from '../infoPopover';
+
 const STATEMENT: StatementCardModel = {
     caveat: 'calendar months mix purchase cohorts',
     chart: [
@@ -122,7 +124,7 @@ describe('StatementCard and RepeatabilityCard', () => {
             'Meets target',
         ]);
         expect(rows[1]).toEqual([
-            '2026-06',
+            'Jun 2026',
             '$350.00',
             '$900.00',
             '1',
@@ -134,7 +136,7 @@ describe('StatementCard and RepeatabilityCard', () => {
             'Yes',
         ]);
         expect(rows[2]).toEqual([
-            '2026-07(partial)',
+            'Jul 2026(partial)',
             '$400.00',
             '$1,200.00',
             '2',
@@ -180,9 +182,9 @@ describe('StatementCard and RepeatabilityCard', () => {
         act(() => {
             root.render(<RepeatabilityCard model={REPEATABILITY} />);
         });
-        const text = container.textContent;
-        expect(text).toContain('share positive are net per month');
-        expect(text).toContain(
+        const info = infoText(container, 'Repeatability');
+        expect(info).toContain('share positive are net per month');
+        expect(info).toContain(
             'The share at or above target compares payouts per month',
         );
         const terms = [...container.querySelectorAll('dt')].map(

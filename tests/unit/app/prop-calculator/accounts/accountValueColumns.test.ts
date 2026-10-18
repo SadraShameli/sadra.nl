@@ -377,7 +377,7 @@ describe('nextActionOf (F-V18, PT-74 accountActionOf)', () => {
             kind: NextActionSourceKind.Advice,
         });
         expect(view.action).toBe(AccountAction.EnterSnapshot);
-        expect(view.reason).toContain('2026-08-01');
+        expect(view.reason).toContain('1 Aug 2026');
     });
 
     it('says StopForToday when the day plan has no rung left', () => {

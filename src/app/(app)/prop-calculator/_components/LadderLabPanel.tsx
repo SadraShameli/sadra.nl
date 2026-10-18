@@ -1,16 +1,24 @@
 'use client';
 
-import { FlaskConical } from 'lucide-react';
+import { Check, FlaskConical, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import {
+    type RowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import { Card } from '~/components/ui/card';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { Field, FieldLabel } from '~/components/ui/field';
-import InfoPopover from '~/components/ui/info-popover';
 import { Input } from '~/components/ui/input';
 import { Progress } from '~/components/ui/progress';
 import {
@@ -45,7 +53,6 @@ import {
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { RankingSurface } from '~/lib/prop-calculator/advisor/actions';
-import { cn } from '~/lib/utilities';
 
 import {
     useCalculatorActions,
@@ -273,10 +280,10 @@ export default function LadderLabPanel({
     const columns = useMemo<DataTableColumn<LadderScore>[]>(
         () => [
             {
-                accessorFn: (r) => r.ladder.join(' / '),
+                accessorFn: (r) => ladderLabel(r.ladder),
                 cell: ({ row }) => (
                     <span className="font-mono">
-                        {row.original.ladder.join(' / ')}
+                        {ladderLabel(row.original.ladder)}
                         {row.original.ladder.join(',') === starKey && (
                             <span className="ml-1 text-success">★</span>
                         )}
@@ -284,6 +291,7 @@ export default function LadderLabPanel({
                 ),
                 header: 'Ladder',
                 id: 'ladder',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => ladderSum(r.ladder),
@@ -365,26 +373,23 @@ export default function LadderLabPanel({
             ...(labPositionSizing === null
                 ? []
                 : [contractsColumn(labPositionSizing, contractCap)]),
-            {
-                cell: ({ row }) => (
-                    <LadderRowButton
-                        action={ladderRowAction(
+            rowActionsColumn<LadderScore>({
+                actionsOf: (row) =>
+                    ladderRowActions(
+                        ladderRowAction(
                             view,
-                            row.original,
+                            row,
                             activePolicy,
                             activeRungSizing,
-                        )}
-                        onApply={(policy, sizing) => {
+                        ),
+                        (policy, sizing) => {
                             onApply(policy);
                             setRungSizing(sizing);
-                        }}
-                        onClear={() => onApply(null)}
-                    />
-                ),
-                enableSorting: false,
-                header: '',
-                id: 'apply',
-            },
+                        },
+                        () => onApply(null),
+                    ),
+                labelOf: (row) => ladderLabel(row.ladder),
+            }),
         ],
         [
             activePolicy,
@@ -400,36 +405,10 @@ export default function LadderLabPanel({
     );
 
     return (
-        <Card
-            className={cn(
-                'app-prop-calculator__ladder-lab',
-                HEADER_SCROLL_MARGIN,
-                'px-5 py-4',
-            )}
-            id="ladder-lab"
-        >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <FlaskConical className="size-4 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold">Ladder lab</h3>
-                    <InfoPopover title="Ladder lab">
-                        Searches every within-day risk ladder on a grid and
-                        scores each one on three separate axes: expected days to
-                        funded, cost per funded account, and eval pass rate.
-                        They have different winners, so all three are shown
-                        rather than blended into one score. Ladders that clamp
-                        to the same effective strategy are de-duplicated. Each
-                        rung follows the unaffordable rung choice:
-                        {RUNG_SIZING_OPTIONS.map((option) => (
-                            <span className="mt-1 block" key={option}>
-                                {RUNG_SIZING_LABELS[option]}:{' '}
-                                {RUNG_SIZING_OUTCOMES[option]}
-                            </span>
-                        ))}
-                    </InfoPopover>
-                </div>
-                <div className="flex items-center gap-2">
-                    {state.phase === LadderRunPhase.Running ? (
+        <div className={HEADER_SCROLL_MARGIN} id="ladder-lab">
+            <ToolPanel
+                actions={
+                    state.phase === LadderRunPhase.Running ? (
                         <>
                             <span className="text-xs text-muted-foreground">
                                 {state.progress.completed}/
@@ -459,247 +438,263 @@ export default function LadderLabPanel({
                         >
                             Run search
                         </Button>
-                    )}
-                </div>
-            </div>
-
-            {state.phase === LadderRunPhase.Running && (
-                <Progress
-                    aria-label="Ladder search progress"
-                    className="mt-3 h-1.5"
-                    value={ladderProgressPercent(state.progress)}
-                />
-            )}
-
-            <CalculatorObjectiveChip className="mt-3" />
-
-            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-                <NumberField
-                    label="Min rung"
-                    onChange={(value) => setGrid({ lo: value })}
-                    value={lo}
-                />
-                <NumberField
-                    label="Max rung"
-                    onChange={(value) => setGrid({ max: value })}
-                    value={max}
-                />
-                <NumberField
-                    label="Step"
-                    onChange={(value) => setGrid({ step: value })}
-                    value={step}
-                />
-                <NumberField
-                    label="Rungs"
-                    max={MAX_LADDER_SLOTS}
-                    onChange={(value) => setGrid({ slots: value })}
-                    value={slots}
-                />
-                <NumberField
-                    label="Sims per ladder"
-                    onChange={(value) =>
-                        setForm((current) => ({ ...current, sims: value }))
-                    }
-                    value={sims}
-                />
-                <Field>
-                    <FieldLabel htmlFor="ladder-lab-instrument">
-                        Instrument
-                    </FieldLabel>
-                    <Select
-                        onValueChange={(value) => {
-                            const parsed =
-                                value === INSTRUMENT_NOT_SET
-                                    ? ''
-                                    : instrumentSymbolSchema.safeParse(value)
-                                          .data;
-                            if (parsed !== undefined) {
-                                setForm((current) => ({
-                                    ...current,
-                                    displayInstrument: parsed,
-                                }));
-                            }
-                        }}
-                        value={
-                            instrument === '' ? INSTRUMENT_NOT_SET : instrument
-                        }
-                    >
-                        <SelectTrigger id="ladder-lab-instrument">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value={INSTRUMENT_NOT_SET}>
-                                Not set
-                            </SelectItem>
-                            {ALL_INSTRUMENTS.map((spec) => (
-                                <SelectItem
-                                    key={spec.symbol}
-                                    value={spec.symbol}
-                                >
-                                    {spec.symbol} (
-                                    {formatGateCurrency(spec.pointValue)}/pt)
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </Field>
-            </div>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field>
-                    <FieldLabel htmlFor="ladder-day-stop-rule">
-                        Day stop rule
-                    </FieldLabel>
-                    <DayStopRulePicker
-                        compact
-                        id="ladder-day-stop-rule"
-                        onChange={(value) =>
-                            setForm((current) => ({
-                                ...current,
-                                stopRule: value,
-                            }))
-                        }
-                        value={stopRule}
-                    />
-                </Field>
-                <Field>
-                    <FieldLabel htmlFor="ladder-rung-sizing">
-                        {UNAFFORDABLE_RUNG_LABEL}
-                    </FieldLabel>
-                    <Select
-                        onValueChange={(value) => {
-                            const parsed = rungSizingSchema.safeParse(value);
-                            if (parsed.success) {
-                                setForm((current) => ({
-                                    ...current,
-                                    rungSizing: parsed.data,
-                                }));
-                            }
-                        }}
-                        value={rungSizing}
-                    >
-                        <SelectTrigger id="ladder-rung-sizing">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {RUNG_SIZING_OPTIONS.map((option) => (
-                                <SelectItem key={option} value={option}>
-                                    {RUNG_SIZING_LABELS[option]}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </Field>
-            </div>
-
-            <p className="mt-3 text-xs text-muted-foreground">
-                Apply also sets the unaffordable rung choice for every trade in
-                the simulation, eval and funded, not only for this ladder.
-            </p>
-
-            <p className="mt-3 text-xs text-muted-foreground">
-                {positionSizing === null
-                    ? 'Contract limits are not applied: set an instrument and a stop in the trading inputs to cap each rung at the eval contract limit.'
-                    : `Each rung is capped at the eval contract limit for ${positionSizing.instrument.symbol} with a ${positionSizing.stopPoints} pt stop, as in the simulation.`}
-            </p>
-
-            {ignoredInputsNote !== null && (
-                <p className="mt-3 text-xs text-warning">{ignoredInputsNote}</p>
-            )}
-
-            {isAliasingRisk && (
-                <p className="mt-3 text-xs text-warning">
-                    A max rung above {formatCurrency(aliasingFrom)} is past the
-                    point where ladders start aliasing to the same effective
-                    strategy on this {formatCurrency(cushion)} cushion. They are
-                    de-duplicated, so the grid stays honest, but the extra range
-                    mostly adds compute rather than distinct strategies.
-                </p>
-            )}
-
-            {state.phase === LadderRunPhase.Failed && (
-                <p className="mt-3 text-xs text-destructive">{state.reason}</p>
-            )}
-
-            {view.kind === LadderLabViewKind.Cancelled && (
-                <p className="mt-3 text-xs text-warning">{view.notice}</p>
-            )}
-
-            {scored === null &&
-                state.phase === LadderRunPhase.Idle &&
-                view.kind !== LadderLabViewKind.Cancelled && (
-                    <EmptyState
-                        className="mt-4 border"
-                        description="Set the grid above, then press Run search to score every ladder on days to funded, cost per funded account and pass rate."
-                        icon={FlaskConical}
-                        title="No search run yet"
+                    )
+                }
+                className="app-prop-calculator__ladder-lab"
+                info={<LadderLabInfo />}
+                title="Ladder lab"
+                titleAs="h3"
+            >
+                {state.phase === LadderRunPhase.Running && (
+                    <Progress
+                        aria-label="Ladder search progress"
+                        className="h-1.5"
+                        value={ladderProgressPercent(state.progress)}
                     />
                 )}
 
-            {scored && (
-                <div className="mt-4 flex flex-col gap-5">
-                    {scored.kind === LadderLabViewKind.InputsChanged && (
-                        <p className="text-xs text-warning">{scored.notice}</p>
-                    )}
+                <CalculatorObjectiveChip />
 
-                    <p className="text-xs text-muted-foreground">
-                        Scored {scored.result.laddersScored} distinct ladders
-                        from a {scored.result.gridSize}-ladder grid (
-                        {scored.result.droppedAliasCount} aliases removed) in{' '}
-                        {(scored.slot.result.progress.elapsedMs / 1000).toFixed(
-                            1,
-                        )}
-                        s. The ± figures are one standard error of Monte Carlo
-                        noise; rows within about 2 SE of each other are
-                        statistically tied, so raise the sims per ladder to
-                        separate them.
-                    </p>
-
-                    {unscorableNote !== null && (
-                        <p className="text-xs text-warning">{unscorableNote}</p>
-                    )}
-
-                    <div>
-                        <h4 className="mb-2 text-xs font-semibold">
-                            Efficient frontier
-                        </h4>
-                        <LadderFrontierChartView
-                            frontier={scored.result.frontier}
-                        />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                        <h4 className="text-xs font-semibold">
-                            Ranked ladders ({rows.length})
-                        </h4>
-                        <p className="text-xs text-muted-foreground">
-                            {ladderStarText(objectiveView.effective)}
-                            {labPositionSizing === null
-                                ? ''
-                                : ' Contracts are display only: whole contracts at your stop, rounded down.'}
-                        </p>
-                        <DataTable<LadderScore>
-                            className="app-prop-calculator__ladder-table text-xs tabular-nums"
-                            columns={columns}
-                            data={rows}
-                            initialSorting={[{ desc: false, id: 'days' }]}
-                            pageSize={15}
-                            rowClassName={(r) =>
-                                isActiveLadderRow(
-                                    view,
-                                    r,
-                                    activePolicy,
-                                    activeRungSizing,
-                                )
-                                    ? 'bg-success/10'
-                                    : undefined
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+                    <NumberField
+                        label="Min rung"
+                        onChange={(value) => setGrid({ lo: value })}
+                        value={lo}
+                    />
+                    <NumberField
+                        label="Max rung"
+                        onChange={(value) => setGrid({ max: value })}
+                        value={max}
+                    />
+                    <NumberField
+                        label="Step"
+                        onChange={(value) => setGrid({ step: value })}
+                        value={step}
+                    />
+                    <NumberField
+                        label="Rungs"
+                        max={MAX_LADDER_SLOTS}
+                        onChange={(value) => setGrid({ slots: value })}
+                        value={slots}
+                    />
+                    <NumberField
+                        label="Sims per ladder"
+                        onChange={(value) =>
+                            setForm((current) => ({ ...current, sims: value }))
+                        }
+                        value={sims}
+                    />
+                    <Field>
+                        <FieldLabel htmlFor="ladder-lab-instrument">
+                            Instrument
+                        </FieldLabel>
+                        <Select
+                            onValueChange={(value) => {
+                                const parsed =
+                                    value === INSTRUMENT_NOT_SET
+                                        ? ''
+                                        : instrumentSymbolSchema.safeParse(
+                                              value,
+                                          ).data;
+                                if (parsed !== undefined) {
+                                    setForm((current) => ({
+                                        ...current,
+                                        displayInstrument: parsed,
+                                    }));
+                                }
+                            }}
+                            value={
+                                instrument === ''
+                                    ? INSTRUMENT_NOT_SET
+                                    : instrument
                             }
-                            rowId={(r) => r.ladder.join(',')}
-                        />
-                    </div>
+                        >
+                            <SelectTrigger id="ladder-lab-instrument">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={INSTRUMENT_NOT_SET}>
+                                    Not set
+                                </SelectItem>
+                                {ALL_INSTRUMENTS.map((spec) => (
+                                    <SelectItem
+                                        key={spec.symbol}
+                                        value={spec.symbol}
+                                    >
+                                        {spec.symbol} (
+                                        {formatGateCurrency(spec.pointValue)}
+                                        /pt)
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </Field>
                 </div>
-            )}
-        </Card>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                        <FieldLabel htmlFor="ladder-day-stop-rule">
+                            Day stop rule
+                        </FieldLabel>
+                        <DayStopRulePicker
+                            id="ladder-day-stop-rule"
+                            onChange={(value) =>
+                                setForm((current) => ({
+                                    ...current,
+                                    stopRule: value,
+                                }))
+                            }
+                            value={stopRule}
+                        />
+                    </Field>
+                    <Field>
+                        <FieldLabel htmlFor="ladder-rung-sizing">
+                            {UNAFFORDABLE_RUNG_LABEL}
+                        </FieldLabel>
+                        <Select
+                            onValueChange={(value) => {
+                                const parsed =
+                                    rungSizingSchema.safeParse(value);
+                                if (parsed.success) {
+                                    setForm((current) => ({
+                                        ...current,
+                                        rungSizing: parsed.data,
+                                    }));
+                                }
+                            }}
+                            value={rungSizing}
+                        >
+                            <SelectTrigger id="ladder-rung-sizing">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {RUNG_SIZING_OPTIONS.map((option) => (
+                                    <SelectItem key={option} value={option}>
+                                        {RUNG_SIZING_LABELS[option]}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </Field>
+                </div>
+
+                <InfoNote
+                    info="Apply also sets the unaffordable rung choice for every trade in the simulation, eval and funded, not only for this ladder."
+                    infoTitle="What Apply sets"
+                >
+                    {positionSizing === null
+                        ? 'Contract limits are not applied: set an instrument and a stop in the trading inputs to cap each rung at the eval contract limit.'
+                        : `Each rung is capped at the eval contract limit for ${positionSizing.instrument.symbol} with a ${positionSizing.stopPoints} pt stop, as in the simulation.`}
+                </InfoNote>
+
+                {ignoredInputsNote !== null && (
+                    <StatusRow
+                        title={ignoredInputsNote}
+                        tone={StatusTone.Warn}
+                    />
+                )}
+
+                {isAliasingRisk && (
+                    <StatusRow
+                        detail="They are de-duplicated, so the grid stays honest, but the extra range mostly adds compute rather than distinct strategies."
+                        title={`A max rung above ${formatCurrency(aliasingFrom)} is past the point where ladders start aliasing to the same effective strategy on this ${formatCurrency(cushion)} cushion.`}
+                        tone={StatusTone.Warn}
+                    />
+                )}
+
+                {state.phase === LadderRunPhase.Failed && (
+                    <Alert variant="destructive">
+                        <AlertDescription>{state.reason}</AlertDescription>
+                    </Alert>
+                )}
+
+                {view.kind === LadderLabViewKind.Cancelled && (
+                    <StatusRow title={view.notice} tone={StatusTone.Warn} />
+                )}
+
+                {scored === null &&
+                    state.phase === LadderRunPhase.Idle &&
+                    view.kind !== LadderLabViewKind.Cancelled && (
+                        <EmptyState
+                            className="border"
+                            description="Set the grid above, then press Run search to score every ladder on days to funded, cost per funded account and pass rate."
+                            icon={FlaskConical}
+                            title="No search run yet"
+                        />
+                    )}
+
+                {scored && (
+                    <div className="flex flex-col gap-5">
+                        {scored.kind === LadderLabViewKind.InputsChanged && (
+                            <StatusRow
+                                title={scored.notice}
+                                tone={StatusTone.Warn}
+                            />
+                        )}
+
+                        <InfoNote
+                            info="The ± figures are one standard error of Monte Carlo noise; rows within about 2 SE of each other are statistically tied, so raise the sims per ladder to separate them."
+                            infoTitle="Standard errors"
+                        >
+                            Scored {scored.result.laddersScored} distinct
+                            ladders from a {scored.result.gridSize}-ladder grid
+                            ({scored.result.droppedAliasCount} aliases removed)
+                            in{' '}
+                            {(
+                                scored.slot.result.progress.elapsedMs / 1000
+                            ).toFixed(1)}
+                            s.
+                        </InfoNote>
+
+                        {unscorableNote !== null && (
+                            <StatusRow
+                                title={unscorableNote}
+                                tone={StatusTone.Warn}
+                            />
+                        )}
+
+                        <div className="flex flex-col gap-2">
+                            <PanelSubheading as="h4">
+                                Efficient frontier
+                            </PanelSubheading>
+                            <LadderFrontierChartView
+                                frontier={scored.result.frontier}
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <PanelSubheading as="h4">
+                                Ranked ladders ({rows.length})
+                            </PanelSubheading>
+                            <p className="text-xs text-muted-foreground">
+                                {ladderStarText(objectiveView.effective)}
+                                {labPositionSizing === null
+                                    ? ''
+                                    : ' Contracts are display only: whole contracts at your stop, rounded down.'}
+                            </p>
+                            <DataTable<LadderScore>
+                                className="app-prop-calculator__ladder-table text-xs tabular-nums"
+                                columns={columns}
+                                data={rows}
+                                initialSorting={[{ desc: false, id: 'days' }]}
+                                pageSize={15}
+                                rowClassName={(r) =>
+                                    isActiveLadderRow(
+                                        view,
+                                        r,
+                                        activePolicy,
+                                        activeRungSizing,
+                                    )
+                                        ? 'bg-success/10'
+                                        : undefined
+                                }
+                                rowId={(r) => r.ladder.join(',')}
+                            />
+                        </div>
+                    </div>
+                )}
+            </ToolPanel>
+        </div>
     );
 }
 
@@ -739,60 +734,62 @@ function contractsColumn(
     };
 }
 
+function ladderLabel(ladder: readonly number[]): string {
+    return ladder.join(' / ');
+}
+
+function LadderLabInfo() {
+    return (
+        <>
+            Searches every within-day risk ladder on a grid and scores each one
+            on three separate axes: expected days to funded, cost per funded
+            account, and eval pass rate. They have different winners, so all
+            three are shown rather than blended into one score. Ladders that
+            clamp to the same effective strategy are de-duplicated. Each rung
+            follows the unaffordable rung choice:
+            {RUNG_SIZING_OPTIONS.map((option) => (
+                <span className="mt-1 block" key={option}>
+                    {RUNG_SIZING_LABELS[option]}: {RUNG_SIZING_OUTCOMES[option]}
+                </span>
+            ))}
+        </>
+    );
+}
+
 function ladderProgressPercent(progress: LadderProgress): number {
     return progress.total === 0
         ? 0
         : Math.round((progress.completed / progress.total) * 100);
 }
 
-function LadderRowButton({
-    action,
-    onApply,
-    onClear,
-}: {
-    action: LadderRowAction;
-    onApply: (policy: DayPolicy, rungSizing: RungSizing) => void;
-    onClear: () => void;
-}) {
-    switch (action.kind) {
-        case LadderRowActionKind.Apply: {
-            return (
-                <Button
-                    onClick={() => onApply(action.policy, action.rungSizing)}
-                    size="sm"
-                    type="button"
-                    variant="link"
-                >
-                    Apply
-                </Button>
-            );
-        }
-        case LadderRowActionKind.Clear: {
-            return (
-                <Button
-                    onClick={onClear}
-                    size="sm"
-                    type="button"
-                    variant="link"
-                >
-                    Clear
-                </Button>
-            );
-        }
-        case LadderRowActionKind.Unavailable: {
-            return (
-                <Button
-                    disabled
-                    size="sm"
-                    title="Run the search again on the current inputs to apply a ladder"
-                    type="button"
-                    variant="link"
-                >
-                    Apply
-                </Button>
-            );
-        }
+function ladderRowActions(
+    action: LadderRowAction,
+    onApply: (policy: DayPolicy, rungSizing: RungSizing) => void,
+    onClear: () => void,
+): RowAction[] {
+    if (action.kind === LadderRowActionKind.Clear) {
+        return [
+            {
+                icon: X,
+                kind: RowActionKind.Select,
+                label: 'Clear',
+                onSelect: onClear,
+            },
+        ];
     }
+    return [
+        {
+            icon: Check,
+            isDisabled: action.kind === LadderRowActionKind.Unavailable,
+            kind: RowActionKind.Select,
+            label: 'Apply',
+            onSelect: () => {
+                if (action.kind === LadderRowActionKind.Apply) {
+                    onApply(action.policy, action.rungSizing);
+                }
+            },
+        },
+    ];
 }
 
 function ladderStarText(objective: SizingObjective): string {

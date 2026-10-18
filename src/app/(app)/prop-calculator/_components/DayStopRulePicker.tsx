@@ -16,7 +16,6 @@ import { cn } from '~/lib/utilities';
 import { DAY_STOP_KIND_LABELS } from './describeDayStopRule';
 
 interface DayStopRulePickerProperties {
-    compact?: boolean;
     id?: string;
     onChange: (rule: DayStopRule) => void;
     value: DayStopRule;
@@ -27,7 +26,6 @@ const DAY_STOP_RULE_LABEL = 'Day stop rule';
 type Kind = DayStopRule['kind'];
 
 export default function DayStopRulePicker({
-    compact = false,
     id,
     onChange,
     value,
@@ -73,7 +71,7 @@ export default function DayStopRulePicker({
         <div
             className={cn(
                 'app-prop-calculator__day-stop-picker',
-                compact ? 'flex flex-col gap-1' : 'flex flex-col gap-2',
+                'flex flex-col gap-2',
             )}
         >
             <Select
@@ -86,7 +84,6 @@ export default function DayStopRulePicker({
                     aria-label={
                         id === undefined ? DAY_STOP_RULE_LABEL : undefined
                     }
-                    className={compact ? 'h-7 text-xs' : undefined}
                     id={id}
                 >
                     <SelectValue />
@@ -102,7 +99,6 @@ export default function DayStopRulePicker({
             {value.kind === DayStopRuleKind.AfterKLosses && (
                 <Input
                     aria-label="K losses"
-                    className={compact ? 'h-7 text-xs' : undefined}
                     max={20}
                     min={1}
                     onChange={(event) => {
@@ -122,7 +118,6 @@ export default function DayStopRulePicker({
             {value.kind === DayStopRuleKind.AfterTarget && (
                 <Input
                     aria-label="Target dollars"
-                    className={compact ? 'h-7 text-xs' : undefined}
                     min={1}
                     onChange={(event) => {
                         const n = Math.max(1, Number(event.target.value));

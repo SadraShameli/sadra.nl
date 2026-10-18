@@ -37,6 +37,7 @@ import {
     mffBuilderPlan,
     mffProPlan,
 } from '../../../lib/prop-accounts/reconstructionFixtures';
+import { infoContentOrNull } from '../infoPopover';
 
 const GROUP = {
     id: '30000000-0000-4000-8000-000000000001',
@@ -155,16 +156,22 @@ describe('the copy group page names divergent members and every rung (PT-101, F-
     function rungRows(): string[][] {
         return [...container.querySelectorAll(':scope tbody tr')].map(
             (tableRow) =>
-                [...tableRow.querySelectorAll('td')].map(
+                [...tableRow.querySelectorAll('th, td')].map(
                     (cell) => cell.textContent,
                 ),
         );
     }
 
-    function paragraphs(): string[] {
-        return [...container.querySelectorAll('p')].map(
-            (paragraph) => paragraph.textContent,
+    function sizingNotes(): string[] {
+        const notes = infoContentOrNull(
+            container,
+            'Documented size for every copy',
         );
+        return notes === null
+            ? []
+            : [...notes.querySelectorAll('p')].map(
+                  (paragraph) => paragraph.textContent,
+              );
     }
 
     beforeEach(() => {
@@ -195,14 +202,11 @@ describe('the copy group page names divergent members and every rung (PT-101, F-
 
         render(section, AccountStage.Funded);
 
-        const text = paragraphs();
-        expect(
-            text.some(
-                (line) =>
-                    line.includes('Documented size for every copy') &&
-                    line.includes('set by tight'),
-            ),
-        ).toBe(true);
+        expect(container.textContent).toContain(
+            'Documented size for every copy',
+        );
+        expect(container.textContent).toContain('Set by tight');
+        const text = sizingNotes();
         expect(text).toContain(
             `loose would size trade 1 at ${formatCurrency(divergence?.ownRisk ?? 0, 2)}, above the group's ${formatCurrency(divergence?.groupRisk ?? 0, 2)} (the group takes the smaller)`,
         );
@@ -232,11 +236,11 @@ describe('the copy group page names divergent members and every rung (PT-101, F-
 
         render(section, AccountStage.Eval);
 
-        expect(paragraphs()).toContain(
+        expect(sizingNotes()).toContain(
             `free would size trade 3 at ${formatCurrency(free?.ownRisk ?? 0, 2)}, above the group's ${formatCurrency(free?.groupRisk ?? 0, 2)} (the group takes the smaller)`,
         );
         expect(
-            paragraphs().filter((line) => line.includes('would size')),
+            sizingNotes().filter((line) => line.includes('would size')),
         ).toHaveLength(1);
     });
 
@@ -249,7 +253,7 @@ describe('the copy group page names divergent members and every rung (PT-101, F-
 
         render(section, AccountStage.Funded);
 
-        expect(paragraphs().some((line) => line.includes('would size'))).toBe(
+        expect(sizingNotes().some((line) => line.includes('would size'))).toBe(
             false,
         );
     });

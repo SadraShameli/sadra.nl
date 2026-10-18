@@ -17,6 +17,16 @@ import {
     serializePlanId,
 } from '~/lib/prop-calculator';
 
+import { dialogTitled, typeInto } from '../../../components/formDialog';
+import {
+    chooseRowAction,
+    confirmRowAction,
+    openRowActions,
+    rowActionItem,
+    rowActionLabels,
+    rowActionsTrigger,
+} from '../../../components/rowActionsMenu';
+
 interface FakeQuery {
     data: unknown;
     error: null | { message: string };
@@ -202,6 +212,13 @@ function input(scope: ParentNode): HTMLInputElement {
     return found;
 }
 
+function openRecordDialog(scope: ParentNode, trigger: string, title: string) {
+    act(() => {
+        buttonLabelled(scope, trigger).click();
+    });
+    return element(dialogTitled(title), 'form');
+}
+
 function selectOffering(scope: ParentNode, value: string): HTMLSelectElement {
     const select = [...scope.querySelectorAll('select')].find((candidate) =>
         [...candidate.options].some((option) => option.value === value),
@@ -210,23 +227,13 @@ function selectOffering(scope: ParentNode, value: string): HTMLSelectElement {
     return select;
 }
 
-async function submitForm(scope: ParentNode, label: string) {
-    const form = element(scope, `form[aria-label="${label}"]`);
+async function submitForm(title: string) {
+    const form = element(dialogTitled(title), 'form');
     await act(async () => {
         form.dispatchEvent(
             new Event('submit', { bubbles: true, cancelable: true }),
         );
         await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-}
-
-function typeInto(target: HTMLInputElement, value: string) {
-    act(() => {
-        Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            'value',
-        )?.set?.call(target, value);
-        target.dispatchEvent(new Event('input', { bubbles: true }));
     });
 }
 
@@ -288,8 +295,13 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
 
     it('records a deposit through bankroll.create with exact cents', async () => {
         render();
-        typeInto(input(container), '1,000.50');
-        await submitForm(container, 'Add a transfer');
+        const form = openRecordDialog(
+            container,
+            'Add transfer',
+            'Add a transfer',
+        );
+        typeInto(input(form), '1,000.50');
+        await submitForm('Add a transfer');
         expect(harness.mutateOf('bankroll.create')).toHaveBeenCalledWith({
             amountCents: 100_050,
             kind: BankrollTransferKind.Deposit,
@@ -313,15 +325,9 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
             ]),
         );
         render();
-        act(() => {
-            buttonLabelled(
-                container,
-                'Delete the Personal withdrawal on 2026-06-01',
-            ).click();
-        });
-        act(() => {
-            buttonLabelled(document, 'Delete').click();
-        });
+        chooseRowAction('the Personal withdrawal on 1 Jun 2026', 'Delete');
+        expect(harness.mutateOf('bankroll.remove')).not.toHaveBeenCalled();
+        confirmRowAction('Delete');
         expect(harness.mutateOf('bankroll.remove')).toHaveBeenCalledWith({
             id: TRANSFER_ID,
         });
@@ -374,15 +380,16 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
 
     it('records a firm statement through firmStatement.create with the picked firm', async () => {
         render();
-        const form = element(
+        const form = openRecordDialog(
             container,
-            'form[aria-label="Add a firm statement"]',
+            'Add statement',
+            'Add a firm statement',
         );
         const firmValue = `modeled:${FIRM.id}`;
         chooseSelectValue(form, firmValue);
         chooseSelectValue(form, ReportedPayoutBasis.Net);
         typeInto(input(form), '2,500');
-        await submitForm(container, 'Add a firm statement');
+        await submitForm('Add a firm statement');
         expect(harness.mutateOf('firmStatement.create')).toHaveBeenCalledWith({
             asOf: '2026-09-26',
             basis: ReportedPayoutBasis.Net,
@@ -393,7 +400,7 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
         });
     });
 
-    it('edits a firm statement in place through firmStatement.update', async () => {
+    it('edits a firm statement from its row menu through firmStatement.update', async () => {
         harness.queries.set('account.list', answer([account()]));
         harness.queries.set(
             'firmStatement.list',
@@ -411,19 +418,11 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
             ]),
         );
         render();
-        act(() => {
-            buttonLabelled(
-                container,
-                'Edit the statement as of 2026-09-05',
-            ).click();
-        });
-        const form = element(
-            container,
-            'form[aria-label="Edit firm statement"]',
-        );
+        chooseRowAction('the statement as of 5 Sep 2026', 'Edit');
+        const form = element(dialogTitled('Edit firm statement'), 'form');
         expect(input(form).value).toBe('1000');
         typeInto(input(form), '1,200');
-        await submitForm(container, 'Edit firm statement');
+        await submitForm('Edit firm statement');
         expect(harness.mutateOf('firmStatement.update')).toHaveBeenCalledWith({
             asOf: '2026-09-05',
             basis: ReportedPayoutBasis.Net,
@@ -488,7 +487,7 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
         expect(section.querySelector('table')).toBeNull();
     });
 
-    it('renders the deposit and withdrawal edit action as a pencil icon, not overflow text', () => {
+    it('ends each deposit and withdrawal row in an icon-only actions menu that offers Edit and Delete', () => {
         harness.queries.set(
             'bankroll.list',
             answer([
@@ -503,30 +502,33 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
             ]),
         );
         render();
-        const editButton = buttonLabelled(
-            container,
-            'Edit the Personal withdrawal on 2026-06-01',
+        const trigger = rowActionsTrigger(
+            'the Personal withdrawal on 1 Jun 2026',
         );
-        expect(editButton.querySelector('svg')).not.toBeNull();
-        expect(editButton.textContent.trim()).toBe('');
+        expect(trigger.querySelector('svg')).not.toBeNull();
+        expect(trigger.textContent.trim()).toBe('');
+        openRowActions('the Personal withdrawal on 1 Jun 2026');
+        expect(rowActionLabels()).toEqual(['Edit', 'Delete']);
+        expect(rowActionItem('Edit').querySelector('svg')).not.toBeNull();
     });
 
     it('starts a new statement with no basis chosen and blocks the submit with a message until one is picked', async () => {
         render();
-        const form = element(
+        const form = openRecordDialog(
             container,
-            'form[aria-label="Add a firm statement"]',
+            'Add statement',
+            'Add a firm statement',
         );
         expect(selectOffering(form, ReportedPayoutBasis.Net).value).toBe('');
         chooseSelectValue(form, `modeled:${FIRM.id}`);
         typeInto(input(form), '2,500');
-        await submitForm(container, 'Add a firm statement');
+        await submitForm('Add a firm statement');
         expect(harness.mutateOf('firmStatement.create')).not.toHaveBeenCalled();
         expect(form.textContent).toContain(
             'Choose whether the reported total is gross or net',
         );
         chooseSelectValue(form, ReportedPayoutBasis.Gross);
-        await submitForm(container, 'Add a firm statement');
+        await submitForm('Add a firm statement');
         expect(harness.mutateOf('firmStatement.create')).toHaveBeenCalledWith(
             expect.objectContaining({ basis: ReportedPayoutBasis.Gross }),
         );

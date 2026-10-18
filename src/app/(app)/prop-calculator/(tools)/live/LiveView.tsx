@@ -16,8 +16,9 @@ import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useDebouncedComputation } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
-import { Alert, AlertDescription } from '~/components/ui/alert';
+import { StatStrip } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import { type LiveOutputs, simulateLiveAccount } from '~/lib/prop-calculator';
 
@@ -63,30 +64,30 @@ export function LiveView() {
             <ToolPageHeading toolId={ToolId.Live} />
             <div className="app-prop-calculator__live mb-10 flex flex-col gap-6">
                 <InputsSummary evalLadderScope={EvalLadderScope.NotUsedHere} />
-                <section
-                    aria-labelledby={RESULT_HEADING_ID}
-                    className="flex flex-col gap-4"
-                >
-                    <ToolSectionHeading id={RESULT_HEADING_ID}>
-                        Live stage results
-                    </ToolSectionHeading>
-                    {model.status === LiveToolStatus.Modeled &&
-                        model.note !== null && (
-                            <p className="text-xs text-muted-foreground">
-                                {model.note}
-                            </p>
+                <section aria-labelledby={RESULT_HEADING_ID}>
+                    <ToolPanel
+                        description={
+                            model.status === LiveToolStatus.Modeled &&
+                            model.note !== null
+                                ? model.note
+                                : undefined
+                        }
+                        title="Live stage results"
+                        titleId={RESULT_HEADING_ID}
+                    >
+                        {model.status === LiveToolStatus.NotModeled ? (
+                            <StatusRow
+                                title={model.message}
+                                tone={StatusTone.Neutral}
+                            />
+                        ) : (
+                            <LiveComputationResult
+                                error={error}
+                                pending={pending}
+                                result={result}
+                            />
                         )}
-                    {model.status === LiveToolStatus.NotModeled ? (
-                        <Alert>
-                            <AlertDescription>{model.message}</AlertDescription>
-                        </Alert>
-                    ) : (
-                        <LiveComputationResult
-                            error={error}
-                            pending={pending}
-                            result={result}
-                        />
-                    )}
+                    </ToolPanel>
                 </section>
             </div>
         </>
@@ -112,42 +113,39 @@ function LiveComputationResult({
 
 function LiveResultSummary({ out }: { out: LiveOutputs }) {
     return (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-            <LiveStat
-                label="Bust probability"
-                value={formatPercent(out.liveBustProbability)}
-            />
-            <LiveStat
-                label="Closed for inactivity"
-                value={formatPercent(out.liveInactivityClosureProbability)}
-            />
-            <LiveStat
-                label="Median days to bust"
-                value={formatDays(out.medianDaysToBust)}
-            />
-            <LiveStat
-                label="Median days to first withdrawal"
-                value={formatDays(out.medianDaysToFirstWithdrawal)}
-            />
-            <LiveStat
-                label="Withdrawals by the horizon (median)"
-                value={formatCurrency(out.cumulativeWithdrawalsP50)}
-            />
-            <LiveStat
-                label="Expected withdrawals per year"
-                value={formatCurrency(out.expectedAnnualWithdrawalRate)}
-            />
-        </dl>
-    );
-}
-
-function LiveStat({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="flex flex-col">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="font-medium text-foreground tabular-nums">
-                {value}
-            </dd>
-        </div>
+        <StatStrip
+            items={[
+                {
+                    id: 'bust-probability',
+                    label: 'Bust probability',
+                    value: formatPercent(out.liveBustProbability),
+                },
+                {
+                    id: 'inactivity-closure',
+                    label: 'Closed for inactivity',
+                    value: formatPercent(out.liveInactivityClosureProbability),
+                },
+                {
+                    id: 'median-days-to-bust',
+                    label: 'Median days to bust',
+                    value: formatDays(out.medianDaysToBust),
+                },
+                {
+                    id: 'median-days-to-first-withdrawal',
+                    label: 'Median days to first withdrawal',
+                    value: formatDays(out.medianDaysToFirstWithdrawal),
+                },
+                {
+                    id: 'withdrawals-by-horizon',
+                    label: 'Withdrawals by the horizon (median)',
+                    value: formatCurrency(out.cumulativeWithdrawalsP50),
+                },
+                {
+                    id: 'expected-annual-withdrawals',
+                    label: 'Expected withdrawals per year',
+                    value: formatCurrency(out.expectedAnnualWithdrawalRate),
+                },
+            ]}
+        />
     );
 }

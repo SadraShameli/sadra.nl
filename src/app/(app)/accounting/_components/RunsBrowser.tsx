@@ -1,14 +1,17 @@
 'use client';
 
 import { type SortingState } from '@tanstack/react-table';
-import { format } from 'date-fns';
 import { ChevronRight, History } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { Badge, type BadgeProperties } from '~/components/ui/badge';
-import { Card, CardContent } from '~/components/ui/card';
-import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { linkRowAction, rowActionsColumn } from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
+import {
+    DataTable,
+    type DataTableColumn,
+    hasActiveTableFilter,
+} from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { Eur } from '~/lib/accounting/core/money';
@@ -21,22 +24,17 @@ import {
     RUN_STATUSES,
     type RunStatus,
 } from '~/lib/accounting/runs/types';
+import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
+
+import { RunStatusBadge, runStatusLabel } from './RunStatusBadge';
 
 const ALL = '__all__';
 const DEFAULT_SORTING: SortingState = [{ desc: true, id: 'createdAt' }];
 const PAGE_SIZE = 20;
 
 type RunRow = RouterOutputs['accounting']['runs']['list'][number];
-
-const STATUS_VARIANT: Record<RunStatus, BadgeProperties['variant']> = {
-    failed: 'destructive',
-    partial: 'warning',
-    planned: 'outline',
-    posted: 'success',
-    posting: 'warning',
-};
 
 export function RunsBrowser() {
     const [offset, setOffset] = useState(0);
@@ -96,16 +94,17 @@ export function RunsBrowser() {
                         href={routes.accounting.run(row.original.id)}
                         prefetch
                     >
-                        {format(row.original.createdAt, 'PPp')}
+                        {formatDisplayDateTime(row.original.createdAt)}
                     </Link>
                 ),
                 header: 'Created',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'startDate',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs text-muted-foreground">
-                        since {row.original.startDate}
+                        since {formatDisplayDate(row.original.startDate)}
                     </span>
                 ),
                 header: 'Start date',
@@ -113,14 +112,16 @@ export function RunsBrowser() {
             {
                 accessorKey: 'status',
                 cell: ({ row }) => (
-                    <Badge variant={STATUS_VARIANT[row.original.status]}>
-                        {row.original.status}
-                    </Badge>
+                    <RunStatusBadge status={row.original.status} />
                 ),
                 header: 'Status',
             },
             {
-                accessorKey: 'accountingCredentialId',
+                accessorFn: (r) =>
+                    r.accountingCredentialId
+                        ? (labelByCredentialId.get(r.accountingCredentialId) ??
+                          r.accountingCredentialId)
+                        : '',
                 cell: ({ row }) => {
                     const id = row.original.accountingCredentialId;
                     return (
@@ -130,6 +131,7 @@ export function RunsBrowser() {
                     );
                 },
                 header: 'Target',
+                id: 'accountingCredentialId',
             },
             {
                 accessorFn: (r) => r.summary.bookingsCount,
@@ -167,108 +169,107 @@ export function RunsBrowser() {
                 header: 'Unknowns',
                 id: 'unknownsCount',
             },
-            {
-                cell: ({ row }) => (
-                    <Link href={routes.accounting.run(row.original.id)}>
-                        <ChevronRight className="size-4 text-muted-foreground" />
-                    </Link>
-                ),
-                header: '',
-                id: 'open',
-            },
+            rowActionsColumn<RunRow>({
+                actionsOf: (run) => [
+                    linkRowAction({
+                        href: routes.accounting.run(run.id),
+                        icon: ChevronRight,
+                        label: 'Open',
+                    }),
+                ],
+                labelOf: (run) =>
+                    `run created ${formatDisplayDateTime(run.createdAt)}`,
+            }),
         ],
         [labelByCredentialId],
     );
 
     return (
-        <Card>
-            <CardContent>
-                {runsQ.error ? (
-                    <EmptyState
-                        description={runsQ.error.message}
-                        title="Could not fetch runs"
-                    />
-                ) : (
-                    <div className="flex flex-col gap-3">
-                        <DataTable
-                            columns={columns}
-                            data={rows}
-                            emptyState={
-                                <EmptyState
-                                    description={
-                                        hasFilters
-                                            ? 'No runs match the current filters.'
-                                            : 'Plan a run from the dashboard to see it appear here.'
-                                    }
-                                    icon={History}
-                                    title={
-                                        hasFilters
-                                            ? 'No matches'
-                                            : 'No runs yet'
-                                    }
-                                />
+        <ToolPanel title="Runs">
+            {runsQ.error ? (
+                <EmptyState
+                    description={runsQ.error.message}
+                    title="Could not fetch runs"
+                />
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={rows}
+                    emptyState={(table) => (
+                        <EmptyState
+                            description={
+                                hasFilters || hasActiveTableFilter(table)
+                                    ? 'No runs match the current filters.'
+                                    : 'Plan a run from the dashboard to see it appear here.'
                             }
-                            hasExternalFilters={hasFilters}
-                            headerActions={
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <FilterSelect
-                                        label="Status"
-                                        onValueChange={(v) => {
-                                            setStatusFilter(
-                                                RUN_STATUSES.find(
-                                                    (s) => s === v,
-                                                ) ?? ALL,
-                                            );
-                                            setOffset(0);
-                                        }}
-                                        options={RUN_STATUSES.map((s) => ({
-                                            label: s,
-                                            value: s,
-                                        }))}
-                                        placeholder="All statuses"
-                                        value={
-                                            statusFilter === ALL
-                                                ? undefined
-                                                : statusFilter
-                                        }
-                                    />
-                                    <FilterSelect
-                                        label="Target"
-                                        onValueChange={(v) => {
-                                            setTargetFilter(v ?? ALL);
-                                            setOffset(0);
-                                        }}
-                                        options={targets.map((c) => ({
-                                            label: c.label,
-                                            value: c.id,
-                                        }))}
-                                        placeholder="All targets"
-                                        value={
-                                            targetFilter === ALL
-                                                ? undefined
-                                                : targetFilter
-                                        }
-                                    />
-                                </div>
+                            icon={History}
+                            title={
+                                hasFilters || hasActiveTableFilter(table)
+                                    ? 'No matches'
+                                    : 'No runs yet'
                             }
-                            initialSorting={DEFAULT_SORTING}
-                            isLoading={runsQ.isPending}
-                            onResetFilters={reset}
-                            onSortingChange={sortBy}
-                            pageSize={null}
-                            rowId={(r) => r.id}
-                            serverPagination={{
-                                hasNextPage: rows.length === PAGE_SIZE,
-                                isPending: runsQ.isPending,
-                                onPageIndexChange: (pageIndex) =>
-                                    setOffset(pageIndex * PAGE_SIZE),
-                                pageIndex: offset / PAGE_SIZE,
-                                pageSize: PAGE_SIZE,
-                            }}
                         />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                    )}
+                    filterPlaceholder="Search runs…"
+                    hasExternalFilters={hasFilters}
+                    headerActions={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <FilterSelect
+                                label="Status"
+                                onValueChange={(v) => {
+                                    setStatusFilter(
+                                        RUN_STATUSES.find((s) => s === v) ??
+                                            ALL,
+                                    );
+                                    setOffset(0);
+                                }}
+                                options={RUN_STATUSES.map((s) => ({
+                                    label: runStatusLabel(s),
+                                    value: s,
+                                }))}
+                                placeholder="All statuses"
+                                value={
+                                    statusFilter === ALL
+                                        ? undefined
+                                        : statusFilter
+                                }
+                            />
+                            <FilterSelect
+                                label="Target"
+                                onValueChange={(v) => {
+                                    setTargetFilter(v ?? ALL);
+                                    setOffset(0);
+                                }}
+                                options={targets.map((c) => ({
+                                    label: c.label,
+                                    value: c.id,
+                                }))}
+                                placeholder="All targets"
+                                value={
+                                    targetFilter === ALL
+                                        ? undefined
+                                        : targetFilter
+                                }
+                            />
+                        </div>
+                    }
+                    initialSorting={DEFAULT_SORTING}
+                    isLoading={runsQ.isPending}
+                    onResetFilters={reset}
+                    onSortingChange={sortBy}
+                    pageSize={null}
+                    rowId={(r) => r.id}
+                    serverPagination={{
+                        hasNextPage: rows.length === PAGE_SIZE,
+                        isPending: runsQ.isPending,
+                        onPageIndexChange: (pageIndex) =>
+                            setOffset(pageIndex * PAGE_SIZE),
+                        pageIndex: offset / PAGE_SIZE,
+                        pageSize: PAGE_SIZE,
+                    }}
+                    showFilter
+                />
+            )}
+        </ToolPanel>
     );
 }

@@ -72,7 +72,12 @@ import {
     setupChecklistCardOf,
     violationsFor,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import {
+    formatCurrency,
+    formatDisplayDate,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import {
     AccountEventKind,
     AccountReadIssueKind,
@@ -1383,11 +1388,11 @@ describe('buildOverview cards', () => {
                 attemptsSampleLevel: null,
                 coverageNote: null,
                 firm: EVAL_PLAN.firm.displayName,
-                firstPayoutOn: '2026-08-15',
+                firstPayoutOn: '15 Aug 2026',
                 fundedAccounts: '1',
                 fundedSampleLevel: null,
                 key: EVAL_FIRM_KEY,
-                lastPayoutOn: '2026-08-15',
+                lastPayoutOn: '15 Aug 2026',
                 multiple: '2.57x',
                 net: cents(55_000),
                 payouts: cents(90_000),
@@ -5898,7 +5903,7 @@ const NEEDS_PASTE_FIRM_SOURCE = {
 } as const;
 
 const CONFIRMED_SOURCE_TEXT =
-    '"a synthetic firm quote" https://example.test/policy, checked 2026-09-01';
+    '"a synthetic firm quote" https://example.test/policy, checked 1 Sep 2026';
 
 const CONFLICTED_FIRM_SOURCE = {
     conflicting: CONFIRMED_FIRM_SOURCE,
@@ -6292,7 +6297,7 @@ describe('buildOverview live proximity card', () => {
                 paidSinceLastLive: '2',
                 remaining: '8',
                 requestedSinceLastLive: '0',
-                since: '2026-09-08',
+                since: '8 Sep 2026',
                 sourceText: CONFIRMED_SOURCE_TEXT,
                 trigger: '10',
             },
@@ -7114,7 +7119,7 @@ describe('buildOverview next payout card (PT-37, F-87, F-88)', () => {
         expect(model.value.creditInclusive).toBe('$1,950 (SE $70)');
         expect(model.trials).toBe('2,000 trials');
         expect(model.startBasis).toContain('From the account state');
-        expect(model.startBasis).toContain(TODAY);
+        expect(model.startBasis).toContain(formatDisplayDate(TODAY));
         expect(model.startBasis.toLowerCase()).toContain('not a fresh start');
         expect(model.creditBasis).toContain('credit-free');
         expect(model.creditBasis).toContain('credit-inclusive');
@@ -7759,7 +7764,7 @@ describe('buildOverview setup checklist (PT-69, F-V28)', () => {
             routes.propCalculator.rules,
         );
         expect(byKey.get(SetupStep.FirmRulesVerified)?.detail).toContain(
-            firmDataProvenance(EVAL_PLAN.firm.id).verifiedOn,
+            formatDisplayDate(firmDataProvenance(EVAL_PLAN.firm.id).verifiedOn),
         );
         expect(byKey.get(SetupStep.StagesCaptured)?.items).toEqual([]);
         expect(byKey.get(SetupStep.StagesCaptured)?.accounts).toEqual([
@@ -8231,7 +8236,7 @@ describe('buildOverview worst day and followed recommendations KPIs (PT-69, F-V2
         expect(expected).toBeGreaterThan(0);
         expect(kpi.value).toBe(formatUsdCents(expected));
         expect(kpi.tone).toBe(KpiTone.Negative);
-        expect(kpi.detail).toContain(TODAY);
+        expect(kpi.detail).toContain(formatDisplayDate(TODAY));
         expect(kpi.detail).toContain('of your available bankroll');
         expect(kpi.note).toContain('approximation');
     });

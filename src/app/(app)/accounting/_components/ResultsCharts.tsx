@@ -7,7 +7,7 @@ import type { ConversionResult } from '~/lib/accounting/core/types';
 
 import { ToolPanel } from '~/components/ToolPanel';
 import {
-    CHART_BAR_RADIUS,
+    CHART_BAR_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
@@ -16,6 +16,7 @@ import {
     ChartTooltipContent,
 } from '~/components/ui/chart';
 import { Eur } from '~/lib/accounting/core/money';
+import { formatDisplayDate } from '~/lib/format';
 
 const TOP_COUNTERPART_COUNT = 10;
 const FULL_WIDTH_PERCENT = 100;
@@ -29,11 +30,12 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
     const byDay = useMemo(() => {
         const map = new Map<
             string,
-            { date: string; in: number; out: number }
+            { date: string; dateLabel: string; in: number; out: number }
         >();
         for (const b of result.bookings) {
             const row = map.get(b.date) ?? {
                 date: b.date,
+                dateLabel: formatDisplayDate(b.date),
                 in: 0,
                 out: 0,
             };
@@ -70,7 +72,7 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
             >
                 <ChartContainer config={perDayConfig}>
                     <BarChart data={byDay}>
-                        <XAxis {...CHART_X_AXIS_PROPS} dataKey="date" />
+                        <XAxis {...CHART_X_AXIS_PROPS} dataKey="dateLabel" />
                         <YAxis
                             {...CHART_Y_AXIS_PROPS}
                             tickFormatter={(v: number) => Eur.formatWhole(v)}
@@ -95,17 +97,17 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
                             }
                         />
                         <Bar
+                            {...CHART_BAR_PROPS}
                             dataKey="in"
                             fill="var(--color-in)"
                             name="IN"
-                            radius={CHART_BAR_RADIUS}
                             stackId="stack"
                         />
                         <Bar
+                            {...CHART_BAR_PROPS}
                             dataKey="out"
                             fill="var(--color-out)"
                             name="OUT"
-                            radius={CHART_BAR_RADIUS}
                             stackId="stack"
                         />
                     </BarChart>

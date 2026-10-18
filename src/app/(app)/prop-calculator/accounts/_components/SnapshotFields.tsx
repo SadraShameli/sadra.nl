@@ -2,6 +2,7 @@
 
 import { TriangleAlert } from 'lucide-react';
 
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import {
     Field,
@@ -106,21 +107,16 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                 </Alert>
             )}
             {formWarnings.length > 0 && (
-                <Alert
+                <StatusRow
                     className="md:col-span-2 lg:col-span-3"
-                    role="status"
-                    variant="warning"
-                >
-                    <TriangleAlert />
-                    <AlertTitle>Check this snapshot before saving</AlertTitle>
-                    <AlertDescription>
-                        <ul className="flex flex-col gap-1">
-                            {formWarnings.map((message) => (
-                                <li key={message}>{message}</li>
-                            ))}
-                        </ul>
-                    </AlertDescription>
-                </Alert>
+                    detail={formWarnings.map((message) => (
+                        <span className="block" key={message}>
+                            {message}
+                        </span>
+                    ))}
+                    title="Check this snapshot before saving"
+                    tone={StatusTone.Warn}
+                />
             )}
             {visible.map((rule) => {
                 const id = `${idRoot}-${rule.field}`;

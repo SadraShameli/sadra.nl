@@ -76,7 +76,7 @@ const RUNG_SIZING_LABEL_MODULE = path.join(
     'rungSizingLabels.ts',
 );
 const LADDER_LAB_PANEL_PATH = path.join(COMPONENTS_ROOT, 'LadderLabPanel.tsx');
-const LADDER_LAB_POPOVER_OPENER = '<InfoPopover title="Ladder lab">';
+const LADDER_LAB_POPOVER_OPENER = 'function LadderLabInfo() {';
 const DAY_STOP_LABELS = [
     'Stop after K losses',
     'Stop after $ target',
@@ -274,7 +274,7 @@ const PINNED_PANEL_PROPS: Readonly<Record<string, readonly string[]>> = {
     ],
     DrawdownDurationPanel: ['result={result}'],
     FirmComparisonTable: [
-        'activeFirmId={state.firm.id}bankrollCents={bankrollCents}baseInputs={simInputs}firms={firms}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}targetAccountSize={state.plan.accountSize}',
+        'activeFirmId={state.firm.id}bankrollCents={bankrollCents}baseInputs={simInputs}firms={firms}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}screenHourFilters={screenHourFilters}targetAccountSize={state.plan.accountSize}',
     ],
     LadderLabPanel: [
         'activePolicy={state.evalDayPolicy}baseInputs={simInputs}onApply={setEvalDayPolicy}',
@@ -287,7 +287,7 @@ const PINNED_PANEL_PROPS: Readonly<Record<string, readonly string[]>> = {
         'description={kpiDescriptions.daysToPass}formatValue={formatDays}label="Daystopassdistribution"p5={result.daysToPassP5}p25={result.daysToPassP25}p50={result.daysToPassP50}p75={result.daysToPassP75}p95={result.daysToPassP95}',
     ],
     PlanComparisonTable: [
-        'activePlan={state.plan}bankrollCents={bankrollCents}baseInputs={simInputs}firm={state.firm}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}',
+        'activePlan={state.plan}bankrollCents={bankrollCents}baseInputs={simInputs}firm={state.firm}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}screenHourFilters={screenHourFilters}',
     ],
     PortfolioPanel: [
         'baseInputs={simInputs}currentFirm={state.firm}currentPlan={state.plan}firms={firms}onPortfolioChange={setPortfolio}planOptIns={planOptIns}portfolio={state.portfolio}',
@@ -466,7 +466,7 @@ function pageSpec(toolId: ToolId): ToolPageSpec {
 function popoverBody(): string {
     const source = sourceText(LADDER_LAB_PANEL_PATH);
     const start = source.indexOf(LADDER_LAB_POPOVER_OPENER);
-    const end = source.indexOf('</InfoPopover>', start);
+    const end = source.indexOf('\n}\n', start);
     return source.slice(start, end).replaceAll(/\s+/g, ' ');
 }
 
@@ -588,8 +588,8 @@ function viewPath(spec: ToolPageSpec): string {
     );
 }
 
-const SECTION_HEADING_TAG = /<(?:h2|ToolSectionHeading)[\s>]/;
-const PAGE_HEADING_TAG = /<(?:h1|ToolPageHeader)[\s>]/;
+const SECTION_HEADING_TAG = /<(?:h2|ToolSectionHeading|ToolPanel)[\s>]/;
+const PAGE_HEADING_TAG = /<(?:h1|PageHeader)[\s>]/;
 
 function tagCount(source: string, tag: RegExp): number {
     return source.match(new RegExp(tag.source, 'g'))?.length ?? 0;

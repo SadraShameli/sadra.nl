@@ -1,8 +1,11 @@
 import { memo } from 'react';
 
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { formatDisplayDate } from '~/lib/format';
 
 import { type LiveProximityCardModel } from './overviewModel';
+import { InfoStack, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum FirmWideTriggerColumn {
     Firm = 'firm',
@@ -35,7 +38,17 @@ export const LiveProximityCard = memo(function LiveProximityCard({
         model.singleDayFacts.length === 0 &&
         model.unlistedNote === null;
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={
+                <InfoStack>
+                    <p>{model.disclosure}</p>
+                    {model.unmeasuredNote !== null && (
+                        <p>{model.unmeasuredNote}</p>
+                    )}
+                </InfoStack>
+            }
+            section={OverviewSectionId.LiveProximity}
+        >
             {isEmpty && (
                 <p className="text-sm text-muted-foreground">
                     {model.openFundedAccounts === 0
@@ -51,6 +64,7 @@ export const LiveProximityCard = memo(function LiveProximityCard({
                             cell: ({ row }) => <>{row.original.firm}</>,
                             header: 'Firm',
                             id: FirmWideTriggerColumn.Firm,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => (
@@ -109,6 +123,7 @@ export const LiveProximityCard = memo(function LiveProximityCard({
                             cell: ({ row }) => <>{row.original.account}</>,
                             header: 'Account',
                             id: PerAccountTriggerColumn.Account,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.plan}</>,
@@ -168,24 +183,19 @@ export const LiveProximityCard = memo(function LiveProximityCard({
                             <blockquote className="mt-1 border-l-2 border-border pl-3 text-xs text-muted-foreground">
                                 {fact.quote}
                                 <span className="block">
-                                    {fact.source}, checked {fact.fetchedOn}
+                                    {fact.source}, checked{' '}
+                                    {formatDisplayDate(fact.fetchedOn)}
                                 </span>
                             </blockquote>
                         </li>
                     ))}
                 </ul>
             )}
-            <p className="text-xs text-muted-foreground">{model.disclosure}</p>
-            {model.unmeasuredNote !== null && (
-                <p className="text-xs text-muted-foreground">
-                    {model.unmeasuredNote}
-                </p>
-            )}
             {model.unlistedNote !== null && (
                 <p className="text-xs text-muted-foreground">
                     {model.unlistedNote}
                 </p>
             )}
-        </div>
+        </OverviewPanel>
     );
 });

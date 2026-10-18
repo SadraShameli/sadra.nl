@@ -3,9 +3,9 @@ import { Fragment } from 'react';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
     ALL_FIRMS,
     type FirmId,
@@ -63,39 +63,37 @@ function firmRulesSectionId(firm: TradingFirm): `rules-${FirmId}` {
 function PlanRules({ plan }: { plan: Plan }) {
     return (
         <article>
-            <Card className="h-full gap-4">
-                <CardHeader>
-                    <CardTitle
-                        as="h3"
-                        className="flex flex-wrap items-center gap-2"
-                    >
+            <ToolPanel
+                className="h-full gap-4"
+                title={
+                    <span className="flex flex-wrap items-center gap-2">
                         {plan.label}
                         {!plan.isPurchasable && (
-                            <Badge asChild variant="secondary">
+                            <Badge asChild>
                                 <span>
                                     {PLAN_AVAILABILITY_LABEL[plan.availability]}
                                 </span>
                             </Badge>
                         )}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <dl className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-                        {describePlanRules(plan)
-                            .flat()
-                            .map((segment) => (
-                                <Fragment key={segment.kind}>
-                                    <dt className="text-muted-foreground">
-                                        {PLAN_RULE_SEGMENT_LABEL[segment.kind]}
-                                    </dt>
-                                    <dd className="tabular-nums">
-                                        {segment.value}
-                                    </dd>
-                                </Fragment>
-                            ))}
-                    </dl>
-                </CardContent>
-            </Card>
+                    </span>
+                }
+                titleAs="h3"
+            >
+                <dl className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+                    {describePlanRules(plan)
+                        .flat()
+                        .map((segment) => (
+                            <Fragment key={segment.kind}>
+                                <dt className="text-muted-foreground">
+                                    {PLAN_RULE_SEGMENT_LABEL[segment.kind]}
+                                </dt>
+                                <dd className="tabular-nums">
+                                    {segment.value}
+                                </dd>
+                            </Fragment>
+                        ))}
+                </dl>
+            </ToolPanel>
         </article>
     );
 }

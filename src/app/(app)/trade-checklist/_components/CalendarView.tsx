@@ -5,8 +5,9 @@ import Link from 'next/link';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { formatDisplayMonth } from '~/lib/format';
 import { cn } from '~/lib/utilities';
 
 import { CalendarHeatmap } from './calendar/CalendarHeatmap';
@@ -31,11 +32,8 @@ export function CalendarView({ assessments, month }: CalendarViewProperties) {
         >
             <StreaksPanel assessments={assessments} />
 
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-base">
-                        {formatMonthLabel(month)}
-                    </CardTitle>
+            <ToolPanel
+                actions={
                     <div className="flex items-center gap-1">
                         <Button asChild size="icon" variant="ghost">
                             <Link href={`?month=${previousMonth}`}>
@@ -48,34 +46,17 @@ export function CalendarView({ assessments, month }: CalendarViewProperties) {
                             </Link>
                         </Button>
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <CalendarHeatmap assessments={assessments} month={month} />
-                </CardContent>
-            </Card>
+                }
+                title={formatDisplayMonth(month)}
+            >
+                <CalendarHeatmap assessments={assessments} month={month} />
+            </ToolPanel>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">
-                        Day-of-week edge
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <DayOfWeekChart assessments={assessments} />
-                </CardContent>
-            </Card>
+            <ToolPanel title="Day-of-week edge">
+                <DayOfWeekChart assessments={assessments} />
+            </ToolPanel>
         </div>
     );
-}
-
-function formatMonthLabel(month: string): string {
-    const [yString, mString] = month.split('-', 2);
-    const d = new Date(Date.UTC(Number(yString), Number(mString) - 1, 1));
-    return new Intl.DateTimeFormat('en-US', {
-        month: 'long',
-        timeZone: 'UTC',
-        year: 'numeric',
-    }).format(d);
 }
 
 function shiftMonth(month: string, delta: number): string {

@@ -1,24 +1,15 @@
 'use client';
 
-import { format } from 'date-fns';
-import {
-    ArrowLeft,
-    Calendar,
-    Flame,
-    Layers,
-    Trash2,
-    Trophy,
-} from 'lucide-react';
-import Link from 'next/link';
+import { Calendar, Clock, Flame, Layers, Trash2, Trophy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
+import { PageHeader } from '~/components/PageHeader';
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
@@ -27,7 +18,9 @@ import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { FilterToggle } from '~/components/ui/filter-toggle';
 import { Input } from '~/components/ui/input';
+import { formatDisplayDateTime } from '~/lib/format';
 import { DistanceUnit, DurationFormat, WeightUnit } from '~/lib/lifting/format';
+import { workoutName } from '~/lib/lifting/workout-name';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -121,6 +114,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                     </span>
                 ),
                 header: 'Set',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'weightKg',
@@ -134,7 +128,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                               )}
                     </span>
                 ),
-                header: () => <span className="block">Weight</span>,
+                header: 'Weight',
             },
             {
                 accessorKey: 'reps',
@@ -203,7 +197,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
             {
                 cell: ({ row }) =>
                     row.original.isPr ? (
-                        <Badge className="gap-1" variant="warning">
+                        <Badge className="gap-1">
                             <Trophy className="size-3" /> PR
                         </Badge>
                     ) : null,
@@ -224,92 +218,89 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
 
     return (
         <div className="flex flex-col gap-6">
-            <Button
-                asChild
-                className="gap-2 self-start text-muted-foreground"
-                variant="ghost"
-            >
-                <Link href={routes.lifting.history}>
-                    <ArrowLeft className="size-4" /> History
-                </Link>
-            </Button>
-
-            <header className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="text-xs tracking-wide text-muted-foreground uppercase">
-                        {format(
-                            new Date(w.startedAt),
-                            'EEEE · MMMM d, y · HH:mm',
-                        )}
-                    </p>
-                    <ToolPageTitle className="mt-1">
-                        {w.name ?? 'Workout'}
-                    </ToolPageTitle>
-                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        {durationSeconds !== null && (
-                            <span className="inline-flex items-center gap-1 tabular-nums">
-                                <Flame className="size-3" />
-                                {DurationFormat.seconds(durationSeconds)}
-                            </span>
-                        )}
-                        {w.bodyweightKg && (
-                            <span className="inline-flex items-center gap-1 tabular-nums">
-                                <Calendar className="size-3" />
-                                {WeightUnit.format(
-                                    w.bodyweightKg,
-                                    unitWeight,
-                                )}{' '}
-                                bodyweight
-                            </span>
-                        )}
-                    </div>
-                    {w.notes && (
-                        <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-                            {w.notes}
-                        </p>
+            <div className="flex flex-col gap-3">
+                <PageHeader
+                    actions={
+                        <ConfirmDialog
+                            confirmLabel="Delete"
+                            description={
+                                <>
+                                    &ldquo;{workoutName(w)}&rdquo; and all its
+                                    sets will be permanently removed. This
+                                    cannot be undone.
+                                </>
+                            }
+                            isPending={remove.isPending}
+                            onConfirm={() => remove.mutate({ id: w.id })}
+                            title="Delete workout?"
+                        >
+                            <Button
+                                aria-label="Delete workout"
+                                className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
+                                type="button"
+                                variant="outline"
+                            >
+                                <Trash2 className="size-4" />
+                                <span className="hidden sm:inline">Delete</span>
+                            </Button>
+                        </ConfirmDialog>
+                    }
+                    backLink={{
+                        href: routes.lifting.history,
+                        label: 'History',
+                    }}
+                    className="mb-0"
+                    lead={w.notes ?? undefined}
+                    title={workoutName(w)}
+                />
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 tabular-nums">
+                        <Clock className="size-3" />
+                        {formatDisplayDateTime(w.startedAt)}
+                    </span>
+                    {durationSeconds !== null && (
+                        <span className="inline-flex items-center gap-1 tabular-nums">
+                            <Flame className="size-3" />
+                            {DurationFormat.seconds(durationSeconds)}
+                        </span>
+                    )}
+                    {w.bodyweightKg && (
+                        <span className="inline-flex items-center gap-1 tabular-nums">
+                            <Calendar className="size-3" />
+                            {WeightUnit.format(w.bodyweightKg, unitWeight)}{' '}
+                            bodyweight
+                        </span>
                     )}
                 </div>
+            </div>
 
-                <ConfirmDialog
-                    confirmLabel="Delete"
-                    description={
-                        <>
-                            &ldquo;{w.name ?? 'Workout'}&rdquo; and all its sets
-                            will be permanently removed. This cannot be undone.
-                        </>
-                    }
-                    isPending={remove.isPending}
-                    onConfirm={() => remove.mutate({ id: w.id })}
-                    title="Delete workout?"
-                >
-                    <Button
-                        aria-label="Delete workout"
-                        className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
-                        type="button"
-                        variant="outline"
-                    >
-                        <Trash2 className="size-4" />
-                        <span className="hidden sm:inline">Delete</span>
-                    </Button>
-                </ConfirmDialog>
-            </header>
-
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatCard
-                    label="Exercises"
-                    value={stats.exerciseCount.toString()}
-                />
-                <StatCard label="Sets" value={stats.totalSets.toString()} />
-                <StatCard
-                    label="Volume"
-                    value={
-                        stats.volumeKg > 0
-                            ? WeightUnit.format(stats.volumeKg, unitWeight)
-                            : '-'
-                    }
-                />
-                <StatCard label="PRs" value={stats.prs.toString()} />
-            </section>
+            <StatStrip
+                items={[
+                    {
+                        id: 'exercises',
+                        label: 'Exercises',
+                        value: stats.exerciseCount.toString(),
+                    },
+                    {
+                        id: 'sets',
+                        label: 'Sets',
+                        value: stats.totalSets.toString(),
+                    },
+                    {
+                        id: 'volume',
+                        label: 'Volume',
+                        value:
+                            stats.volumeKg > 0
+                                ? WeightUnit.format(stats.volumeKg, unitWeight)
+                                : '-',
+                    },
+                    {
+                        id: 'prs',
+                        label: 'PRs',
+                        value: stats.prs.toString(),
+                    },
+                ]}
+            />
 
             <ToolPanel contentClassName="flex flex-col gap-4" title="Exercises">
                 <div className="flex flex-wrap items-center gap-2">
@@ -358,48 +349,29 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                     <ul className="flex flex-col gap-4">
                         {filteredExercises.map((wex) => (
                             <li key={wex.id}>
-                                <Card className="gap-2 py-4">
-                                    <CardHeader>
-                                        <CardTitle className="text-base">
-                                            {wex.exercise.name}
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <DataTable
-                                            columns={workoutSetColumns}
-                                            data={wex.sets}
-                                            emptyState={
-                                                <EmptyState
-                                                    description="This exercise has no sets recorded."
-                                                    icon={Layers}
-                                                    title="No sets logged"
-                                                />
-                                            }
-                                            pageSize={null}
-                                            rowId={(s) => s.id}
-                                        />
-                                    </CardContent>
-                                </Card>
+                                <ToolPanel
+                                    className="gap-2 py-4"
+                                    title={wex.exercise.name}
+                                >
+                                    <DataTable
+                                        columns={workoutSetColumns}
+                                        data={wex.sets}
+                                        emptyState={
+                                            <EmptyState
+                                                description="This exercise has no sets recorded."
+                                                icon={Layers}
+                                                title="No sets logged"
+                                            />
+                                        }
+                                        pageSize={null}
+                                        rowId={(s) => s.id}
+                                    />
+                                </ToolPanel>
                             </li>
                         ))}
                     </ul>
                 )}
             </ToolPanel>
         </div>
-    );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-    return (
-        <Card className="gap-1 py-3">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <span className="font-mono text-lg leading-none font-bold text-foreground tabular-nums">
-                    {value}
-                </span>
-            </CardContent>
-        </Card>
     );
 }

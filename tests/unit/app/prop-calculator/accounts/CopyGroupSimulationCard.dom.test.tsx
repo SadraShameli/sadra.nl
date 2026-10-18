@@ -40,6 +40,8 @@ import {
     CopyGroupSimulationRejectionKind,
 } from '~/lib/prop-calculator/simulator';
 
+import { withInfoTexts } from '../infoPopover';
+
 class FakeWorker {
     static instances: FakeWorker[] = [];
     listeners = new Map<string, ((event: MessageEvent<unknown>) => void)[]>();
@@ -204,9 +206,10 @@ describe('CopyGroupSimulationCard', () => {
     it('starts no worker until the trader runs it, then posts the plan request', () => {
         render(READY);
         expect(FakeWorker.instances).toHaveLength(0);
-        expect(container.textContent).toContain('$320');
-        expect(container.textContent).toContain('30-day');
-        expect(container.textContent).toContain('5,000');
+        const method = withInfoTexts(container);
+        expect(method).toContain('$320');
+        expect(method).toContain('30-day');
+        expect(method).toContain('5,000');
 
         click(runButton());
         expect(FakeWorker.instances).toHaveLength(1);
@@ -309,7 +312,7 @@ describe('CopyGroupSimulationCard', () => {
         });
         click(runButton());
         finish(simulated());
-        const text = container.textContent;
+        const text = withInfoTexts(container);
         expect(text).toContain('same trades');
         expect(text).toContain('Live second');
         expect(text).toMatch(/left out/i);
@@ -317,7 +320,7 @@ describe('CopyGroupSimulationCard', () => {
 
     it('lists every assumption the plan carries, optimistic ones included, and only those', () => {
         render(READY);
-        const text = container.textContent;
+        const text = withInfoTexts(container);
         expect(text).toContain(
             assumptionKindText(AssumptionKind.PositionSizingUnspecified),
         );
@@ -341,17 +344,17 @@ describe('CopyGroupSimulationCard', () => {
         render(READY);
         click(runButton());
         finish(simulated());
-        expect(container.textContent).toContain(
+        expect(withInfoTexts(container)).toContain(
             assumptionKindText(AssumptionKind.LiveTriggersNotChecked),
         );
     });
 
     it('lists no assumption block when the plan carries none', () => {
         render({ ...READY, assumptions: [] });
-        expect(container.textContent).not.toContain(
+        expect(withInfoTexts(container)).not.toContain(
             assumptionKindText(AssumptionKind.PositionSizingUnspecified),
         );
-        expect(container.textContent).not.toMatch(/assum/i);
+        expect(withInfoTexts(container)).not.toMatch(/assum/i);
     });
 
     describe('typed rejections from the worker', () => {
@@ -497,16 +500,16 @@ describe('CopyGroupSimulationCard', () => {
             stubTrigger();
             render({ ...READY, request: { ...REQUEST, members: [member] } });
 
-            expect(container.textContent).toContain(
+            expect(withInfoTexts(container)).toContain(
                 COPY_GROUP_TRIGGER_NOT_PRICED_TEXT,
             );
-            expect(container.textContent).toContain('$100,000');
+            expect(withInfoTexts(container)).toContain('$100,000');
         });
 
         it('says nothing when no member has a confirmed trigger', () => {
             render({ ...READY, request: { ...REQUEST, members: [member] } });
 
-            expect(container.textContent).not.toContain(
+            expect(withInfoTexts(container)).not.toContain(
                 COPY_GROUP_TRIGGER_NOT_PRICED_TEXT,
             );
         });

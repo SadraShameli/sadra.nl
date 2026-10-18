@@ -5,17 +5,20 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { toast } from 'sonner';
 
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
     ProfileDateCell,
     ProfileDatePrecision,
     ProfileTableEmpty,
-    RowActionLink,
-    RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import {
+    deleteRowAction,
+    linkRowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -89,6 +92,7 @@ export function ProgramsManager() {
                     </Link>
                 ),
                 header: 'Name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: ProgramColumn.Category,
@@ -111,47 +115,50 @@ export function ProgramsManager() {
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Structure',
             },
-            profileActionsColumn<ProgramOwned>((program) => (
-                <>
-                    <RowActionLink
-                        href={routes.lifting.program(program.slug)}
-                        icon={ExternalLink}
-                        label="Open program"
-                    />
-                    <RowConfirmAction
-                        description="Your enrollments in this program will also be removed."
-                        label="Delete program"
-                        onConfirm={() =>
+            rowActionsColumn<ProgramOwned>({
+                actionsOf: (program) => [
+                    linkRowAction({
+                        href: routes.lifting.program(program.slug),
+                        icon: ExternalLink,
+                        label: 'Open',
+                    }),
+                    deleteRowAction({
+                        description:
+                            'Your enrollments in this program will also be removed.',
+                        onDelete: () =>
                             customProgramDeleteMutation.mutate({
                                 id: program.id,
-                            })
-                        }
-                        title={`Delete “${program.name}”?`}
-                    />
-                </>
-            )),
+                            }),
+                        title: `Delete “${program.name}”?`,
+                    }),
+                ],
+                isPendingOf: (program) =>
+                    customProgramDeleteMutation.isPending &&
+                    customProgramDeleteMutation.variables.id === program.id,
+                labelOf: (program) => program.name,
+            }),
         ],
         [customProgramDeleteMutation],
     );
 
-    const enrollmentColumns = useMemo<DataTableColumn<ProgramEnrollment>[]>(
-        () => [
+    const enrollmentColumns = useMemo<
+        DataTableColumn<ProgramEnrollment>[]
+    >(() => {
+        const programNameOf = (enrollment: ProgramEnrollment): string =>
+            programNameById.get(enrollment.programId) ?? 'Program';
+        return [
             {
                 accessorKey: 'programId',
                 cell: ({ row }) => (
-                    <PrimaryCell>
-                        {programNameById.get(row.original.programId) ??
-                            'Program'}
-                    </PrimaryCell>
+                    <PrimaryCell>{programNameOf(row.original)}</PrimaryCell>
                 ),
                 header: 'Program',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: ProgramColumn.Status,
                 cell: ({ row }) => (
-                    <Badge className="capitalize" variant="secondary">
-                        {row.original.status}
-                    </Badge>
+                    <Badge className="capitalize">{row.original.status}</Badge>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Status',
@@ -178,19 +185,29 @@ export function ProgramsManager() {
                 header: 'Started',
                 id: 'startDate',
             },
-            profileActionsColumn<ProgramEnrollment>((enrollment) => (
-                <RowConfirmAction
-                    confirmLabel="Unenroll"
-                    description="Removes your enrollment. Past workouts stay intact. You can re-enroll any time."
-                    icon={LogOut}
-                    label="Unenroll"
-                    onConfirm={() => unenroll.mutate({ id: enrollment.id })}
-                    title="Unenroll?"
-                />
-            )),
-        ],
-        [programNameById, unenroll],
-    );
+            rowActionsColumn<ProgramEnrollment>({
+                actionsOf: (enrollment) => [
+                    {
+                        confirm: {
+                            confirmLabel: 'Unenroll',
+                            description:
+                                'Removes your enrollment. Past workouts stay intact. You can re-enroll any time.',
+                            title: 'Unenroll?',
+                        },
+                        icon: LogOut,
+                        isDestructive: true,
+                        kind: RowActionKind.Select,
+                        label: 'Unenroll',
+                        onSelect: () => unenroll.mutate({ id: enrollment.id }),
+                    },
+                ],
+                isPendingOf: (enrollment) =>
+                    unenroll.isPending &&
+                    unenroll.variables.id === enrollment.id,
+                labelOf: programNameOf,
+            }),
+        ];
+    }, [programNameById, unenroll]);
 
     const programsPageButton = (
         <Button asChild size="sm">
@@ -203,8 +220,8 @@ export function ProgramsManager() {
 
     return (
         <div className="flex flex-col gap-6">
-            <ProfilePanel
-                action={programsPageButton}
+            <ToolPanel
+                actions={programsPageButton}
                 description="Programs you created. Build and edit them on the programs page."
                 title="Custom programs"
             >
@@ -238,9 +255,9 @@ export function ProgramsManager() {
                     rowId={(r) => r.id}
                     showFilter
                 />
-            </ProfilePanel>
+            </ToolPanel>
 
-            <ProfilePanel
+            <ToolPanel
                 description="Programs you are currently following."
                 title="Enrollments"
             >
@@ -271,7 +288,7 @@ export function ProgramsManager() {
                     rowId={(r) => r.id}
                     showFilter
                 />
-            </ProfilePanel>
+            </ToolPanel>
         </div>
     );
 }

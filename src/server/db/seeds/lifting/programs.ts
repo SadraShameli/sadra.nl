@@ -1,3 +1,5 @@
+import { sql } from 'drizzle-orm';
+
 import { OFFICIAL_PROGRAMS } from '~/lib/lifting/programs/official';
 import { db } from '~/server/db';
 import { liftingProgram } from '~/server/db/schemas/lifting';
@@ -23,7 +25,14 @@ export class SeedLiftingPrograms extends DatabaseSeeder {
                     schedule: program.schedule,
                     slug: program.slug,
                 })
-                .onConflictDoNothing();
+                .onConflictDoUpdate({
+                    set: {
+                        description: program.description,
+                        name: program.name,
+                    },
+                    target: liftingProgram.slug,
+                    targetWhere: sql`${liftingProgram.ownerId} IS NULL`,
+                });
         }
     }
 }

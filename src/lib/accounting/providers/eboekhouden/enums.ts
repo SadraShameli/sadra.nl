@@ -114,6 +114,20 @@ export enum LedgerCategory {
     Vw = 'VW',
 }
 
+export const LEDGER_CATEGORY_LABEL: Record<LedgerCategory, string> = {
+    [LedgerCategory.Af]: 'VAT payable',
+    [LedgerCategory.Af6]: 'VAT payable, low rate',
+    [LedgerCategory.Af19]: 'VAT payable, high rate',
+    [LedgerCategory.AfOverig]: 'VAT payable, other',
+    [LedgerCategory.Bal]: 'Balance sheet',
+    [LedgerCategory.Btwrc]: 'VAT current account',
+    [LedgerCategory.Cred]: 'Payables (creditors)',
+    [LedgerCategory.Deb]: 'Receivables (debtors)',
+    [LedgerCategory.Fin]: 'Liquid assets',
+    [LedgerCategory.Voor]: 'Input VAT',
+    [LedgerCategory.Vw]: 'Profit & loss',
+};
+
 export enum MutationType {
     GeneralJournal = '7',
     InvoicePaymentReceived = '3',

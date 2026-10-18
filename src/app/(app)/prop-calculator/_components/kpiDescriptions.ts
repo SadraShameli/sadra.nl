@@ -90,7 +90,7 @@ export const panelDescriptions = {
     sensitivityNet:
         "Expected monthly net dollars across the same winrate × reward-to-risk grid. Pairs with the eval pass heatmap to spot the band that's both safe AND profitable.",
     sensitivityPass:
-        'Eval pass probability across a 7×7 grid of winrate × reward-to-risk values. Green = robust, red = unlikely. Your current cell is outlined. Use it to see how forgiving your edge is to estimation error.',
+        'Eval pass probability across a 7×7 grid of winrate × reward-to-risk values. Camel = robust, dark = unlikely. Your current cell is outlined. Use it to see how forgiving your edge is to estimation error.',
     strategyAnalysis:
         'Three quantitative views of your strategy in one place. Edge: how much you make per trade and how confident the simulation is that the edge is statistically real. Risk-adjusted returns: hedge-fund-grade ratios that compare profit to volatility (Sharpe), drawdown (Calmar), and downside (Omega). Returns breakdown: the same expected return decomposed across timeframes plus per-pass trade activity.',
     strategyDNA:

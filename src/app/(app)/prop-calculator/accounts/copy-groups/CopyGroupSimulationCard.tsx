@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { type ReactNode, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useWorkerTask } from '~/app/(app)/prop-calculator/_components/useWorkerTask';
 import {
@@ -15,6 +15,9 @@ import {
     CopyGroupWorkerOutcomeKind,
     type CopyGroupWorkerRequest,
 } from '~/app/(app)/prop-calculator/_workers/copyGroupWorkerMessages';
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import { Button } from '~/components/ui/button';
 import { formatCurrency } from '~/lib/format';
 import { assumptionText } from '~/lib/prop-calculator/advisor';
@@ -46,19 +49,23 @@ export function CopyGroupSimulationCard({
         case CopyGroupSimulationPlanKind.Unavailable: {
             return (
                 <CardFrame>
-                    <p className="text-muted-foreground">
-                        Not simulated: {plan.reason}
-                    </p>
+                    <InfoNote>Not simulated: {plan.reason}</InfoNote>
                 </CardFrame>
             );
         }
     }
 }
 
-function CardFrame({ children }: { readonly children: React.ReactNode }) {
+function CardFrame({
+    children,
+    info,
+}: {
+    readonly children: ReactNode;
+    readonly info?: ReactNode;
+}) {
     return (
-        <div className="flex flex-col gap-2 border-t pt-3 text-sm">
-            <h3 className="font-semibold">{HEADING}</h3>
+        <div className="flex flex-col gap-3 border-t pt-4 text-sm">
+            <PanelSubheading info={info}>{HEADING}</PanelSubheading>
             {children}
         </div>
     );
@@ -107,22 +114,17 @@ function Outcome({
         }
         case CopyGroupWorkerOutcomeKind.Simulated: {
             return (
-                <dl className="flex flex-col gap-3">
-                    {copyGroupFigureRowsOf(
+                <StatStrip
+                    items={copyGroupFigureRowsOf(
                         outcome.result,
                         plan.horizonDays,
-                    ).map((row) => (
-                        <div key={row.key}>
-                            <dt className="text-muted-foreground">
-                                {row.label}
-                            </dt>
-                            <dd className="font-medium">{row.value}</dd>
-                            <dd className="text-xs text-muted-foreground">
-                                {row.note}
-                            </dd>
-                        </div>
-                    ))}
-                </dl>
+                    ).map((row) => ({
+                        id: row.key,
+                        info: row.note,
+                        label: row.label,
+                        value: row.value,
+                    }))}
+                />
             );
         }
     }
@@ -153,33 +155,34 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
     const hasRun = ranKey !== null;
 
     return (
-        <CardFrame>
-            <p className="text-muted-foreground">
-                Every copy trades {formatCurrency(plan.groupRisk, 2)} per trade,
-                placed within its own plan&apos;s rules, over a{' '}
-                {plan.horizonDays}-day funded horizon and{' '}
-                {plan.request.trials.toLocaleString('en-US')} trials. The
-                accounts take the same trades, the same wins and losses on each
-                one, so accounts on different plans bust together when one loss
-                reaches their different cushions.
-            </p>
-            {plan.leftOutLabels.length > 0 && (
-                <p className="text-muted-foreground">
-                    Left out of the simulation because they could not be sized:{' '}
-                    {plan.leftOutLabels.join(', ')}.
-                </p>
-            )}
-            {unpricedTriggerNote !== null && (
-                <p className="text-muted-foreground">{unpricedTriggerNote}</p>
-            )}
-            {plan.assumptions.length > 0 && (
-                <ul className="list-disc pl-5 text-muted-foreground">
+        <CardFrame
+            info={
+                <>
+                    <p>
+                        Every copy trades {formatCurrency(plan.groupRisk, 2)}{' '}
+                        per trade, placed within its own plan&apos;s rules, over
+                        a {plan.horizonDays}-day funded horizon and{' '}
+                        {plan.request.trials.toLocaleString('en-US')} trials.
+                        The accounts take the same trades, the same wins and
+                        losses on each one, so accounts on different plans bust
+                        together when one loss reaches their different cushions.
+                    </p>
+                    {unpricedTriggerNote !== null && (
+                        <p>{unpricedTriggerNote}</p>
+                    )}
                     {plan.assumptions.map((assumption) => (
-                        <li key={assumptionText(assumption)}>
+                        <p key={assumptionText(assumption)}>
                             {assumptionText(assumption)}
-                        </li>
+                        </p>
                     ))}
-                </ul>
+                </>
+            }
+        >
+            {plan.leftOutLabels.length > 0 && (
+                <InfoNote>
+                    Left out because they could not be sized:{' '}
+                    {plan.leftOutLabels.join(', ')}.
+                </InfoNote>
             )}
             <div>
                 <Button

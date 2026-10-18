@@ -11,6 +11,7 @@ import {
     type ChartConfig,
     ChartContainer,
 } from '~/components/ui/chart';
+import { formatDisplayDate } from '~/lib/format';
 import {
     cumulativeRSeries,
     type LightAssessment,
@@ -43,10 +44,7 @@ export function CumulativeRChart({
                 <XAxis
                     {...CHART_X_AXIS_PROPS}
                     dataKey="date"
-                    tickFormatter={(v: string) => {
-                        const d = new Date(v);
-                        return `${d.getMonth() + 1}/${d.getDate()}`;
-                    }}
+                    tickFormatter={(v: string) => formatDisplayDate(v)}
                 />
                 <YAxis
                     {...CHART_Y_AXIS_PROPS}

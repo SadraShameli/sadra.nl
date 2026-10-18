@@ -8,6 +8,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '~/components/ui/tooltip';
+import { formatDisplayDate } from '~/lib/format';
 import { cn } from '~/lib/utilities';
 
 interface PrepHistoryStripProperties {
@@ -40,11 +41,12 @@ export function PrepHistoryStrip({
                 const dayNumber = Number(d.split('-', 3)[2]);
                 const isToday = d === today;
                 const isSelected = d === selectedDate;
+                const dayLabel = formatDisplayDate(d);
                 return (
                     <Tooltip key={d}>
                         <TooltipTrigger asChild>
                             <Button
-                                aria-label={`${d}: ${score === null ? 'no prep' : `${score.toFixed(0)}%`}`}
+                                aria-label={`${dayLabel}: ${score === null ? 'no prep' : `${score.toFixed(0)}%`}`}
                                 aria-pressed={isSelected}
                                 className={cn(
                                     'app-trade-checklist__prep-history-day',
@@ -64,7 +66,7 @@ export function PrepHistoryStrip({
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            {d} ·{' '}
+                            {dayLabel} ·{' '}
                             {score === null
                                 ? 'no prep'
                                 : `${score.toFixed(0)}%`}

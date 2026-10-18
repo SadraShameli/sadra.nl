@@ -1,5 +1,7 @@
 import { type Metadata } from 'next';
 
+import { LegalSection } from '~/app/(app)/legal/_components/LegalSection';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
 
 export const metadata: Metadata = {
@@ -11,36 +13,41 @@ export default function TermsPage() {
     return (
         <PageTransition>
             <article>
-                <h1>Terms of use</h1>
+                <PageHeader className="not-prose" title="Terms of use" />
 
-                <h2>Personal use</h2>
-                <p>
-                    sadra.nl is a personal site. The Trade Checklist and Prop
-                    Calculator are offered as analytical tools for personal
-                    research; they are not financial advice. Any decision you
-                    make from the output of these tools is your own.
-                </p>
+                <LegalSection title="Personal use">
+                    <p>
+                        sadra.nl is a personal site. The Trade Checklist and
+                        Prop Calculator are offered as analytical tools for
+                        personal research; they are not financial advice. Any
+                        decision you make from the output of these tools is your
+                        own.
+                    </p>
+                </LegalSection>
 
-                <h2>Sensor Hub</h2>
-                <p>
-                    Devices that ingest into the Sensor Hub backend must use a
-                    token issued from the admin UI. Anonymous ingest is not
-                    supported.
-                </p>
+                <LegalSection title="Sensor Hub">
+                    <p>
+                        Devices that ingest into the Sensor Hub backend must use
+                        a token issued from the admin UI. Anonymous ingest is
+                        not supported.
+                    </p>
+                </LegalSection>
 
-                <h2>Disclaimer</h2>
-                <p>
-                    The site is provided &ldquo;as is&rdquo; without warranty.
-                    No liability is accepted for trading losses, missed
-                    readings, or downtime.
-                </p>
+                <LegalSection title="Disclaimer">
+                    <p>
+                        The site is provided &ldquo;as is&rdquo; without
+                        warranty. No liability is accepted for trading losses,
+                        missed readings, or downtime.
+                    </p>
+                </LegalSection>
 
-                <h2>Acceptable use</h2>
-                <p>
-                    Don&apos;t attempt to circumvent authentication, scrape data
-                    you don&apos;t own, or upload content you don&apos;t have
-                    the rights to.
-                </p>
+                <LegalSection title="Acceptable use">
+                    <p>
+                        Don&apos;t attempt to circumvent authentication, scrape
+                        data you don&apos;t own, or upload content you
+                        don&apos;t have the rights to.
+                    </p>
+                </LegalSection>
             </article>
         </PageTransition>
     );

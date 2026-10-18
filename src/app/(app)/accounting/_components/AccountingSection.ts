@@ -1,3 +1,4 @@
+import { type PageHeaderBackLink } from '~/components/PageHeader';
 import { routes } from '~/lib/site/routes';
 
 export enum AccountingSection {
@@ -20,6 +21,7 @@ export interface AccountingNavSection {
 }
 
 export interface AccountingSectionPage {
+    readonly backLink?: PageHeaderBackLink;
     readonly lead: string;
     readonly title: string;
 }
@@ -46,6 +48,7 @@ const PAGES: Readonly<Record<AccountingSection, AccountingSectionPage>> = {
         title: 'Booking rules',
     },
     [AccountingSection.RunDetail]: {
+        backLink: { href: routes.accounting.runs, label: 'Run history' },
         lead: 'One import run: its stages, its bookings and what was posted.',
         title: 'Run detail',
     },

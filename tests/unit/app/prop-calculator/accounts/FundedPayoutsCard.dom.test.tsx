@@ -16,6 +16,8 @@ vi.mock('recharts', async (importOriginal) => {
 import { FundedPayoutsCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/FundedPayoutsCard';
 import { type FundedPayoutsCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
+import { infoText } from '../infoPopover';
+
 type Row = FundedPayoutsCardModel['rows'][number];
 
 function model(rows: readonly Row[]): FundedPayoutsCardModel {
@@ -113,6 +115,8 @@ describe('FundedPayoutsCard', () => {
         );
         expect(headers).toContain('Too young');
         expect(headers).toContain('10+');
-        expect(container.textContent).toContain('listed open');
+        expect(infoText(container, 'Payouts per funded account')).toContain(
+            'listed open',
+        );
     });
 });

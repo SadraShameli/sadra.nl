@@ -42,6 +42,7 @@ import { firmsModelOf } from '~/app/(app)/prop-calculator/accounts/firms/firmsMo
 import { errorMessage } from '~/lib/errorMessage';
 import {
     formatCurrency,
+    formatDisplayDate,
     formatOptionalPercent,
     formatPercent,
     NOT_APPLICABLE,
@@ -243,7 +244,6 @@ import {
     ScaleAtMultipleReason,
     ScaleBudgetBasis,
     ScaleCappedBy,
-    type ScaleGateStatus,
     TO_FIRST_PAYOUT_FALLBACK_DAYS,
 } from '~/lib/prop-accounts/bankroll';
 import {
@@ -529,7 +529,6 @@ export interface FirmsTileModel {
     readonly activeFirms: number;
     readonly firmsUsed: number;
     readonly scaleGateLabel: string;
-    readonly scaleGateStatus: ScaleGateStatus;
     readonly sentLive: number;
     readonly unmetConditions: number;
 }
@@ -2163,7 +2162,6 @@ export function firmsTileModelOf(
         activeFirms: roster.totalActive,
         firmsUsed: roster.totalFirmsUsed,
         scaleGateLabel: SCALE_GATE_STATUS_TEXT[scaleGate.status],
-        scaleGateStatus: scaleGate.status,
         sentLive: roster.totalSentLive,
         unmetConditions: scaleGate.unmetConditions.length,
     };
@@ -3265,7 +3263,7 @@ function concentrationCard(
                 inProfit: String(firm.inProfitAccounts),
                 key: firmKeyId(firmKey),
                 recentPayouts: `${counted({ count: recentPayouts.count, plural: 'payouts', singular: 'payout' })}, ${formatUsdCents(usdCents(recentPayouts.cents))} in the last ${String(concentration.recentDays)} days`,
-                sinceMovedLive: `${counted({ count: since.count, plural: 'payouts', singular: 'payout' })}, ${formatUsdCents(usdCents(since.cents))} ${since.since === null ? 'in total (no move live recorded)' : `since the last move live on ${since.since}`}`,
+                sinceMovedLive: `${counted({ count: since.count, plural: 'payouts', singular: 'payout' })}, ${formatUsdCents(usdCents(since.cents))} ${since.since === null ? 'in total (no move live recorded)' : `since the last move live on ${formatDisplayDate(since.since)}`}`,
                 withdrawable: formatUsdCents(firm.withdrawableCents),
                 withdrawableShare: formatOptionalPercent(
                     firm.withdrawableShare,
@@ -4308,7 +4306,7 @@ function firmDateText(entry: FirmVerificationDate): string {
         { firmId: entry.firmId, kind: FirmKeyKind.Modeled },
         [],
     );
-    return `${label} on ${entry.verifiedOn}`;
+    return `${label} on ${formatDisplayDate(entry.verifiedOn)}`;
 }
 
 function firmDiscountRow(
@@ -4368,7 +4366,10 @@ function firmReturnRow(
         ),
         coverageNote: firmCoverageNoteOf(row),
         firm: firms.of(row.firmKey),
-        firstPayoutOn: row.firstPayoutOn ?? NOT_APPLICABLE,
+        firstPayoutOn:
+            row.firstPayoutOn === null
+                ? NOT_APPLICABLE
+                : formatDisplayDate(row.firstPayoutOn),
         fundedAccounts: String(row.fundedAccounts),
         fundedSampleLevel: sampleAdequacy(
             SampleKind.FundedAccounts,
@@ -4376,7 +4377,10 @@ function firmReturnRow(
             sampleThresholds,
         ),
         key: firmKeyId(row.firmKey),
-        lastPayoutOn: row.lastPayoutOn ?? NOT_APPLICABLE,
+        lastPayoutOn:
+            row.lastPayoutOn === null
+                ? NOT_APPLICABLE
+                : formatDisplayDate(row.lastPayoutOn),
         multiple: formatMultiple(row.multiple),
         net: formatUsdCents(row.net),
         payouts: formatUsdCents(row.payouts),
@@ -5549,7 +5553,9 @@ function liveProximityCard(
                     since:
                         row.countStatus === LiveProximityCountStatus.NotChecked
                             ? COUNT_NOT_CHECKED_TEXT
-                            : (row.sinceOn ?? ALL_TIME_TEXT),
+                            : row.sinceOn === null
+                              ? ALL_TIME_TEXT
+                              : formatDisplayDate(row.sinceOn),
                     sourceText:
                         row.status === LiveProximityStatus.Verified
                             ? policySourceText(
@@ -6158,7 +6164,7 @@ function policyNamesOf(
 function policySourceText(source: null | PolicyQuote): string {
     return source === null
         ? NO_CONFIRMED_SOURCE_TEXT
-        : `"${source.quote}" ${source.url}, checked ${source.fetchedOn}`;
+        : `"${source.quote}" ${source.url}, checked ${formatDisplayDate(source.fetchedOn)}`;
 }
 
 function pooledCapCard(
@@ -6928,7 +6934,7 @@ function staleSnapshotNotesOf(
                     alert.subject.accountId,
                     asOf === undefined
                         ? NO_BALANCE_YET_NOTE
-                        : `Last balance ${asOf}`,
+                        : `Last balance ${formatDisplayDate(asOf)}`,
                 ],
             ];
         }),
@@ -7063,8 +7069,8 @@ function worstDayKpi(
             ...base,
             detail:
                 worstDay.share === null
-                    ? `On ${worstDay.date}, ${breakdown}; no available bankroll to compare it with`
-                    : `On ${worstDay.date}, ${breakdown}: ${formatPercent(worstDay.share)} of your available bankroll`,
+                    ? `On ${formatDisplayDate(worstDay.date)}, ${breakdown}; no available bankroll to compare it with`
+                    : `On ${formatDisplayDate(worstDay.date)}, ${breakdown}: ${formatPercent(worstDay.share)} of your available bankroll`,
             note: combinedNote(
                 ...dayLossBasisNotes(worstDay).map(dayLossNoteSentence),
                 unmeasured,

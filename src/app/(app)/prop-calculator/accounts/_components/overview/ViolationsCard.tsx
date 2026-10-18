@@ -9,6 +9,8 @@ import { NOT_APPLICABLE } from '~/lib/format';
 import { ruleViolationKindLabel } from '~/lib/prop-accounts';
 
 import { type ViolationsCardModel } from './overviewModel';
+import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum ViolationKindColumn {
     Cost = 'cost',
@@ -23,6 +25,7 @@ const VIOLATION_KIND_COLUMNS: DataTableColumn<ViolationKindRow>[] = [
         accessorFn: (row) => ruleViolationKindLabel(row.kind),
         header: 'Kind',
         id: ViolationKindColumn.Kind,
+        meta: { isRowHeader: true },
     },
     {
         accessorFn: (row) => row.count,
@@ -44,7 +47,10 @@ export const ViolationsCard = memo(function ViolationsCard({
     readonly model: ViolationsCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.Violations}
+        >
             {model.byKind.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No rule violations recorded yet.
@@ -92,11 +98,6 @@ export const ViolationsCard = memo(function ViolationsCard({
                     />
                 </>
             )}
-            {model.disclosures.map((disclosure) => (
-                <p className="text-xs text-muted-foreground" key={disclosure}>
-                    {disclosure}
-                </p>
-            ))}
-        </div>
+        </OverviewPanel>
     );
 });

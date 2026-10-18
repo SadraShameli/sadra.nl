@@ -19,17 +19,14 @@ import type { TradingPlanRow } from '~/lib/schemas/tradingRows';
 import type { ConfluenceKey } from '~/lib/trading/types';
 
 import Eyebrow from '~/components/Eyebrow';
+import { StatStrip } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
-import {
-    Field,
-    FieldDescription,
-    FieldGroup,
-    FieldLabel,
-} from '~/components/ui/field';
+import { Field, FieldGroup, FieldLabel } from '~/components/ui/field';
 import { Progress } from '~/components/ui/progress';
 import { Slider } from '~/components/ui/slider';
 import { Textarea } from '~/components/ui/textarea';
@@ -44,8 +41,6 @@ import {
     type ChoiceOption,
     MultiChoiceCards,
     NumberCard,
-    StatusRow,
-    StatusTone,
     WIZARD_CARD_CLASS,
 } from './WizardFields';
 
@@ -207,7 +202,7 @@ export function WizardStepper({
                             <Eyebrow as="p">
                                 Step {stepIndex + 1} of {stepIds.length}
                             </Eyebrow>
-                            <Badge className="font-mono" variant="secondary">
+                            <Badge className="font-mono">
                                 {Math.round(progress)}%
                             </Badge>
                         </div>
@@ -436,9 +431,10 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                     value={windowId}
                 />
                 {!windowId && (
-                    <FieldDescription className="text-destructive">
-                        Outside macro window: knockout active.
-                    </FieldDescription>
+                    <StatusRow
+                        title="Outside macro window: knockout active."
+                        tone={StatusTone.Fail}
+                    />
                 )}
             </div>
 
@@ -564,7 +560,7 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
                     <MultiChoiceCards
                         actions={
                             <div className="flex items-center gap-2">
-                                <Badge variant="secondary">
+                                <Badge>
                                     {groupSelected.length}/{items.length}
                                 </Badge>
                                 <Button
@@ -586,6 +582,7 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
                             </div>
                         }
                         className="md:grid-cols-3"
+                        description={group.hint}
                         key={group.label}
                         legend={group.label}
                         onValueChange={setGroup}
@@ -709,22 +706,16 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
 
     return (
         <FieldGroup className="gap-6">
-            <div
-                className={cn(
-                    WIZARD_CARD_CLASS,
-                    'flex items-center justify-between gap-4',
-                )}
-            >
-                <div className="flex flex-col gap-0.5">
-                    <Eyebrow as="p">Risk this trade</Eyebrow>
-                    <p className="m-0 text-xs text-muted-foreground">
-                        {accountType === 'funded' ? 'Funded' : 'Eval'} account
-                    </p>
-                </div>
-                <p className="m-0 font-mono text-2xl text-foreground tabular-nums">
-                    ${dollars.toLocaleString()}
-                </p>
-            </div>
+            <StatStrip
+                items={[
+                    {
+                        caption: `${accountType === 'funded' ? 'Funded' : 'Eval'} account`,
+                        id: 'risk-this-trade',
+                        label: 'Risk this trade',
+                        value: `$${dollars.toLocaleString()}`,
+                    },
+                ]}
+            />
             <div className="grid gap-2 md:grid-cols-2">
                 <NumberCard
                     description={`Plan minimum: ${plan.config.setup.minRR}R`}

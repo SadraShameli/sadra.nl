@@ -62,6 +62,7 @@ export function AnalysisView() {
                 <ToolSection
                     id={LegacySection.Strategy}
                     info={panelDescriptions.strategyAnalysis}
+                    isPanel
                     title="Strategy analysis"
                 >
                     {failureNotice ??
@@ -78,6 +79,7 @@ export function AnalysisView() {
                 <ToolSection
                     id={LegacySection.TailRisk}
                     info={panelDescriptions.tailRisk}
+                    isPanel
                     title="Tail risk"
                 >
                     {failureNotice ??
@@ -91,6 +93,7 @@ export function AnalysisView() {
                 <ToolSection
                     id={LegacySection.Drawdown}
                     info={panelDescriptions.drawdownDuration}
+                    isPanel
                     title="Drawdown duration and recovery"
                 >
                     {failureNotice ??
@@ -104,6 +107,7 @@ export function AnalysisView() {
                 <ToolSection
                     id={LegacySection.Resilience}
                     info={panelDescriptions.resilience}
+                    isPanel
                     title="Streak and drawdown resilience"
                 >
                     {failureNotice ??
@@ -120,6 +124,7 @@ export function AnalysisView() {
                 <ToolSection
                     id={LegacySection.RuleStressTest}
                     info={panelDescriptions.ruleStressTest}
+                    isPanel
                     title="Rule stress test"
                 >
                     <RuleStressTestPanel baseInputs={simInputs} />

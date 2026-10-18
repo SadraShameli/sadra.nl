@@ -179,14 +179,17 @@ describe('Eval fee discount re-buy note (decision T9)', () => {
         expect(EVAL_DISCOUNT_REBUY_NOTE).not.toContain(EM_DASH);
     });
 
-    it('renders next to the Eval fee discount input', () => {
+    it('renders in an info button beside the Eval fee discount label', () => {
         const source = componentSource('TradingInputs.tsx');
-        const labelAt = source.indexOf('Eval fee discount');
+        const label =
+            /<LabelWithInfo\s+htmlFor="eval-discount"\s+info=\{EVAL_DISCOUNT_REBUY_NOTE\}\s+label="Eval fee discount"\s*\/>/u.exec(
+                source,
+            );
         const inputAt = source.indexOf('id="eval-discount"');
-        const noteAt = source.indexOf('{EVAL_DISCOUNT_REBUY_NOTE}');
         const nextLabelAt = source.indexOf('Activation fee discount');
-        expect(labelAt).toBeGreaterThan(-1);
-        expect(noteAt).toBeGreaterThan(inputAt);
+        expect(label).not.toBeNull();
+        const noteAt = label?.index ?? -1;
+        expect(noteAt).toBeLessThan(inputAt);
         expect(noteAt).toBeLessThan(nextLabelAt);
     });
 });

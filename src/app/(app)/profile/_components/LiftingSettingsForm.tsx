@@ -6,14 +6,10 @@ import { useId, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import {
-    Field,
-    FieldError,
-    FieldLabel,
-    FieldLegend,
-    FieldSet,
-} from '~/components/ui/field';
+import { Field, FieldError, FieldLabel, FieldSet } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
@@ -23,7 +19,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { Separator } from '~/components/ui/separator';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
     settingsFormSchema,
@@ -38,8 +33,6 @@ import {
 } from '~/lib/lifting/types';
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
-
-import { ProfilePanel } from './ProfilePanel';
 
 type Settings = RouterOutputs['lifting']['settings']['get'];
 
@@ -131,8 +124,8 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
     };
 
     return (
-        <ProfilePanel
-            action={
+        <ToolPanel
+            actions={
                 <Button
                     disabled={update.isPending}
                     form={formId}
@@ -244,8 +237,6 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                     />
                 </Section>
 
-                <Separator />
-
                 <Section title="Bar and plates">
                     <Controller
                         control={form.control}
@@ -339,8 +330,6 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                     </div>
                 </Section>
 
-                <Separator />
-
                 <Section title="Rest and week">
                     <Controller
                         control={form.control}
@@ -408,7 +397,7 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                     />
                 </Section>
             </form>
-        </ProfilePanel>
+        </ToolPanel>
     );
 }
 
@@ -421,9 +410,10 @@ function Section({
     className?: string;
     title: string;
 }) {
+    const titleId = useId();
     return (
-        <FieldSet className="gap-0">
-            <FieldLegend variant="label">{title}</FieldLegend>
+        <FieldSet aria-labelledby={titleId} className="gap-3">
+            <PanelSubheading id={titleId}>{title}</PanelSubheading>
             <div
                 className={cn(
                     'grid grid-cols-1 gap-5 md:grid-cols-2',

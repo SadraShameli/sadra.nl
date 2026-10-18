@@ -4,6 +4,8 @@ import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type AttemptEconomicsCardModel } from './overviewModel';
+import { InfoLines, InfoStack, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum AttemptEconomicsCardColumn {
     AttemptCost = 'attempt-cost',
@@ -32,19 +34,47 @@ export const AttemptEconomicsCard = memo(function AttemptEconomicsCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No account with a modeled plan yet.
-            </p>
+            <OverviewPanel section={OverviewSectionId.AttemptEconomics}>
+                <p className="text-sm text-muted-foreground">
+                    No account with a modeled plan yet.
+                </p>
+            </OverviewPanel>
         );
     }
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={
+                <InfoStack>
+                    <ul
+                        aria-label="Realized formula by plan"
+                        className="flex flex-col gap-1"
+                    >
+                        {model.rows
+                            .filter((row) => row.formula !== NOT_APPLICABLE)
+                            .map((row) => (
+                                <li key={row.key}>
+                                    {row.plan}: {row.formula}
+                                </li>
+                            ))}
+                    </ul>
+                    <p>Realized EV per attempt: ignores time.</p>
+                    <p>
+                        Modeled EV per attempt: the engine&apos;s credit-free
+                        net per attempt; it ignores time and is not the ranking
+                        objective.
+                    </p>
+                    <InfoLines lines={model.disclosures} />
+                </InfoStack>
+            }
+            section={OverviewSectionId.AttemptEconomics}
+        >
             <DataTable
                 columns={[
                     {
                         cell: ({ row }) => <>{row.original.plan}</>,
                         header: 'Plan',
                         id: AttemptEconomicsCardColumn.Plan,
+                        meta: { isRowHeader: true },
                     },
                     {
                         cell: ({ row }) => <>{row.original.attempts}</>,
@@ -178,30 +208,6 @@ export const AttemptEconomicsCard = memo(function AttemptEconomicsCard({
                 pageSize={null}
                 rowId={(row) => row.key}
             />
-            <ul
-                aria-label="Realized formula by plan"
-                className="flex flex-col gap-1 text-xs text-muted-foreground"
-            >
-                {model.rows
-                    .filter((row) => row.formula !== NOT_APPLICABLE)
-                    .map((row) => (
-                        <li key={row.key}>
-                            {row.plan}: {row.formula}
-                        </li>
-                    ))}
-            </ul>
-            <p className="text-xs text-muted-foreground">
-                Realized EV per attempt: ignores time.
-            </p>
-            <p className="text-xs text-muted-foreground">
-                Modeled EV per attempt: the engine&apos;s credit-free net per
-                attempt; it ignores time and is not the ranking objective.
-            </p>
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-        </div>
+        </OverviewPanel>
     );
 });

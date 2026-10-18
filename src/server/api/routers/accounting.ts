@@ -575,7 +575,6 @@ export const accountingRouter = createTRPCRouter({
             metaFields: d.metaFields,
             role: d.role,
             secret: d.secret,
-            tone: d.tone,
             transactionSourceId: d.transactionSourceId ?? null,
         })),
     ),

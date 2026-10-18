@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 
 import { GradeTile } from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
+import { formatDisplayDate } from '~/lib/format';
 import { routes, withQuery } from '~/lib/site/routes';
 import {
     type DayCell,
@@ -53,7 +54,7 @@ export function CalendarHeatmap({
                             const inner = (
                                 <div
                                     className={cn(
-                                        'flex h-24 flex-col justify-between gap-1 rounded-2xl border p-2.5 transition-colors',
+                                        'flex h-12 flex-col justify-between gap-1 rounded-sm border p-1 transition-colors md:h-24 md:rounded-2xl md:p-2.5',
                                         isTraded
                                             ? 'border-line-strong bg-muted/40 group-hover:border-ink-muted/60 group-hover:bg-muted/60'
                                             : 'border-line',
@@ -73,7 +74,7 @@ export function CalendarHeatmap({
                                             {dayNumber}
                                         </span>
                                         {isTraded && (
-                                            <span className="hidden text-xs text-muted-foreground sm:inline">
+                                            <span className="hidden text-xs text-muted-foreground lg:inline">
                                                 {cell.total === 1
                                                     ? '1 trade'
                                                     : `${cell.total} trades`}
@@ -84,7 +85,7 @@ export function CalendarHeatmap({
                                         <div className="flex items-end justify-between gap-1">
                                             {cell.bestGrade !== null && (
                                                 <GradeTile
-                                                    className="size-8 rounded-lg text-base"
+                                                    className="size-6 rounded-md text-xs md:size-8 md:rounded-lg md:text-base"
                                                     grade={cell.bestGrade}
                                                 />
                                             )}
@@ -97,10 +98,10 @@ export function CalendarHeatmap({
                             );
                             return isTraded ? (
                                 <Link
-                                    aria-label={`${cell.date}: ${cell.total === 1 ? '1 trade' : `${cell.total} trades`}`}
+                                    aria-label={`${formatDisplayDate(cell.date)}: ${cell.total === 1 ? '1 trade' : `${cell.total} trades`}`}
                                     className={cn(
                                         'app-trade-checklist__calendar-day-link',
-                                        'group rounded-2xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                                        'group rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 md:rounded-2xl',
                                     )}
                                     href={withQuery(
                                         routes.tradeChecklist.journal,

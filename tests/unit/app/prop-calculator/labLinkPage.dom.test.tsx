@@ -13,6 +13,7 @@ import {
     InstrumentSymbol,
 } from '~/lib/prop-calculator';
 
+import { submitDialog } from '../../components/formDialog';
 import { FakeWorker } from './toolsWorkerFixtures';
 
 vi.mock('next/navigation', () => ({
@@ -230,13 +231,19 @@ describe('a shared strategy lab link reaches the rendered lab page (PT-53f)', ()
         },
     );
 
-    it.each(['Add scenario', 'Reset'])(
-        'clears the notice once the user presses %s',
-        (name) => {
-            visit(fullLink(labParameter([{ ...sharedScenario, winrate: 2 }])));
-            expect(notice()).toBeDefined();
-            click(buttonNamed(name));
-            expect(notice()).toBeUndefined();
-        },
-    );
+    it('clears the notice once the user presses Reset', () => {
+        visit(fullLink(labParameter([{ ...sharedScenario, winrate: 2 }])));
+        expect(notice()).toBeDefined();
+        click(buttonNamed('Reset'));
+        expect(notice()).toBeUndefined();
+    });
+
+    it('clears the notice once the user adds a scenario from the add dialog', async () => {
+        visit(fullLink(labParameter([{ ...sharedScenario, winrate: 2 }])));
+        expect(notice()).toBeDefined();
+        click(buttonNamed('Add scenario'));
+        expect(notice()).toBeDefined();
+        await submitDialog('Add', () => vi.advanceTimersByTimeAsync(0));
+        expect(notice()).toBeUndefined();
+    });
 });

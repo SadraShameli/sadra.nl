@@ -35,6 +35,12 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
+import { typeInto } from '../../../components/formDialog';
+import {
+    closeRowActions,
+    openRowActions,
+    rowActionItem,
+} from '../../../components/rowActionsMenu';
 import { AccountsTable } from './AccountsTableWithData';
 
 interface FakeQuery {
@@ -235,16 +241,6 @@ async function submitForm(scope: ParentNode) {
             new Event('submit', { bubbles: true, cancelable: true }),
         );
         await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-}
-
-function typeInto(input: HTMLInputElement, value: string) {
-    act(() => {
-        Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            'value',
-        )?.set?.call(input, value);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 }
 
@@ -601,7 +597,11 @@ describe('a stored ledger-only account', () => {
         expect(rows).toHaveLength(2);
         for (const row of rows) {
             expect(row.textContent).toContain('Ledger only');
-            expect(row.querySelector('a[aria-label^="Edit"]')).not.toBeNull();
+            openRowActions(row.querySelector('a')?.textContent ?? '');
+            const edit = rowActionItem('Edit');
+            expect(edit.tagName).toBe('A');
+            expect(edit.getAttribute('aria-disabled')).toBeNull();
+            closeRowActions();
         }
         const text = container.textContent;
         expect(text).toContain(FIFTY_K.firm.displayName);

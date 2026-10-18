@@ -4,9 +4,9 @@ import { ChevronRight, Dumbbell } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
@@ -60,6 +60,7 @@ export function ExercisesBrowser() {
                     </Link>
                 ),
                 header: 'Name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'primaryMuscle',
@@ -85,7 +86,7 @@ export function ExercisesBrowser() {
                 accessorFn: (r) => (r.isCustom ? 1 : 0),
                 cell: ({ row }) =>
                     row.original.isCustom ? (
-                        <Badge variant="secondary">Custom</Badge>
+                        <Badge>Custom</Badge>
                     ) : (
                         <span className="text-xs text-muted-foreground">
                             Built-in
@@ -108,6 +109,7 @@ export function ExercisesBrowser() {
                 enableSorting: false,
                 header: () => <span className="sr-only">Open</span>,
                 id: 'open',
+                meta: { isPhoneHidden: true },
             },
         ],
         [],
@@ -115,11 +117,26 @@ export function ExercisesBrowser() {
 
     return (
         <div className="flex flex-col gap-6">
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                <StatCard label="Total" value={stats.total.toString()} />
-                <StatCard label="Custom" value={stats.custom.toString()} />
-                <StatCard label="Built-in" value={stats.builtin.toString()} />
-            </section>
+            <StatStrip
+                isLoading={exercises.isLoading}
+                items={[
+                    {
+                        id: 'total',
+                        label: 'Total',
+                        value: stats.total.toString(),
+                    },
+                    {
+                        id: 'custom',
+                        label: 'Custom',
+                        value: stats.custom.toString(),
+                    },
+                    {
+                        id: 'built-in',
+                        label: 'Built-in',
+                        value: stats.builtin.toString(),
+                    },
+                ]}
+            />
 
             <ToolPanel contentClassName="flex flex-col gap-4" title="Library">
                 <DataTable<ExerciseRow>
@@ -169,20 +186,5 @@ export function ExercisesBrowser() {
                 />
             </ToolPanel>
         </div>
-    );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-    return (
-        <Card className="gap-1 py-3">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <span className="font-mono text-lg leading-none font-bold text-foreground tabular-nums">
-                    {value}
-                </span>
-            </CardContent>
-        </Card>
     );
 }

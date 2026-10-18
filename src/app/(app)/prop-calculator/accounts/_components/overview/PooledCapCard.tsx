@@ -3,6 +3,8 @@ import { memo } from 'react';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type PooledCapCardModel } from './overviewModel';
+import { InfoStack, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum PooledCapCardColumn {
     CapScope = 'cap-scope',
@@ -20,7 +22,18 @@ export const PooledCapCard = memo(function PooledCapCard({
     readonly model: PooledCapCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={
+                <InfoStack>
+                    <p>{model.disclosure}</p>
+                    <p>{model.countingNote}</p>
+                    {model.householdNote !== null && (
+                        <p>{model.householdNote}</p>
+                    )}
+                </InfoStack>
+            }
+            section={OverviewSectionId.PooledCaps}
+        >
             {model.rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No plan in use yet.
@@ -32,6 +45,7 @@ export const PooledCapCard = memo(function PooledCapCard({
                             cell: ({ row }) => <>{row.original.plan}</>,
                             header: 'Plan',
                             id: PooledCapCardColumn.Plan,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.scope}</>,
@@ -76,10 +90,6 @@ export const PooledCapCard = memo(function PooledCapCard({
                     rowId={(row) => row.key}
                 />
             )}
-            <p className="text-xs text-muted-foreground">{model.disclosure}</p>
-            <p className="text-xs text-muted-foreground">
-                {model.countingNote}
-            </p>
             {model.unverifiedFirms.length > 0 && (
                 <ul
                     aria-label="Firms with an unverified cap scope"
@@ -90,11 +100,6 @@ export const PooledCapCard = memo(function PooledCapCard({
                     ))}
                 </ul>
             )}
-            {model.householdNote !== null && (
-                <p className="text-xs text-muted-foreground">
-                    {model.householdNote}
-                </p>
-            )}
-        </div>
+        </OverviewPanel>
     );
 });

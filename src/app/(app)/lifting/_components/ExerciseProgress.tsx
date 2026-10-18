@@ -1,30 +1,26 @@
 'use client';
 
-import { format, subDays, subMonths } from 'date-fns';
+import { subDays, subMonths } from 'date-fns';
 import { TrendingUp, Trophy } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { PrFiltersToolbar } from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
+import { prTableColumns } from '~/app/(app)/lifting/_components/shared/prTableColumns';
 import { usePrFilters } from '~/app/(app)/lifting/_components/shared/usePrFilters';
+import { FilterToolbar } from '~/components/FilterToolbar';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Badge } from '~/components/ui/badge';
 import AreaChartNew from '~/components/ui/chart/area-chart-new';
-import {
-    DataTable,
-    DataTableAlign,
-    type DataTableColumn,
-} from '~/components/ui/data-table';
+import { DataTable } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
+import { formatDisplayDate } from '~/lib/format';
 import { WeightUnit } from '~/lib/lifting/format';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { api } from '~/trpc/react';
 
 interface ExerciseProgressProperties {
     exerciseId: string;
 }
-
-type PrRow = RouterOutputs['lifting']['analytics']['prTimeline'][number];
 
 const E1RM_CHART_CONFIG = {
     e1rm: { color: 'var(--muted-foreground)', label: 'Est. 1RM' },
@@ -46,41 +42,7 @@ export function ExerciseProgress({ exerciseId }: ExerciseProgressProperties) {
 
     const prFilters = usePrFilters(prs.data);
 
-    const columns = useMemo<DataTableColumn<PrRow>[]>(
-        () => [
-            {
-                accessorKey: 'kind',
-                cell: ({ row }) => (
-                    <Badge variant="warning">
-                        {row.original.kind.replaceAll('_', ' ')}
-                    </Badge>
-                ),
-                header: 'Kind',
-            },
-            {
-                cell: ({ row }) => (
-                    <span className="font-semibold tabular-nums">
-                        {WeightUnit.format(row.original.weightKg, unitWeight)} ×{' '}
-                        {row.original.reps}
-                    </span>
-                ),
-                header: 'Lift',
-                id: 'lift',
-                meta: { align: DataTableAlign.End },
-            },
-            {
-                accessorKey: 'achievedAt',
-                cell: ({ row }) => (
-                    <span className="text-muted-foreground tabular-nums">
-                        {format(new Date(row.original.achievedAt), 'MMM d')}
-                    </span>
-                ),
-                header: 'Date',
-                meta: { align: DataTableAlign.End },
-            },
-        ],
-        [unitWeight],
-    );
+    const columns = useMemo(() => prTableColumns(unitWeight), [unitWeight]);
 
     return (
         <div className="flex flex-col gap-8">
@@ -142,7 +104,7 @@ function E1rmTrendChart({
     const chartData = useMemo(
         () =>
             (trend.data ?? []).map((d) => ({
-                date: format(new Date(d.date), 'MMM d'),
+                date: formatDisplayDate(d.date),
                 e1rm:
                     Math.round(WeightUnit.toDisplay(d.e1rm, unitWeight) * 10) /
                     10,
@@ -151,8 +113,8 @@ function E1rmTrendChart({
     );
 
     return (
-        <ToolPanel
-            actions={
+        <ToolPanel title="Estimated 1RM trend">
+            <FilterToolbar label="Trend filters">
                 <ToolbarSelect
                     label="Trend period"
                     onValueChange={(v) => {
@@ -165,9 +127,7 @@ function E1rmTrendChart({
                     }))}
                     value={range}
                 />
-            }
-            title="Estimated 1RM trend"
-        >
+            </FilterToolbar>
             {trend.isLoading ? (
                 <Skeleton className="h-48 w-full rounded-md" />
             ) : chartData.length === 0 ? (

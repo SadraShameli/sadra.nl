@@ -8,6 +8,8 @@ import {
     ExpectedNetStatus,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
+import { infoContent, withInfoTexts } from '../infoPopover';
+
 const FIGURE = {
     creditFree: '$1,111',
     creditInclusive: '$1,234',
@@ -76,9 +78,9 @@ describe('ExpectedNetCard live-transfer hazard lines (PT-73d)', () => {
             );
         });
 
-        const notes = [...container.querySelectorAll('li')].map(
-            (item) => item.textContent,
-        );
+        const notes = [
+            ...infoContent(container, 'Expected net').querySelectorAll('li'),
+        ].map((item) => item.textContent);
         expect(notes).toContainEqual(
             expect.stringContaining('Plan A: Documented policy. Live transfer'),
         );
@@ -94,6 +96,6 @@ describe('ExpectedNetCard live-transfer hazard lines (PT-73d)', () => {
             root.render(<ExpectedNetCard model={modelOf([])} />);
         });
 
-        expect(container.textContent).not.toContain('Live transfer');
+        expect(withInfoTexts(container)).not.toContain('Live transfer');
     });
 });

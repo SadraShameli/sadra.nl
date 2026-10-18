@@ -9,6 +9,8 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/payoutTimingModel';
 import { SampleLevel } from '~/lib/prop-accounts/core';
 
+import { infoText } from '../infoPopover';
+
 const EXPLANATION =
     'Days from funded to the first payout, against days between later payouts.';
 
@@ -112,7 +114,7 @@ describe('PayoutTimingCard', () => {
 
     it('prints the one-line explanation', () => {
         render({ explanation: EXPLANATION, rows: [row({})] });
-        expect(container.textContent).toContain(EXPLANATION);
+        expect(infoText(container, 'Payout timing')).toContain(EXPLANATION);
     });
 
     it('prints the unpaid sentence under its plan and nothing when there is none', () => {

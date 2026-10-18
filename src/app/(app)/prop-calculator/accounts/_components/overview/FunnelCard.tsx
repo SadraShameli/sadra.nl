@@ -1,8 +1,11 @@
 import { memo } from 'react';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type FunnelCardModel } from './overviewModel';
+import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum FunnelByFirmColumn {
     Fees = 'fees',
@@ -34,7 +37,10 @@ export const FunnelCard = memo(function FunnelCard({
     readonly model: FunnelCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.Funnel}
+        >
             {model.rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No account with a modeled plan yet.
@@ -46,6 +52,7 @@ export const FunnelCard = memo(function FunnelCard({
                             cell: ({ row }) => <>{row.original.firm}</>,
                             header: 'Firm',
                             id: FunnelByFirmColumn.Firm,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.purchased}</>,
@@ -132,16 +139,17 @@ export const FunnelCard = memo(function FunnelCard({
             )}
             {model.stageDollars.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         Dollars per stage (fees of the accounts that reached
                         this stage)
-                    </h3>
+                    </PanelSubheading>
                     <DataTable
                         columns={[
                             {
                                 cell: ({ row }) => <>{row.original.firm}</>,
                                 header: 'Firm',
                                 id: FunnelByStageColumn.Firm,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => <>{row.original.stage}</>,
@@ -220,11 +228,6 @@ export const FunnelCard = memo(function FunnelCard({
                     ))}
                 </ul>
             )}
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-        </div>
+        </OverviewPanel>
     );
 });

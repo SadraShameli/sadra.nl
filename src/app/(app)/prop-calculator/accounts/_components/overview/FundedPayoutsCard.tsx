@@ -1,13 +1,17 @@
 import { memo } from 'react';
 
 import AccountsPassedDistributionChart from '~/app/(app)/prop-calculator/_components/AccountsPassedDistributionChart';
+import { PanelSubheading } from '~/components/PanelSubheading';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
+    DataTablePhoneLayout,
 } from '~/components/ui/data-table';
 
 import { type FundedPayoutsCardModel } from './overviewModel';
+import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 const PAYOUT_COUNT_CAPTION = '# payouts per funded account';
 
@@ -41,6 +45,7 @@ function fundedPayoutsColumns(
                     : line.row.plan,
             header: 'Plan',
             id: FundedPayoutsColumn.Plan,
+            meta: { isRowHeader: true },
         },
         ...Array.from(
             { length: payoutCountCap + 1 },
@@ -119,18 +124,24 @@ export const FundedPayoutsCard = memo(function FundedPayoutsCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No funded account yet.
-            </p>
+            <OverviewPanel section={OverviewSectionId.FundedPayouts}>
+                <p className="text-sm text-muted-foreground">
+                    No funded account yet.
+                </p>
+            </OverviewPanel>
         );
     }
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.FundedPayouts}
+        >
             <DataTable
                 columns={fundedPayoutsColumns(model.payoutCountCap)}
                 data={linesOf(model.rows)}
                 isSortable={false}
                 pageSize={null}
+                phoneLayout={DataTablePhoneLayout.Scroll}
                 rowClassName={(line) =>
                     line.kind === FundedPayoutsLine.Modeled
                         ? 'text-muted-foreground'
@@ -143,12 +154,7 @@ export const FundedPayoutsCard = memo(function FundedPayoutsCard({
                     <DistributionPair key={row.key} row={row} />
                 ))}
             </div>
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-        </div>
+        </OverviewPanel>
     );
 });
 
@@ -159,9 +165,9 @@ function DistributionPair({
 }) {
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-foreground">
+            <PanelSubheading>
                 {row.plan}: payout-count distribution
-            </h3>
+            </PanelSubheading>
             <div className="grid gap-4 md:grid-cols-2">
                 {row.realizedProbabilities.length === 0 ? (
                     <p className="text-sm text-muted-foreground">

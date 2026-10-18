@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/nextjs';
 import { RotateCcw } from 'lucide-react';
 import { useEffect } from 'react';
 
+import { PageHeader } from '~/components/PageHeader';
 import { type SectionErrorProperties } from '~/components/SectionError';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
@@ -36,14 +37,11 @@ export default function GlobalError({ error, retry }: SectionErrorProperties) {
                 <title>Something went wrong</title>
                 <main className="flex flex-1 items-center justify-center px-6 py-16">
                     <Card className="w-full max-w-xl items-center gap-0 px-8 py-12 text-center">
-                        <h1 className="font-serif text-3xl font-medium tracking-tight text-foreground">
-                            Something went wrong
-                        </h1>
-                        <p className="mt-3 max-w-md text-sm text-muted-foreground">
-                            The site hit an unexpected error. Your data is safe.
-                            Try again, and if it keeps happening, come back in a
-                            few minutes.
-                        </p>
+                        <PageHeader
+                            className="mb-0 justify-center"
+                            lead="The site hit an unexpected error. Your data is safe. Try again, and if it keeps happening, come back in a few minutes."
+                            title="Something went wrong"
+                        />
                         <Button
                             className="mt-8 gap-2"
                             onClick={retry}

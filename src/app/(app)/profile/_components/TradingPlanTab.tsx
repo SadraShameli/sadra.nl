@@ -24,9 +24,7 @@ import {
     Edit3,
     ExternalLink,
     GripVertical,
-    Pencil,
     Plus,
-    Trash2,
 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -43,22 +41,21 @@ import { toast } from 'sonner';
 import type { TradingPlanRow } from '~/lib/trading/types';
 
 import { DefaultTradingPlanSetup } from '~/app/(app)/trade-checklist/_components/DefaultTradingPlanSetup';
+import { FormDialog } from '~/components/FormDialog';
+import { FormTextField } from '~/components/FormFields';
 import { BlockableLink } from '~/components/NavigationBlocker';
+import {
+    deleteRowAction,
+    editRowAction,
+    type RowAction,
+    RowActionKind,
+    RowActionsMenu,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/dialog';
-import { Input } from '~/components/ui/input';
-import { Label } from '~/components/ui/label';
-import { Separator } from '~/components/ui/separator';
+import { Dialog } from '~/components/ui/dialog';
+import { formatDisplayDateTime } from '~/lib/format';
 import {
     type TradingPlanCreateInput,
     tradingPlanCreateSchema,
@@ -178,12 +175,12 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
         });
     };
 
-    const create = newPlanForm.handleSubmit((values) => {
+    const create = (values: TradingPlanCreateInput) => {
         startCreate(async () => {
             await createTradingPlan({ name: values.name });
             newPlanForm.reset();
         });
-    });
+    };
 
     const setActive = (planId: string) => {
         setPendingActionId(planId);
@@ -211,10 +208,9 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
         <div
             className={cn('app-profile__trading-plans', 'flex flex-col gap-6')}
         >
-            <Card>
-                <CardHeader>
-                    <CardTitle>Your trading plans</CardTitle>
-                    <div className="flex flex-wrap items-center gap-2">
+            <ToolPanel
+                actions={
+                    <>
                         <Button asChild size="sm" variant="outline">
                             <BlockableLink href={routes.tradeChecklist.index}>
                                 Run checklist
@@ -228,104 +224,79 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                             <Plus className="mr-1 size-4" />
                             New plan
                         </Button>
-                    </div>
-                </CardHeader>
-                <Separator />
-                <CardContent>
-                    {displayedPlans.length === 0 ? (
-                        <DefaultTradingPlanSetup />
-                    ) : (
-                        <DndContext
-                            collisionDetection={closestCenter}
-                            id="plans-dnd"
-                            onDragEnd={onDragEnd}
-                            sensors={sensors}
+                    </>
+                }
+                title="Your trading plans"
+            >
+                {displayedPlans.length === 0 ? (
+                    <DefaultTradingPlanSetup />
+                ) : (
+                    <DndContext
+                        collisionDetection={closestCenter}
+                        id="plans-dnd"
+                        onDragEnd={onDragEnd}
+                        sensors={sensors}
+                    >
+                        <SortableContext
+                            items={displayedPlans.map((p) => p.id)}
+                            strategy={verticalListSortingStrategy}
                         >
-                            <SortableContext
-                                items={displayedPlans.map((p) => p.id)}
-                                strategy={verticalListSortingStrategy}
-                            >
-                                <div className="flex flex-col gap-1.5">
-                                    {displayedPlans.map((p) => (
-                                        <SortablePlanRow
-                                            canDelete={
-                                                displayedPlans.length > 1
-                                            }
-                                            editingId={editingId}
-                                            key={p.id}
-                                            onActivate={setActive}
-                                            onClone={clone}
-                                            onDelete={remove}
-                                            onEdit={startEditing}
-                                            pending={pending}
-                                            pendingActionId={pendingActionId}
-                                            plan={p}
-                                        />
-                                    ))}
-                                </div>
-                            </SortableContext>
-                        </DndContext>
-                    )}
-                </CardContent>
-            </Card>
+                            <div className="flex flex-col gap-1.5">
+                                {displayedPlans.map((p) => (
+                                    <SortablePlanRow
+                                        canDelete={displayedPlans.length > 1}
+                                        editingId={editingId}
+                                        key={p.id}
+                                        onActivate={setActive}
+                                        onClone={clone}
+                                        onDelete={remove}
+                                        onEdit={startEditing}
+                                        pending={pending}
+                                        pendingActionId={pendingActionId}
+                                        plan={p}
+                                    />
+                                ))}
+                            </div>
+                        </SortableContext>
+                    </DndContext>
+                )}
+            </ToolPanel>
 
             {editing && (
-                <Card className="scroll-mt-4" ref={editorReference}>
-                    <CardHeader className="flex items-center gap-2">
-                        <CardTitle className="flex min-w-0 items-center gap-2">
+                <ToolPanel
+                    className="scroll-mt-4"
+                    ref={editorReference}
+                    title={
+                        <span className="flex min-w-0 items-center gap-2">
                             <Edit3 className="size-4 shrink-0" />
                             <span className="truncate">
                                 Editing: {editing.name}
                             </span>
-                        </CardTitle>
-                    </CardHeader>
-                    <Separator />
-                    <CardContent>
-                        <PlanEditor key={editing.id} plan={editing} />
-                    </CardContent>
-                </Card>
+                        </span>
+                    }
+                >
+                    <PlanEditor key={editing.id} plan={editing} />
+                </ToolPanel>
             )}
 
             <Dialog onOpenChange={setNewDialogOpen} open={newDialogOpen}>
-                <DialogContent>
-                    <form onSubmit={create}>
-                        <DialogHeader>
-                            <DialogTitle>New trading plan</DialogTitle>
-                            <DialogDescription>
-                                Starts from the default config; you can tune it
-                                after.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="mt-4">
-                            <Label className="text-sm" htmlFor="newPlanName">
-                                Name
-                            </Label>
-                            <Input
-                                className="mt-2"
-                                id="newPlanName"
-                                placeholder="Funded plan"
-                                {...newPlanForm.register('name')}
-                            />
-                            {newPlanForm.formState.errors.name && (
-                                <p className="mt-1.5 text-xs text-destructive">
-                                    {newPlanForm.formState.errors.name.message}
-                                </p>
-                            )}
-                        </div>
-                        <DialogFooter className="mt-4">
-                            <Button
-                                onClick={() => setNewDialogOpen(false)}
-                                type="button"
-                                variant="ghost"
-                            >
-                                Cancel
-                            </Button>
-                            <Button disabled={creating} type="submit">
-                                Create
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
+                <FormDialog
+                    description="Starts from the default config; you can tune it after."
+                    form={newPlanForm}
+                    onCancel={() => setNewDialogOpen(false)}
+                    onSubmit={create}
+                    pending={creating}
+                    pendingLabel="Creating…"
+                    submitLabel="Create"
+                    title="New trading plan"
+                >
+                    <FormTextField
+                        control={newPlanForm.control}
+                        label="Name"
+                        name="name"
+                        placeholder="Funded plan"
+                    />
+                </FormDialog>
             </Dialog>
         </div>
     );
@@ -379,6 +350,7 @@ function SortablePlanRow({
         transform,
         transition,
     } = useSortable({ id: plan.id });
+    const isActionPending = pending && pendingActionId === plan.id;
 
     const style: React.CSSProperties = {
         opacity: isDragging ? 0.6 : 1,
@@ -391,7 +363,7 @@ function SortablePlanRow({
         <div
             className={cn(
                 'app-profile__plan-row',
-                'flex flex-col gap-3 rounded-lg border border-border/60 bg-background p-3 transition-colors sm:flex-row sm:flex-wrap sm:items-center sm:justify-between',
+                'flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background p-3 transition-colors',
             )}
             data-state={plan.isActive ? 'active' : undefined}
             ref={setNodeRef}
@@ -414,60 +386,45 @@ function SortablePlanRow({
                         <span className="truncate font-medium text-foreground">
                             {plan.name}
                         </span>
-                        {plan.isActive && (
-                            <Badge variant="default">Active</Badge>
-                        )}
+                        {plan.isActive && <Badge>Active</Badge>}
+                        {plan.id === editingId && <Badge>Editing</Badge>}
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                        Updated {new Date(plan.updatedAt).toLocaleString()}
+                        Updated {formatDisplayDateTime(plan.updatedAt)}
                     </p>
                 </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-                <Button
-                    onClick={() => onEdit(plan.id)}
-                    size="sm"
-                    variant={plan.id === editingId ? 'default' : 'outline'}
-                >
-                    <Pencil className="mr-1 size-3.5" />
-                    Edit
-                </Button>
-                {!plan.isActive && (
-                    <Button
-                        disabled={pending && pendingActionId === plan.id}
-                        onClick={() => onActivate(plan.id)}
-                        size="sm"
-                        variant="outline"
-                    >
-                        <Check className="mr-1 size-3.5" />
-                        Activate
-                    </Button>
-                )}
-                <Button
-                    aria-label={`Duplicate ${plan.name}`}
-                    disabled={pending && pendingActionId === plan.id}
-                    onClick={() => onClone(plan.id)}
-                    size="icon-sm"
-                    variant="outline"
-                >
-                    <Copy className="size-3.5" />
-                </Button>
-                <ConfirmDialog
-                    confirmLabel="Delete"
-                    description="Saved assessments referencing this plan keep their snapshotted config. Only the plan template is removed."
-                    onConfirm={() => onDelete(plan.id)}
-                    title={<>Delete &ldquo;{plan.name}&rdquo;?</>}
-                >
-                    <Button
-                        aria-label={`Delete ${plan.name}`}
-                        disabled={!canDelete}
-                        size="icon-sm"
-                        variant="outline"
-                    >
-                        <Trash2 className="size-3.5" />
-                    </Button>
-                </ConfirmDialog>
-            </div>
+            <RowActionsMenu
+                actions={[
+                    editRowAction(() => onEdit(plan.id)),
+                    ...(plan.isActive
+                        ? []
+                        : [
+                              {
+                                  icon: Check,
+                                  isDisabled: isActionPending,
+                                  kind: RowActionKind.Select,
+                                  label: 'Activate',
+                                  onSelect: () => onActivate(plan.id),
+                              } satisfies RowAction,
+                          ]),
+                    {
+                        icon: Copy,
+                        isDisabled: isActionPending,
+                        kind: RowActionKind.Select,
+                        label: 'Duplicate',
+                        onSelect: () => onClone(plan.id),
+                    },
+                    deleteRowAction({
+                        description:
+                            'Saved assessments referencing this plan keep their snapshotted config. Only the plan template is removed.',
+                        isDisabled: !canDelete,
+                        onDelete: () => onDelete(plan.id),
+                        title: `Delete “${plan.name}”?`,
+                    }),
+                ]}
+                label={plan.name}
+            />
         </div>
     );
 }

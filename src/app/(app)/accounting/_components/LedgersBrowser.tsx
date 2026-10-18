@@ -5,8 +5,8 @@ import { useMemo } from 'react';
 
 import type { LedgerId } from '~/lib/accounting/core/ids';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
@@ -15,7 +15,8 @@ import {
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { EmptyState } from '~/components/ui/empty-state';
-import { LedgerCategory } from '~/lib/accounting/providers/eboekhouden/enums';
+import { CredentialRole } from '~/lib/accounting/credentials/index';
+import { LEDGER_CATEGORY_LABEL } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
@@ -27,20 +28,6 @@ type Ledger = {
     description: string;
     externalId: LedgerId;
     group: null | string;
-};
-
-const LEDGER_CATEGORY_LABEL: Record<LedgerCategory, string> = {
-    [LedgerCategory.Af]: 'Depreciation',
-    [LedgerCategory.Af6]: 'Depreciation 6%',
-    [LedgerCategory.Af19]: 'Depreciation 19%',
-    [LedgerCategory.AfOverig]: 'Depreciation other',
-    [LedgerCategory.Bal]: 'Balance sheet',
-    [LedgerCategory.Btwrc]: 'VAT current account',
-    [LedgerCategory.Cred]: 'Payables (creditors)',
-    [LedgerCategory.Deb]: 'Receivables (debtors)',
-    [LedgerCategory.Fin]: 'Financial',
-    [LedgerCategory.Voor]: 'Inventory',
-    [LedgerCategory.Vw]: 'Profit & loss',
 };
 
 export function LedgersBrowser() {
@@ -76,11 +63,12 @@ export function LedgersBrowser() {
             {
                 accessorKey: 'description',
                 header: 'Description',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'category',
                 cell: ({ row }) => (
-                    <Badge variant="outline">
+                    <Badge>
                         {(LEDGER_CATEGORY_LABEL as Record<string, string>)[
                             row.original.category
                         ] ?? row.original.category}
@@ -103,66 +91,64 @@ export function LedgersBrowser() {
     );
 
     return (
-        <Card>
-            <CardContent>
-                {ledgersQ.error ? (
-                    <EmptyState
-                        description={ledgersQ.error.message}
-                        title="Could not fetch ledgers"
-                    />
-                ) : (
-                    <DataTable
-                        columns={columns}
-                        data={allLedgers}
-                        emptyState={(table) => (
-                            <EmptyState
-                                description={
-                                    credentialId
-                                        ? hasActiveTableFilter(table)
-                                            ? 'No ledgers match this filter.'
-                                            : 'Try a different category or pick another credential.'
-                                        : 'Pick an accounting credential to load its ledgers.'
+        <ToolPanel
+            description={
+                <ActiveConnectionNote
+                    credential={accounting}
+                    role={CredentialRole.Accounting}
+                />
+            }
+            title="Ledger accounts"
+        >
+            {ledgersQ.error ? (
+                <EmptyState
+                    description={ledgersQ.error.message}
+                    title="Could not fetch ledgers"
+                />
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={allLedgers}
+                    emptyState={(table) => (
+                        <EmptyState
+                            description={
+                                credentialId
+                                    ? hasActiveTableFilter(table)
+                                        ? 'No ledgers match this filter.'
+                                        : 'Try a different category or pick another credential.'
+                                    : 'Pick an accounting credential to load its ledgers.'
+                            }
+                            icon={BookOpen}
+                            title={
+                                credentialId
+                                    ? 'No ledgers'
+                                    : 'No credential selected'
+                            }
+                        />
+                    )}
+                    filterPlaceholder="Search ledgers…"
+                    headerActions={(table) => (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <DataTableFacetSelect
+                                column={table.getColumn('category')}
+                                format={(value) =>
+                                    (
+                                        LEDGER_CATEGORY_LABEL as Record<
+                                            string,
+                                            string
+                                        >
+                                    )[value] ?? value
                                 }
-                                icon={BookOpen}
-                                title={
-                                    credentialId
-                                        ? 'No ledgers'
-                                        : 'No credential selected'
-                                }
+                                placeholder="All categories"
                             />
-                        )}
-                        filterPlaceholder="Search ledgers…"
-                        headerActions={(table) => (
-                            <div className="flex flex-wrap items-center gap-2">
-                                <DataTableFacetSelect
-                                    column={table.getColumn('category')}
-                                    format={(value) =>
-                                        (
-                                            LEDGER_CATEGORY_LABEL as Record<
-                                                string,
-                                                string
-                                            >
-                                        )[value] ?? value
-                                    }
-                                    placeholder="All categories"
-                                />
-                            </div>
-                        )}
-                        isLoading={!!credentialId && ledgersQ.isPending}
-                        pageSize={25}
-                        rowId={(r) => r.externalId}
-                        showFilter
-                        toolbarEnd={
-                            <>
-                                <ActiveConnectionNote
-                                    credential={accounting}
-                                    roleNoun="accounting credential"
-                                />
-                            </>
-                        }
-                    />
-                )}
-            </CardContent>
-        </Card>
+                        </div>
+                    )}
+                    isLoading={!!credentialId && ledgersQ.isPending}
+                    pageSize={25}
+                    rowId={(r) => r.externalId}
+                    showFilter
+                />
+            )}
+        </ToolPanel>
     );
 }

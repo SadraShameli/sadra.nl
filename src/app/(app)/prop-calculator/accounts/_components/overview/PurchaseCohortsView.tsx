@@ -1,4 +1,5 @@
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { formatDisplayMonth } from '~/lib/format';
 
 import { type PurchaseCohortRow } from './overviewModel';
 
@@ -29,11 +30,12 @@ export function PurchaseCohortsView({
                 {
                     cell: ({ row }) => (
                         <span className="tabular-nums">
-                            {row.original.month}
+                            {formatDisplayMonth(row.original.month)}
                         </span>
                     ),
                     header: 'Purchase month',
                     id: PurchaseCohortsViewColumn.PurchaseMonth,
+                    meta: { isRowHeader: true },
                 },
                 {
                     cell: ({ row }) => <>{row.original.spend}</>,

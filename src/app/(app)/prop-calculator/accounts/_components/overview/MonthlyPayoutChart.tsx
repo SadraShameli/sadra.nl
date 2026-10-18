@@ -3,6 +3,7 @@
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_BAR_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
@@ -10,13 +11,13 @@ import {
     ChartContainer,
     ChartSize,
 } from '~/components/ui/chart';
-import { formatCompactCurrency } from '~/lib/format';
+import { formatCompactCurrency, formatDisplayMonth } from '~/lib/format';
 
 import { type StatementChartPoint } from './overviewModel';
 
 const chartConfig: ChartConfig = {
-    payouts: { color: 'var(--success)', label: 'Payouts' },
-    spend: { color: 'var(--destructive)', label: 'Spend' },
+    payouts: { color: 'var(--chart-1)', label: 'Payouts' },
+    spend: { color: 'var(--chart-3)', label: 'Spend' },
 };
 
 export function MonthlyPayoutChart({
@@ -43,7 +44,11 @@ export function MonthlyPayoutChart({
                 data={[...points]}
                 margin={{ bottom: 20, left: 0, right: 12, top: 10 }}
             >
-                <XAxis {...CHART_X_AXIS_PROPS} dataKey="month" />
+                <XAxis
+                    {...CHART_X_AXIS_PROPS}
+                    dataKey="month"
+                    tickFormatter={(value: string) => formatDisplayMonth(value)}
+                />
                 <YAxis
                     {...CHART_Y_AXIS_PROPS}
                     tickFormatter={(value: number) =>
@@ -59,14 +64,14 @@ export function MonthlyPayoutChart({
                     />
                 )}
                 <Bar
+                    {...CHART_BAR_PROPS}
                     dataKey="spend"
-                    fill="var(--destructive)"
-                    isAnimationActive={false}
+                    fill="var(--chart-3)"
                 />
                 <Bar
+                    {...CHART_BAR_PROPS}
                     dataKey="payouts"
-                    fill="var(--success)"
-                    isAnimationActive={false}
+                    fill="var(--chart-1)"
                 />
             </BarChart>
         </ChartContainer>

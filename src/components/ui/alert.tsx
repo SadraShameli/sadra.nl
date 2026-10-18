@@ -17,10 +17,6 @@ const alertVariants = cva(
                 default: 'bg-background text-foreground',
                 destructive:
                     'border-destructive/40 bg-destructive/10 text-destructive [&>svg]:text-destructive',
-                success:
-                    'border-success/40 bg-success/10 text-success [&>svg]:text-success',
-                warning:
-                    'border-warning/40 bg-warning/10 text-warning [&>svg]:text-warning',
             },
         },
     },
@@ -38,8 +34,6 @@ type AlertVariant = NonNullable<AlertProperties['variant']>;
 const VARIANT_ROLE: Readonly<Record<AlertVariant, React.AriaRole>> = {
     default: 'status',
     destructive: 'alert',
-    success: 'status',
-    warning: 'alert',
 };
 
 const Alert = React.forwardRef<HTMLDivElement, AlertProperties>(
@@ -85,4 +79,4 @@ const AlertDescription = React.forwardRef<
 ));
 AlertDescription.displayName = 'AlertDescription';
 
-export { Alert, AlertDescription, type AlertProperties, AlertTitle };
+export { Alert, AlertDescription, AlertTitle };

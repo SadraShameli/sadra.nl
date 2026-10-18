@@ -11,15 +11,21 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/RungTable';
 import { type CopyGroupRow } from '~/app/(app)/prop-calculator/accounts/_components/copyGroups/copyGroupRows';
 import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
+import { InfoNote } from '~/components/InfoNote';
+import { StatStrip, type StatStripItem } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 import {
     formatConjunctionList,
     formatCurrency,
+    formatDisplayDate,
     formatPercent,
 } from '~/lib/format';
 import { TradingPhase } from '~/lib/prop-calculator';
 import {
     type CopyGroupSizingRejection,
     CopyGroupSizingRejectionKind,
+    type CopyGroupSizingResult,
     CopyGroupSizingResultKind,
     type DocumentedRung,
     LiveTriggerCoverage,
@@ -67,20 +73,18 @@ export function GroupSizingSection({
 }) {
     if (sizing.kind === GroupSizingViewKind.Pending) {
         return (
-            <p
-                aria-busy="true"
-                className="text-sm text-muted-foreground"
-                role="status"
-            >
+            <InfoNote aria-busy="true" role="status">
                 Sizing and exposure are still loading.
-            </p>
+            </InfoNote>
         );
     }
     if (sizing.kind === GroupSizingViewKind.Failed) {
         return (
-            <p className="text-sm text-destructive" role="alert">
-                Sizing and exposure could not be checked: {sizing.message}
-            </p>
+            <Alert variant="destructive">
+                <AlertDescription>
+                    Sizing and exposure could not be checked: {sizing.message}
+                </AlertDescription>
+            </Alert>
         );
     }
     return (
@@ -130,152 +134,132 @@ function ReadyGroupSizing({
             : [];
     if (staleMembers.length > 0) {
         return (
-            <div className="flex flex-col gap-2 text-sm">
+            <div className="flex flex-col gap-3">
                 <RefreshFailure message={refreshFailure} />
                 {staleMembers.map((member) => (
-                    <p key={member.memberId} role="status">
-                        The balance for {member.label} is from {member.asOf},
-                        which is too old to size from. Enter today&apos;s
-                        balance for {member.label} to see the group size.
-                    </p>
+                    <StatusRow
+                        detail={`Enter today's balance for ${member.label} to see the group size.`}
+                        key={member.memberId}
+                        title={`The balance for ${member.label} is from ${formatDisplayDate(member.asOf)}, too old to size from`}
+                        tone={StatusTone.Warn}
+                    />
                 ))}
                 <UnsizedMembers members={unsizedMembers} />
             </div>
         );
     }
-    return (
-        <div className="flex flex-col gap-2 text-sm">
-            <RefreshFailure message={refreshFailure} />
-            {result.kind === CopyGroupSizingResultKind.Sized ? (
+    const figures: StatStripItem[] = [];
+    if (
+        firstRung !== undefined &&
+        result.kind === CopyGroupSizingResultKind.Sized
+    ) {
+        figures.push({
+            caption: `Set by ${formatConjunctionList(bindingMemberIdsOf(result).map(labelOf))} on ${formatDisplayDate(asOf)}`,
+            id: 'size',
+            info: <SizingNotes result={result} />,
+            label: 'Documented size for every copy',
+            value: formatCurrency(firstRung.risk, 2),
+        });
+    }
+    if (exposure !== null) {
+        figures.push({
+            caption:
+                exposure.shareOfCushionAtRisk === null
+                    ? undefined
+                    : `${formatPercent(exposure.shareOfCushionAtRisk)} of the combined cushion`,
+            id: 'exposure',
+            info: (
                 <>
-                    {firstRung === undefined ? (
-                        <p>{NO_GROUP_SIZE_TEXT}</p>
-                    ) : (
-                        <>
-                            <p>
-                                Documented size for every copy:{' '}
-                                <strong>
-                                    {formatCurrency(firstRung.risk, 2)}
-                                </strong>
-                                , set by{' '}
-                                {formatConjunctionList(
-                                    bindingMemberIdsOf(result).map(labelOf),
-                                )}
-                                , as of {asOf}.
-                            </p>
-                            <RungTable
-                                label={`Documented ladder for ${row.group.name}`}
-                                rungs={rungTableRowsOf(result.sizing.rungs)}
-                            />
+                    <p>
+                        Combined exposure: the sum of each account&apos;s own
+                        documented rung. It is an upper bound on the group worst
+                        case, because the shared copy size is never larger than
+                        any member&apos;s own.
+                    </p>
+                    {exposure.leftOutAccountIds.length > 0 && (
+                        <p>
+                            {exposure.leftOutAccountIds.length}{' '}
+                            {exposure.leftOutAccountIds.length === 1
+                                ? 'member'
+                                : 'members'}{' '}
+                            not included:{' '}
+                            {formatConjunctionList(
+                                exposure.leftOutAccountIds.map(labelOf),
+                            )}
+                            .
+                        </p>
+                    )}
+                </>
+            ),
+            label: 'Worst-case daily loss',
+            value: formatCurrency(exposure.maxDailyLoss, 2),
+        });
+    }
+    const placement =
+        result.kind === CopyGroupSizingResultKind.Sized
+            ? result.contractPlacement
+            : null;
+    if (placement !== null && !placement.isRefused) {
+        figures.push({
+            caption: `${formatCurrency(placement.riskPerContract, 2)} risk each at this stop`,
+            id: 'contracts',
+            label: 'Contracts per copy',
+            value: String(placement.contracts),
+        });
+    }
+    return (
+        <div className="flex flex-col gap-4">
+            <RefreshFailure message={refreshFailure} />
+            {result.kind === CopyGroupSizingResultKind.Rejected && (
+                <StatusRow
+                    detail={memberLine ?? undefined}
+                    title={result.rejection.message}
+                    tone={StatusTone.Warn}
+                />
+            )}
+            {result.kind === CopyGroupSizingResultKind.Sized &&
+                firstRung === undefined && (
+                    <StatusRow
+                        title={NO_GROUP_SIZE_TEXT}
+                        tone={StatusTone.Warn}
+                    />
+                )}
+            {figures.length > 0 && (
+                <StatStrip
+                    items={figures}
+                    label={`Sizing for ${row.group.name}`}
+                />
+            )}
+            {result.kind === CopyGroupSizingResultKind.Sized &&
+                firstRung !== undefined && (
+                    <>
+                        <RungTable
+                            label={`Documented ladder for ${row.group.name}`}
+                            rungs={rungTableRowsOf(result.sizing.rungs)}
+                        />
+                        <div className="flex flex-col gap-1 text-sm text-ink">
                             {copyGroupRuleTermsOf(result.sizing).map((term) => (
-                                <p key={term}>{term}</p>
-                            ))}
-                        </>
-                    )}
-                    {result.divergences.map((divergence) => (
-                        <p
-                            className="text-muted-foreground"
-                            key={divergence.memberId}
-                        >
-                            {divergence.memberLabel} would size trade{' '}
-                            {divergence.rungIndex + 1} at{' '}
-                            {formatCurrency(divergence.ownRisk, 2)}, above the
-                            group&apos;s{' '}
-                            {formatCurrency(divergence.groupRisk, 2)} (the group
-                            takes the smaller)
-                        </p>
-                    ))}
-                    {result.sizing.assumptions.length > 0 && (
-                        <p className="text-muted-foreground">
-                            {result.sizing.assumptions
-                                .map(
-                                    (assumption) =>
-                                        SIZING_ASSUMPTION_TEXT[assumption],
-                                )
-                                .join(' ')}
-                        </p>
-                    )}
-                    {result.sizing.sources.length > 0 && (
-                        <p className="text-muted-foreground">
-                            Source: {ruleSourceListText(result.sizing.sources)}.
-                        </p>
-                    )}
-                    {result.liveTriggerCoverage !== null && (
-                        <p className="text-muted-foreground">
-                            {result.liveTriggerCoverage ===
-                            LiveTriggerCoverage.Enforced
-                                ? COPY_GROUP_LIVE_TRIGGERS_ENFORCED_TEXT
-                                : COPY_GROUP_LIVE_TRIGGERS_NOT_CHECKED_TEXT}
-                        </p>
-                    )}
-                    {result.payoutCountBlocks.length > 0 && (
-                        <>
-                            {result.payoutCountBlocks.map((block) => (
-                                <p
-                                    className="font-medium text-warning"
-                                    key={block.firm}
-                                >
-                                    {copyGroupPayoutCountBlockText(
-                                        block,
-                                        labelOf,
-                                    )}
+                                <p className="m-0" key={term}>
+                                    {term}
                                 </p>
                             ))}
-                            <p className="text-muted-foreground">
-                                {COPY_GROUP_PAYOUT_COUNT_CONCURRENT_TEXT}
-                            </p>
-                        </>
-                    )}
-                    {result.payoutCountNotChecked.length > 0 && (
-                        <p className="text-muted-foreground">
-                            {COPY_GROUP_PAYOUT_COUNT_NOT_CHECKED_TEXT}
-                        </p>
-                    )}
-                    {result.contractPlacement !== null && (
-                        <p
-                            className={
-                                result.contractPlacement.isRefused
-                                    ? 'font-medium text-warning'
-                                    : undefined
-                            }
-                        >
-                            {result.contractPlacement.isRefused
-                                ? `The group size cannot be placed at this stop: it is below one contract, which risks ${formatCurrency(result.contractPlacement.riskPerContract, 2)}.`
-                                : `Each copy places ${String(result.contractPlacement.contracts)} ${result.contractPlacement.contracts === 1 ? 'contract' : 'contracts'} at this stop, where one contract risks ${formatCurrency(result.contractPlacement.riskPerContract, 2)}.`}
-                        </p>
-                    )}
-                </>
-            ) : (
-                <>
-                    <p>{result.rejection.message}</p>
-                    {memberLine !== null && (
-                        <p className="text-muted-foreground">{memberLine}</p>
-                    )}
-                </>
-            )}
-            {exposure !== null && (
-                <p>
-                    Combined exposure: worst-case daily loss of{' '}
-                    {formatCurrency(exposure.maxDailyLoss, 2)} across the group
-                    {exposure.shareOfCushionAtRisk !== null &&
-                        `, ${formatPercent(exposure.shareOfCushionAtRisk)} of its combined cushion`}
-                    , the sum of each account&apos;s own documented rung: an
-                    upper bound on the group worst case, because the shared copy
-                    size above is never larger than any member&apos;s own.
-                </p>
-            )}
-            {exposure !== null && exposure.leftOutAccountIds.length > 0 && (
-                <p className="text-muted-foreground">
-                    {exposure.leftOutAccountIds.length}{' '}
-                    {exposure.leftOutAccountIds.length === 1
-                        ? 'member'
-                        : 'members'}{' '}
-                    not included:{' '}
-                    {formatConjunctionList(
-                        exposure.leftOutAccountIds.map(labelOf),
-                    )}
-                    .
-                </p>
+                        </div>
+                    </>
+                )}
+            {result.kind === CopyGroupSizingResultKind.Sized &&
+                result.payoutCountBlocks.map((block) => (
+                    <StatusRow
+                        key={block.firm}
+                        title={copyGroupPayoutCountBlockText(block, labelOf)}
+                        tone={StatusTone.Warn}
+                    />
+                ))}
+            {placement?.isRefused === true && (
+                <StatusRow
+                    detail={`It is below one contract, which risks ${formatCurrency(placement.riskPerContract, 2)}.`}
+                    title="The group size cannot be placed at this stop"
+                    tone={StatusTone.Warn}
+                />
             )}
             <UnsizedMembers members={unsizedMembers} />
             {(isFundedGroup || stopPoints !== null) && (
@@ -296,10 +280,12 @@ function ReadyGroupSizing({
 function RefreshFailure({ message }: { readonly message: null | string }) {
     if (message === null) return null;
     return (
-        <p className="text-sm text-destructive" role="alert">
-            Sizing and exposure may be out of date, the latest refresh failed:{' '}
-            {message}
-        </p>
+        <Alert variant="destructive">
+            <AlertDescription>
+                Sizing and exposure may be out of date, the latest refresh
+                failed: {message}
+            </AlertDescription>
+        </Alert>
     );
 }
 
@@ -335,6 +321,52 @@ function rungTableRowsOf(
     }));
 }
 
+function SizingNotes({
+    result,
+}: {
+    readonly result: Extract<
+        CopyGroupSizingResult,
+        { kind: CopyGroupSizingResultKind.Sized }
+    >;
+}) {
+    return (
+        <>
+            {result.divergences.map((divergence) => (
+                <p key={divergence.memberId}>
+                    {divergence.memberLabel} would size trade{' '}
+                    {divergence.rungIndex + 1} at{' '}
+                    {formatCurrency(divergence.ownRisk, 2)}, above the
+                    group&apos;s {formatCurrency(divergence.groupRisk, 2)} (the
+                    group takes the smaller)
+                </p>
+            ))}
+            {result.sizing.assumptions.length > 0 && (
+                <p>
+                    {result.sizing.assumptions
+                        .map((assumption) => SIZING_ASSUMPTION_TEXT[assumption])
+                        .join(' ')}
+                </p>
+            )}
+            {result.sizing.sources.length > 0 && (
+                <p>Source: {ruleSourceListText(result.sizing.sources)}.</p>
+            )}
+            {result.liveTriggerCoverage !== null && (
+                <p>
+                    {result.liveTriggerCoverage === LiveTriggerCoverage.Enforced
+                        ? COPY_GROUP_LIVE_TRIGGERS_ENFORCED_TEXT
+                        : COPY_GROUP_LIVE_TRIGGERS_NOT_CHECKED_TEXT}
+                </p>
+            )}
+            {result.payoutCountBlocks.length > 0 && (
+                <p>{COPY_GROUP_PAYOUT_COUNT_CONCURRENT_TEXT}</p>
+            )}
+            {result.payoutCountNotChecked.length > 0 && (
+                <p>{COPY_GROUP_PAYOUT_COUNT_NOT_CHECKED_TEXT}</p>
+            )}
+        </>
+    );
+}
+
 function UnsizedMembers({
     members,
 }: {
@@ -342,12 +374,15 @@ function UnsizedMembers({
 }) {
     if (members.length === 0) return null;
     return (
-        <ul className="flex flex-col gap-1 text-muted-foreground">
+        <>
             {members.map((member) => (
-                <li key={member.memberId}>
-                    {member.label} could not be sized: {member.reason}.
-                </li>
+                <StatusRow
+                    detail={`${member.reason}.`}
+                    key={member.memberId}
+                    title={`${member.label} could not be sized`}
+                    tone={StatusTone.Neutral}
+                />
             ))}
-        </ul>
+        </>
     );
 }

@@ -27,6 +27,7 @@ const RUNG_COLUMNS: DataTableColumn<RungTableRow>[] = [
         cell: ({ row }) => row.index + 1,
         header: 'Trade',
         id: RungColumn.Trade,
+        meta: { isRowHeader: true },
     },
     {
         cell: ({ row: { original: rung } }) =>

@@ -14,6 +14,8 @@ import {
     EconomicsDisclosure,
 } from '~/lib/prop-calculator/economics';
 
+import { statStripCaption, statStripValue } from './statStripValue';
+
 const harness = vi.hoisted(() => ({
     query: '',
     rulebook: undefined as undefined | { display: { riskUnit: string } },
@@ -90,28 +92,6 @@ beforeEach(() => {
 });
 
 const FIX_TEXT = 'Fix the highlighted field to see the position.';
-
-function statCardLabelSpan(
-    scope: ParentNode,
-    label: string,
-): Element | undefined {
-    return [...scope.querySelectorAll('span')].find(
-        (candidate) => candidate.textContent === label,
-    );
-}
-
-function statCardSub(scope: ParentNode, label: string): string {
-    return (
-        statCardLabelSpan(scope, label)?.nextElementSibling?.nextElementSibling
-            ?.textContent ?? ''
-    );
-}
-
-function statCardValue(scope: ParentNode, label: string): string {
-    return (
-        statCardLabelSpan(scope, label)?.nextElementSibling?.textContent ?? ''
-    );
-}
 
 function typeInto(input: HTMLInputElement, text: string) {
     act(() => {
@@ -366,12 +346,12 @@ describe('PositionSizeView risk display unit', () => {
     });
 
     it('shows the risk in the fee-equivalent unit chosen through the URL', () => {
-        expect(statCardValue(positionSection(), 'Risk, shown as')).not.toBe(
-            '$450',
-        );
-        expect(statCardSub(positionSection(), 'Risk, shown as')).toBe(
-            'Fee equivalent',
-        );
+        expect(
+            statStripValue(positionSection(), 'Risk, shown as')?.textContent,
+        ).not.toBe('$450');
+        expect(
+            statStripCaption(positionSection(), 'Risk, shown as')?.textContent,
+        ).toBe('Fee equivalent');
     });
 });
 

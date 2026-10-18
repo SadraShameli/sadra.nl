@@ -1,6 +1,7 @@
 'use client';
 
-import { type ProfileSubTab, ProfileSubTabs } from './ProfileSubTabs';
+import { type PageTab, PageTabs } from '~/components/PageTabs';
+
 import { DevicesPanel } from './sensor-hub/DevicesPanel';
 import { LocationsPanel } from './sensor-hub/LocationsPanel';
 import { ReadingsPanel } from './sensor-hub/ReadingsPanel';
@@ -20,7 +21,7 @@ const SensorHubSection = {
 type SensorHubSection =
     (typeof SensorHubSection)[keyof typeof SensorHubSection];
 
-const SENSOR_HUB_TABS: readonly ProfileSubTab<SensorHubSection>[] = [
+const SENSOR_HUB_TABS: readonly PageTab<SensorHubSection>[] = [
     {
         content: <LocationsPanel />,
         label: 'Locations',
@@ -55,7 +56,7 @@ const SENSOR_HUB_TABS: readonly ProfileSubTab<SensorHubSection>[] = [
 
 export function SensorHubTab() {
     return (
-        <ProfileSubTabs
+        <PageTabs
             className="app-profile__sensor-hub"
             defaultValue={SensorHubSection.Locations}
             tabs={SENSOR_HUB_TABS}

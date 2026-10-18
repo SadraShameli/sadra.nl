@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CushionBoardCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/CushionBoardCard';
 import { type CushionBoardCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
+import { infoText } from '../infoPopover';
+
 type Row = CushionBoardCardModel['rows'][number];
 
 function row(overrides: Partial<Row> = {}): Row {
@@ -64,7 +66,8 @@ describe('CushionBoardCard', () => {
             root.render(<CushionBoardCard model={model} />);
         });
         const cells = [...container.querySelectorAll(':scope tbody tr')].map(
-            (tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent),
+            (tr) =>
+                [...tr.querySelectorAll('th, td')].map((td) => td.textContent),
         );
         expect(cells).toEqual([
             [
@@ -74,7 +77,7 @@ describe('CushionBoardCard', () => {
                 '$52,000.00',
                 '$1,000.00',
                 '2.0R',
-                '2026-09-25',
+                '25 Sep 2026',
             ],
             [
                 '2',
@@ -83,14 +86,14 @@ describe('CushionBoardCard', () => {
                 '$48,000.00',
                 '$2,500.00',
                 '5.0R',
-                '2026-09-24',
+                '24 Sep 2026',
             ],
         ]);
         const unavailable = container.querySelector(
             '[aria-label="Accounts without a cushion"]',
         );
         expect(unavailable?.textContent).toBe('TopStep C: no snapshot yet');
-        expect(container.textContent).toContain(
+        expect(infoText(container, 'Cushion board')).toContain(
             'Ranked by cushion in risk units.',
         );
         expect(container.textContent).not.toContain(

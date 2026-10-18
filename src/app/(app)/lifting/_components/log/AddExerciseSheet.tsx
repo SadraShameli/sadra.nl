@@ -97,15 +97,13 @@ export function AddExerciseSheet({
                                                     <p className="text-sm font-medium text-foreground/90">
                                                         {ex.name}
                                                     </p>
-                                                    <p className="text-[11px] text-muted-foreground">
+                                                    <p className="text-xs text-muted-foreground">
                                                         {ex.equipment} ·{' '}
                                                         {ex.primaryMuscle}
                                                     </p>
                                                 </div>
                                                 {ex.isCustom && (
-                                                    <Badge variant="secondary">
-                                                        Custom
-                                                    </Badge>
+                                                    <Badge>Custom</Badge>
                                                 )}
                                             </div>
                                         </CommandItem>

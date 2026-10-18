@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import TradingInputs from '~/app/(app)/prop-calculator/_components/TradingInputs';
 
+import { infoText } from './infoPopover';
+
 function hazardInput(): HTMLInputElement {
     const input = document.body.querySelector<HTMLInputElement>(
         '#live-transfer-hazard',
@@ -85,6 +87,8 @@ function renderInputs(
     );
 }
 
+const HAZARD_LABEL = 'Live-transfer hazard per paid payout';
+
 describe('TradingInputs live-transfer hazard input (PT-73, F-V26)', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -125,7 +129,7 @@ describe('TradingInputs live-transfer hazard input (PT-73, F-V26)', () => {
             'label[for="live-transfer-hazard"]',
         );
         expect(label?.textContent).toContain('Live-transfer hazard');
-        expect(document.body.textContent).toContain(
+        expect(infoText(document.body, HAZARD_LABEL)).toContain(
             'your assumption, not a firm rule',
         );
     });
@@ -153,7 +157,7 @@ describe('TradingInputs live-transfer hazard input (PT-73, F-V26)', () => {
             root.render(renderInputs(0.2, vi.fn()));
         });
         openAdvanced();
-        const text = document.body.textContent;
+        const text = infoText(document.body, HAZARD_LABEL);
         expect(text).toContain('Only the strategy lab uses it');
         expect(text).toContain(
             'the results, sizing, compare and the other tools stay unpriced',
@@ -166,7 +170,7 @@ describe('TradingInputs live-transfer hazard input (PT-73, F-V26)', () => {
             root.render(renderInputs(0.2, vi.fn()));
         });
         openAdvanced();
-        const text = document.body.textContent;
+        const text = infoText(document.body, HAZARD_LABEL);
         expect(text).toContain('valued at $0');
         expect(text).toContain('instrument and stop points');
     });
@@ -176,6 +180,9 @@ describe('TradingInputs live-transfer hazard input (PT-73, F-V26)', () => {
             root.render(renderInputs(0, vi.fn()));
         });
         openAdvanced();
-        expect(document.body.textContent).not.toContain('\u{2014}');
+        const visible = document.body.textContent;
+        expect(
+            `${visible}${infoText(document.body, HAZARD_LABEL)}`,
+        ).not.toContain('\u{2014}');
     });
 });

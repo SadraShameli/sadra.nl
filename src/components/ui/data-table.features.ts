@@ -86,11 +86,21 @@ export const DATA_TABLE_ALIGN_CLASS_NAME: Record<DataTableAlign, string> = {
     [DataTableAlign.Start]: 'text-left',
 };
 
+export const DataTablePhoneLayout = {
+    Cards: 'cards',
+    Scroll: 'scroll',
+} as const;
+
 export type DataTableColumnMeta = {
     align?: DataTableAlign;
+    isPhoneHidden?: boolean;
+    isRowActions?: boolean;
     isRowHeader?: boolean;
     label?: string;
 };
+
+export type DataTablePhoneLayout =
+    (typeof DataTablePhoneLayout)[keyof typeof DataTablePhoneLayout];
 
 export const dataTableFeatures = tableFeatures({
     columnFacetingFeature,
@@ -117,6 +127,11 @@ export type DataTableColumn<TData extends RowData> = ColumnDef<
     TData
 >;
 
+export type DataTableCore<TData extends RowData> = Table<
+    typeof dataTableFeatures,
+    TData
+>;
+
 export type DataTableInstance<TData extends RowData> = ReactTable<
     typeof dataTableFeatures,
     TData
@@ -139,7 +154,7 @@ export type DataTableSlot<TData extends RowData> =
     ((table: DataTableInstance<TData>) => ReactNode) | ReactNode;
 
 export function hasActiveTableFilter<TData extends RowData>(
-    table: Table<typeof dataTableFeatures, TData>,
+    table: DataTableCore<TData>,
 ): boolean {
     const { columnFilters } = table.store.state;
     const globalFilter: unknown = table.store.state.globalFilter;

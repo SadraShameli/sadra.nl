@@ -3,8 +3,8 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 import { z } from 'zod';
 
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { tradeAssessmentRowSchema } from '~/lib/schemas/tradingRows';
@@ -32,7 +32,7 @@ export default function TradeChecklistPage() {
                     'container pt-spacing pb-24',
                 )}
             >
-                <ToolPageHeader
+                <PageHeader
                     eyebrow={siteToolTitle(ToolTicker.Checklist)}
                     lead={
                         <>

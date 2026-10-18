@@ -1,18 +1,11 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 
-import { PageTransition } from '~/components/PageTransition';
-import { Alert, AlertDescription } from '~/components/ui/alert';
-import {
-    Card,
-    CardContent,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '~/components/ui/card';
+import { AuthPageFrame } from '~/app/(auth)/_components/AuthPageFrame';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { CardContent, CardFooter } from '~/components/ui/card';
 import { forgotPasswordSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 
 import { ForgotPasswordForm } from './ForgotPasswordForm';
 
@@ -25,40 +18,24 @@ export default function ForgotPasswordPage({
     searchParams,
 }: ForgotPasswordPageProperties) {
     return (
-        <PageTransition>
-            <div
-                className={cn(
-                    'app-auth__page',
-                    'flex flex-1 items-center justify-center px-4 pt-20 pb-12',
-                )}
-            >
-                <div className="w-full max-w-sm">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Forgot password</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex flex-col gap-3">
-                            <Suspense fallback={<ForgotPasswordIntro />}>
-                                <ForgotPasswordNotice
-                                    searchParams={searchParams}
-                                />
-                            </Suspense>
-                            <ForgotPasswordForm />
-                        </CardContent>
-                        <CardFooter className="mt-2 flex flex-col gap-3">
-                            <p className="text-center text-sm text-muted-foreground">
-                                <Link
-                                    className="text-foreground underline underline-offset-4 hover:opacity-70"
-                                    href={routes.auth.login}
-                                >
-                                    Back to sign in
-                                </Link>
-                            </p>
-                        </CardFooter>
-                    </Card>
-                </div>
-            </div>
-        </PageTransition>
+        <AuthPageFrame title="Forgot password">
+            <CardContent className="flex flex-col gap-3">
+                <Suspense fallback={<ForgotPasswordIntro />}>
+                    <ForgotPasswordNotice searchParams={searchParams} />
+                </Suspense>
+                <ForgotPasswordForm />
+            </CardContent>
+            <CardFooter className="mt-2 flex flex-col gap-3">
+                <p className="text-center text-sm text-muted-foreground">
+                    <Link
+                        className="text-foreground underline underline-offset-4 hover:opacity-70"
+                        href={routes.auth.login}
+                    >
+                        Back to sign in
+                    </Link>
+                </p>
+            </CardFooter>
+        </AuthPageFrame>
     );
 }
 
@@ -75,11 +52,10 @@ async function ForgotPasswordNotice({
 }: ForgotPasswordPageProperties) {
     const { sent } = forgotPasswordSearchSchema.parse(await searchParams);
     return sent ? (
-        <Alert variant="success">
-            <AlertDescription>
-                If an account exists for that email, a reset link has been sent.
-            </AlertDescription>
-        </Alert>
+        <StatusRow
+            title="If an account exists for that email, a reset link has been sent."
+            tone={StatusTone.Pass}
+        />
     ) : (
         <ForgotPasswordIntro />
     );

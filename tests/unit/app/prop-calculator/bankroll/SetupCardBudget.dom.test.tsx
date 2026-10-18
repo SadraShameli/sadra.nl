@@ -7,6 +7,8 @@ import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/
 import { dollars, fraction } from '~/lib/prop-calculator';
 import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 
+import { statStripValue } from '../statStripValue';
+
 const harness = vi.hoisted(() => ({
     availableCents: null as null | number,
     maxAttempts: 1,
@@ -132,6 +134,18 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
         );
     }
 
+    function statuses(): string[] {
+        return [...container.querySelectorAll('[role="status"]')].map(
+            (element) => element.textContent,
+        );
+    }
+
+    function budgetStatus(): Element | undefined {
+        return [...container.querySelectorAll('[role="status"]')].find(
+            (element) => element.textContent.startsWith('you need at least'),
+        );
+    }
+
     it('tells a user below the threshold budget how much they need, in red, with the attempts', () => {
         render(
             stateOf({
@@ -139,14 +153,15 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
                 lossThreshold: fraction(0.05),
             }),
         );
-        const sentence = alerts().find((text) =>
+        const sentence = statuses().find((text) =>
             text.startsWith('you need at least'),
         );
         expect(sentence).toBe(
             'you need at least $4,300 (43 attempts) at this plan for your threshold',
         );
-        const alert = container.querySelector('[role="alert"]');
-        expect(alert?.className).toContain('text-destructive');
+        expect(
+            budgetStatus()?.querySelector('.text-destructive'),
+        ).not.toBeNull();
     });
 
     it('repeats the figure the minimum budget card shows', () => {
@@ -156,14 +171,12 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
                 lossThreshold: fraction(0.05),
             }),
         );
-        const card = [...container.querySelectorAll('span')].find(
-            (element) =>
-                element.textContent === 'Minimum budget for your threshold',
-        );
-        const cardValue = card?.nextElementSibling?.textContent ?? '';
+        const cardValue =
+            statStripValue(container, 'Minimum budget for your threshold')
+                ?.textContent ?? '';
         const match = /^(\$[\d,]+) \((\d+) attempts\)$/.exec(cardValue);
         expect(match).not.toBeNull();
-        expect(alerts()).toContain(
+        expect(statuses()).toContain(
             `you need at least ${match?.[1] ?? ''} (${match?.[2] ?? ''} attempts) at this plan for your threshold`,
         );
     });
@@ -176,6 +189,7 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
             }),
         );
         expect(alerts()).toEqual([]);
+        expect(budgetStatus()).toBeUndefined();
         expect(container.textContent).not.toContain('you need at least');
     });
 

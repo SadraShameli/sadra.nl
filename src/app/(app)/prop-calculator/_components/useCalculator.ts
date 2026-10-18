@@ -84,7 +84,7 @@ export enum ObjectiveOrigin {
 }
 
 export interface CalculatorActions {
-    addLabScenario: () => void;
+    addLabScenario: (scenario: LabScenario) => void;
     applyState: (next: CalculatorState) => void;
     dispatch: Dispatch<CalculatorAction>;
     removeLabScenario: (id: string) => void;
@@ -172,8 +172,8 @@ export function createCalculatorActions(
     dispatch: Dispatch<CalculatorAction>,
 ): CalculatorActions {
     return {
-        addLabScenario: () =>
-            dispatch({ type: CalculatorActionType.AddLabScenario }),
+        addLabScenario: (scenario) =>
+            dispatch({ scenario, type: CalculatorActionType.AddLabScenario }),
         applyState: (next) =>
             dispatch({ state: next, type: CalculatorActionType.ApplyState }),
         dispatch,

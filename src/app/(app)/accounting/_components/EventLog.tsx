@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import type { LogLevel } from '~/lib/accounting/runner-types';
 
 import { EmptyState } from '~/components/ui/empty-state';
+import { formatDisplayTimeWithSeconds } from '~/lib/format';
 import { cn } from '~/lib/utilities';
 
 export interface LogLine {
@@ -59,7 +60,7 @@ export function EventLog({
                             key={index}
                         >
                             <span className="shrink-0 text-ink-muted tabular-nums">
-                                {new Date(l.ts).toISOString().slice(11, 19)}
+                                {formatDisplayTimeWithSeconds(new Date(l.ts))}
                             </span>
                             <span className="wrap-break-word">{l.message}</span>
                         </li>

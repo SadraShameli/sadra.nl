@@ -2,7 +2,6 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { SCALE_GATE_STATUS_VARIANT } from '~/app/(app)/prop-calculator/accounts/_components/scaleGateBadge';
 import {
     SCALE_GATE_STATUS_TEXT,
     ScaleGateStatus,
@@ -15,14 +14,6 @@ function byName(a: string, b: string): number {
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
 const SOURCE_FILE = /\.tsx?$/;
 const TEXT_HOME = path.join('lib', 'prop-accounts', 'bankroll', 'ScaleGate.ts');
-const VARIANT_HOME = path.join(
-    'app',
-    '(app)',
-    'prop-calculator',
-    'accounts',
-    '_components',
-    'scaleGateBadge.ts',
-);
 
 function filesMatching(pattern: RegExp): string[] {
     return sourceFiles(SOURCE_ROOT)
@@ -42,7 +33,7 @@ function sourceFiles(directory: string): string[] {
     });
 }
 
-describe('one scale gate label map and one badge variant map (PT-68b)', () => {
+describe('one scale gate label map and no badge variant map (PT-68b)', () => {
     it('words every scale gate status once, next to the status enum', () => {
         expect(Object.keys(SCALE_GATE_STATUS_TEXT).toSorted(byName)).toEqual(
             Object.values(ScaleGateStatus).toSorted(byName),
@@ -53,20 +44,14 @@ describe('one scale gate label map and one badge variant map (PT-68b)', () => {
         expect(filesMatching(/'Not positive after cost'/)).toEqual([TEXT_HOME]);
     });
 
-    it('gives every scale gate status one badge variant, in one app-level leaf', () => {
-        expect(Object.keys(SCALE_GATE_STATUS_VARIANT).toSorted(byName)).toEqual(
-            Object.values(ScaleGateStatus).toSorted(byName),
+    it('lets the status word carry the meaning, with no badge variant map anywhere', () => {
+        expect(Object.values(SCALE_GATE_STATUS_TEXT)).toHaveLength(
+            Object.values(ScaleGateStatus).length,
         );
-        expect(SCALE_GATE_STATUS_VARIANT).toEqual({
-            [ScaleGateStatus.NotEnoughSample]: 'warning',
-            [ScaleGateStatus.NotPositiveAfterCost]: 'warning',
-            [ScaleGateStatus.Ready]: 'outline',
-            [ScaleGateStatus.ThresholdsNotSet]: 'secondary',
-        });
         expect(
             filesMatching(
                 /(?:const|function)\s+(?:SCALE_GATE_STATUS_VARIANT|scaleGateVariant)\b/,
             ),
-        ).toEqual([VARIANT_HOME]);
+        ).toEqual([]);
     });
 });

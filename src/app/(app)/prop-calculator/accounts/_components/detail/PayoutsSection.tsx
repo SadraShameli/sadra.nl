@@ -1,8 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil } from 'lucide-react';
-import { useEffect, useId } from 'react';
+import { useId } from 'react';
 import { type Control, Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -13,8 +12,14 @@ import {
 } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
 import { payoutStatusLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { Button } from '~/components/ui/button';
+import { FormDialog } from '~/components/FormDialog';
+import {
+    deleteRowAction,
+    editRowAction,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { Dialog } from '~/components/ui/dialog';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
@@ -26,6 +31,7 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
+import { formatDisplayDate } from '~/lib/format';
 import {
     EntryTextKind,
     formatUsdCents,
@@ -38,15 +44,14 @@ import { payoutCreateSchema } from '~/lib/schemas/propAccounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import {
+    AddRecordButton,
     type ListQuery,
     ListQueryStatus,
-    RemoveRecordDialog,
 } from './DetailParts';
 import { nullIfBlank, parsedOrIssues } from './formParsing';
-import { useRowEditing } from './useRowEditing';
+import { useRecordDialog } from './useRecordDialog';
 
 enum PayoutsSectionColumn {
-    Actions = 'actions',
     ApprovedOn = 'approved-on',
     Gross = 'gross',
     Note = 'note',
@@ -81,7 +86,7 @@ export function PayoutsSection({
     readonly onFailure: (error: unknown) => void;
     readonly query: ListQuery<PayoutRow>;
 }) {
-    const { editing, startEditing, stopEditing } = useRowEditing<PayoutRow>();
+    const dialog = useRecordDialog<PayoutRow>();
     const utilities = api.useUtils();
     const remove = api.propAccounts.payout.remove.useMutation({
         onError: onFailure,
@@ -106,11 +111,12 @@ export function PayoutsSection({
                             {
                                 cell: ({ row: { original: row } }) => (
                                     <div className="tabular-nums">
-                                        {row.requestedOn}
+                                        {formatDisplayDate(row.requestedOn)}
                                     </div>
                                 ),
                                 header: 'Requested',
                                 id: PayoutsSectionColumn.Requested,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row: { original: row } }) => (
@@ -142,7 +148,9 @@ export function PayoutsSection({
                             {
                                 cell: ({ row: { original: row } }) => (
                                     <div className="tabular-nums">
-                                        {row.approvedOn ?? ''}
+                                        {row.approvedOn === null
+                                            ? ''
+                                            : formatDisplayDate(row.approvedOn)}
                                     </div>
                                 ),
                                 header: 'Approved on',
@@ -151,7 +159,9 @@ export function PayoutsSection({
                             {
                                 cell: ({ row: { original: row } }) => (
                                     <div className="tabular-nums">
-                                        {row.paidOn ?? ''}
+                                        {row.paidOn === null
+                                            ? ''
+                                            : formatDisplayDate(row.paidOn)}
                                     </div>
                                 ),
                                 header: 'Paid on',
@@ -166,48 +176,30 @@ export function PayoutsSection({
                                 header: 'Note',
                                 id: PayoutsSectionColumn.Note,
                             },
-                            {
-                                cell: ({ row: { original: row } }) => (
-                                    <>
-                                        <div className="flex justify-end gap-1">
-                                            {canRecord && (
-                                                <Button
-                                                    aria-label={`Edit the payout requested on ${row.requestedOn}`}
-                                                    onClick={(event) => {
-                                                        startEditing(
-                                                            row,
-                                                            event.currentTarget,
-                                                        );
-                                                    }}
-                                                    size="icon"
-                                                    type="button"
-                                                    variant="ghost"
-                                                >
-                                                    <Pencil />
-                                                </Button>
-                                            )}
-                                            <RemoveRecordDialog
-                                                confirmText="Delete"
-                                                description="This permanently removes the payout from this account and from your totals."
-                                                isPending={remove.isPending}
-                                                onConfirm={() => {
-                                                    remove.mutate({
-                                                        id: row.id,
-                                                    });
-                                                }}
-                                                title="Delete this payout?"
-                                                triggerLabel={`Delete the payout requested on ${row.requestedOn}`}
-                                            />
-                                        </div>
-                                    </>
-                                ),
-                                header: () => (
-                                    <>
-                                        <span className="sr-only">Actions</span>
-                                    </>
-                                ),
-                                id: PayoutsSectionColumn.Actions,
-                            },
+                            rowActionsColumn<PayoutRow>({
+                                actionsOf: (row) => [
+                                    ...(canRecord
+                                        ? [
+                                              editRowAction(() => {
+                                                  dialog.startEditing(row);
+                                              }),
+                                          ]
+                                        : []),
+                                    deleteRowAction({
+                                        description:
+                                            'This permanently removes the payout from this account and from your totals.',
+                                        onDelete: () => {
+                                            remove.mutate({ id: row.id });
+                                        },
+                                        title: 'Delete this payout?',
+                                    }),
+                                ],
+                                isPendingOf: (row) =>
+                                    remove.isPending &&
+                                    remove.variables.id === row.id,
+                                labelOf: (row) =>
+                                    `the payout requested on ${formatDisplayDate(row.requestedOn)}`,
+                            }),
                         ]}
                         data={[...rows]}
                         isSortable={false}
@@ -220,14 +212,21 @@ export function PayoutsSection({
                 </>
             )}
             {canRecord && (
-                <PayoutForm
-                    accountId={accountId}
-                    editing={editing}
-                    key={editing?.id ?? 'new'}
-                    onDone={stopEditing}
-                    onFailure={onFailure}
+                <AddRecordButton
+                    label="Add payout"
+                    onAdd={dialog.startAdding}
                 />
             )}
+            <Dialog onOpenChange={dialog.onOpenChange} open={dialog.isOpen}>
+                {dialog.isOpen && (
+                    <PayoutForm
+                        accountId={accountId}
+                        editing={dialog.editing}
+                        onDone={dialog.close}
+                        onFailure={onFailure}
+                    />
+                )}
+            </Dialog>
         </>
     );
 }
@@ -333,20 +332,14 @@ function PayoutForm({
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
     const formId = useId();
-    const { setFocus } = form;
-    const isEditing = editing !== null;
     useFollowToday({
-        isEnabled: !isEditing,
+        isEnabled: editing === null,
         read: () => form.getValues('requestedOn'),
         today,
         write: (day) => {
             form.resetField('requestedOn', { defaultValue: day });
         },
     });
-
-    useEffect(() => {
-        if (isEditing) setFocus('requestedOn');
-    }, [isEditing, setFocus]);
 
     const save = async (values: PayoutFormValues) => {
         const parsed = schema.safeParse(values);
@@ -369,7 +362,6 @@ function PayoutForm({
                 });
                 toast.success('Payout saved');
             }
-            form.reset(emptyPayoutValues(today));
             onDone();
         } catch (error) {
             onFailure(error);
@@ -379,13 +371,13 @@ function PayoutForm({
     };
 
     return (
-        <form
-            aria-label={editing === null ? 'Add a payout' : 'Edit payout'}
-            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-            noValidate
-            onSubmit={(event) => {
-                void form.handleSubmit(save)(event);
-            }}
+        <FormDialog
+            form={form}
+            onCancel={onDone}
+            onSubmit={save}
+            pending={create.isPending || update.isPending}
+            submitLabel={editing === null ? 'Add payout' : 'Save payout'}
+            title={editing === null ? 'Add a payout' : 'Edit payout'}
         >
             <DateField
                 control={form.control}
@@ -442,10 +434,7 @@ function PayoutForm({
                 control={form.control}
                 name="note"
                 render={({ field, fieldState }) => (
-                    <Field
-                        className="md:col-span-2 lg:col-span-3"
-                        data-invalid={fieldState.invalid}
-                    >
+                    <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor={`${formId}-note`}>Note</FieldLabel>
                         <Textarea
                             aria-invalid={fieldState.invalid}
@@ -457,20 +446,7 @@ function PayoutForm({
                     </Field>
                 )}
             />
-            <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
-                <Button
-                    disabled={create.isPending || update.isPending}
-                    type="submit"
-                >
-                    {editing === null ? 'Add payout' : 'Save payout'}
-                </Button>
-                {editing !== null && (
-                    <Button onClick={onDone} type="button" variant="ghost">
-                        Cancel edit
-                    </Button>
-                )}
-            </div>
-        </form>
+        </FormDialog>
     );
 }
 

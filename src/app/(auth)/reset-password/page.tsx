@@ -2,12 +2,11 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
-import { PageTransition } from '~/components/PageTransition';
+import { AuthPageFrame } from '~/app/(auth)/_components/AuthPageFrame';
 import { Alert, AlertDescription } from '~/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { CardContent } from '~/components/ui/card';
 import { resetPasswordSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 
 import { ResetPasswordForm } from './ResetPasswordForm';
 
@@ -25,31 +24,17 @@ export default function ResetPasswordPage({
     searchParams,
 }: ResetPasswordPageProperties) {
     return (
-        <PageTransition>
-            <div
-                className={cn(
-                    'app-auth__page',
-                    'flex flex-1 items-center justify-center px-4 pt-20 pb-12',
-                )}
+        <AuthPageFrame title="Set new password">
+            <Suspense
+                fallback={
+                    <CardContent>
+                        <ResetPasswordForm token="" />
+                    </CardContent>
+                }
             >
-                <div className="w-full max-w-sm">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Set new password</CardTitle>
-                        </CardHeader>
-                        <Suspense
-                            fallback={
-                                <CardContent>
-                                    <ResetPasswordForm token="" />
-                                </CardContent>
-                            }
-                        >
-                            <ResetPasswordBody searchParams={searchParams} />
-                        </Suspense>
-                    </Card>
-                </div>
-            </div>
-        </PageTransition>
+                <ResetPasswordBody searchParams={searchParams} />
+            </Suspense>
+        </AuthPageFrame>
     );
 }
 

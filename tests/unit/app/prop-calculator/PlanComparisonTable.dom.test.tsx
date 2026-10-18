@@ -217,7 +217,7 @@ const CANDIDATE_ACCOUNT_SIZE = 50_000;
 
 function rowLabels(container: HTMLElement): string[] {
     return [...container.querySelectorAll(':scope tbody tr')].map(
-        (row) => row.querySelector(':scope td')?.textContent ?? '',
+        (row) => row.querySelector(':scope th[scope="row"]')?.textContent ?? '',
     );
 }
 
@@ -328,7 +328,7 @@ describe('PlanComparisonTable follows and names the objective (PT-83, F-V15, F-V
 
     it('shows the cycle net of each plan beside the monthly net and ROI', () => {
         render();
-        const headers = [...container.querySelectorAll(':scope th')].map(
+        const headers = [...container.querySelectorAll(':scope thead th')].map(
             (header) => header.textContent,
         );
         const monthlyIndex = headers.findIndex((text) =>
@@ -342,9 +342,8 @@ describe('PlanComparisonTable follows and names the objective (PT-83, F-V15, F-V
         );
         if (!first) throw new Error('first row plan not found');
         const cells = [
-            ...(container
-                .querySelector(':scope tbody tr')
-                ?.querySelectorAll(':scope td') ?? []),
+            ...(container.querySelector<HTMLTableRowElement>(':scope tbody tr')
+                ?.cells ?? []),
         ].map((cell) => cell.textContent);
         expect(cells[monthlyIndex + 1]).toBe(
             formatCurrency(first.out.expectedNet),

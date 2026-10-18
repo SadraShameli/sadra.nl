@@ -1,7 +1,7 @@
 import { type Instant } from 'next';
 
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { CapsulePage } from '~/components/CapsulePage';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { requireRootUser } from '~/lib/auth/guards';
 import { siteContent } from '~/lib/site/content';
@@ -38,7 +38,7 @@ export default async function ResumePage() {
     return (
         <PageTransition>
             <CapsulePage>
-                <ToolPageHeader
+                <PageHeader
                     eyebrow={siteContent.manifest.name}
                     lead="Formatted as a PDF, view inline or download."
                     title="Resume"

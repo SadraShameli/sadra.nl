@@ -88,7 +88,7 @@ function riskCandidateColumns(
             ),
             header: 'Risk',
             id: RiskCandidateColumn.Risk,
-            meta: { align: DataTableAlign.End },
+            meta: { align: DataTableAlign.End, isRowHeader: true },
         },
         {
             cell: ({ row: { original: row } }) => row.contractsText ?? '',

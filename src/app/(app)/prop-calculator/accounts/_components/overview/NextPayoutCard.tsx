@@ -22,6 +22,8 @@ import {
     type NextPayoutCardModel,
     type NextPayoutCardRow,
 } from './overviewModel';
+import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 const NOT_AVAILABLE_TEXT = 'Not available';
 const NOT_FUNDED_TEXT = 'Not funded yet';
@@ -34,13 +36,18 @@ export const NextPayoutCard = memo(function NextPayoutCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                {model.statusNote ?? 'No account to project yet.'}
-            </p>
+            <OverviewPanel section={OverviewSectionId.NextPayout}>
+                <p className="text-sm text-muted-foreground">
+                    {model.statusNote ?? 'No account to project yet.'}
+                </p>
+            </OverviewPanel>
         );
     }
     return (
-        <div className="flex flex-col gap-4">
+        <OverviewPanel
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.NextPayout}
+        >
             <DataTable
                 columns={NEXT_PAYOUT_COLUMNS}
                 data={[...model.rows]}
@@ -53,12 +60,7 @@ export const NextPayoutCard = memo(function NextPayoutCard({
                     <NextPayoutRowNotes key={row.accountId} row={row} />
                 ))}
             </Accordion>
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-        </div>
+        </OverviewPanel>
     );
 });
 
@@ -136,6 +138,7 @@ const NEXT_PAYOUT_COLUMNS: DataTableColumn<NextPayoutCardRow>[] = [
         cell: ({ row: { original: row } }) => row.label,
         header: 'Account',
         id: NextPayoutColumn.Account,
+        meta: { isRowHeader: true },
     },
     {
         cell: ({ row: { original: row } }) => row.plan,

@@ -3,6 +3,8 @@ import { memo } from 'react';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type EvSourcesCardModel } from './overviewModel';
+import { InfoLines, InfoStack, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum ConversionEvColumn {
     AttemptCost = 'attempt-cost',
@@ -27,7 +29,24 @@ export const EvSourcesCard = memo(function EvSourcesCard({
     readonly model: EvSourcesCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-4">
+        <OverviewPanel
+            info={
+                <InfoStack>
+                    {model.liveTransferNotes.length > 0 && (
+                        <ul
+                            aria-label="Live-transfer and payout-trigger assumptions behind the values"
+                            className="flex flex-col gap-1"
+                        >
+                            {model.liveTransferNotes.map((note) => (
+                                <li key={note}>{note}</li>
+                            ))}
+                        </ul>
+                    )}
+                    <InfoLines lines={model.disclosures} />
+                </InfoStack>
+            }
+            section={OverviewSectionId.EvSources}
+        >
             {model.plans.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No plan you hold yet.
@@ -40,6 +59,7 @@ export const EvSourcesCard = memo(function EvSourcesCard({
                             cell: ({ row }) => <>{row.original.plan}</>,
                             header: 'Plan',
                             id: ConversionEvColumn.Plan,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.attemptCost}</>,
@@ -94,6 +114,7 @@ export const EvSourcesCard = memo(function EvSourcesCard({
                             ),
                             header: 'Funded account',
                             id: FundedProgressColumn.FundedAccount,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row: { original: row } }) => (
@@ -122,9 +143,7 @@ export const EvSourcesCard = memo(function EvSourcesCard({
                             cell: ({ row: { original: row } }) => (
                                 <>{row.heldInFundedProgress}</>
                             ),
-                            header: () => (
-                                <>Held in funded progress ({model.heldLabel})</>
-                            ),
+                            header: `Held in funded progress (${model.heldLabel})`,
                             id: FundedProgressColumn.HeldInFundedProgress,
                             meta: { align: DataTableAlign.End },
                         },
@@ -135,21 +154,6 @@ export const EvSourcesCard = memo(function EvSourcesCard({
                     rowId={(row) => row.key}
                 />
             )}
-            {model.liveTransferNotes.length > 0 && (
-                <ul
-                    aria-label="Live-transfer and payout-trigger assumptions behind the values"
-                    className="flex flex-col gap-1 text-xs text-muted-foreground"
-                >
-                    {model.liveTransferNotes.map((note) => (
-                        <li key={note}>{note}</li>
-                    ))}
-                </ul>
-            )}
-            <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-        </div>
+        </OverviewPanel>
     );
 });

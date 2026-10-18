@@ -11,7 +11,7 @@ import {
     ChartContainer,
     ChartSize,
 } from '~/components/ui/chart';
-import { formatCompactCurrency } from '~/lib/format';
+import { formatCompactCurrency, formatDisplayDate } from '~/lib/format';
 
 import { type SnapshotSeries } from './snapshotSeries';
 
@@ -44,7 +44,13 @@ export function SnapshotHistoryChart({
                         data={series.points}
                         margin={{ bottom: 8, left: 0, right: 12, top: 10 }}
                     >
-                        <XAxis {...CHART_X_AXIS_PROPS} dataKey="asOf" />
+                        <XAxis
+                            {...CHART_X_AXIS_PROPS}
+                            dataKey="asOf"
+                            tickFormatter={(value: string) =>
+                                formatDisplayDate(value)
+                            }
+                        />
                         <YAxis
                             {...CHART_Y_AXIS_PROPS}
                             domain={['auto', 'auto']}
@@ -80,7 +86,9 @@ export function SnapshotHistoryChart({
                 >
                     {series.markers.map((marker) => (
                         <li key={marker.id}>
-                            <span className="tabular-nums">{marker.on}</span>{' '}
+                            <span className="tabular-nums">
+                                {formatDisplayDate(marker.on)}
+                            </span>{' '}
                             {marker.label}
                         </li>
                     ))}

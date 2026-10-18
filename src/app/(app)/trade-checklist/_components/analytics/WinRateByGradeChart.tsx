@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_BAR_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
@@ -50,7 +51,7 @@ export function WinRateByGradeChart({
                     domain={[0, 1]}
                     tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
                 />
-                <Bar dataKey="winRate" isAnimationActive={false}>
+                <Bar {...CHART_BAR_PROPS} dataKey="winRate">
                     <LabelList
                         dataKey="count"
                         fill="var(--muted-foreground)"

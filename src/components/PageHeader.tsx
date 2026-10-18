@@ -1,19 +1,31 @@
+import { ArrowLeft } from 'lucide-react';
+import { type Route } from 'next';
+import Link from 'next/link';
 import { type ComponentProps, type ReactNode, type Ref } from 'react';
 
 import { cn } from '~/lib/utilities';
 
-export function ToolPageHeader({
+export interface PageHeaderBackLink {
+    readonly href: Route;
+    readonly label: string;
+}
+
+export function PageHeader({
     actions,
+    backLink,
     className,
     eyebrow,
     lead,
+    meta,
     title,
     titleReference,
 }: {
     readonly actions?: ReactNode;
+    readonly backLink?: PageHeaderBackLink;
     readonly className?: string;
-    readonly eyebrow: string;
+    readonly eyebrow?: string;
     readonly lead?: ReactNode;
+    readonly meta?: ReactNode;
     readonly title: ReactNode;
     readonly titleReference?: Ref<HTMLHeadingElement>;
 }) {
@@ -26,15 +38,31 @@ export function ToolPageHeader({
             )}
         >
             <div className="flex max-w-2xl flex-col gap-4">
-                <div className="type-eyebrow text-camel">{eyebrow}</div>
-                <ToolPageTitle
+                {backLink !== undefined && (
+                    <Link
+                        className="inline-flex w-fit items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink"
+                        href={backLink.href}
+                    >
+                        <ArrowLeft aria-hidden className="size-4" />
+                        {backLink.label}
+                    </Link>
+                )}
+                {eyebrow !== undefined && (
+                    <div className="type-eyebrow text-camel">{eyebrow}</div>
+                )}
+                <PageTitle
                     ref={titleReference}
                     tabIndex={titleReference === undefined ? undefined : -1}
                 >
                     {title}
-                </ToolPageTitle>
+                </PageTitle>
                 {lead === undefined ? null : (
                     <ToolPageLead>{lead}</ToolPageLead>
+                )}
+                {meta === undefined ? null : (
+                    <div className="flex flex-wrap items-center gap-2">
+                        {meta}
+                    </div>
                 )}
             </div>
             {actions === undefined ? null : (
@@ -46,7 +74,7 @@ export function ToolPageHeader({
     );
 }
 
-export function ToolPageTitle({
+function PageTitle({
     children,
     className,
     ...properties
@@ -66,7 +94,7 @@ export function ToolPageTitle({
 
 function ToolPageLead({ children }: { readonly children: ReactNode }) {
     return (
-        <p className="m-0 max-w-measure text-[15px]/relaxed text-ink-muted">
+        <p className="m-0 max-w-measure type-small text-ink-muted">
             {children}
         </p>
     );

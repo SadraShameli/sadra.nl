@@ -99,6 +99,7 @@ export interface AccountListFilters {
     readonly copyGroupId: null | string;
     readonly firmKey: FirmKey | null;
     readonly includeArchived: boolean;
+    readonly search: string;
     readonly stage: AccountStage | null;
     readonly status: AccountStatus | null;
     readonly tag: null | string;
@@ -142,6 +143,7 @@ export const DEFAULT_ACCOUNT_LIST_FILTERS: AccountListFilters = {
     copyGroupId: null,
     firmKey: null,
     includeArchived: false,
+    search: '',
     stage: null,
     status: null,
     tag: null,
@@ -306,7 +308,20 @@ export function filterAccountRows(
             filters.copyGroupId === null ||
                 account.copyGroupId === filters.copyGroupId,
             filters.tag === null || account.tags.includes(filters.tag),
+            isSearchMatch(account.label, filters.search),
         ].every(Boolean),
+    );
+}
+
+export function hasActiveAccountFilters(filters: AccountListFilters): boolean {
+    return (
+        filters.firmKey !== null ||
+        filters.stage !== null ||
+        filters.status !== null ||
+        filters.copyGroupId !== null ||
+        filters.tag !== null ||
+        filters.includeArchived ||
+        filters.search.trim() !== ''
     );
 }
 
@@ -414,6 +429,11 @@ function cushionOf(snapshot: AccountListSnapshot | null): null | UsdCents {
     return snapshot === null || floor === null
         ? null
         : usdCents(snapshot.balanceCents - floor);
+}
+
+function isSearchMatch(label: string, search: string): boolean {
+    const needle = search.trim().toLocaleLowerCase();
+    return needle === '' || label.toLocaleLowerCase().includes(needle);
 }
 
 function readinessRankOf(tier: null | PayoutReadinessTier): null | number {

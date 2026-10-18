@@ -23,6 +23,10 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -356,12 +360,11 @@ export function AdvicePanel({ id }: { readonly id: string }) {
 
     if (userId === undefined) {
         return session.error === null ? (
-            <Alert>
-                <AlertTitle>Sign in to see the advice</AlertTitle>
-                <AlertDescription>
-                    Sign in to compute sizing advice for this account.
-                </AlertDescription>
-            </Alert>
+            <StatusRow
+                detail="Sign in to compute sizing advice for this account."
+                title="Sign in to see the advice"
+                tone={StatusTone.Neutral}
+            />
         ) : (
             <QueryErrorNotice
                 message={session.error.message}
@@ -416,19 +419,21 @@ export function AdvicePanel({ id }: { readonly id: string }) {
 
     if (built.kind === BuiltKind.Inactive) {
         return (
-            <Alert>
-                <AlertTitle>No advice for this account</AlertTitle>
-                <AlertDescription>{INACTIVE_ACCOUNT_TEXT}</AlertDescription>
-            </Alert>
+            <StatusRow
+                detail={INACTIVE_ACCOUNT_TEXT}
+                title="No advice for this account"
+                tone={StatusTone.Neutral}
+            />
         );
     }
 
     if (built.kind === BuiltKind.NotModeled) {
         return (
-            <Alert>
-                <AlertTitle>Advice is not modeled for this account</AlertTitle>
-                <AlertDescription>{built.reason}</AlertDescription>
-            </Alert>
+            <StatusRow
+                detail={built.reason}
+                title="Advice is not modeled for this account"
+                tone={StatusTone.Neutral}
+            />
         );
     }
 
@@ -479,6 +484,29 @@ export function AdvicePanel({ id }: { readonly id: string }) {
             }
             refreshFailureAlert={refreshFailureAlert}
         />
+    );
+}
+
+function AdviceFrame({
+    children,
+    contentClassName,
+    info,
+    title,
+}: {
+    readonly children: ReactNode;
+    readonly contentClassName?: string;
+    readonly info?: ReactNode;
+    readonly title: ReactNode;
+}) {
+    return (
+        <ToolPanel
+            className="app-prop-accounts__advice"
+            contentClassName={contentClassName}
+            info={info}
+            title={title}
+        >
+            {children}
+        </ToolPanel>
     );
 }
 
@@ -732,13 +760,10 @@ function ComputedAdvice({
     const { valueView, view } = views;
 
     const recomputingNotice = isRecomputing ? (
-        <Alert aria-busy="true" role="status" variant="warning">
-            <AlertTitle>Recomputing the advice</AlertTitle>
-            <AlertDescription>
-                The figures below are from the previous inputs. Accepting a size
-                is off until it finishes.
-            </AlertDescription>
-        </Alert>
+        <InfoNote aria-busy="true" role="status">
+            Recomputing the advice. The figures below are from the previous
+            inputs. Accepting a size is off until it finishes.
+        </InfoNote>
     ) : null;
     const topAlerts = (
         <>
@@ -749,47 +774,47 @@ function ComputedAdvice({
 
     if (advisor.isSuspended()) {
         return (
-            <div className="flex flex-col gap-2">
-                <h2 className="text-lg font-semibold">Sizing advice</h2>
+            <AdviceFrame title="Sizing advice">
                 {topAlerts}
                 {inputFailureAlerts}
-                <Alert role="status" variant="warning">
-                    <AlertTitle>This account is suspended</AlertTitle>
-                    <AlertDescription>
-                        {SUSPENDED_ACCOUNT_TEXT}
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    detail={SUSPENDED_ACCOUNT_TEXT}
+                    title="This account is suspended"
+                    tone={StatusTone.Warn}
+                />
                 <ProvenanceLine
                     firmId={built.input.firmId}
                     provenance={view.provenance}
                 />
-            </div>
+            </AdviceFrame>
         );
     }
 
     if (view.kind === AdviceDisplayKind.Stale) {
         return (
-            <div className="flex flex-col gap-2">
-                <h2 className="text-lg font-semibold first-letter:uppercase">
-                    {view.headline}
-                </h2>
+            <AdviceFrame
+                title={
+                    <span className="inline-block first-letter:uppercase">
+                        {view.headline}
+                    </span>
+                }
+            >
                 {topAlerts}
                 {inputFailureAlerts}
-                <Alert role="status" variant="warning">
-                    <AlertTitle>{view.message}</AlertTitle>
-                    <AlertDescription>
-                        <ul className="list-disc pl-4">
-                            {view.reasonTexts.map((text) => (
-                                <li key={text}>{text}</li>
-                            ))}
-                        </ul>
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    detail={view.reasonTexts.map((text) => (
+                        <span className="block" key={text}>
+                            {text}
+                        </span>
+                    ))}
+                    title={view.message}
+                    tone={StatusTone.Warn}
+                />
                 <ProvenanceLine
                     firmId={built.input.firmId}
                     provenance={view.provenance}
                 />
-            </div>
+            </AdviceFrame>
         );
     }
 
@@ -823,8 +848,16 @@ function ComputedAdvice({
     ];
 
     return (
-        <div className="flex flex-col gap-6">
-            <h2 className="text-lg font-semibold">Sizing advice</h2>
+        <AdviceFrame
+            contentClassName="gap-6"
+            info={
+                <AssumptionsList
+                    assumptions={view.assumptions}
+                    isFirmDataUnverified={view.provenance.firmDataDate === null}
+                />
+            }
+            title="Sizing advice"
+        >
             {topAlerts}
             {inputFailureAlerts}
             <HeadlineCard view={view} />
@@ -842,27 +875,20 @@ function ComputedAdvice({
                 />
             )}
             <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">Engine optima</h3>
+                <PanelSubheading>Engine optima</PanelSubheading>
                 <OptimaTable rows={optimaRows} />
             </section>
             <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">Stored DP solves</h3>
+                <PanelSubheading>Stored DP solves</PanelSubheading>
                 <DpAdviceSection query={dpAdvice} />
             </section>
             <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">Reasons</h3>
+                <PanelSubheading>Reasons</PanelSubheading>
                 <ReasonsList reasons={view.reasons} />
-            </section>
-            <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">Assumptions</h3>
-                <AssumptionsList
-                    assumptions={view.assumptions}
-                    isFirmDataUnverified={view.provenance.firmDataDate === null}
-                />
             </section>
             {view.dailyPlanCard !== null && (
                 <section className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium">Today's plan</h3>
+                    <PanelSubheading>Today's plan</PanelSubheading>
                     <DailyPlanCardView
                         card={view.dailyPlanCard}
                         sizing={
@@ -890,9 +916,9 @@ function ComputedAdvice({
                 </section>
             )}
             <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">
+                <PanelSubheading>
                     What the next trade does to value
-                </h3>
+                </PanelSubheading>
                 <ValuesNotice
                     isLive={built.phase === null}
                     runNote={runNote}
@@ -902,9 +928,7 @@ function ComputedAdvice({
                 </ValuesNotice>
             </section>
             <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">
-                    One-step risk candidates
-                </h3>
+                <PanelSubheading>One-step risk candidates</PanelSubheading>
                 <ValuesNotice
                     isLive={built.phase === null}
                     runNote={candidatesRunNote}
@@ -914,9 +938,9 @@ function ComputedAdvice({
                 </ValuesNotice>
             </section>
             <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">
+                <PanelSubheading>
                     Check a risk before you place it
-                </h3>
+                </PanelSubheading>
                 <ProposedRiskCheck
                     accountId={accountId}
                     check={riskCheck.proposed}
@@ -939,7 +963,7 @@ function ComputedAdvice({
             </section>
             {view.payoutAdvice !== null && (
                 <section className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium">Payout advice</h3>
+                    <PanelSubheading>Payout advice</PanelSubheading>
                     <PayoutAdviceCard view={view.payoutAdvice} />
                     {view.payoutAdvice.personalOverrideWarningText !== null && (
                         <p className="text-sm text-destructive" role="alert">
@@ -953,7 +977,7 @@ function ComputedAdvice({
                 provenance={view.provenance}
             />
             <section className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium">Decision log</h3>
+                <PanelSubheading>Decision log</PanelSubheading>
                 {decisionsError !== null && (
                     <QueryErrorNotice
                         message={decisionsError}
@@ -968,7 +992,7 @@ function ComputedAdvice({
                     suggestion={suggestion}
                 />
             </section>
-        </div>
+        </AdviceFrame>
     );
 }
 

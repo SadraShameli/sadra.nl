@@ -3,15 +3,18 @@
 import { TriangleAlert } from 'lucide-react';
 
 import {
-    ExpectedPayoutsFigure,
-    NextActionFigure,
-    NextPayoutFigure,
+    ExpectedPayoutsReason,
+    ExpectedPayoutsValue,
+    NextActionValue,
+    NextPayoutValue,
     ValueDetailLines,
 } from '~/app/(app)/prop-calculator/accounts/_components/AccountValueCells';
+import { ExpectedPayoutsKind } from '~/app/(app)/prop-calculator/accounts/_components/accountValueColumns';
 import {
     type AccountValues,
     hasPendingValues,
 } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
+import { StatStrip } from '~/components/StatStrip';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Skeleton } from '~/components/ui/skeleton';
 
@@ -27,7 +30,7 @@ export function DetailHeaderFigures({
     const columns = values.columns.get(accountId);
     if (values.notice !== null) {
         return (
-            <Alert variant="warning">
+            <Alert variant="destructive">
                 <TriangleAlert />
                 <AlertTitle>Values could not be computed</AlertTitle>
                 <AlertDescription>{values.notice}</AlertDescription>
@@ -45,41 +48,50 @@ export function DetailHeaderFigures({
             </div>
         );
     }
+    const { action, expectedPayouts, nextPayout } = columns;
+    const hasExpectedPayoutsCaption =
+        expectedPayouts.kind === ExpectedPayoutsKind.NotValued ||
+        columns.atRisk !== null ||
+        columns.evPerAttempt !== null;
     return (
-        <div className="flex flex-col gap-2">
-            <dl
-                aria-busy={hasPendingValues(values)}
-                aria-label="Value and next action"
-                className="grid gap-x-8 gap-y-4 md:grid-cols-3"
-            >
-                <div>
-                    <dt className="text-sm font-medium text-muted-foreground">
-                        Next action
-                    </dt>
-                    <dd>
-                        <NextActionFigure action={columns.action} />
-                    </dd>
-                </div>
-                <div>
-                    <dt className="text-sm font-medium text-muted-foreground">
-                        Expected payouts
-                    </dt>
-                    <dd>
-                        <ExpectedPayoutsFigure
-                            expectedPayouts={columns.expectedPayouts}
-                        />
-                        <ValueDetailLines columns={columns} />
-                    </dd>
-                </div>
-                <div>
-                    <dt className="text-sm font-medium text-muted-foreground">
-                        Next payout
-                    </dt>
-                    <dd>
-                        <NextPayoutFigure nextPayout={columns.nextPayout} />
-                    </dd>
-                </div>
-            </dl>
+        <div
+            aria-busy={hasPendingValues(values)}
+            className="flex flex-col gap-2"
+        >
+            <StatStrip
+                items={[
+                    {
+                        caption: action.reason ?? undefined,
+                        id: 'next-action',
+                        label: 'Next action',
+                        value: <NextActionValue action={action} />,
+                    },
+                    {
+                        caption: hasExpectedPayoutsCaption ? (
+                            <>
+                                <ExpectedPayoutsReason
+                                    expectedPayouts={expectedPayouts}
+                                />
+                                <ValueDetailLines columns={columns} />
+                            </>
+                        ) : undefined,
+                        id: 'expected-payouts',
+                        label: 'Expected payouts',
+                        value: (
+                            <ExpectedPayoutsValue
+                                expectedPayouts={expectedPayouts}
+                            />
+                        ),
+                    },
+                    {
+                        caption: nextPayout.note ?? undefined,
+                        id: 'next-payout',
+                        label: 'Next payout',
+                        value: <NextPayoutValue nextPayout={nextPayout} />,
+                    },
+                ]}
+                label="Value and next action"
+            />
             <p className="text-xs text-muted-foreground">
                 {FROM_STATE_PERSONAL_RULES_NOTE}
             </p>

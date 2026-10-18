@@ -3,11 +3,13 @@
 import { useMemo, useState } from 'react';
 
 import { useToolsRequest } from '~/app/(app)/prop-calculator/_components/bankroll/useToolsRequest';
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalculator';
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { InfoNote } from '~/components/InfoNote';
+import { StatStrip } from '~/components/StatStrip';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
@@ -16,6 +18,7 @@ import {
     assumptionText,
     liveTransferAssumptionLines,
 } from '~/lib/prop-calculator/advisor';
+import { type FundedValueEstimateResult } from '~/lib/prop-calculator/advisor/value';
 import { stableJson } from '~/lib/stableJson';
 
 import {
@@ -99,127 +102,156 @@ export function FundedValueCard({
                 worker.state.phase === ToolsWorkerPhase.Running
             }
             aria-labelledby="funded-value-heading"
-            className="flex flex-col gap-4"
         >
-            <h3
-                className="text-base font-semibold text-foreground"
-                id="funded-value-heading"
+            <ToolPanel
+                info={
+                    result === null ||
+                    (result.liveTransfer === undefined &&
+                        result.cumulativePayoutTrigger ===
+                            undefined) ? undefined : (
+                        <FundedValueAssumptions result={result} />
+                    )
+                }
+                title="Funded value"
+                titleAs="h3"
+                titleId="funded-value-heading"
             >
-                Funded value
-            </h3>
-            <div className="flex flex-col gap-1">
-                <Label htmlFor="funded-value-sample-size">
-                    Sample size (n)
-                </Label>
-                <Input
-                    aria-describedby={
-                        isSampleSizeInvalid ? SAMPLE_SIZE_ERROR_ID : undefined
-                    }
-                    aria-invalid={isSampleSizeInvalid}
-                    className="max-w-40"
-                    disabled={isRefused}
-                    id="funded-value-sample-size"
-                    inputMode="numeric"
-                    onChange={(event) => {
-                        setSampleSizeText(event.target.value);
-                    }}
-                    placeholder={
-                        rulebookSampleThreshold === null
-                            ? 'e.g. 10'
-                            : String(rulebookSampleThreshold)
-                    }
-                    type="number"
-                    value={sampleSizeText}
-                />
-                {isRefused ? (
-                    <p className="text-xs text-muted-foreground">
-                        {REFUSED_TEXT}
-                    </p>
-                ) : null}
-                {isSampleSizeInvalid ? (
-                    <p
-                        className="text-xs text-destructive"
-                        id={SAMPLE_SIZE_ERROR_ID}
-                    >
-                        {SAMPLE_SIZE_ERROR_TEXT}
-                    </p>
-                ) : null}
-            </div>
-            <div aria-live="polite" className="flex flex-col gap-3">
-                {failureReason === null ? null : (
-                    <Alert variant="destructive">
-                        <AlertDescription>{failureReason}</AlertDescription>
-                    </Alert>
-                )}
-                {pendingText === null ? null : (
-                    <p className="text-xs text-muted-foreground">
-                        {pendingText}
-                    </p>
-                )}
-                {result === null ? null : (
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                        <StatCard
-                            label="Expected payout per funded account"
-                            sub={`${String(result.trials)} trials`}
-                            value={uncertainCurrencyText(result.fundedValue)}
+                <div className="flex flex-col gap-1">
+                    <Label htmlFor="funded-value-sample-size">
+                        Sample size (n)
+                    </Label>
+                    <Input
+                        aria-describedby={
+                            isSampleSizeInvalid
+                                ? SAMPLE_SIZE_ERROR_ID
+                                : undefined
+                        }
+                        aria-invalid={isSampleSizeInvalid}
+                        className="max-w-40"
+                        disabled={isRefused}
+                        id="funded-value-sample-size"
+                        inputMode="numeric"
+                        onChange={(event) => {
+                            setSampleSizeText(event.target.value);
+                        }}
+                        placeholder={
+                            rulebookSampleThreshold === null
+                                ? 'e.g. 10'
+                                : String(rulebookSampleThreshold)
+                        }
+                        type="number"
+                        value={sampleSizeText}
+                    />
+                    {isRefused ? (
+                        <p className="text-xs text-muted-foreground">
+                            {REFUSED_TEXT}
+                        </p>
+                    ) : null}
+                    {isSampleSizeInvalid ? (
+                        <p
+                            className="text-xs text-destructive"
+                            id={SAMPLE_SIZE_ERROR_ID}
+                        >
+                            {SAMPLE_SIZE_ERROR_TEXT}
+                        </p>
+                    ) : null}
+                </div>
+                <div aria-live="polite" className="flex flex-col gap-3">
+                    {failureReason === null ? null : (
+                        <Alert variant="destructive">
+                            <AlertDescription>{failureReason}</AlertDescription>
+                        </Alert>
+                    )}
+                    {pendingText === null ? null : (
+                        <InfoNote>{pendingText}</InfoNote>
+                    )}
+                    {result === null ? null : (
+                        <StatStrip
+                            items={[
+                                {
+                                    caption: `${String(result.trials)} trials`,
+                                    id: 'expected-payout',
+                                    label: 'Expected payout per funded account',
+                                    value: uncertainCurrencyText(
+                                        result.fundedValue,
+                                    ),
+                                },
+                                {
+                                    caption: dollarRangeSubText(
+                                        result.dollarSampleRange,
+                                        settled.sampleSize,
+                                    ),
+                                    id: 'dollar-range',
+                                    label: 'Range n accounts could show ($)',
+                                    value:
+                                        dollarRangeText(
+                                            result.dollarSampleRange,
+                                        ) ?? NOT_APPLICABLE,
+                                },
+                                {
+                                    caption: `${String(result.trials)} trials`,
+                                    id: 'mean-payouts',
+                                    label: 'Mean payouts per funded account',
+                                    value: uncertainCountText(
+                                        result.meanPayoutsPerAccount,
+                                    ),
+                                },
+                                {
+                                    id: 'zero-payouts',
+                                    label: 'P(0 payouts)',
+                                    value: formatPercent(
+                                        result.probabilityZeroPayouts.value,
+                                    ),
+                                },
+                                {
+                                    caption: sampleRangeSubText(
+                                        result.sampleRange,
+                                    ),
+                                    id: 'payout-range',
+                                    label: 'Range n accounts could show (payouts)',
+                                    value:
+                                        sampleRangeText(result.sampleRange) ??
+                                        NOT_APPLICABLE,
+                                },
+                            ]}
                         />
-                        <StatCard
-                            label="Range n accounts could show ($)"
-                            sub={dollarRangeSubText(
-                                result.dollarSampleRange,
-                                settled.sampleSize,
-                            )}
-                            value={
-                                dollarRangeText(result.dollarSampleRange) ??
-                                NOT_APPLICABLE
-                            }
-                        />
-                        <StatCard
-                            label="Mean payouts per funded account"
-                            sub={`${String(result.trials)} trials`}
-                            value={uncertainCountText(
-                                result.meanPayoutsPerAccount,
-                            )}
-                        />
-                        <StatCard
-                            label="P(0 payouts)"
-                            value={formatPercent(
-                                result.probabilityZeroPayouts.value,
-                            )}
-                        />
-                        <StatCard
-                            label="Range n accounts could show (payouts)"
-                            sub={sampleRangeSubText(result.sampleRange)}
-                            value={
-                                sampleRangeText(result.sampleRange) ??
-                                NOT_APPLICABLE
-                            }
-                        />
-                    </div>
-                )}
-                {result?.liveTransfer === undefined ? null : (
-                    <ul
-                        aria-label="Live-transfer and payout-trigger assumptions behind the funded value"
-                        className="flex flex-col gap-1 text-xs text-muted-foreground"
-                    >
-                        {liveTransferAssumptionLines(result.liveTransfer).map(
-                            (line) => (
-                                <li key={line}>{line}</li>
-                            ),
-                        )}
-                    </ul>
-                )}
-                {result?.cumulativePayoutTrigger === undefined ? null : (
-                    <ul
-                        aria-label="Cumulative payout trigger behind the funded value"
-                        className="flex flex-col gap-1 text-xs text-muted-foreground"
-                    >
-                        <li>
-                            {assumptionText(result.cumulativePayoutTrigger)}
-                        </li>
-                    </ul>
-                )}
-            </div>
+                    )}
+                </div>
+            </ToolPanel>
         </section>
+    );
+}
+
+function FundedValueAssumptions({
+    result,
+}: {
+    result: Pick<
+        FundedValueEstimateResult,
+        'cumulativePayoutTrigger' | 'liveTransfer'
+    >;
+}) {
+    return (
+        <div className="flex flex-col gap-2">
+            {result.liveTransfer === undefined ? null : (
+                <ul
+                    aria-label="Live-transfer and payout-trigger assumptions behind the funded value"
+                    className="flex flex-col gap-1"
+                >
+                    {liveTransferAssumptionLines(result.liveTransfer).map(
+                        (line) => (
+                            <li key={line}>{line}</li>
+                        ),
+                    )}
+                </ul>
+            )}
+            {result.cumulativePayoutTrigger === undefined ? null : (
+                <ul
+                    aria-label="Cumulative payout trigger behind the funded value"
+                    className="flex flex-col gap-1"
+                >
+                    <li>{assumptionText(result.cumulativePayoutTrigger)}</li>
+                </ul>
+            )}
+        </div>
     );
 }

@@ -6,9 +6,12 @@ import {
     useBaseResult,
     useCalculatorInputs,
 } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Field, FieldLabel } from '~/components/ui/field';
@@ -210,79 +213,90 @@ export function SetupCard({ onChange, state }: SetupCardProperties) {
                 />
             </Field>
             {calculatorState.maxAttempts > 1 ? (
-                <p className="text-xs text-warning">
-                    {`The calculator's max attempts is ${String(calculatorState.maxAttempts)}, but the figures below treat each trial as one attempt. Set it to 1 for per-attempt pricing.`}
-                </p>
+                <StatusRow
+                    title={`The calculator's max attempts is ${String(calculatorState.maxAttempts)}, but the figures below treat each trial as one attempt. Set it to 1 for per-attempt pricing.`}
+                    tone={StatusTone.Warn}
+                />
             ) : null}
             {summary === null ? null : summary.status ===
               BankrollSetupStatus.NoPositiveEdge ? (
-                <p className="text-sm text-warning">{NO_POSITIVE_EDGE_TEXT}</p>
+                <StatusRow
+                    title={NO_POSITIVE_EDGE_TEXT}
+                    tone={StatusTone.Warn}
+                />
             ) : (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatCard
-                        label="Attempt cost"
-                        value={formatGateCurrency(summary.attemptCost)}
-                    />
-                    <StatCard
-                        label="P(attempt pays)"
-                        value={formatPercent(
-                            summary.attemptPaysProbability.value,
-                        )}
-                    />
-                    <StatCard
-                        label="Attempts affordable"
-                        value={
-                            pricing?.attempts === null ||
-                            pricing?.attempts === undefined
-                                ? NOT_APPLICABLE
-                                : String(pricing.attempts)
-                        }
-                    />
-                    <StatCard
-                        label="P(batch net < 0)"
-                        sub="headline"
-                        value={
-                            pricing?.batchNetNegativeProbability === null ||
-                            pricing?.batchNetNegativeProbability === undefined
-                                ? pricing?.batchNetNegativeReason == null
+                <StatStrip
+                    items={[
+                        {
+                            id: 'attempt-cost',
+                            label: 'Attempt cost',
+                            value: formatGateCurrency(summary.attemptCost),
+                        },
+                        {
+                            id: 'attempt-pays',
+                            label: 'P(attempt pays)',
+                            value: formatPercent(
+                                summary.attemptPaysProbability.value,
+                            ),
+                        },
+                        {
+                            id: 'attempts-affordable',
+                            label: 'Attempts affordable',
+                            value:
+                                pricing?.attempts === null ||
+                                pricing?.attempts === undefined
                                     ? NOT_APPLICABLE
-                                    : ECONOMICS_REASON_TEXT[
-                                          pricing.batchNetNegativeReason
-                                      ]
-                                : formatPercent(
-                                      pricing.batchNetNegativeProbability,
-                                  )
-                        }
-                    />
-                    <StatCard
-                        label={`P(no payout from ${pricing?.attempts ?? 0} attempts)`}
-                        sub="ignores payout size"
-                        value={
-                            pricing?.noPayoutProbability === null ||
-                            pricing?.noPayoutProbability === undefined
-                                ? NOT_APPLICABLE
-                                : formatPercent(pricing.noPayoutProbability, 3)
-                        }
-                    />
-                    <StatCard
-                        label="Minimum budget for your threshold"
-                        value={
-                            summary.minimumBudget.value === null
-                                ? summary.minimumBudget.reason ===
-                                  EconomicsReason.ThresholdNotSet
-                                    ? THRESHOLD_NOT_SET_TEXT
-                                    : NOT_APPLICABLE
-                                : `${formatGateCurrency(summary.minimumBudget.value.budget)} (${summary.minimumBudget.value.attempts} attempts)`
-                        }
-                    />
-                </div>
+                                    : String(pricing.attempts),
+                        },
+                        {
+                            caption: 'headline',
+                            id: 'batch-net-negative',
+                            label: 'P(batch net < 0)',
+                            value:
+                                pricing?.batchNetNegativeProbability === null ||
+                                pricing?.batchNetNegativeProbability ===
+                                    undefined
+                                    ? pricing?.batchNetNegativeReason == null
+                                        ? NOT_APPLICABLE
+                                        : ECONOMICS_REASON_TEXT[
+                                              pricing.batchNetNegativeReason
+                                          ]
+                                    : formatPercent(
+                                          pricing.batchNetNegativeProbability,
+                                      ),
+                        },
+                        {
+                            caption: 'ignores payout size',
+                            id: 'no-payout',
+                            label: `P(no payout from ${pricing?.attempts ?? 0} attempts)`,
+                            value:
+                                pricing?.noPayoutProbability === null ||
+                                pricing?.noPayoutProbability === undefined
+                                    ? NOT_APPLICABLE
+                                    : formatPercent(
+                                          pricing.noPayoutProbability,
+                                          3,
+                                      ),
+                        },
+                        {
+                            id: 'minimum-budget',
+                            label: 'Minimum budget for your threshold',
+                            value:
+                                summary.minimumBudget.value === null
+                                    ? summary.minimumBudget.reason ===
+                                      EconomicsReason.ThresholdNotSet
+                                        ? THRESHOLD_NOT_SET_TEXT
+                                        : NOT_APPLICABLE
+                                    : `${formatGateCurrency(summary.minimumBudget.value.budget)} (${summary.minimumBudget.value.attempts} attempts)`,
+                        },
+                    ]}
+                />
             )}
             {budgetCheck?.kind === BankrollBudgetCheckKind.Short ? (
-                <Alert variant="destructive">
-                    <AlertDescription>
-                        {bankrollBudgetShortText(budgetCheck)}
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    title={bankrollBudgetShortText(budgetCheck)}
+                    tone={StatusTone.Fail}
+                />
             ) : null}
             <BankrollRunStatus
                 isRequested={budget !== null}
@@ -336,76 +350,79 @@ function RealizedRiskSection({
             );
         }
         case RealizedBankrollRiskStatus.Loading: {
-            return (
-                <p className="text-xs text-muted-foreground">
-                    Loading your realized figures.
-                </p>
-            );
+            return <InfoNote>Loading your realized figures.</InfoNote>;
         }
         case RealizedBankrollRiskStatus.Ready: {
             const { risk } = realized;
             if (risk.sampleCount === 0) {
                 return (
-                    <p className="text-xs text-warning">
+                    <InfoNote>
                         Realized figures: no ended attempts in your ledger yet.
-                    </p>
+                    </InfoNote>
                 );
             }
             return (
                 <div className="flex flex-col gap-3">
-                    <h3 className="text-sm font-semibold text-foreground">
+                    <PanelSubheading>
                         Realized, from your ledger
-                    </h3>
+                    </PanelSubheading>
                     <p className="text-xs text-muted-foreground">
                         {`Based on ${String(risk.sampleCount)} ended attempts, priced at this plan's attempt cost.`}
                     </p>
                     {risk.reason === EconomicsReason.NoPositiveEdge ? (
-                        <p className="text-xs text-warning">
-                            Realized: no positive edge in your ended attempts,
-                            so no budget makes this safe.
-                        </p>
+                        <StatusRow
+                            title="Realized: no positive edge in your ended attempts, so no budget makes this safe."
+                            tone={StatusTone.Warn}
+                        />
                     ) : null}
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <StatCard
-                            label="Realized P(attempt pays)"
-                            sub={
-                                risk.attemptPaysRate === null
-                                    ? undefined
-                                    : `n = ${String(risk.attemptPaysRate.n)}`
-                            }
-                            value={
-                                risk.attemptPaysRate === null
-                                    ? NOT_APPLICABLE
-                                    : formatPercent(risk.attemptPaysRate.value)
-                            }
-                        />
-                        <StatCard
-                            label="Realized P(batch net < 0)"
-                            value={
-                                risk.batchLossProbability === null
-                                    ? NOT_APPLICABLE
-                                    : formatPercent(
-                                          risk.batchLossProbability.value,
-                                      )
-                            }
-                        />
-                        <StatCard
-                            label={`Realized P(no payout from ${String(risk.attempts ?? 0)} attempts)`}
-                            sub="ignores payout size"
-                            value={
-                                risk.noPayoutProbability === null
-                                    ? NOT_APPLICABLE
-                                    : formatPercent(risk.noPayoutProbability, 3)
-                            }
-                        />
-                        <StatCard
-                            label="Realized minimum budget"
-                            value={realizedMinimumBudgetText(
-                                risk.minimumBudget,
-                                costPerAttempt,
-                            )}
-                        />
-                    </div>
+                    <StatStrip
+                        items={[
+                            {
+                                caption:
+                                    risk.attemptPaysRate === null
+                                        ? undefined
+                                        : `n = ${String(risk.attemptPaysRate.n)}`,
+                                id: 'realized-attempt-pays',
+                                label: 'Realized P(attempt pays)',
+                                value:
+                                    risk.attemptPaysRate === null
+                                        ? NOT_APPLICABLE
+                                        : formatPercent(
+                                              risk.attemptPaysRate.value,
+                                          ),
+                            },
+                            {
+                                id: 'realized-batch-net-negative',
+                                label: 'Realized P(batch net < 0)',
+                                value:
+                                    risk.batchLossProbability === null
+                                        ? NOT_APPLICABLE
+                                        : formatPercent(
+                                              risk.batchLossProbability.value,
+                                          ),
+                            },
+                            {
+                                caption: 'ignores payout size',
+                                id: 'realized-no-payout',
+                                label: `Realized P(no payout from ${String(risk.attempts ?? 0)} attempts)`,
+                                value:
+                                    risk.noPayoutProbability === null
+                                        ? NOT_APPLICABLE
+                                        : formatPercent(
+                                              risk.noPayoutProbability,
+                                              3,
+                                          ),
+                            },
+                            {
+                                id: 'realized-minimum-budget',
+                                label: 'Realized minimum budget',
+                                value: realizedMinimumBudgetText(
+                                    risk.minimumBudget,
+                                    costPerAttempt,
+                                ),
+                            },
+                        ]}
+                    />
                 </div>
             );
         }

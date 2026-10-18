@@ -1,9 +1,9 @@
 import {
     CardSkeleton,
-    LabelledStatSkeleton,
     PageHeaderSkeleton,
     TitledCardSkeleton,
 } from '~/components/PageSkeleton';
+import { StatStrip, StatStripSize } from '~/components/StatStrip';
 import { Skeleton } from '~/components/ui/skeleton';
 
 const DETAIL_BODY_ROWS = 6;
@@ -33,11 +33,7 @@ export function BodyViewSkeleton() {
     return (
         <div aria-busy="true" className="flex flex-col gap-6">
             <TitledCardSkeleton bodyClassName="h-24" title="Add measurement" />
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {BODY_STAT_LABELS.map((label) => (
-                    <LabelledStatSkeleton key={label} label={label} />
-                ))}
-            </section>
+            <StatStripSkeleton labels={BODY_STAT_LABELS} />
             <TitledCardSkeleton bodyClassName="h-48" title="Trend" />
             <TitledCardSkeleton bodyClassName="h-64" title="History" />
         </div>
@@ -47,11 +43,7 @@ export function BodyViewSkeleton() {
 export function ExercisesBrowserSkeleton() {
     return (
         <div aria-busy="true" className="flex flex-col gap-6">
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                {EXERCISE_STAT_LABELS.map((label) => (
-                    <LabelledStatSkeleton key={label} label={label} />
-                ))}
-            </section>
+            <StatStripSkeleton labels={EXERCISE_STAT_LABELS} />
             <TitledCardSkeleton bodyClassName="h-96" title="Library" />
         </div>
     );
@@ -60,11 +52,7 @@ export function ExercisesBrowserSkeleton() {
 export function GoalsViewSkeleton() {
     return (
         <div aria-busy="true" className="flex flex-col gap-6">
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {GOAL_STAT_LABELS.map((label) => (
-                    <LabelledStatSkeleton key={label} label={label} />
-                ))}
-            </section>
+            <StatStripSkeleton labels={GOAL_STAT_LABELS} />
             <TitledCardSkeleton bodyClassName="h-24" title="New goal" />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
                 <TitledCardSkeleton
@@ -110,11 +98,7 @@ export function LogShellSkeleton() {
 export function ProgramsLibrarySkeleton() {
     return (
         <div aria-busy="true" className="flex flex-col gap-6">
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                {PROGRAM_STAT_LABELS.map((label) => (
-                    <LabelledStatSkeleton key={label} label={label} />
-                ))}
-            </section>
+            <StatStripSkeleton labels={PROGRAM_STAT_LABELS} />
             <TitledCardSkeleton bodyClassName="h-24" title="Your library" />
             <TitledCardSkeleton bodyClassName="h-96" title="Browse programs" />
         </div>
@@ -134,16 +118,31 @@ export function RoutinesViewSkeleton() {
 export function TodayHeroSkeleton() {
     return (
         <div aria-busy="true" className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {TODAY_STAT_LABELS.map((label) => (
-                    <LabelledStatSkeleton key={label} label={label} />
-                ))}
-            </div>
+            <StatStripSkeleton
+                labels={TODAY_STAT_LABELS}
+                size={StatStripSize.Large}
+            />
             <TitledCardSkeleton
                 bodyClassName="h-9 w-80 max-w-full"
                 title="Get started"
             />
             <TitledCardSkeleton bodyClassName="h-40" title="Recent PRs" />
         </div>
+    );
+}
+
+function StatStripSkeleton({
+    labels,
+    size = StatStripSize.Default,
+}: {
+    readonly labels: readonly string[];
+    readonly size?: StatStripSize;
+}) {
+    return (
+        <StatStrip
+            isLoading
+            items={labels.map((label) => ({ id: label, label, value: null }))}
+            size={size}
+        />
     );
 }

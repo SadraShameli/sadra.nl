@@ -109,9 +109,11 @@ describe('the fee row shows its price verdict (PT-91, F-V32)', () => {
 
     function differenceCell(rowIndex: number): string {
         const rows = [...container.querySelectorAll(':scope tbody tr')];
-        const cell = rows[rowIndex]?.querySelectorAll(':scope > td')[4];
-        if (cell === undefined)
-            throw new Error(`no difference cell ${rowIndex}`);
+        const cell =
+            rows[rowIndex]?.querySelector(
+                ':scope > td[data-label="Difference"]',
+            ) ?? null;
+        if (cell === null) throw new Error(`no difference cell ${rowIndex}`);
         return cell.textContent;
     }
 

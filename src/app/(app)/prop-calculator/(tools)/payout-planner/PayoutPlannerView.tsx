@@ -2,7 +2,7 @@
 
 import { CircleAlert, CircleCheck } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 import { DEFAULT_FUNDED_HORIZON_DAYS } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
@@ -56,10 +56,16 @@ import {
 import { payoutStakeViewOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
 import { type AssumptionView } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceViewModel';
 import { AssumptionsList } from '~/app/(app)/prop-calculator/accounts/_components/advice/AssumptionsList';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
 import { Input } from '~/components/ui/input';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import { formatGateCurrency, formatPercent } from '~/lib/format';
@@ -141,6 +147,10 @@ const SWEEP_HAZARD_RANKING_TEXT =
     "The engine optimum row is chosen at this hazard: a smaller request size means more paid payouts and so more transfer chances. The share of runs sent live above is the engine optimum row's.";
 const SWEEP_TRIGGER_RANKING_TEXT =
     "The engine optimum row is chosen with this trigger in force: the request size changes how fast payouts add up to the cumulative amount, so each size sends a different share of runs live. The sent-live column shows each size's share.";
+const SWEEP_BASIS_TEXT =
+    'Simulated from a fresh account at your rulebook strategy; it does not use the balance, peak or payouts taken entered above.';
+const SWEEP_RANKING_TEXT =
+    'Engine optimum, not advice: ranked on credit-inclusive expected monthly net (the horizon credit is one bounded end-of-horizon payout, T32); the credit-free realized monthly net is shown alongside.';
 const SWEEP_WITHIN_NOISE_TEXT =
     'The engine optimum is within simulation noise of the documented size: treat the two as the same size.';
 const PEAK_ASSUMED_VIEW: AssumptionView = {
@@ -304,101 +314,109 @@ export function PayoutPlannerView() {
                 toolId={ToolId.PayoutPlanner}
             />
             <div className="app-prop-calculator__payout-planner mb-10 grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-                <section
-                    aria-labelledby={INPUTS_HEADING_ID}
-                    className="flex flex-col gap-4"
-                >
-                    <ToolSectionHeading id={INPUTS_HEADING_ID}>
-                        Account
-                    </ToolSectionHeading>
-                    <PayoutPlannerInputs
-                        onChange={change}
-                        onValidityChange={changeValidity}
-                        requestFieldKey={requestFieldKey}
-                        state={state}
-                    />
+                <section aria-labelledby={INPUTS_HEADING_ID}>
+                    <ToolPanel title="Account" titleId={INPUTS_HEADING_ID}>
+                        <PayoutPlannerInputs
+                            onChange={change}
+                            onValidityChange={changeValidity}
+                            requestFieldKey={requestFieldKey}
+                            state={state}
+                        />
+                    </ToolPanel>
                 </section>
                 <div className="flex flex-col gap-8">
-                    <section
-                        aria-labelledby={READINESS_HEADING_ID}
-                        className="flex flex-col gap-4"
-                    >
-                        <ToolSectionHeading id={READINESS_HEADING_ID}>
-                            Readiness
-                        </ToolSectionHeading>
-                        {rulebook === null || result === null ? (
-                            <RulebookStatusNotice
-                                status={noticeStatusOf(rulebookStatus)}
-                            />
-                        ) : isInputValid ? (
-                            <PayoutPlannerReadinessSummary
-                                isPeakAssumed={isPeakAssumed(state)}
-                                result={result}
-                            />
-                        ) : (
-                            <p className="text-sm text-warning">
-                                {FIX_FIELD_TEXT}
-                            </p>
-                        )}
+                    <section aria-labelledby={READINESS_HEADING_ID}>
+                        <ToolPanel
+                            info={
+                                result === null || !isInputValid
+                                    ? undefined
+                                    : payoutReadinessNotes(result)
+                            }
+                            title="Readiness"
+                            titleId={READINESS_HEADING_ID}
+                        >
+                            {rulebook === null || result === null ? (
+                                <RulebookStatusNotice
+                                    status={noticeStatusOf(rulebookStatus)}
+                                />
+                            ) : isInputValid ? (
+                                <PayoutPlannerReadinessSummary
+                                    isPeakAssumed={isPeakAssumed(state)}
+                                    result={result}
+                                />
+                            ) : (
+                                <StatusRow
+                                    title={FIX_FIELD_TEXT}
+                                    tone={StatusTone.Warn}
+                                />
+                            )}
+                        </ToolPanel>
                     </section>
-                    <section
-                        aria-labelledby={OUTLOOK_HEADING_ID}
-                        className="flex flex-col gap-4"
-                    >
-                        <ToolSectionHeading id={OUTLOOK_HEADING_ID}>
-                            Path to payout
-                        </ToolSectionHeading>
-                        {result === null ? (
-                            <RulebookStatusNotice
-                                status={noticeStatusOf(rulebookStatus)}
-                            />
-                        ) : isInputValid ? (
-                            <PayoutPlannerOutlookSection
-                                outlookTask={outlookTask}
-                                result={result}
-                            />
-                        ) : (
-                            <p className="text-sm text-warning">
-                                {FIX_FIELD_TEXT}
-                            </p>
-                        )}
+                    <section aria-labelledby={OUTLOOK_HEADING_ID}>
+                        <ToolPanel
+                            info={
+                                result === null || !isInputValid
+                                    ? undefined
+                                    : payoutOutlookNotes(outlookTask)
+                            }
+                            title="Path to payout"
+                            titleId={OUTLOOK_HEADING_ID}
+                        >
+                            {result === null ? (
+                                <RulebookStatusNotice
+                                    status={noticeStatusOf(rulebookStatus)}
+                                />
+                            ) : isInputValid ? (
+                                <PayoutPlannerOutlookSection
+                                    outlookTask={outlookTask}
+                                    result={result}
+                                />
+                            ) : (
+                                <StatusRow
+                                    title={FIX_FIELD_TEXT}
+                                    tone={StatusTone.Warn}
+                                />
+                            )}
+                        </ToolPanel>
                     </section>
-                    <section
-                        aria-labelledby={SWEEP_HEADING_ID}
-                        className="flex flex-col gap-4"
-                    >
-                        <ToolSectionHeading id={SWEEP_HEADING_ID}>
-                            Payout-size sweep
-                        </ToolSectionHeading>
-                        {rulebook === null ? (
-                            <RulebookStatusNotice
-                                status={noticeStatusOf(rulebookStatus)}
-                            />
-                        ) : isRequestSizeValid ? (
-                            <PayoutSweepTable
-                                documentedRequestDollars={
-                                    rulebook.payout.requestCents /
-                                    CENTS_PER_DOLLAR
-                                }
-                                enteredRequest={state.requestSize}
-                                plan={state.plan}
-                                task={sweepTask}
-                            />
-                        ) : (
-                            <p className="text-sm text-warning">
-                                {FIX_FIELD_TEXT}
-                            </p>
-                        )}
+                    <section aria-labelledby={SWEEP_HEADING_ID}>
+                        <ToolPanel
+                            description={SWEEP_BASIS_TEXT}
+                            info={
+                                rulebook === null ||
+                                !isRequestSizeValid ? undefined : (
+                                    <PayoutSweepNotes task={sweepTask} />
+                                )
+                            }
+                            title="Payout-size sweep"
+                            titleId={SWEEP_HEADING_ID}
+                        >
+                            {rulebook === null ? (
+                                <RulebookStatusNotice
+                                    status={noticeStatusOf(rulebookStatus)}
+                                />
+                            ) : isRequestSizeValid ? (
+                                <PayoutSweepOutcome
+                                    documentedRequestDollars={
+                                        rulebook.payout.requestCents /
+                                        CENTS_PER_DOLLAR
+                                    }
+                                    enteredRequest={state.requestSize}
+                                    plan={state.plan}
+                                    task={sweepTask}
+                                />
+                            ) : (
+                                <StatusRow
+                                    title={FIX_FIELD_TEXT}
+                                    tone={StatusTone.Warn}
+                                />
+                            )}
+                        </ToolPanel>
                     </section>
                     {policy === null ? null : (
-                        <section
-                            aria-labelledby={ASSUMPTIONS_HEADING_ID}
-                            className="flex flex-col gap-3"
-                        >
-                            <ToolSectionHeading id={ASSUMPTIONS_HEADING_ID}>
-                                Assumptions
-                            </ToolSectionHeading>
+                        <section aria-labelledby={ASSUMPTIONS_HEADING_ID}>
                             <PayoutPlannerAssumptions
+                                headingId={ASSUMPTIONS_HEADING_ID}
                                 isPeakAssumed={isPeakAssumed(state)}
                                 policy={policy}
                             />
@@ -473,6 +491,23 @@ function creditInclusiveStandardErrorOf(
     return row.kind === StartBasis.Fresh
         ? row.out.estimates.expectedMonthlyNet.standardError
         : row.out.estimates.fromStateExpectedCash.standardError;
+}
+
+function FirmMinimumNotice({
+    notice,
+}: {
+    notice: Parameters<typeof payoutFirmMinimumMessage>[0];
+}) {
+    return (
+        <StatusRow
+            title={
+                <span className="block first-letter:uppercase">
+                    {payoutFirmMinimumMessage(notice)}
+                </span>
+            }
+            tone={StatusTone.Warn}
+        />
+    );
 }
 
 function invalidFieldsWith(
@@ -590,10 +625,37 @@ function outlookRequestFor(
     };
 }
 
+function payoutOutlookNotes(
+    task: WorkerTaskState<never, PayoutOutlookResult>,
+): ReactNode {
+    if (task.phase !== WorkerTaskPhase.Done) return undefined;
+    const { cumulativePayoutTrigger, pastPayoutsNote, stakeComparison } =
+        task.result;
+    const isTriggerInStake =
+        stakeComparison !== null && !isNotModeled(stakeComparison);
+    if (
+        pastPayoutsNote === undefined &&
+        (cumulativePayoutTrigger === undefined || isTriggerInStake)
+    ) {
+        return undefined;
+    }
+    return (
+        <>
+            {cumulativePayoutTrigger === undefined ||
+            isTriggerInStake ? null : (
+                <p>{assumptionText(cumulativePayoutTrigger)}</p>
+            )}
+            {pastPayoutsNote === undefined ? null : <p>{pastPayoutsNote}</p>}
+        </>
+    );
+}
+
 function PayoutPlannerAssumptions({
+    headingId,
     isPeakAssumed: isPeakAssumedForState,
     policy,
 }: {
+    headingId: string;
     isPeakAssumed: boolean;
     policy: PayoutPolicy;
 }) {
@@ -605,23 +667,30 @@ function PayoutPlannerAssumptions({
         ...policy.assumptions.map(assumptionViewOf),
     ];
     return (
-        <div className="flex flex-col gap-2">
-            <p className="text-xs text-muted-foreground">
-                Behind the readiness, the path and the sweep: funded risk{' '}
-                {formatGateCurrency(funded.riskCents / CENTS_PER_DOLLAR)} and
-                take profit{' '}
-                {formatGateCurrency(funded.takeProfitCents / CENTS_PER_DOLLAR)}{' '}
-                per trade, win rate {formatPercent(strategy.winrate)},
-                reward-to-risk {strategy.rr}, up to {funded.tradesPerDayMax}{' '}
-                trades a day, retained cushion{' '}
-                {formatGateCurrency(
-                    payout.retainedCushionCents / CENTS_PER_DOLLAR,
-                )}
-                , {trials} trials, seed {seed}, {fundedHorizonDays}-day funded
-                horizon.
-            </p>
+        <ToolPanel
+            description={
+                <>
+                    Behind the readiness, the path and the sweep: funded risk{' '}
+                    {formatGateCurrency(funded.riskCents / CENTS_PER_DOLLAR)}{' '}
+                    and take profit{' '}
+                    {formatGateCurrency(
+                        funded.takeProfitCents / CENTS_PER_DOLLAR,
+                    )}{' '}
+                    per trade, win rate {formatPercent(strategy.winrate)},
+                    reward-to-risk {strategy.rr}, up to {funded.tradesPerDayMax}{' '}
+                    trades a day, retained cushion{' '}
+                    {formatGateCurrency(
+                        payout.retainedCushionCents / CENTS_PER_DOLLAR,
+                    )}
+                    , {trials} trials, seed {seed}, {fundedHorizonDays}-day
+                    funded horizon.
+                </>
+            }
+            title="Assumptions"
+            titleId={headingId}
+        >
             <AssumptionsList assumptions={views} />
-        </div>
+        </ToolPanel>
     );
 }
 
@@ -854,70 +923,53 @@ function PayoutPlannerOutlookOffThread({
     task: WorkerTaskState<never, PayoutOutlookResult>;
 }) {
     if (task.phase === WorkerTaskPhase.Failed) {
-        return <p className="text-sm text-warning">{task.reason}</p>;
+        return (
+            <Alert variant="destructive">
+                <AlertDescription>{task.reason}</AlertDescription>
+            </Alert>
+        );
     }
     if (task.phase !== WorkerTaskPhase.Done) {
         return <PanelSkeleton />;
     }
-    const {
-        cumulativePayoutTrigger,
-        pastPayoutsNote,
-        projection,
-        stakeComparison,
-    } = task.result;
-    const isTriggerInStake =
-        stakeComparison !== null && !isNotModeled(stakeComparison);
+    const { projection, stakeComparison } = task.result;
     const timingKind = nextPayoutTimingOf(projection).kind;
+    const lostProbabilityText =
+        projection.accountLostBeforeFirstPayoutProbability === null
+            ? 'not applicable'
+            : formatPercent(projection.accountLostBeforeFirstPayoutProbability);
+    const lostStandardErrorText =
+        projection.accountLostBeforeFirstPayoutStandardError === null
+            ? ''
+            : ` (±${formatPercent(projection.accountLostBeforeFirstPayoutStandardError)})`;
     return (
         <div className="flex flex-col gap-3">
-            <div>
-                <div className="text-xs text-muted-foreground">
-                    Expected days to the next payout
-                    {timingKind === NextPayoutTimingKind.InDays
-                        ? ` ${NEXT_PAYOUT_AMONG_PAYING_TEXT}`
-                        : ''}
-                </div>
-                <div className="tabular-nums">
-                    {nextPayoutDaysText(projection)}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                    {nextPayoutEvidenceText(projection)}
-                </div>
-            </div>
-            {timingKind === NextPayoutTimingKind.AlreadyEligible ? null : (
-                <div>
-                    <div className="text-xs text-muted-foreground">
-                        P(account lost before the next payout)
-                    </div>
-                    <div className="tabular-nums">
-                        {projection.accountLostBeforeFirstPayoutProbability ===
-                        null
-                            ? 'not applicable'
-                            : formatPercent(
-                                  projection.accountLostBeforeFirstPayoutProbability,
-                              )}
-                        {projection.accountLostBeforeFirstPayoutStandardError ===
-                        null
-                            ? ''
-                            : ` (±${formatPercent(projection.accountLostBeforeFirstPayoutStandardError)})`}
-                    </div>
-                </div>
-            )}
+            <StatStrip
+                items={[
+                    {
+                        caption: nextPayoutEvidenceText(projection),
+                        id: 'days-to-next-payout',
+                        label:
+                            timingKind === NextPayoutTimingKind.InDays
+                                ? `Expected days to the next payout ${NEXT_PAYOUT_AMONG_PAYING_TEXT}`
+                                : 'Expected days to the next payout',
+                        value: nextPayoutDaysText(projection),
+                    },
+                    ...(timingKind === NextPayoutTimingKind.AlreadyEligible
+                        ? []
+                        : [
+                              {
+                                  id: 'lost-before-next-payout',
+                                  label: 'P(account lost before the next payout)',
+                                  value: `${lostProbabilityText}${lostStandardErrorText}`,
+                              },
+                          ]),
+                ]}
+            />
             {stakeComparison === null ? null : (
                 <PayoutStakeComparisonSummary
                     stakeComparison={stakeComparison}
                 />
-            )}
-            {cumulativePayoutTrigger === undefined ||
-            isTriggerInStake ? null : (
-                <p className="text-xs text-muted-foreground">
-                    {assumptionText(cumulativePayoutTrigger)}
-                </p>
-            )}
-            {pastPayoutsNote === undefined ? null : (
-                <p className="text-xs text-muted-foreground">
-                    {pastPayoutsNote}
-                </p>
             )}
         </div>
     );
@@ -932,9 +984,9 @@ function PayoutPlannerOutlookSection({
 }) {
     if (!isPlanned(result)) {
         return (
-            <p className="text-sm text-muted-foreground">
+            <InfoNote>
                 Fix the snapshot above to see the path to payout.
-            </p>
+            </InfoNote>
         );
     }
     return (
@@ -983,26 +1035,21 @@ function PayoutPlannerReadinessSummary({
         case PayoutPlannerResultKind.Blocked: {
             return (
                 <div className="flex flex-col gap-2 text-sm">
-                    <p className="text-base font-medium text-foreground first-letter:uppercase">
-                        {payoutBlockReasonText(result.readiness.reason)}
-                    </p>
-                    <p className="text-muted-foreground first-letter:uppercase">
-                        {result.waitText}
-                    </p>
+                    <StatusRow
+                        detail={
+                            <span className="block first-letter:uppercase">
+                                {result.waitText}
+                            </span>
+                        }
+                        title={
+                            <span className="block first-letter:uppercase">
+                                {payoutBlockReasonText(result.readiness.reason)}
+                            </span>
+                        }
+                        tone={StatusTone.Warn}
+                    />
                     {result.firmMinimumNotice !== null && (
-                        <p className="text-warning">
-                            {payoutFirmMinimumMessage(result.firmMinimumNotice)}
-                        </p>
-                    )}
-                    {result.simStayCeiling !== null && (
-                        <p className="text-xs text-muted-foreground">
-                            {simStayCeilingText(result.simStayCeiling)}
-                        </p>
-                    )}
-                    {result.liveTriggerNote !== null && (
-                        <p className="text-xs text-muted-foreground">
-                            {result.liveTriggerNote}
-                        </p>
+                        <FirmMinimumNotice notice={result.firmMinimumNotice} />
                     )}
                 </div>
             );
@@ -1011,9 +1058,11 @@ function PayoutPlannerReadinessSummary({
             return (
                 <div className="flex flex-col gap-2">
                     {result.issues.map((issue) => (
-                        <p className="text-sm text-warning" key={issue.field}>
-                            {issue.message}
-                        </p>
+                        <StatusRow
+                            key={issue.field}
+                            title={issue.message}
+                            tone={StatusTone.Warn}
+                        />
                     ))}
                 </div>
             );
@@ -1025,73 +1074,77 @@ function PayoutPlannerReadinessSummary({
             const cushion = result.retainedCushion;
             return (
                 <div className="flex flex-col gap-3 text-sm">
-                    <div>
-                        <div className="text-xs text-muted-foreground">
-                            Payout request
-                        </div>
-                        <div className="text-2xl font-semibold text-foreground tabular-nums">
-                            {requested}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-xs text-muted-foreground">
-                            Net after the payout split on {requested}
-                        </div>
-                        <div className="text-lg font-medium text-foreground tabular-nums">
-                            {formatGateCurrency(result.netAfterSplit)}
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <p className="text-muted-foreground">
-                            Minimum cushion kept:{' '}
-                            {formatGateCurrency(cushion.amount)} (
-                            {RETAINED_CUSHION_BASIS_TEXT[cushion.basis]})
-                        </p>
-                        {cushion.amount <
-                            HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS && (
-                            <p className="text-warning">
-                                This is below {MIN_RETAINED_CUSHION_TEXT}: your
-                                rulebook waives it.
-                            </p>
-                        )}
-                        {isPeakAssumedForState && (
-                            <p className="text-warning">
-                                {PEAK_ASSUMED_VIEW.text}
-                            </p>
-                        )}
-                    </div>
-                    {result.firmMinimumNotice !== null && (
-                        <p className="text-warning">
-                            {payoutFirmMinimumMessage(result.firmMinimumNotice)}
-                        </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                        Maximum withdrawable above the cushion:{' '}
-                        {formatGateCurrency(result.ruleCappedWithdrawable)} (a
-                        ceiling, not a recommendation: draining it is the
-                        mid-size danger zone).
+                    <StatStrip
+                        items={[
+                            {
+                                id: 'payout-request',
+                                label: 'Payout request',
+                                value: requested,
+                            },
+                            {
+                                id: 'net-after-split',
+                                label: `Net after the payout split on ${requested}`,
+                                value: formatGateCurrency(result.netAfterSplit),
+                            },
+                        ]}
+                    />
+                    <p className="m-0 text-muted-foreground">
+                        Minimum cushion kept:{' '}
+                        {formatGateCurrency(cushion.amount)} (
+                        {RETAINED_CUSHION_BASIS_TEXT[cushion.basis]})
                     </p>
-                    {result.simStayCeiling !== null && (
-                        <p className="text-xs text-muted-foreground">
-                            {simStayCeilingText(result.simStayCeiling)}
-                        </p>
+                    {cushion.amount <
+                        HARD_RULE_2_MIN_RETAINED_CUSHION_DOLLARS && (
+                        <StatusRow
+                            title={`This is below ${MIN_RETAINED_CUSHION_TEXT}: your rulebook waives it.`}
+                            tone={StatusTone.Warn}
+                        />
                     )}
-                    {result.liveTriggerNote !== null && (
-                        <p className="text-xs text-muted-foreground">
-                            {result.liveTriggerNote}
-                        </p>
+                    {isPeakAssumedForState && (
+                        <StatusRow
+                            title={PEAK_ASSUMED_VIEW.text}
+                            tone={StatusTone.Warn}
+                        />
                     )}
+                    {result.firmMinimumNotice !== null && (
+                        <FirmMinimumNotice notice={result.firmMinimumNotice} />
+                    )}
+                    <InfoNote
+                        info="A ceiling, not a recommendation: draining it is the mid-size danger zone."
+                        infoTitle="Maximum withdrawable"
+                    >
+                        Maximum withdrawable above the cushion:{' '}
+                        {formatGateCurrency(result.ruleCappedWithdrawable)}
+                    </InfoNote>
                 </div>
             );
         }
         case PayoutPlannerResultKind.Unreadable: {
             return (
-                <p className="text-sm text-warning">
-                    The snapshot could not be rebuilt: {result.reason}
-                </p>
+                <StatusRow
+                    title={`The snapshot could not be rebuilt: ${result.reason}`}
+                    tone={StatusTone.Fail}
+                />
             );
         }
     }
+}
+
+function payoutReadinessNotes(result: PayoutReadinessResult): ReactNode {
+    if (!isPlanned(result)) return undefined;
+    if (result.simStayCeiling === null && result.liveTriggerNote === null) {
+        return undefined;
+    }
+    return (
+        <>
+            {result.simStayCeiling === null ? null : (
+                <p>{simStayCeilingText(result.simStayCeiling)}</p>
+            )}
+            {result.liveTriggerNote === null ? null : (
+                <p>{result.liveTriggerNote}</p>
+            )}
+        </>
+    );
 }
 
 function PayoutStakeComparisonSummary({
@@ -1101,9 +1154,10 @@ function PayoutStakeComparisonSummary({
 }) {
     if (isNotModeled(stakeComparison)) {
         return (
-            <p className="border-t border-border pt-3 text-sm text-muted-foreground">
-                {NOT_MODELED_TEXT[stakeComparison.reason]}
-            </p>
+            <StatusRow
+                title={NOT_MODELED_TEXT[stakeComparison.reason]}
+                tone={StatusTone.Neutral}
+            />
         );
     }
     const requestNow = stakeComparison.requestNow.creditInclusive;
@@ -1115,8 +1169,17 @@ function PayoutStakeComparisonSummary({
     );
     return (
         <div className="flex flex-col gap-2 border-t border-border pt-3">
-            <div className="text-xs text-muted-foreground">
-                Request now vs continue trading (credit-inclusive)
+            <div className="flex items-center gap-1.5">
+                <PanelSubheading>
+                    Request now vs continue trading (credit-inclusive)
+                </PanelSubheading>
+                {liveTransferNotes.length === 0 ? null : (
+                    <InfoPopover title="Request now vs continue trading">
+                        {liveTransferNotes.map((note) => (
+                            <p key={note}>{note}</p>
+                        ))}
+                    </InfoPopover>
+                )}
             </div>
             <div className="text-sm">
                 Requested now:{' '}
@@ -1124,7 +1187,7 @@ function PayoutStakeComparisonSummary({
                 receive {formatGateCurrency(stakeComparison.traderReceivesNow)}{' '}
                 after the split)
             </div>
-            <div className="flex justify-between gap-4 tabular-nums">
+            <div className="flex flex-wrap gap-x-6 gap-y-1 tabular-nums">
                 <span>
                     Request now: {formatGateCurrency(requestNow.value)}
                     {standardErrorText(requestNow.standardError)}
@@ -1146,12 +1209,36 @@ function PayoutStakeComparisonSummary({
                     ]
                 }
             </div>
-            {liveTransferNotes.map((note) => (
-                <p className="text-xs text-muted-foreground" key={note}>
-                    {note}
-                </p>
-            ))}
         </div>
+    );
+}
+
+function PayoutSweepNotes({
+    task,
+}: {
+    task: WorkerTaskState<never, PayoutSweepResult>;
+}) {
+    const optimum =
+        task.phase === WorkerTaskPhase.Done &&
+        task.result.kind !== PayoutSizeSweepResultKind.NoOptimum
+            ? task.result.optimum
+            : null;
+    return (
+        <>
+            <p>{SWEEP_RANKING_TEXT}</p>
+            {optimum?.liveTransfer === undefined ? null : (
+                <>
+                    <p>{assumptionText(optimum.liveTransfer)}</p>
+                    <p>{SWEEP_HAZARD_RANKING_TEXT}</p>
+                </>
+            )}
+            {optimum?.cumulativePayoutTrigger === undefined ? null : (
+                <>
+                    <p>{assumptionText(optimum.cumulativePayoutTrigger)}</p>
+                    <p>{SWEEP_TRIGGER_RANKING_TEXT}</p>
+                </>
+            )}
+        </>
     );
 }
 
@@ -1167,14 +1254,18 @@ function PayoutSweepOutcome({
     task: WorkerTaskState<never, PayoutSweepResult>;
 }) {
     if (task.phase === WorkerTaskPhase.Failed) {
-        return <p className="text-sm text-warning">{task.reason}</p>;
+        return (
+            <Alert variant="destructive">
+                <AlertDescription>{task.reason}</AlertDescription>
+            </Alert>
+        );
     }
     if (task.phase !== WorkerTaskPhase.Done) {
         return <PanelSkeleton />;
     }
     const { result } = task;
     if (result.kind === PayoutSizeSweepResultKind.NoOptimum) {
-        return <p className="text-sm text-warning">{result.issue}</p>;
+        return <StatusRow title={result.issue} tone={StatusTone.Warn} />;
     }
     const { optimum } = result;
     const documentedSize = effectivePayoutRequest(
@@ -1186,12 +1277,6 @@ function PayoutSweepOutcome({
         optimum.cumulativePayoutTrigger !== undefined;
     return (
         <div className="flex flex-col gap-2">
-            <p className="text-xs text-muted-foreground">
-                Engine optimum, not advice: ranked on credit-inclusive expected
-                monthly net (the horizon credit is one bounded end-of-horizon
-                payout, T32); the credit-free realized monthly net is shown
-                alongside.
-            </p>
             <DataTable
                 caption={SWEEP_TABLE_CAPTION}
                 columns={[
@@ -1205,9 +1290,7 @@ function PayoutSweepOutcome({
                                         optimum,
                                         documentedSize,
                                     ).map((tag) => (
-                                        <Badge key={tag} variant="warning">
-                                            {tag}
-                                        </Badge>
+                                        <Badge key={tag}>{tag}</Badge>
                                     ))}
                                 </span>
                                 {row.firmMinimumAboveRequest === null ? null : (
@@ -1238,6 +1321,7 @@ function PayoutSweepOutcome({
                         ),
                         header: 'Request size',
                         id: SweepColumn.RequestSize,
+                        meta: { isRowHeader: true },
                     },
                     {
                         cell: ({ row: { original: row } }) => (
@@ -1294,26 +1378,6 @@ function PayoutSweepOutcome({
                     <li key={note}>{note}</li>
                 ))}
             </ul>
-            {optimum.liveTransfer === undefined ? null : (
-                <>
-                    <p className="text-xs text-muted-foreground">
-                        {assumptionText(optimum.liveTransfer)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                        {SWEEP_HAZARD_RANKING_TEXT}
-                    </p>
-                </>
-            )}
-            {optimum.cumulativePayoutTrigger === undefined ? null : (
-                <>
-                    <p className="text-xs text-muted-foreground">
-                        {assumptionText(optimum.cumulativePayoutTrigger)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                        {SWEEP_TRIGGER_RANKING_TEXT}
-                    </p>
-                </>
-            )}
             {enteredRequest === documentedRequestDollars ||
             optimum.personalOverride === null ? null : (
                 <PersonalPayoutOverrideNote
@@ -1321,33 +1385,6 @@ function PayoutSweepOutcome({
                     override={optimum.personalOverride}
                 />
             )}
-        </div>
-    );
-}
-
-function PayoutSweepTable({
-    documentedRequestDollars,
-    enteredRequest,
-    plan,
-    task,
-}: {
-    documentedRequestDollars: number;
-    enteredRequest: number;
-    plan: Plan;
-    task: WorkerTaskState<never, PayoutSweepResult>;
-}) {
-    return (
-        <div className="flex flex-col gap-2">
-            <p className="text-xs text-muted-foreground">
-                Simulated from a fresh account at your rulebook strategy; it
-                does not use the balance, peak or payouts taken entered above.
-            </p>
-            <PayoutSweepOutcome
-                documentedRequestDollars={documentedRequestDollars}
-                enteredRequest={enteredRequest}
-                plan={plan}
-                task={task}
-            />
         </div>
     );
 }
@@ -1369,19 +1406,29 @@ function PersonalPayoutOverrideNote({
                     : ` (effective ${formatGateCurrency(override.row.requestSize)})`}
             </p>
             {firmMinimumAboveRequest === null ? null : (
-                <p className="text-warning">
-                    firm minimum{' '}
-                    {formatGateCurrency(firmMinimumAboveRequest.minimum)} is
-                    above your{' '}
-                    {formatGateCurrency(firmMinimumAboveRequest.requested)}{' '}
-                    entry
-                </p>
+                <StatusRow
+                    title={
+                        <span className="block first-letter:uppercase">
+                            firm minimum{' '}
+                            {formatGateCurrency(
+                                firmMinimumAboveRequest.minimum,
+                            )}{' '}
+                            is above your{' '}
+                            {formatGateCurrency(
+                                firmMinimumAboveRequest.requested,
+                            )}{' '}
+                            entry
+                        </span>
+                    }
+                    tone={StatusTone.Warn}
+                />
             )}
             {override.warning === null ? null : (
-                <p className="text-warning">
-                    Outside the safe band:{' '}
-                    {personalPayoutOverrideWarningText(override.warning)}
-                </p>
+                <StatusRow
+                    detail={personalPayoutOverrideWarningText(override.warning)}
+                    title="Outside the safe band"
+                    tone={StatusTone.Warn}
+                />
             )}
         </div>
     );
@@ -1412,16 +1459,12 @@ function RulebookStatusNotice({
 }: {
     status: ToolRulebookStatus.Failed | ToolRulebookStatus.Loading;
 }) {
-    return (
-        <p
-            className={
-                status === ToolRulebookStatus.Failed
-                    ? 'text-sm text-warning'
-                    : 'text-sm text-muted-foreground'
-            }
-        >
-            {RULEBOOK_NOTICE_TEXT[status]}
-        </p>
+    return status === ToolRulebookStatus.Failed ? (
+        <Alert variant="destructive">
+            <AlertDescription>{RULEBOOK_NOTICE_TEXT[status]}</AlertDescription>
+        </Alert>
+    ) : (
+        <InfoNote>{RULEBOOK_NOTICE_TEXT[status]}</InfoNote>
     );
 }
 

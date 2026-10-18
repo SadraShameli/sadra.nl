@@ -3,6 +3,8 @@
 import {
     Activity,
     AlertTriangle,
+    Bell,
+    BellOff,
     Cpu,
     type LucideIcon,
     MapPin,
@@ -11,17 +13,17 @@ import {
 import { useMemo } from 'react';
 import { toast } from 'sonner';
 
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
     MutedCell,
     PrimaryCell,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { RowActionKind, rowActionsColumn } from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
 } from '~/components/ui/data-table';
-import { Switch } from '~/components/ui/switch';
 import { EVENT_LABELS, EVENT_TYPES, type EventType } from '~/lib/notify/types';
 import { api } from '~/trpc/react';
 
@@ -85,6 +87,7 @@ export function SubscriptionsPanel() {
                 },
                 header: 'Event',
                 id: 'event',
+                meta: { isRowHeader: true },
             },
             {
                 cell: ({ row }) => (
@@ -97,30 +100,41 @@ export function SubscriptionsPanel() {
                 id: 'description',
             },
             {
-                cell: ({ row }) => (
-                    <Switch
-                        aria-label={`Email me ${EVENT_LABELS[row.original.eventType]}`}
-                        checked={row.original.enabled}
-                        disabled={notificationPrefMutation.isPending}
-                        onCheckedChange={(enabled) =>
-                            notificationPrefMutation.mutate({
-                                enabled,
-                                eventType: row.original.eventType,
-                            })
-                        }
-                    />
-                ),
+                cell: ({ row }) =>
+                    row.original.enabled ? (
+                        <MutedCell className="text-success">On</MutedCell>
+                    ) : (
+                        <MutedCell>Off</MutedCell>
+                    ),
                 enableSorting: false,
                 header: 'Email',
                 id: 'email',
                 meta: { align: DataTableAlign.End },
             },
+            rowActionsColumn<SubscriptionRow>({
+                actionsOf: (subscription) => [
+                    {
+                        icon: subscription.enabled ? BellOff : Bell,
+                        kind: RowActionKind.Select,
+                        label: subscription.enabled
+                            ? 'Unsubscribe'
+                            : 'Subscribe',
+                        onSelect: () =>
+                            notificationPrefMutation.mutate({
+                                enabled: !subscription.enabled,
+                                eventType: subscription.eventType,
+                            }),
+                    },
+                ],
+                isPendingOf: () => notificationPrefMutation.isPending,
+                labelOf: (subscription) => EVENT_LABELS[subscription.eventType],
+            }),
         ],
         [notificationPrefMutation],
     );
 
     return (
-        <ProfilePanel
+        <ToolPanel
             description="Choose which Sensor Hub events send you an email."
             title="Email subscriptions"
         >
@@ -132,6 +146,6 @@ export function SubscriptionsPanel() {
                 rowId={(r) => r.eventType}
                 skeletonRows={EVENT_TYPES.length}
             />
-        </ProfilePanel>
+        </ToolPanel>
     );
 }

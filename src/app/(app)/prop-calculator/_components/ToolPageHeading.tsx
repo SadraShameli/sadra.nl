@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { PageHeader } from '~/components/PageHeader';
 import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 
 import { CalculatorToolbar } from './CalculatorToolbar';
@@ -27,7 +27,7 @@ export function ToolEntryHeader({
     readonly entry: ToolCatalogEntry;
 }) {
     return (
-        <ToolPageHeader
+        <PageHeader
             actions={actions}
             eyebrow={siteToolTitle(ToolTicker.PropCalculator)}
             lead={entry.blurb}

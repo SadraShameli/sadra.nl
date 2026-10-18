@@ -30,10 +30,11 @@ import type {
     TradingPlanRow,
 } from '~/lib/trading/types';
 
-import Eyebrow from '~/components/Eyebrow';
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import { useBlockNavigationWhile } from '~/components/NavigationBlocker';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
-import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -133,10 +134,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
             <section
                 className={cn('app-profile__plan-name', 'flex flex-col gap-3')}
             >
-                <Label
-                    className="text-xs font-medium tracking-wider text-muted-foreground uppercase"
-                    htmlFor="planName"
-                >
+                <Label className="text-sm" htmlFor="planName">
                     Plan name
                 </Label>
                 <Input
@@ -152,7 +150,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     'flex flex-col gap-3',
                 )}
             >
-                <Eyebrow as="h3">Macro time windows</Eyebrow>
+                <PanelSubheading>Macro time windows</PanelSubheading>
                 <DndContext
                     collisionDetection={closestCenter}
                     id="windows-dnd"
@@ -221,7 +219,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
             <section
                 className={cn('app-profile__plan-risk', 'flex flex-col gap-3')}
             >
-                <Eyebrow as="h3">Risk</Eyebrow>
+                <PanelSubheading>Risk</PanelSubheading>
                 <div className="grid gap-3 md:grid-cols-3">
                     <div>
                         <Label className="text-sm" htmlFor="fundedR">
@@ -282,7 +280,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
             <section
                 className={cn('app-profile__plan-setup', 'flex flex-col gap-3')}
             >
-                <Eyebrow as="h3">Setup requirements</Eyebrow>
+                <PanelSubheading>Setup requirements</PanelSubheading>
                 <div className="grid gap-3 md:grid-cols-2">
                     <div>
                         <Label className="text-sm" htmlFor="minRR">
@@ -327,7 +325,9 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     {CONFLUENCE_GROUPS.map((group) => (
                         <div className="flex flex-col gap-2" key={group.label}>
                             <div className="flex items-center justify-between gap-2">
-                                <Eyebrow as="p">{group.label}</Eyebrow>
+                                <PanelSubheading as="h4">
+                                    {group.label}
+                                </PanelSubheading>
                                 <div className="flex items-center gap-2">
                                     <Button
                                         onClick={() =>
@@ -419,10 +419,8 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 )}
             >
                 <div className="flex items-center justify-between">
-                    <Eyebrow as="h3">Scoring weights</Eyebrow>
-                    <Badge variant={isWeightsValid ? 'default' : 'destructive'}>
-                        Total {weightsSum.toFixed(0)} / 100
-                    </Badge>
+                    <PanelSubheading>Scoring weights</PanelSubheading>
+                    <Badge>Total {weightsSum.toFixed(0)} / 100</Badge>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                     {WEIGHT_CATEGORIES.map(({ hint, key, label }) => (
@@ -431,7 +429,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             key={key}
                         >
                             <div className="flex items-center justify-between">
-                                <Label className="text-sm">{label}</Label>
+                                <LabelWithInfo info={hint} label={label} />
                                 <span className="font-mono text-sm text-foreground">
                                     {config.weights[key]}
                                 </span>
@@ -448,19 +446,12 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                 step={1}
                                 value={[config.weights[key]]}
                             />
-                            <p className="text-xs text-muted-foreground">
-                                {hint}
-                            </p>
                         </div>
                     ))}
                 </div>
                 {!isWeightsValid && (
-                    <Alert variant="warning">
-                        <AlertDescription className="flex items-center justify-between gap-3">
-                            <span>
-                                Weights must sum to 100. Currently{' '}
-                                {weightsSum.toFixed(0)}.
-                            </span>
+                    <StatusRow
+                        actions={
                             <Button
                                 onClick={normalizeWeights}
                                 size="sm"
@@ -469,8 +460,10 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             >
                                 Normalize
                             </Button>
-                        </AlertDescription>
-                    </Alert>
+                        }
+                        title={`Weights must sum to 100. Currently ${weightsSum.toFixed(0)}.`}
+                        tone={StatusTone.Warn}
+                    />
                 )}
             </section>
 
@@ -480,7 +473,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     'flex flex-col gap-3',
                 )}
             >
-                <Eyebrow as="h3">Knockout rules</Eyebrow>
+                <PanelSubheading>Knockout rules</PanelSubheading>
                 <div className="grid gap-2 md:grid-cols-2">
                     {KNOCKOUT_RULES.map((rule) => (
                         <SwitchCard

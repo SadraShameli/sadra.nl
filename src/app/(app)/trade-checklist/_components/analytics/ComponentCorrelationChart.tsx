@@ -12,7 +12,9 @@ import {
 
 import type { WeightCategory } from '~/lib/trading/types';
 
+import { FilterToolbar } from '~/components/FilterToolbar';
 import {
+    CHART_BAR_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
@@ -68,7 +70,7 @@ export function ComponentCorrelationChart({
                 'flex flex-col gap-3',
             )}
         >
-            <div className="flex flex-wrap items-center gap-2">
+            <FilterToolbar label="Correlation component">
                 <ToolbarSelect
                     label="Component"
                     onValueChange={(v) => {
@@ -81,11 +83,7 @@ export function ComponentCorrelationChart({
                     }))}
                     value={category}
                 />
-                <span className="text-xs text-muted-foreground">
-                    Bucketed by % of component max earned. Higher buckets should
-                    produce higher avg R if the section has edge.
-                </span>
-            </div>
+            </FilterToolbar>
 
             {totalWithData === 0 ? (
                 <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
@@ -107,7 +105,7 @@ export function ComponentCorrelationChart({
                             stroke="var(--muted-foreground)"
                             y={0}
                         />
-                        <Bar dataKey="avgR" isAnimationActive={false}>
+                        <Bar {...CHART_BAR_PROPS} dataKey="avgR">
                             <LabelList
                                 dataKey="count"
                                 fill="var(--muted-foreground)"

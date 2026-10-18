@@ -30,6 +30,8 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
+import { typeInto } from '../../../components/formDialog';
+
 interface FakeQuery {
     data: unknown;
     error: Error | null;
@@ -239,16 +241,6 @@ async function submitForm(scope: ParentNode) {
             new Event('submit', { bubbles: true, cancelable: true }),
         );
         await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-}
-
-function typeInto(target: HTMLInputElement, value: string) {
-    act(() => {
-        Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            'value',
-        )?.set?.call(target, value);
-        target.dispatchEvent(new Event('input', { bubbles: true }));
     });
 }
 

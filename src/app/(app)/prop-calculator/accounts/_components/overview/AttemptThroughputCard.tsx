@@ -1,12 +1,17 @@
 import { memo } from 'react';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
+    DataTablePhoneLayout,
 } from '~/components/ui/data-table';
+import { formatDisplayMonth } from '~/lib/format';
 
 import { type AttemptThroughputCardModel } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum AttemptsByFirmColumn {
     Firm = 'firm',
@@ -31,17 +36,21 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
 }) {
     if (model.months.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No purchase or retry recorded yet.
-            </p>
+            <OverviewPanel section={OverviewSectionId.AttemptThroughput}>
+                <p className="text-sm text-muted-foreground">
+                    No purchase or retry recorded yet.
+                </p>
+            </OverviewPanel>
         );
     }
     return (
-        <div className="flex flex-col gap-6">
+        <OverviewPanel
+            contentClassName="gap-6"
+            info={model.countingNote}
+            section={OverviewSectionId.AttemptThroughput}
+        >
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium text-foreground">
-                    Attempts per month
-                </h3>
+                <PanelSubheading>Attempts per month</PanelSubheading>
                 <p className="text-sm text-muted-foreground">
                     Mean {model.meanPerMonth} attempts per month
                     {model.meanPerActiveFirmPerMonth === null
@@ -54,11 +63,12 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
                         {
                             cell: ({ row }) => (
                                 <span className="tabular-nums">
-                                    {row.original.month}
+                                    {formatDisplayMonth(row.original.month)}
                                 </span>
                             ),
                             header: 'Month',
                             id: AttemptsByMonthColumn.Month,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.attempts}</>,
@@ -75,19 +85,20 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
             </div>
             {model.perFirm.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         Attempts per month by firm
-                    </h3>
+                    </PanelSubheading>
                     <DataTable
                         columns={[
                             {
                                 cell: ({ row: { original: month } }) => (
                                     <span className="tabular-nums">
-                                        {month.month}
+                                        {formatDisplayMonth(month.month)}
                                     </span>
                                 ),
                                 header: 'Month',
                                 id: FirmMonthColumn.Month,
+                                meta: { isRowHeader: true },
                             },
                             ...model.perFirm.map(
                                 (firm): DataTableColumn<AttemptMonth> => ({
@@ -105,21 +116,23 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
                         data={[...model.months]}
                         isSortable={false}
                         pageSize={null}
+                        phoneLayout={DataTablePhoneLayout.Scroll}
                         rowId={(month) => month.key}
                     />
                 </div>
             )}
             {model.perFirm.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         Mean attempts per month by firm
-                    </h3>
+                    </PanelSubheading>
                     <DataTable
                         columns={[
                             {
                                 cell: ({ row }) => <>{row.original.firm}</>,
                                 header: 'Firm',
                                 id: AttemptsByFirmColumn.Firm,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => (
@@ -137,9 +150,6 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
                     />
                 </div>
             )}
-            <p className="text-xs text-muted-foreground">
-                {model.countingNote}
-            </p>
-        </div>
+        </OverviewPanel>
     );
 });

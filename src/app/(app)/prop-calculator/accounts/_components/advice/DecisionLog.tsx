@@ -1,17 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { PencilLine } from 'lucide-react';
+import { useId, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
+import { z } from 'zod';
 
+import { FormDialog } from '~/components/FormDialog';
+import { RowActionKind, rowActionsColumn } from '~/components/RowActionsMenu';
 import { Button } from '~/components/ui/button';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
 } from '~/components/ui/data-table';
+import { Dialog } from '~/components/ui/dialog';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { errorMessage } from '~/lib/errorMessage';
-import { formatCurrency } from '~/lib/format';
+import { formatCurrency, formatDisplayDate } from '~/lib/format';
 import {
     type AccountStage,
     usdCents,
@@ -32,6 +40,25 @@ enum DecisionColumn {
     DecidedOn = 'decided-on',
     Headline = 'headline',
 }
+
+const actualRiskFormShape = z.object({ dollars: z.string() });
+
+const actualRiskSchema = actualRiskFormShape.transform((values, context) => {
+    const dollars = Number(values.dollars);
+    if (
+        values.dollars.trim() === '' ||
+        !Number.isFinite(dollars) ||
+        dollars < 0
+    ) {
+        context.addIssue({
+            code: 'custom',
+            message: 'Enter a valid risk amount',
+            path: ['dollars'],
+        });
+        return z.NEVER;
+    }
+    return usdCentsFromDollars(dollars);
+});
 
 export type DecisionRow =
     RouterOutputs['propAccounts']['decision']['listForAccount'][number];
@@ -65,6 +92,18 @@ export function DecisionLog({
         },
         onSuccess: () => {
             toast.success('Suggestion accepted');
+            return utilities.propAccounts.decision.invalidate();
+        },
+    });
+
+    const [recording, setRecording] = useState<DecisionRow | null>(null);
+    const recordActual = api.propAccounts.decision.recordActual.useMutation({
+        onError: (error) => {
+            toast.error(errorMessage(error));
+        },
+        onSuccess: () => {
+            toast.success('Actual risk recorded');
+            setRecording(null);
             return utilities.propAccounts.decision.invalidate();
         },
     });
@@ -112,13 +151,57 @@ export function DecisionLog({
                 </p>
             ) : (
                 <DataTable
-                    columns={decisionColumns(stepCents)}
+                    columns={[
+                        ...decisionColumns(stepCents),
+                        rowActionsColumn<DecisionRow>({
+                            actionsOf: (decision) =>
+                                decision.actualRiskCents === null
+                                    ? [
+                                          {
+                                              icon: PencilLine,
+                                              kind: RowActionKind.Select,
+                                              label: 'Record actual risk',
+                                              onSelect: () => {
+                                                  setRecording(decision);
+                                              },
+                                          },
+                                      ]
+                                    : [],
+                            isPendingOf: (decision) =>
+                                recordActual.isPending &&
+                                recordActual.variables.id === decision.id,
+                            labelOf: (decision) =>
+                                `the decision of ${formatDisplayDate(decision.decidedOn)}`,
+                        }),
+                    ]}
                     data={[...decisions]}
                     isSortable={false}
                     pageSize={null}
                     rowId={(decision) => decision.id}
                 />
             )}
+            <Dialog
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) setRecording(null);
+                }}
+                open={recording !== null}
+            >
+                {recording !== null && (
+                    <ActualRiskForm
+                        decision={recording}
+                        isPending={recordActual.isPending}
+                        onCancel={() => {
+                            setRecording(null);
+                        }}
+                        onRecord={(actualRiskCents) => {
+                            recordActual.mutate({
+                                actualRiskCents,
+                                id: recording.id,
+                            });
+                        }}
+                    />
+                )}
+            </Dialog>
         </div>
     );
 }
@@ -134,60 +217,73 @@ function adherenceText(decision: DecisionRow, stepCents: number): string {
 
 const CURRENCY_DECIMALS = 2;
 
-function ActualRiskCell({ decision }: { readonly decision: DecisionRow }) {
-    const [draft, setDraft] = useState('');
-    const utilities = api.useUtils();
-    const recordActual = api.propAccounts.decision.recordActual.useMutation({
-        onError: (error) => {
-            toast.error(errorMessage(error));
-        },
-        onSuccess: () => {
-            toast.success('Actual risk recorded');
-            return utilities.propAccounts.decision.invalidate();
-        },
+function ActualRiskForm({
+    decision,
+    isPending,
+    onCancel,
+    onRecord,
+}: {
+    readonly decision: DecisionRow;
+    readonly isPending: boolean;
+    readonly onCancel: () => void;
+    readonly onRecord: (actualRiskCents: number) => void;
+}) {
+    const inputId = useId();
+    const form = useForm({
+        defaultValues: { dollars: '' },
+        resolver: zodResolver(actualRiskSchema),
     });
-
-    return decision.actualRiskCents === null ? (
-        <div className="flex items-center justify-end gap-2">
-            <Input
-                aria-label={`Actual risk for the decision of ${decision.decidedOn}`}
-                className="w-24"
-                onChange={(event) => {
-                    setDraft(event.target.value);
-                }}
-                type="number"
-                value={draft}
+    const dollars = useWatch({ control: form.control, name: 'dollars' });
+    return (
+        <FormDialog
+            form={form}
+            onCancel={onCancel}
+            onSubmit={onRecord}
+            pending={isPending}
+            submitDisabled={dollars === ''}
+            submitLabel="Record actual"
+            title={`Actual risk for the decision of ${formatDisplayDate(decision.decidedOn)}`}
+        >
+            <Controller
+                control={form.control}
+                name="dollars"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={inputId}>Actual risk</FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={inputId}
+                            inputMode="decimal"
+                            type="number"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
             />
-            <Button
-                disabled={draft === '' || recordActual.isPending}
-                onClick={() => {
-                    const dollars = Number(draft);
-                    if (!Number.isFinite(dollars) || dollars < 0) {
-                        toast.error('Enter a valid risk amount');
-                        return;
-                    }
-                    recordActual.mutate({
-                        actualRiskCents: usdCentsFromDollars(dollars),
-                        id: decision.id,
-                    });
-                }}
-                size="sm"
-                variant="outline"
-            >
-                Record actual
-            </Button>
-        </div>
+        </FormDialog>
+    );
+}
+
+function ActualRiskText({ decision }: { readonly decision: DecisionRow }) {
+    return decision.actualRiskCents === null ? (
+        <span className="text-muted-foreground">Not recorded</span>
     ) : (
-        formatCurrency(usdCentsToDollars(decision.actualRiskCents), 2)
+        formatCurrency(
+            usdCentsToDollars(decision.actualRiskCents),
+            CURRENCY_DECIMALS,
+        )
     );
 }
 
 function decisionColumns(stepCents: number): DataTableColumn<DecisionRow>[] {
     return [
         {
-            cell: ({ row: { original: decision } }) => decision.decidedOn,
+            cell: ({ row: { original: decision } }) =>
+                formatDisplayDate(decision.decidedOn),
             header: 'Decided on',
             id: DecisionColumn.DecidedOn,
+            meta: { isRowHeader: true },
         },
         {
             cell: ({ row: { original: decision } }) =>
@@ -211,7 +307,7 @@ function decisionColumns(stepCents: number): DataTableColumn<DecisionRow>[] {
         },
         {
             cell: ({ row: { original: decision } }) => (
-                <ActualRiskCell decision={decision} />
+                <ActualRiskText decision={decision} />
             ),
             header: 'Actual',
             id: DecisionColumn.Actual,

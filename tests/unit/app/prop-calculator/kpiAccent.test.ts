@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    KPI_ACCENT_TEXT_CLASS,
+    KPI_ACCENT_STAT_TONE,
     KpiAccent,
     probabilityAccent,
     roiAccent,
     signAccent,
 } from '~/app/(app)/prop-calculator/_components/kpiAccent';
+import { StatTone } from '~/components/StatStrip';
 import { RoiBasis } from '~/lib/prop-calculator';
 
 describe('probabilityAccent (eval pass and funded survive KPIs)', () => {
@@ -56,12 +57,12 @@ describe('KpiAccent', () => {
     });
 });
 
-describe('KPI_ACCENT_TEXT_CLASS', () => {
-    it('renders a neutral accent in the foreground color, not green', () => {
-        expect(KPI_ACCENT_TEXT_CLASS).toEqual({
-            [KpiAccent.Negative]: 'text-destructive',
-            [KpiAccent.Neutral]: 'text-foreground',
-            [KpiAccent.Positive]: 'text-success',
+describe('KPI_ACCENT_STAT_TONE', () => {
+    it('renders a neutral accent in the default ink tone, not green', () => {
+        expect(KPI_ACCENT_STAT_TONE).toEqual({
+            [KpiAccent.Negative]: StatTone.Negative,
+            [KpiAccent.Neutral]: StatTone.Default,
+            [KpiAccent.Positive]: StatTone.Positive,
         });
     });
 });

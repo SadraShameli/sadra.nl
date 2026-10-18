@@ -34,6 +34,7 @@ import { ValueChainCard } from '~/app/(app)/prop-calculator/_components/value/Va
 import { accountPrefillHref } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Button } from '~/components/ui/button';
+import InfoPopover from '~/components/ui/info-popover';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
 import { cn } from '~/lib/utilities';
@@ -178,12 +179,14 @@ export function SimulatorView() {
                     className={cn('flex flex-col gap-6', HEADER_SCROLL_MARGIN)}
                     id="value"
                 >
-                    <ToolSectionHeading id="value-heading">
-                        Value
-                    </ToolSectionHeading>
-                    <p className="text-sm text-muted-foreground">
-                        {valueBasisText(state, rulebook, rulebookSource)}
-                    </p>
+                    <div className="flex items-center gap-2">
+                        <ToolSectionHeading id="value-heading">
+                            Value
+                        </ToolSectionHeading>
+                        <InfoPopover title="Value">
+                            {valueBasisText(state, rulebook, rulebookSource)}
+                        </InfoPopover>
+                    </div>
                     <ValueChainCard cards={valueCards} />
                     <FundedValueCard
                         cards={valueCards}

@@ -16,6 +16,7 @@ import {
     OTHER_USER_ID,
     payout,
 } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
+import { statStripValue } from '../statStripValue';
 
 interface Harness {
     list: (key: ListKey) => {
@@ -214,11 +215,9 @@ describe('SetupCard realized rates (PT-81 step 2)', () => {
     }
 
     function valueOf(label: string): string {
-        const span = [...container.querySelectorAll('span')].find(
-            (element) => element.textContent === label,
-        );
-        if (span === undefined) throw new Error(`no stat card ${label}`);
-        return span.nextElementSibling?.textContent ?? '';
+        const value = statStripValue(container, label);
+        if (value === undefined) throw new Error(`no stat ${label}`);
+        return value.textContent;
     }
 
     it('shows the realized figures beside the modeled ones, with the sample count', () => {

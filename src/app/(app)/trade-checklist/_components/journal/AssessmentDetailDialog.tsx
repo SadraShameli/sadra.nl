@@ -1,10 +1,13 @@
 'use client';
 
-import { format } from 'date-fns';
-
 import type { TradeAssessmentRow } from '~/lib/trading/types';
 
+import {
+    EXECUTION_DEVIATION_LABEL,
+    recommendationLabel,
+} from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
 import { ReasonListPanel } from '~/app/(app)/trade-checklist/_components/ReasonListPanel';
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import {
@@ -16,6 +19,7 @@ import {
 import { Progress } from '~/components/ui/progress';
 import { ScrollArea } from '~/components/ui/scroll-area';
 import { Separator } from '~/components/ui/separator';
+import { formatDisplayDateTime } from '~/lib/format';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 
@@ -50,8 +54,8 @@ export function AssessmentDetailDialog({
                         <span className="font-mono text-sm text-muted-foreground">
                             {row.score.toFixed(1)} / 100
                         </span>
-                        <Badge className="ml-auto" variant="outline">
-                            {row.recommendation}
+                        <Badge className="ml-auto">
+                            {recommendationLabel(row.recommendation)}
                         </Badge>
                     </DialogTitle>
                 </DialogHeader>
@@ -59,7 +63,7 @@ export function AssessmentDetailDialog({
                 <ScrollArea className="max-h-[70vh]">
                     <div className="flex flex-col gap-4 pr-3">
                         <p className="text-xs text-muted-foreground">
-                            {format(new Date(row.createdAt), 'PPpp')}
+                            {formatDisplayDateTime(row.createdAt)}
                             {windowLabel && ` · ${windowLabel}`}
                             {' · '}
                             {answers.context.accountType === 'funded'
@@ -69,9 +73,7 @@ export function AssessmentDetailDialog({
 
                         {row.outcome && (
                             <div className="rounded-md border border-border/40 p-3">
-                                <p className="text-xs tracking-wider text-muted-foreground uppercase">
-                                    Outcome
-                                </p>
+                                <PanelSubheading>Outcome</PanelSubheading>
                                 <p className="mt-1 text-sm">
                                     {row.outcome === 'win'
                                         ? 'Win'
@@ -94,9 +96,9 @@ export function AssessmentDetailDialog({
                                         row.executionDeviations.length >
                                             0)) && (
                                     <div className="mt-3 flex flex-col gap-1.5 border-t border-border/40 pt-3">
-                                        <p className="text-xs tracking-wider text-muted-foreground uppercase">
+                                        <PanelSubheading as="h4">
                                             Execution
-                                        </p>
+                                        </PanelSubheading>
                                         {row.actualRiskTaken !== null && (
                                             <p className="text-sm">
                                                 Risked $
@@ -116,11 +118,12 @@ export function AssessmentDetailDialog({
                                                 <div className="flex flex-wrap gap-1.5">
                                                     {row.executionDeviations.map(
                                                         (d) => (
-                                                            <Badge
-                                                                key={d}
-                                                                variant="warning"
-                                                            >
-                                                                {d}
+                                                            <Badge key={d}>
+                                                                {
+                                                                    EXECUTION_DEVIATION_LABEL[
+                                                                        d
+                                                                    ]
+                                                                }
                                                             </Badge>
                                                         ),
                                                     )}
@@ -133,10 +136,8 @@ export function AssessmentDetailDialog({
 
                         <Separator />
 
-                        <div>
-                            <p className="mb-2 text-xs tracking-wider text-muted-foreground uppercase">
-                                Component scores
-                            </p>
+                        <div className="flex flex-col gap-2">
+                            <PanelSubheading>Component scores</PanelSubheading>
                             <div className="grid gap-2 sm:grid-cols-2">
                                 {WEIGHT_CATEGORIES.map((cat) => {
                                     const cs = result.componentScores[cat.key];
@@ -173,6 +174,7 @@ export function AssessmentDetailDialog({
                                 className="app-trade-checklist__red-flags"
                                 items={result.redFlags}
                                 title="Red flags"
+                                titleAs="h3"
                             />
                         )}
 
@@ -180,6 +182,7 @@ export function AssessmentDetailDialog({
                             <ReasonListPanel
                                 items={result.strengths}
                                 title="Strengths"
+                                titleAs="h3"
                             />
                         )}
 
@@ -187,11 +190,12 @@ export function AssessmentDetailDialog({
                             <ReasonListPanel
                                 items={result.weaknesses}
                                 title="Weaknesses"
+                                titleAs="h3"
                             />
                         )}
 
                         {answers.finals.notes && (
-                            <ToolPanel title="Notes">
+                            <ToolPanel title="Notes" titleAs="h3">
                                 <p className="m-0 text-sm whitespace-pre-wrap text-muted-foreground">
                                     {answers.finals.notes}
                                 </p>

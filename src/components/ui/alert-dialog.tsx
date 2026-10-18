@@ -4,6 +4,7 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import * as React from 'react';
 
 import { buttonVariants } from '~/components/ui/button';
+import { useReturnFocus } from '~/components/ui/use-return-focus';
 import { cn } from '~/lib/utilities';
 
 const AlertDialog = AlertDialogPrimitive.Root;
@@ -30,19 +31,32 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 const AlertDialogContent = React.forwardRef<
     React.ComponentRef<typeof AlertDialogPrimitive.Content>,
     React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...properties }, reference) => (
-    <AlertDialogPortal>
-        <AlertDialogOverlay />
-        <AlertDialogPrimitive.Content
-            className={cn(
-                'fixed top-[50%] left-[50%] z-50 grid w-full max-w-lg translate-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
-                className,
-            )}
-            ref={reference}
-            {...properties}
-        />
-    </AlertDialogPortal>
-));
+>(
+    (
+        { className, onCloseAutoFocus, onOpenAutoFocus, ...properties },
+        reference,
+    ) => {
+        const returnFocus = useReturnFocus({
+            onCloseAutoFocus,
+            onOpenAutoFocus,
+        });
+        return (
+            <AlertDialogPortal>
+                <AlertDialogOverlay />
+                <AlertDialogPrimitive.Content
+                    className={cn(
+                        'fixed top-[50%] left-[50%] z-50 grid w-full max-w-lg translate-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
+                        className,
+                    )}
+                    onCloseAutoFocus={returnFocus.onCloseAutoFocus}
+                    onOpenAutoFocus={returnFocus.onOpenAutoFocus}
+                    ref={reference}
+                    {...properties}
+                />
+            </AlertDialogPortal>
+        );
+    },
+);
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 
 const AlertDialogHeader = ({

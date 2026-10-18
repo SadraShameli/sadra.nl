@@ -1,3 +1,5 @@
+import { format, isSameDay, isSameYear, parseISO } from 'date-fns';
+
 export type DeltaKind = 'currency' | 'days' | 'number' | 'percent' | 'r';
 
 export const NOT_APPLICABLE = 'n/a';
@@ -114,4 +116,57 @@ function currencyNumberFormat(fractionDigits: number): Intl.NumberFormat {
     });
     CURRENCY_NUMBER_FORMATS.set(fractionDigits, created);
     return created;
+}
+
+const DISPLAY_DATE_PATTERN = 'd MMM yyyy';
+const DISPLAY_DAY_MONTH_PATTERN = 'd MMM';
+const DISPLAY_DATE_TIME_PATTERN = 'd MMM yyyy, HH:mm';
+const DISPLAY_MONTH_PATTERN = 'MMM yyyy';
+const DISPLAY_TIME_PATTERN = 'HH:mm';
+const DISPLAY_WEEKDAY_DATE_PATTERN = 'EEEE d MMM yyyy';
+const DISPLAY_TIME_WITH_SECONDS_PATTERN = 'HH:mm:ss';
+const DISPLAY_RANGE_SEPARATOR = ' – ';
+
+export function formatDisplayDate(value: Date | string): string {
+    return format(displayDateOf(value), DISPLAY_DATE_PATTERN);
+}
+
+export function formatDisplayDateRange(
+    from: Date | string,
+    to: Date | string,
+): string {
+    const start = displayDateOf(from);
+    const end = displayDateOf(to);
+    if (isSameDay(start, end)) return formatDisplayDate(end);
+    const startText = format(
+        start,
+        isSameYear(start, end)
+            ? DISPLAY_DAY_MONTH_PATTERN
+            : DISPLAY_DATE_PATTERN,
+    );
+    return `${startText}${DISPLAY_RANGE_SEPARATOR}${formatDisplayDate(end)}`;
+}
+
+export function formatDisplayDateTime(value: Date | string): string {
+    return format(displayDateOf(value), DISPLAY_DATE_TIME_PATTERN);
+}
+
+export function formatDisplayMonth(value: Date | string): string {
+    return format(displayDateOf(value), DISPLAY_MONTH_PATTERN);
+}
+
+export function formatDisplayTime(value: Date | string): string {
+    return format(displayDateOf(value), DISPLAY_TIME_PATTERN);
+}
+
+export function formatDisplayTimeWithSeconds(value: Date | string): string {
+    return format(displayDateOf(value), DISPLAY_TIME_WITH_SECONDS_PATTERN);
+}
+
+export function formatDisplayWeekdayDate(value: Date | string): string {
+    return format(displayDateOf(value), DISPLAY_WEEKDAY_DATE_PATTERN);
+}
+
+function displayDateOf(value: Date | string): Date {
+    return typeof value === 'string' ? parseISO(value) : value;
 }

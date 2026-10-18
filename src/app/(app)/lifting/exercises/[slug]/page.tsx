@@ -15,6 +15,7 @@ import {
     loadOfficialExercise,
     loadOfficialExercises,
 } from '~/lib/lifting/OfficialCatalog';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { loadOrNotFound } from '~/trpc/loadOrNotFound';
 import { api } from '~/trpc/server';
@@ -79,8 +80,12 @@ function ExerciseOverview({
     return (
         <div className="flex flex-col gap-8">
             <LiftingDetailHeader
+                backLink={{
+                    href: routes.lifting.exercises,
+                    label: 'Exercises',
+                }}
                 description={exercise.instructions}
-                eyebrow={`${exercise.equipment} · ${exercise.primaryMuscle}`}
+                meta={[exercise.equipment, exercise.primaryMuscle]}
                 title={exercise.name}
             />
             {exercise.videoUrl && (

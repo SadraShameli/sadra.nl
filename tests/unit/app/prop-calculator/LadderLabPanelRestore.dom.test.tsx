@@ -34,6 +34,11 @@ import {
 import { findFirm } from '~/lib/prop-calculator/firms';
 
 import {
+    isRowActionDisabled,
+    openRowActions,
+    rowActionLabels,
+} from '../../components/rowActionsMenu';
+import {
     labelledControl,
     labelledSelect,
     selectedText,
@@ -115,6 +120,11 @@ const PROGRESS: LadderProgress = {
     total: 40,
 };
 
+function rowActions(): string[] {
+    openRowActions('200 / 300 / 400');
+    return rowActionLabels();
+}
+
 function searchInputs() {
     return ladderSearchInputsFor(BASE_INPUTS, STORED_FORM);
 }
@@ -165,14 +175,6 @@ describe('LadderLabPanel restored from the result slot', () => {
 
     function fieldValue(label: string): string {
         return labelledControl(container, label, HTMLInputElement).value;
-    }
-
-    function rowApply(): HTMLButtonElement[] {
-        return [...container.querySelectorAll(':scope tbody button')].filter(
-            (button): button is HTMLButtonElement =>
-                button instanceof HTMLButtonElement &&
-                button.textContent === 'Apply',
-        );
     }
 
     beforeEach(() => {
@@ -242,8 +244,8 @@ describe('LadderLabPanel restored from the result slot', () => {
         expect(container.textContent).toContain('Ranked ladders (1)');
         expect(container.textContent).toContain('Scored 40 distinct ladders');
         expect(container.textContent).not.toContain('Inputs changed');
-        expect(rowApply()).toHaveLength(1);
-        expect(rowApply()[0]?.disabled).toBe(false);
+        expect(rowActions()).toEqual(['Apply']);
+        expect(isRowActionDisabled('Apply')).toBe(false);
     });
 
     it('says the inputs changed and turns Apply off when the calculator inputs moved on', () => {
@@ -253,7 +255,7 @@ describe('LadderLabPanel restored from the result slot', () => {
             'Inputs changed since this run, so Apply is off.',
         );
         expect(container.textContent).toContain('Ranked ladders (1)');
-        expect(rowApply()).toHaveLength(1);
-        expect(rowApply()[0]?.disabled).toBe(true);
+        expect(rowActions()).toEqual(['Apply']);
+        expect(isRowActionDisabled('Apply')).toBe(true);
     });
 });

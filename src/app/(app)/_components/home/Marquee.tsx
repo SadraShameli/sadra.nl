@@ -20,7 +20,7 @@ export function Marquee({ words }: { readonly words: readonly string[] }) {
                         >
                             {word}
                         </span>
-                        <span className="text-[0.32em] text-camel not-italic">
+                        <span className="type-display-page text-camel not-italic">
                             ✦
                         </span>
                     </span>

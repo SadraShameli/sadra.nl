@@ -1,23 +1,25 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Dumbbell, Pencil, Plus } from 'lucide-react';
+import { Dumbbell, Plus } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
-import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
-import { ProfileTextField } from '~/app/(app)/profile/_components/ProfileFormFields';
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
     ProfileTableEmpty,
-    RowActionButton,
-    RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { FormDialog } from '~/components/FormDialog';
+import { FormTextField } from '~/components/FormFields';
+import {
+    deleteRowAction,
+    editRowAction,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import {
     DataTable,
@@ -121,6 +123,7 @@ export function ExercisesManager() {
                     <PrimaryCell>{row.original.name}</PrimaryCell>
                 ),
                 header: 'Name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: ExerciseColumn.Muscle,
@@ -142,21 +145,20 @@ export function ExercisesManager() {
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Equipment',
             },
-            profileActionsColumn<ExerciseRow>((exercise) => (
-                <>
-                    <RowActionButton
-                        icon={Pencil}
-                        label="Edit exercise"
-                        onClick={() => setEditing(exercise)}
-                    />
-                    <RowConfirmAction
-                        description="Workouts referencing this exercise keep their logged sets, but the exercise can't be selected anymore."
-                        label="Delete exercise"
-                        onConfirm={() => remove.mutate({ id: exercise.id })}
-                        title={`Delete “${exercise.name}”?`}
-                    />
-                </>
-            )),
+            rowActionsColumn<ExerciseRow>({
+                actionsOf: (exercise) => [
+                    editRowAction(() => setEditing(exercise)),
+                    deleteRowAction({
+                        description:
+                            "Workouts referencing this exercise keep their logged sets, but the exercise can't be selected anymore.",
+                        onDelete: () => remove.mutate({ id: exercise.id }),
+                        title: `Delete “${exercise.name}”?`,
+                    }),
+                ],
+                isPendingOf: (exercise) =>
+                    remove.isPending && remove.variables.id === exercise.id,
+                labelOf: (exercise) => exercise.name,
+            }),
         ],
         [remove],
     );
@@ -170,8 +172,8 @@ export function ExercisesManager() {
 
     return (
         <>
-            <ProfilePanel
-                action={newButton}
+            <ToolPanel
+                actions={newButton}
                 description="Your own exercises. Built-in exercises are managed centrally."
                 title="Exercises"
             >
@@ -210,7 +212,7 @@ export function ExercisesManager() {
                     rowId={(r) => r.id}
                     showFilter
                 />
-            </ProfilePanel>
+            </ToolPanel>
 
             <ExerciseDialog
                 onClose={() => setIsCreateOpen(false)}
@@ -329,7 +331,7 @@ function ExerciseDialog({
             }}
             open={open}
         >
-            <ProfileFormDialog
+            <FormDialog
                 form={form}
                 onCancel={onClose}
                 onSubmit={onSubmit}
@@ -337,7 +339,7 @@ function ExerciseDialog({
                 submitLabel={submitLabel}
                 title={title}
             >
-                <ProfileTextField
+                <FormTextField
                     control={form.control}
                     label="Name"
                     name="name"
@@ -368,7 +370,7 @@ function ExerciseDialog({
                         values={MECHANIC_VALUES}
                     />
                 </div>
-            </ProfileFormDialog>
+            </FormDialog>
         </Dialog>
     );
 }

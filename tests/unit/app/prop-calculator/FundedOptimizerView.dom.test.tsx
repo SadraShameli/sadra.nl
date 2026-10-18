@@ -254,7 +254,8 @@ describe('FundedOptimizerView follows and names the shared objective (PT-83, F-V
 
     function shownLabels(): string[] {
         return [...container.querySelectorAll(':scope tbody tr')].map(
-            (row) => row.querySelector(':scope td')?.textContent ?? '',
+            (row) =>
+                row.querySelector(':scope th[scope="row"]')?.textContent ?? '',
         );
     }
 

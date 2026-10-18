@@ -8,7 +8,7 @@ import {
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
-import { NOT_APPLICABLE } from '~/lib/format';
+import { formatDisplayDate, NOT_APPLICABLE } from '~/lib/format';
 
 import { type SetupAccountRow } from './overviewModel';
 
@@ -36,6 +36,7 @@ const SETUP_ACCOUNT_COLUMNS: DataTableColumn<SetupAccountRow>[] = [
         ),
         header: 'Account',
         id: SetupAccountColumn.Account,
+        meta: { isRowHeader: true },
     },
     {
         accessorFn: (row) => row.firm,
@@ -58,7 +59,9 @@ const SETUP_ACCOUNT_COLUMNS: DataTableColumn<SetupAccountRow>[] = [
     {
         accessorFn: (row) => row.purchasedOn,
         cell: ({ row }) => (
-            <span className="tabular-nums">{row.original.purchasedOn}</span>
+            <span className="tabular-nums">
+                {formatDisplayDate(row.original.purchasedOn)}
+            </span>
         ),
         header: 'Purchased',
         id: SetupAccountColumn.Purchased,

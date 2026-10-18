@@ -3,7 +3,10 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { z } from 'zod';
 
-import { ObjectiveChip } from '~/app/(app)/prop-calculator/_components/ObjectiveChip';
+import {
+    ObjectiveNotes,
+    ObjectiveSelect,
+} from '~/app/(app)/prop-calculator/_components/ObjectiveChip';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
@@ -12,11 +15,18 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useOverviewWorker } from '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { InfoNote } from '~/components/InfoNote';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Badge } from '~/components/ui/badge';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
 } from '~/components/ui/data-table';
+import { Field, FieldLabel } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
 import { Skeleton } from '~/components/ui/skeleton';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import { NextSlotSortKey, PortfolioLedger } from '~/lib/prop-accounts';
@@ -179,7 +189,11 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
                 />
             )}
             <Progress model={model} />
-            <Section id="ranked" title="Ranked">
+            <Section
+                id="ranked"
+                info={<RankedInfo model={model} />}
+                title="Ranked"
+            >
                 <RankedTable
                     model={model}
                     onObjectiveChange={setObjective}
@@ -211,15 +225,6 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
                 id="excluded"
                 title="Excluded"
             />
-            <Section id="assumptions" title="Assumptions">
-                <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                    {[...model.assumptions, ...model.disclosures].map(
-                        (disclosure) => (
-                            <li key={disclosure}>{disclosure}</li>
-                        ),
-                    )}
-                </ul>
-            </Section>
         </div>
     );
 }
@@ -237,8 +242,7 @@ function ListedSection({
 }) {
     if (groups.length === 0) return null;
     return (
-        <Section id={id} title={title}>
-            <p className="mb-3 text-sm text-muted-foreground">{description}</p>
+        <Section description={description} id={id} title={title}>
             <DataTable
                 columns={LISTED_COLUMNS}
                 data={listedLinesOf(groups)}
@@ -247,12 +251,17 @@ function ListedSection({
                 pageSize={null}
                 rowGroupHeading={(line) =>
                     line.kind === ListedLine.Firm ? (
-                        <>
-                            <span className="block font-semibold text-foreground">
-                                {line.group.firm}
-                            </span>
-                            <ReasonList reasons={line.group.reasons} />
-                        </>
+                        <span className="flex flex-wrap items-center gap-2">
+                            {line.group.firm}
+                            <Badge>Unverified</Badge>
+                            {line.group.reasons.length > 0 && (
+                                <InfoPopover
+                                    title={`Why ${line.group.firm} is unverified`}
+                                >
+                                    <ReasonList reasons={line.group.reasons} />
+                                </InfoPopover>
+                            )}
+                        </span>
                     ) : undefined
                 }
                 rowId={(line) =>
@@ -268,12 +277,11 @@ function ListedSection({
 function Progress({ model }: { readonly model: NextSlotModel }) {
     if (!model.isProvisional) return null;
     return (
-        <p className="text-sm text-warning" role="status">
-            Provisional ranking: {model.computed} of {model.requested} engine
-            runs done. Plans join the ranking as their runs finish, so ranks,
-            the payout-policy sensitive marks and the slots to fill can still
-            change.
-        </p>
+        <StatusRow
+            detail="Plans join the ranking as their runs finish, so ranks, the payout-policy sensitive marks and the slots to fill can still change."
+            title={`Provisional ranking: ${String(model.computed)} of ${String(model.requested)} engine runs done.`}
+            tone={StatusTone.Warn}
+        />
     );
 }
 
@@ -339,6 +347,7 @@ const RANKED_COLUMNS: DataTableColumn<NextSlotRankedViewRow>[] = [
         ),
         header: 'Plan',
         id: RankedColumn.Plan,
+        meta: { isRowHeader: true },
     },
     rankedFigure(
         RankedColumn.DocumentedNet,
@@ -443,6 +452,7 @@ const LISTED_COLUMNS: DataTableColumn<ListedLineRow>[] = [
         cell: listedPlanCell((row) => row.plan),
         header: 'Plan',
         id: ListedColumn.Plan,
+        meta: { isRowHeader: true },
     },
     {
         cell: listedPlanCell((row) => row.documentedNet),
@@ -457,6 +467,29 @@ const LISTED_COLUMNS: DataTableColumn<ListedLineRow>[] = [
     },
 ];
 
+function RankedInfo({ model }: { readonly model: NextSlotModel }) {
+    return (
+        <div className="flex flex-col gap-2">
+            {model.ranked.map((row) => (
+                <p key={row.key}>
+                    {row.firm} {row.plan}: {row.sizing}; {row.labels.join('; ')}
+                    .
+                </p>
+            ))}
+            <ul
+                aria-label="Assumptions"
+                className="flex list-disc flex-col gap-1 pl-5"
+            >
+                {[...model.assumptions, ...model.disclosures].map(
+                    (disclosure) => (
+                        <li key={disclosure}>{disclosure}</li>
+                    ),
+                )}
+            </ul>
+        </div>
+    );
+}
+
 function RankedTable({
     model,
     onObjectiveChange,
@@ -469,8 +502,22 @@ function RankedTable({
     readonly pickedObjective: null | SizingObjective;
 }) {
     return (
-        <div className="flex flex-col gap-3">
-            <ObjectiveChip
+        <>
+            <FilterToolbar label="Ranking controls">
+                <ObjectiveSelect
+                    objective={pickedObjective ?? model.automaticObjective}
+                    onChange={onObjectiveChange}
+                />
+                <Field className="w-auto gap-2" orientation="horizontal">
+                    <FieldLabel htmlFor={SORT_SELECT_ID}>Sort by</FieldLabel>
+                    <SortKeySelect
+                        isHourKeyAvailable={model.isHourKeyAvailable}
+                        onChange={onSortKeyChange}
+                        sortKey={model.sortKey}
+                    />
+                </Field>
+            </FilterToolbar>
+            <ObjectiveNotes
                 choiceNotes={[
                     ...(model.objectiveChoiceNote === null
                         ? []
@@ -482,19 +529,10 @@ function RankedTable({
                         ? []
                         : [model.objectiveNotAppliedNote]),
                 ]}
-                objective={pickedObjective ?? model.automaticObjective}
-                onChange={onObjectiveChange}
             />
-            <SortKeySelect
-                isHourKeyAvailable={model.isHourKeyAvailable}
-                onChange={onSortKeyChange}
-                sortKey={model.sortKey}
-            />
-            <p className="text-sm text-muted-foreground">{model.sortNote}</p>
+            <InfoNote>{model.sortNote}</InfoNote>
             {model.capacityNote !== null && (
-                <p className="text-sm text-muted-foreground">
-                    {model.capacityNote}
-                </p>
+                <InfoNote>{model.capacityNote}</InfoNote>
             )}
             {model.ranked.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -502,29 +540,16 @@ function RankedTable({
                     or listed below with its reason.
                 </p>
             ) : (
-                <>
-                    <DataTable
-                        columns={RANKED_COLUMNS}
-                        data={[...model.ranked]}
-                        isSortable={false}
-                        labelledBy="next-slot-ranked"
-                        pageSize={null}
-                        rowId={(row) => row.key}
-                    />
-                    <div className="flex flex-col gap-2">
-                        {model.ranked.map((row) => (
-                            <p
-                                className="text-xs text-muted-foreground"
-                                key={row.key}
-                            >
-                                {row.firm} {row.plan}: {row.sizing};{' '}
-                                {row.labels.join('; ')}.
-                            </p>
-                        ))}
-                    </div>
-                </>
+                <DataTable
+                    columns={RANKED_COLUMNS}
+                    data={[...model.ranked]}
+                    isSortable={false}
+                    labelledBy="next-slot-ranked"
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
-        </div>
+        </>
     );
 }
 
@@ -541,22 +566,27 @@ function ReasonList({ reasons }: { readonly reasons: readonly string[] }) {
 
 function Section({
     children,
+    description,
     id,
+    info,
     title,
 }: {
     readonly children: ReactNode;
+    readonly description?: string;
     readonly id: string;
+    readonly info?: ReactNode;
     readonly title: string;
 }) {
     return (
         <section aria-labelledby={`next-slot-${id}`}>
-            <h2
-                className="mb-3 text-xl font-semibold text-foreground"
-                id={`next-slot-${id}`}
+            <ToolPanel
+                description={description}
+                info={info}
+                title={title}
+                titleId={`next-slot-${id}`}
             >
-                {title}
-            </h2>
-            {children}
+                {children}
+            </ToolPanel>
         </section>
     );
 }

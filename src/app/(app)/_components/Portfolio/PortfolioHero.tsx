@@ -81,7 +81,7 @@ export default function PortfolioHero({
                                     <span className="type-eyebrow text-camel">
                                         {section.number}
                                     </span>
-                                    <span className="flex-1 text-[15px] font-medium">
+                                    <span className="flex-1 type-small font-medium">
                                         {section.eyebrow}
                                     </span>
                                     <span className="type-micro text-ink-muted tabular-nums">

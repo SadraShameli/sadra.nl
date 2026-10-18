@@ -45,6 +45,7 @@ import {
     purchased,
     transfer,
 } from '../../lib/prop-accounts/metrics/ledgerFixtures';
+import { statStripValue } from './statStripValue';
 
 interface FakeQuery {
     data: unknown;
@@ -234,12 +235,7 @@ function answer(data: unknown): FakeQuery {
 }
 
 function statValue(label: string): null | string {
-    const card = [...document.querySelectorAll('div')].find(
-        (element) =>
-            element.firstElementChild?.textContent === label &&
-            element.children.length >= 2,
-    );
-    return card?.children[1]?.textContent ?? null;
+    return statStripValue(document, label)?.textContent ?? null;
 }
 
 describe('HubAccountsTeaser', () => {
@@ -622,7 +618,7 @@ describe('HubAccountsTeaser', () => {
             const open = anchors.find(
                 (anchor) => anchor.textContent === 'Open your accounts',
             );
-            expect(open?.closest('[data-slot="card-action"]')).not.toBeNull();
+            expect(open?.closest('[data-slot="card-header"]')).not.toBeNull();
         });
 
         it('shows no setup checklist until the events are loaded, and still shows the totals', () => {

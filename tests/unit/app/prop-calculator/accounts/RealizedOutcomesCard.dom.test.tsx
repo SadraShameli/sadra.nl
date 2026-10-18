@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type OutcomesCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { RealizedOutcomesCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/RealizedOutcomesCard';
 
+import { infoText } from '../infoPopover';
+
 type Row = OutcomesCardModel['rows'][number];
 
 function row(overrides: Partial<Row> = {}): Row {
@@ -98,6 +100,6 @@ describe('RealizedOutcomesCard', () => {
                 />,
             );
         });
-        expect(container.textContent).toContain(rule);
+        expect(infoText(container, 'Realized outcomes')).toContain(rule);
     });
 });

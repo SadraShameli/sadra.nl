@@ -1,11 +1,5 @@
 'use client';
 
-import {
-    CircleCheck,
-    CircleX,
-    type LucideIcon,
-    TriangleAlert,
-} from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import {
@@ -23,12 +17,6 @@ export const WIZARD_CARD_CLASS = 'rounded-2xl border border-line px-4 py-3';
 
 const CHOICE_CARD_CLASS =
     'h-auto w-full flex-col items-start gap-0.5 rounded-2xl px-4 py-3 text-left whitespace-normal';
-
-export enum StatusTone {
-    Fail = 'fail',
-    Pass = 'pass',
-    Warn = 'warn',
-}
 
 export interface ChoiceOption<T extends string> {
     hint?: ReactNode;
@@ -88,6 +76,7 @@ export function ChoiceCards<T extends string>({
 export function MultiChoiceCards<T extends string>({
     actions,
     className,
+    description,
     legend,
     onValueChange,
     options,
@@ -95,6 +84,7 @@ export function MultiChoiceCards<T extends string>({
 }: {
     actions?: ReactNode;
     className?: string;
+    description?: ReactNode;
     legend: ReactNode;
     onValueChange: (value: T[]) => void;
     options: readonly ChoiceOption<T>[];
@@ -108,6 +98,9 @@ export function MultiChoiceCards<T extends string>({
                 </FieldLegend>
                 {actions}
             </div>
+            {description !== undefined && (
+                <FieldDescription>{description}</FieldDescription>
+            )}
             <ToggleGroup
                 className={cn('grid grid-cols-2 gap-2', className)}
                 onValueChange={(selected) =>
@@ -169,85 +162,5 @@ export function NumberCard({
                 <FieldDescription>{description}</FieldDescription>
             )}
         </Field>
-    );
-}
-
-const STATUS_TONE_CLASS: Record<StatusTone, string> = {
-    [StatusTone.Fail]: 'bg-destructive/15 text-destructive',
-    [StatusTone.Pass]: 'bg-success/15 text-success',
-    [StatusTone.Warn]: 'bg-warning/15 text-warning',
-};
-
-const STATUS_METER_CLASS: Record<StatusTone, string> = {
-    [StatusTone.Fail]: 'bg-destructive',
-    [StatusTone.Pass]: 'bg-success',
-    [StatusTone.Warn]: 'bg-warning',
-};
-
-const STATUS_ICON: Record<StatusTone, LucideIcon> = {
-    [StatusTone.Fail]: CircleX,
-    [StatusTone.Pass]: CircleCheck,
-    [StatusTone.Warn]: TriangleAlert,
-};
-
-export function StatusRow({
-    detail,
-    meter,
-    title,
-    tone,
-    value,
-}: {
-    detail?: ReactNode;
-    meter?: { filled: number; total: number };
-    title: ReactNode;
-    tone: StatusTone;
-    value?: ReactNode;
-}) {
-    const Icon = STATUS_ICON[tone];
-    return (
-        <div
-            className={cn(WIZARD_CARD_CLASS, 'flex flex-col gap-3')}
-            role="status"
-        >
-            <div className="flex items-center gap-3">
-                <span
-                    className={cn(
-                        'flex size-9 shrink-0 items-center justify-center rounded-full',
-                        STATUS_TONE_CLASS[tone],
-                    )}
-                >
-                    <Icon aria-hidden className="size-4.5" />
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <p className="m-0 text-sm font-medium text-foreground">
-                        {title}
-                    </p>
-                    {detail !== undefined && (
-                        <p className="m-0 text-xs text-muted-foreground">
-                            {detail}
-                        </p>
-                    )}
-                </div>
-                {value !== undefined && (
-                    <span className="font-mono text-lg text-foreground tabular-nums">
-                        {value}
-                    </span>
-                )}
-            </div>
-            {meter !== undefined && (
-                <div aria-hidden className="flex gap-1">
-                    {Array.from({ length: meter.total }, (_, index) => (
-                        <span
-                            className={cn(
-                                'h-1.5 flex-1 rounded-full bg-muted',
-                                index < meter.filled &&
-                                    STATUS_METER_CLASS[tone],
-                            )}
-                            key={index}
-                        />
-                    ))}
-                </div>
-            )}
-        </div>
     );
 }

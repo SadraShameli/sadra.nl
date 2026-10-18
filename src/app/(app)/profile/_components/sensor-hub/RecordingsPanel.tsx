@@ -6,23 +6,27 @@ import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
-import {
-    ProfileIdSelectField,
-    ProfileTextField,
-} from '~/app/(app)/profile/_components/ProfileFormFields';
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
+import { idSelectKey } from '~/app/(app)/profile/_components/idSelectKey';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
     ProfileDateCell,
     ProfileDatePrecision,
     ProfileTableEmpty,
-    RowActionButton,
-    RowActionLink,
-    RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { FormDialog } from '~/components/FormDialog';
+import {
+    FormSelectField,
+    type FormSelectOption,
+    FormTextField,
+} from '~/components/FormFields';
+import {
+    deleteRowAction,
+    downloadRowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import {
     DataTable,
@@ -113,6 +117,7 @@ export function RecordingsPanel() {
                     <PrimaryCell>{row.original.file_name}</PrimaryCell>
                 ),
                 header: 'File',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (row) =>
@@ -155,27 +160,31 @@ export function RecordingsPanel() {
                 ),
                 header: 'Recorded',
             },
-            profileActionsColumn<RecordingRow>((recording) => (
-                <>
-                    <RowActionLink
-                        download={recording.file_name}
-                        href={apiRoutes.recording(recording.id)}
-                        icon={Download}
-                        label="Download recording"
-                    />
-                    <RowActionButton
-                        icon={Pencil}
-                        label="Rename recording"
-                        onClick={() => setRenaming(recording)}
-                    />
-                    <RowConfirmAction
-                        description="The audio file is removed from the database."
-                        label="Delete recording"
-                        onConfirm={() => del.mutate({ id: recording.id })}
-                        title={`Delete “${recording.file_name}”?`}
-                    />
-                </>
-            )),
+            rowActionsColumn<RecordingRow>({
+                actionsOf: (recording) => [
+                    downloadRowAction({
+                        fileName: recording.file_name,
+                        href: apiRoutes.recording(recording.id),
+                        icon: Download,
+                        label: 'Download',
+                    }),
+                    {
+                        icon: Pencil,
+                        kind: RowActionKind.Select,
+                        label: 'Rename',
+                        onSelect: () => setRenaming(recording),
+                    },
+                    deleteRowAction({
+                        description:
+                            'The audio file is removed from the database.',
+                        onDelete: () => del.mutate({ id: recording.id }),
+                        title: `Delete “${recording.file_name}”?`,
+                    }),
+                ],
+                isPendingOf: (recording) =>
+                    del.isPending && del.variables.id === recording.id,
+                labelOf: (recording) => recording.file_name,
+            }),
         ],
         [del, deviceMap, locMap],
     );
@@ -192,8 +201,8 @@ export function RecordingsPanel() {
     return (
         <>
             <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                <ProfilePanel
-                    action={newButton}
+                <ToolPanel
+                    actions={newButton}
                     description="Audio clips uploaded by devices. Expand a row to play it."
                     title="Recordings"
                 >
@@ -243,11 +252,11 @@ export function RecordingsPanel() {
                         rowId={(r) => String(r.id)}
                         showFilter
                     />
-                </ProfilePanel>
+                </ToolPanel>
                 <NewRecordingDialog
                     devices={(devices.data ?? []).map((d) => ({
-                        id: d.id,
                         label: d.name,
+                        value: d.id,
                     }))}
                     onClose={() => setNewOpen(false)}
                     onSubmit={(v) =>
@@ -286,7 +295,7 @@ function NewRecordingDialog({
     onSubmit,
     pending,
 }: {
-    devices: { id: number; label: string }[];
+    devices: FormSelectOption<number>[];
     onClose: () => void;
     onSubmit: (v: RecordingCreateAdminInput) => void;
     pending: boolean;
@@ -336,7 +345,7 @@ function NewRecordingDialog({
     const fileName = useWatch({ control: form.control, name: 'fileName' });
 
     return (
-        <ProfileFormDialog
+        <FormDialog
             form={form}
             onCancel={onClose}
             onSubmit={onSubmit}
@@ -345,8 +354,9 @@ function NewRecordingDialog({
             submitLabel="Create"
             title="New recording"
         >
-            <ProfileIdSelectField
+            <FormSelectField
                 control={form.control}
+                keyOf={idSelectKey}
                 label="Device"
                 name="deviceId"
                 options={devices}
@@ -375,7 +385,7 @@ function NewRecordingDialog({
                     </Field>
                 )}
             />
-        </ProfileFormDialog>
+        </FormDialog>
     );
 }
 
@@ -395,7 +405,7 @@ function RenameDialog({
         resolver: zodResolver(recordingRenameSchema),
     });
     return (
-        <ProfileFormDialog
+        <FormDialog
             form={form}
             onCancel={onClose}
             onSubmit={onSubmit}
@@ -403,11 +413,11 @@ function RenameDialog({
             submitLabel="Save"
             title="Rename recording"
         >
-            <ProfileTextField
+            <FormTextField
                 control={form.control}
                 label="File name"
                 name="file_name"
             />
-        </ProfileFormDialog>
+        </FormDialog>
     );
 }

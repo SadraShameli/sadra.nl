@@ -1,6 +1,5 @@
 'use client';
 
-import { format as formatDate } from 'date-fns';
 import {
     AlertCircle,
     CalendarDays,
@@ -28,9 +27,9 @@ import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { ImportEvent, Stage } from '~/lib/accounting/runner-types';
 
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
-import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Calendar } from '~/components/ui/calendar';
 import { Checkbox } from '~/components/ui/checkbox';
@@ -57,6 +56,7 @@ import {
     CredentialRole,
 } from '~/lib/accounting/credentials/index';
 import { STAGES } from '~/lib/accounting/runner-types';
+import { formatDisplayDate } from '~/lib/format';
 import { DurationFormat } from '~/lib/lifting/format';
 import { apiRoutes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -512,51 +512,50 @@ function ResultsView({
             <PanelErrorBoundary section="Preview">
                 <ToolPanel
                     actions={
-                        <>
-                            {!isPostable && (
-                                <Badge variant="outline">
-                                    Pick an accounting connection to post
-                                </Badge>
-                            )}
-                            <Dialog onOpenChange={setPushOpen} open={pushOpen}>
-                                <DialogTrigger asChild>
-                                    <Button
-                                        disabled={
-                                            !isPostable ||
-                                            bookings.length === 0 ||
-                                            !runId
-                                        }
-                                    >
-                                        <Send className="size-4" /> Post to{' '}
-                                        {targetLabel}
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent
-                                    className={cn('max-w-3xl sm:max-w-3xl')}
+                        <Dialog onOpenChange={setPushOpen} open={pushOpen}>
+                            <DialogTrigger asChild>
+                                <Button
+                                    disabled={
+                                        !isPostable ||
+                                        bookings.length === 0 ||
+                                        !runId
+                                    }
                                 >
-                                    <DialogHeader>
-                                        <DialogTitle>
-                                            Push to {targetLabel}
-                                        </DialogTitle>
-                                    </DialogHeader>
-                                    <PushPanel
-                                        accountingCredentialId={
-                                            accountingCredentialId || null
-                                        }
-                                        bookings={bookings}
-                                        onCompleted={(s) =>
-                                            void onPushedComplete(s)
-                                        }
-                                        runId={runId}
-                                        targetLabel={targetLabel}
-                                    />
-                                </DialogContent>
-                            </Dialog>
-                        </>
+                                    <Send className="size-4" /> Post to{' '}
+                                    {targetLabel}
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent
+                                className={cn('max-w-3xl sm:max-w-3xl')}
+                            >
+                                <DialogHeader>
+                                    <DialogTitle>
+                                        Push to {targetLabel}
+                                    </DialogTitle>
+                                </DialogHeader>
+                                <PushPanel
+                                    accountingCredentialId={
+                                        accountingCredentialId || null
+                                    }
+                                    bookings={bookings}
+                                    onCompleted={(s) =>
+                                        void onPushedComplete(s)
+                                    }
+                                    runId={runId}
+                                    targetLabel={targetLabel}
+                                />
+                            </DialogContent>
+                        </Dialog>
                     }
                     description="Check the bookings before posting. Edits are saved to the run."
                     title="Preview"
                 >
+                    {!isPostable && (
+                        <StatusRow
+                            title="Pick an accounting connection to post"
+                            tone={StatusTone.Warn}
+                        />
+                    )}
                     {bookings.length === 0 ? (
                         <EmptyState
                             description="Run completed but no bookings were produced."
@@ -639,7 +638,7 @@ function StartDatePicker({
                     variant="outline"
                 >
                     <CalendarDays className="size-3.5" />
-                    {date ? formatDate(date, 'PPP') : 'Pick a date'}
+                    {date ? formatDisplayDate(date) : 'Pick a date'}
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-auto p-0">

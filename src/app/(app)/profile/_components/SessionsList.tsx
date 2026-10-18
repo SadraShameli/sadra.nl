@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import { UAParser } from 'ua-parser-js';
 
+import { RowActionKind, rowActionsColumn } from '~/components/RowActionsMenu';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
@@ -92,6 +93,7 @@ export function SessionsList() {
                 enableSorting: false,
                 header: '',
                 id: 'icon',
+                meta: { isPhoneHidden: true },
             },
             {
                 accessorFn: (r) => describeUserAgent(r.userAgent).label,
@@ -102,14 +104,13 @@ export function SessionsList() {
                             <span className="font-medium text-foreground">
                                 {label}
                             </span>
-                            {row.original.current && (
-                                <Badge variant="default">Current</Badge>
-                            )}
+                            {row.original.current && <Badge>Current</Badge>}
                         </div>
                     );
                 },
                 header: 'Session',
                 id: 'session',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => maskIp(r.ipAddress),
@@ -133,39 +134,43 @@ export function SessionsList() {
                 header: 'Last active',
                 id: 'updatedAt',
             },
-            {
-                cell: ({ row }) =>
-                    row.original.current ? null : (
-                        <Button
-                            className="ml-auto"
-                            disabled={pending}
-                            onClick={() =>
-                                startTransition(async () => {
-                                    const result =
-                                        await authClient.revokeSession({
-                                            token: row.original.token,
-                                        });
-                                    if (result.error) {
-                                        toast.error(
-                                            result.error.message ??
-                                                'Could not revoke.',
-                                        );
-                                        return;
-                                    }
-                                    toast.success('Session revoked.');
-                                    await refetch();
-                                })
-                            }
-                            size="sm"
-                            variant="outline"
-                        >
-                            Revoke
-                        </Button>
-                    ),
-                enableSorting: false,
-                header: '',
-                id: 'actions',
-            },
+            rowActionsColumn<Row>({
+                actionsOf: (session) =>
+                    session.current
+                        ? []
+                        : [
+                              {
+                                  confirm: {
+                                      confirmLabel: 'Revoke',
+                                      description:
+                                          'That device is signed out and has to sign in again.',
+                                      title: `Revoke ${sessionLabel(session)}?`,
+                                  },
+                                  icon: LogOut,
+                                  isDestructive: true,
+                                  kind: RowActionKind.Select,
+                                  label: 'Revoke',
+                                  onSelect: () =>
+                                      startTransition(async () => {
+                                          const result =
+                                              await authClient.revokeSession({
+                                                  token: session.token,
+                                              });
+                                          if (result.error) {
+                                              toast.error(
+                                                  result.error.message ??
+                                                      'Could not revoke.',
+                                              );
+                                              return;
+                                          }
+                                          toast.success('Session revoked.');
+                                          await refetch();
+                                      }),
+                              },
+                          ],
+                isPendingOf: () => pending,
+                labelOf: sessionLabel,
+            }),
         ],
         [pending, refetch],
     );
@@ -278,4 +283,11 @@ function maskIp(ip: null | string | undefined): string {
         if (match?.[1]) return match[1];
     }
     return ip;
+}
+
+function sessionLabel(session: {
+    ipAddress: null | string;
+    userAgent: null | string;
+}): string {
+    return `${describeUserAgent(session.userAgent).label}, ${maskIp(session.ipAddress)}`;
 }

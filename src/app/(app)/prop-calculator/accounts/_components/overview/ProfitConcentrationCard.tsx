@@ -3,6 +3,8 @@ import { memo } from 'react';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type ProfitConcentrationCardModel } from './overviewModel';
+import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum ProfitConcentrationCardColumn {
     Firm = 'firm',
@@ -19,7 +21,11 @@ export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
     readonly model: ProfitConcentrationCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            description={model.thresholdNote}
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.ProfitConcentration}
+        >
             {model.rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No account at a modeled firm yet.
@@ -31,6 +37,7 @@ export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
                             cell: ({ row }) => <>{row.original.firm}</>,
                             header: 'Firm',
                             id: ProfitConcentrationCardColumn.Firm,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => (
@@ -85,14 +92,6 @@ export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
                     ))}
                 </ul>
             )}
-            <p className="text-sm text-muted-foreground">
-                {model.thresholdNote}
-            </p>
-            <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-        </div>
+        </OverviewPanel>
     );
 });

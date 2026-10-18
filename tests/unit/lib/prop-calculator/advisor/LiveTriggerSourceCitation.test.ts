@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
 
+import { formatDisplayDate } from '~/lib/format';
 import {
     type AccountState,
     dollars,
@@ -257,7 +258,7 @@ describe('WouldTriggerLive cites the verified trigger source (PT-36f, step 5)', 
         const text = differenceReasonText(reason);
         expect(text).toContain(FIRST_QUOTE.url);
         expect(text).toContain(FIRST_QUOTE.quote);
-        expect(text).toContain(FIRST_QUOTE.fetchedOn);
+        expect(text).toContain(formatDisplayDate(FIRST_QUOTE.fetchedOn));
     });
 
     it('carries the firm-total source for the firm scope', () => {
@@ -296,7 +297,7 @@ describe('WouldTriggerLive cites the verified trigger source (PT-36f, step 5)', 
         expect(cited.startsWith(bare)).toBe(true);
         expect(cited).toContain(FIRST_QUOTE.url);
         expect(cited).toContain(FIRST_QUOTE.quote);
-        expect(cited).toContain(FIRST_QUOTE.fetchedOn);
+        expect(cited).toContain(formatDisplayDate(FIRST_QUOTE.fetchedOn));
     });
 });
 

@@ -1,11 +1,14 @@
 'use client';
 
 import { useToolsRequest } from '~/app/(app)/prop-calculator/_components/bankroll/useToolsRequest';
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalculator';
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import {
     assumptionText,
@@ -62,132 +65,122 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                 worker.state.phase === ToolsWorkerPhase.Running
             }
             aria-labelledby="value-chain-heading"
-            className="flex flex-col gap-4"
         >
-            <h3
-                className="text-base font-semibold text-foreground"
-                id="value-chain-heading"
+            <ToolPanel
+                info={
+                    result === null ? undefined : (
+                        <ValueChainAssumptions cardSteps={cardSteps} />
+                    )
+                }
+                title="Value chain"
+                titleAs="h3"
+                titleId="value-chain-heading"
             >
-                Value chain
-            </h3>
-            <div aria-live="polite" className="flex flex-col gap-4">
-                {failureReason === null ? null : (
-                    <Alert variant="destructive">
-                        <AlertDescription>{failureReason}</AlertDescription>
-                    </Alert>
-                )}
-                {pendingText === null ? null : (
-                    <p className="text-xs text-muted-foreground">
-                        {pendingText}
-                    </p>
-                )}
-                {stepFailures.map((failure) => (
-                    <Alert key={failure.kind} variant="destructive">
-                        <AlertDescription>{failure.text}</AlertDescription>
-                    </Alert>
-                ))}
-                {result === null ? null : (
-                    <>
-                        <p className="text-xs text-muted-foreground">
-                            Expected credit-free cash from each state under the
-                            documented policy, with the value including the
-                            end-of-horizon credit beside it. A gap is the
-                            credit-free value minus the previous built step's,
-                            with the two standard errors combined in quadrature.
-                        </p>
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                            {cardSteps.map((step) => (
-                                <StatCard
-                                    key={step.kind}
-                                    label={VALUE_CHAIN_STEP_LABEL[step.kind]}
-                                    sub={[
-                                        step.gapFromPrevious === null
-                                            ? null
-                                            : `${signedCurrencyText(step.gapFromPrevious.value)} from the previous step`,
-                                        `credit-free; with end-of-horizon credit ${uncertainCurrencyText(step.creditInclusive)}`,
-                                    ]
-                                        .filter((line) => line !== null)
-                                        .join(' · ')}
-                                    value={uncertainCurrencyText(
-                                        step.creditFree,
-                                    )}
-                                />
-                            ))}
-                        </div>
-                        {cardSteps.map((step) =>
-                            step.liveTransfer === undefined ? null : (
-                                <div
-                                    className="flex flex-col gap-1"
-                                    key={step.kind}
-                                >
-                                    <h4 className="text-xs font-semibold text-foreground">
-                                        {VALUE_CHAIN_STEP_LABEL[step.kind]}{' '}
-                                        hazard
-                                    </h4>
-                                    <ul
-                                        aria-label={`Live-transfer and payout-trigger assumptions behind the ${VALUE_CHAIN_STEP_LABEL[step.kind]} value`}
-                                        className="flex flex-col gap-1 text-xs text-muted-foreground"
-                                    >
-                                        {liveTransferAssumptionLines(
-                                            step.liveTransfer,
-                                        ).map((line) => (
-                                            <li key={line}>{line}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ),
-                        )}
-                        {cardSteps.map((step) =>
-                            step.cumulativePayoutTrigger ===
-                            undefined ? null : (
-                                <div
-                                    className="flex flex-col gap-1"
-                                    key={step.kind}
-                                >
-                                    <h4 className="text-xs font-semibold text-foreground">
-                                        {VALUE_CHAIN_STEP_LABEL[step.kind]}{' '}
-                                        cumulative payout trigger
-                                    </h4>
-                                    <ul
-                                        aria-label={`Cumulative payout trigger behind the ${VALUE_CHAIN_STEP_LABEL[step.kind]} value`}
-                                        className="flex flex-col gap-1 text-xs text-muted-foreground"
-                                    >
-                                        <li>
-                                            {assumptionText(
-                                                step.cumulativePayoutTrigger,
-                                            )}
-                                        </li>
-                                    </ul>
-                                </div>
-                            ),
-                        )}
-                        {cardSteps
-                            .filter((step) => step.assumptions.length > 0)
-                            .map((step) => (
-                                <div
-                                    className="flex flex-col gap-1"
-                                    key={step.kind}
-                                >
-                                    <h4 className="text-xs font-semibold text-foreground">
-                                        {stepAssumptionsHeading(step.kind)}
-                                    </h4>
-                                    <ul
-                                        aria-label={stepAssumptionsHeading(
-                                            step.kind,
-                                        )}
-                                        className="list-disc pl-4 text-xs text-muted-foreground"
-                                    >
-                                        {step.assumptions.map((assumption) => (
-                                            <li key={assumption}>
-                                                {assumption}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ))}
-                    </>
-                )}
-            </div>
+                <div aria-live="polite" className="flex flex-col gap-4">
+                    {failureReason === null ? null : (
+                        <Alert variant="destructive">
+                            <AlertDescription>{failureReason}</AlertDescription>
+                        </Alert>
+                    )}
+                    {pendingText === null ? null : (
+                        <InfoNote>{pendingText}</InfoNote>
+                    )}
+                    {stepFailures.map((failure) => (
+                        <Alert key={failure.kind} variant="destructive">
+                            <AlertDescription>{failure.text}</AlertDescription>
+                        </Alert>
+                    ))}
+                    {result === null ? null : (
+                        <StatStrip
+                            items={cardSteps.map((step) => ({
+                                caption: [
+                                    step.gapFromPrevious === null
+                                        ? null
+                                        : `${signedCurrencyText(step.gapFromPrevious.value)} from the previous step`,
+                                    `credit-free; with end-of-horizon credit ${uncertainCurrencyText(step.creditInclusive)}`,
+                                ]
+                                    .filter((line) => line !== null)
+                                    .join(' · '),
+                                id: step.kind,
+                                label: VALUE_CHAIN_STEP_LABEL[step.kind],
+                                value: uncertainCurrencyText(step.creditFree),
+                            }))}
+                        />
+                    )}
+                </div>
+            </ToolPanel>
         </section>
+    );
+}
+
+function ValueChainAssumptions({
+    cardSteps,
+}: {
+    cardSteps: ReturnType<typeof valueChainCardSteps>;
+}) {
+    return (
+        <div className="flex flex-col gap-3">
+            <p>
+                Expected credit-free cash from each state under the documented
+                policy, with the value including the end-of-horizon credit
+                beside it. A gap is the credit-free value minus the previous
+                built step&apos;s, with the two standard errors combined in
+                quadrature.
+            </p>
+            {cardSteps.map((step) =>
+                step.liveTransfer === undefined ? null : (
+                    <div className="flex flex-col gap-1" key={step.kind}>
+                        <PanelSubheading as="h4">
+                            {VALUE_CHAIN_STEP_LABEL[step.kind]} hazard
+                        </PanelSubheading>
+                        <ul
+                            aria-label={`Live-transfer and payout-trigger assumptions behind the ${VALUE_CHAIN_STEP_LABEL[step.kind]} value`}
+                            className="flex flex-col gap-1"
+                        >
+                            {liveTransferAssumptionLines(step.liveTransfer).map(
+                                (line) => (
+                                    <li key={line}>{line}</li>
+                                ),
+                            )}
+                        </ul>
+                    </div>
+                ),
+            )}
+            {cardSteps.map((step) =>
+                step.cumulativePayoutTrigger === undefined ? null : (
+                    <div className="flex flex-col gap-1" key={step.kind}>
+                        <PanelSubheading as="h4">
+                            {VALUE_CHAIN_STEP_LABEL[step.kind]} cumulative
+                            payout trigger
+                        </PanelSubheading>
+                        <ul
+                            aria-label={`Cumulative payout trigger behind the ${VALUE_CHAIN_STEP_LABEL[step.kind]} value`}
+                            className="flex flex-col gap-1"
+                        >
+                            <li>
+                                {assumptionText(step.cumulativePayoutTrigger)}
+                            </li>
+                        </ul>
+                    </div>
+                ),
+            )}
+            {cardSteps
+                .filter((step) => step.assumptions.length > 0)
+                .map((step) => (
+                    <div className="flex flex-col gap-1" key={step.kind}>
+                        <PanelSubheading as="h4">
+                            {stepAssumptionsHeading(step.kind)}
+                        </PanelSubheading>
+                        <ul
+                            aria-label={stepAssumptionsHeading(step.kind)}
+                            className="list-disc pl-4"
+                        >
+                            {step.assumptions.map((assumption) => (
+                                <li key={assumption}>{assumption}</li>
+                            ))}
+                        </ul>
+                    </div>
+                ))}
+        </div>
     );
 }

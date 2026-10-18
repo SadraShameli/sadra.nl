@@ -1,10 +1,12 @@
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CalculatorInputsForm } from '~/app/(app)/prop-calculator/_components/CalculatorInputsForm';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
+
+import { infoText } from './infoPopover';
 
 const harness = vi.hoisted(() => {
     const typed: number[] = [];
@@ -35,7 +37,7 @@ vi.mock(
 );
 
 vi.mock('~/app/(app)/prop-calculator/_components/TradingInputs', () => ({
-    default: () => null,
+    default: ({ children }: { children?: ReactNode }) => children,
 }));
 
 vi.mock('~/app/(app)/prop-calculator/_components/FirmPlanPicker', () => ({
@@ -111,7 +113,9 @@ describe('CalculatorInputsForm rebuy lag field (PT-111, F-76)', () => {
     });
 
     it('explains what the lag is', () => {
-        expect(container.textContent).toContain('slot sits empty');
+        expect(infoText(container, 'Rebuy lag (trading days)')).toContain(
+            'slot sits empty',
+        );
         expect(defaultCalculatorState().rebuyLagDays).toBe(0);
     });
 });

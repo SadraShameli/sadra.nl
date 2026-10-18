@@ -51,7 +51,7 @@ describe('SetupAccountsTable', () => {
     }
 
     function headers(): readonly string[] {
-        return [...container.querySelectorAll('th')].map(
+        return [...container.querySelectorAll(':scope thead th')].map(
             (cell) => cell.textContent,
         );
     }
@@ -59,7 +59,7 @@ describe('SetupAccountsTable', () => {
     function firstColumn(): readonly string[] {
         return [
             ...container.querySelectorAll(':scope tbody tr:not([aria-hidden])'),
-        ].map((row) => row.querySelector(':scope > td')?.textContent ?? '');
+        ].map((row) => row.querySelector(':scope > th')?.textContent ?? '');
     }
 
     function button(label: string): HTMLButtonElement {
@@ -83,7 +83,7 @@ describe('SetupAccountsTable', () => {
         expect(row?.textContent).toContain('Tradeify');
         expect(row?.textContent).toContain('Pro 50K');
         expect(row?.textContent).toContain('Evaluation');
-        expect(row?.textContent).toContain('2026-10-15');
+        expect(row?.textContent).toContain('15 Oct 2026');
         expect(row?.querySelector(':scope a')?.getAttribute('href')).toBe(
             routes.propCalculator.accounts.detail('account-01'),
         );

@@ -1424,17 +1424,21 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
                 });
             });
 
-            const rows = [...container.querySelectorAll(':scope tbody tr')];
+            const rows = [
+                ...container.querySelectorAll<HTMLTableRowElement>(
+                    ':scope tbody tr',
+                ),
+            ];
             const riskRow = rows.find((row) =>
                 row.textContent.startsWith('Risk'),
             );
-            const riskValueCell = riskRow?.querySelectorAll('td')[1];
+            const riskValueCell = riskRow?.cells[1];
             expect(riskValueCell?.textContent).toBe('$300');
 
             const tradesRow = rows.find((row) =>
                 row.textContent.startsWith('Trades per day'),
             );
-            const tradesValueCell = tradesRow?.querySelectorAll('td')[1];
+            const tradesValueCell = tradesRow?.cells[1];
             expect(tradesValueCell?.textContent).toBe('2');
         });
 

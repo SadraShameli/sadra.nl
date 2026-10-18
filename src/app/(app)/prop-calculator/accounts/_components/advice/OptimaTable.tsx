@@ -78,6 +78,7 @@ export function OptimaTable({
                     cell: ({ row: { original: row } }) => <>{row.label}</>,
                     header: 'Source',
                     id: OptimaTableColumn.Source,
+                    meta: { isRowHeader: true },
                 },
                 {
                     cell: ({ row: { original: row } }) => (
@@ -112,10 +113,10 @@ function DpAdviceRowCard({ row }: { readonly row: DpAdviceRowView }) {
         <li>
             <Card className="gap-1 p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={row.isValidated ? 'success' : 'warning'}>
+                    <Badge>
                         {row.isValidated ? 'Validated' : 'Not validated'}
                     </Badge>
-                    {row.isStale && <Badge variant="destructive">Stale</Badge>}
+                    {row.isStale && <Badge>Stale</Badge>}
                 </div>
                 <p>{row.validationText}</p>
                 <p>{row.eligibilityText}</p>

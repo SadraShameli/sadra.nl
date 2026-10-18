@@ -48,7 +48,7 @@ describe('TiltVarianceCard', () => {
         act(() => {
             root.render(<TiltVarianceCard model={model()} />);
         });
-        expect(container.textContent).toContain('2026-02');
+        expect(container.textContent).toContain('Feb 2026');
         expect(container.textContent).toContain('$200.00');
     });
 

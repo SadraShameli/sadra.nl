@@ -1,11 +1,11 @@
 'use client';
 
-import { Dumbbell, Play, Trash2 } from 'lucide-react';
+import { Dumbbell, Play } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+import { deleteRowAction, RowActionsMenu } from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { routes } from '~/lib/site/routes';
@@ -52,53 +52,39 @@ function RoutinesList({ routines }: { routines: readonly Routine[] }) {
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {routines.map((r) => (
                 <li key={r.id}>
-                    <Card>
-                        <CardHeader className="pb-0">
-                            <div>
-                                <CardTitle>{r.name}</CardTitle>
-                                <p className="text-xs text-muted-foreground">
-                                    {r.blocks.length} exercises
-                                </p>
-                            </div>
-                            <ConfirmDialog
-                                confirmLabel="Delete"
-                                description={
-                                    <>
-                                        “{r.name}” will be permanently removed.
-                                        Past workouts created from this routine
-                                        are kept.
-                                    </>
+                    <ToolPanel
+                        actions={
+                            <RowActionsMenu
+                                actions={[
+                                    deleteRowAction({
+                                        description: `“${r.name}” will be permanently removed. Past workouts created from this routine are kept.`,
+                                        onDelete: () =>
+                                            routineDeletion.mutate({
+                                                id: r.id,
+                                            }),
+                                        title: 'Delete routine?',
+                                    }),
+                                ]}
+                                isPending={
+                                    routineDeletion.isPending &&
+                                    routineDeletion.variables.id === r.id
                                 }
-                                onConfirm={() =>
-                                    routineDeletion.mutate({
-                                        id: r.id,
-                                    })
-                                }
-                                title="Delete routine?"
-                                tooltip="Delete routine"
-                            >
-                                <Button
-                                    aria-label="Delete routine"
-                                    className="size-8 p-0"
-                                    type="button"
-                                    variant="ghost"
-                                >
-                                    <Trash2 className="size-4 text-muted-foreground" />
-                                </Button>
-                            </ConfirmDialog>
-                        </CardHeader>
-                        <CardContent>
-                            <Button
-                                className="w-full gap-2"
-                                onClick={() =>
-                                    startWorkout.mutate({ routineId: r.id })
-                                }
-                                type="button"
-                            >
-                                <Play className="size-4" /> Start
-                            </Button>
-                        </CardContent>
-                    </Card>
+                                label={r.name}
+                            />
+                        }
+                        description={`${r.blocks.length} exercises`}
+                        title={r.name}
+                    >
+                        <Button
+                            className="w-full gap-2"
+                            onClick={() =>
+                                startWorkout.mutate({ routineId: r.id })
+                            }
+                            type="button"
+                        >
+                            <Play className="size-4" /> Start
+                        </Button>
+                    </ToolPanel>
                 </li>
             ))}
         </ul>

@@ -2,9 +2,12 @@
 
 import { useMemo } from 'react';
 
-import Eyebrow from '~/components/Eyebrow';
-import { Card } from '~/components/ui/card';
-import InfoPopover from '~/components/ui/info-popover';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import {
+    StatStrip,
+    type StatStripItem,
+    StatTone,
+} from '~/components/StatStrip';
 import { Separator } from '~/components/ui/separator';
 import {
     formatCompactCurrency,
@@ -36,7 +39,14 @@ import {
 } from './kellySizing';
 import { panelDescriptions } from './kpiDescriptions';
 import { formatSignedPercent } from './signedPercent';
-import StatCard from './StatCard';
+
+interface RatioItemOptions {
+    bench: string;
+    id: string;
+    label: string;
+    tone: StatTone;
+    value: string;
+}
 
 interface StrategyAnalysisProperties {
     baseInputs: SimInputs;
@@ -248,350 +258,316 @@ export default function StrategyAnalysis({
         : '∞';
 
     return (
-        <Card className={cn('app-prop-calculator__strategy-analysis', 'p-5')}>
-            <div className="flex flex-col gap-6">
-                <section
-                    className={cn('app-prop-calculator__strategy-returns')}
-                >
-                    <SectionHeader
-                        description={panelDescriptions.returnsBreakdown}
-                        title="Returns breakdown"
-                    />
-                    <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-                        <Metric
-                            label="Annualized ROI"
-                            sub={`${formatSignedPercent(breakdown.monthlyPct, 2)} a month · ${formatSignedPercent(breakdown.weeklyPct, 2)} a week · ${formatSignedPercent(breakdown.perTradePct, 3)} a trade, before account fees`}
-                            value={`${formatSignedPercent(breakdown.yearlyPct, 2)} a year`}
-                            valueClass={
+        <div className="app-prop-calculator__strategy-analysis flex flex-col gap-6">
+            <section className={cn('app-prop-calculator__strategy-returns')}>
+                <SectionHeader
+                    description={panelDescriptions.returnsBreakdown}
+                    title="Returns breakdown"
+                />
+                <StatStrip
+                    items={[
+                        {
+                            caption: `${formatSignedPercent(breakdown.monthlyPct, 2)} a month · ${formatSignedPercent(breakdown.weeklyPct, 2)} a week · ${formatSignedPercent(breakdown.perTradePct, 3)} a trade, before account fees`,
+                            id: 'annualized-roi',
+                            label: 'Annualized ROI',
+                            tone:
                                 breakdown.yearlyPct > 0
-                                    ? 'text-success'
-                                    : 'text-destructive'
-                            }
-                        />
-                        <Metric
-                            label="Avg trade size"
-                            sub={`${rrRatio.toFixed(2)}:1 reward-to-risk`}
-                            value={
+                                    ? StatTone.Positive
+                                    : StatTone.Negative,
+                            value: `${formatSignedPercent(breakdown.yearlyPct, 2)} a year`,
+                        },
+                        {
+                            caption: `${rrRatio.toFixed(2)}:1 reward-to-risk`,
+                            id: 'avg-trade-size',
+                            label: 'Avg trade size',
+                            tone:
+                                averageTrade === null
+                                    ? StatTone.Muted
+                                    : StatTone.Default,
+                            value:
                                 averageTrade === null
                                     ? NOT_APPLICABLE
-                                    : `+${formatCurrency(averageTrade.win)} / −${formatCurrency(averageTrade.loss)}`
-                            }
-                            valueClass={
-                                averageTrade === null
-                                    ? 'text-muted-foreground'
-                                    : undefined
-                            }
-                        />
-                        <Metric
-                            label="Trades per pass"
-                            sub={
+                                    : `+${formatCurrency(averageTrade.win)} / −${formatCurrency(averageTrade.loss)}`,
+                        },
+                        {
+                            caption:
                                 breakdown.tradesPerPass > 0
                                     ? `${breakdown.wins}W · ${breakdown.losses}L · ${formatPercent(winrate)} WR`
-                                    : 'no passing trials'
-                            }
-                            value={
+                                    : 'no passing trials',
+                            id: 'trades-per-pass',
+                            label: 'Trades per pass',
+                            value:
                                 breakdown.tradesPerPass > 0
                                     ? `${breakdown.tradesPerPass} trades`
-                                    : NOT_APPLICABLE
-                            }
-                        />
-                        <Metric
-                            label="Sum R per pass"
-                            sub={`+${rrRatio.toFixed(2)}R win · −1.00R loss`}
-                            value={
+                                    : NOT_APPLICABLE,
+                        },
+                        {
+                            caption: `+${rrRatio.toFixed(2)}R win · −1.00R loss`,
+                            id: 'sum-r-per-pass',
+                            label: 'Sum R per pass',
+                            tone:
+                                breakdown.sumR > 0
+                                    ? StatTone.Positive
+                                    : breakdown.sumR < 0
+                                      ? StatTone.Negative
+                                      : StatTone.Default,
+                            value:
                                 breakdown.tradesPerPass > 0
                                     ? `${breakdown.sumR >= 0 ? '+' : ''}${breakdown.sumR.toFixed(1)}R`
-                                    : NOT_APPLICABLE
-                            }
-                            valueClass={
-                                breakdown.sumR > 0
-                                    ? 'text-success'
-                                    : breakdown.sumR < 0
-                                      ? 'text-destructive'
-                                      : undefined
-                            }
-                        />
-                        <Metric
-                            label="Drawdown %"
-                            sub={`P95 ${((result.maxDrawdownP95 / plan.accountSize) * 100).toFixed(2)}% worst`}
-                            value={`${((result.maxDrawdownP50 / plan.accountSize) * 100).toFixed(2)}% avg`}
-                        />
-                        <Metric
-                            label="Balance range"
-                            sub={`across ${result.finalBalances.length.toLocaleString()} trials`}
-                            value={`${formatCompactCurrency(breakdown.minBal)} – ${formatCompactCurrency(breakdown.maxBal)}`}
-                        />
-                    </div>
-                </section>
+                                    : NOT_APPLICABLE,
+                        },
+                        {
+                            caption: `P95 ${((result.maxDrawdownP95 / plan.accountSize) * 100).toFixed(2)}% worst`,
+                            id: 'drawdown-percent',
+                            label: 'Drawdown %',
+                            value: `${((result.maxDrawdownP50 / plan.accountSize) * 100).toFixed(2)}% avg`,
+                        },
+                        {
+                            caption: `across ${result.finalBalances.length.toLocaleString()} trials`,
+                            id: 'balance-range',
+                            label: 'Balance range',
+                            value: `${formatCompactCurrency(breakdown.minBal)} – ${formatCompactCurrency(breakdown.maxBal)}`,
+                        },
+                    ]}
+                />
+            </section>
 
-                <Separator className="bg-border/40" />
+            <Separator className="bg-border/40" />
 
-                <section
-                    className={cn(
-                        'app-prop-calculator__strategy-risk-adjusted',
-                    )}
-                >
-                    <SectionHeader
-                        description={panelDescriptions.riskReturn}
-                        title="Risk-adjusted returns"
-                    />
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        <StatCard
-                            label="Profit factor"
-                            sub={pfBench(ratios.profitFactor)}
-                            subInheritsColor
-                            value={
-                                Number.isFinite(ratios.profitFactor)
-                                    ? ratios.profitFactor.toFixed(2)
-                                    : '∞'
-                            }
-                            valueClassName={pfColor(ratios.profitFactor)}
-                        />
-                        <StatCard
-                            label="Sharpe (ann.)"
-                            sub={riskAdjustedRatioBench(ratios.sharpe)}
-                            subInheritsColor
-                            value={ratios.sharpe.toFixed(2)}
-                            valueClassName={riskAdjustedRatioColor(
-                                ratios.sharpe,
-                            )}
-                        />
-                        <StatCard
-                            label="Sortino (ann.)"
-                            sub={riskAdjustedRatioBench(ratios.sortino)}
-                            subInheritsColor
-                            value={ratios.sortino.toFixed(2)}
-                            valueClassName={riskAdjustedRatioColor(
-                                ratios.sortino,
-                            )}
-                        />
-                        <StatCard
-                            label="Calmar"
-                            sub={calmarBench(ratios.calmar)}
-                            subInheritsColor
-                            value={ratios.calmar.toFixed(2)}
-                            valueClassName={calmarColor(ratios.calmar)}
-                        />
-                        <StatCard
-                            label="Recovery factor"
-                            sub={
+            <section
+                className={cn('app-prop-calculator__strategy-risk-adjusted')}
+            >
+                <SectionHeader
+                    description={panelDescriptions.riskReturn}
+                    title="Risk-adjusted returns"
+                />
+                <StatStrip
+                    items={[
+                        ratioItem({
+                            bench: pfBench(ratios.profitFactor),
+                            id: 'profit-factor',
+                            label: 'Profit factor',
+                            tone: pfTone(ratios.profitFactor),
+                            value: Number.isFinite(ratios.profitFactor)
+                                ? ratios.profitFactor.toFixed(2)
+                                : '∞',
+                        }),
+                        ratioItem({
+                            bench: riskAdjustedRatioBench(ratios.sharpe),
+                            id: 'sharpe',
+                            label: 'Sharpe (ann.)',
+                            tone: riskAdjustedRatioTone(ratios.sharpe),
+                            value: ratios.sharpe.toFixed(2),
+                        }),
+                        ratioItem({
+                            bench: riskAdjustedRatioBench(ratios.sortino),
+                            id: 'sortino',
+                            label: 'Sortino (ann.)',
+                            tone: riskAdjustedRatioTone(ratios.sortino),
+                            value: ratios.sortino.toFixed(2),
+                        }),
+                        ratioItem({
+                            bench: calmarBench(ratios.calmar),
+                            id: 'calmar',
+                            label: 'Calmar',
+                            tone: calmarTone(ratios.calmar),
+                            value: ratios.calmar.toFixed(2),
+                        }),
+                        ratioItem({
+                            bench:
                                 ratios.recovery > 1
                                     ? 'net > max DD'
-                                    : 'net < max DD'
-                            }
-                            subInheritsColor
-                            value={ratios.recovery.toFixed(2)}
-                            valueClassName={
+                                    : 'net < max DD',
+                            id: 'recovery-factor',
+                            label: 'Recovery factor',
+                            tone:
                                 ratios.recovery > 1
-                                    ? 'text-success'
-                                    : 'text-destructive'
-                            }
-                        />
-                        <StatCard
-                            label="Omega ratio"
-                            sub={omegaBench(ratios.omega)}
-                            subInheritsColor
-                            value={omegaString}
-                            valueClassName={omegaColor(ratios.omega)}
-                        />
-                        <StatCard
-                            label="Gain-to-pain"
-                            sub={
+                                    ? StatTone.Positive
+                                    : StatTone.Negative,
+                            value: ratios.recovery.toFixed(2),
+                        }),
+                        ratioItem({
+                            bench: omegaBench(ratios.omega),
+                            id: 'omega',
+                            label: 'Omega ratio',
+                            tone: omegaTone(ratios.omega),
+                            value: omegaString,
+                        }),
+                        ratioItem({
+                            bench:
                                 ratios.gainToPain > 1.5
                                     ? 'strong'
                                     : ratios.gainToPain > 1
                                       ? 'acceptable'
-                                      : 'losing'
-                            }
-                            subInheritsColor
-                            value={
-                                Number.isFinite(ratios.gainToPain)
-                                    ? ratios.gainToPain.toFixed(2)
-                                    : '∞'
-                            }
-                            valueClassName={gainToPainColor(ratios.gainToPain)}
-                        />
-                        <StatCard
-                            label="Ulcer index"
-                            sub={
+                                      : 'losing',
+                            id: 'gain-to-pain',
+                            label: 'Gain-to-pain',
+                            tone: gainToPainTone(ratios.gainToPain),
+                            value: Number.isFinite(ratios.gainToPain)
+                                ? ratios.gainToPain.toFixed(2)
+                                : '∞',
+                        }),
+                        ratioItem({
+                            bench:
                                 ratios.ulcerIndex < 3
                                     ? 'low DD pain'
                                     : ratios.ulcerIndex < 8
                                       ? 'moderate'
-                                      : 'high DD pain'
-                            }
-                            subInheritsColor
-                            value={ratios.ulcerIndex.toFixed(1)}
-                            valueClassName={ulcerColor(ratios.ulcerIndex)}
+                                      : 'high DD pain',
+                            id: 'ulcer-index',
+                            label: 'Ulcer index',
+                            tone: ulcerTone(ratios.ulcerIndex),
+                            value: ratios.ulcerIndex.toFixed(1),
+                        }),
+                    ]}
+                />
+            </section>
+
+            <Separator className="bg-border/40" />
+
+            <section className={cn('app-prop-calculator__strategy-edge')}>
+                <SectionHeader
+                    description={panelDescriptions.strategyDNA}
+                    title="Edge"
+                />
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-col gap-3">
+                        <PanelSubheading as="h4">Expectancy</PanelSubheading>
+                        <StatStrip
+                            items={[
+                                {
+                                    id: 'per-trade-r',
+                                    label: 'Per trade (R)',
+                                    tone:
+                                        result.expectancyR > 0
+                                            ? StatTone.Positive
+                                            : StatTone.Negative,
+                                    value: formatR(result.expectancyR),
+                                },
+                                {
+                                    id: 'per-trade-dollars',
+                                    label: 'Per trade ($)',
+                                    tone:
+                                        result.expectancyDollars > 0
+                                            ? StatTone.Positive
+                                            : StatTone.Negative,
+                                    value: formatCurrency(
+                                        result.expectancyDollars,
+                                    ),
+                                },
+                                {
+                                    id: 'break-even-wr',
+                                    label: 'Break-even WR',
+                                    value: formatPercent(edge.breakEvenWR),
+                                },
+                                {
+                                    id: 'edge-margin',
+                                    label: 'Edge margin',
+                                    tone:
+                                        edge.edgeMargin > 0
+                                            ? StatTone.Positive
+                                            : StatTone.Negative,
+                                    value: `${edge.edgeMargin > 0 ? '+' : ''}${(edge.edgeMargin * 100).toFixed(1)}pp`,
+                                },
+                                {
+                                    caption: 'EV per attempt / attempt cost',
+                                    id: 'edge-leverage',
+                                    label: 'Edge leverage',
+                                    tone:
+                                        edgeLeverage === null
+                                            ? StatTone.Muted
+                                            : edgeLeverage > 0
+                                              ? StatTone.Positive
+                                              : StatTone.Negative,
+                                    value:
+                                        edgeLeverage === null
+                                            ? NOT_APPLICABLE
+                                            : `${edgeLeverage.toFixed(2)}×`,
+                                },
+                                {
+                                    id: 'net-r-to-pass',
+                                    label: 'Net R to pass',
+                                    tone:
+                                        netRToPass === null
+                                            ? StatTone.Muted
+                                            : StatTone.Default,
+                                    value:
+                                        netRToPass === null
+                                            ? NOT_APPLICABLE
+                                            : `${netRToPass.toFixed(1)}R`,
+                                },
+                            ]}
                         />
                     </div>
-                </section>
-
-                <Separator className="bg-border/40" />
-
-                <section className={cn('app-prop-calculator__strategy-edge')}>
-                    <SectionHeader
-                        description={panelDescriptions.strategyDNA}
-                        title="Edge"
-                    />
-                    <div className="grid gap-6 md:grid-cols-3">
-                        <div className="flex flex-col gap-3">
-                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                                Expectancy
-                            </p>
-                            <Metric
-                                label="Per trade (R)"
-                                value={formatR(result.expectancyR)}
-                                valueClass={
-                                    result.expectancyR > 0
-                                        ? 'text-success'
-                                        : 'text-destructive'
-                                }
-                            />
-                            <Metric
-                                label="Per trade ($)"
-                                value={formatCurrency(result.expectancyDollars)}
-                                valueClass={
-                                    result.expectancyDollars > 0
-                                        ? 'text-success'
-                                        : 'text-destructive'
-                                }
-                            />
-                            <Metric
-                                label="Break-even WR"
-                                value={formatPercent(edge.breakEvenWR)}
-                            />
-                            <Metric
-                                label="Edge margin"
-                                value={`${edge.edgeMargin > 0 ? '+' : ''}${(edge.edgeMargin * 100).toFixed(1)}pp`}
-                                valueClass={
-                                    edge.edgeMargin > 0
-                                        ? 'text-success'
-                                        : 'text-destructive'
-                                }
-                            />
-                            <Metric
-                                label="Edge leverage"
-                                sub="EV per attempt / attempt cost"
-                                value={
-                                    edgeLeverage === null
-                                        ? NOT_APPLICABLE
-                                        : `${edgeLeverage.toFixed(2)}×`
-                                }
-                                valueClass={
-                                    edgeLeverage === null
-                                        ? 'text-muted-foreground'
-                                        : edgeLeverage > 0
-                                          ? 'text-success'
-                                          : 'text-destructive'
-                                }
-                            />
-                            <Metric
-                                label="Net R to pass"
-                                value={
-                                    netRToPass === null
-                                        ? NOT_APPLICABLE
-                                        : `${netRToPass.toFixed(1)}R`
-                                }
-                                valueClass={
-                                    netRToPass === null
-                                        ? 'text-muted-foreground'
-                                        : undefined
-                                }
-                            />
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                                Edge confidence
-                            </p>
-                            <Metric
-                                label="Trades / eval (P50)"
-                                value={String(
-                                    Math.round(
-                                        result.tradesPerSuccessfulAttempt,
-                                    ),
-                                )}
-                            />
-                            {edge.zScore === null ? (
-                                <Metric
-                                    label="Z-score"
-                                    value={`${NOT_APPLICABLE}: no edge`}
-                                    valueClass="text-muted-foreground"
-                                />
-                            ) : (
-                                <>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[11px] text-muted-foreground">
-                                            Z-score
-                                        </span>
-                                        <span
-                                            className={cn(
-                                                'font-mono text-sm font-semibold tabular-nums',
-                                                zColor(edge.zScore),
-                                            )}
-                                        >
-                                            {edge.zScore.toFixed(2)}{' '}
-                                            <span className="text-[11px] font-normal">
-                                                ({zLabel(edge.zScore)})
-                                            </span>
-                                        </span>
-                                    </div>
-                                    <Metric
-                                        label="Min trades (95% CI)"
-                                        value={
-                                            edge.minTrades === null
-                                                ? NOT_APPLICABLE
-                                                : String(edge.minTrades)
-                                        }
-                                    />
-                                </>
-                            )}
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                                Kelly (information only)
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">
-                                Size by the documented eval and funded rules:
-                                evals risk the most the plan&apos;s limits
-                                allow, funded accounts risk a fixed amount.{' '}
+                    <div className="flex flex-col gap-3">
+                        <PanelSubheading as="h4">
+                            Edge confidence
+                        </PanelSubheading>
+                        <StatStrip
+                            items={[
                                 {
-                                    ECONOMICS_DISCLOSURE_TEXT[
-                                        EconomicsDisclosure.KellyNotPropSizing
-                                    ]
-                                }
-                                .
-                            </p>
-                            <Metric
-                                label="Full Kelly"
-                                sub={drawdownBasis}
-                                value={kellyFractionText(kelly.fullKelly)}
-                            />
-                            <Metric
-                                label="Half Kelly"
-                                sub={drawdownBasis}
-                                value={kellyFractionText(kelly.halfKelly)}
-                            />
-                            <Metric
-                                label="Average risk"
-                                sub={averageRiskBasis}
-                                value={
-                                    kelly.currentRiskFraction === null
-                                        ? NOT_APPLICABLE
-                                        : formatPercent(
-                                              kelly.currentRiskFraction,
-                                          )
-                                }
-                            />
-                            <KellyIndexMetric
-                                basis={`average risk over full Kelly, both ${drawdownBasis}`}
-                                index={kelly.kellyIndex}
-                            />
-                        </div>
+                                    id: 'trades-per-eval',
+                                    label: 'Trades / eval (P50)',
+                                    value: String(
+                                        Math.round(
+                                            result.tradesPerSuccessfulAttempt,
+                                        ),
+                                    ),
+                                },
+                                ...zScoreItems(edge.zScore, edge.minTrades),
+                            ]}
+                        />
                     </div>
-                </section>
-            </div>
-        </Card>
+                    <div className="flex flex-col gap-3">
+                        <PanelSubheading as="h4">
+                            Kelly (information only)
+                        </PanelSubheading>
+                        <p className="text-xs text-muted-foreground">
+                            Size by the documented eval and funded rules: evals
+                            risk the most the plan&apos;s limits allow, funded
+                            accounts risk a fixed amount.{' '}
+                            {
+                                ECONOMICS_DISCLOSURE_TEXT[
+                                    EconomicsDisclosure.KellyNotPropSizing
+                                ]
+                            }
+                            .
+                        </p>
+                        <StatStrip
+                            items={[
+                                {
+                                    caption: drawdownBasis,
+                                    id: 'full-kelly',
+                                    label: 'Full Kelly',
+                                    value: kellyFractionText(kelly.fullKelly),
+                                },
+                                {
+                                    caption: drawdownBasis,
+                                    id: 'half-kelly',
+                                    label: 'Half Kelly',
+                                    value: kellyFractionText(kelly.halfKelly),
+                                },
+                                {
+                                    caption: averageRiskBasis,
+                                    id: 'average-risk',
+                                    label: 'Average risk',
+                                    value:
+                                        kelly.currentRiskFraction === null
+                                            ? NOT_APPLICABLE
+                                            : formatPercent(
+                                                  kelly.currentRiskFraction,
+                                              ),
+                                },
+                                kellyIndexItem(
+                                    `average risk over full Kelly, both ${drawdownBasis}`,
+                                    kelly.kellyIndex,
+                                ),
+                            ]}
+                        />
+                    </div>
+                </div>
+            </section>
+        </div>
     );
 }
 
@@ -601,101 +577,83 @@ function calmarBench(v: number): string {
     return v > 1 ? 'acceptable' : 'poor';
 }
 
-function calmarColor(v: number): string {
-    if (v > 3 || v > 2) return 'text-success';
-    return v > 1 ? 'text-warning' : 'text-destructive';
+function calmarTone(v: number): StatTone {
+    if (v > 3 || v > 2) return StatTone.Positive;
+    return v > 1 ? StatTone.Warning : StatTone.Negative;
 }
 
-function gainToPainColor(v: number): string {
-    if (v > 3 || v > 1.5) return 'text-success';
-    return v > 1 ? 'text-warning' : 'text-destructive';
+function gainToPainTone(v: number): StatTone {
+    if (v > 3 || v > 1.5) return StatTone.Positive;
+    return v > 1 ? StatTone.Warning : StatTone.Negative;
 }
 
-function KellyIndexMetric({
-    basis,
-    index,
-}: {
-    basis: string;
-    index: KellyIndex;
-}) {
+function kellyIndexItem(basis: string, index: KellyIndex): StatStripItem {
     switch (index.status) {
         case KellyIndexStatus.NoEdge: {
-            return <Metric label="Kelly index" value="no edge" />;
+            return {
+                id: 'kelly-index',
+                label: 'Kelly index',
+                value: 'no edge',
+            };
         }
         case KellyIndexStatus.NotApplicable: {
-            return (
-                <Metric
-                    label="Kelly index"
-                    value={NOT_APPLICABLE}
-                    valueClass="text-muted-foreground"
-                />
-            );
+            return {
+                id: 'kelly-index',
+                label: 'Kelly index',
+                tone: StatTone.Muted,
+                value: NOT_APPLICABLE,
+            };
         }
         case KellyIndexStatus.Sized: {
-            return (
-                <Metric
-                    label="Kelly index"
-                    sub={basis}
-                    value={`${index.value.toFixed(2)}× full Kelly`}
-                />
-            );
+            return {
+                caption: basis,
+                id: 'kelly-index',
+                label: 'Kelly index',
+                value: `${index.value.toFixed(2)}× full Kelly`,
+            };
         }
     }
-}
-
-function Metric({
-    label,
-    sub,
-    value,
-    valueClass,
-}: {
-    label: string;
-    sub?: string;
-    value: string;
-    valueClass?: string;
-}) {
-    return (
-        <div className="flex flex-col gap-0.5">
-            <span className="text-[11px] text-muted-foreground">{label}</span>
-            <span
-                className={cn(
-                    'font-mono text-sm font-semibold tabular-nums',
-                    valueClass,
-                )}
-            >
-                {value}
-            </span>
-            {sub && (
-                <span className="text-[10px] text-muted-foreground">{sub}</span>
-            )}
-        </div>
-    );
 }
 
 function omegaBench(v: number): string {
     if (v > 2) return 'strong';
     return v > 1 ? 'acceptable' : 'losing';
 }
-function omegaColor(v: number): string {
-    if (v > 2) return 'text-success';
-    return v > 1 ? 'text-warning' : 'text-destructive';
+function omegaTone(v: number): StatTone {
+    if (v > 2) return StatTone.Positive;
+    return v > 1 ? StatTone.Warning : StatTone.Negative;
 }
 function pfBench(v: number): string {
     if (v > 1.5) return 'healthy';
     return v > 1 ? 'marginal' : 'losing';
 }
-function pfColor(v: number): string {
-    if (v > 1.5) return 'text-success';
-    return v > 1 ? 'text-warning' : 'text-destructive';
+function pfTone(v: number): StatTone {
+    if (v > 1.5) return StatTone.Positive;
+    return v > 1 ? StatTone.Warning : StatTone.Negative;
+}
+function ratioItem({
+    bench,
+    id,
+    label,
+    tone,
+    value,
+}: RatioItemOptions): StatStripItem {
+    return {
+        caption: bench,
+        id,
+        label,
+        tone,
+        value,
+    };
 }
 function riskAdjustedRatioBench(v: number): string {
     if (v > 2) return 'excellent';
     if (v > 1) return 'good';
     return v > 0.5 ? 'acceptable' : 'poor';
 }
-function riskAdjustedRatioColor(v: number): string {
-    if (v > 2 || v > 1) return 'text-success';
-    return v > 0.5 ? 'text-warning' : 'text-destructive';
+function riskAdjustedRatioTone(v: number): StatTone {
+    if (v > 2 || v > 1) return StatTone.Positive;
+    return v > 0.5 ? StatTone.Warning : StatTone.Negative;
 }
 function SectionHeader({
     description,
@@ -704,23 +662,52 @@ function SectionHeader({
     description: string;
     title: string;
 }) {
-    return (
-        <div className="flex items-center gap-2">
-            <Eyebrow as="h3">{title}</Eyebrow>
-            <InfoPopover title={title}>{description}</InfoPopover>
-        </div>
-    );
+    return <PanelSubheading info={description}>{title}</PanelSubheading>;
 }
-function ulcerColor(v: number): string {
-    if (v < 3) return 'text-success';
-    return v < 8 ? 'text-warning' : 'text-destructive';
+function ulcerTone(v: number): StatTone {
+    if (v < 3) return StatTone.Positive;
+    return v < 8 ? StatTone.Warning : StatTone.Negative;
 }
-function zColor(z: number): string {
-    if (z >= 1.645) return 'text-success';
-    return z >= 1.28 ? 'text-warning' : 'text-destructive';
-}
-
 function zLabel(z: number): string {
     if (z >= 1.645) return 'strong (95% CI)';
     return z >= 1.28 ? 'moderate (80% CI)' : 'weak';
+}
+
+function zScoreItems(
+    zScore: null | number,
+    minTrades: null | number,
+): StatStripItem[] {
+    if (zScore === null) {
+        return [
+            {
+                id: 'z-score',
+                label: 'Z-score',
+                tone: StatTone.Muted,
+                value: `${NOT_APPLICABLE}: no edge`,
+            },
+        ];
+    }
+    return [
+        {
+            id: 'z-score',
+            label: 'Z-score',
+            tone: zTone(zScore),
+            value: (
+                <>
+                    {zScore.toFixed(2)}{' '}
+                    <span className="text-sm">({zLabel(zScore)})</span>
+                </>
+            ),
+        },
+        {
+            id: 'min-trades',
+            label: 'Min trades (95% CI)',
+            value: minTrades === null ? NOT_APPLICABLE : String(minTrades),
+        },
+    ];
+}
+
+function zTone(z: number): StatTone {
+    if (z >= 1.645) return StatTone.Positive;
+    return z >= 1.28 ? StatTone.Warning : StatTone.Negative;
 }

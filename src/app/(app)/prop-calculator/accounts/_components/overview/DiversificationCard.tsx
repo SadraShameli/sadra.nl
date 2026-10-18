@@ -1,11 +1,14 @@
 import { memo } from 'react';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import {
     type DiversificationCardModel,
     type FirmShareRow,
 } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum DiversificationCardColumn {
     Amount = 'amount',
@@ -19,7 +22,10 @@ export const DiversificationCard = memo(function DiversificationCard({
     readonly model: DiversificationCardModel;
 }) {
     return (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <OverviewPanel
+            contentClassName="grid gap-6 lg:grid-cols-2"
+            section={OverviewSectionId.Diversification}
+        >
             <ShareTable
                 emptyMessage="No active funded or live account yet."
                 rows={model.funding}
@@ -30,7 +36,7 @@ export const DiversificationCard = memo(function DiversificationCard({
                 rows={model.payouts}
                 title="Payouts received"
             />
-        </div>
+        </OverviewPanel>
     );
 });
 
@@ -45,7 +51,7 @@ function ShareTable({
 }) {
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-foreground">{title}</h3>
+            <PanelSubheading>{title}</PanelSubheading>
             {rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{emptyMessage}</p>
             ) : (
@@ -55,6 +61,7 @@ function ShareTable({
                             cell: ({ row }) => <>{row.original.firm}</>,
                             header: 'Firm',
                             id: DiversificationCardColumn.Firm,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.amount}</>,

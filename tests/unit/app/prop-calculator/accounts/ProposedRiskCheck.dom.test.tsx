@@ -532,10 +532,10 @@ describe('ProposedRiskCheck and PayoutReadyBanner (PT-67)', () => {
         it('turns into a flag when the proposed or recorded risk is above the documented rung', () => {
             renderBanner({ flag: { excess: 125 } });
 
-            const alert = container.querySelector('[role="alert"]');
-            expect(alert?.textContent).toContain('Flag');
-            expect(alert?.textContent).toContain('$125.00');
-            expect(alert?.textContent).toContain('above the documented rung');
+            const flag = container.querySelector('[role="status"]');
+            expect(flag?.textContent).toContain('Flag');
+            expect(flag?.textContent).toContain('$125.00');
+            expect(flag?.textContent).toContain('above the documented rung');
         });
 
         it('states a failed stake computation instead of hiding it', () => {

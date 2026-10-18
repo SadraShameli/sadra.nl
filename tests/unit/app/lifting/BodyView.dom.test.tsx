@@ -2,7 +2,13 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+    chooseRowAction,
+    confirmRowAction,
+} from '../../components/rowActionsMenu';
+
 const harness = vi.hoisted(() => ({
+    deleted: [] as unknown[],
     mutation: () => ({ isPending: false, mutate: vi.fn() }),
     rows: [] as unknown[],
 }));
@@ -15,7 +21,14 @@ vi.mock('~/trpc/react', () => {
             lifting: {
                 measurement: {
                     create: { useMutation: harness.mutation },
-                    delete: { useMutation: harness.mutation },
+                    delete: {
+                        useMutation: () => ({
+                            isPending: false,
+                            mutate: (input: unknown) => {
+                                harness.deleted.push(input);
+                            },
+                        }),
+                    },
                     list: {
                         useQuery: () => ({
                             data: harness.rows,
@@ -42,10 +55,11 @@ const { BodyView } = await import('~/app/(app)/lifting/_components/BodyView');
 const { TooltipProvider } = await import('~/components/ui/tooltip');
 
 function statValue(container: HTMLElement, label: string): string {
-    const labelSpan = [...container.querySelectorAll('span')].find(
-        (span) => span.textContent === label,
+    const term = [...container.querySelectorAll('dt')].find(
+        (candidate) => candidate.textContent === label,
     );
-    return labelSpan?.nextElementSibling?.textContent ?? '';
+    const value = term?.nextElementSibling;
+    return value?.tagName === 'DD' ? value.textContent : '';
 }
 
 describe('BodyView', () => {
@@ -54,6 +68,7 @@ describe('BodyView', () => {
 
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        harness.deleted.length = 0;
         vi.stubGlobal(
             'ResizeObserver',
             class {
@@ -81,6 +96,16 @@ describe('BodyView', () => {
         vi.unstubAllGlobals();
     });
 
+    function renderView() {
+        act(() => {
+            root.render(
+                <TooltipProvider>
+                    <BodyView />
+                </TooltipProvider>,
+            );
+        });
+    }
+
     it('compares weights logged in different units in one display unit', () => {
         harness.rows = [
             {
@@ -100,13 +125,28 @@ describe('BodyView', () => {
                 valueNumeric: 80,
             },
         ];
-        act(() => {
-            root.render(
-                <TooltipProvider>
-                    <BodyView />
-                </TooltipProvider>,
-            );
-        });
+        renderView();
         expect(statValue(container, 'Weight 30-day')).toBe('+0.0');
+    });
+
+    it('deletes a measurement from its row menu only after the delete is confirmed', () => {
+        harness.rows = [
+            {
+                id: 'waist-reading',
+                kind: 'waist',
+                notes: null,
+                takenAt: '2026-10-10',
+                unit: 'cm',
+                valueNumeric: 82,
+            },
+        ];
+        renderView();
+        chooseRowAction('waist 82 cm', 'Delete');
+        expect(harness.deleted).toEqual([]);
+        expect(document.body.textContent).toContain(
+            'waist 82 cm will be removed from your history.',
+        );
+        confirmRowAction('Delete');
+        expect(harness.deleted).toEqual([{ id: 'waist-reading' }]);
     });
 });

@@ -1,8 +1,11 @@
 import { memo } from 'react';
 
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { formatDisplayDate } from '~/lib/format';
 
 import { type CushionBoardCardModel } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum CushionBoardCardColumn {
     Account = 'account',
@@ -20,7 +23,10 @@ export const CushionBoardCard = memo(function CushionBoardCard({
     readonly model: CushionBoardCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={model.disclosure}
+            section={OverviewSectionId.CushionBoard}
+        >
             {model.rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No account has a usable balance snapshot yet.
@@ -38,6 +44,7 @@ export const CushionBoardCard = memo(function CushionBoardCard({
                             cell: ({ row }) => <>{row.original.account}</>,
                             header: 'Account',
                             id: CushionBoardCardColumn.Account,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.basis}</>,
@@ -63,7 +70,9 @@ export const CushionBoardCard = memo(function CushionBoardCard({
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.asOf}</>,
+                            cell: ({ row }) => (
+                                <>{formatDisplayDate(row.original.asOf)}</>
+                            ),
                             header: 'As of',
                             id: CushionBoardCardColumn.AsOf,
                         },
@@ -74,7 +83,6 @@ export const CushionBoardCard = memo(function CushionBoardCard({
                     rowId={(row) => row.key}
                 />
             )}
-            <p className="text-xs text-muted-foreground">{model.disclosure}</p>
             {model.unavailable.length > 0 && (
                 <ul
                     aria-label="Accounts without a cushion"
@@ -87,6 +95,6 @@ export const CushionBoardCard = memo(function CushionBoardCard({
                     ))}
                 </ul>
             )}
-        </div>
+        </OverviewPanel>
     );
 });

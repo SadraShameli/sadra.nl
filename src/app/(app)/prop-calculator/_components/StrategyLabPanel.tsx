@@ -1,22 +1,22 @@
 'use client';
 
-import { Plus, RotateCcw, X } from 'lucide-react';
-import { useMemo } from 'react';
-import { z } from 'zod';
+import { Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
+import { InfoNote } from '~/components/InfoNote';
+import {
+    editRowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { Dialog } from '~/components/ui/dialog';
 import InfoPopover from '~/components/ui/info-popover';
-import { Input } from '~/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/select';
 import {
     formatCompactCurrency,
     formatCurrency,
@@ -24,9 +24,7 @@ import {
     NOT_APPLICABLE,
 } from '~/lib/format';
 import {
-    ALL_INSTRUMENTS,
     CorrelationMode,
-    InstrumentSymbol,
     LiveTransferContinuationKind,
     type Plan,
     type RungSizing,
@@ -42,19 +40,21 @@ import {
     liveTransferContinuationNotes,
     liveTransferHazardPercentText,
 } from '~/lib/prop-calculator/simulator';
-import {
-    CALCULATOR_SCALAR_BOUNDS,
-    LAB_SCENARIO_BOUNDS,
-    MAX_LAB_SCENARIOS,
-} from '~/lib/schemas/url';
+import { MAX_LAB_SCENARIOS } from '~/lib/schemas/url';
 import { cn } from '~/lib/utilities';
 
 import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
-import DayStopRulePicker from './DayStopRulePicker';
+import { nextLabScenario } from './calculatorReducer';
 import { DayStopRuleStyle, describeDayStopRule } from './describeDayStopRule';
+import { CORRELATION_LABEL, LabScenarioDialog } from './LabScenarioDialog';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { type LabLinkOutcome, LabLinkStatus, type LabScenario } from './types';
 import { type LabResult, useLabSimulation } from './useLabSimulation';
+
+interface LabScenarioEdit {
+    isNew: boolean;
+    scenario: LabScenario;
+}
 
 interface StrategyLabPanelProperties {
     activationDiscountPercent: number;
@@ -67,7 +67,7 @@ interface StrategyLabPanelProperties {
     maxEvalDays: number;
     minRetainedCushion: number | undefined;
     monthlySubscriptionDiscountPercent: number;
-    onAdd: () => void;
+    onAdd: (scenario: LabScenario) => void;
     onRemove: (id: string) => void;
     onReset: () => void;
     onUpdate: (id: string, patch: Partial<LabScenario>) => void;
@@ -84,35 +84,6 @@ interface StrategyLabRow {
     onlyOne: boolean;
     result: LabResult | undefined;
     scenario: LabScenario;
-}
-
-const PERCENT = 100;
-const WINRATE_BOUNDS = CALCULATOR_SCALAR_BOUNDS.wr;
-const RR_BOUNDS = CALCULATOR_SCALAR_BOUNDS.rr;
-const TRADES_PER_DAY_BOUNDS = CALCULATOR_SCALAR_BOUNDS.tpd;
-const STOP_POINTS_BOUNDS = CALCULATOR_SCALAR_BOUNDS.sp;
-const ACCOUNTS_BOUNDS = LAB_SCENARIO_BOUNDS.accounts;
-const RISK_BOUNDS = LAB_SCENARIO_BOUNDS.riskPerTrade;
-
-const CORRELATION_LABEL: Record<CorrelationMode, string> = {
-    copy: 'Copy-trade',
-    grouped: 'Group-split',
-    independent: 'Independent',
-};
-const correlationModeSchema = z.enum(CorrelationMode);
-const instrumentSymbolSchema = z.enum(InstrumentSymbol);
-
-enum LabEditorField {
-    Accounts = 'accounts',
-    Groups = 'groups',
-    Instrument = 'instrument',
-    Label = 'label',
-    Mode = 'mode',
-    RewardToRisk = 'rewardToRisk',
-    RiskPerTrade = 'riskPerTrade',
-    StopPoints = 'stopPoints',
-    TradesPerDay = 'tradesPerDay',
-    WinRate = 'winRate',
 }
 
 export default function StrategyLabPanel({
@@ -192,67 +163,12 @@ export default function StrategyLabPanel({
         ? scenarios.find((s) => s.id === verdict.id)
         : null;
     const verdictResult = verdict ? results.get(verdict.id) : null;
+    const [editing, setEditing] = useState<LabScenarioEdit | null>(null);
 
     return (
-        <Card className={cn('app-prop-calculator__strategy-lab', 'px-5 py-4')}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">
-                        Multi-account strategy lab
-                    </h3>
-                    <InfoPopover title="Multi-account strategy lab">
-                        <p>
-                            Compare execution strategies across multiple
-                            accounts. Each row is a scenario with its own risk
-                            sizing, win rate, frequency, and account
-                            correlation:
-                        </p>
-                        <ul className="mt-2 list-disc pl-4">
-                            <li>
-                                <strong>Copy-trade</strong>: all accounts share
-                                the same outcome, a bimodal distribution.
-                            </li>
-                            <li>
-                                <strong>Group-split</strong>: accounts split
-                                into independent groups. Different time windows
-                                are modelled identically to independent groups
-                                here.
-                            </li>
-                            <li>
-                                <strong>Independent</strong>: every account
-                                trades fully independently.
-                            </li>
-                        </ul>
-                        <p className="mt-2">
-                            Theo is the exact pass probability of a simple
-                            random walk with a fixed drawdown floor: each trade
-                            wins RR times the risk or loses the risk until the
-                            balance reaches the profit target or falls to the
-                            starting balance minus the drawdown. It is a{' '}
-                            {
-                                ECONOMICS_DISCLOSURE_TEXT[
-                                    EconomicsDisclosure.RandomWalkApproximation
-                                ]
-                            }
-                            . When the walk cannot be solved, the cell shows{' '}
-                            {NOT_APPLICABLE} with an info button that says why.
-                            In the simulation, day-stop modifies the per-day
-                            trade loop (stop after first win, after K losses, or
-                            after a $ target). MC eval pass, P(≥k) and E[#pass]
-                            count accounts that passed the evaluation; MC
-                            survive counts accounts that also never busted the
-                            funded account. The verdict only recommends a
-                            scenario where at least half the accounts survive
-                            funded in 50% of runs.
-                        </p>
-                    </InfoPopover>
-                    {pending && (
-                        <span className="text-[10px] text-muted-foreground">
-                            simulating…
-                        </span>
-                    )}
-                </div>
-                <div className="flex items-center gap-2">
+        <ToolPanel
+            actions={
+                <>
                     <Button
                         onClick={onReset}
                         size="sm"
@@ -264,17 +180,72 @@ export default function StrategyLabPanel({
                     </Button>
                     <Button
                         disabled={scenarios.length >= MAX_LAB_SCENARIOS}
-                        onClick={onAdd}
+                        onClick={() =>
+                            setEditing({
+                                isNew: true,
+                                scenario: nextLabScenario(scenarios),
+                            })
+                        }
                         size="sm"
                         variant="outline"
                     >
                         <Plus className="size-3.5" />
                         <span className="ml-1 text-xs">Add scenario</span>
                     </Button>
-                </div>
-            </div>
+                </>
+            }
+            className="app-prop-calculator__strategy-lab"
+            description={pending ? 'simulating…' : undefined}
+            info={
+                <>
+                    <p>
+                        Compare execution strategies across multiple accounts.
+                        Each row is a scenario with its own risk sizing, win
+                        rate, frequency, and account correlation:
+                    </p>
+                    <ul className="mt-2 list-disc pl-4">
+                        <li>
+                            <strong>Copy-trade</strong>: all accounts share the
+                            same outcome, a bimodal distribution.
+                        </li>
+                        <li>
+                            <strong>Group-split</strong>: accounts split into
+                            independent groups. Different time windows are
+                            modelled identically to independent groups here.
+                        </li>
+                        <li>
+                            <strong>Independent</strong>: every account trades
+                            fully independently.
+                        </li>
+                    </ul>
+                    <p className="mt-2">
+                        Theo is the exact pass probability of a simple random
+                        walk with a fixed drawdown floor: each trade wins RR
+                        times the risk or loses the risk until the balance
+                        reaches the profit target or falls to the starting
+                        balance minus the drawdown. It is a{' '}
+                        {
+                            ECONOMICS_DISCLOSURE_TEXT[
+                                EconomicsDisclosure.RandomWalkApproximation
+                            ]
+                        }
+                        . When the walk cannot be solved, the cell shows{' '}
+                        {NOT_APPLICABLE} with an info button that says why. In
+                        the simulation, day-stop modifies the per-day trade loop
+                        (stop after first win, after K losses, or after a $
+                        target). MC eval pass, P(≥k) and E[#pass] count accounts
+                        that passed the evaluation; MC survive counts accounts
+                        that also never busted the funded account. The verdict
+                        only recommends a scenario where at least half the
+                        accounts survive funded in 50% of runs.
+                    </p>
+                </>
+            }
+            title="Multi-account strategy lab"
+            titleAs="h3"
+        >
             {labLink.status === LabLinkStatus.Rejected && (
-                <Alert className="mt-3" variant="warning">
+                <Alert variant="destructive">
                     <AlertDescription className="text-xs">
                         {`The lab scenarios in this link or saved scenario were rejected (${labLink.issue}), so the scenarios shown did not come from it.`}
                     </AlertDescription>
@@ -288,24 +259,29 @@ export default function StrategyLabPanel({
             ))}
             <SimulationFailureNotice message={error} />
             {isHazardPriced && (
-                <div className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    {`Live-transfer hazard of ${liveTransferHazardPercentText(liveTransferHazard)} per paid payout (your assumption, not a firm rule).`}
-                    <InfoPopover title="Live-transfer hazard">
-                        <p>
-                            {`E[$/mo] includes it and ends each paid account's simulated payouts at a transfer, while E[$/mo] no transfer is the same scenario with the hazard at 0. A transferred account keeps its slot to the end of the funded horizon. Copy-traded accounts are sent live together. ${LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT}`}
-                        </p>
-                        {hazardContinuationNotes(results.values(), plan).map(
-                            (note) => (
+                <InfoNote
+                    info={
+                        <>
+                            <p>
+                                {`E[$/mo] includes it and ends each paid account's simulated payouts at a transfer, while E[$/mo] no transfer is the same scenario with the hazard at 0. A transferred account keeps its slot to the end of the funded horizon. Copy-traded accounts are sent live together. ${LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT}`}
+                            </p>
+                            {hazardContinuationNotes(
+                                results.values(),
+                                plan,
+                            ).map((note) => (
                                 <p key={note}>{note}</p>
-                            ),
-                        )}
-                    </InfoPopover>
-                </div>
+                            ))}
+                        </>
+                    }
+                    infoTitle="Live-transfer hazard"
+                >
+                    {`Live-transfer hazard of ${liveTransferHazardPercentText(liveTransferHazard)} per paid payout (your assumption, not a firm rule).`}
+                </InfoNote>
             )}
             <StrategyLabTable
                 isHazardPriced={isHazardPriced}
+                onEdit={(scenario) => setEditing({ isNew: false, scenario })}
                 onRemove={onRemove}
-                onUpdate={onUpdate}
                 pending={pending}
                 rows={scenarios.map((sc) => ({
                     isVerdict: verdict?.id === sc.id,
@@ -315,7 +291,7 @@ export default function StrategyLabPanel({
                 }))}
             />
 
-            <div className="mt-4 grid gap-3">
+            <div className="grid gap-3">
                 {scenarios.map((sc) => {
                     const r = results.get(sc.id);
                     return r ? (
@@ -342,7 +318,7 @@ export default function StrategyLabPanel({
                                 <AccountsPassedDistributionChart
                                     distribution={r.accountsPassDistribution}
                                 />
-                                <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                                <div className="mt-1 flex justify-between text-xs text-muted-foreground">
                                     <span>
                                         E[max streak]:{' '}
                                         {r.expectedMaxLossStreak.toFixed(1)}
@@ -365,20 +341,9 @@ export default function StrategyLabPanel({
             </div>
 
             {verdict && verdictScenario && verdictResult && (
-                <Alert
-                    className="mt-4"
-                    variant={
+                <StatusRow
+                    detail={
                         verdictResult.pAtLeastFundedSurvival.kHalf >= 0.5
-                            ? 'success'
-                            : 'warning'
-                    }
-                >
-                    <AlertDescription className="text-xs">
-                        <span className="font-semibold">Verdict: </span>
-                        <strong>{verdictScenario.label}</strong> wins on
-                        expected monthly net (
-                        {formatCurrency(verdictResult.expectedMonthlyNet)}).{' '}
-                        {verdictResult.pAtLeastFundedSurvival.kHalf >= 0.5
                             ? `P(≥${Math.ceil(
                                   verdictScenario.accounts / 2,
                               )} of ${verdictScenario.accounts} survive funded) = ${formatPercent(
@@ -386,11 +351,47 @@ export default function StrategyLabPanel({
                               )}.`
                             : `Warning: P(≥½ survive funded) only ${formatPercent(
                                   verdictResult.pAtLeastFundedSurvival.kHalf,
-                              )}, so no scenario clears the 50% funded-survival bar.`}
-                    </AlertDescription>
-                </Alert>
+                              )}, so no scenario clears the 50% funded-survival bar.`
+                    }
+                    title={
+                        <>
+                            Verdict: <strong>{verdictScenario.label}</strong>{' '}
+                            wins on expected monthly net (
+                            {formatCurrency(verdictResult.expectedMonthlyNet)}).
+                        </>
+                    }
+                    tone={
+                        verdictResult.pAtLeastFundedSurvival.kHalf >= 0.5
+                            ? StatusTone.Pass
+                            : StatusTone.Warn
+                    }
+                />
             )}
-        </Card>
+            <Dialog
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) setEditing(null);
+                }}
+                open={editing !== null}
+            >
+                {editing !== null && (
+                    <LabScenarioDialog
+                        initial={editing.scenario}
+                        key={editing.scenario.id}
+                        onCancel={() => setEditing(null)}
+                        onSubmit={(scenario) => {
+                            if (editing.isNew) {
+                                onAdd(scenario);
+                            } else {
+                                onUpdate(scenario.id, scenario);
+                            }
+                            setEditing(null);
+                        }}
+                        submitLabel={editing.isNew ? 'Add' : 'Save'}
+                        title={editing.isNew ? 'Add scenario' : 'Edit scenario'}
+                    />
+                )}
+            </Dialog>
+        </ToolPanel>
     );
 }
 
@@ -445,6 +446,16 @@ function hazardContinuationNotes(
     return [...new Set(notes)];
 }
 
+function MonoCell({
+    children,
+    className,
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return <span className={cn('font-mono', className)}>{children}</span>;
+}
+
 function ResultCell({
     children,
     className,
@@ -455,379 +466,114 @@ function ResultCell({
     value: number | undefined;
 }) {
     return (
-        <span className={cn('font-mono', className)}>
+        <MonoCell className={className}>
             {value === undefined ? NOT_APPLICABLE : children(value)}
-        </span>
+        </MonoCell>
     );
-}
-
-const LAB_EDITOR_FIELD_LABEL: Readonly<Record<LabEditorField, string>> = {
-    [LabEditorField.Accounts]: 'Accounts',
-    [LabEditorField.Groups]: 'Groups',
-    [LabEditorField.Instrument]: 'Instrument',
-    [LabEditorField.Label]: 'Scenario name',
-    [LabEditorField.Mode]: 'Mode',
-    [LabEditorField.RewardToRisk]: 'Reward to risk',
-    [LabEditorField.RiskPerTrade]: 'Risk per trade ($)',
-    [LabEditorField.StopPoints]: 'Stop (points)',
-    [LabEditorField.TradesPerDay]: 'Trades per day',
-    [LabEditorField.WinRate]: 'Win rate (%)',
-};
-
-function labEditorCellLabel(
-    field: LabEditorField,
-    scenarioLabel: string,
-): string {
-    return `${LAB_EDITOR_FIELD_LABEL[field]}, ${scenarioLabel}`;
 }
 
 function StrategyLabTable({
     isHazardPriced,
+    onEdit,
     onRemove,
-    onUpdate,
     pending,
     rows,
 }: {
     isHazardPriced: boolean;
+    onEdit: (scenario: LabScenario) => void;
     onRemove: (id: string) => void;
-    onUpdate: (id: string, patch: Partial<LabScenario>) => void;
     pending: boolean;
     rows: StrategyLabRow[];
 }) {
     const columns = useMemo<DataTableColumn<StrategyLabRow>[]>(
         () => [
             {
-                cell: ({ row }) => (
-                    <Input
-                        aria-label={labEditorCellLabel(
-                            LabEditorField.Label,
-                            row.original.scenario.label,
-                        )}
-                        className="h-7 w-32 text-xs"
-                        onChange={(event) =>
-                            onUpdate(row.original.scenario.id, {
-                                label: event.target.value,
-                            })
-                        }
-                        value={row.original.scenario.label}
-                    />
-                ),
-                header: 'Label',
+                cell: ({ row }) => row.original.scenario.label,
+                header: 'Scenario',
                 id: 'label',
+                meta: { isRowHeader: true },
             },
             {
                 cell: ({ row }) => (
-                    <Input
-                        aria-label={labEditorCellLabel(
-                            LabEditorField.RiskPerTrade,
-                            row.original.scenario.label,
-                        )}
-                        className="h-7 w-20 text-xs"
-                        max={RISK_BOUNDS.max}
-                        min={RISK_BOUNDS.min}
-                        onChange={(event) => {
-                            const n = Number(event.target.value);
-                            if (
-                                Number.isFinite(n) &&
-                                n >= RISK_BOUNDS.min &&
-                                n <= RISK_BOUNDS.max
-                            )
-                                onUpdate(row.original.scenario.id, {
-                                    riskPerTrade: n,
-                                });
-                        }}
-                        step={50}
-                        type="number"
-                        value={row.original.scenario.riskPerTrade}
-                    />
+                    <MonoCell>
+                        {formatCurrency(row.original.scenario.riskPerTrade)}
+                    </MonoCell>
                 ),
                 header: 'Risk $',
                 id: 'risk',
             },
             {
                 cell: ({ row }) => (
-                    <Input
-                        aria-label={labEditorCellLabel(
-                            LabEditorField.WinRate,
-                            row.original.scenario.label,
-                        )}
-                        className="h-7 w-16 text-xs"
-                        max={Math.round(WINRATE_BOUNDS.max * PERCENT)}
-                        min={Math.round(WINRATE_BOUNDS.min * PERCENT)}
-                        onChange={(event) => {
-                            const n = Number(event.target.value) / PERCENT;
-                            if (
-                                Number.isFinite(n) &&
-                                n >= WINRATE_BOUNDS.min &&
-                                n <= WINRATE_BOUNDS.max
-                            )
-                                onUpdate(row.original.scenario.id, {
-                                    winrate: n,
-                                });
-                        }}
-                        step={1}
-                        type="number"
-                        value={Math.round(
-                            row.original.scenario.winrate * PERCENT,
-                        )}
-                    />
+                    <MonoCell>
+                        {formatPercent(row.original.scenario.winrate)}
+                    </MonoCell>
                 ),
                 header: 'WR %',
                 id: 'wr',
             },
             {
                 cell: ({ row }) => (
-                    <Input
-                        aria-label={labEditorCellLabel(
-                            LabEditorField.RewardToRisk,
-                            row.original.scenario.label,
-                        )}
-                        className="h-7 w-16 text-xs"
-                        max={RR_BOUNDS.max}
-                        min={RR_BOUNDS.min}
-                        onChange={(event) => {
-                            const n = Number(event.target.value);
-                            if (
-                                Number.isFinite(n) &&
-                                n >= RR_BOUNDS.min &&
-                                n <= RR_BOUNDS.max
-                            )
-                                onUpdate(row.original.scenario.id, {
-                                    rrRatio: n,
-                                });
-                        }}
-                        step={0.5}
-                        type="number"
-                        value={row.original.scenario.rrRatio}
-                    />
+                    <MonoCell>{row.original.scenario.rrRatio}</MonoCell>
                 ),
                 header: 'RR',
                 id: 'rr',
             },
             {
                 cell: ({ row }) => (
-                    <Input
-                        aria-label={labEditorCellLabel(
-                            LabEditorField.TradesPerDay,
-                            row.original.scenario.label,
-                        )}
-                        className="h-7 w-14 text-xs"
-                        max={TRADES_PER_DAY_BOUNDS.max}
-                        min={TRADES_PER_DAY_BOUNDS.min}
-                        onChange={(event) => {
-                            const n = Math.floor(Number(event.target.value));
-                            if (
-                                Number.isFinite(n) &&
-                                n >= TRADES_PER_DAY_BOUNDS.min &&
-                                n <= TRADES_PER_DAY_BOUNDS.max
-                            )
-                                onUpdate(row.original.scenario.id, {
-                                    tradesPerDay: n,
-                                });
-                        }}
-                        step={1}
-                        type="number"
-                        value={row.original.scenario.tradesPerDay}
-                    />
+                    <MonoCell>{row.original.scenario.tradesPerDay}</MonoCell>
                 ),
                 header: 'Tr/day',
                 id: 'tpd',
             },
             {
-                cell: ({ row }) => {
-                    const sc = row.original.scenario;
-                    return (
-                        <Select
-                            onValueChange={(v) => {
-                                if (v === 'none') {
-                                    onUpdate(sc.id, { instrument: null });
-                                    return;
-                                }
-                                const parsed =
-                                    instrumentSymbolSchema.safeParse(v);
-                                if (parsed.success) {
-                                    onUpdate(sc.id, {
-                                        instrument: parsed.data,
-                                    });
-                                }
-                            }}
-                            value={sc.instrument ?? 'none'}
-                        >
-                            <SelectTrigger
-                                aria-label={labEditorCellLabel(
-                                    LabEditorField.Instrument,
-                                    row.original.scenario.label,
-                                )}
-                                className="h-7 w-28 text-xs"
-                            >
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">
-                                    Not enforced
-                                </SelectItem>
-                                {ALL_INSTRUMENTS.map((spec) => (
-                                    <SelectItem
-                                        key={spec.symbol}
-                                        value={spec.symbol}
-                                    >
-                                        {spec.symbol}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    );
-                },
+                cell: ({ row }) => (
+                    <MonoCell>
+                        {row.original.scenario.instrument ?? 'Not enforced'}
+                    </MonoCell>
+                ),
                 header: 'Instrument',
                 id: 'instrument',
             },
             {
-                cell: ({ row }) => {
-                    const sc = row.original.scenario;
-                    return (
-                        <Input
-                            aria-label={labEditorCellLabel(
-                                LabEditorField.StopPoints,
-                                row.original.scenario.label,
-                            )}
-                            className="h-7 w-16 text-xs"
-                            disabled={sc.instrument === null}
-                            max={STOP_POINTS_BOUNDS.max}
-                            min={STOP_POINTS_BOUNDS.min}
-                            onChange={(event) => {
-                                const n = Number(event.target.value);
-                                if (
-                                    Number.isFinite(n) &&
-                                    n >= STOP_POINTS_BOUNDS.min &&
-                                    n <= STOP_POINTS_BOUNDS.max
-                                )
-                                    onUpdate(sc.id, { stopPoints: n });
-                            }}
-                            step={0.25}
-                            type="number"
-                            value={sc.stopPoints ?? ''}
-                        />
-                    );
-                },
+                cell: ({ row }) => (
+                    <MonoCell>
+                        {row.original.scenario.stopPoints ?? NOT_APPLICABLE}
+                    </MonoCell>
+                ),
                 header: 'Stop pts',
                 id: 'stop-points',
             },
             {
-                cell: ({ row }) => {
-                    const sc = row.original.scenario;
-                    return (
-                        <Input
-                            aria-label={labEditorCellLabel(
-                                LabEditorField.Accounts,
-                                row.original.scenario.label,
-                            )}
-                            className="h-7 w-14 text-xs"
-                            max={ACCOUNTS_BOUNDS.max}
-                            min={ACCOUNTS_BOUNDS.min}
-                            onChange={(event) => {
-                                const n = Math.floor(
-                                    Number(event.target.value),
-                                );
-                                if (
-                                    Number.isFinite(n) &&
-                                    n >= ACCOUNTS_BOUNDS.min &&
-                                    n <= ACCOUNTS_BOUNDS.max
-                                )
-                                    onUpdate(sc.id, {
-                                        accounts: n,
-                                        groups: Math.min(sc.groups, n),
-                                    });
-                            }}
-                            step={1}
-                            type="number"
-                            value={sc.accounts}
-                        />
-                    );
-                },
+                cell: ({ row }) => (
+                    <MonoCell>{row.original.scenario.accounts}</MonoCell>
+                ),
                 header: 'Accts',
                 id: 'accts',
             },
             {
-                cell: ({ row }) => (
-                    <Select
-                        onValueChange={(v) => {
-                            const parsed = correlationModeSchema.safeParse(v);
-                            if (parsed.success) {
-                                onUpdate(row.original.scenario.id, {
-                                    correlation: parsed.data,
-                                });
-                            }
-                        }}
-                        value={row.original.scenario.correlation}
-                    >
-                        <SelectTrigger
-                            aria-label={labEditorCellLabel(
-                                LabEditorField.Mode,
-                                row.original.scenario.label,
-                            )}
-                            className="h-7 w-36 text-xs"
-                        >
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {Object.values(CorrelationMode).map((mode) => (
-                                <SelectItem key={mode} value={mode}>
-                                    {CORRELATION_LABEL[mode]}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                ),
+                cell: ({ row }) =>
+                    CORRELATION_LABEL[row.original.scenario.correlation],
                 header: 'Mode',
                 id: 'mode',
             },
             {
-                cell: ({ row }) => {
-                    const sc = row.original.scenario;
-                    return (
-                        <Input
-                            aria-label={labEditorCellLabel(
-                                LabEditorField.Groups,
-                                row.original.scenario.label,
-                            )}
-                            className="h-7 w-14 text-xs"
-                            disabled={
-                                sc.correlation !== CorrelationMode.Grouped
-                            }
-                            max={sc.accounts}
-                            min={1}
-                            onChange={(event) => {
-                                const n = Math.floor(
-                                    Number(event.target.value),
-                                );
-                                if (
-                                    Number.isFinite(n) &&
-                                    n >= 1 &&
-                                    n <= sc.accounts
-                                )
-                                    onUpdate(sc.id, { groups: n });
-                            }}
-                            step={1}
-                            type="number"
-                            value={sc.groups}
-                        />
-                    );
-                },
+                cell: ({ row }) => (
+                    <MonoCell>
+                        {row.original.scenario.correlation ===
+                        CorrelationMode.Grouped
+                            ? row.original.scenario.groups
+                            : NOT_APPLICABLE}
+                    </MonoCell>
+                ),
                 header: 'Groups',
                 id: 'groups',
             },
             {
-                cell: ({ row }) => (
-                    <DayStopRulePicker
-                        compact
-                        onChange={(rule) =>
-                            onUpdate(row.original.scenario.id, {
-                                dayStop: rule,
-                            })
-                        }
-                        value={row.original.scenario.dayStop}
-                    />
-                ),
+                cell: ({ row }) =>
+                    describeDayStopRule(
+                        row.original.scenario.dayStop,
+                        DayStopRuleStyle.Compact,
+                    ),
                 header: 'Day-stop',
                 id: 'day-stop',
             },
@@ -969,24 +715,28 @@ function StrategyLabTable({
                 header: 'Bust%',
                 id: 'bust',
             },
-            {
-                cell: ({ row }) => (
-                    <Button
-                        aria-label={`Remove ${row.original.scenario.label}`}
-                        disabled={row.original.onlyOne}
-                        onClick={() => onRemove(row.original.scenario.id)}
-                        size="icon-sm"
-                        title="Remove scenario"
-                        variant="ghost"
-                    >
-                        <X className="size-3.5" />
-                    </Button>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'remove',
-            },
+            rowActionsColumn<StrategyLabRow>({
+                actionsOf: ({ onlyOne, scenario }) => [
+                    editRowAction(() => onEdit(scenario)),
+                    {
+                        confirm: {
+                            confirmLabel: 'Remove',
+                            description:
+                                'The scenario and its results leave the lab.',
+                            title: `Remove “${scenario.label}”?`,
+                        },
+                        icon: Trash2,
+                        isDestructive: true,
+                        isDisabled: onlyOne,
+                        kind: RowActionKind.Select,
+                        label: 'Remove',
+                        onSelect: () => onRemove(scenario.id),
+                    },
+                ],
+                labelOf: ({ scenario }) => scenario.label,
+            }),
         ],
-        [isHazardPriced, onRemove, onUpdate],
+        [isHazardPriced, onEdit, onRemove],
     );
 
     return (

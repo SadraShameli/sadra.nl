@@ -9,8 +9,8 @@ import type {
     TransactionMatch,
 } from '~/lib/accounting/core/types';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
@@ -20,6 +20,8 @@ import {
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
+import { CredentialRole } from '~/lib/accounting/credentials/index';
+import { formatDisplayDate } from '~/lib/format';
 import { api } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
@@ -91,7 +93,7 @@ export function TransactionsBrowser() {
                 accessorKey: 'date',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs">
-                        {row.original.date}
+                        {formatDisplayDate(row.original.date)}
                     </span>
                 ),
                 enableSorting: true,
@@ -108,11 +110,10 @@ export function TransactionsBrowser() {
             {
                 accessorKey: 'merchant',
                 cell: ({ row }) => (
-                    <Badge className="w-fit" variant="outline">
-                        {row.original.merchant}
-                    </Badge>
+                    <Badge className="w-fit">{row.original.merchant}</Badge>
                 ),
                 header: 'Merchant',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'sourceAmount',
@@ -134,7 +135,7 @@ export function TransactionsBrowser() {
                 accessorKey: 'sourceFee',
                 cell: ({ row }) =>
                     row.original.sourceFee > 0 ? (
-                        <span className="font-mono text-[10px] text-muted-foreground">
+                        <span className="font-mono text-xs text-muted-foreground">
                             {amountFormat.format(row.original.sourceFee)}{' '}
                             {row.original.sourceFeeCurrency ??
                                 row.original.sourceCurrency}
@@ -150,18 +151,13 @@ export function TransactionsBrowser() {
                     const match = row.original.match;
                     return match ? (
                         <div className="flex flex-col items-start gap-0.5">
-                            <Badge variant="outline">{match.display}</Badge>
-                            <span className="font-mono text-[10px] text-muted-foreground">
+                            <Badge>{match.display}</Badge>
+                            <span className="font-mono text-xs text-muted-foreground">
                                 {match.ledgerLabel}
                             </span>
                         </div>
                     ) : (
-                        <Badge
-                            className="font-mono text-[10px] text-warning"
-                            variant="outline"
-                        >
-                            Unknown
-                        </Badge>
+                        <Badge>Unknown</Badge>
                     );
                 },
                 filterFn: (row, _columnId, filterValue: string) => {
@@ -177,106 +173,102 @@ export function TransactionsBrowser() {
     );
 
     return (
-        <Card>
-            <CardContent>
-                {txnsQ.error ? (
-                    <EmptyState
-                        description={txnsQ.error.message}
-                        title="Could not fetch transactions"
+        <ToolPanel
+            description={
+                <span className="inline-flex flex-wrap gap-x-4">
+                    <ActiveConnectionNote
+                        credential={source}
+                        role={CredentialRole.Transactions}
                     />
-                ) : (
-                    <DataTable
-                        columns={columns}
-                        data={rows}
-                        emptyState={(table) => (
-                            <EmptyState
-                                description={
-                                    credentialId
-                                        ? hasActiveTableFilter(table)
-                                            ? 'No transactions match this filter.'
-                                            : 'Fetched transactions from this credential will appear here.'
-                                        : 'Pick a transactions credential above to load transactions.'
+                    <ActiveConnectionNote
+                        credential={accounting}
+                        role={CredentialRole.Accounting}
+                    />
+                </span>
+            }
+            title="Transactions"
+        >
+            {txnsQ.error ? (
+                <EmptyState
+                    description={txnsQ.error.message}
+                    title="Could not fetch transactions"
+                />
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={rows}
+                    emptyState={(table) => (
+                        <EmptyState
+                            description={
+                                credentialId
+                                    ? hasActiveTableFilter(table)
+                                        ? 'No transactions match this filter.'
+                                        : 'Fetched transactions from this credential will appear here.'
+                                    : 'Pick a transactions credential above to load transactions.'
+                            }
+                            icon={ArrowLeftRight}
+                            title={
+                                credentialId
+                                    ? 'No transactions yet'
+                                    : 'No credential selected'
+                            }
+                        />
+                    )}
+                    filterPlaceholder="Search transactions…"
+                    hasExternalFilters={dateRange !== initialDateRange}
+                    headerActions={(table) => (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <FilterSelect
+                                label="Direction"
+                                onValueChange={(v) =>
+                                    table
+                                        .getColumn('direction')
+                                        ?.setFilterValue(v)
                                 }
-                                icon={ArrowLeftRight}
-                                title={
-                                    credentialId
-                                        ? 'No transactions yet'
-                                        : 'No credential selected'
+                                options={[
+                                    { label: 'In', value: 'IN' },
+                                    { label: 'Out', value: 'OUT' },
+                                ]}
+                                placeholder="All directions"
+                                value={
+                                    table
+                                        .getColumn('direction')
+                                        ?.getFilterValue() as string | undefined
                                 }
                             />
-                        )}
-                        filterPlaceholder="Search transactions…"
-                        hasExternalFilters={dateRange !== initialDateRange}
-                        headerActions={(table) => (
-                            <div className="flex flex-wrap items-center gap-2">
-                                <FilterSelect
-                                    label="Direction"
-                                    onValueChange={(v) =>
-                                        table
-                                            .getColumn('direction')
-                                            ?.setFilterValue(v)
-                                    }
-                                    options={[
-                                        { label: 'In', value: 'IN' },
-                                        { label: 'Out', value: 'OUT' },
-                                    ]}
-                                    placeholder="All directions"
-                                    value={
-                                        table
-                                            .getColumn('direction')
-                                            ?.getFilterValue() as
-                                            string | undefined
-                                    }
-                                />
-                                <FilterSelect
-                                    label="Match"
-                                    onValueChange={(v) =>
-                                        table
-                                            .getColumn('match')
-                                            ?.setFilterValue(v)
-                                    }
-                                    options={[
-                                        { label: 'Matched', value: MATCHED },
-                                        { label: 'Unknown', value: UNKNOWN },
-                                    ]}
-                                    placeholder="All matches"
-                                    value={
-                                        table
-                                            .getColumn('match')
-                                            ?.getFilterValue() as
-                                            string | undefined
-                                    }
-                                />
-                                <FilterDateRange
-                                    align="end"
-                                    label="Transaction date"
-                                    onChange={setDateRange}
-                                    placeholder="Any date"
-                                    value={dateRange}
-                                />
-                            </div>
-                        )}
-                        initialSorting={[{ desc: true, id: 'date' }]}
-                        isLoading={!!credentialId && txnsQ.isPending}
-                        onResetFilters={() => setDateRange(initialDateRange)}
-                        pageSize={25}
-                        rowId={(r) => r.txnId}
-                        showFilter
-                        toolbarEnd={
-                            <>
-                                <ActiveConnectionNote
-                                    credential={source}
-                                    roleNoun="transaction source"
-                                />
-                                <ActiveConnectionNote
-                                    credential={accounting}
-                                    roleNoun="accounting credential"
-                                />
-                            </>
-                        }
-                    />
-                )}
-            </CardContent>
-        </Card>
+                            <FilterSelect
+                                label="Match"
+                                onValueChange={(v) =>
+                                    table.getColumn('match')?.setFilterValue(v)
+                                }
+                                options={[
+                                    { label: 'Matched', value: MATCHED },
+                                    { label: 'Unknown', value: UNKNOWN },
+                                ]}
+                                placeholder="All matches"
+                                value={
+                                    table
+                                        .getColumn('match')
+                                        ?.getFilterValue() as string | undefined
+                                }
+                            />
+                            <FilterDateRange
+                                align="end"
+                                label="Transaction date"
+                                onChange={setDateRange}
+                                placeholder="Any date"
+                                value={dateRange}
+                            />
+                        </div>
+                    )}
+                    initialSorting={[{ desc: true, id: 'date' }]}
+                    isLoading={!!credentialId && txnsQ.isPending}
+                    onResetFilters={() => setDateRange(initialDateRange)}
+                    pageSize={25}
+                    rowId={(r) => r.txnId}
+                    showFilter
+                />
+            )}
+        </ToolPanel>
     );
 }

@@ -1,28 +1,29 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Trash2, Users } from 'lucide-react';
+import { Plus, UserCog, Users } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { FormDialog } from '~/components/FormDialog';
+import { FormTextField } from '~/components/FormFields';
+import {
+    deleteRowAction,
+    type RowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/dialog';
+import { Dialog } from '~/components/ui/dialog';
 import { EmptyState } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
@@ -33,14 +34,20 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { Separator } from '~/components/ui/separator';
 import { authClient } from '~/lib/auth/client';
-import { type Role } from '~/lib/auth/roles';
+import { resolveRole, ROLE, type Role } from '~/lib/auth/roles';
+import { formatDisplayDate } from '~/lib/format';
 import {
     type AdminUserCreateInput,
     adminUserCreateInputSchema,
 } from '~/lib/schemas/auth';
 import { cn } from '~/lib/utilities';
+
+const ROLE_LABEL: Record<Role, string> = {
+    admin: 'Admin',
+    root: 'Root',
+    user: 'User',
+};
 
 interface UserRow {
     createdAt: Date | string;
@@ -140,6 +147,7 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                     </span>
                 ),
                 header: 'Name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'email',
@@ -163,76 +171,54 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                 accessorKey: 'createdAt',
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground">
-                        {new Date(row.original.createdAt).toLocaleDateString()}
+                        {formatDisplayDate(row.original.createdAt)}
                     </span>
                 ),
                 header: 'Joined',
             },
-            {
-                cell: ({ row }) => {
-                    const u = row.original;
-                    const role = u.role ?? 'user';
-                    const canChangeRole = isRoot && role !== 'root';
+            rowActionsColumn<UserRow>({
+                actionsOf: (user) => {
+                    const role = user.role ?? ROLE.USER;
+                    const nextRole =
+                        role === ROLE.ADMIN ? ROLE.USER : ROLE.ADMIN;
+                    const canChangeRole = isRoot && role !== ROLE.ROOT;
                     const canDelete =
-                        role !== 'root' && (isRoot || role === 'user');
-                    return (
-                        <div className="flex items-center justify-end gap-2">
-                            {canChangeRole && (
-                                <Select
-                                    disabled={pending}
-                                    onValueChange={(v) =>
-                                        void onSetRole(
-                                            u.id,
-                                            v as 'admin' | 'user',
-                                        )
-                                    }
-                                    value={role === 'root' ? 'admin' : role}
-                                >
-                                    <SelectTrigger className="h-8 w-24 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="user">
-                                            user
-                                        </SelectItem>
-                                        <SelectItem value="admin">
-                                            admin
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            )}
-                            {canDelete && (
-                                <ConfirmDialog
-                                    confirmLabel="Delete"
-                                    description="Removes the user and all their data permanently."
-                                    onConfirm={() => void onDelete(u.id)}
-                                    title={<>Delete &ldquo;{u.name}&rdquo;?</>}
-                                >
-                                    <Button
-                                        aria-label="Delete user"
-                                        disabled={pending}
-                                        size="icon-sm"
-                                        variant="outline"
-                                    >
-                                        <Trash2 className="size-3.5" />
-                                    </Button>
-                                </ConfirmDialog>
-                            )}
-                        </div>
-                    );
+                        role !== ROLE.ROOT && (isRoot || role === ROLE.USER);
+                    return [
+                        ...(canChangeRole
+                            ? [
+                                  {
+                                      icon: UserCog,
+                                      kind: RowActionKind.Select,
+                                      label: `Change role to ${ROLE_LABEL[nextRole]}`,
+                                      onSelect: () =>
+                                          void onSetRole(user.id, nextRole),
+                                  } satisfies RowAction,
+                              ]
+                            : []),
+                        ...(canDelete
+                            ? [
+                                  deleteRowAction({
+                                      description:
+                                          'Removes the user and all their data permanently.',
+                                      onDelete: () => void onDelete(user.id),
+                                      title: `Delete “${user.name}”?`,
+                                  }),
+                              ]
+                            : []),
+                    ];
                 },
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+                isPendingOf: () => pending,
+                labelOf: (user) => user.name,
+            }),
         ],
         [isRoot, pending, onSetRole, onDelete],
     );
 
     return (
-        <Card className={cn('app-profile__account-management')}>
-            <CardHeader className="flex flex-row items-center justify-between gap-3">
-                <CardTitle>Manage users</CardTitle>
-                {isRoot && (
+        <ToolPanel
+            actions={
+                isRoot ? (
                     <Button
                         className="gap-1"
                         onClick={() => setIsCreateOpen(true)}
@@ -240,35 +226,37 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                     >
                         <Plus className="size-4" /> New user
                     </Button>
-                )}
-            </CardHeader>
-            <Separator />
-            <CardContent className="flex flex-col gap-3">
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={<EmptyState icon={Users} title="No users" />}
-                    headerActions={(table) => (
-                        <DataTableFacetSelect
-                            column={table.getColumn('role')}
-                            placeholder="All roles"
-                        />
-                    )}
-                    isLoading={loading}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
-
-                {isRoot && (
-                    <CreateUserDialog
-                        onClose={() => setIsCreateOpen(false)}
-                        onSubmit={onCreate}
-                        open={isCreateOpen}
-                        pending={pending}
+                ) : undefined
+            }
+            className={cn('app-profile__account-management')}
+            contentClassName="gap-3"
+            title="Manage users"
+        >
+            <DataTable
+                columns={columns}
+                data={rows}
+                emptyState={<EmptyState icon={Users} title="No users" />}
+                headerActions={(table) => (
+                    <DataTableFacetSelect
+                        column={table.getColumn('role')}
+                        format={roleLabel}
+                        placeholder="All roles"
                     />
                 )}
-            </CardContent>
-        </Card>
+                isLoading={loading}
+                rowId={(r) => r.id}
+                showFilter
+            />
+
+            {isRoot && (
+                <CreateUserDialog
+                    onClose={() => setIsCreateOpen(false)}
+                    onSubmit={onCreate}
+                    open={isCreateOpen}
+                    pending={pending}
+                />
+            )}
+        </ToolPanel>
     );
 }
 
@@ -296,10 +284,6 @@ function CreateUserDialog({
         }
     }, [open, form]);
 
-    const submit = form.handleSubmit(async (values) => {
-        await onSubmit(values);
-    });
-
     return (
         <Dialog
             onOpenChange={(o) => {
@@ -307,117 +291,98 @@ function CreateUserDialog({
             }}
             open={open}
         >
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Create user</DialogTitle>
-                </DialogHeader>
-                <form className="flex flex-col gap-4" onSubmit={submit}>
-                    <Controller
-                        control={form.control}
-                        name="name"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-name`}>
-                                    Name
-                                </FieldLabel>
-                                <Input
+            <FormDialog
+                form={form}
+                onCancel={onClose}
+                onSubmit={onSubmit}
+                pending={pending}
+                pendingLabel="Creating…"
+                submitLabel="Create"
+                title="Create user"
+            >
+                <FormTextField
+                    control={form.control}
+                    label="Name"
+                    name="name"
+                />
+                <Controller
+                    control={form.control}
+                    name="email"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-email`}>
+                                Email
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                autoComplete="off"
+                                id={`${formId}-email`}
+                                type="email"
+                                {...field}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <Controller
+                    control={form.control}
+                    name="password"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-password`}>
+                                Password
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                autoComplete="new-password"
+                                id={`${formId}-password`}
+                                type="password"
+                                {...field}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <Controller
+                    control={form.control}
+                    name="role"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-role`}>
+                                Role
+                            </FieldLabel>
+                            <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                            >
+                                <SelectTrigger
                                     aria-invalid={fieldState.invalid}
-                                    autoComplete="off"
-                                    id={`${formId}-name`}
-                                    {...field}
-                                />
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
-                    <Controller
-                        control={form.control}
-                        name="email"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-email`}>
-                                    Email
-                                </FieldLabel>
-                                <Input
-                                    aria-invalid={fieldState.invalid}
-                                    autoComplete="off"
-                                    id={`${formId}-email`}
-                                    type="email"
-                                    {...field}
-                                />
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
-                    <Controller
-                        control={form.control}
-                        name="password"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-password`}>
-                                    Password
-                                </FieldLabel>
-                                <Input
-                                    aria-invalid={fieldState.invalid}
-                                    autoComplete="new-password"
-                                    id={`${formId}-password`}
-                                    type="password"
-                                    {...field}
-                                />
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
-                    <Controller
-                        control={form.control}
-                        name="role"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-role`}>
-                                    Role
-                                </FieldLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
+                                    id={`${formId}-role`}
                                 >
-                                    <SelectTrigger
-                                        aria-invalid={fieldState.invalid}
-                                        id={`${formId}-role`}
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="user">
-                                            user
-                                        </SelectItem>
-                                        <SelectItem value="admin">
-                                            admin
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
-                    <DialogFooter>
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button disabled={pending} type="submit">
-                            {pending ? 'Creating…' : 'Create'}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="user">
+                                        {ROLE_LABEL.user}
+                                    </SelectItem>
+                                    <SelectItem value="admin">
+                                        {ROLE_LABEL.admin}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+            </FormDialog>
         </Dialog>
     );
 }
 
 function RoleBadge({ role }: { role: string }) {
-    if (role === 'root') return <Badge variant="default">root</Badge>;
-    return role === 'admin' ? (
-        <Badge variant="secondary">admin</Badge>
-    ) : (
-        <Badge variant="outline">user</Badge>
-    );
+    return <Badge>{roleLabel(role)}</Badge>;
+}
+
+function roleLabel(role: string): string {
+    return ROLE_LABEL[resolveRole(null, role)];
 }

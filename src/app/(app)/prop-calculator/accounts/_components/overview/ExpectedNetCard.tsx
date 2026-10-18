@@ -3,6 +3,8 @@ import { memo } from 'react';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type ExpectedNetCardModel, ExpectedNetStatus } from './overviewModel';
+import { InfoLines, InfoStack, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum ExpectedNetCardColumn {
     ActiveFundedSlots = 'active-funded-slots',
@@ -26,13 +28,18 @@ export const ExpectedNetCard = memo(function ExpectedNetCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                {model.statusNote ?? 'No plan to model yet.'}
-            </p>
+            <OverviewPanel section={OverviewSectionId.ExpectedNet}>
+                <p className="text-sm text-muted-foreground">
+                    {model.statusNote ?? 'No plan to model yet.'}
+                </p>
+            </OverviewPanel>
         );
     }
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={<ExpectedNetInfo model={model} />}
+            section={OverviewSectionId.ExpectedNet}
+        >
             {model.status !== ExpectedNetStatus.Ready &&
                 model.statusNote !== null && (
                     <p className="text-sm text-muted-foreground" role="status">
@@ -54,6 +61,7 @@ export const ExpectedNetCard = memo(function ExpectedNetCard({
                         ),
                         header: 'Plan',
                         id: ExpectedNetCardColumn.Plan,
+                        meta: { isRowHeader: true },
                     },
                     {
                         cell: ({ row }) => <>{row.original.activeSlots}</>,
@@ -147,30 +155,6 @@ export const ExpectedNetCard = memo(function ExpectedNetCard({
                 pageSize={null}
                 rowId={(row) => row.key}
             />
-            <div className="flex flex-col gap-2">
-                {model.rows.map((row) => (
-                    <p className="text-xs text-muted-foreground" key={row.key}>
-                        {row.plan}: {row.labels.startBasis}, {row.labels.trials}
-                        ; {row.labels.retainedCushion};{' '}
-                        {row.labels.payoutPolicy}; {row.labels.lifetimeCapBasis}
-                        . {row.labels.creditBasis}
-                    </p>
-                ))}
-            </div>
-            {model.rows.some((row) => row.liveTransferNotes.length > 0) && (
-                <ul
-                    aria-label="Live-transfer and payout-trigger assumptions behind the figures"
-                    className="flex flex-col gap-1 text-xs text-muted-foreground"
-                >
-                    {model.rows.flatMap((row) =>
-                        row.liveTransferNotes.map((note) => (
-                            <li key={`${row.key}-${note}`}>
-                                {row.plan}: {note}
-                            </li>
-                        )),
-                    )}
-                </ul>
-            )}
             {model.refused.length > 0 && (
                 <ul
                     aria-label="Runs the engine refused"
@@ -183,11 +167,35 @@ export const ExpectedNetCard = memo(function ExpectedNetCard({
                     ))}
                 </ul>
             )}
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-        </div>
+        </OverviewPanel>
     );
 });
+
+function ExpectedNetInfo({ model }: { readonly model: ExpectedNetCardModel }) {
+    return (
+        <InfoStack>
+            {model.rows.map((row) => (
+                <p key={row.key}>
+                    {row.plan}: {row.labels.startBasis}, {row.labels.trials};{' '}
+                    {row.labels.retainedCushion}; {row.labels.payoutPolicy};{' '}
+                    {row.labels.lifetimeCapBasis}. {row.labels.creditBasis}
+                </p>
+            ))}
+            {model.rows.some((row) => row.liveTransferNotes.length > 0) && (
+                <ul
+                    aria-label="Live-transfer and payout-trigger assumptions behind the figures"
+                    className="flex flex-col gap-1"
+                >
+                    {model.rows.flatMap((row) =>
+                        row.liveTransferNotes.map((note) => (
+                            <li key={`${row.key}-${note}`}>
+                                {row.plan}: {note}
+                            </li>
+                        )),
+                    )}
+                </ul>
+            )}
+            <InfoLines lines={model.disclosures} />
+        </InfoStack>
+    );
+}

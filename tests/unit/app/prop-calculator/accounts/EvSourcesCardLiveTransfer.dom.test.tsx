@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EvSourcesCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/EvSourcesCard';
 import { type EvSourcesCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
+import { infoContent, withInfoTexts } from '../infoPopover';
+
 function modelOf(liveTransferNotes: readonly string[]): EvSourcesCardModel {
     return {
         accounts: [],
@@ -47,7 +49,7 @@ describe('EvSourcesCard live-transfer hazard lines (PT-73d)', () => {
         });
 
         const notes = [
-            ...container.querySelectorAll(
+            ...infoContent(container, 'Where EV comes from').querySelectorAll(
                 ':scope ul[aria-label="Live-transfer and payout-trigger assumptions behind the values"] li',
             ),
         ].map((item) => item.textContent);
@@ -61,9 +63,10 @@ describe('EvSourcesCard live-transfer hazard lines (PT-73d)', () => {
             root.render(<EvSourcesCard model={modelOf([])} />);
         });
 
-        expect(container.textContent).not.toContain('Live transfer');
+        const info = infoContent(container, 'Where EV comes from');
+        expect(withInfoTexts(container)).not.toContain('Live transfer');
         expect(
-            container.querySelector(
+            info.querySelector(
                 'ul[aria-label="Live-transfer and payout-trigger assumptions behind the values"]',
             ),
         ).toBeNull();

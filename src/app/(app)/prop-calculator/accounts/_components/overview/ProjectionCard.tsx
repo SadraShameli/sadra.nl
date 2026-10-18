@@ -2,6 +2,7 @@ import { memo } from 'react';
 
 import CashFlowBandChartView from '~/app/(app)/prop-calculator/_components/charts/CashFlowBandChartView';
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import {
@@ -9,6 +10,8 @@ import {
     type ProjectionCardModel,
     type ProjectionRow,
 } from './overviewModel';
+import { InfoLines, InfoStack, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum ProjectionCardColumn {
     Accounts = 'accounts',
@@ -30,13 +33,32 @@ export const ProjectionCard = memo(function ProjectionCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                {model.statusNote ?? 'No plan to project yet.'}
-            </p>
+            <OverviewPanel section={OverviewSectionId.FreshStartProjection}>
+                <p className="text-sm text-muted-foreground">
+                    {model.statusNote ?? 'No plan to project yet.'}
+                </p>
+            </OverviewPanel>
         );
     }
     return (
-        <div className="flex flex-col gap-4">
+        <OverviewPanel
+            info={
+                <InfoStack>
+                    {model.rows.map((row) => (
+                        <p key={row.key}>
+                            {row.plan}: {row.labels.startBasis};{' '}
+                            {row.labels.trials}; {row.labels.horizon};{' '}
+                            {row.labels.retainedCushion};{' '}
+                            {row.labels.payoutPolicy};{' '}
+                            {row.labels.lifetimeCapBasis};{' '}
+                            {row.labels.tradesPerDay}. {row.labels.creditBasis}
+                        </p>
+                    ))}
+                    <InfoLines lines={model.disclosures} />
+                </InfoStack>
+            }
+            section={OverviewSectionId.FreshStartProjection}
+        >
             {model.status !== ExpectedNetStatus.Ready &&
                 model.statusNote !== null && (
                     <p className="text-sm text-muted-foreground" role="status">
@@ -49,6 +71,7 @@ export const ProjectionCard = memo(function ProjectionCard({
                         cell: ({ row }) => <>{row.original.plan}</>,
                         header: 'Plan',
                         id: ProjectionCardColumn.Plan,
+                        meta: { isRowHeader: true },
                     },
                     {
                         cell: ({ row }) => <>{row.original.accounts}</>,
@@ -123,12 +146,7 @@ export const ProjectionCard = memo(function ProjectionCard({
                     message={`${refusal.plan}: ${refusal.reason}`}
                 />
             ))}
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-        </div>
+        </OverviewPanel>
     );
 });
 
@@ -137,19 +155,13 @@ function ProjectionDetail({ row }: { readonly row: ProjectionRow }) {
         <div className="flex flex-col gap-2">
             {row.result !== null && (
                 <>
-                    <p className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         {row.plan}: net cash by month, P10 to P90 band and
                         median
-                    </p>
+                    </PanelSubheading>
                     <CashFlowBandChartView result={row.result} />
                 </>
             )}
-            <p className="text-xs text-muted-foreground">
-                {row.plan}: {row.labels.startBasis}; {row.labels.trials};{' '}
-                {row.labels.horizon}; {row.labels.retainedCushion};{' '}
-                {row.labels.payoutPolicy}; {row.labels.lifetimeCapBasis};{' '}
-                {row.labels.tradesPerDay}. {row.labels.creditBasis}
-            </p>
             {row.notHonoured.length > 0 && (
                 <ul
                     aria-label={`Policy fields the timeline does not honour for ${row.plan}`}

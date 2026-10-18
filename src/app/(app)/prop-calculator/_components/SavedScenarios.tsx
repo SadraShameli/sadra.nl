@@ -1,12 +1,18 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Bookmark, RotateCcw, Trash2 } from 'lucide-react';
+import { Bookmark, RotateCcw } from 'lucide-react';
 import { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
+import {
+    deleteRowAction,
+    RowActionKind,
+    RowActionsMenu,
+} from '~/components/RowActionsMenu';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
@@ -451,9 +457,7 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
 
             <div className="border-t border-border/50 pt-2">
                 <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                        {heading}
-                    </span>
+                    <PanelSubheading>{heading}</PanelSubheading>
                     {scenarios !== null && scenarios.length > 0 && (
                         <ClearAllButton
                             busy={busy}
@@ -486,30 +490,30 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
                                 >
                                     {s.name}
                                 </Button>
-                                <div className="flex items-center gap-1">
-                                    <Button
-                                        aria-label={`Replace ${s.name} with current config`}
-                                        className="size-6 p-0 text-muted-foreground"
-                                        disabled={busy}
-                                        onClick={() => onReplace(s)}
-                                        size="icon-sm"
-                                        type="button"
-                                        variant="ghost"
-                                    >
-                                        <RotateCcw className="size-3.5" />
-                                    </Button>
-                                    <Button
-                                        aria-label={`Delete ${s.name}`}
-                                        className="size-6 p-0 text-muted-foreground hover:text-destructive"
-                                        disabled={busy}
-                                        onClick={() => onDelete(s)}
-                                        size="icon-sm"
-                                        type="button"
-                                        variant="ghost"
-                                    >
-                                        <Trash2 className="size-3.5" />
-                                    </Button>
-                                </div>
+                                <RowActionsMenu
+                                    actions={[
+                                        {
+                                            confirm: {
+                                                confirmLabel: 'Replace',
+                                                description:
+                                                    'The saved inputs are overwritten with the current config.',
+                                                title: `Replace “${s.name}” with the current config?`,
+                                            },
+                                            icon: RotateCcw,
+                                            kind: RowActionKind.Select,
+                                            label: 'Replace with current config',
+                                            onSelect: () => onReplace(s),
+                                        },
+                                        deleteRowAction({
+                                            description:
+                                                'This saved scenario is removed for good.',
+                                            onDelete: () => onDelete(s),
+                                            title: `Delete “${s.name}”?`,
+                                        }),
+                                    ]}
+                                    isPending={busy}
+                                    label={s.name}
+                                />
                             </li>
                         ))}
                     </ul>

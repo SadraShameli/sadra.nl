@@ -25,6 +25,7 @@ import {
     SizingStage,
 } from '~/lib/prop-calculator/advisor';
 
+import { infoText } from '../infoPopover';
 import { NextPayoutSectionWithWorker } from './NextPayoutSectionWithWorker';
 
 vi.mock('next/navigation', () => ({
@@ -168,11 +169,7 @@ describe('the account detail names the live-transfer hazard behind its from-stat
         expect(list).not.toBeNull();
         expect(list?.textContent).toContain(HAZARD_LINE);
         expect(list?.textContent).toContain('Value from this state.');
-        const retire = [...container.querySelectorAll('h4')].find(
-            (heading) =>
-                heading.textContent === 'Keep or start a fresh account',
-        )?.parentElement;
-        expect(retire?.textContent).toContain(
+        expect(infoText(container, 'Keep or start a fresh account')).toContain(
             `Keeping this account. ${HAZARD_LINE}`,
         );
     });

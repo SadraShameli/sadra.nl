@@ -17,6 +17,7 @@ import {
     DEFAULT_ACCOUNT_LIST_FILTERS,
     DEFAULT_ACCOUNT_LIST_SORT,
     filterAccountRows,
+    hasActiveAccountFilters,
     PayoutReadinessTier,
     readOnlyAccountNotice,
     readOnlyAlertTitle,
@@ -145,6 +146,12 @@ function ledgerAccount(
 
 function modeledFirmKey(firmId: FirmId): FirmKey {
     return { firmId, kind: FirmKeyKind.Modeled };
+}
+
+function searchedIds(search: string): readonly string[] {
+    return ids(
+        filterAccountRows(ROWS, { ...DEFAULT_ACCOUNT_LIST_FILTERS, search }),
+    );
 }
 
 function snapshot(
@@ -704,6 +711,35 @@ describe('filterAccountRows', () => {
                 }),
             ),
         ).toEqual(['alpha']);
+    });
+
+    it('keeps only the accounts whose label contains the search, ignoring case and outer spaces', () => {
+        expect(searchedIds('CHAR')).toEqual(['charlie']);
+        expect(searchedIds('  ravo ')).toEqual(['bravo']);
+        expect(searchedIds(' '.repeat(3))).toEqual([
+            'alpha',
+            'bravo',
+            'charlie',
+        ]);
+        expect(searchedIds('zulu')).toEqual([]);
+    });
+
+    it('counts a search as an active filter so Clear filters shows', () => {
+        expect(hasActiveAccountFilters(DEFAULT_ACCOUNT_LIST_FILTERS)).toBe(
+            false,
+        );
+        expect(
+            hasActiveAccountFilters({
+                ...DEFAULT_ACCOUNT_LIST_FILTERS,
+                search: 'alpha',
+            }),
+        ).toBe(true);
+        expect(
+            hasActiveAccountFilters({
+                ...DEFAULT_ACCOUNT_LIST_FILTERS,
+                includeArchived: true,
+            }),
+        ).toBe(true);
     });
 
     it('returns nothing when no row matches, without throwing', () => {

@@ -1,8 +1,12 @@
 import { memo } from 'react';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type RepeatabilityCardModel } from './overviewModel';
+import { InfoStack, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 type RepeatabilityStatsRow = NonNullable<RepeatabilityCardModel['overall']>;
 
@@ -13,13 +17,25 @@ export const RepeatabilityCard = memo(function RepeatabilityCard({
 }) {
     if (model.overall === null && model.perSlot === null) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No complete month yet.
-            </p>
+            <OverviewPanel section={OverviewSectionId.Repeatability}>
+                <p className="text-sm text-muted-foreground">
+                    No complete month yet.
+                </p>
+            </OverviewPanel>
         );
     }
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={
+                <InfoStack>
+                    <p>{model.basisNote}</p>
+                    {model.perSlotTargetNote !== null && (
+                        <p>{model.perSlotTargetNote}</p>
+                    )}
+                </InfoStack>
+            }
+            section={OverviewSectionId.Repeatability}
+        >
             <div className="grid gap-6 md:grid-cols-2">
                 <RepeatabilityGroup
                     label="Across every complete month"
@@ -30,13 +46,7 @@ export const RepeatabilityCard = memo(function RepeatabilityCard({
                     stats={model.perSlot}
                 />
             </div>
-            <p className="text-xs text-muted-foreground">{model.basisNote}</p>
-            {model.perSlotTargetNote !== null && (
-                <p className="text-xs text-muted-foreground">
-                    {model.perSlotTargetNote}
-                </p>
-            )}
-        </div>
+        </OverviewPanel>
     );
 });
 
@@ -49,46 +59,48 @@ function RepeatabilityGroup({
 }) {
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-foreground">{label}</h3>
+            <PanelSubheading>{label}</PanelSubheading>
             {stats === null ? (
                 <p className="text-sm text-muted-foreground">
                     No complete month yet.
                 </p>
             ) : (
-                <dl className="grid grid-cols-2 gap-2 text-sm">
-                    <Stat label="Months" value={stats.count} />
-                    <Stat label="Mean (net per month)" value={stats.mean} />
-                    <Stat
-                        label="Standard deviation (net per month)"
-                        value={stats.standardDeviation}
-                    />
-                    <Stat label="Worst (net per month)" value={stats.worst} />
-                    <Stat label="Best (net per month)" value={stats.best} />
-                    <Stat
-                        label="Share positive (net per month)"
-                        value={stats.sharePositive}
-                    />
-                    <Stat
-                        label="Share at or above target (payouts per month)"
-                        value={stats.shareAtOrAboveTarget ?? NOT_APPLICABLE}
-                    />
-                </dl>
+                <StatStrip
+                    items={[
+                        { id: 'months', label: 'Months', value: stats.count },
+                        {
+                            id: 'mean',
+                            label: 'Mean (net per month)',
+                            value: stats.mean,
+                        },
+                        {
+                            id: 'standard-deviation',
+                            label: 'Standard deviation (net per month)',
+                            value: stats.standardDeviation,
+                        },
+                        {
+                            id: 'worst',
+                            label: 'Worst (net per month)',
+                            value: stats.worst,
+                        },
+                        {
+                            id: 'best',
+                            label: 'Best (net per month)',
+                            value: stats.best,
+                        },
+                        {
+                            id: 'share-positive',
+                            label: 'Share positive (net per month)',
+                            value: stats.sharePositive,
+                        },
+                        {
+                            id: 'share-at-or-above-target',
+                            label: 'Share at or above target (payouts per month)',
+                            value: stats.shareAtOrAboveTarget ?? NOT_APPLICABLE,
+                        },
+                    ]}
+                />
             )}
-        </div>
-    );
-}
-
-function Stat({
-    label,
-    value,
-}: {
-    readonly label: string;
-    readonly value: string;
-}) {
-    return (
-        <div>
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="tabular-nums">{value}</dd>
         </div>
     );
 }

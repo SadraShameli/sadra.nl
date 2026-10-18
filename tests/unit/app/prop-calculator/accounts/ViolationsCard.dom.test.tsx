@@ -6,6 +6,8 @@ import { type ViolationsCardModel } from '~/app/(app)/prop-calculator/accounts/_
 import { ViolationsCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/ViolationsCard';
 import { RuleViolationKind } from '~/lib/prop-accounts';
 
+import { infoText } from '../infoPopover';
+
 describe('ViolationsCard', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -68,7 +70,9 @@ describe('ViolationsCard', () => {
             'Position above the documented size',
         );
         expect(container.textContent).toContain('$100');
-        expect(container.textContent).toContain('A disclosure line');
+        expect(infoText(container, 'Rule violations')).toContain(
+            'A disclosure line',
+        );
     });
 
     it('shows no share of net cash when it is null', () => {

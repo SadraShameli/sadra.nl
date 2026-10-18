@@ -3,6 +3,7 @@
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_BAR_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
@@ -110,10 +111,10 @@ export default function HistogramChartView({
                     />
                 ))}
                 <Bar
+                    {...CHART_BAR_PROPS}
                     dataKey="count"
                     fill="var(--color-count)"
                     fillOpacity={0.75}
-                    isAnimationActive={false}
                 />
             </BarChart>
         </ChartContainer>

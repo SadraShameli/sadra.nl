@@ -3,6 +3,8 @@ import { memo } from 'react';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type CapUsageCardModel } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum CapUsageCardColumn {
     Cap = 'cap',
@@ -18,7 +20,10 @@ export const CapUsageCard = memo(function CapUsageCard({
     readonly model: CapUsageCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={model.disclosure}
+            section={OverviewSectionId.CapUsage}
+        >
             {model.rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No plan in use yet.
@@ -30,6 +35,7 @@ export const CapUsageCard = memo(function CapUsageCard({
                             cell: ({ row }) => <>{row.original.plan}</>,
                             header: 'Plan',
                             id: CapUsageCardColumn.Plan,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.used}</>,
@@ -61,12 +67,11 @@ export const CapUsageCard = memo(function CapUsageCard({
                     rowId={(row) => row.key}
                 />
             )}
-            <p className="text-xs text-muted-foreground">{model.disclosure}</p>
             {model.unresolvedNote !== null && (
                 <p className="text-xs text-muted-foreground">
                     {model.unresolvedNote}
                 </p>
             )}
-        </div>
+        </OverviewPanel>
     );
 });

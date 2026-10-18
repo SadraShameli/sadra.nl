@@ -94,6 +94,7 @@ export type AccountType = (typeof ACCOUNT_TYPE_VALUES)[number];
 export type BiasDirection = (typeof BIAS_DIRECTION_VALUES)[number];
 
 export type ConfluenceGroup = {
+    hint?: string;
     items: ConfluenceKey[];
     label: string;
 };

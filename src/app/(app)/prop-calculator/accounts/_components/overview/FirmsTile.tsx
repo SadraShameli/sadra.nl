@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
-import { SCALE_GATE_STATUS_VARIANT } from '~/app/(app)/prop-calculator/accounts/_components/scaleGateBadge';
+import { StatStrip } from '~/components/StatStrip';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -67,28 +67,34 @@ export function FirmsTile({
     const model = computed.value;
     return (
         <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span>
-                    {String(model.firmsUsed)} firms used,{' '}
-                    {String(model.activeFirms)} active, {String(model.sentLive)}{' '}
-                    sent live.
-                </span>
-                <span className="flex items-center gap-2">
-                    Scale gate:
-                    <Badge
-                        variant={
-                            SCALE_GATE_STATUS_VARIANT[model.scaleGateStatus]
-                        }
-                    >
-                        {model.scaleGateLabel}
-                    </Badge>
-                    {model.unmetConditions > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                            {String(model.unmetConditions)} unmet
-                        </span>
-                    )}
-                </span>
-            </div>
+            <StatStrip
+                items={[
+                    {
+                        id: 'firms-used',
+                        label: 'Firms used',
+                        value: String(model.firmsUsed),
+                    },
+                    {
+                        id: 'active',
+                        label: 'Active',
+                        value: String(model.activeFirms),
+                    },
+                    {
+                        id: 'sent-live',
+                        label: 'Sent live',
+                        value: String(model.sentLive),
+                    },
+                    {
+                        caption:
+                            model.unmetConditions > 0
+                                ? `${String(model.unmetConditions)} unmet`
+                                : undefined,
+                        id: 'scale-gate',
+                        label: 'Scale gate',
+                        value: <Badge>{model.scaleGateLabel}</Badge>,
+                    },
+                ]}
+            />
             {engagementsQuery.isError && engagements === undefined && (
                 <p className="text-xs text-destructive">
                     Your firm statuses could not be loaded, so every firm counts

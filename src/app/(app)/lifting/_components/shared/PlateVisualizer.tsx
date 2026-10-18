@@ -73,7 +73,7 @@ export function PlateVisualizer({
                 <div className="flex items-center justify-center gap-1">
                     {[...load.perSide].toReversed().map((weight, index) => (
                         <div
-                            className="flex items-center justify-center rounded-sm px-1 text-[10px] font-bold text-black tabular-nums"
+                            className="flex items-center justify-center rounded-sm px-1 type-micro font-bold tracking-normal text-black tabular-nums"
                             key={`${weight}-${index}`}
                             style={{
                                 backgroundColor: getColor(weight),
@@ -85,13 +85,13 @@ export function PlateVisualizer({
                         </div>
                     ))}
                     <div className="h-3 flex-1 rounded-full bg-muted-foreground/60" />
-                    <div className="flex h-10 w-3 items-center justify-center bg-muted-foreground/80 text-[10px] font-bold text-background">
+                    <div className="flex h-10 w-3 items-center justify-center bg-muted-foreground/80 type-micro font-bold tracking-normal text-background">
                         |
                     </div>
                     <div className="h-3 flex-1 rounded-full bg-muted-foreground/60" />
                     {load.perSide.map((weight, index) => (
                         <div
-                            className="flex items-center justify-center rounded-sm px-1 text-[10px] font-bold text-black tabular-nums"
+                            className="flex items-center justify-center rounded-sm px-1 type-micro font-bold tracking-normal text-black tabular-nums"
                             key={`r-${weight}-${index}`}
                             style={{
                                 backgroundColor: getColor(weight),

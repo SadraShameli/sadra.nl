@@ -19,6 +19,7 @@ const ALERT_SUBJECT_COLUMNS: DataTableColumn<OverviewAlert>[] = [
         cell: ({ row }) => <AlertSubjectLabel alert={row.original} />,
         header: 'Account',
         id: AlertSubjectColumn.Subject,
+        meta: { isRowHeader: true },
     },
     {
         accessorFn: (row) => row.message,

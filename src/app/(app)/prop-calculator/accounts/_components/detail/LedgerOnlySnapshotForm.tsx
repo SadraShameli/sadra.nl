@@ -16,7 +16,9 @@ import {
     type SnapshotFormValues,
 } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import { SnapshotFields } from '~/app/(app)/prop-calculator/accounts/_components/SnapshotFields';
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { Button } from '~/components/ui/button';
+import { formatDisplayDate } from '~/lib/format';
 import { AccountTracking, SnapshotField } from '~/lib/prop-accounts';
 import { api } from '~/trpc/react';
 
@@ -51,7 +53,9 @@ export function LedgerOnlySnapshotForm({
         if (parsed.kind === SnapshotFormResultKind.Invalid) return;
         try {
             await creation.mutateAsync({ ...parsed.snapshot, accountId });
-            toast.success(`Snapshot of ${parsed.snapshot.asOf} added`);
+            toast.success(
+                `Snapshot of ${formatDisplayDate(parsed.snapshot.asOf)} added`,
+            );
             setValues(emptySnapshotFormValues(today));
             setChecked(null);
         } catch (error) {
@@ -71,7 +75,7 @@ export function LedgerOnlySnapshotForm({
                 void save();
             }}
         >
-            <h3 className="text-sm font-medium">Add a snapshot</h3>
+            <PanelSubheading>Add a snapshot</PanelSubheading>
             <SnapshotFields
                 fieldWarnings={[]}
                 formIssues={invalid?.formIssues ?? []}

@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+import {
+    formChoiceIdSchema,
+    formNonNegativeWholeNumberSchema,
+    formNumberSchema,
+    formPositiveWholeNumberSchema,
+} from '~/lib/schemas/formNumber';
+
 const unitValueSchema = z.string().min(1).max(32);
 
 export const sensorUnitCreateSchema = z.object({
@@ -18,7 +25,7 @@ export const sensorUnitIdSchema = z.object({
 });
 
 export const locationCreateSchema = z.object({
-    location_id: z.number().int().positive(),
+    location_id: formPositiveWholeNumberSchema(),
     location_name: z.string().min(1).max(256),
     name: z.string().min(1).max(256),
 });
@@ -32,20 +39,20 @@ export const locationUpdateSchema = z.object({
 export type LocationUpdateInput = z.infer<typeof locationUpdateSchema>;
 
 export const deviceCreateSchema = z.object({
-    device_id: z.number().int().positive(),
-    location_id: z.number().int().positive(),
-    loudness_threshold: z.number().int().nonnegative(),
+    device_id: formPositiveWholeNumberSchema(),
+    location_id: formChoiceIdSchema(),
+    loudness_threshold: formNonNegativeWholeNumberSchema(),
     name: z.string().min(1).max(256),
-    register_interval: z.number().int().nonnegative(),
+    register_interval: formNonNegativeWholeNumberSchema(),
 });
 export type DeviceCreateInput = z.infer<typeof deviceCreateSchema>;
 
 export const deviceUpdateSchema = z.object({
     id: z.number().int().positive(),
-    location_id: z.number().int().positive(),
-    loudness_threshold: z.number().int().nonnegative(),
+    location_id: formChoiceIdSchema(),
+    loudness_threshold: formNonNegativeWholeNumberSchema(),
     name: z.string().min(1).max(256),
-    register_interval: z.number().int().nonnegative(),
+    register_interval: formNonNegativeWholeNumberSchema(),
 });
 export type DeviceUpdateInput = z.infer<typeof deviceUpdateSchema>;
 
@@ -69,14 +76,14 @@ export const recordingRenameSchema = z.object({
 export type RecordingRenameInput = z.infer<typeof recordingRenameSchema>;
 
 export const readingCreateAdminSchema = z.object({
-    deviceId: z.number().int().positive(),
-    sensorId: z.number().int().positive(),
-    value: z.number(),
+    deviceId: formChoiceIdSchema(),
+    sensorId: formChoiceIdSchema(),
+    value: formNumberSchema(),
 });
 export type ReadingCreateAdminInput = z.infer<typeof readingCreateAdminSchema>;
 
 export const recordingCreateAdminSchema = z.object({
-    deviceId: z.number().int().positive(),
+    deviceId: formChoiceIdSchema(),
     fileBase64: z.string().min(1).max(50_000_000),
     fileName: z.string().min(1).max(256),
 });

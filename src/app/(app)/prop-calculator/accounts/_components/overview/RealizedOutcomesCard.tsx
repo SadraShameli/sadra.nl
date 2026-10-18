@@ -3,6 +3,8 @@ import { memo } from 'react';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type OutcomesCardModel } from './overviewModel';
+import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum RealizedOutcomesCardColumn {
     FundedSurvival = 'funded-survival',
@@ -21,7 +23,10 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
     readonly model: OutcomesCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.Outcomes}
+        >
             {model.rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                     No account with a modeled plan yet.
@@ -33,6 +38,7 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
                             cell: ({ row }) => <>{row.original.plan}</>,
                             header: 'Plan',
                             id: RealizedOutcomesCardColumn.Plan,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => (
@@ -111,11 +117,6 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
                     rowId={(row) => row.key}
                 />
             )}
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-        </div>
+        </OverviewPanel>
     );
 });

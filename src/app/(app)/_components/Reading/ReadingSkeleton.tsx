@@ -10,11 +10,11 @@ export function ReadingBodySkeleton() {
             <div className="border-b border-line-faint px-4 py-3">
                 <Skeleton className="h-10 w-full max-w-xl rounded-full" />
             </div>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] border-b border-line-faint">
+            <div className="m-6 mb-0 grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] overflow-hidden rounded-lg border border-line-faint">
                 {STAT_SKELETONS.map((key) => (
-                    <div className="flex flex-col gap-3.5 p-7" key={key}>
+                    <div className="flex flex-col gap-1.5 px-4 py-3" key={key}>
                         <Skeleton className="h-3.5 w-20" />
-                        <Skeleton className="h-16 w-40" />
+                        <Skeleton className="h-10 w-28" />
                     </div>
                 ))}
             </div>

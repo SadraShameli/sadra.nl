@@ -29,16 +29,34 @@ export function ExpectedPayoutsFigure({
 }: {
     readonly expectedPayouts: ExpectedPayoutsView;
 }) {
+    return (
+        <>
+            <ExpectedPayoutsValue expectedPayouts={expectedPayouts} />
+            <ExpectedPayoutsReason expectedPayouts={expectedPayouts} />
+        </>
+    );
+}
+
+export function ExpectedPayoutsReason({
+    expectedPayouts,
+}: {
+    readonly expectedPayouts: ExpectedPayoutsView;
+}) {
+    return expectedPayouts.kind === ExpectedPayoutsKind.NotValued ? (
+        <p className="text-xs text-muted-foreground">
+            {expectedPayouts.reason}
+        </p>
+    ) : null;
+}
+
+export function ExpectedPayoutsValue({
+    expectedPayouts,
+}: {
+    readonly expectedPayouts: ExpectedPayoutsView;
+}) {
     switch (expectedPayouts.kind) {
         case ExpectedPayoutsKind.NotValued: {
-            return (
-                <>
-                    <div className="text-muted-foreground">Not valued</div>
-                    <p className="text-xs text-muted-foreground">
-                        {expectedPayouts.reason}
-                    </p>
-                </>
-            );
+            return <div className="text-muted-foreground">Not valued</div>;
         }
         case ExpectedPayoutsKind.Pending: {
             return <span className="text-muted-foreground">Computing</span>;
@@ -56,22 +74,32 @@ export function NextActionFigure({
 }) {
     return (
         <>
-            <div className="font-medium" data-action={action.action}>
-                {action.action === AccountAction.EnterSnapshot ? (
-                    <Link
-                        className="underline underline-offset-4"
-                        href={routes.propCalculator.accounts.review}
-                    >
-                        {action.text}
-                    </Link>
-                ) : (
-                    action.text
-                )}
-            </div>
+            <NextActionValue action={action} />
             {action.reason !== null && (
                 <p className="text-xs text-muted-foreground">{action.reason}</p>
             )}
         </>
+    );
+}
+
+export function NextActionValue({
+    action,
+}: {
+    readonly action: NextActionView;
+}) {
+    return (
+        <div className="font-medium" data-action={action.action}>
+            {action.action === AccountAction.EnterSnapshot ? (
+                <Link
+                    className="underline underline-offset-4"
+                    href={routes.propCalculator.accounts.review}
+                >
+                    {action.text}
+                </Link>
+            ) : (
+                action.text
+            )}
+        </div>
     );
 }
 
@@ -82,19 +110,11 @@ export function NextPayoutFigure({
     readonly isNoteCollapsed?: boolean;
     readonly nextPayout: NextPayoutView;
 }) {
-    const isMuted = MUTED_NEXT_PAYOUT_KINDS.has(nextPayout.kind);
-    const isNoteFolded = isNoteCollapsed && !isMuted;
+    const isNoteFolded =
+        isNoteCollapsed && !MUTED_NEXT_PAYOUT_KINDS.has(nextPayout.kind);
     return (
         <>
-            <span
-                className={cn(
-                    isMuted && 'text-muted-foreground',
-                    nextPayout.isSoon && 'font-medium text-success',
-                )}
-                data-soon={nextPayout.isSoon ? 'true' : undefined}
-            >
-                {nextPayout.text}
-            </span>
+            <NextPayoutValue nextPayout={nextPayout} />
             {nextPayout.note !== null &&
                 (isNoteFolded ? (
                     <Collapsible className="flex flex-col text-xs text-muted-foreground">
@@ -111,6 +131,25 @@ export function NextPayoutFigure({
                     </p>
                 ))}
         </>
+    );
+}
+
+export function NextPayoutValue({
+    nextPayout,
+}: {
+    readonly nextPayout: NextPayoutView;
+}) {
+    return (
+        <span
+            className={cn(
+                MUTED_NEXT_PAYOUT_KINDS.has(nextPayout.kind) &&
+                    'text-muted-foreground',
+                nextPayout.isSoon && 'font-medium text-success',
+            )}
+            data-soon={nextPayout.isSoon ? 'true' : undefined}
+        >
+            {nextPayout.text}
+        </span>
     );
 }
 

@@ -15,12 +15,16 @@ import {
     type SnapshotFormValues,
 } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import { SnapshotFields } from '~/app/(app)/prop-calculator/accounts/_components/SnapshotFields';
+import { InfoNote } from '~/components/InfoNote';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard } from '~/components/ToggleCard';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Dialog } from '~/components/ui/dialog';
+import InfoPopover from '~/components/ui/info-popover';
 import { Skeleton } from '~/components/ui/skeleton';
-import { NOT_APPLICABLE } from '~/lib/format';
+import { formatDisplayDate, NOT_APPLICABLE } from '~/lib/format';
 import {
     type AccountStage,
     AccountTracking,
@@ -417,29 +421,25 @@ export function WeeklyReviewView() {
     return (
         <div className="flex flex-col gap-6">
             {hasRefreshError && (
-                <Alert>
-                    <AlertTitle>Could not refresh</AlertTitle>
-                    <AlertDescription>
-                        Some data could not be reloaded, so what you see may be
-                        out of date. Your entries are kept. Reload the page to
-                        try again.
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    detail="Some data could not be reloaded, so what you see may be out of date. Your entries are kept. Reload the page to try again."
+                    title="Could not refresh"
+                    tone={StatusTone.Warn}
+                />
             )}
-            <p className="text-sm text-muted-foreground">
-                Reviewing as of {result.asOf}.
-            </p>
             <AdherenceSummary
                 adherence={result.adherence}
+                asOf={result.asOf}
                 stepCents={result.adherenceStepCents}
             />
-            <p className="text-sm text-muted-foreground">
+            <InfoNote>
                 {ledgerOnlyText(result.ledgerOnlyExcludedCount)}
-            </p>
+            </InfoNote>
             {result.notUpdatedCount > 0 && (
-                <p className="text-sm text-muted-foreground">
-                    {notUpdatedText(result.notUpdatedCount)}
-                </p>
+                <StatusRow
+                    title={notUpdatedText(result.notUpdatedCount)}
+                    tone={StatusTone.Warn}
+                />
             )}
             {result.corruptRows.length > 0 && (
                 <Alert variant="destructive">
@@ -470,111 +470,105 @@ export function WeeklyReviewView() {
                 const isAlreadyRecorded = alreadyRecordedIds.has(row.accountId);
                 const { sizing } = row;
                 return (
-                    <Card key={row.accountId}>
-                        <CardHeader>
-                            <CardTitle as="h2">{row.label}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex flex-col gap-4">
-                            <SnapshotFields
-                                fieldWarnings={row.fieldWarnings}
-                                formIssues={row.blockedMessages}
-                                formWarnings={row.formWarnings}
-                                idPrefix={row.accountId}
-                                isReadOnly={isAlreadyRecorded}
-                                issues={row.parseIssues}
-                                onChange={(field, value) => {
-                                    onFieldChange(row.accountId, field, value);
+                    <ToolPanel
+                        contentClassName="gap-4"
+                        key={row.accountId}
+                        title={row.label}
+                    >
+                        <SnapshotFields
+                            fieldWarnings={row.fieldWarnings}
+                            formIssues={row.blockedMessages}
+                            formWarnings={row.formWarnings}
+                            idPrefix={row.accountId}
+                            isReadOnly={isAlreadyRecorded}
+                            issues={row.parseIssues}
+                            onChange={(field, value) => {
+                                onFieldChange(row.accountId, field, value);
+                            }}
+                            rules={rules}
+                            tracking={AccountTracking.Modeled}
+                            values={valuesFor(row.accountId)}
+                        />
+                        {row.entryKind === WeeklyReviewEntryKind.Unchanged && (
+                            <UnchangedControl
+                                isBlocked={row.isBlocked}
+                                isConfirmed={confirmedUnchanged.has(
+                                    row.accountId,
+                                )}
+                                onToggle={(checked) => {
+                                    const next = new Set(confirmedUnchanged);
+                                    if (checked) {
+                                        next.add(row.accountId);
+                                    } else {
+                                        next.delete(row.accountId);
+                                    }
+                                    setConfirmedUnchanged(next);
                                 }}
-                                rules={rules}
-                                tracking={AccountTracking.Modeled}
-                                values={valuesFor(row.accountId)}
+                                rowId={row.accountId}
+                                since={row.unchangedSince}
                             />
-                            {row.entryKind ===
-                                WeeklyReviewEntryKind.Unchanged && (
-                                <UnchangedControl
-                                    isBlocked={row.isBlocked}
-                                    isConfirmed={confirmedUnchanged.has(
-                                        row.accountId,
-                                    )}
-                                    onToggle={(checked) => {
-                                        const next = new Set(
-                                            confirmedUnchanged,
-                                        );
-                                        if (checked) {
-                                            next.add(row.accountId);
+                        )}
+                        {row.entryKind ===
+                            WeeklyReviewEntryKind.AlreadyRecorded && (
+                            <p className="text-sm text-muted-foreground">
+                                Already recorded for{' '}
+                                {formatDisplayDate(result.asOf)}
+                            </p>
+                        )}
+                        {row.missingFieldLabels.length > 0 && (
+                            <p
+                                className={
+                                    valuesByAccount.has(row.accountId)
+                                        ? 'text-sm text-destructive'
+                                        : 'text-sm text-muted-foreground'
+                                }
+                            >
+                                Needs: {row.missingFieldLabels.join('; ')}
+                            </p>
+                        )}
+                        <SizingSummary
+                            diffCents={row.diffCents}
+                            sizing={sizing}
+                        />
+                        <LastDecisionLine decision={row.lastDecision} />
+                        <WeekViolations
+                            violations={row.violations}
+                            weekStart={result.weekStart}
+                            windowEnd={result.windowEnd}
+                        />
+                        <LogViolationSection
+                            accountId={row.accountId}
+                            isOpen={loggingAccountId === row.accountId}
+                            label={row.label}
+                            offer={row.violationOffer}
+                            onClose={() => {
+                                setLoggingAccountId(null);
+                            }}
+                            onOpen={() => {
+                                setLoggingAccountId(row.accountId);
+                            }}
+                        />
+                        {row.isRecorded &&
+                            sizing.kind === WeeklyReviewSizingKind.Ready && (
+                                <CheckboxCard
+                                    checked={isAccepted}
+                                    id={`accept-${row.accountId}`}
+                                    label="Accept this size into the decision log"
+                                    onCheckedChange={(isChecked) => {
+                                        const next = new Map(acceptedHeadlines);
+                                        if (isChecked) {
+                                            next.set(
+                                                row.accountId,
+                                                sizing.headlineRiskCents,
+                                            );
                                         } else {
                                             next.delete(row.accountId);
                                         }
-                                        setConfirmedUnchanged(next);
+                                        setAcceptedHeadlines(next);
                                     }}
-                                    rowId={row.accountId}
-                                    since={row.unchangedSince}
                                 />
                             )}
-                            {row.entryKind ===
-                                WeeklyReviewEntryKind.AlreadyRecorded && (
-                                <p className="text-sm text-muted-foreground">
-                                    Already recorded for {result.asOf}
-                                </p>
-                            )}
-                            {row.missingFieldLabels.length > 0 && (
-                                <p
-                                    className={
-                                        valuesByAccount.has(row.accountId)
-                                            ? 'text-sm text-destructive'
-                                            : 'text-sm text-muted-foreground'
-                                    }
-                                >
-                                    Needs: {row.missingFieldLabels.join('; ')}
-                                </p>
-                            )}
-                            <SizingSummary
-                                diffCents={row.diffCents}
-                                sizing={sizing}
-                            />
-                            <LastDecisionLine decision={row.lastDecision} />
-                            <WeekViolations
-                                violations={row.violations}
-                                weekStart={result.weekStart}
-                                windowEnd={result.windowEnd}
-                            />
-                            <LogViolationSection
-                                accountId={row.accountId}
-                                isOpen={loggingAccountId === row.accountId}
-                                label={row.label}
-                                offer={row.violationOffer}
-                                onClose={() => {
-                                    setLoggingAccountId(null);
-                                }}
-                                onOpen={() => {
-                                    setLoggingAccountId(row.accountId);
-                                }}
-                            />
-                            {row.isRecorded &&
-                                sizing.kind ===
-                                    WeeklyReviewSizingKind.Ready && (
-                                    <CheckboxCard
-                                        checked={isAccepted}
-                                        id={`accept-${row.accountId}`}
-                                        label="Accept this size into the decision log"
-                                        onCheckedChange={(isChecked) => {
-                                            const next = new Map(
-                                                acceptedHeadlines,
-                                            );
-                                            if (isChecked) {
-                                                next.set(
-                                                    row.accountId,
-                                                    sizing.headlineRiskCents,
-                                                );
-                                            } else {
-                                                next.delete(row.accountId);
-                                            }
-                                            setAcceptedHeadlines(next);
-                                        }}
-                                    />
-                                )}
-                        </CardContent>
-                    </Card>
+                    </ToolPanel>
                 );
             })}
             <Button
@@ -606,33 +600,40 @@ function acceptedAccountIdsOf(
 
 function AdherenceSummary({
     adherence,
+    asOf,
     stepCents,
 }: {
     readonly adherence: DecisionAdherence;
+    readonly asOf: string;
     readonly stepCents: number;
 }) {
     return (
-        <div className="flex flex-col gap-1 text-sm">
-            <p>
-                {adherence.rate === null
-                    ? 'Adherence: no decision has a recorded actual risk yet'
-                    : `Adherence: ${(adherence.rate * 100).toFixed(0)}% (${String(adherence.followed)} of ${String(adherence.measured)} latest decisions with a recorded actual risk followed)`}
-            </p>
-            <p className="text-muted-foreground">
-                Based on each account latest decision, whatever its date.
-                Followed means the actual risk is within{' '}
-                {formatUsdCents(usdCents(stepCents))} of the accepted risk (
-                {ADHERENCE_STEP_REASON}), the same rule as the overview.
-            </p>
-            {adherence.notRecorded > 0 && (
-                <p className="text-muted-foreground">
-                    {adherence.notRecorded === 1
-                        ? '1 decision has no recorded actual risk'
-                        : `${String(adherence.notRecorded)} decisions have no recorded actual risk`}
-                    ; record it in the decision log on the account page.
+        <ToolPanel
+            description={`Reviewing as of ${formatDisplayDate(asOf)}.`}
+            info={
+                <p>
+                    Based on each account latest decision, whatever its date.
+                    Followed means the actual risk is within{' '}
+                    {formatUsdCents(usdCents(stepCents))} of the accepted risk (
+                    {ADHERENCE_STEP_REASON}), the same rule as the overview.
                 </p>
-            )}
-        </div>
+            }
+            title="Adherence"
+        >
+            <StatusRow
+                detail={
+                    adherence.notRecorded > 0
+                        ? `${adherence.notRecorded === 1 ? '1 decision has no recorded actual risk' : `${String(adherence.notRecorded)} decisions have no recorded actual risk`}; record it in the decision log on the account page.`
+                        : undefined
+                }
+                title={
+                    adherence.rate === null
+                        ? 'Adherence: no decision has a recorded actual risk yet'
+                        : `Adherence: ${(adherence.rate * 100).toFixed(0)}% (${String(adherence.followed)} of ${String(adherence.measured)} latest decisions with a recorded actual risk followed)`
+                }
+                tone={StatusTone.Neutral}
+            />
+        </ToolPanel>
     );
 }
 
@@ -676,7 +677,7 @@ function LastDecisionLine({
             : `, actual ${formatUsdCents(usdCents(decision.actualRiskCents))}`;
     return (
         <p className="text-sm">
-            Last decision on {decision.decidedOn}:{' '}
+            Last decision on {formatDisplayDate(decision.decidedOn)}:{' '}
             {ADHERENCE_LABEL[decision.adherence]}
             {decision.adherence === DecisionAdherenceKind.NotFollowed &&
                 !decision.isAboveAccepted &&
@@ -747,20 +748,6 @@ function LogViolationSection({
             );
         }
         case ViolationOfferKind.Available: {
-            if (isOpen) {
-                return (
-                    <ViolationForm
-                        accountId={accountId}
-                        decisions={[offer.decision]}
-                        initial={offer.initial}
-                        isDecisionLocked
-                        onDone={onClose}
-                        onFailure={(error) => {
-                            toast.error(errorTextOf(error));
-                        }}
-                    />
-                );
-            }
             return (
                 <div>
                     <Button
@@ -772,6 +759,25 @@ function LogViolationSection({
                     >
                         Log violation
                     </Button>
+                    <Dialog
+                        onOpenChange={(open) => {
+                            if (!open) onClose();
+                        }}
+                        open={isOpen}
+                    >
+                        {isOpen && (
+                            <ViolationForm
+                                accountId={accountId}
+                                decisions={[offer.decision]}
+                                initial={offer.initial}
+                                isDecisionLocked
+                                onDone={onClose}
+                                onFailure={(error) => {
+                                    toast.error(errorTextOf(error));
+                                }}
+                            />
+                        )}
+                    </Dialog>
                 </div>
             );
         }
@@ -802,18 +808,20 @@ function SizingSummary({
     }
     return (
         <div className="flex flex-col gap-1">
-            <p className="text-sm">
-                {sizing.headlineLabel}:{' '}
-                {formatUsdCents(usdCents(sizing.headlineRiskCents))}
+            <p className="flex flex-wrap items-center gap-x-2 text-sm">
+                <span>
+                    {sizing.headlineLabel}:{' '}
+                    {formatUsdCents(usdCents(sizing.headlineRiskCents))}
+                </span>
                 {diffCents !== null && (
-                    <span className="ml-2 text-muted-foreground">
+                    <span className="text-muted-foreground">
                         ({diffCents >= 0 ? '+' : ''}
                         {formatUsdCents(usdCents(diffCents))} vs last week)
                     </span>
                 )}
-            </p>
-            <p className="text-sm text-muted-foreground">
-                {SIZING_ASSUMPTIONS}
+                <InfoPopover title="Sizing assumptions">
+                    {SIZING_ASSUMPTIONS}
+                </InfoPopover>
             </p>
         </div>
     );
@@ -835,7 +843,8 @@ function UnchangedControl({
     return (
         <div className="flex flex-col gap-2 text-sm">
             <p className="text-muted-foreground">
-                Unchanged since {since ?? NOT_APPLICABLE}
+                Unchanged since{' '}
+                {since === null ? NOT_APPLICABLE : formatDisplayDate(since)}
             </p>
             {!isBlocked && (
                 <CheckboxCard
@@ -895,20 +904,22 @@ function WeekViolations({
     if (violations.length === 0) {
         return (
             <p className="text-sm text-muted-foreground">
-                No violations recorded from {weekStart} to {windowEnd}.
+                No violations recorded from {formatDisplayDate(weekStart)} to{' '}
+                {formatDisplayDate(windowEnd)}.
             </p>
         );
     }
     return (
         <div className="flex flex-col gap-1 text-sm">
             <p>
-                Violations from {weekStart} to {windowEnd}:
+                Violations from {formatDisplayDate(weekStart)} to{' '}
+                {formatDisplayDate(windowEnd)}:
             </p>
             <ul className="flex flex-col gap-1">
                 {violations.map((violation) => (
                     <li key={violation.id}>
                         <span className="tabular-nums">
-                            {violation.occurredOn}
+                            {formatDisplayDate(violation.occurredOn)}
                         </span>
                         : {ruleViolationKindLabel(violation.kind)}
                         {violation.costCents === null

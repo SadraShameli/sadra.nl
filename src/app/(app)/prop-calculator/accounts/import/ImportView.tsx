@@ -17,21 +17,23 @@ import {
     accountPlanOptions,
     planTagLabel,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from '~/components/ui/accordion';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '~/components/ui/dialog';
 import { Field, FieldDescription, FieldLabel } from '~/components/ui/field';
 import { FilePicker } from '~/components/ui/file-picker';
 import InfoPopover from '~/components/ui/info-popover';
+import { ScrollArea } from '~/components/ui/scroll-area';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Textarea } from '~/components/ui/textarea';
@@ -64,17 +66,11 @@ import {
 } from '~/lib/prop-accounts/csv';
 import { ALL_FIRMS, FirmId } from '~/lib/prop-calculator';
 import { MAX_IMPORT_ROWS } from '~/lib/schemas/propAccounts';
-import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 enum ImportKind {
     Accounts = 'accounts',
     Snapshots = 'snapshots',
-}
-
-enum ImportReference {
-    Columns = 'columns',
-    PlanSerials = 'plan-serials',
 }
 
 enum ImportViewColumn {
@@ -238,18 +234,11 @@ export function ImportView() {
             defaultValue={ImportKind.Accounts}
         >
             {accountsQuery.isError && (
-                <Alert variant="warning">
-                    <TriangleAlert />
-                    <AlertTitle>
-                        The account list could not be refreshed
-                    </AlertTitle>
-                    <AlertDescription>
-                        {accountsQuery.error.message} Labels are checked against
-                        the list loaded earlier, which may be out of date.
-                        Reload the page before importing if you changed an
-                        account since then.
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    detail={`${accountsQuery.error.message} Labels are checked against the list loaded earlier, which may be out of date. Reload the page before importing if you changed an account since then.`}
+                    title="The account list could not be refreshed"
+                    tone={StatusTone.Warn}
+                />
             )}
             <TabsList className="self-start">
                 <TabsTrigger value={ImportKind.Accounts}>Accounts</TabsTrigger>
@@ -363,28 +352,22 @@ function ColumnReference<Column extends string>({
     required: readonly Column[];
 }) {
     return (
-        <AccordionItem value={ImportReference.Columns}>
-            <AccordionTrigger>Columns and formats</AccordionTrigger>
-            <AccordionContent>
-                <dl className="grid gap-x-6 gap-y-2 md:grid-cols-[max-content_1fr]">
-                    {columns.map((column) => (
-                        <div className="contents" key={column}>
-                            <dt className="font-mono text-xs">
-                                {column}
-                                {required.includes(column) && (
-                                    <Badge className="ml-2" variant="secondary">
-                                        required
-                                    </Badge>
-                                )}
-                            </dt>
-                            <dd className="text-muted-foreground">
-                                {describeColumn(column)}
-                            </dd>
-                        </div>
-                    ))}
-                </dl>
-            </AccordionContent>
-        </AccordionItem>
+        <dl
+            aria-label="Columns and formats"
+            className="flex max-h-96 flex-col gap-2 overflow-y-auto"
+        >
+            {columns.map((column) => (
+                <div key={column}>
+                    <dt className="font-mono text-xs text-foreground">
+                        {column}
+                        {required.includes(column) && (
+                            <Badge className="ml-2">required</Badge>
+                        )}
+                    </dt>
+                    <dd>{describeColumn(column)}</dd>
+                </div>
+            ))}
+        </dl>
     );
 }
 
@@ -440,125 +423,122 @@ function CsvImportPanel<Column extends string, Value>({
     return (
         <section
             aria-labelledby={`${baseId}-heading`}
-            className={cn(
-                `app-prop-accounts__import-${kind}`,
-                'flex flex-col gap-4',
-            )}
+            className={`app-prop-accounts__import-${kind}`}
         >
-            <ToolSectionHeading id={`${baseId}-heading`}>
-                Import {noun.plural}
-            </ToolSectionHeading>
-            <Card className="py-0">
-                <CardContent>
-                    <Accordion type="multiple">
-                        <ColumnReference
-                            columns={columns}
-                            describeColumn={describeColumn}
-                            required={required}
-                        />
-                        {reference}
-                    </Accordion>
-                </CardContent>
-            </Card>
-            <Field>
-                <FieldLabel htmlFor={textId}>CSV text</FieldLabel>
-                <Textarea
-                    aria-describedby={`${textId}-hint`}
-                    className="min-h-48 font-mono text-xs"
-                    disabled={isCommitting}
-                    id={textId}
-                    onChange={(event) => {
-                        setFileError(null);
-                        onTextChange(event.target.value);
-                    }}
-                    placeholder={columns.join(',')}
-                    spellCheck={false}
-                    value={text}
-                />
-                <FieldDescription id={`${textId}-hint`}>
-                    Comma or tab separated, with the header row first. At most{' '}
-                    {MAX_IMPORT_ROWS} rows and 256 KB. Row numbers below count
-                    the header as row 1.
-                </FieldDescription>
-            </Field>
-            <div className="flex flex-wrap items-center gap-3">
-                <FieldLabel className="sr-only" htmlFor={fileId}>
-                    Upload a CSV file of {noun.plural}
-                </FieldLabel>
-                <FilePicker
-                    accept=".csv,.tsv,.txt,text/csv,text/plain"
-                    buttonLabel="Choose CSV"
-                    disabled={isCommitting}
-                    fileName={text === '' ? null : 'File loaded'}
-                    id={fileId}
-                    onFile={(file) => {
-                        void readFile(file);
-                    }}
-                />
-                {text !== '' && (
-                    <Button
+            <ToolPanel
+                actions={reference}
+                contentClassName="gap-4"
+                info={
+                    <ColumnReference
+                        columns={columns}
+                        describeColumn={describeColumn}
+                        required={required}
+                    />
+                }
+                title={`Import ${noun.plural}`}
+                titleId={`${baseId}-heading`}
+            >
+                <Field>
+                    <FieldLabel htmlFor={textId}>CSV text</FieldLabel>
+                    <Textarea
+                        aria-describedby={`${textId}-hint`}
+                        className="min-h-48 font-mono text-xs"
                         disabled={isCommitting}
-                        onClick={() => {
+                        id={textId}
+                        onChange={(event) => {
                             setFileError(null);
-                            onTextChange('');
+                            onTextChange(event.target.value);
+                        }}
+                        placeholder={columns.join(',')}
+                        spellCheck={false}
+                        value={text}
+                    />
+                    <FieldDescription id={`${textId}-hint`}>
+                        Comma or tab separated, with the header row first. At
+                        most {MAX_IMPORT_ROWS} rows and 256 KB. Row numbers
+                        below count the header as row 1.
+                    </FieldDescription>
+                </Field>
+                <div className="flex flex-wrap items-center gap-3">
+                    <FieldLabel className="sr-only" htmlFor={fileId}>
+                        Upload a CSV file of {noun.plural}
+                    </FieldLabel>
+                    <FilePicker
+                        accept=".csv,.tsv,.txt,text/csv,text/plain"
+                        buttonLabel="Choose CSV"
+                        disabled={isCommitting}
+                        fileName={text === '' ? null : 'File loaded'}
+                        id={fileId}
+                        onFile={(file) => {
+                            void readFile(file);
+                        }}
+                    />
+                    {text !== '' && (
+                        <Button
+                            disabled={isCommitting}
+                            onClick={() => {
+                                setFileError(null);
+                                onTextChange('');
+                            }}
+                            type="button"
+                            variant="outline"
+                        >
+                            Clear
+                        </Button>
+                    )}
+                </div>
+                {fileError !== null && (
+                    <Alert variant="destructive">
+                        <TriangleAlert />
+                        <AlertTitle>The file was not loaded</AlertTitle>
+                        <AlertDescription>{fileError}</AlertDescription>
+                    </Alert>
+                )}
+                {preview !== null && preview.kind === CsvTableKind.Failed && (
+                    <Alert variant="destructive">
+                        <TriangleAlert />
+                        <AlertTitle>This CSV cannot be imported</AlertTitle>
+                        <AlertDescription>
+                            {describeCsvFailure(preview.failure)}
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {preview !== null && preview.kind === CsvTableKind.Parsed && (
+                    <PreviewTable
+                        issueCount={issues.length}
+                        preview={preview}
+                        shownColumns={shownColumns}
+                        warnings={warnings}
+                    />
+                )}
+                {commitError !== null && (
+                    <Alert variant="destructive">
+                        <TriangleAlert />
+                        <AlertTitle>Nothing was imported</AlertTitle>
+                        <AlertDescription>{commitError}</AlertDescription>
+                    </Alert>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                        disabled={!canCommit}
+                        onClick={() => {
+                            if (payload !== null) onCommit(payload);
                         }}
                         type="button"
-                        variant="outline"
                     >
-                        Clear
+                        <FileUp />
+                        {payload === null
+                            ? `Import ${noun.plural}`
+                            : `Import ${countOf(payload.length, noun)}`}
                     </Button>
-                )}
-            </div>
-            {fileError !== null && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>The file was not loaded</AlertTitle>
-                    <AlertDescription>{fileError}</AlertDescription>
-                </Alert>
-            )}
-            {preview !== null && preview.kind === CsvTableKind.Failed && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>This CSV cannot be imported</AlertTitle>
-                    <AlertDescription>
-                        {describeCsvFailure(preview.failure)}
-                    </AlertDescription>
-                </Alert>
-            )}
-            {preview !== null && preview.kind === CsvTableKind.Parsed && (
-                <PreviewTable
-                    issueCount={issues.length}
-                    preview={preview}
-                    shownColumns={shownColumns}
-                    warnings={warnings}
-                />
-            )}
-            {commitError !== null && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>Nothing was imported</AlertTitle>
-                    <AlertDescription>{commitError}</AlertDescription>
-                </Alert>
-            )}
-            <div className="flex flex-wrap items-center gap-3">
-                <Button
-                    disabled={!canCommit}
-                    onClick={() => {
-                        if (payload !== null) onCommit(payload);
-                    }}
-                    type="button"
-                >
-                    <FileUp />
-                    {payload === null
-                        ? `Import ${noun.plural}`
-                        : `Import ${countOf(payload.length, noun)}`}
-                </Button>
-                {preview !== null && payload === null && (
-                    <p className="text-sm text-muted-foreground">
-                        Fix every issue first; an import saves all rows or none.
-                    </p>
-                )}
-            </div>
+                    {preview !== null && payload === null && (
+                        <p className="text-sm text-muted-foreground">
+                            Fix every issue first; an import saves all rows or
+                            none.
+                        </p>
+                    )}
+                </div>
+            </ToolPanel>
         </section>
     );
 }
@@ -572,73 +552,81 @@ function describeIssue(issue: CsvIssue): string {
 function PlanReference() {
     const rows = useMemo(() => planReferenceRows(), []);
     return (
-        <AccordionItem value={ImportReference.PlanSerials}>
-            <AccordionTrigger>
-                Plan serials for the plan column
-            </AccordionTrigger>
-            <AccordionContent>
-                <DataTable
-                    columns={[
-                        {
-                            cell: ({ row }) => (
-                                <span className="font-mono text-xs">
-                                    {row.original.firmId}
-                                </span>
-                            ),
-                            header: 'firm',
-                            id: ImportViewColumn.Firm,
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <span className="font-mono text-xs">
-                                    {row.original.planSerial}
-                                </span>
-                            ),
-                            header: 'plan',
-                            id: ImportViewColumn.PlanSerial,
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <span className="tabular-nums">
-                                    {row.original.size}
-                                </span>
-                            ),
-                            header: 'accountSize',
-                            id: ImportViewColumn.AccountSize,
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <>
-                                    {row.original.label}
-                                    {row.original.tags !== '' && (
-                                        <span className="ml-2 text-xs text-muted-foreground">
-                                            ({row.original.tags})
-                                        </span>
-                                    )}
-                                </>
-                            ),
-                            header: 'Plan',
-                            id: ImportViewColumn.Plan,
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <span className="text-muted-foreground">
-                                    {row.original.optIns === ''
-                                        ? 'None'
-                                        : row.original.optIns}
-                                </span>
-                            ),
-                            header: 'Offered opt-ins',
-                            id: ImportViewColumn.OfferedOptIns,
-                        },
-                    ]}
-                    data={[...rows]}
-                    isSortable={false}
-                    pageSize={null}
-                    rowId={(row) => row.planSerial}
-                />
-            </AccordionContent>
-        </AccordionItem>
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button size="sm" type="button" variant="outline">
+                    Plan serials
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Plan serials for the plan column</DialogTitle>
+                </DialogHeader>
+                <ScrollArea className="h-[60vh]">
+                    <DataTable
+                        columns={[
+                            {
+                                cell: ({ row }) => (
+                                    <span className="font-mono text-xs">
+                                        {row.original.firmId}
+                                    </span>
+                                ),
+                                header: 'firm',
+                                id: ImportViewColumn.Firm,
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <span className="font-mono text-xs">
+                                        {row.original.planSerial}
+                                    </span>
+                                ),
+                                header: 'plan',
+                                id: ImportViewColumn.PlanSerial,
+                                meta: { isRowHeader: true },
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <span className="tabular-nums">
+                                        {row.original.size}
+                                    </span>
+                                ),
+                                header: 'accountSize',
+                                id: ImportViewColumn.AccountSize,
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>
+                                        {row.original.label}
+                                        {row.original.tags !== '' && (
+                                            <span className="ml-2 text-xs text-muted-foreground">
+                                                ({row.original.tags})
+                                            </span>
+                                        )}
+                                    </>
+                                ),
+                                header: 'Plan',
+                                id: ImportViewColumn.Plan,
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <span className="text-muted-foreground">
+                                        {row.original.optIns === ''
+                                            ? 'None'
+                                            : row.original.optIns}
+                                    </span>
+                                ),
+                                header: 'Offered opt-ins',
+                                id: ImportViewColumn.OfferedOptIns,
+                            },
+                        ]}
+                        data={[...rows]}
+                        isSortable={false}
+                        pageSize={null}
+                        rowId={(row) => row.planSerial}
+                    />
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -681,20 +669,10 @@ function PreviewTable<Column extends string, Value>({
     type PreviewRow = (typeof preview.rows)[number];
     return (
         <div className="flex flex-col gap-3">
-            <p
-                aria-live="polite"
-                className={cn(
-                    'text-sm',
-                    issueCount === 0 ? 'text-success' : 'text-warning',
-                )}
-            >
-                {preview.rows.length} rows read;{' '}
-                {rowsWithIssues === 0
-                    ? 'every row is ready to import.'
-                    : `${rowsWithIssues} with ${issueCount === 1 ? 'an issue' : `${issueCount} issues`} in total.`}
-                {warningsByRow.size > 0 &&
-                    ` ${warningsByRow.size} ready ${warningsByRow.size === 1 ? 'row has a warning' : 'rows have warnings'} worth checking before you import.`}
-            </p>
+            <StatusRow
+                title={`${String(preview.rows.length)} rows read; ${rowsWithIssues === 0 ? 'every row is ready to import.' : `${String(rowsWithIssues)} with ${issueCount === 1 ? 'an issue' : `${String(issueCount)} issues`} in total.`}${warningsByRow.size > 0 ? ` ${String(warningsByRow.size)} ready ${warningsByRow.size === 1 ? 'row has a warning' : 'rows have warnings'} worth checking before you import.` : ''}`}
+                tone={issueCount === 0 ? StatusTone.Pass : StatusTone.Warn}
+            />
             <DataTable
                 columns={[
                     {
@@ -705,6 +683,7 @@ function PreviewTable<Column extends string, Value>({
                         ),
                         header: 'Row',
                         id: PreviewColumn.Row,
+                        meta: { isRowHeader: true },
                     },
                     ...shownColumns.map(
                         (column): DataTableColumn<PreviewRow> => ({
@@ -713,11 +692,7 @@ function PreviewTable<Column extends string, Value>({
                                     {row.cells.get(column) ?? ''}
                                 </div>
                             ),
-                            header: () => (
-                                <span className="font-mono normal-case">
-                                    {column}
-                                </span>
-                            ),
+                            header: column,
                             id: column,
                         }),
                     ),

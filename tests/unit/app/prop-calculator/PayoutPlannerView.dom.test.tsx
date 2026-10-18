@@ -75,6 +75,9 @@ import {
 } from '~/lib/prop-calculator/simulator';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
 
+import { withInfoTexts } from './infoPopover';
+import { statStripValue } from './statStripValue';
+
 type AnyEvent = WorkerTaskEvent<never, unknown>;
 type AnyRequest = PayoutOutlookRequest | PayoutSweepRequest;
 
@@ -497,6 +500,10 @@ describe('PayoutPlannerView (PT-31e)', () => {
         return section;
     }
 
+    function sectionText(heading: string): string {
+        return withInfoTexts(sectionOf(heading));
+    }
+
     function bodyRows(): HTMLTableRowElement[] {
         return [
             ...sectionOf('Payout-size sweep').querySelectorAll(
@@ -546,7 +553,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             value: patch.winnerValue,
         });
         finish('sweep', sweepResult({ rows, winner }));
-        return sectionOf('Payout-size sweep').textContent;
+        return sectionText('Payout-size sweep');
     }
 
     function typeInto(id: string, value: string) {
@@ -594,12 +601,8 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             typeInto('payout-planner-balance', '0');
 
-            expect(sectionOf('Readiness').textContent).toContain(
-                FIX_FIELD_TEXT,
-            );
-            expect(sectionOf('Path to payout').textContent).toContain(
-                FIX_FIELD_TEXT,
-            );
+            expect(sectionText('Readiness')).toContain(FIX_FIELD_TEXT);
+            expect(sectionText('Path to payout')).toContain(FIX_FIELD_TEXT);
             expect(
                 sectionOf('Path to payout').querySelectorAll('li'),
             ).toHaveLength(0);
@@ -626,20 +629,18 @@ describe('PayoutPlannerView (PT-31e)', () => {
             searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
             render(<PayoutPlannerView />);
             finish('sweep', sweepResultWithOverride());
-            expect(sectionOf('Payout-size sweep').textContent).toContain(
+            expect(sectionText('Payout-size sweep')).toContain(
                 'Your entered size: $6,000',
             );
 
             typeInto('payout-planner-balance', '0');
-            expect(sectionOf('Payout-size sweep').textContent).toContain(
+            expect(sectionText('Payout-size sweep')).toContain(
                 'Your entered size: $6,000',
             );
 
             typeInto('payout-planner-request', '0');
-            expect(sectionOf('Payout-size sweep').textContent).toContain(
-                FIX_FIELD_TEXT,
-            );
-            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+            expect(sectionText('Payout-size sweep')).toContain(FIX_FIELD_TEXT);
+            expect(sectionText('Payout-size sweep')).not.toContain(
                 'Your entered size',
             );
         });
@@ -662,13 +663,9 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             expect(fakeWorker.sweepRequests).toHaveLength(0);
             expect(fakeWorker.outlookRequests).toHaveLength(0);
-            expect(sectionOf('Readiness').textContent).toContain(LOADING_TEXT);
-            expect(sectionOf('Path to payout').textContent).toContain(
-                LOADING_TEXT,
-            );
-            expect(sectionOf('Payout-size sweep').textContent).toContain(
-                LOADING_TEXT,
-            );
+            expect(sectionText('Readiness')).toContain(LOADING_TEXT);
+            expect(sectionText('Path to payout')).toContain(LOADING_TEXT);
+            expect(sectionText('Payout-size sweep')).toContain(LOADING_TEXT);
         });
 
         it('runs no worker and shows a loading state while a signed-in rulebook query is pending, then runs on the personal rulebook', () => {
@@ -679,7 +676,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             expect(fakeWorker.sweepRequests).toHaveLength(0);
             expect(fakeWorker.outlookRequests).toHaveLength(0);
-            expect(sectionOf('Readiness').textContent).toContain(LOADING_TEXT);
+            expect(sectionText('Readiness')).toContain(LOADING_TEXT);
 
             const personal = {
                 ...DEFAULT_RULEBOOK,
@@ -707,10 +704,8 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             expect(fakeWorker.sweepRequests).toHaveLength(0);
             expect(fakeWorker.outlookRequests).toHaveLength(0);
-            expect(sectionOf('Readiness').textContent).toContain(FAILED_TEXT);
-            expect(sectionOf('Payout-size sweep').textContent).toContain(
-                FAILED_TEXT,
-            );
+            expect(sectionText('Readiness')).toContain(FAILED_TEXT);
+            expect(sectionText('Payout-size sweep')).toContain(FAILED_TEXT);
         });
 
         it('runs no worker and names the failure when the session cannot be read', () => {
@@ -724,7 +719,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             settle();
 
             expect(fakeWorker.sweepRequests).toHaveLength(0);
-            expect(sectionOf('Readiness').textContent).toContain(FAILED_TEXT);
+            expect(sectionText('Readiness')).toContain(FAILED_TEXT);
         });
 
         it('uses the default rulebook for a signed-out user without waiting', () => {
@@ -741,20 +736,20 @@ describe('PayoutPlannerView (PT-31e)', () => {
             render(<PayoutPlannerView />);
 
             const readiness = sectionOf('Readiness');
-            expect(readiness.querySelector('.text-2xl')?.textContent).toBe(
-                '$500',
-            );
-            expect(readiness.textContent).toContain(
-                'Net after the payout split on $500',
-            );
-            expect(readiness.textContent).toContain('$400');
+            expect(
+                statStripValue(readiness, 'Payout request')?.textContent,
+            ).toBe('$500');
+            expect(
+                statStripValue(readiness, 'Net after the payout split on $500')
+                    ?.textContent,
+            ).toBe('$400');
             expect(readiness.textContent).toContain(
                 "Minimum cushion kept: $2,000 (your rulebook's retained cushion)",
             );
             expect(readiness.textContent).toContain(
                 'Maximum withdrawable above the cushion: $2,000',
             );
-            expect(readiness.textContent).toContain(
+            expect(withInfoTexts(readiness)).toContain(
                 'not a recommendation: draining it is the mid-size danger zone',
             );
         });
@@ -767,7 +762,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             render(<PayoutPlannerView />);
 
-            const readiness = sectionOf('Readiness').textContent;
+            const readiness = sectionText('Readiness');
             expect(readiness).toContain('Minimum cushion kept');
             expect(readiness).toContain(
                 'No peak balance was entered, so the current balance is assumed to be the peak',
@@ -779,7 +774,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             render(<PayoutPlannerView />);
 
-            expect(sectionOf('Readiness').textContent).not.toContain(
+            expect(sectionText('Readiness')).not.toContain(
                 'No peak balance was entered',
             );
         });
@@ -801,7 +796,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             render(<PayoutPlannerView />);
 
-            const readiness = sectionOf('Readiness').textContent;
+            const readiness = sectionText('Readiness');
             expect(readiness).toContain('Minimum cushion kept: $500');
             expect(readiness).toContain(
                 'below the standard minimum cushion of $2,000 kept after a payout: your rulebook waives it',
@@ -814,7 +809,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             render(<PayoutPlannerView />);
 
-            expect(sectionOf('Readiness').textContent).not.toContain(
+            expect(sectionText('Readiness')).not.toContain(
                 'your rulebook waives it',
             );
         });
@@ -825,9 +820,9 @@ describe('PayoutPlannerView (PT-31e)', () => {
             render(<PayoutPlannerView />);
 
             const readiness = sectionOf('Readiness');
-            expect(readiness.querySelector('.text-2xl')?.textContent).toBe(
-                '$1,000',
-            );
+            expect(
+                statStripValue(readiness, 'Payout request')?.textContent,
+            ).toBe('$1,000');
             expect(readiness.textContent).toContain(
                 'firm minimum $1,000 is above your $500 request',
             );
@@ -839,7 +834,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
         it('states the day gate wait for an account that has not met it', () => {
             render(<PayoutPlannerView />);
 
-            expect(sectionOf('Readiness').textContent).toContain(
+            expect(sectionText('Readiness')).toContain(
                 'wait: 5 qualifying days',
             );
         });
@@ -849,7 +844,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             render(<PayoutPlannerView />);
 
-            const readiness = sectionOf('Readiness').textContent;
+            const readiness = sectionText('Readiness');
             expect(readiness).toContain(
                 'the funded consistency rule is currently violated',
             );
@@ -885,7 +880,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('outlook', outlookResult());
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(
                 sectionOf('Path to payout').querySelector(SKELETON),
             ).toBeNull();
@@ -914,7 +909,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 },
             });
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).toContain('Expected days to the next payout');
             expect(text).toContain('Eligible now');
             expect(text).not.toContain('0.0 days');
@@ -940,7 +935,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 },
             });
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).toContain("the engine's payout eligibility check");
             expect(text).toContain('no trials were simulated');
             expect(text).not.toContain('trials reached a payout');
@@ -953,7 +948,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             render(<PayoutPlannerView />);
             finish('outlook', outlookResult());
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).toContain(
                 'Expected days to the next payout among the trials that paid',
             );
@@ -974,7 +969,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 },
             });
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).toContain(
                 'No simulated trial reached a payout within the horizon',
             );
@@ -985,7 +980,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             render(<PayoutPlannerView />);
             finish('outlook', outlookResult());
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).toContain('12.3 days (±0.5)');
             expect(text).toContain(
                 '100 of 200 trials reached a payout (50.0%)',
@@ -1005,7 +1000,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 });
             });
 
-            expect(sectionOf('Path to payout').textContent).toContain(
+            expect(sectionText('Path to payout')).toContain(
                 'The background worker failed.',
             );
         });
@@ -1016,7 +1011,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('outlook', outlookResult(stakeComparison(1500, 1450, 80)));
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).toContain('Request now vs continue trading');
             expect(text).toContain('Requested now: $500 (you receive $400');
             expect(text).toContain('Request now: $1,500 (±$80)');
@@ -1033,7 +1028,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('outlook', outlookResult(stakeComparison(2500, 1000, 50)));
 
-            expect(sectionOf('Path to payout').textContent).toContain(
+            expect(sectionText('Path to payout')).toContain(
                 'beyond simulation noise',
             );
         });
@@ -1050,7 +1045,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 }),
             );
 
-            expect(sectionOf('Path to payout').textContent).toContain(
+            expect(sectionText('Path to payout')).toContain(
                 'Request now vs continue trading is not modeled for a live account.',
             );
         });
@@ -1061,7 +1056,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             render(<PayoutPlannerView />);
             finish('sweep', sweepResult());
 
-            const text = sectionOf('Payout-size sweep').textContent;
+            const text = sectionText('Payout-size sweep');
             expect(text).toContain(
                 'Simulated from a fresh account at your rulebook strategy',
             );
@@ -1118,7 +1113,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 }),
             );
 
-            const text = sectionOf('Payout-size sweep').textContent;
+            const text = sectionText('Payout-size sweep');
             expect(text).toContain(
                 `Engine optimum: ${formatGateCurrency(winner.requestSize)}`,
             );
@@ -1138,7 +1133,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             const winner = rowWith(documented, { requestSize: 1500 });
             finish('sweep', sweepResult({ winner }));
 
-            expect(sectionOf('Payout-size sweep').textContent).toContain(
+            expect(sectionText('Payout-size sweep')).toContain(
                 'Mid-size requests ($1,000 to $2,000)',
             );
         });
@@ -1147,7 +1142,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             render(<PayoutPlannerView />);
             finish('sweep', sweepResult({ winner: documentedRow() }));
 
-            const text = sectionOf('Payout-size sweep').textContent;
+            const text = sectionText('Payout-size sweep');
             expect(text).toContain(
                 'The engine optimum is the documented request size.',
             );
@@ -1178,7 +1173,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 }),
             );
 
-            const text = sectionOf('Payout-size sweep').textContent;
+            const text = sectionText('Payout-size sweep');
             expect(text).toContain(
                 `firm minimum ${formatGateCurrency(documented.requestSize)} is above the $500 size`,
             );
@@ -1208,7 +1203,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 }),
             );
 
-            const text = sectionOf('Payout-size sweep').textContent;
+            const text = sectionText('Payout-size sweep');
             expect(text).toContain('Your entered size: $6,000');
             expect(text).toContain('Outside the safe band');
             expect(text).toContain('bust probability 60.0% against 20.0%');
@@ -1220,7 +1215,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('sweep', sweepResult({ personalOverride: null }));
 
-            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+            expect(sectionText('Payout-size sweep')).not.toContain(
                 'Your entered size',
             );
         });
@@ -1238,7 +1233,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 }),
             );
 
-            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+            expect(sectionText('Payout-size sweep')).not.toContain(
                 'Your entered size',
             );
         });
@@ -1263,7 +1258,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 }),
             );
 
-            const text = sectionOf('Payout-size sweep').textContent;
+            const text = sectionText('Payout-size sweep');
             expect(text).toContain('Your entered size: $750');
             expect(text).toContain('effective $1,000');
             expect(text).toContain(
@@ -1472,12 +1467,8 @@ describe('PayoutPlannerView (PT-31e)', () => {
             loadRulebook(rulebookWithRequest(75_000));
 
             expect(inputById(container, REQUEST_ID).value).toBe('750');
-            expect(sectionOf('Readiness').textContent).not.toContain(
-                FIX_FIELD_TEXT,
-            );
-            expect(sectionOf('Path to payout').textContent).not.toContain(
-                FIX_FIELD_TEXT,
-            );
+            expect(sectionText('Readiness')).not.toContain(FIX_FIELD_TEXT);
+            expect(sectionText('Path to payout')).not.toContain(FIX_FIELD_TEXT);
             expect(lastSweepRequest().personalOverrideRequest).toBe(750);
         });
 
@@ -1486,15 +1477,11 @@ describe('PayoutPlannerView (PT-31e)', () => {
             render(<PayoutPlannerView />);
             loadRulebook(rulebookWithRequest(75_000));
             typeInto(REQUEST_ID, '');
-            expect(sectionOf('Readiness').textContent).toContain(
-                FIX_FIELD_TEXT,
-            );
+            expect(sectionText('Readiness')).toContain(FIX_FIELD_TEXT);
             loadRulebook(rulebookWithRequest(80_000));
 
             expect(inputById(container, REQUEST_ID).value).toBe('800');
-            expect(sectionOf('Readiness').textContent).not.toContain(
-                FIX_FIELD_TEXT,
-            );
+            expect(sectionText('Readiness')).not.toContain(FIX_FIELD_TEXT);
             expect(lastSweepRequest().personalOverrideRequest).toBe(800);
         });
 
@@ -1539,8 +1526,8 @@ describe('PayoutPlannerView (PT-31e)', () => {
             render(<PayoutPlannerView />);
             settle();
 
-            expect(sectionOf('Readiness').textContent).toContain(reason);
-            expect(sectionOf('Path to payout').textContent).toContain(
+            expect(sectionText('Readiness')).toContain(reason);
+            expect(sectionText('Path to payout')).toContain(
                 'Fix the snapshot above to see the path to payout.',
             );
             expect(fakeWorker.outlookRequests).toHaveLength(0);
@@ -1617,9 +1604,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             expect(
                 sectionOf('Path to payout').querySelector(SKELETON),
             ).not.toBeNull();
-            expect(sectionOf('Path to payout').textContent).not.toContain(
-                '12.3 days',
-            );
+            expect(sectionText('Path to payout')).not.toContain('12.3 days');
         });
 
         it('does not show the failure of the previous request for the next one', () => {
@@ -1633,13 +1618,13 @@ describe('PayoutPlannerView (PT-31e)', () => {
                     runId: instance.runId,
                 });
             });
-            expect(sectionOf('Payout-size sweep').textContent).toContain(
+            expect(sectionText('Payout-size sweep')).toContain(
                 'The background worker failed.',
             );
 
             typeInto('payout-planner-request', '750');
 
-            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+            expect(sectionText('Payout-size sweep')).not.toContain(
                 'The background worker failed.',
             );
             expect(
@@ -1686,12 +1671,10 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             expect(fakeWorker.sweepRequests).toHaveLength(sweepRuns);
             expect(fakeWorker.outlookRequests).toHaveLength(outlookRuns);
-            expect(sectionOf('Payout-size sweep').textContent).toContain(
+            expect(sectionText('Payout-size sweep')).toContain(
                 'Your entered size: $6,000',
             );
-            expect(sectionOf('Path to payout').textContent).toContain(
-                '12.3 days',
-            );
+            expect(sectionText('Path to payout')).toContain('12.3 days');
             expect(container.querySelector(SKELETON)).toBeNull();
         });
 
@@ -1708,7 +1691,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             expect(fakeWorker.sweepRequests).toHaveLength(sweepRuns + 1);
             expect(lastSweepRequest().personalOverrideRequest).toBe(750);
-            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+            expect(sectionText('Payout-size sweep')).not.toContain(
                 'Your entered size',
             );
             expect(
@@ -1763,9 +1746,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             settle();
             finish('sweep', sweepResult());
             finish('outlook', outlookResult());
-            expect(sectionOf('Path to payout').textContent).toContain(
-                '12.3 days',
-            );
+            expect(sectionText('Path to payout')).toContain('12.3 days');
             const sweepRuns = fakeWorker.sweepRequests.length;
             const outlookRuns = fakeWorker.outlookRequests.length;
 
@@ -1784,9 +1765,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
             expect(lastSweepRequest().spec.rulebook.strategy.winrate).toBe(
                 0.55,
             );
-            expect(sectionOf('Path to payout').textContent).not.toContain(
-                '12.3 days',
-            );
+            expect(sectionText('Path to payout')).not.toContain('12.3 days');
             expect(
                 sectionOf('Payout-size sweep').querySelector(SKELETON),
             ).not.toBeNull();
@@ -1832,7 +1811,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             render(<PayoutPlannerView />);
 
-            expect(sectionOf('Readiness').textContent).not.toContain(
+            expect(sectionText('Readiness')).not.toContain(
                 'simulations send an account live',
             );
         });
@@ -1843,7 +1822,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             render(<PayoutPlannerView />);
 
-            const readiness = sectionOf('Readiness').textContent;
+            const readiness = sectionText('Readiness');
             expect(readiness).toContain('simulations send an account live');
             expect(readiness).toContain('$20,000');
             expect(readiness).toContain('https://example.invalid/rule');
@@ -1854,7 +1833,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             render(<PayoutPlannerView />);
 
-            const readiness = sectionOf('Readiness').textContent;
+            const readiness = sectionText('Readiness');
             expect(readiness).toContain('wait: 5 qualifying days');
             expect(readiness).toContain('simulations send an account live');
         });
@@ -1866,7 +1845,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('sweep', sweepResult({ liveTransfer: hazardAssumption() }));
 
-            const text = sectionOf('Payout-size sweep').textContent;
+            const text = sectionText('Payout-size sweep');
             expect(text).toContain(assumptionText(hazardAssumption()));
             expect(text).toContain('30.0% per paid payout');
             expect(text).toContain('your assumption, not a firm rule');
@@ -1877,7 +1856,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('sweep', sweepResult());
 
-            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+            expect(sectionText('Payout-size sweep')).not.toContain(
                 'Live transfer',
             );
         });
@@ -1898,7 +1877,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 }),
             );
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             const continueLines = liveTransferAssumptionLines({
                 ...hazardAssumption(),
                 sentLiveShare: null,
@@ -1934,7 +1913,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 }),
             );
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).toContain(
                 `Continuing: ${liveTransferSentLiveText(0.41)}`,
             );
@@ -1971,7 +1950,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('outlook', outlookResult(priced));
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).toContain(capLine);
             expect(occurrences(text, capLine)).toBe(1);
             const bannerNotes = payoutStakeViewOf(priced).liveTransferNotes;
@@ -2000,7 +1979,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 }),
             );
 
-            expect(sectionOf('Path to payout').textContent).not.toContain(
+            expect(sectionText('Path to payout')).not.toContain(
                 'a live trial caps',
             );
         });
@@ -2011,7 +1990,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('outlook', outlookResult(stakeComparison(1500, 1450, 80)));
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).not.toContain('continue run');
             expect(text).not.toContain('transfer chance');
         });
@@ -2022,15 +2001,14 @@ describe('PayoutPlannerView (PT-31e)', () => {
             finish('sweep', sweepResult({ liveTransfer: hazardAssumption() }));
 
             const section = sectionOf('Payout-size sweep');
-            const headers = [...section.querySelectorAll('th')].map(
-                (header) => header.textContent,
-            );
+            const headers = [
+                ...section.querySelectorAll(':scope thead th'),
+            ].map((header) => header.textContent);
             expect(headers).toContain('Sent live');
-            const bodyRow = section.querySelector(':scope tbody tr');
-            expect(bodyRow?.querySelectorAll(':scope > td')).toHaveLength(
-                headers.length,
-            );
-            expect(section.textContent).toContain(
+            const bodyRow =
+                section.querySelector<HTMLTableRowElement>(':scope tbody tr');
+            expect(bodyRow?.cells).toHaveLength(headers.length);
+            expect(withInfoTexts(section)).toContain(
                 "The engine optimum row is chosen at this hazard: a smaller request size means more paid payouts and so more transfer chances. The share of runs sent live above is the engine optimum row's.",
             );
         });
@@ -2046,10 +2024,12 @@ describe('PayoutPlannerView (PT-31e)', () => {
                     (header) => header.textContent,
                 ),
             ).not.toContain('Sent live');
-            expect(section.textContent).not.toContain('chosen at this hazard');
+            expect(withInfoTexts(section)).not.toContain(
+                'chosen at this hazard',
+            );
         });
 
-        it('names the sweep table and scopes its column headers', () => {
+        it('names the sweep table and scopes its column and row headers', () => {
             render(<PayoutPlannerView />);
 
             finish('sweep', sweepResult());
@@ -2058,10 +2038,21 @@ describe('PayoutPlannerView (PT-31e)', () => {
             expect(table?.querySelector('caption')?.textContent).toBe(
                 'Payout-size sweep: simulated request sizes with their monthly net and bust probability',
             );
-            const headers = [...(table?.querySelectorAll('th') ?? [])];
+            const headers = [
+                ...(table?.querySelectorAll(':scope thead th') ?? []),
+            ];
             expect(headers.length).toBeGreaterThan(0);
             for (const header of headers) {
                 expect(header.getAttribute('scope')).toBe('col');
+            }
+            const rows = [
+                ...(table?.querySelectorAll(':scope tbody tr') ?? []),
+            ];
+            expect(rows.length).toBeGreaterThan(0);
+            for (const row of rows) {
+                expect(
+                    row.querySelector(':scope > th')?.getAttribute('scope'),
+                ).toBe('row');
             }
         });
 
@@ -2071,7 +2062,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('outlook', outlookResult(stakeComparison(1500, 1450, 80)));
 
-            expect(sectionOf('Path to payout').textContent).not.toContain(
+            expect(sectionText('Path to payout')).not.toContain(
                 'Live transfer',
             );
         });
@@ -2086,7 +2077,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 sweepResult({ cumulativePayoutTrigger: PRICED_TRIGGER }),
             );
 
-            expect(sectionOf('Payout-size sweep').textContent).toContain(
+            expect(sectionText('Payout-size sweep')).toContain(
                 assumptionText(PRICED_TRIGGER),
             );
         });
@@ -2100,15 +2091,14 @@ describe('PayoutPlannerView (PT-31e)', () => {
             );
 
             const section = sectionOf('Payout-size sweep');
-            const headers = [...section.querySelectorAll('th')].map(
-                (header) => header.textContent,
-            );
+            const headers = [
+                ...section.querySelectorAll(':scope thead th'),
+            ].map((header) => header.textContent);
             expect(headers).toContain('Sent live');
-            const bodyRow = section.querySelector(':scope tbody tr');
-            expect(bodyRow?.querySelectorAll(':scope > td')).toHaveLength(
-                headers.length,
-            );
-            expect(section.textContent).toContain(
+            const bodyRow =
+                section.querySelector<HTMLTableRowElement>(':scope tbody tr');
+            expect(bodyRow?.cells).toHaveLength(headers.length);
+            expect(withInfoTexts(section)).toContain(
                 "The engine optimum row is chosen with this trigger in force: the request size changes how fast payouts add up to the cumulative amount, so each size sends a different share of runs live. The sent-live column shows each size's share.",
             );
         });
@@ -2124,7 +2114,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                     (header) => header.textContent,
                 ),
             ).not.toContain('Sent live');
-            expect(section.textContent).not.toContain('trigger in force');
+            expect(withInfoTexts(section)).not.toContain('trigger in force');
         });
 
         it('says nothing about a trigger under a sweep that priced none', () => {
@@ -2132,7 +2122,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('sweep', sweepResult());
 
-            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+            expect(sectionText('Payout-size sweep')).not.toContain(
                 'confirmed trigger',
             );
         });
@@ -2147,7 +2137,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 pastPayoutsNote: PAST_PAYOUTS_NOT_COUNTED_TEXT,
             });
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(text).toContain(assumptionText(PRICED_TRIGGER));
             expect(text).toContain(PAST_PAYOUTS_NOT_COUNTED_TEXT);
         });
@@ -2169,7 +2159,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 pastPayoutsNote: PAST_PAYOUTS_NOT_COUNTED_TEXT,
             });
 
-            const text = sectionOf('Path to payout').textContent;
+            const text = sectionText('Path to payout');
             expect(occurrences(text, assumptionText(PRICED_TRIGGER))).toBe(1);
         });
 
@@ -2179,7 +2169,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('outlook', outlookResult(stakeComparison(1500, 1450, 80)));
 
-            expect(sectionOf('Path to payout').textContent).not.toContain(
+            expect(sectionText('Path to payout')).not.toContain(
                 'confirmed trigger',
             );
         });
@@ -2195,7 +2185,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             render(<PayoutPlannerView />);
 
-            expect(sectionOf('Readiness').textContent).toContain(
+            expect(sectionText('Readiness')).toContain(
                 PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
             );
         });
@@ -2203,7 +2193,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
         it('renders the note on a blocked result', () => {
             render(<PayoutPlannerView />);
 
-            const readiness = sectionOf('Readiness').textContent;
+            const readiness = sectionText('Readiness');
             expect(readiness).toContain('wait: 5 qualifying days');
             expect(readiness).toContain(PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT);
         });
@@ -2228,7 +2218,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             finish('sweep', sweepResultWithOverride(0.6, warning));
 
-            const text = sectionOf('Payout-size sweep').textContent;
+            const text = sectionText('Payout-size sweep');
             expect(text).toContain(personalPayoutOverrideWarningText(warning));
             expect(text).toContain('credit-inclusive monthly net');
         });

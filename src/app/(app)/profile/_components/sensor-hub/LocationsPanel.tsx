@@ -1,27 +1,26 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MapPin, Pencil, Plus } from 'lucide-react';
+import { MapPin, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
-import {
-    ProfileNumberField,
-    ProfileTextField,
-} from '~/app/(app)/profile/_components/ProfileFormFields';
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
     ProfileDateCell,
     ProfileDatePrecision,
     ProfileTableEmpty,
-    RowActionButton,
-    RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { FormDialog } from '~/components/FormDialog';
+import { FormNumberField, FormTextField } from '~/components/FormFields';
+import {
+    deleteRowAction,
+    editRowAction,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import {
     DataTable,
@@ -89,6 +88,7 @@ export function LocationsPanel() {
                     <PrimaryCell>{row.original.name}</PrimaryCell>
                 ),
                 header: 'Name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'location_id',
@@ -114,21 +114,20 @@ export function LocationsPanel() {
                 ),
                 header: 'Created',
             },
-            profileActionsColumn<LocationRow>((location) => (
-                <>
-                    <RowActionButton
-                        icon={Pencil}
-                        label="Edit location"
-                        onClick={() => setEditing(location)}
-                    />
-                    <RowConfirmAction
-                        description="Fails if devices or readings reference this location."
-                        label="Delete location"
-                        onConfirm={() => del.mutate({ id: location.id })}
-                        title={`Delete “${location.name}”?`}
-                    />
-                </>
-            )),
+            rowActionsColumn<LocationRow>({
+                actionsOf: (location) => [
+                    editRowAction(() => setEditing(location)),
+                    deleteRowAction({
+                        description:
+                            'Fails if devices or readings reference this location.',
+                        onDelete: () => del.mutate({ id: location.id }),
+                        title: `Delete “${location.name}”?`,
+                    }),
+                ],
+                isPendingOf: (location) =>
+                    del.isPending && del.variables.id === location.id,
+                labelOf: (location) => location.name,
+            }),
         ],
         [del],
     );
@@ -145,8 +144,8 @@ export function LocationsPanel() {
     return (
         <>
             <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                <ProfilePanel
-                    action={newButton}
+                <ToolPanel
+                    actions={newButton}
                     description="Places where devices capture readings and recordings."
                     title="Locations"
                 >
@@ -167,7 +166,7 @@ export function LocationsPanel() {
                         rowId={(r) => String(r.id)}
                         showFilter
                     />
-                </ProfilePanel>
+                </ToolPanel>
                 <NewLocationDialog
                     onClose={() => setNewOpen(false)}
                     onSubmit={(v) =>
@@ -220,7 +219,7 @@ function EditLocationDialog({
         resolver: zodResolver(editLocationSchema),
     });
     return (
-        <ProfileFormDialog
+        <FormDialog
             form={form}
             onCancel={onClose}
             onSubmit={onSubmit}
@@ -228,17 +227,17 @@ function EditLocationDialog({
             submitLabel="Save"
             title="Edit location"
         >
-            <ProfileTextField
+            <FormTextField
                 control={form.control}
                 label="Display name"
                 name="name"
             />
-            <ProfileTextField
+            <FormTextField
                 control={form.control}
                 label="Slug"
                 name="location_name"
             />
-        </ProfileFormDialog>
+        </FormDialog>
     );
 }
 
@@ -256,7 +255,7 @@ function NewLocationDialog({
         resolver: zodResolver(locationCreateSchema),
     });
     return (
-        <ProfileFormDialog
+        <FormDialog
             form={form}
             onCancel={onClose}
             onSubmit={onSubmit}
@@ -264,23 +263,24 @@ function NewLocationDialog({
             submitLabel="Create"
             title="New location"
         >
-            <ProfileTextField
+            <FormTextField
                 control={form.control}
                 label="Display name"
                 name="name"
                 placeholder="Living room"
             />
-            <ProfileTextField
+            <FormTextField
                 control={form.control}
                 label="Slug"
                 name="location_name"
                 placeholder="living-room"
             />
-            <ProfileNumberField
+            <FormNumberField
                 control={form.control}
+                isInteger
                 label="Public location ID"
                 name="location_id"
             />
-        </ProfileFormDialog>
+        </FormDialog>
     );
 }

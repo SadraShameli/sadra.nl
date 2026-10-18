@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 
 import {
+    CHART_BAR_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
@@ -66,7 +67,7 @@ export function GradeCalibrationChart({
                     stroke="var(--muted-foreground)"
                     y={0}
                 />
-                <Bar dataKey="avgR" isAnimationActive={false}>
+                <Bar {...CHART_BAR_PROPS} dataKey="avgR">
                     <LabelList
                         dataKey="count"
                         fill="var(--muted-foreground)"

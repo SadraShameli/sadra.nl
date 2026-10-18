@@ -48,6 +48,8 @@ import {
     serializePlanId,
 } from '~/lib/prop-calculator';
 
+import { typeInto } from '../../../components/formDialog';
+import { infoText } from '../infoPopover';
 import { AccountsTable } from './AccountsTableWithData';
 import { pickOption } from './pickOption';
 
@@ -342,20 +344,6 @@ async function settle() {
     });
 }
 
-function typeInto(control: HTMLElement, value: string) {
-    act(() => {
-        Reflect.set(
-            control instanceof HTMLTextAreaElement
-                ? HTMLTextAreaElement.prototype
-                : HTMLInputElement.prototype,
-            'value',
-            value,
-            control,
-        );
-        control.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-}
-
 describe('ledger-only accounts across the accounts pages', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -623,9 +611,12 @@ describe('ledger-only accounts across the accounts pages', () => {
         render(<OverviewView userId={USER_ID} />);
         expect(sectionTitled('Costs').textContent).toContain(HOLA.name);
         expect(container.textContent).not.toContain(UNLISTED_FIRM_LABEL);
-        expect(sectionTitled('Key figures').textContent).toContain(
-            '1 ledger-only account not counted',
-        );
+        expect(
+            infoText(
+                sectionTitled('Key figures'),
+                'Realized net per slot per month',
+            ),
+        ).toContain('1 ledger-only account not counted');
     });
 
     it('checks a ledger-only import row against your own firms', async () => {
@@ -698,7 +689,7 @@ describe('ledger-only accounts across the accounts pages', () => {
         harness.queries.set('propAccounts.fee.list', answer([]));
         render(<LedgerView />);
         const row = element(container, 'table tbody tr');
-        expect(row.textContent).toContain('2026-09-05');
+        expect(row.textContent).toContain('5 Sep 2026');
         expect(container.textContent).toContain('Payout lag by firm');
         expect(container.textContent).toContain('4.0 days');
         expect(container.textContent).toContain('9.0 days');
@@ -763,7 +754,7 @@ describe('ledger-only accounts across the accounts pages', () => {
         }
         const rendered = [...table.querySelectorAll(':scope tbody tr')].map(
             (row) =>
-                [...row.querySelectorAll(':scope > td')].map(
+                [...row.querySelectorAll(':scope > :is(th, td)')].map(
                     (cell) => cell.textContent,
                 ),
         );

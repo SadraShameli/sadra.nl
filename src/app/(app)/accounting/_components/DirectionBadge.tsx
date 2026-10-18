@@ -1,14 +1,19 @@
-import type { BookingDirection } from '~/lib/accounting/core/types';
-
 import { Badge } from '~/components/ui/badge';
+import {
+    BOOKING_DIRECTIONS,
+    type BookingDirection,
+} from '~/lib/accounting/core/types';
+
+const DIRECTION_LABEL: Readonly<Record<BookingDirection, string>> = {
+    IN: 'In',
+    OUT: 'Out',
+};
 
 export function DirectionBadge({ direction }: { direction: BookingDirection }) {
-    return (
-        <Badge
-            className="font-mono text-[10px]"
-            variant={direction === 'IN' ? 'success' : 'destructive'}
-        >
-            {direction}
-        </Badge>
-    );
+    return <Badge>{DIRECTION_LABEL[direction]}</Badge>;
+}
+
+export function directionLabel(value: string): string {
+    const direction = BOOKING_DIRECTIONS.find((d) => d === value);
+    return direction === undefined ? value : DIRECTION_LABEL[direction];
 }

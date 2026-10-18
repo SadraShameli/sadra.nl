@@ -156,7 +156,7 @@ export function AccountPlanPicker({
                                 <span className="flex items-center gap-2">
                                     {option.label}
                                     {option.tags.map((tag) => (
-                                        <Badge key={tag} variant="outline">
+                                        <Badge key={tag}>
                                             {planTagLabel(tag)}
                                         </Badge>
                                     ))}

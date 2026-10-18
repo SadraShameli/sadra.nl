@@ -6,13 +6,15 @@ import { type DateRange } from 'react-day-picker';
 
 import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent } from '~/components/ui/card';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
+import { CredentialRole } from '~/lib/accounting/credentials/index';
 import { MutationType } from '~/lib/accounting/providers/eboekhouden/enums';
+import { formatDisplayDate } from '~/lib/format';
 import { api } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
@@ -103,12 +105,13 @@ export function MutationsBrowser() {
                     </span>
                 ),
                 header: 'ID',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'date',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs">
-                        {row.original.date}
+                        {formatDisplayDate(row.original.date)}
                     </span>
                 ),
                 enableSorting: true,
@@ -117,7 +120,7 @@ export function MutationsBrowser() {
             {
                 accessorKey: 'type',
                 cell: ({ row }) => (
-                    <Badge variant="outline">
+                    <Badge>
                         {(MUTATION_TYPE_LABEL as Record<string, string>)[
                             row.original.type
                         ] ?? row.original.type}
@@ -153,99 +156,93 @@ export function MutationsBrowser() {
     );
 
     return (
-        <Card>
-            <CardContent>
-                {mutationsQ.error ? (
-                    <EmptyState
-                        description={mutationsQ.error.message}
-                        title="Could not fetch mutations"
-                    />
-                ) : (
-                    <div className="flex flex-col gap-3">
-                        <DataTable
-                            columns={columns}
-                            data={rows}
-                            emptyState={
-                                <EmptyState
-                                    description={
-                                        credentialId
-                                            ? hasFilters
-                                                ? 'No mutations match this filter.'
-                                                : 'Fetched mutations from this credential will appear here.'
-                                            : 'Pick an accounting credential above to load mutations.'
-                                    }
-                                    icon={ListChecks}
-                                    title={
-                                        credentialId
-                                            ? 'No mutations yet'
-                                            : 'No credential selected'
-                                    }
-                                />
+        <ToolPanel
+            description={
+                <ActiveConnectionNote
+                    credential={accounting}
+                    role={CredentialRole.Accounting}
+                />
+            }
+            title="Mutations"
+        >
+            {mutationsQ.error ? (
+                <EmptyState
+                    description={mutationsQ.error.message}
+                    title="Could not fetch mutations"
+                />
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={rows}
+                    emptyState={
+                        <EmptyState
+                            description={
+                                credentialId
+                                    ? hasFilters
+                                        ? 'No mutations match this filter.'
+                                        : 'Fetched mutations from this credential will appear here.'
+                                    : 'Pick an accounting credential above to load mutations.'
                             }
-                            filterPlaceholder="Search mutations…"
-                            hasExternalFilters={hasFilters}
-                            headerActions={
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <FilterSelect
-                                        label="Type"
-                                        onValueChange={(v) => {
-                                            setTypeFilter(v ?? ALL);
-                                            setOffset(0);
-                                        }}
-                                        options={typeOptions.map((code) => ({
-                                            label:
-                                                (
-                                                    MUTATION_TYPE_LABEL as Record<
-                                                        string,
-                                                        string
-                                                    >
-                                                )[code] ?? code,
-                                            value: code,
-                                        }))}
-                                        placeholder="All types"
-                                        value={
-                                            typeFilter === ALL
-                                                ? undefined
-                                                : typeFilter
-                                        }
-                                    />
-                                    <FilterDateRange
-                                        align="end"
-                                        label="Mutation date"
-                                        onChange={(r) => {
-                                            setDateRange(r);
-                                            setOffset(0);
-                                        }}
-                                        placeholder="Any date"
-                                        value={dateRange}
-                                    />
-                                </div>
-                            }
-                            initialSorting={[{ desc: true, id: 'date' }]}
-                            isLoading={!!credentialId && mutationsQ.isPending}
-                            onResetFilters={reset}
-                            rowId={(r) => r.externalId}
-                            serverPagination={{
-                                hasNextPage: rows.length === PAGE_SIZE,
-                                isPending: mutationsQ.isPending,
-                                onPageIndexChange: (pageIndex) =>
-                                    setOffset(pageIndex * PAGE_SIZE),
-                                pageIndex: offset / PAGE_SIZE,
-                                pageSize: PAGE_SIZE,
-                            }}
-                            showFilter
-                            toolbarEnd={
-                                <>
-                                    <ActiveConnectionNote
-                                        credential={accounting}
-                                        roleNoun="accounting credential"
-                                    />
-                                </>
+                            icon={ListChecks}
+                            title={
+                                credentialId
+                                    ? 'No mutations yet'
+                                    : 'No credential selected'
                             }
                         />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                    }
+                    filterPlaceholder="Search mutations…"
+                    hasExternalFilters={hasFilters}
+                    headerActions={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <FilterSelect
+                                label="Type"
+                                onValueChange={(v) => {
+                                    setTypeFilter(v ?? ALL);
+                                    setOffset(0);
+                                }}
+                                options={typeOptions.map((code) => ({
+                                    label:
+                                        (
+                                            MUTATION_TYPE_LABEL as Record<
+                                                string,
+                                                string
+                                            >
+                                        )[code] ?? code,
+                                    value: code,
+                                }))}
+                                placeholder="All types"
+                                value={
+                                    typeFilter === ALL ? undefined : typeFilter
+                                }
+                            />
+                            <FilterDateRange
+                                align="end"
+                                label="Mutation date"
+                                onChange={(r) => {
+                                    setDateRange(r);
+                                    setOffset(0);
+                                }}
+                                placeholder="Any date"
+                                value={dateRange}
+                            />
+                        </div>
+                    }
+                    initialSorting={[{ desc: true, id: 'date' }]}
+                    isLoading={!!credentialId && mutationsQ.isPending}
+                    onResetFilters={reset}
+                    rowId={(r) => r.externalId}
+                    serverPagination={{
+                        hasNextPage: rows.length === PAGE_SIZE,
+                        isPending: mutationsQ.isPending,
+                        onPageIndexChange: (pageIndex) =>
+                            setOffset(pageIndex * PAGE_SIZE),
+                        pageIndex: offset / PAGE_SIZE,
+                        pageSize: PAGE_SIZE,
+                    }}
+                    showFilter
+                />
+            )}
+        </ToolPanel>
     );
 }

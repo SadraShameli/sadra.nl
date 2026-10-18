@@ -1,24 +1,28 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, Pencil, Plus, Radio, Ruler, X } from 'lucide-react';
+import { Pencil, Plus, Radio, Ruler } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
-import { ProfileTextField } from '~/app/(app)/profile/_components/ProfileFormFields';
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
     ProfileDateCell,
     ProfileDatePrecision,
     ProfileTableEmpty,
-    RowActionButton,
-    RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { FormDialog } from '~/components/FormDialog';
+import { FormTextField } from '~/components/FormFields';
+import {
+    deleteRowAction,
+    editRowAction,
+    RowActionKind,
+    rowActionsColumn,
+    RowActionsMenu,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import {
     DataTable,
@@ -154,6 +158,7 @@ export function SensorsPanel() {
                     <PrimaryCell>{row.original.name}</PrimaryCell>
                 ),
                 header: 'Name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'unit',
@@ -170,21 +175,20 @@ export function SensorsPanel() {
                 ),
                 header: 'Created',
             },
-            profileActionsColumn<SensorRow>((sensor) => (
-                <>
-                    <RowActionButton
-                        icon={Pencil}
-                        label="Edit sensor"
-                        onClick={() => setEditing(sensor)}
-                    />
-                    <RowConfirmAction
-                        description="Removes its device mappings. Fails if readings reference it."
-                        label="Delete sensor"
-                        onConfirm={() => del.mutate({ id: sensor.id })}
-                        title={`Delete sensor “${sensor.name}”?`}
-                    />
-                </>
-            )),
+            rowActionsColumn<SensorRow>({
+                actionsOf: (sensor) => [
+                    editRowAction(() => setEditing(sensor)),
+                    deleteRowAction({
+                        description:
+                            'Removes its device mappings. Fails if readings reference it.',
+                        onDelete: () => del.mutate({ id: sensor.id }),
+                        title: `Delete sensor “${sensor.name}”?`,
+                    }),
+                ],
+                isPendingOf: (sensor) =>
+                    del.isPending && del.variables.id === sensor.id,
+                labelOf: (sensor) => sensor.name,
+            }),
         ],
         [del],
     );
@@ -201,8 +205,8 @@ export function SensorsPanel() {
     return (
         <>
             <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                <ProfilePanel
-                    action={
+                <ToolPanel
+                    actions={
                         <>
                             <Button
                                 onClick={() => setUnitsOpen(true)}
@@ -248,7 +252,7 @@ export function SensorsPanel() {
                         rowId={(r) => String(r.id)}
                         showFilter
                     />
-                </ProfilePanel>
+                </ToolPanel>
                 <SensorDialog
                     initial={null}
                     onClose={() => setNewOpen(false)}
@@ -292,6 +296,35 @@ export function SensorsPanel() {
     );
 }
 
+function RenameUnitDialog({
+    onClose,
+    onSubmit,
+    pending,
+    unit,
+}: {
+    onClose: () => void;
+    onSubmit: (values: SensorUnitUpdateInput) => void;
+    pending: boolean;
+    unit: UnitRow;
+}) {
+    const form = useForm<SensorUnitUpdateInput>({
+        defaultValues: { id: unit.id, value: unit.value },
+        resolver: zodResolver(sensorUnitUpdateSchema),
+    });
+    return (
+        <FormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={onSubmit}
+            pending={pending}
+            submitLabel="Save"
+            title="Rename unit"
+        >
+            <FormTextField control={form.control} label="Unit" name="value" />
+        </FormDialog>
+    );
+}
+
 function SensorDialog({
     initial,
     onClose,
@@ -314,7 +347,7 @@ function SensorDialog({
     });
     const formId = useId();
     return (
-        <ProfileFormDialog
+        <FormDialog
             form={form}
             onCancel={onClose}
             onSubmit={onSubmit}
@@ -323,7 +356,7 @@ function SensorDialog({
             submitLabel={initial ? 'Save' : 'Create'}
             title={initial ? 'Edit sensor' : 'New sensor'}
         >
-            <ProfileTextField
+            <FormTextField
                 control={form.control}
                 label="Name"
                 name="name"
@@ -357,102 +390,7 @@ function SensorDialog({
                     </Field>
                 )}
             />
-        </ProfileFormDialog>
-    );
-}
-
-function UnitRowEditor({
-    invalidate,
-    onDelete,
-    unit,
-}: {
-    invalidate: () => Promise<void>;
-    onDelete: () => void;
-    unit: UnitRow;
-}) {
-    const [editing, setEditing] = useState(false);
-    const update = api.sensorUnit.update.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Unit renamed.');
-            setEditing(false);
-            await invalidate();
-        },
-    });
-    const form = useForm<SensorUnitUpdateInput>({
-        defaultValues: { id: unit.id, value: unit.value },
-        resolver: zodResolver(sensorUnitUpdateSchema),
-    });
-    const formId = useId();
-    if (!editing) {
-        return (
-            <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-3 py-2">
-                <span className="font-mono text-sm text-foreground">
-                    {unit.value}
-                </span>
-                <div className="flex items-center gap-1">
-                    <RowActionButton
-                        icon={Pencil}
-                        label="Rename unit"
-                        onClick={() => setEditing(true)}
-                    />
-                    <RowConfirmAction
-                        description="Fails if any sensor still uses this unit."
-                        label="Delete unit"
-                        onConfirm={onDelete}
-                        title={`Delete unit “${unit.value}”?`}
-                    />
-                </div>
-            </div>
-        );
-    }
-
-    const onSubmit = form.handleSubmit((values) => update.mutate(values));
-
-    return (
-        <form
-            className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2"
-            onSubmit={onSubmit}
-        >
-            <Controller
-                control={form.control}
-                name="value"
-                render={({ field, fieldState }) => (
-                    <Field className="flex-1" data-invalid={fieldState.invalid}>
-                        <Input
-                            aria-invalid={fieldState.invalid}
-                            className="h-8 font-mono text-sm"
-                            id={`${formId}-value`}
-                            {...field}
-                        />
-                        <FieldError errors={[fieldState.error]} />
-                    </Field>
-                )}
-            />
-            <Button
-                aria-label="Save unit"
-                disabled={update.isPending}
-                size="icon-sm"
-                title="Save unit"
-                type="submit"
-                variant="ghost"
-            >
-                <Check className="size-4" />
-            </Button>
-            <Button
-                aria-label="Cancel rename"
-                onClick={() => {
-                    form.reset({ id: unit.id, value: unit.value });
-                    setEditing(false);
-                }}
-                size="icon-sm"
-                title="Cancel rename"
-                type="button"
-                variant="ghost"
-            >
-                <X className="size-4" />
-            </Button>
-        </form>
+        </FormDialog>
     );
 }
 
@@ -485,6 +423,14 @@ function UnitsManagerDialog({
             await invalidate();
         },
     });
+    const rename = api.sensorUnit.update.useMutation({
+        onError: (error) => toast.error(error.message),
+        onSuccess: async () => {
+            toast.success('Unit renamed.');
+            await invalidate();
+        },
+    });
+    const [renaming, setRenaming] = useState<null | UnitRow>(null);
     const unitCreateForm = useForm<SensorUnitCreateInput>({
         defaultValues: { value: '' },
         resolver: zodResolver(sensorUnitCreateSchema),
@@ -539,14 +485,54 @@ function UnitsManagerDialog({
                     </p>
                 )}
                 {units.map((u) => (
-                    <UnitRowEditor
-                        invalidate={invalidate}
+                    <div
+                        className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-3 py-2"
                         key={u.id}
-                        onDelete={() => del.mutate({ id: u.id })}
-                        unit={u}
-                    />
+                    >
+                        <span className="font-mono text-sm text-foreground">
+                            {u.value}
+                        </span>
+                        <RowActionsMenu
+                            actions={[
+                                {
+                                    icon: Pencil,
+                                    kind: RowActionKind.Select,
+                                    label: 'Rename',
+                                    onSelect: () => setRenaming(u),
+                                },
+                                deleteRowAction({
+                                    description:
+                                        'Fails if any sensor still uses this unit.',
+                                    onDelete: () => del.mutate({ id: u.id }),
+                                    title: `Delete unit “${u.value}”?`,
+                                }),
+                            ]}
+                            isPending={
+                                del.isPending && del.variables.id === u.id
+                            }
+                            label={u.value}
+                        />
+                    </div>
                 ))}
             </div>
+
+            <Dialog
+                onOpenChange={(o) => !o && setRenaming(null)}
+                open={renaming !== null}
+            >
+                {renaming && (
+                    <RenameUnitDialog
+                        onClose={() => setRenaming(null)}
+                        onSubmit={(values) =>
+                            rename.mutate(values, {
+                                onSuccess: () => setRenaming(null),
+                            })
+                        }
+                        pending={rename.isPending}
+                        unit={renaming}
+                    />
+                )}
+            </Dialog>
 
             <DialogFooter className="mt-2">
                 <Button onClick={onClose} type="button" variant="ghost">

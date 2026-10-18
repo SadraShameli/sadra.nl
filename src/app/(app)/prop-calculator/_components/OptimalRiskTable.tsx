@@ -3,10 +3,9 @@
 import { Target } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 
-import { Card } from '~/components/ui/card';
+import { InfoNote } from '~/components/InfoNote';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
-import InfoPopover from '~/components/ui/info-popover';
 import {
     formatCurrency,
     formatDays,
@@ -25,7 +24,6 @@ import {
     type BankrollRiskFigures,
     bankrollRiskFigures,
 } from '~/lib/prop-calculator/economics';
-import { cn } from '~/lib/utilities';
 
 import {
     AppliedEvalLadderNotice,
@@ -156,6 +154,7 @@ export default function OptimalRiskTable({
                 ),
                 header: 'Risk',
                 id: 'risk',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.out.evalPassProbability,
@@ -218,50 +217,41 @@ export default function OptimalRiskTable({
     );
 
     return (
-        <Card
-            className={cn(
-                'app-prop-calculator__optimal-risk',
-                'px-5 py-4 outline-none',
-            )}
+        <div
+            className="app-prop-calculator__optimal-risk flex flex-col gap-4 outline-none"
             ref={cardReference}
             tabIndex={-1}
         >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">
-                        Optimal risk sweep
-                    </h3>
-                    <InfoPopover title="Optimal risk sweep">
-                        {panelDescriptions.optimalRiskSweep}
-                    </InfoPopover>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                    {pending
-                        ? 'computing…'
-                        : `engine optimum for ${riskTableObjective(objectiveView.effective).label} at ${formatPercent(
-                              (bestRow?.riskPct ?? 0) / 100,
-                              2,
-                          )}`}
-                </span>
-            </div>
-            <p className="mt-2 text-xs font-medium text-foreground">
+            <InfoNote
+                info={
+                    <>
+                        <p>{panelDescriptions.optimalRiskSweep}</p>
+                        <p>{ENGINE_OPTIMUM_NOTE}</p>
+                        {bankroll !== null && (
+                            <p>
+                                Bankroll figures are priced at{' '}
+                                {formatCurrency(bankroll)}: attempts affordable
+                                are the bankroll over the cost per attempt, P(no
+                                payout) is across those attempts and P(batch
+                                &lt; 0) is the chance they end below zero.
+                            </p>
+                        )}
+                    </>
+                }
+                infoTitle="Optimal risk sweep"
+            >
                 {documentedSizingHeadline(rulebook, rulebookSource)}
+            </InfoNote>
+            <RulebookSourceNotice source={rulebookSource} />
+            <CalculatorObjectiveChip />
+            <p className="m-0 text-xs text-muted-foreground">
+                {pending
+                    ? 'computing…'
+                    : `engine optimum for ${riskTableObjective(objectiveView.effective).label} at ${formatPercent(
+                          (bestRow?.riskPct ?? 0) / 100,
+                          2,
+                      )}`}
             </p>
-            <div className="mt-1 empty:hidden">
-                <RulebookSourceNotice source={rulebookSource} />
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-                {ENGINE_OPTIMUM_NOTE}
-            </p>
-            <CalculatorObjectiveChip className="mt-2" />
-            {bankroll !== null && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                    Bankroll figures are priced at {formatCurrency(bankroll)}:
-                    attempts affordable are the bankroll over the cost per
-                    attempt, P(no payout) is across those attempts and P(batch
-                    &lt; 0) is the chance they end below zero.
-                </p>
-            )}
             <AppliedEvalLadderNotice
                 onCleared={() => cardReference.current?.focus()}
                 scope={EvalLadderScope.NotUsedHere}
@@ -291,7 +281,7 @@ export default function OptimalRiskTable({
                 }
                 rowId={(r) => String(r.riskPct)}
             />
-        </Card>
+        </div>
     );
 }
 

@@ -1,30 +1,21 @@
 'use client';
 
-import { format } from 'date-fns';
-import { Activity, Flame, Play, Trophy } from 'lucide-react';
+import { Activity, Play, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
 import { PrFiltersToolbar } from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
+import { prTableColumns } from '~/app/(app)/lifting/_components/shared/prTableColumns';
 import { usePrFilters } from '~/app/(app)/lifting/_components/shared/usePrFilters';
+import { StatStrip, StatStripSize } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
-import {
-    DataTable,
-    DataTableAlign,
-    type DataTableColumn,
-} from '~/components/ui/data-table';
+import { DataTable } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
-import { WeightUnit } from '~/lib/lifting/format';
 import { PrRangePreset } from '~/lib/lifting/pr-filters';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
-
-type PrRow =
-    RouterOutputs['lifting']['analytics']['summaryHero']['recentPrs'][number];
+import { api } from '~/trpc/react';
 
 export function TodayHero() {
     const summary = api.lifting.analytics.summaryHero.useQuery();
@@ -37,74 +28,32 @@ export function TodayHero() {
     });
     const prFilters = usePrFilters(summary.data?.recentPrs);
 
-    const prColumns = useMemo<DataTableColumn<PrRow>[]>(
-        () => [
-            {
-                accessorKey: 'kind',
-                cell: ({ row }) => (
-                    <Badge variant="warning">
-                        {row.original.kind.replaceAll('_', ' ')}
-                    </Badge>
-                ),
-                header: 'Kind',
-            },
-            {
-                cell: ({ row }) => (
-                    <span className="font-semibold tabular-nums">
-                        {WeightUnit.format(row.original.weightKg, unitWeight)} ×{' '}
-                        {row.original.reps}
-                    </span>
-                ),
-                header: 'Lift',
-                id: 'lift',
-                meta: { align: DataTableAlign.End },
-            },
-            {
-                accessorKey: 'achievedAt',
-                cell: ({ row }) => (
-                    <span className="text-muted-foreground tabular-nums">
-                        {format(
-                            new Date(row.original.achievedAt),
-                            'MMM d, yyyy',
-                        )}
-                    </span>
-                ),
-                header: 'Date',
-                meta: { align: DataTableAlign.End },
-            },
-        ],
-        [unitWeight],
-    );
+    const prColumns = useMemo(() => prTableColumns(unitWeight), [unitWeight]);
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Stat
-                    icon={<Flame className="size-4" />}
-                    label="Current streak"
-                    value={
-                        summary.data ? `${summary.data.currentStreak} wk` : null
-                    }
-                />
-                <Stat
-                    icon={<Activity className="size-4" />}
-                    label="Sessions this week"
-                    value={
-                        summary.data
-                            ? summary.data.sessionsThisWeek.toFixed(0)
-                            : null
-                    }
-                />
-                <Stat
-                    icon={<Trophy className="size-4" />}
-                    label="Recent PRs"
-                    value={
-                        summary.data
-                            ? summary.data.recentPrs.length.toString()
-                            : null
-                    }
-                />
-            </div>
+            <StatStrip
+                isLoading={summary.data === undefined}
+                items={[
+                    {
+                        id: 'current-streak',
+                        label: 'Current streak',
+                        value:
+                            summary.data && `${summary.data.currentStreak} wk`,
+                    },
+                    {
+                        id: 'sessions-this-week',
+                        label: 'Sessions this week',
+                        value: summary.data?.sessionsThisWeek.toFixed(0),
+                    },
+                    {
+                        id: 'recent-prs',
+                        label: 'Recent PRs',
+                        value: summary.data?.recentPrs.length.toString(),
+                    },
+                ]}
+                size={StatStripSize.Large}
+            />
 
             <ToolPanel title="Get started">
                 <div className="flex flex-wrap gap-3">
@@ -174,33 +123,5 @@ export function TodayHero() {
                 )}
             </ToolPanel>
         </div>
-    );
-}
-
-function Stat({
-    icon,
-    label,
-    value,
-}: {
-    icon: React.ReactNode;
-    label: string;
-    value: null | string;
-}) {
-    return (
-        <Card className="gap-2 py-4">
-            <CardContent>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {icon}
-                    {label}
-                </div>
-                {value === null ? (
-                    <Skeleton className="mt-1 h-8 w-16" />
-                ) : (
-                    <p className="mt-1 text-2xl font-bold tabular-nums">
-                        {value}
-                    </p>
-                )}
-            </CardContent>
-        </Card>
     );
 }

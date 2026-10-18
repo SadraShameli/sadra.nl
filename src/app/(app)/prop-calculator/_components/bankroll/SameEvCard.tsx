@@ -2,12 +2,13 @@
 
 import { useCallback, useState } from 'react';
 
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import {
     type SameEvOutcome,
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import { Field, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -134,28 +135,31 @@ function StrategyOutcomeColumn({
 }) {
     return (
         <div className="grid gap-3">
-            <p className="text-xs font-medium text-muted-foreground">
-                Strategy {label}
-            </p>
-            <StatCard
-                label="EV per attempt"
-                value={formatGateCurrency(outcome.evPerAttempt)}
-            />
-            <StatCard
-                label="P(no payout)"
-                value={
-                    outcome.noPayoutProbability === null
-                        ? NOT_APPLICABLE
-                        : formatPercent(outcome.noPayoutProbability)
-                }
-            />
-            <StatCard
-                label="Loss risk at the budget"
-                value={
-                    outcome.lossRisk === null
-                        ? NOT_APPLICABLE
-                        : formatPercent(outcome.lossRisk)
-                }
+            <PanelSubheading>Strategy {label}</PanelSubheading>
+            <StatStrip
+                items={[
+                    {
+                        id: 'ev-per-attempt',
+                        label: 'EV per attempt',
+                        value: formatGateCurrency(outcome.evPerAttempt),
+                    },
+                    {
+                        id: 'no-payout',
+                        label: 'P(no payout)',
+                        value:
+                            outcome.noPayoutProbability === null
+                                ? NOT_APPLICABLE
+                                : formatPercent(outcome.noPayoutProbability),
+                    },
+                    {
+                        id: 'loss-risk',
+                        label: 'Loss risk at the budget',
+                        value:
+                            outcome.lossRisk === null
+                                ? NOT_APPLICABLE
+                                : formatPercent(outcome.lossRisk),
+                    },
+                ]}
             />
         </div>
     );

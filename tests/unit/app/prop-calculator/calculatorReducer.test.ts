@@ -7,6 +7,7 @@ import {
     CalculatorActionType,
     calculatorReducer,
     defaultCalculatorState,
+    nextLabScenario,
 } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/calculatorSimInputs';
 import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
@@ -253,6 +254,7 @@ describe('calculatorReducer lab scenario actions', () => {
     it('ADD_LAB_SCENARIO copies the last scenario with a fresh id and label suffix', () => {
         const state = defaultCalculatorState();
         const next = reduce(state, {
+            scenario: nextLabScenario(state.labScenarios),
             type: CalculatorActionType.AddLabScenario,
         });
         const last = next.labScenarios.at(-1);
@@ -260,6 +262,26 @@ describe('calculatorReducer lab scenario actions', () => {
         expect(next.labScenarios).toHaveLength(state.labScenarios.length + 1);
         expect(last?.label).toBe(`${previousLast?.label} copy`);
         expect(last?.id).not.toBe(previousLast?.id);
+    });
+
+    it('ADD_LAB_SCENARIO appends the scenario as the add dialog saved it', () => {
+        const state = defaultCalculatorState();
+        const edited = {
+            ...nextLabScenario(state.labScenarios),
+            label: 'Edited before adding',
+            rrRatio: 3,
+        };
+        const next = reduce(state, {
+            scenario: edited,
+            type: CalculatorActionType.AddLabScenario,
+        });
+        expect(next.labScenarios.at(-1)).toEqual(edited);
+    });
+
+    it('offers a default scenario to add when the lab is empty', () => {
+        const scenario = nextLabScenario([]);
+        expect(scenario.label).toBe('New scenario');
+        expect(scenario.id).not.toBe('');
     });
 
     it('REMOVE_LAB_SCENARIO removes only the targeted scenario', () => {

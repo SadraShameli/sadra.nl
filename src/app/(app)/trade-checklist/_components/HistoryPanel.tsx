@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import type { TradeAssessmentRow } from '~/lib/trading/types';
 
+import { deleteRowAction, RowActionsMenu } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
@@ -23,7 +24,7 @@ import { ScrollArea } from '~/components/ui/scroll-area';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { cn, parseEnum } from '~/lib/utilities';
 
-import { GradeTile, OutcomeBadge } from './AssessmentBadges';
+import { assessmentLabel, GradeTile, OutcomeBadge } from './AssessmentBadges';
 
 const GRADE_ORDER: Partial<Record<string, number>> = {
     A: 1,
@@ -190,21 +191,17 @@ function HistoryRow({
                     )}
                 </Button>
             </Item>
-            <ConfirmDialog
-                confirmLabel="Delete"
-                description="This grade and outcome will be removed permanently."
-                onConfirm={() => onDelete(row.id)}
-                title="Delete assessment?"
-            >
-                <Button
-                    aria-label="Delete assessment"
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                >
-                    <Trash2 />
-                </Button>
-            </ConfirmDialog>
+            <RowActionsMenu
+                actions={[
+                    deleteRowAction({
+                        description:
+                            'This grade and outcome will be removed permanently.',
+                        onDelete: () => onDelete(row.id),
+                        title: 'Delete assessment?',
+                    }),
+                ]}
+                label={assessmentLabel(row)}
+            />
         </div>
     );
 }

@@ -2,9 +2,13 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/card';
-import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import InfoPopover from '~/components/ui/info-popover';
+import { ToolPanel } from '~/components/ToolPanel';
+import {
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+    DataTablePhoneLayout,
+} from '~/components/ui/data-table';
 import {
     Tooltip,
     TooltipContent,
@@ -95,7 +99,7 @@ export default function SensitivityHeatmap({
                 currentRR={currentRR}
                 currentWinrate={currentWinrate}
                 description={panelDescriptions.sensitivityPass}
-                legend="red = unlikely, green = robust"
+                legend="camel = robust, dark = unlikely"
                 metric={SensitivityMetric.EvalPass}
                 pending={pending}
                 title="Eval pass sensitivity"
@@ -105,7 +109,7 @@ export default function SensitivityHeatmap({
                 currentRR={currentRR}
                 currentWinrate={currentWinrate}
                 description={panelDescriptions.sensitivityFundedSurvival}
-                legend="red = unlikely, green = robust"
+                legend="camel = robust, dark = unlikely"
                 metric={SensitivityMetric.FundedSurvival}
                 pending={pending}
                 title="Funded survive sensitivity"
@@ -115,7 +119,7 @@ export default function SensitivityHeatmap({
                 currentRR={currentRR}
                 currentWinrate={currentWinrate}
                 description={panelDescriptions.sensitivityNet}
-                legend="red = losing $, green = profit"
+                legend="camel = profit, dark = loss"
                 metric={SensitivityMetric.MonthlyNet}
                 pending={pending}
                 title="Monthly net sensitivity"
@@ -125,7 +129,7 @@ export default function SensitivityHeatmap({
                 currentRR={currentRR}
                 currentWinrate={currentWinrate}
                 description={EV_PER_ATTEMPT_DESCRIPTION}
-                legend="red = losing $, green = profit; per attempt"
+                legend="camel = profit, dark = loss; per attempt"
                 metric={SensitivityMetric.EvPerAttempt}
                 pending={pending}
                 title="EV per attempt sensitivity"
@@ -208,28 +212,20 @@ function HeatmapCard({
     title,
 }: HeatmapCardProperties) {
     return (
-        <Card
-            className={cn(
-                `app-prop-calculator__sensitivity-${metric}`,
-                'min-w-0 px-5 py-4',
-            )}
+        <ToolPanel
+            className={`app-prop-calculator__sensitivity-${metric}`}
+            description={pending ? 'computing…' : legend}
+            info={description}
+            title={title}
+            titleAs="h3"
         >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">{title}</h3>
-                    <InfoPopover title={title}>{description}</InfoPopover>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                    {pending ? 'computing…' : legend}
-                </span>
-            </div>
             <HeatmapCells
                 cells={cells}
                 currentRR={currentRR}
                 currentWinrate={currentWinrate}
                 metric={metric}
             />
-        </Card>
+        </ToolPanel>
     );
 }
 
@@ -283,6 +279,7 @@ function HeatmapCells({
                 ),
                 header: '↓ Winrate / RR →',
                 id: 'winrate',
+                meta: { isRowHeader: true },
             },
         ];
         for (const rr of RR_RATIOS) {
@@ -320,8 +317,9 @@ function HeatmapCells({
                         </Tooltip>
                     );
                 },
-                header: () => <span className="block text-center">{rr}:1</span>,
+                header: `${rr}:1`,
                 id: `rr-${rr}`,
+                meta: { align: DataTableAlign.Center },
             });
         }
         return cols;
@@ -333,6 +331,7 @@ function HeatmapCells({
             data={rows}
             isLoading={rows.length === 0}
             pageSize={null}
+            phoneLayout={DataTablePhoneLayout.Scroll}
             rowId={(r) => String(r.winrate)}
             skeletonRows={WINRATES.length}
             tableClassName="text-[11px] tabular-nums"

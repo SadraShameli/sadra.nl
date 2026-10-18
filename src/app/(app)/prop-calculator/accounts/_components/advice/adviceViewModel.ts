@@ -3,6 +3,7 @@ import { payoutBlockReasonText } from '~/app/(app)/prop-calculator/_components/p
 import {
     formatConjunctionList,
     formatCurrency,
+    formatDisplayDate,
     formatPercent,
 } from '~/lib/format';
 import {
@@ -400,7 +401,7 @@ export function adviceViewModel(
     advice: Advice,
     limits: PersonalLimits,
 ): AdviceViewModel {
-    const headline = `${advice.headline}, as of ${advice.provenance.snapshotDate}`;
+    const headline = `${advice.headline}, as of ${formatDisplayDate(advice.provenance.snapshotDate)}`;
     const { action } = accountActionFor(advice);
     if (advice.staleness.kind === AdviceStalenessKind.Stale) {
         return {
@@ -512,8 +513,8 @@ export function provenanceTextOf(
             ADVICE_SOURCE_LABEL[provenance.source],
             START_BASIS_LABEL[provenance.startBasis],
             sizingObjectiveText(provenance.objective),
-            `computed ${provenance.computedAt}`,
-            `snapshot ${provenance.snapshotDate}`,
+            `computed ${formatDisplayDate(provenance.computedAt)}`,
+            `snapshot ${formatDisplayDate(provenance.snapshotDate)}`,
             simulationTextOf(provenance),
             ...(provenance.solverVersion === null
                 ? []
@@ -525,7 +526,7 @@ export function provenanceTextOf(
                   ]),
             provenance.firmDataDate === null
                 ? 'firm data unverified'
-                : `firm data verified ${provenance.firmDataDate}`,
+                : `firm data verified ${formatDisplayDate(provenance.firmDataDate)}`,
         ],
     };
 }
@@ -696,7 +697,9 @@ function dpNotValidatedReasonOf(record: DpAdviceRecordInput): string {
 }
 
 function dpProvenanceTextOf(record: DpAdviceRecordInput): string {
-    const solvedOn = record.solvedAt.toISOString().slice(0, 10);
+    const solvedOn = formatDisplayDate(
+        record.solvedAt.toISOString().slice(0, 10),
+    );
     const solved =
         record.runtimeMs > 0
             ? `Solved ${solvedOn} in ${(record.runtimeMs / MS_PER_SECOND).toFixed(1)}s`

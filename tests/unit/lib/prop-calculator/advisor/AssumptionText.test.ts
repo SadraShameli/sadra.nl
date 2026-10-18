@@ -257,7 +257,7 @@ describe('the priced cumulative live trigger travels inside its typed assumption
 
         expect(text).toContain('$100,000');
         expect(text).toContain('https://example.test/policy');
-        expect(text).toContain('2026-09-01');
+        expect(text).toContain('1 Sep 2026');
         expect(text).toContain('a synthetic test quote');
         expect(text).not.toContain(EM_DASH);
     });

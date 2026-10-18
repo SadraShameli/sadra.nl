@@ -2,6 +2,8 @@ import { memo } from 'react';
 
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 import {
     type PayoutTimingCardModel,
     type PayoutTimingFigure,
@@ -61,14 +63,18 @@ export const PayoutTimingCard = memo(function PayoutTimingCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No plan to time yet.
-            </p>
+            <OverviewPanel section={OverviewSectionId.PayoutTiming}>
+                <p className="text-sm text-muted-foreground">
+                    No plan to time yet.
+                </p>
+            </OverviewPanel>
         );
     }
     return (
-        <div className="flex flex-col gap-3">
-            <p className="text-xs text-muted-foreground">{model.explanation}</p>
+        <OverviewPanel
+            info={model.explanation}
+            section={OverviewSectionId.PayoutTiming}
+        >
             <DataTable
                 columns={PAYOUT_TIMING_COLUMNS}
                 data={[...model.rows]}
@@ -77,7 +83,7 @@ export const PayoutTimingCard = memo(function PayoutTimingCard({
                 regionLabel={PAYOUT_TIMING_LABEL}
                 rowId={(row) => row.key}
             />
-        </div>
+        </OverviewPanel>
     );
 });
 

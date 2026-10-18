@@ -83,7 +83,7 @@ function payoutShareLabel(plan: Plan): string {
 
 function PlanStat({ label, value, valueClassName }: PlanStatProperties) {
     return (
-        <Badge className="gap-1.5 font-normal" variant="outline">
+        <Badge className="gap-1.5 font-normal">
             <span className="text-muted-foreground">{label}</span>
             <span className={cn('font-mono font-semibold', valueClassName)}>
                 {value}

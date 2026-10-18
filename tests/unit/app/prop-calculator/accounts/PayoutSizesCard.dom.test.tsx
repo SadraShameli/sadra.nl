@@ -100,7 +100,7 @@ describe('PayoutSizesCard', () => {
             ...(title?.parentElement?.querySelectorAll(':scope tbody tr') ??
                 []),
         ].map((tableRow) =>
-            [...tableRow.querySelectorAll('td')].map(
+            [...tableRow.querySelectorAll('th, td')].map(
                 (cell) => cell.textContent,
             ),
         );

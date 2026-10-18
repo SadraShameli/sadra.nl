@@ -275,7 +275,7 @@
 
 @utility outline-word {
     color: transparent;
-    -webkit-text-stroke: 1px var(--line-camel);
+    -webkit-text-stroke: 1px var(--line-hover);
 }
 
 @utility focus-camel {

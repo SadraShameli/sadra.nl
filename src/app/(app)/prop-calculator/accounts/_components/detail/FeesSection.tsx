@@ -1,8 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil } from 'lucide-react';
-import { useEffect, useId } from 'react';
+import { useId } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -12,14 +11,16 @@ import {
     useTodayIsoDate,
 } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { feeKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { Button } from '~/components/ui/button';
-import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { FormDialog } from '~/components/FormDialog';
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import {
-    Field,
-    FieldDescription,
-    FieldError,
-    FieldLabel,
-} from '~/components/ui/field';
+    deleteRowAction,
+    editRowAction,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { Dialog } from '~/components/ui/dialog';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
@@ -30,7 +31,7 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
-import { NOT_APPLICABLE } from '~/lib/format';
+import { formatDisplayDate, NOT_APPLICABLE } from '~/lib/format';
 import {
     EntryTextKind,
     feeCheckRowOf,
@@ -47,15 +48,14 @@ import { feeCreateSchema } from '~/lib/schemas/propAccounts';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import {
+    AddRecordButton,
     type ListQuery,
     ListQueryStatus,
-    RemoveRecordDialog,
 } from './DetailParts';
 import { nullIfBlank, parsedOrIssues } from './formParsing';
-import { useRowEditing } from './useRowEditing';
+import { useRecordDialog } from './useRecordDialog';
 
 enum FeesSectionColumn {
-    Actions = 'actions',
     Amount = 'amount',
     Difference = 'difference',
     Kind = 'kind',
@@ -95,7 +95,7 @@ export function FeesSection({
     readonly plan: FeePrefillPlan | null;
     readonly query: ListQuery<FeeRow>;
 }) {
-    const { editing, startEditing, stopEditing } = useRowEditing<FeeRow>();
+    const dialog = useRecordDialog<FeeRow>();
     const utilities = api.useUtils();
     const remove = api.propAccounts.fee.remove.useMutation({
         onError: onFailure,
@@ -118,10 +118,13 @@ export function FeesSection({
                     columns={[
                         {
                             cell: ({ row: { original: row } }) => (
-                                <div className="tabular-nums">{row.paidOn}</div>
+                                <div className="tabular-nums">
+                                    {formatDisplayDate(row.paidOn)}
+                                </div>
                             ),
                             header: 'Paid on',
                             id: FeesSectionColumn.PaidOn,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row: { original: row } }) => (
@@ -188,48 +191,30 @@ export function FeesSection({
                             header: 'Note',
                             id: FeesSectionColumn.Note,
                         },
-                        {
-                            cell: ({ row: { original: row } }) => (
-                                <>
-                                    <div className="flex justify-end gap-1">
-                                        {canRecord && (
-                                            <Button
-                                                aria-label={`Edit the ${feeKindLabel(row.kind)} paid on ${row.paidOn}`}
-                                                onClick={(event) => {
-                                                    startEditing(
-                                                        row,
-                                                        event.currentTarget,
-                                                    );
-                                                }}
-                                                size="icon"
-                                                type="button"
-                                                variant="ghost"
-                                            >
-                                                <Pencil />
-                                            </Button>
-                                        )}
-                                        <RemoveRecordDialog
-                                            confirmText="Delete"
-                                            description="This permanently removes the fee from this account and from your totals."
-                                            isPending={remove.isPending}
-                                            onConfirm={() => {
-                                                remove.mutate({
-                                                    id: row.id,
-                                                });
-                                            }}
-                                            title="Delete this fee?"
-                                            triggerLabel={`Delete the ${feeKindLabel(row.kind)} paid on ${row.paidOn}`}
-                                        />
-                                    </div>
-                                </>
-                            ),
-                            header: () => (
-                                <>
-                                    <span className="sr-only">Actions</span>
-                                </>
-                            ),
-                            id: FeesSectionColumn.Actions,
-                        },
+                        rowActionsColumn<FeeRow>({
+                            actionsOf: (row) => [
+                                ...(canRecord
+                                    ? [
+                                          editRowAction(() => {
+                                              dialog.startEditing(row);
+                                          }),
+                                      ]
+                                    : []),
+                                deleteRowAction({
+                                    description:
+                                        'This permanently removes the fee from this account and from your totals.',
+                                    onDelete: () => {
+                                        remove.mutate({ id: row.id });
+                                    },
+                                    title: 'Delete this fee?',
+                                }),
+                            ],
+                            isPendingOf: (row) =>
+                                remove.isPending &&
+                                remove.variables.id === row.id,
+                            labelOf: (row) =>
+                                `the ${feeKindLabel(row.kind)} paid on ${formatDisplayDate(row.paidOn)}`,
+                        }),
                     ]}
                     data={[...rows]}
                     isSortable={false}
@@ -238,15 +223,19 @@ export function FeesSection({
                 />
             )}
             {canRecord && (
-                <FeeForm
-                    accountId={accountId}
-                    editing={editing}
-                    key={editing?.id ?? 'new'}
-                    onDone={stopEditing}
-                    onFailure={onFailure}
-                    plan={plan}
-                />
+                <AddRecordButton label="Add fee" onAdd={dialog.startAdding} />
             )}
+            <Dialog onOpenChange={dialog.onOpenChange} open={dialog.isOpen}>
+                {dialog.isOpen && (
+                    <FeeForm
+                        accountId={accountId}
+                        editing={dialog.editing}
+                        onDone={dialog.close}
+                        onFailure={onFailure}
+                        plan={plan}
+                    />
+                )}
+            </Dialog>
         </>
     );
 }
@@ -296,20 +285,14 @@ function FeeForm({
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
     const formId = useId();
-    const { setFocus } = form;
-    const isEditing = editing !== null;
     useFollowToday({
-        isEnabled: !isEditing,
+        isEnabled: editing === null,
         read: () => form.getValues('paidOn'),
         today,
         write: (day) => {
             form.resetField('paidOn', { defaultValue: day });
         },
     });
-
-    useEffect(() => {
-        if (isEditing) setFocus('kind');
-    }, [isEditing, setFocus]);
 
     const changeKind = (next: FeeKind) => {
         const current = form.getValues('amountCents');
@@ -338,7 +321,6 @@ function FeeForm({
                 });
                 toast.success('Fee saved');
             }
-            form.reset(emptyFeeValues(plan, today));
             onDone();
         } catch (error) {
             onFailure(error);
@@ -348,13 +330,13 @@ function FeeForm({
     };
 
     return (
-        <form
-            aria-label={editing === null ? 'Add a fee' : 'Edit fee'}
-            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-            noValidate
-            onSubmit={(event) => {
-                void form.handleSubmit(save)(event);
-            }}
+        <FormDialog
+            form={form}
+            onCancel={onDone}
+            onSubmit={save}
+            pending={create.isPending || update.isPending}
+            submitLabel={editing === null ? 'Add fee' : 'Save fee'}
+            title={editing === null ? 'Add a fee' : 'Edit fee'}
         >
             <Controller
                 control={form.control}
@@ -397,9 +379,15 @@ function FeeForm({
                 name="amountCents"
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor={`${formId}-amountCents`}>
-                            Amount
-                        </FieldLabel>
+                        <LabelWithInfo
+                            htmlFor={`${formId}-amountCents`}
+                            info={
+                                plan === null
+                                    ? 'Enter what you paid. Record each subscription month as its own subscription fee.'
+                                    : "Prefilled with the plan's list price for this one charge before any coupon, left blank when the plan has no such charge; enter what you actually paid. Record each subscription month, the first one too, as its own subscription fee."
+                            }
+                            label="Amount"
+                        />
                         <Input
                             aria-invalid={fieldState.invalid}
                             id={`${formId}-amountCents`}
@@ -407,11 +395,6 @@ function FeeForm({
                             placeholder="0.00"
                             {...field}
                         />
-                        <FieldDescription>
-                            {plan === null
-                                ? 'Enter what you paid. Record each subscription month as its own subscription fee.'
-                                : "Prefilled with the plan's list price for this one charge before any coupon, left blank when the plan has no such charge; enter what you actually paid. Record each subscription month, the first one too, as its own subscription fee."}
-                        </FieldDescription>
                         <FieldError errors={[fieldState.error]} />
                     </Field>
                 )}
@@ -437,10 +420,7 @@ function FeeForm({
                 control={form.control}
                 name="note"
                 render={({ field, fieldState }) => (
-                    <Field
-                        className="md:col-span-2 lg:col-span-3"
-                        data-invalid={fieldState.invalid}
-                    >
+                    <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor={`${formId}-note`}>Note</FieldLabel>
                         <Textarea
                             aria-invalid={fieldState.invalid}
@@ -452,20 +432,7 @@ function FeeForm({
                     </Field>
                 )}
             />
-            <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
-                <Button
-                    disabled={create.isPending || update.isPending}
-                    type="submit"
-                >
-                    {editing === null ? 'Add fee' : 'Save fee'}
-                </Button>
-                {editing !== null && (
-                    <Button onClick={onDone} type="button" variant="ghost">
-                        Cancel edit
-                    </Button>
-                )}
-            </div>
-        </form>
+        </FormDialog>
     );
 }
 

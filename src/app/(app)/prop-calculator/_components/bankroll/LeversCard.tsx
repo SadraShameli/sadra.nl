@@ -161,6 +161,7 @@ export function LeversCard() {
                                 LEVER_KIND_LABEL[row.kind],
                             header: 'Lever',
                             id: LeverColumn.Lever,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row: { original: row } }) => (
@@ -249,7 +250,7 @@ export function LeversCard() {
                         {
                             cell: ({ row: { original: row } }) =>
                                 row.label === null ? null : (
-                                    <Badge variant="warning">{row.label}</Badge>
+                                    <Badge>{row.label}</Badge>
                                 ),
                             header: 'Note',
                             id: LeverColumn.Note,

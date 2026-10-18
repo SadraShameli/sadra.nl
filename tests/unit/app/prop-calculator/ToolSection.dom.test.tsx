@@ -101,6 +101,39 @@ describe('ToolSection', () => {
         expect(section.querySelectorAll('h2, h3')).toHaveLength(1);
     });
 
+    it('renders a panel section with its title as the panel h2, the only heading, labelling the section', () => {
+        act(() => {
+            root.render(
+                <ToolSection
+                    description="One short line"
+                    id={LegacySection.TailRisk}
+                    info="What tail risk means"
+                    isPanel
+                    title="Tail risk"
+                >
+                    <p>body</p>
+                </ToolSection>,
+            );
+        });
+        const section = renderedSection();
+        const headings = [...section.querySelectorAll('h1, h2, h3, h4')];
+        expect(headings.map((heading) => heading.tagName)).toEqual(['H2']);
+        const [heading] = headings;
+        expect(heading?.textContent).toBe('Tail risk');
+        expect(heading?.id).toBe(`${LegacySection.TailRisk}-heading`);
+        expect(section.getAttribute('aria-labelledby')).toBe(heading?.id);
+        expect(section.id).toBe(LegacySection.TailRisk);
+        expect(section.querySelector('[data-slot="card"]')).not.toBeNull();
+        expect(
+            section.querySelector(':scope [data-slot="card"] p:not([class])')
+                ?.textContent,
+        ).toBe('body');
+        expect(section.textContent).toContain('One short line');
+        expect(
+            section.querySelector('button')?.getAttribute('aria-label'),
+        ).toBe('About Tail risk');
+    });
+
     it('appends a caller className to the section classes', () => {
         act(() => {
             root.render(

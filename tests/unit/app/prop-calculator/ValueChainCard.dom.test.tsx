@@ -24,6 +24,8 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import { MffuVariant } from '~/lib/prop-calculator/core';
 
+import { infoContent } from './infoPopover';
+
 const DEBOUNCE_MS = 180;
 
 const toolsWorkerBox = vi.hoisted(() => ({
@@ -383,7 +385,7 @@ describe('ValueChainCard (PT-66)', () => {
             });
         });
 
-        const list = container.querySelector(
+        const list = infoContent(container, 'Value chain').querySelector(
             '[aria-label="First payout eligible assumptions"]',
         );
         expect(list).not.toBeNull();
@@ -396,7 +398,9 @@ describe('ValueChainCard (PT-66)', () => {
             'One closed trade per session',
         ]);
         expect(
-            container.querySelector('[aria-label="Eval start assumptions"]'),
+            infoContent(container, 'Value chain').querySelector(
+                '[aria-label="Eval start assumptions"]',
+            ),
         ).toBeNull();
     });
 
@@ -432,17 +436,17 @@ describe('ValueChainCard (PT-66)', () => {
             });
         });
 
+        const info = infoContent(container, 'Value chain');
         expect(
-            container.querySelector('[aria-label="Eval start assumptions"]')
+            info.querySelector('[aria-label="Eval start assumptions"]')
                 ?.textContent,
         ).toBe('Eval basis line');
         expect(
-            container.querySelector(
-                '[aria-label="Post first payout assumptions"]',
-            )?.textContent,
+            info.querySelector('[aria-label="Post first payout assumptions"]')
+                ?.textContent,
         ).toBe('Post payout line');
         expect(
-            container.querySelector('[aria-label="Fresh funded assumptions"]'),
+            info.querySelector('[aria-label="Fresh funded assumptions"]'),
         ).toBeNull();
     });
 
@@ -473,8 +477,9 @@ describe('ValueChainCard (PT-66)', () => {
             });
         });
 
-        expect(container.textContent).toContain('under the documented policy');
-        expect(container.textContent).toContain(
+        const info = infoContent(container, 'Value chain').textContent;
+        expect(info).toContain('under the documented policy');
+        expect(info).toContain(
             "A gap is the credit-free value minus the previous built step's, with the two standard errors combined in quadrature",
         );
     });

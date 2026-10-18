@@ -98,7 +98,7 @@ describe('LargeDayLossRule', () => {
             accountIds: [account.id],
             kind: AlertSubjectKind.Portfolio,
         });
-        expect(alert?.message).toContain('2026-09-23');
+        expect(alert?.message).toContain('23 Sep 2026');
     });
 
     it('raises one alert for the worst day even when several recent days exceed the fraction, so the alert list never repeats a key', () => {
@@ -148,7 +148,7 @@ describe('LargeDayLossRule', () => {
                 kind: AlertSubjectKind.Portfolio,
             });
             expect(alert?.message).toContain('no available bankroll');
-            expect(alert?.message).toContain('2026-09-23');
+            expect(alert?.message).toContain('23 Sep 2026');
         }
     });
 

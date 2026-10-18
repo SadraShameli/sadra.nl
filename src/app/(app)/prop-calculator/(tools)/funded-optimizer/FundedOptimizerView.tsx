@@ -1,6 +1,5 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
@@ -15,7 +14,11 @@ import {
 } from '~/app/(app)/prop-calculator/_components/fundedOptimizer/fundedOptimizerModel';
 import { useFundedSweep } from '~/app/(app)/prop-calculator/_components/fundedOptimizer/useFundedSweep';
 import { InputsSummary } from '~/app/(app)/prop-calculator/_components/InputsSummary';
-import { CalculatorObjectiveChip } from '~/app/(app)/prop-calculator/_components/ObjectiveChip';
+import {
+    ObjectiveNotes,
+    ObjectiveSelect,
+    useCalculatorObjectiveChip,
+} from '~/app/(app)/prop-calculator/_components/ObjectiveChip';
 import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
@@ -27,17 +30,11 @@ import {
     type FundedSweepRequest,
     type FundedSweepResult,
 } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
-import { Alert, AlertDescription } from '~/components/ui/alert';
-import { Button } from '~/components/ui/button';
-import {
-    Collapsible,
-    CollapsibleContent,
-    CollapsibleTrigger,
-} from '~/components/ui/collapsible';
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { DataTable } from '~/components/ui/data-table';
 import { LifetimePayoutCapBasis } from '~/lib/prop-calculator/advisor';
-import { type Plan } from '~/lib/prop-calculator/core';
 import {
     FUNDED_ROW_HEADERS,
     FundedCandidateBuildKind,
@@ -54,6 +51,8 @@ function fundedColumnId(index: number): string {
 }
 
 const RESULT_HEADING_ID = 'funded-optimizer-result-heading';
+
+const POLICY_COLUMN_INDEX = 0;
 
 const POLICY_BASIS_LABELS: Record<FundedPolicyBasis, string> = {
     [FundedPolicyBasis.CalculatorOverride]: 'your override',
@@ -73,6 +72,7 @@ export function FundedOptimizerView() {
     const { state } = useCalculatorInputs();
     const { rulebook } = useToolRulebook();
     const ranking = fundedOptimizerRanking(state.objective);
+    const objectiveChip = useCalculatorObjectiveChip();
 
     const request = useMemo(
         () => fundedOptimizerRequest(state, rulebook),
@@ -87,35 +87,81 @@ export function FundedOptimizerView() {
         () => fundedOptimizerPolicyBasis(state),
         [state],
     );
+    const builtResult =
+        sweep.reason === null &&
+        sweep.phase !== WorkerTaskPhase.Running &&
+        sweep.result?.kind === FundedCandidateBuildKind.Built
+            ? sweep.result
+            : null;
+    const trialsNote = fundedOptimizerTrialsNote(state.trials);
+    const notes =
+        builtResult === null
+            ? []
+            : [
+                  ...(trialsNote === null ? [] : [trialsNote]),
+                  ...fundedOptimizerLiveTransferLines(
+                      state.plan,
+                      state.liveTransferHazard,
+                      builtResult.rows,
+                  ),
+                  ...builtResult.notes,
+              ];
 
     return (
         <>
             <ToolPageHeading toolId={ToolId.FundedOptimizer} />
             <div className="app-prop-calculator__funded-optimizer mb-10 flex flex-col gap-6">
                 <InputsSummary />
-                <section
-                    aria-labelledby={RESULT_HEADING_ID}
-                    className="flex flex-col gap-4"
-                >
-                    <ToolSectionHeading id={RESULT_HEADING_ID}>
-                        {ranking.heading}
-                    </ToolSectionHeading>
-                    <CalculatorObjectiveChip />
-                    <p className="text-xs text-muted-foreground">
-                        {`Cushion: ${POLICY_BASIS_LABELS[policyBasis.cushion]} · Payout request: ${POLICY_BASIS_LABELS[policyBasis.payoutRequest]} · Lifetime payout cap: ${LIFETIME_PAYOUT_CAP_BASIS_LABELS[request.policy.lifetimePayoutCapBasis]}`}
-                    </p>
-                    <FundedOptimizerResult
-                        hazard={state.liveTransferHazard}
-                        plan={state.plan}
-                        progress={sweep.progress}
-                        reason={sweep.reason}
-                        request={request}
-                        requestedTrials={state.trials}
-                        result={sweep.result}
-                        sort={ranking.sort}
-                        sortDescriptionInputs={sortDescriptionInputs}
-                        state={sweep.phase}
-                    />
+                <section aria-labelledby={RESULT_HEADING_ID}>
+                    <ToolPanel
+                        description={`Cushion: ${POLICY_BASIS_LABELS[policyBasis.cushion]} · Payout request: ${POLICY_BASIS_LABELS[policyBasis.payoutRequest]} · Lifetime payout cap: ${LIFETIME_PAYOUT_CAP_BASIS_LABELS[request.policy.lifetimePayoutCapBasis]}`}
+                        info={
+                            <>
+                                {notes.length > 0 && (
+                                    <ul className="flex flex-col gap-1">
+                                        {notes.map((note) => (
+                                            <li
+                                                className="first-letter:uppercase"
+                                                key={note}
+                                            >
+                                                {note}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                                <p className="whitespace-pre-line">
+                                    {fundedSortDescription(
+                                        ranking.sort,
+                                        sortDescriptionInputs,
+                                    )}
+                                </p>
+                                <p className="whitespace-pre-line">
+                                    {fundedSurvivorsNote(request.base.trials)}
+                                </p>
+                            </>
+                        }
+                        title={ranking.heading}
+                        titleId={RESULT_HEADING_ID}
+                    >
+                        <FilterToolbar label="Funded optimizer ranking">
+                            <ObjectiveSelect
+                                objective={objectiveChip.objective}
+                                onChange={objectiveChip.onChange}
+                            />
+                        </FilterToolbar>
+                        <ObjectiveNotes
+                            choiceNotes={objectiveChip.choiceNotes}
+                            note={objectiveChip.note}
+                        />
+                        <FundedOptimizerResult
+                            progress={sweep.progress}
+                            reason={sweep.reason}
+                            request={request}
+                            result={sweep.result}
+                            sort={ranking.sort}
+                            state={sweep.phase}
+                        />
+                    </ToolPanel>
                 </section>
             </div>
         </>
@@ -142,26 +188,18 @@ function describeFundedSweepRefusal(
 }
 
 function FundedOptimizerResult({
-    hazard,
-    plan,
     progress,
     reason,
     request,
-    requestedTrials,
     result,
     sort,
-    sortDescriptionInputs,
     state,
 }: {
-    hazard: number;
-    plan: Plan;
     progress: FundedSweepProgress | null;
     reason: null | string;
     request: FundedSweepRequest;
-    requestedTrials: number;
     result: FundedSweepResult | null;
     sort: FundedSortKey;
-    sortDescriptionInputs: SimInputs;
     state: WorkerTaskPhase;
 }) {
     if (reason !== null) return <SimulationFailureNotice message={reason} />;
@@ -179,73 +217,37 @@ function FundedOptimizerResult({
     }
     if (result.kind === FundedCandidateBuildKind.Refused) {
         return (
-            <Alert>
-                <AlertDescription>
-                    {describeFundedSweepRefusal(result.refusal)}
-                </AlertDescription>
-            </Alert>
+            <StatusRow
+                title={describeFundedSweepRefusal(result.refusal)}
+                tone={StatusTone.Warn}
+            />
         );
     }
     const rows = fundedOptimizerRows(result.rows, sort, request.base.trials);
-    const trialsNote = fundedOptimizerTrialsNote(requestedTrials);
-    const notes = [
-        ...(trialsNote === null ? [] : [trialsNote]),
-        ...fundedOptimizerLiveTransferLines(plan, hazard, result.rows),
-        ...result.notes,
-    ];
     return (
-        <div className="flex flex-col gap-3">
-            {notes.length > 0 && (
-                <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                    {notes.map((note) => (
-                        <li className="first-letter:uppercase" key={note}>
-                            {note}
-                        </li>
-                    ))}
-                </ul>
-            )}
-            <DataTable
-                columns={FUNDED_ROW_HEADERS.map((label, index) => ({
-                    cell: ({
-                        row: { original: row },
-                    }: {
-                        row: { original: (typeof rows)[number] };
-                    }) => {
-                        const standardError = row.standardErrors[index] ?? null;
-                        return (
-                            <span className="whitespace-nowrap tabular-nums">
-                                {row.cells[index]}
-                                {standardError !== null &&
-                                    ` (SE ${standardError})`}
-                            </span>
-                        );
-                    },
-                    header: () => (
-                        <span className="first-letter:uppercase">{label}</span>
-                    ),
-                    id: fundedColumnId(index),
-                }))}
-                data={[...rows]}
-                isSortable={false}
-                pageSize={null}
-                rowId={(row) => String(row.cells[0])}
-            />
-            <Collapsible className="rounded-md border">
-                <CollapsibleTrigger asChild>
-                    <Button
-                        className="group w-full justify-between"
-                        type="button"
-                        variant="ghost"
-                    >
-                        How the ranking and the survivors column work
-                        <ChevronDown className="transition-transform group-data-[state=open]:rotate-180" />
-                    </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="flex flex-col gap-2 px-3 pb-3 text-sm whitespace-pre-line text-muted-foreground">
-                    <p>{fundedSortDescription(sort, sortDescriptionInputs)}</p>
-                    <p>{fundedSurvivorsNote(request.base.trials)}</p>
-                </CollapsibleContent>
-            </Collapsible>
-        </div>
+        <DataTable
+            columns={FUNDED_ROW_HEADERS.map((label, index) => ({
+                cell: ({
+                    row: { original: row },
+                }: {
+                    row: { original: (typeof rows)[number] };
+                }) => {
+                    const standardError = row.standardErrors[index] ?? null;
+                    return (
+                        <span className="whitespace-nowrap tabular-nums">
+                            {row.cells[index]}
+                            {standardError !== null && ` (SE ${standardError})`}
+                        </span>
+                    );
+                },
+                header: label,
+                id: fundedColumnId(index),
+                meta: { isRowHeader: index === POLICY_COLUMN_INDEX },
+            }))}
+            data={[...rows]}
+            isSortable={false}
+            pageSize={null}
+            rowId={(row) => String(row.cells[POLICY_COLUMN_INDEX])}
+        />
     );
 }

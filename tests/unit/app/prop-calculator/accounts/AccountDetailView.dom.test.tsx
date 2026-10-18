@@ -64,7 +64,20 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
 
+import {
+    dialogTitled,
+    findDialogTitled,
+    typeInto,
+} from '../../../components/formDialog';
+import {
+    chooseRowAction,
+    confirmRowAction,
+    openRowActions,
+    rowActionItem,
+    rowActionLabels,
+} from '../../../components/rowActionsMenu';
 import { transfer } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
+import { withInfoTexts } from '../infoPopover';
 import { openDisclosure } from './openDisclosure';
 import { pickOption } from './pickOption';
 
@@ -453,9 +466,21 @@ function mffuPro50k(): Plan {
     return plan;
 }
 
+function openRecordDialog(
+    section: HTMLElement,
+    trigger: string,
+    title: string,
+): HTMLElement {
+    act(() => {
+        buttonLabelled(section, trigger).click();
+    });
+    return dialogTitled(title);
+}
+
 function payout(overrides: Record<string, unknown> = {}) {
     return {
         accountId: BRAVO_ID,
+        approvedOn: null,
         createdAt: new Date('2026-09-10T12:00:00Z'),
         grossCents: 50_000,
         id: PAYOUT_ID,
@@ -549,20 +574,6 @@ async function submit(scope: ParentNode, label: string) {
     await flush();
 }
 
-function typeInto(input: HTMLElement, text: string) {
-    act(() => {
-        Reflect.set(
-            input instanceof HTMLTextAreaElement
-                ? HTMLTextAreaElement.prototype
-                : HTMLInputElement.prototype,
-            'value',
-            text,
-            input,
-        );
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-}
-
 describe('AccountDetailView', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -621,9 +632,11 @@ describe('AccountDetailView', () => {
             ),
         ];
         const titles = sections.map((section) => {
-            const heading = container.querySelector(
-                `#${CSS.escape(section.getAttribute('aria-labelledby') ?? '')}`,
-            );
+            const heading = container
+                .querySelector(
+                    `#${CSS.escape(section.getAttribute('aria-labelledby') ?? '')}`,
+                )
+                ?.closest('h2');
             expect(heading?.tagName).toBe('H2');
             return heading?.textContent;
         });
@@ -637,7 +650,7 @@ describe('AccountDetailView', () => {
         answerEverything();
         render();
         const figures = container.querySelector(
-            '[aria-label="Computing the value and next action"], dl[aria-label="Value and next action"], [role="alert"]',
+            '[aria-label="Computing the value and next action"], [role="group"][aria-label="Value and next action"], [role="alert"]',
         );
         expect(figures).not.toBeNull();
         expect(
@@ -656,7 +669,7 @@ describe('AccountDetailView', () => {
         render();
         expect(
             container.querySelector(
-                '[aria-label="Computing the value and next action"], dl[aria-label="Value and next action"]',
+                '[aria-label="Computing the value and next action"], [role="group"][aria-label="Value and next action"]',
             ),
         ).toBeNull();
     });
@@ -696,17 +709,12 @@ describe('AccountDetailView', () => {
         expect(container.textContent).toContain('Failed to fetch');
     });
 
-    it('asks through an AlertDialog before deleting a payout, returns focus to the trigger on cancel and deletes on confirm', async () => {
+    it('asks through an AlertDialog before deleting a payout from its row menu, returns focus to the menu on cancel and deletes on confirm', async () => {
         answerEverything();
         render();
-        const payouts = sectionTitled('Payouts');
-        const trigger = buttonLabelled(
-            payouts,
-            'Delete the payout requested on 2026-09-10',
-        );
+        const trigger = openRowActions('the payout requested on 10 Sep 2026');
         act(() => {
-            trigger.focus();
-            trigger.click();
+            rowActionItem('Delete').click();
         });
         const dialog = document.querySelector('[role="alertdialog"]');
         expect(dialog?.textContent).toContain('Delete this payout?');
@@ -718,33 +726,21 @@ describe('AccountDetailView', () => {
         expect(document.activeElement).toBe(trigger);
         expect(harness.mutateOf('payout.remove')).not.toHaveBeenCalled();
 
-        act(() => {
-            trigger.click();
-        });
-        act(() => {
-            buttonLabelled(document, 'Delete').click();
-        });
+        chooseRowAction('the payout requested on 10 Sep 2026', 'Delete');
+        confirmRowAction('Delete');
         expect(harness.mutateOf('payout.remove')).toHaveBeenCalledWith({
             id: PAYOUT_ID,
         });
     });
 
-    it('asks through an AlertDialog before deleting a snapshot', () => {
+    it('asks through an AlertDialog before deleting a snapshot from its row menu', () => {
         answerEverything();
         render();
-        const history = sectionTitled('Snapshot history');
-        act(() => {
-            buttonLabelled(
-                history,
-                'Delete the snapshot of 2026-09-20',
-            ).click();
-        });
+        chooseRowAction('the snapshot of 20 Sep 2026', 'Delete');
         expect(
             document.querySelector('[role="alertdialog"]')?.textContent,
         ).toContain('Delete this snapshot?');
-        act(() => {
-            buttonLabelled(document, 'Delete').click();
-        });
+        confirmRowAction('Delete');
         expect(harness.mutateOf('snapshot.remove')).toHaveBeenCalledWith({
             id: 's2',
         });
@@ -753,7 +749,11 @@ describe('AccountDetailView', () => {
     it('prefills the fee amount from the plan list price and again when the fee kind changes', async () => {
         answerEverything();
         render();
-        const fees = sectionTitled('Fees');
+        const fees = openRecordDialog(
+            sectionTitled('Fees'),
+            'Add fee',
+            'Add a fee',
+        );
         const amount = inputLabelled(fees, 'Amount');
         const evalPrice = feePrefillCents(PLAN, FeeKind.EvalPurchase);
         const activation = feePrefillCents(PLAN, FeeKind.Activation);
@@ -780,7 +780,11 @@ describe('AccountDetailView', () => {
     it('keeps an amount the user typed when the fee kind changes', async () => {
         answerEverything();
         render();
-        const fees = sectionTitled('Fees');
+        const fees = openRecordDialog(
+            sectionTitled('Fees'),
+            'Add fee',
+            'Add a fee',
+        );
         typeInto(inputLabelled(fees, 'Amount'), '123.45');
         await pickOption(inputLabelled(fees, 'Fee kind'), 'Activation fee');
         expect((inputLabelled(fees, 'Amount') as HTMLInputElement).value).toBe(
@@ -879,7 +883,11 @@ describe('AccountDetailView', () => {
                 ),
             );
         render();
-        const payouts = sectionTitled('Payouts');
+        const payouts = openRecordDialog(
+            sectionTitled('Payouts'),
+            'Add payout',
+            'Add a payout',
+        );
         typeInto(inputLabelled(payouts, 'Gross amount'), '500');
         await act(async () => {
             buttonLabelled(payouts, 'Add payout').click();
@@ -908,7 +916,11 @@ describe('AccountDetailView', () => {
                 ),
             );
         render();
-        const payouts = sectionTitled('Payouts');
+        const payouts = openRecordDialog(
+            sectionTitled('Payouts'),
+            'Add payout',
+            'Add a payout',
+        );
         typeInto(inputLabelled(payouts, 'Gross amount'), '500');
         await act(async () => {
             buttonLabelled(payouts, 'Add payout').click();
@@ -932,7 +944,11 @@ describe('AccountDetailView', () => {
     it('records a payout through the create mutation with exact cents', async () => {
         answerEverything();
         render();
-        const payouts = sectionTitled('Payouts');
+        const payouts = openRecordDialog(
+            sectionTitled('Payouts'),
+            'Add payout',
+            'Add a payout',
+        );
         typeInto(inputLabelled(payouts, 'Gross amount'), '1,234.56');
         await act(async () => {
             buttonLabelled(payouts, 'Add payout').click();
@@ -957,11 +973,12 @@ describe('AccountDetailView', () => {
         });
         render();
         const payouts = sectionTitled('Payouts');
-        expect(payouts.textContent).toContain('2026-09-11');
-        typeInto(inputLabelled(payouts, 'Gross amount'), '500');
-        typeInto(inputLabelled(payouts, 'Approved on'), '2026-09-30');
+        expect(payouts.textContent).toContain('11 Sep 2026');
+        const dialog = openRecordDialog(payouts, 'Add payout', 'Add a payout');
+        typeInto(inputLabelled(dialog, 'Gross amount'), '500');
+        typeInto(inputLabelled(dialog, 'Approved on'), '2026-09-30');
         await act(async () => {
-            buttonLabelled(payouts, 'Add payout').click();
+            buttonLabelled(dialog, 'Add payout').click();
         });
         await flush();
         expect(harness.mutateAsyncOf('payout.create')).toHaveBeenCalledWith(
@@ -1029,8 +1046,13 @@ describe('AccountDetailView', () => {
         expect(violations.textContent).toContain(
             'No rule violations recorded yet.',
         );
-        typeInto(inputLabelled(violations, 'Date'), '2026-09-15');
-        await submit(violations, 'Add violation');
+        const dialog = openRecordDialog(
+            violations,
+            'Add violation',
+            'Add a violation',
+        );
+        typeInto(inputLabelled(dialog, 'Date'), '2026-09-15');
+        await submit(dialog, 'Add violation');
         expect(harness.mutateAsyncOf('violation.create')).toHaveBeenCalledWith(
             expect.objectContaining({ accountId: BRAVO_ID }),
         );
@@ -1364,7 +1386,7 @@ describe('AccountDetailView', () => {
         render();
         const alerts = sectionTitled('Alerts');
         expect(alerts.textContent).toContain(
-            'Snapshot from 2026-09-20 predates the last trading session',
+            'Snapshot from 20 Sep 2026 predates the last trading session',
         );
         expect(alerts.textContent).toContain('2 of 2 active accounts');
         expect(alerts.textContent).not.toContain('Charlie');
@@ -1387,7 +1409,7 @@ describe('AccountDetailView', () => {
         });
 
         expect(sectionTitled('Alerts').textContent).toContain(
-            'Snapshot from 2026-09-25 predates the last trading session',
+            'Snapshot from 25 Sep 2026 predates the last trading session',
         );
     });
 
@@ -1488,14 +1510,18 @@ describe('AccountDetailView', () => {
             'snapshot.listForAccount': answer([]),
         });
         render(ECHO_ID);
-        const fees = sectionTitled('Fees');
+        const fees = openRecordDialog(
+            sectionTitled('Fees'),
+            'Add fee',
+            'Add a fee',
+        );
         expect(inputLabelled(fees, 'Fee kind').textContent).toBe(
             'Subscription',
         );
         expect((inputLabelled(fees, 'Amount') as HTMLInputElement).value).toBe(
             usdCentsToText(usdCents(12_900)),
         );
-        expect(fees.textContent).toContain(
+        expect(withInfoTexts(fees)).toContain(
             'Record each subscription month, the first one too, as its own subscription fee.',
         );
     });
@@ -1503,7 +1529,11 @@ describe('AccountDetailView', () => {
     it('leaves the amount blank for a fee kind the plan has no price for', async () => {
         answerEverything();
         render();
-        const fees = sectionTitled('Fees');
+        const fees = openRecordDialog(
+            sectionTitled('Fees'),
+            'Add fee',
+            'Add a fee',
+        );
         await pickOption(inputLabelled(fees, 'Fee kind'), 'Subscription');
         expect((inputLabelled(fees, 'Amount') as HTMLInputElement).value).toBe(
             '',
@@ -1517,10 +1547,14 @@ describe('AccountDetailView', () => {
         expect(fees.textContent).toContain('Enter the amount you paid');
     });
 
-    it('records a fee through the create mutation with exact cents', async () => {
+    it('records a fee through the create mutation with exact cents and closes the dialog', async () => {
         answerEverything();
         render();
-        const fees = sectionTitled('Fees');
+        const fees = openRecordDialog(
+            sectionTitled('Fees'),
+            'Add fee',
+            'Add a fee',
+        );
         typeInto(inputLabelled(fees, 'Amount'), '1,234.56');
         typeInto(inputLabelled(fees, 'Note'), 'coupon SAVE80');
         await submit(fees, 'Add fee');
@@ -1532,28 +1566,23 @@ describe('AccountDetailView', () => {
             paidOn: TODAY,
         });
         expect(harness.invalidate).toHaveBeenCalled();
+        expect(findDialogTitled('Add a fee')).toBeNull();
     });
 
-    it('edits a fee through the update mutation with its id and every field, moving focus into the form and back', async () => {
+    it('edits a fee from its row menu through the update mutation with its id and every field, moving focus into the dialog and back', async () => {
         answerEverything({ 'fee.list': answer([fee()]) });
         render();
-        const fees = sectionTitled('Fees');
-        const trigger = buttonLabelled(
-            fees,
-            'Edit the Evaluation purchase paid on 2026-08-13',
+        const trigger = openRowActions(
+            'the Evaluation purchase paid on 13 Aug 2026',
         );
         act(() => {
-            trigger.focus();
-            trigger.click();
+            rowActionItem('Edit').click();
         });
         await flush();
-        const focused = document.activeElement;
-        expect(focused?.closest('form')?.getAttribute('aria-label')).toBe(
-            'Edit fee',
-        );
-        expect(document.activeElement).toBe(inputLabelled(fees, 'Fee kind'));
-        typeInto(inputLabelled(fees, 'Amount'), '470.40');
-        await submit(fees, 'Save fee');
+        const dialog = dialogTitled('Edit fee');
+        expect(document.activeElement).toBe(inputLabelled(dialog, 'Fee kind'));
+        typeInto(inputLabelled(dialog, 'Amount'), '470.40');
+        await submit(dialog, 'Save fee');
         expect(harness.mutateAsyncOf('fee.update')).toHaveBeenCalledWith({
             amountCents: 47_040,
             id: FEE_ID,
@@ -1561,57 +1590,45 @@ describe('AccountDetailView', () => {
             note: null,
             paidOn: '2026-08-13',
         });
+        expect(findDialogTitled('Edit fee')).toBeNull();
         expect(document.activeElement).toBe(trigger);
     });
 
-    it('returns focus to the edit button when a fee edit is cancelled', async () => {
+    it('returns focus to the row menu when a fee edit is cancelled', async () => {
         answerEverything({ 'fee.list': answer([fee()]) });
         render();
-        const fees = sectionTitled('Fees');
-        const trigger = buttonLabelled(
-            fees,
-            'Edit the Evaluation purchase paid on 2026-08-13',
+        const trigger = openRowActions(
+            'the Evaluation purchase paid on 13 Aug 2026',
         );
         act(() => {
-            trigger.focus();
-            trigger.click();
+            rowActionItem('Edit').click();
         });
         await flush();
         act(() => {
-            const cancel = buttonLabelled(fees, 'Cancel edit');
+            const cancel = buttonLabelled(dialogTitled('Edit fee'), 'Cancel');
             cancel.focus();
             cancel.click();
         });
         await flush();
-        expect(fees.querySelector('form')?.getAttribute('aria-label')).toBe(
-            'Add a fee',
-        );
+        expect(findDialogTitled('Edit fee')).toBeNull();
         expect(document.activeElement).toBe(trigger);
         expect(harness.mutateAsyncOf('fee.update')).not.toHaveBeenCalled();
     });
 
-    it('edits a payout through the update mutation with its id and every field, moving focus into the form and back', async () => {
+    it('edits a payout from its row menu through the update mutation with its id and every field, moving focus into the dialog and back', async () => {
         answerEverything();
         render();
-        const payouts = sectionTitled('Payouts');
-        const trigger = buttonLabelled(
-            payouts,
-            'Edit the payout requested on 2026-09-10',
-        );
+        const trigger = openRowActions('the payout requested on 10 Sep 2026');
         act(() => {
-            trigger.focus();
-            trigger.click();
+            rowActionItem('Edit').click();
         });
         await flush();
-        const focused = document.activeElement;
-        expect(focused?.closest('form')?.getAttribute('aria-label')).toBe(
-            'Edit payout',
-        );
+        const dialog = dialogTitled('Edit payout');
         expect(document.activeElement).toBe(
-            inputLabelled(payouts, 'Requested on'),
+            inputLabelled(dialog, 'Requested on'),
         );
-        typeInto(inputLabelled(payouts, 'Net received'), '450');
-        await submit(payouts, 'Save payout');
+        typeInto(inputLabelled(dialog, 'Net received'), '450');
+        await submit(dialog, 'Save payout');
         expect(harness.mutateAsyncOf('payout.update')).toHaveBeenCalledWith({
             approvedOn: null,
             grossCents: 50_000,
@@ -1622,32 +1639,44 @@ describe('AccountDetailView', () => {
             requestedOn: '2026-09-10',
             status: PayoutStatus.Paid,
         });
+        expect(findDialogTitled('Edit payout')).toBeNull();
         expect(document.activeElement).toBe(trigger);
     });
 
-    it('returns focus to the edit button when a payout edit is cancelled', async () => {
+    it('returns focus to the row menu when a payout edit is cancelled', async () => {
         answerEverything();
         render();
-        const payouts = sectionTitled('Payouts');
-        const trigger = buttonLabelled(
-            payouts,
-            'Edit the payout requested on 2026-09-10',
-        );
+        const trigger = openRowActions('the payout requested on 10 Sep 2026');
         act(() => {
-            trigger.focus();
-            trigger.click();
+            rowActionItem('Edit').click();
         });
         await flush();
         act(() => {
-            const cancel = buttonLabelled(payouts, 'Cancel edit');
+            const cancel = buttonLabelled(
+                dialogTitled('Edit payout'),
+                'Cancel',
+            );
             cancel.focus();
             cancel.click();
         });
         await flush();
-        expect(payouts.querySelector('form')?.getAttribute('aria-label')).toBe(
-            'Add a payout',
-        );
+        expect(findDialogTitled('Edit payout')).toBeNull();
         expect(document.activeElement).toBe(trigger);
+    });
+
+    it('offers no Edit, only Delete, on the rows of a read-only account', () => {
+        const broken = { ...BRAVO, planSerial: 'no-such-plan' };
+        answerEverything({
+            'account.get': answer(broken),
+            'account.list': answer([ALPHA, broken]),
+            'fee.list': answer([fee()]),
+        });
+        render();
+        expect(container.textContent).toContain('This account is read-only');
+        openRowActions('the payout requested on 10 Sep 2026');
+        expect(rowActionLabels()).toEqual(['Delete']);
+        expect(container.textContent).not.toContain('Add payout');
+        expect(container.textContent).not.toContain('Add fee');
     });
 
     it('records a lifecycle event through the record mutation', async () => {
@@ -1963,7 +1992,7 @@ describe('AccountDetailView', () => {
             render();
             await settle();
             const header = container.querySelector(
-                'dl[aria-label="Value and next action"]',
+                '[role="group"][aria-label="Value and next action"]',
             );
             expect(header?.textContent).toContain('$1,777');
             expect(sectionTitled('Account state').textContent).toContain(
@@ -1987,7 +2016,7 @@ describe('AccountDetailView', () => {
                 requests[0]?.spec.enginePolicy.retainedCushionRequest,
             ).toBeGreaterThanOrEqual(9000);
             const header = container.querySelector(
-                'dl[aria-label="Value and next action"]',
+                '[role="group"][aria-label="Value and next action"]',
             );
             expect(header?.textContent).toContain('$1,777');
             expect(sectionTitled('Account state').textContent).toContain(
@@ -2017,12 +2046,14 @@ describe('AccountDetailView', () => {
             render();
             await settle();
             const header = container.querySelector(
-                'dl[aria-label="Value and next action"]',
+                '[role="group"][aria-label="Value and next action"]',
             );
             const note =
                 'These figures simulate your personal payout request, retained cushion, max risk per trade, max trades per day, daily loss limit and daily profit cap.';
             expect(header?.parentElement?.textContent).toContain(note);
-            expect(sectionTitled('Account state').textContent).toContain(note);
+            expect(withInfoTexts(sectionTitled('Account state'))).toContain(
+                note,
+            );
         });
 
         it('still values the from-state section of an account that is no longer active, without the header figures or the plan value runs', async () => {
@@ -2037,7 +2068,7 @@ describe('AccountDetailView', () => {
             await settle();
             expect(
                 container.querySelector(
-                    'dl[aria-label="Value and next action"]',
+                    '[role="group"][aria-label="Value and next action"]',
                 ),
             ).toBeNull();
             expect(sectionTitled('Account state').textContent).toContain(

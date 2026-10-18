@@ -47,7 +47,7 @@ describe('SubscriptionRenewalDueRule', () => {
         expect(alerts[0]?.kind).toBe(AlertKind.SubscriptionRenewalDue);
         expect(alerts[0]?.severity).toBe(AlertSeverity.Info);
         expect(alerts[0]?.message).toContain('in 3 days');
-        expect(alerts[0]?.message).toContain('2026-09-26');
+        expect(alerts[0]?.message).toContain('26 Sep 2026');
         expect(alerts[0]?.message).toContain(
             formatCurrency(SUBSCRIBED.plan.fees.monthlySubscription, 2),
         );

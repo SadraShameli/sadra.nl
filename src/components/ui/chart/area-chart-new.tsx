@@ -52,6 +52,7 @@ export default function AreaChartNew(properties: AreaChartNewProperties) {
 
                 <YAxis
                     {...CHART_Y_AXIS_PROPS}
+                    domain={['auto', 'auto']}
                     tickFormatter={properties.yAxis.tickFormatter}
                 />
 

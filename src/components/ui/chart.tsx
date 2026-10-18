@@ -65,7 +65,13 @@ export const CHART_REFERENCE_LINE_PROPS = {
 
 export const CHART_STROKE_WIDTH = 1.6;
 
-export const CHART_BAR_RADIUS: [number, number, number, number] = [3, 3, 0, 0];
+const CHART_BAR_RADIUS: [number, number, number, number] = [3, 3, 0, 0];
+
+export const CHART_BAR_PROPS = {
+    isAnimationActive: false,
+    maxBarSize: 48,
+    radius: CHART_BAR_RADIUS,
+} as const;
 
 const ChartContainer = React.forwardRef<
     HTMLDivElement,

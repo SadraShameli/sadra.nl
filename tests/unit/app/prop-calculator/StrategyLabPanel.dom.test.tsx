@@ -46,6 +46,20 @@ import {
     LiveTransferContinuationKind,
 } from '~/lib/prop-calculator/simulator';
 
+import {
+    dialogField,
+    isDialogOpen,
+    submitDialog,
+    typeInto,
+} from '../../components/formDialog';
+import {
+    chooseRowAction,
+    confirmRowAction,
+    isRowActionDisabled,
+    openRowActions,
+    rowActionItem,
+    rowActionLabels,
+} from '../../components/rowActionsMenu';
 import { InlineToolsWorker } from './labWorkerFixtures';
 
 vi.mock('next/dynamic', () => ({ default: () => renderNothing }));
@@ -154,15 +168,7 @@ function renderNothing(): null {
 }
 
 function rowLabel(row: HTMLTableRowElement): string {
-    return row.querySelector('input')?.value ?? '';
-}
-
-function typeInto(input: HTMLInputElement, text: string) {
-    act(() => {
-        Reflect.set(HTMLInputElement.prototype, 'value', text, input);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    flush();
+    return row.querySelector(':scope > th[scope="row"]')?.textContent ?? '';
 }
 
 describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
@@ -239,28 +245,144 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
         vi.unstubAllGlobals();
     });
 
-    it('names every editable cell of a scenario row after its column and scenario', () => {
+    it('keeps editing out of the scenario row and names every field of its edit dialog', () => {
         render(scenarios);
         const row = bodyRows().find(
             (candidate) => rowLabel(candidate) === 'One to two',
         );
+        expect(
+            row?.querySelectorAll('input, select, textarea, [role="combobox"]'),
+        ).toHaveLength(0);
+        openRowActions('One to two');
+        expect(rowActionLabels()).toEqual(['Edit', 'Remove']);
+        act(() => {
+            rowActionItem('Edit').click();
+        });
         const controls = [
-            ...(row?.querySelectorAll<HTMLElement>(
-                'input, button[role="combobox"]',
-            ) ?? []),
+            ...document.body.querySelectorAll<HTMLElement>(
+                ':scope [role="dialog"] input, :scope [role="dialog"] [role="combobox"]',
+            ),
         ];
         expect(controls.length).toBeGreaterThan(0);
         for (const control of controls) {
-            expect(control.getAttribute('aria-label')).toBeTruthy();
+            const isLabelled =
+                control.getAttribute('aria-label') !== null ||
+                document.querySelector(`label[for="${CSS.escape(control.id)}"]`)
+                    ?.textContent !== undefined;
+            expect({ control: control.outerHTML, isLabelled }).toEqual({
+                control: control.outerHTML,
+                isLabelled: true,
+            });
         }
-        const inputs = [...(row?.querySelectorAll('input') ?? [])];
-        expect(inputs.length).toBeGreaterThan(0);
-        for (const input of inputs) {
-            expect(input.getAttribute('aria-label')).toMatch(/, One to two$/);
-        }
-        expect(
-            row?.querySelector('button[aria-label="Remove One to two"]'),
-        ).not.toBeNull();
+        expect(dialogField('Scenario name').value).toBe('One to two');
+    });
+
+    it('asks before removing a scenario and keeps the last one', () => {
+        const onRemove = vi.fn<(id: string) => void>();
+        act(() => {
+            root.render(
+                <StrategyLabPanel
+                    activationDiscountPercent={0}
+                    commissionPerRoundTrip={0}
+                    evalDiscountPercent={0}
+                    fundedHorizonDays={5}
+                    labLink={{ status: LabLinkStatus.Absent }}
+                    linkActivationDiscount={false}
+                    maxEvalDays={10}
+                    minRetainedCushion={undefined}
+                    monthlySubscriptionDiscountPercent={0}
+                    onAdd={vi.fn()}
+                    onRemove={onRemove}
+                    onReset={vi.fn()}
+                    onUpdate={vi.fn()}
+                    payoutRequestSize={undefined}
+                    plan={defaultCalculatorState().plan}
+                    resetDiscountPercent={0}
+                    rungSizing={undefined}
+                    scenarios={[baseScenario]}
+                    seed={1}
+                />,
+            );
+        });
+        flush();
+        openRowActions('One to two');
+        expect(isRowActionDisabled('Remove')).toBe(true);
+        act(() => {
+            root.render(
+                <StrategyLabPanel
+                    activationDiscountPercent={0}
+                    commissionPerRoundTrip={0}
+                    evalDiscountPercent={0}
+                    fundedHorizonDays={5}
+                    labLink={{ status: LabLinkStatus.Absent }}
+                    linkActivationDiscount={false}
+                    maxEvalDays={10}
+                    minRetainedCushion={undefined}
+                    monthlySubscriptionDiscountPercent={0}
+                    onAdd={vi.fn()}
+                    onRemove={onRemove}
+                    onReset={vi.fn()}
+                    onUpdate={vi.fn()}
+                    payoutRequestSize={undefined}
+                    plan={defaultCalculatorState().plan}
+                    resetDiscountPercent={0}
+                    rungSizing={undefined}
+                    scenarios={scenarios}
+                    seed={1}
+                />,
+            );
+        });
+        flush();
+        chooseRowAction('One to two', 'Remove');
+        expect(onRemove).not.toHaveBeenCalled();
+        confirmRowAction('Remove');
+        expect(onRemove).toHaveBeenCalledExactlyOnceWith(baseScenario.id);
+    });
+
+    it('adds a scenario from the add dialog, prefilled with a copy of the last one', async () => {
+        const onAdd = vi.fn<(scenario: LabScenario) => void>();
+        act(() => {
+            root.render(
+                <StrategyLabPanel
+                    activationDiscountPercent={0}
+                    commissionPerRoundTrip={0}
+                    evalDiscountPercent={0}
+                    fundedHorizonDays={5}
+                    labLink={{ status: LabLinkStatus.Absent }}
+                    linkActivationDiscount={false}
+                    maxEvalDays={10}
+                    minRetainedCushion={undefined}
+                    monthlySubscriptionDiscountPercent={0}
+                    onAdd={onAdd}
+                    onRemove={vi.fn()}
+                    onReset={vi.fn()}
+                    onUpdate={vi.fn()}
+                    payoutRequestSize={undefined}
+                    plan={defaultCalculatorState().plan}
+                    resetDiscountPercent={0}
+                    rungSizing={undefined}
+                    scenarios={[baseScenario]}
+                    seed={1}
+                />,
+            );
+        });
+        flush();
+        const add = [...container.querySelectorAll('button')].find((node) =>
+            node.textContent.includes('Add scenario'),
+        );
+        act(() => {
+            add?.click();
+        });
+        expect(onAdd).not.toHaveBeenCalled();
+        expect(dialogField('Scenario name').value).toBe('One to two copy');
+        typeInto(dialogField('Reward to risk'), '3');
+        await submitDialog('Add', () => vi.advanceTimersByTimeAsync(0));
+        expect(onAdd).toHaveBeenCalledOnce();
+        const added = onAdd.mock.calls[0]?.[0];
+        expect(added?.label).toBe('One to two copy');
+        expect(added?.rrRatio).toBe(3);
+        expect(added?.id).not.toBe(baseScenario.id);
+        expect(isDialogOpen()).toBe(false);
     });
 
     it('shows the not-applicable marker, never NaN%, for a reward:risk the walk cannot represent', () => {
@@ -387,15 +509,18 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
         >();
     });
 
-    it('shows the not-applicable marker after a typed RR of 1.333', () => {
+    it('shows the not-applicable marker after an RR of 1.333 is saved in the edit dialog', async () => {
         render([baseScenario]);
         expect(theoByLabel()['One to two']).toMatch(/^\d+\.\d%$/);
-        const rr =
-            bodyRows()[0]?.cells[columnIndex('RR')]?.querySelector('input');
-        if (!(rr instanceof HTMLInputElement))
-            throw new TypeError('no RR input');
+        chooseRowAction('One to two', 'Edit');
+        const rr = dialogField('Reward to risk');
         typeInto(rr, String(UNREPRESENTABLE_RR));
         expect(rr.value).toBe(String(UNREPRESENTABLE_RR));
+        await submitDialog('Save', () => vi.advanceTimersByTimeAsync(0));
+        flush();
+        expect(
+            bodyRows()[0]?.cells[columnIndex('RR')]?.textContent.trim(),
+        ).toBe(String(UNREPRESENTABLE_RR));
         expect(theoByLabel()['One to two']).toBe(NOT_APPLICABLE);
         expect(container.textContent).not.toContain('NaN');
     });

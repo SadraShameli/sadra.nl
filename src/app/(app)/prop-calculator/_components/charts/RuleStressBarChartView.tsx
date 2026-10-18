@@ -3,6 +3,7 @@
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_BAR_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
@@ -66,8 +67,8 @@ export default function RuleStressBarChartView({ rows }: Properties) {
                         y={0}
                     />
                     <Bar
+                        {...CHART_BAR_PROPS}
                         dataKey="monthlyNet"
-                        isAnimationActive={false}
                         shape={(properties: unknown) => {
                             const {
                                 height = 0,
@@ -93,7 +94,7 @@ export default function RuleStressBarChartView({ rows }: Properties) {
                     />
                 </BarChart>
             </ChartContainer>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
                 <span aria-hidden className="text-info">
                     ■
                 </span>{' '}

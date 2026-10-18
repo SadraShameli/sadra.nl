@@ -88,7 +88,7 @@ export function RestTimerOverlay({
                 </SheetTitle>
                 <span
                     className={cn(
-                        'mt-2 text-[120px] leading-none font-bold tabular-nums',
+                        'mt-2 type-display-closing tabular-nums',
                         isOverrun ? 'text-success' : 'text-foreground',
                     )}
                 >

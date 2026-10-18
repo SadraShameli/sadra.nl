@@ -1,24 +1,23 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Eye } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
+import { z } from 'zod';
 
 import type { Outcome, TradeAssessmentRow } from '~/lib/trading/types';
 
+import { RowActionKind, rowActionsColumn } from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import {
-    DataTable,
-    DataTableAlign,
-    type DataTableColumn,
-} from '~/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { dateKey, filterAssessments } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
 
 import {
+    assessmentLabel,
     GradeTile,
     MENTAL_FLAG_LABEL,
     MENTAL_FLAGS,
@@ -27,9 +26,12 @@ import {
 } from './AssessmentBadges';
 import { AssessmentDetailDialog } from './journal/AssessmentDetailDialog';
 import {
+    isJournalFiltered,
     JournalFilters,
     type JournalFilterState,
 } from './journal/JournalFilters';
+
+const SINGLE_DATE_SCHEMA = z.iso.date();
 
 interface JournalViewProperties {
     history: TradeAssessmentRow[];
@@ -139,17 +141,7 @@ export function JournalView({ history, plans }: JournalViewProperties) {
             windowIds: [],
         });
 
-    const hasFiltersActive =
-        state.grades.length > 0 ||
-        state.outcomes.length > 0 ||
-        state.windowIds.length > 0 ||
-        state.setupTypes.length > 0 ||
-        state.mentalFlags.length > 0 ||
-        state.planIds.length > 0 ||
-        (state.query !== null && state.query.length > 0) ||
-        state.dateFrom !== null ||
-        state.dateTo !== null ||
-        state.singleDate !== null;
+    const hasFiltersActive = isJournalFiltered(state);
 
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
@@ -159,6 +151,7 @@ export function JournalView({ history, plans }: JournalViewProperties) {
                 enableSorting: false,
                 header: 'Grade',
                 id: 'grade',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'score',
@@ -209,7 +202,7 @@ export function JournalView({ history, plans }: JournalViewProperties) {
                     ) : (
                         <div className="flex flex-wrap gap-1">
                             {row.original.mentalFlags.map((flag) => (
-                                <Badge key={flag} variant="outline">
+                                <Badge key={flag}>
                                     {MENTAL_FLAG_LABEL[flag]}
                                 </Badge>
                             ))}
@@ -242,33 +235,33 @@ export function JournalView({ history, plans }: JournalViewProperties) {
                 id: 'when',
                 sortDescFirst: true,
             },
-            {
-                cell: ({ row }) => (
-                    <Button
-                        className="app-trade-checklist__journal-open"
-                        onClick={() => setSelectedRow(row.original.raw)}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                    >
-                        View
-                    </Button>
-                ),
-                enableSorting: false,
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-                meta: { align: DataTableAlign.End },
-            },
+            rowActionsColumn<Row>({
+                actionsOf: (row) => [
+                    {
+                        icon: Eye,
+                        kind: RowActionKind.Select,
+                        label: 'View',
+                        onSelect: () => setSelectedRow(row.raw),
+                    },
+                ],
+                labelOf: assessmentLabel,
+            }),
         ],
         [],
     );
 
     return (
-        <div
-            className={cn(
-                'app-trade-checklist__journal-view',
-                'flex flex-col gap-4',
-            )}
+        <ToolPanel
+            className="app-trade-checklist__journal-view"
+            contentClassName="gap-4"
+            description={
+                <>
+                    {filtered.length} of {history.length} assessments
+                    {hasFiltersActive && ' (filtered)'}
+                </>
+            }
+            info="Filter state lives in the URL so views are shareable."
+            title="Assessments"
         >
             <JournalFilters
                 onChange={updateState}
@@ -277,16 +270,6 @@ export function JournalView({ history, plans }: JournalViewProperties) {
                 rows={projected}
                 state={state}
             />
-
-            <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                    {filtered.length} of {history.length} assessments
-                    {hasFiltersActive && ' (filtered)'}
-                </p>
-                {state.singleDate && (
-                    <Badge variant="outline">On {state.singleDate}</Badge>
-                )}
-            </div>
 
             <DataTable<Row>
                 columns={columns}
@@ -314,7 +297,7 @@ export function JournalView({ history, plans }: JournalViewProperties) {
                 onClose={() => setSelectedRow(null)}
                 row={selectedRow}
             />
-        </div>
+        </ToolPanel>
     );
 }
 
@@ -352,7 +335,12 @@ function parseStateFromUrl(sp: URLSearchParams): JournalFilterState {
         planIds: parseMulti(sp, 'planId'),
         query: sp.get('q'),
         setupTypes: parseMulti(sp, 'setupType'),
-        singleDate: sp.get('date'),
+        singleDate: singleDateParameter(sp.get('date')),
         windowIds: parseMulti(sp, 'windowId'),
     };
+}
+
+function singleDateParameter(raw: null | string): null | string {
+    const parsed = SINGLE_DATE_SCHEMA.safeParse(raw);
+    return parsed.success ? parsed.data : null;
 }

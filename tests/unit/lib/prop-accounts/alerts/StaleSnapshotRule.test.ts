@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { formatDisplayDate } from '~/lib/format';
 import {
     AlertDisclosure,
     AlertKind,
@@ -71,8 +72,8 @@ describe('StaleSnapshotRule', () => {
                 kind: AlertSubjectKind.Account,
                 label: account.label,
             });
-            expect(alert?.message).toContain(MONDAY);
-            expect(alert?.message).toContain(TUESDAY);
+            expect(alert?.message).toContain(formatDisplayDate(MONDAY));
+            expect(alert?.message).toContain(formatDisplayDate(TUESDAY));
             expect(alert?.message).toContain(
                 `before sizing this ${accountStageLabel(stage)} account`,
             );

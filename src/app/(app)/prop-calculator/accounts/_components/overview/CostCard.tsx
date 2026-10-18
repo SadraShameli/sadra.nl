@@ -1,8 +1,11 @@
 import { memo } from 'react';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type CostCardModel } from './overviewModel';
+import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 import { SampleBadge } from './SampleBadge';
 
 enum AttemptsByFirmColumn {
@@ -56,11 +59,13 @@ export const CostCard = memo(function CostCard({
     readonly model: CostCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-6">
+        <OverviewPanel
+            contentClassName="gap-6"
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.Costs}
+        >
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium text-foreground">
-                    Net spend by firm
-                </h3>
+                <PanelSubheading>Net spend by firm</PanelSubheading>
                 {model.byFirm.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                         No fee recorded yet.
@@ -72,6 +77,7 @@ export const CostCard = memo(function CostCard({
                                 cell: ({ row }) => <>{row.original.firm}</>,
                                 header: 'Firm',
                                 id: CostByFirmColumn.Firm,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => <>{row.original.amount}</>,
@@ -89,15 +95,14 @@ export const CostCard = memo(function CostCard({
             </div>
             {model.byKind.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
-                        Net spend by fee kind
-                    </h3>
+                    <PanelSubheading>Net spend by fee kind</PanelSubheading>
                     <DataTable
                         columns={[
                             {
                                 cell: ({ row }) => <>{row.original.kind}</>,
                                 header: 'Fee kind',
                                 id: CostByFeeKindColumn.FeeKind,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => <>{row.original.amount}</>,
@@ -114,9 +119,7 @@ export const CostCard = memo(function CostCard({
                 </div>
             )}
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium text-foreground">
-                    Cost per funded account
-                </h3>
+                <PanelSubheading>Cost per funded account</PanelSubheading>
                 {model.perPlan.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                         No account with a modeled plan yet.
@@ -128,6 +131,7 @@ export const CostCard = memo(function CostCard({
                                 cell: ({ row }) => <>{row.original.plan}</>,
                                 header: 'Plan',
                                 id: CostByPlanColumn.Plan,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => (
@@ -241,9 +245,9 @@ export const CostCard = memo(function CostCard({
             </div>
             {model.byAccountSize.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         Attempts and cost per attempt by account size
-                    </h3>
+                    </PanelSubheading>
                     <DataTable
                         columns={[
                             {
@@ -254,6 +258,7 @@ export const CostCard = memo(function CostCard({
                                 ),
                                 header: 'Account size',
                                 id: CostByAccountSizeColumn.AccountSize,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => (
@@ -297,15 +302,16 @@ export const CostCard = memo(function CostCard({
             )}
             {model.byFirmAttemptCost.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         Attempts and cost per attempt by firm
-                    </h3>
+                    </PanelSubheading>
                     <DataTable
                         columns={[
                             {
                                 cell: ({ row }) => <>{row.original.firm}</>,
                                 header: 'Firm',
                                 id: AttemptsByFirmColumn.Firm,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => (
@@ -360,9 +366,9 @@ export const CostCard = memo(function CostCard({
             {(model.discountsByFirm.length > 0 ||
                 model.discountsNote !== null) && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         Discounts captured by firm
-                    </h3>
+                    </PanelSubheading>
                     {model.discountsByFirm.length > 0 && (
                         <DataTable
                             columns={[
@@ -370,6 +376,7 @@ export const CostCard = memo(function CostCard({
                                     cell: ({ row }) => <>{row.original.firm}</>,
                                     header: 'Firm',
                                     id: FeeCheckColumn.Firm,
+                                    meta: { isRowHeader: true },
                                 },
                                 {
                                     cell: ({ row }) => (
@@ -401,17 +408,6 @@ export const CostCard = memo(function CostCard({
                     )}
                 </div>
             )}
-            <Disclosures items={model.disclosures} />
-        </div>
+        </OverviewPanel>
     );
 });
-
-function Disclosures({ items }: { readonly items: readonly string[] }) {
-    return (
-        <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {items.map((item) => (
-                <li key={item}>{item}</li>
-            ))}
-        </ul>
-    );
-}

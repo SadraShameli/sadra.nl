@@ -33,7 +33,7 @@ export function HeroCollage({
                         <GarageIllustration label={garage.alt} />
                     </div>
                     <figcaption className="flex items-baseline justify-between px-1.5 py-0.5">
-                        <span className="type-display-caption text-[17px] text-ink">
+                        <span className="type-display-caption text-ink">
                             {garage.caption}
                         </span>
                         <span className="type-micro tracking-[0.16em] text-camel">
@@ -95,7 +95,7 @@ export function HeroCollage({
                             vectorEffect="non-scaling-stroke"
                         />
                     </svg>
-                    <div className="flex gap-4.5 font-mono text-[11px] tracking-[0.06em] text-ink-muted">
+                    <div className="flex gap-4.5 type-eyebrow tracking-[0.06em] text-ink-muted">
                         <span className="flex gap-1.5">
                             WIN RATE{' '}
                             <span className={cn('text-ink', money)}>
@@ -128,7 +128,7 @@ export function HeroCollage({
                     <span
                         aria-hidden={!revealed}
                         className={cn(
-                            'font-serif text-[32px] leading-none font-medium tracking-[-0.01em]',
+                            'type-display-item leading-none tracking-[-0.01em]',
                             money,
                         )}
                     >

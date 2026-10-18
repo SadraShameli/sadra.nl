@@ -32,11 +32,11 @@ import {
     PositionSizeUrlParameter,
 } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
 import { formatRiskDisplay } from '~/app/(app)/prop-calculator/_components/riskDisplay';
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
+import { StatStrip } from '~/components/StatStrip';
+import { ToolPanel } from '~/components/ToolPanel';
 import {
     Field,
     FieldDescription,
@@ -156,36 +156,31 @@ export function PositionSizeView() {
                 toolId={ToolId.PositionSize}
             />
             <div className="app-prop-calculator__position-size mb-10 grid gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-                <section
-                    aria-labelledby={INPUTS_HEADING_ID}
-                    className="flex flex-col gap-4"
-                >
-                    <ToolSectionHeading id={INPUTS_HEADING_ID}>
-                        Trade
-                    </ToolSectionHeading>
-                    <PositionSizeInputs
-                        onChange={change}
-                        onValidityChange={changeValidity}
-                        state={state}
-                    />
+                <section aria-labelledby={INPUTS_HEADING_ID}>
+                    <ToolPanel title="Trade" titleId={INPUTS_HEADING_ID}>
+                        <PositionSizeInputs
+                            onChange={change}
+                            onValidityChange={changeValidity}
+                            state={state}
+                        />
+                    </ToolPanel>
                 </section>
-                <section
-                    aria-labelledby={RESULT_HEADING_ID}
-                    className="flex flex-col gap-4"
-                >
-                    <ToolSectionHeading id={RESULT_HEADING_ID}>
-                        Position
-                    </ToolSectionHeading>
-                    <p className="sr-only" role="status">
-                        {isInputValid
-                            ? positionSizeStatusText(state, result)
-                            : FIX_FIELD_TEXT}
-                    </p>
-                    {isInputValid ? (
-                        <PositionSizeSummary result={result} state={state} />
-                    ) : (
-                        <PositionSizeUnavailable />
-                    )}
+                <section aria-labelledby={RESULT_HEADING_ID}>
+                    <ToolPanel title="Position" titleId={RESULT_HEADING_ID}>
+                        <p className="sr-only" role="status">
+                            {isInputValid
+                                ? positionSizeStatusText(state, result)
+                                : FIX_FIELD_TEXT}
+                        </p>
+                        {isInputValid ? (
+                            <PositionSizeSummary
+                                result={result}
+                                state={state}
+                            />
+                        ) : (
+                            <PositionSizeUnavailable />
+                        )}
+                    </ToolPanel>
                 </section>
             </div>
         </>
@@ -477,57 +472,58 @@ function PositionSizeSummary({
     const stop = result.exactRiskStop;
     return (
         <div className="flex flex-col gap-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard
-                    label="Contracts"
-                    sub={`at a ${formatPoints(state.stopPoints)} point stop; one contract risks ${result.oneContractRiskText}`}
-                    value={`${result.contracts} ${symbol}`}
-                />
-                <StatCard
-                    label="Leftover"
-                    sub={
-                        result.placedRisk === null
-                            ? 'the contract limit binds: see the stop'
-                            : `${formatGateCurrency(result.placedRisk)} placed at your stop`
-                    }
-                    value={
-                        result.leftover === null
-                            ? NOT_APPLICABLE
-                            : formatGateCurrency(result.leftover)
-                    }
-                />
-                <StatCard
-                    label="Stop for the exact risk"
-                    sub={
-                        stop === null
-                            ? 'no whole contract fits'
-                            : `risks ${formatGateCurrency(stop.riskAtTickStop)} on ${result.contracts} ${symbol}`
-                    }
-                    value={
-                        stop === null
-                            ? NOT_APPLICABLE
-                            : `${formatPoints(stop.tickPoints)} pts`
-                    }
-                />
-                <StatCard
-                    label={`${POSITION_SIZE_PHASE_LABELS[state.phase]} contract limit`}
-                    sub={
-                        result.minStopAtCap === null
-                            ? 'none modeled for this plan and phase'
-                            : `the limit stops binding at a stop of at least ${formatPoints(result.minStopAtCap)} pts`
-                    }
-                    value={
-                        result.cap === null
-                            ? NOT_APPLICABLE
-                            : `${result.cap} ${symbol}`
-                    }
-                />
-                <StatCard
-                    label="Risk, shown as"
-                    sub={result.riskDisplay.label}
-                    value={result.riskDisplay.text}
-                />
-            </div>
+            <StatStrip
+                items={[
+                    {
+                        caption: `at a ${formatPoints(state.stopPoints)} point stop; one contract risks ${result.oneContractRiskText}`,
+                        id: 'contracts',
+                        label: 'Contracts',
+                        value: `${result.contracts} ${symbol}`,
+                    },
+                    {
+                        caption:
+                            result.placedRisk === null
+                                ? 'the contract limit binds: see the stop'
+                                : `${formatGateCurrency(result.placedRisk)} placed at your stop`,
+                        id: 'leftover',
+                        label: 'Leftover',
+                        value:
+                            result.leftover === null
+                                ? NOT_APPLICABLE
+                                : formatGateCurrency(result.leftover),
+                    },
+                    {
+                        caption:
+                            stop === null
+                                ? 'no whole contract fits'
+                                : `risks ${formatGateCurrency(stop.riskAtTickStop)} on ${result.contracts} ${symbol}`,
+                        id: 'exact-risk-stop',
+                        label: 'Stop for the exact risk',
+                        value:
+                            stop === null
+                                ? NOT_APPLICABLE
+                                : `${formatPoints(stop.tickPoints)} pts`,
+                    },
+                    {
+                        caption:
+                            result.minStopAtCap === null
+                                ? 'none modeled for this plan and phase'
+                                : `the limit stops binding at a stop of at least ${formatPoints(result.minStopAtCap)} pts`,
+                        id: 'contract-limit',
+                        label: `${POSITION_SIZE_PHASE_LABELS[state.phase]} contract limit`,
+                        value:
+                            result.cap === null
+                                ? NOT_APPLICABLE
+                                : `${result.cap} ${symbol}`,
+                    },
+                    {
+                        caption: result.riskDisplay.label,
+                        id: 'risk-display',
+                        label: 'Risk, shown as',
+                        value: result.riskDisplay.text,
+                    },
+                ]}
+            />
             {result.riskDisplay.disclosure === null ? null : (
                 <p className="text-sm text-muted-foreground">
                     Fee equivalent: {result.riskDisplay.disclosure}.
@@ -564,15 +560,30 @@ function PositionSizeSummary({
 function PositionSizeUnavailable() {
     return (
         <div className="flex flex-col gap-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard label="Contracts" value={NOT_APPLICABLE} />
-                <StatCard label="Leftover" value={NOT_APPLICABLE} />
-                <StatCard
-                    label="Stop for the exact risk"
-                    value={NOT_APPLICABLE}
-                />
-                <StatCard label="Contract limit" value={NOT_APPLICABLE} />
-            </div>
+            <StatStrip
+                items={[
+                    {
+                        id: 'contracts',
+                        label: 'Contracts',
+                        value: NOT_APPLICABLE,
+                    },
+                    {
+                        id: 'leftover',
+                        label: 'Leftover',
+                        value: NOT_APPLICABLE,
+                    },
+                    {
+                        id: 'exact-risk-stop',
+                        label: 'Stop for the exact risk',
+                        value: NOT_APPLICABLE,
+                    },
+                    {
+                        id: 'contract-limit',
+                        label: 'Contract limit',
+                        value: NOT_APPLICABLE,
+                    },
+                ]}
+            />
             <p className="text-sm text-warning">{FIX_FIELD_TEXT}</p>
         </div>
     );

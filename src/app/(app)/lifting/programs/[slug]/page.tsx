@@ -14,6 +14,7 @@ import {
     loadOfficialPrograms,
     type ProgramRow,
 } from '~/lib/lifting/OfficialCatalog';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { loadOrNotFound } from '~/trpc/loadOrNotFound';
 import { api } from '~/trpc/server';
@@ -96,8 +97,13 @@ function ProgramOverview({
     return (
         <div className="flex flex-col gap-8">
             <LiftingDetailHeader
+                backLink={{ href: routes.lifting.programs, label: 'Programs' }}
                 description={program.description}
-                eyebrow={`${program.category} · ${String(program.daysPerWeek)}× / week · ${String(program.lengthWeeks)} weeks`}
+                meta={[
+                    program.category,
+                    `${String(program.daysPerWeek)}× / week`,
+                    `${String(program.lengthWeeks)} weeks`,
+                ]}
                 title={program.name}
             />
             {children}

@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, AlertDescription } from '~/components/ui/alert';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { Button } from '~/components/ui/button';
 
 import {
@@ -46,43 +46,42 @@ export function AppliedEvalLadderNotice({
         ? describeNonDefaultRungSizing(state.rungSizing)
         : null;
     return (
-        <Alert
-            className="app-prop-calculator__applied-eval-ladder flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
-            role="note"
-        >
-            <AlertDescription className="flex flex-col gap-1">
-                <p>
-                    <span className="text-muted-foreground">
-                        {NOTICE_LEADS[scope]}{' '}
-                    </span>
-                    <span className="font-medium text-foreground">
-                        {appliedLadder}
-                    </span>
-                </p>
-                {rungSizing !== null && (
-                    <p>
-                        <span className="text-muted-foreground">
-                            {UNAFFORDABLE_RUNG_LABEL}:{' '}
-                        </span>
+        <StatusRow
+            actions={
+                <Button
+                    aria-label="Clear the applied eval ladder"
+                    className="shrink-0"
+                    onClick={() => {
+                        onCleared?.();
+                        setEvalDayPolicy(null);
+                    }}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                >
+                    Clear
+                </Button>
+            }
+            className="app-prop-calculator__applied-eval-ladder"
+            detail={
+                rungSizing === null ? undefined : (
+                    <>
+                        {UNAFFORDABLE_RUNG_LABEL}:{' '}
                         <span className="font-medium text-foreground">
                             {rungSizing}
                         </span>
-                    </p>
-                )}
-            </AlertDescription>
-            <Button
-                aria-label="Clear the applied eval ladder"
-                className="shrink-0"
-                onClick={() => {
-                    onCleared?.();
-                    setEvalDayPolicy(null);
-                }}
-                size="sm"
-                type="button"
-                variant="outline"
-            >
-                Clear
-            </Button>
-        </Alert>
+                    </>
+                )
+            }
+            title={
+                <>
+                    <span className="font-normal text-muted-foreground">
+                        {NOTICE_LEADS[scope]}{' '}
+                    </span>
+                    {appliedLadder}
+                </>
+            }
+            tone={StatusTone.Neutral}
+        />
     );
 }

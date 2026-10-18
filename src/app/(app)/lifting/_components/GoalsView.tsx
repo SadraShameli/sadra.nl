@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
     differenceInCalendarDays,
     eachDayOfInterval,
-    format,
     getDay,
     isBefore,
     parseISO,
@@ -15,14 +14,11 @@ import {
     CalendarRange,
     Check,
     Flag,
-    type LucideIcon,
     Pause,
     Play,
     Plus,
     RotateCcw,
     Target,
-    Trash2,
-    Trophy,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useId, useMemo, useState } from 'react';
@@ -30,15 +26,19 @@ import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
+import {
+    deleteRowAction,
+    type RowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { StatStrip, StatTone } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Calendar } from '~/components/ui/calendar';
-import { Card, CardContent } from '~/components/ui/card';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
-    DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
@@ -56,13 +56,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from '~/components/ui/tooltip';
+import { formatDisplayDate } from '~/lib/format';
+import { localIsoDate } from '~/lib/lifting/date-range';
 import { WeightUnit } from '~/lib/lifting/format';
 import { type CreateGoalInput, goalInputSchema } from '~/lib/lifting/schemas';
 import {
@@ -89,26 +90,11 @@ const STATUS_FILTER = {
 
 const EXERCISE_NONE = '__none__';
 
-const STATUS_FILTER_VALUES = [
-    STATUS_FILTER.ALL,
-    ...GOAL_STATUS_VALUES,
-] as const;
-
-type StatusBadgeVariant =
-    'default' | 'destructive' | 'secondary' | 'success' | 'warning';
-
 const STATUS_LABEL: Record<GoalStatus, string> = {
     achieved: 'Achieved',
     active: 'Active',
     failed: 'Failed',
     paused: 'Paused',
-};
-
-const STATUS_BADGE: Record<GoalStatus, StatusBadgeVariant> = {
-    achieved: 'success',
-    active: 'default',
-    failed: 'destructive',
-    paused: 'warning',
 };
 
 const KIND_LABEL: Record<GoalKind, string> = {
@@ -145,6 +131,23 @@ const CALENDAR_MODIFIER_CLASS = {
     targetMissed:
         'bg-destructive/30 text-destructive hover:bg-destructive/40 rounded-md',
 } as const;
+
+interface CalendarMarkers {
+    achieved: Date[];
+    targetActive: Date[];
+    targetMissed: Date[];
+}
+
+interface HeatmapCell {
+    count: number;
+    date: string;
+    level: number;
+}
+
+interface HeatmapGrid {
+    hasAny: boolean;
+    weeks: (HeatmapCell | null)[][];
+}
 
 interface Stats {
     achieved: number;
@@ -246,7 +249,7 @@ export function GoalsView() {
             {
                 accessorKey: 'kind',
                 cell: ({ row }) => (
-                    <Badge className="capitalize" variant="outline">
+                    <Badge className="capitalize">
                         {KIND_LABEL[row.original.kind]}
                     </Badge>
                 ),
@@ -266,6 +269,7 @@ export function GoalsView() {
                     </span>
                 ),
                 header: 'Target',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (row) => row.exerciseId ?? EXERCISE_NONE,
@@ -303,9 +307,7 @@ export function GoalsView() {
             {
                 accessorKey: 'status',
                 cell: ({ row }) => (
-                    <Badge variant={STATUS_BADGE[row.original.status]}>
-                        {STATUS_LABEL[row.original.status]}
-                    </Badge>
+                    <Badge>{STATUS_LABEL[row.original.status]}</Badge>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Status',
@@ -315,10 +317,7 @@ export function GoalsView() {
                 accessorFn: (row) => new Date(row.createdAt).getTime(),
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {format(
-                            new Date(row.original.createdAt),
-                            'MMM d, yyyy',
-                        )}
+                        {formatDisplayDate(row.original.createdAt)}
                     </span>
                 ),
                 header: 'Created',
@@ -330,10 +329,7 @@ export function GoalsView() {
                 cell: ({ row }) =>
                     row.original.achievedAt ? (
                         <span className="text-xs text-success tabular-nums">
-                            {format(
-                                new Date(row.original.achievedAt),
-                                'MMM d, yyyy',
-                            )}
+                            {formatDisplayDate(row.original.achievedAt)}
                         </span>
                     ) : (
                         <span className="text-xs text-muted-foreground">-</span>
@@ -341,25 +337,25 @@ export function GoalsView() {
                 header: 'Achieved',
                 id: 'achieved',
             },
-            {
-                cell: ({ row }) => (
-                    <GoalActions
-                        busy={
-                            markAchieved.isPending ||
-                            update.isPending ||
-                            remove.isPending
-                        }
-                        goal={row.original}
-                        onAchieve={(id) => markAchieved.mutate({ id })}
-                        onDelete={(id) => remove.mutate({ id })}
-                        onStatus={setStatus}
-                    />
-                ),
-                enableSorting: false,
-                header: 'Actions',
-                id: 'actions',
-                meta: { align: DataTableAlign.End },
-            },
+            rowActionsColumn<GoalRow>({
+                actionsOf: (goal) => [
+                    ...goalStatusActions(goal, {
+                        onAchieve: () => markAchieved.mutate({ id: goal.id }),
+                        onStatus: (status) => setStatus(goal, status),
+                    }),
+                    deleteRowAction({
+                        description: 'This goal will be removed permanently.',
+                        onDelete: () => remove.mutate({ id: goal.id }),
+                        title: 'Delete goal?',
+                    }),
+                ],
+                isPendingOf: () =>
+                    markAchieved.isPending ||
+                    update.isPending ||
+                    remove.isPending,
+                labelOf: (goal) =>
+                    `${KIND_LABEL[goal.kind]} ${formatGoalTarget(goal.kind, goal.targetValue, unitWeight)}`,
+            }),
         ],
         [markAchieved, update, remove, setStatus, unitWeight],
     );
@@ -369,58 +365,47 @@ export function GoalsView() {
 
     return (
         <div className="flex flex-col gap-6">
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatCard
-                    icon={Target}
-                    label="Active"
-                    tone="default"
-                    value={stats.active}
-                />
-                <StatCard
-                    icon={Trophy}
-                    label="Achieved"
-                    sub={
-                        stats.total > 0
-                            ? `${achievementRate}% achievement rate`
-                            : undefined
-                    }
-                    tone="success"
-                    value={stats.achieved}
-                />
-                <StatCard
-                    icon={Flag}
-                    label="Failed"
-                    tone="destructive"
-                    value={stats.failed}
-                />
-                <StatCard
-                    icon={Pause}
-                    label="Paused"
-                    tone="warning"
-                    value={stats.paused}
-                />
-            </section>
+            <StatStrip
+                isLoading={goalsQuery.isLoading}
+                items={[
+                    {
+                        id: 'active',
+                        label: 'Active',
+                        value: stats.active,
+                    },
+                    {
+                        caption:
+                            stats.total > 0
+                                ? `${achievementRate}% achievement rate`
+                                : undefined,
+                        id: 'achieved',
+                        label: 'Achieved',
+                        tone: StatTone.Positive,
+                        value: stats.achieved,
+                    },
+                    {
+                        id: 'failed',
+                        label: 'Failed',
+                        tone: StatTone.Negative,
+                        value: stats.failed,
+                    },
+                    {
+                        id: 'paused',
+                        label: 'Paused',
+                        tone: StatTone.Warning,
+                        value: stats.paused,
+                    },
+                ]}
+            />
 
             {stats.total > 0 && (
-                <Card>
-                    <CardContent>
-                        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                            <span className="font-medium tracking-wide uppercase">
-                                Achievement rate
-                            </span>
-                            <span className="tabular-nums">
-                                {stats.achieved} / {stats.total} goals ·{' '}
-                                <span className="text-success">
-                                    {achievementRate}%
-                                </span>
-                            </span>
-                        </div>
-                        <Progress
-                            className="mt-3 h-2"
-                            value={achievementRate}
-                        />
-                    </CardContent>
-                </Card>
+                <ToolPanel contentClassName="gap-3" title="Achievement rate">
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                        {stats.achieved} / {stats.total} goals ·{' '}
+                        <span className="text-success">{achievementRate}%</span>
+                    </span>
+                    <Progress className="h-2" value={achievementRate} />
+                </ToolPanel>
             )}
 
             <ToolPanel title="New goal">
@@ -508,7 +493,7 @@ export function GoalsView() {
                                     minDate={startOfDay(new Date())}
                                     onChange={(d) =>
                                         field.onChange(
-                                            d ? format(d, 'yyyy-MM-dd') : null,
+                                            d ? localIsoDate(d) : null,
                                         )
                                     }
                                     value={
@@ -568,31 +553,6 @@ export function GoalsView() {
 
             <ToolPanel title="All goals">
                 <DataTable<GoalRow>
-                    belowFilter={(table) => (
-                        <>
-                            <DataTableFacetSelect
-                                column={table.getColumn('kind')}
-                                format={(k) => KIND_LABEL[k as GoalKind]}
-                                label="Kind"
-                                placeholder="All kinds"
-                            />
-                            <DataTableFacetSelect
-                                column={table.getColumn('exercise')}
-                                format={(id) =>
-                                    id === EXERCISE_NONE
-                                        ? 'Unassigned'
-                                        : (exerciseNameById.get(id) ?? id)
-                                }
-                                label="Exercise"
-                                placeholder="All exercises"
-                            />
-                            <DataTableDateRange
-                                column={table.getColumn('targetDate')}
-                                label="Target date"
-                                placeholder="Any target date"
-                            />
-                        </>
-                    )}
                     columns={columns}
                     data={goals}
                     emptyState={(table) => {
@@ -611,47 +571,37 @@ export function GoalsView() {
                             />
                         );
                     }}
-                    filterPosition="bottom"
-                    headerActions={(table) => {
-                        const statusColumn = table.getColumn('status');
-                        const statusFacets =
-                            statusColumn?.getFacetedUniqueValues() ??
-                            new Map<string, number>();
-                        const totalCount = statusFacets
-                            .values()
-                            .reduce((sum, n) => sum + n, 0);
-                        const currentStatus =
-                            (statusColumn?.getFilterValue() as
-                                GoalStatus | undefined) ?? STATUS_FILTER.ALL;
-                        return (
-                            <Tabs
-                                onValueChange={(v) =>
-                                    statusColumn?.setFilterValue(
-                                        v === STATUS_FILTER.ALL ? undefined : v,
-                                    )
+                    headerActions={(table) => (
+                        <>
+                            <DataTableFacetSelect
+                                column={table.getColumn('kind')}
+                                format={(k) => KIND_LABEL[k as GoalKind]}
+                                label="Kind"
+                                placeholder="All kinds"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('exercise')}
+                                format={(id) =>
+                                    id === EXERCISE_NONE
+                                        ? 'Unassigned'
+                                        : (exerciseNameById.get(id) ?? id)
                                 }
-                                value={currentStatus}
-                            >
-                                <TabsList className="flex h-auto w-fit flex-wrap self-start">
-                                    {STATUS_FILTER_VALUES.map((s) => (
-                                        <TabsTrigger key={s} value={s}>
-                                            <span className="capitalize">
-                                                {s === STATUS_FILTER.ALL
-                                                    ? 'All'
-                                                    : STATUS_LABEL[s]}
-                                            </span>
-                                            <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
-                                                {s === STATUS_FILTER.ALL
-                                                    ? totalCount
-                                                    : (statusFacets.get(s) ??
-                                                      0)}
-                                            </span>
-                                        </TabsTrigger>
-                                    ))}
-                                </TabsList>
-                            </Tabs>
-                        );
-                    }}
+                                label="Exercise"
+                                placeholder="All exercises"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('status')}
+                                format={goalStatusLabel}
+                                label="Status"
+                                placeholder="All statuses"
+                            />
+                            <DataTableDateRange
+                                column={table.getColumn('targetDate')}
+                                label="Target date"
+                                placeholder="Any target date"
+                            />
+                        </>
+                    )}
                     isLoading={goalsQuery.isLoading}
                     pageSize={10}
                     rowClassName={(r) =>
@@ -667,50 +617,12 @@ export function GoalsView() {
     );
 }
 
-function computeStats(goals: GoalRow[]): Stats {
-    const counts: Record<GoalStatus, number> = {
-        achieved: 0,
-        active: 0,
-        failed: 0,
-        paused: 0,
-    };
-    for (const g of goals) counts[g.status]++;
-    return { ...counts, total: goals.length };
-}
-
-const STAT_TONE: Record<
-    'default' | 'destructive' | 'success' | 'warning',
-    string
-> = {
-    default: 'text-primary',
-    destructive: 'text-destructive',
-    success: 'text-success',
-    warning: 'text-warning',
-};
-
-interface CalendarMarkers {
-    achieved: Date[];
-    targetActive: Date[];
-    targetMissed: Date[];
-}
-
-interface HeatmapCell {
-    count: number;
-    date: string;
-    level: number;
-}
-
-interface HeatmapGrid {
-    hasAny: boolean;
-    weeks: (HeatmapCell | null)[][];
-}
-
 function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
     return heatmap.hasAny ? (
         <TooltipProvider delayDuration={100}>
             <div className="flex h-full flex-col gap-2">
                 <div className="flex items-stretch gap-2">
-                    <div className="flex flex-col justify-between py-0.5 text-[10px] text-muted-foreground">
+                    <div className="flex flex-col justify-between py-0.5 type-micro text-muted-foreground">
                         {WEEKDAY_HINTS.map((d) => (
                             <span key={d}>{d}</span>
                         ))}
@@ -738,8 +650,8 @@ function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
                                                 className="text-xs"
                                                 side="top"
                                             >
-                                                {cell.date} · {cell.count}{' '}
-                                                achieved
+                                                {formatDisplayDate(cell.date)} ·{' '}
+                                                {cell.count} achieved
                                             </TooltipContent>
                                         </Tooltip>
                                     ) : (
@@ -753,7 +665,7 @@ function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
                         ))}
                     </div>
                 </div>
-                <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
+                <div className="flex items-center justify-end gap-1 type-micro text-muted-foreground">
                     <span>Less</span>
                     {HEAT_LEVEL_CLASS.map((c, index) => (
                         <span
@@ -803,7 +715,7 @@ function buildHeatmap(goals: GoalRow[]): HeatmapGrid {
         if (!g.achievedAt) continue;
         const d = startOfDay(new Date(g.achievedAt));
         if (isBefore(d, start)) continue;
-        const key = format(d, 'yyyy-MM-dd');
+        const key = localIsoDate(d);
         byDate.set(key, (byDate.get(key) ?? 0) + 1);
     }
 
@@ -820,7 +732,7 @@ function buildHeatmap(goals: GoalRow[]): HeatmapGrid {
     const cells: (HeatmapCell | null)[] = [];
     for (let index = 0; index < padDays; index++) cells.push(null);
     for (const d of days) {
-        const key = format(d, 'yyyy-MM-dd');
+        const key = localIsoDate(d);
         const count = byDate.get(key) ?? 0;
         cells.push({ count, date: key, level: levelFor(count) });
     }
@@ -834,7 +746,7 @@ function buildHeatmap(goals: GoalRow[]): HeatmapGrid {
 
 function CalendarLegend() {
     return (
-        <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-center gap-3 type-micro text-muted-foreground">
             <LegendDot className="bg-success/60" label="Achieved" />
             <LegendDot className="bg-warning/60" label="Target upcoming" />
             <LegendDot className="bg-destructive/60" label="Target overdue" />
@@ -842,118 +754,77 @@ function CalendarLegend() {
     );
 }
 
-function GoalActions({
-    busy,
-    goal,
-    onAchieve,
-    onDelete,
-    onStatus,
-}: {
-    busy: boolean;
-    goal: GoalRow;
-    onAchieve: (id: string) => void;
-    onDelete: (id: string) => void;
-    onStatus: (goal: GoalRow, status: GoalStatus) => void;
-}) {
-    return (
-        <TooltipProvider delayDuration={100}>
-            <div className="flex items-center justify-end gap-1">
-                {goal.status === GOAL_STATUS.ACTIVE && (
-                    <>
-                        <IconAction
-                            disabled={busy}
-                            icon={Check}
-                            iconClass="text-success"
-                            label="Mark achieved"
-                            onClick={() => onAchieve(goal.id)}
-                        />
-                        <IconAction
-                            disabled={busy}
-                            icon={Pause}
-                            iconClass="text-warning"
-                            label="Pause"
-                            onClick={() => onStatus(goal, GOAL_STATUS.PAUSED)}
-                        />
-                        <IconAction
-                            disabled={busy}
-                            icon={Flag}
-                            iconClass="text-destructive"
-                            label="Mark failed"
-                            onClick={() => onStatus(goal, GOAL_STATUS.FAILED)}
-                        />
-                    </>
-                )}
-                {goal.status === GOAL_STATUS.PAUSED && (
-                    <IconAction
-                        disabled={busy}
-                        icon={Play}
-                        iconClass="text-success"
-                        label="Resume"
-                        onClick={() => onStatus(goal, GOAL_STATUS.ACTIVE)}
-                    />
-                )}
-                {(goal.status === GOAL_STATUS.ACHIEVED ||
-                    goal.status === GOAL_STATUS.FAILED) && (
-                    <IconAction
-                        disabled={busy}
-                        icon={RotateCcw}
-                        iconClass="text-muted-foreground"
-                        label="Reopen"
-                        onClick={() => onStatus(goal, GOAL_STATUS.ACTIVE)}
-                    />
-                )}
-                <ConfirmDialog
-                    confirmLabel="Delete"
-                    description="This goal will be removed permanently."
-                    onConfirm={() => onDelete(goal.id)}
-                    title="Delete goal?"
-                    tooltip="Delete"
-                >
-                    <Button
-                        aria-label="Delete goal"
-                        className="size-8 p-0"
-                        disabled={busy}
-                        type="button"
-                        variant="ghost"
-                    >
-                        <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                </ConfirmDialog>
-            </div>
-        </TooltipProvider>
-    );
+function computeStats(goals: GoalRow[]): Stats {
+    const counts: Record<GoalStatus, number> = {
+        achieved: 0,
+        active: 0,
+        failed: 0,
+        paused: 0,
+    };
+    for (const g of goals) counts[g.status]++;
+    return { ...counts, total: goals.length };
 }
 
-function IconAction({
-    disabled,
-    icon: Icon,
-    iconClass,
-    label,
-    onClick,
-}: {
-    disabled: boolean;
-    icon: LucideIcon;
-    iconClass: string;
-    label: string;
-    onClick: () => void;
-}) {
-    return (
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <Button
-                    aria-label={label}
-                    className="size-8 p-0"
-                    disabled={disabled}
-                    onClick={onClick}
-                    type="button"
-                    variant="ghost"
-                >
-                    <Icon className={cn('size-4', iconClass)} />
-                </Button>
-            </TooltipTrigger>
-            <TooltipContent>{label}</TooltipContent>
-        </Tooltip>
-    );
+function goalStatusActions(
+    goal: GoalRow,
+    {
+        onAchieve,
+        onStatus,
+    }: {
+        onAchieve: () => void;
+        onStatus: (status: GoalStatus) => void;
+    },
+): RowAction[] {
+    switch (goal.status) {
+        case GOAL_STATUS.ACHIEVED:
+        case GOAL_STATUS.FAILED: {
+            return [
+                {
+                    icon: RotateCcw,
+                    kind: RowActionKind.Select,
+                    label: 'Reopen',
+                    onSelect: () => onStatus(GOAL_STATUS.ACTIVE),
+                },
+            ];
+        }
+        case GOAL_STATUS.ACTIVE: {
+            return [
+                {
+                    icon: Check,
+                    kind: RowActionKind.Select,
+                    label: 'Mark achieved',
+                    onSelect: onAchieve,
+                },
+                {
+                    icon: Pause,
+                    kind: RowActionKind.Select,
+                    label: 'Pause',
+                    onSelect: () => onStatus(GOAL_STATUS.PAUSED),
+                },
+                {
+                    icon: Flag,
+                    kind: RowActionKind.Select,
+                    label: 'Mark failed',
+                    onSelect: () => onStatus(GOAL_STATUS.FAILED),
+                },
+            ];
+        }
+        case GOAL_STATUS.PAUSED: {
+            return [
+                {
+                    icon: Play,
+                    kind: RowActionKind.Select,
+                    label: 'Resume',
+                    onSelect: () => onStatus(GOAL_STATUS.ACTIVE),
+                },
+            ];
+        }
+    }
+}
+
+function goalStatusLabel(value: string): string {
+    const status = GOAL_STATUS_VALUES.find((candidate) => candidate === value);
+    return status === undefined ? value : STATUS_LABEL[status];
 }
 
 function LegendDot({ className, label }: { className: string; label: string }) {
@@ -962,41 +833,6 @@ function LegendDot({ className, label }: { className: string; label: string }) {
             <span className={cn('size-2.5 rounded-sm', className)} />
             {label}
         </span>
-    );
-}
-
-function StatCard({
-    icon: Icon,
-    label,
-    sub,
-    tone,
-    value,
-}: {
-    icon: LucideIcon;
-    label: string;
-    sub?: string;
-    tone: keyof typeof STAT_TONE;
-    value: number;
-}) {
-    return (
-        <Card className="gap-1 py-4">
-            <CardContent>
-                <div className="flex items-center gap-2">
-                    <Icon className={cn('size-4', STAT_TONE[tone])} />
-                    <span className="text-xs text-muted-foreground">
-                        {label}
-                    </span>
-                </div>
-                <p className="mt-2 text-2xl font-bold text-foreground tabular-nums">
-                    {value}
-                </p>
-                {sub && (
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">
-                        {sub}
-                    </p>
-                )}
-            </CardContent>
-        </Card>
     );
 }
 
@@ -1012,7 +848,7 @@ function TargetDateCell({
     if (status !== GOAL_STATUS.ACTIVE) {
         return (
             <span className="text-xs text-muted-foreground tabular-nums">
-                {targetDate}
+                {formatDisplayDate(targetDate)}
             </span>
         );
     }
@@ -1033,8 +869,10 @@ function TargetDateCell({
               : `${Math.abs(diff)}d overdue`;
     return (
         <span className="flex flex-col text-xs tabular-nums">
-            <span className="text-muted-foreground">{targetDate}</span>
-            <span className={cn('text-[10px]', tone)}>{label}</span>
+            <span className="text-muted-foreground">
+                {formatDisplayDate(targetDate)}
+            </span>
+            <span className={cn('type-micro', tone)}>{label}</span>
         </span>
     );
 }

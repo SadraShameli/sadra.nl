@@ -26,6 +26,8 @@ import {
     liveTransferSentLiveText,
 } from '~/lib/prop-calculator/simulator';
 
+import { withInfoTexts } from '../infoPopover';
+
 const USER_ID = 'user-a';
 const ACCOUNT_ID = 'account-a';
 
@@ -571,7 +573,9 @@ describe('AdvicePanel live-transfer disclosure (PT-73f)', () => {
 
         readyWith(valuesWithLiveTransfer(risk));
 
-        const text = sectionOf('What the next trade does to value').textContent;
+        const text = withInfoTexts(
+            sectionOf('What the next trade does to value'),
+        );
         expect(text).toContain(HAZARD_LINE);
         expect(text).toContain(
             liveTransferSentLiveText(LIVE_TRANSFER.sentLiveShare),
@@ -584,7 +588,9 @@ describe('AdvicePanel live-transfer disclosure (PT-73f)', () => {
 
         readyWith(valuesFor(risk));
 
-        const text = sectionOf('What the next trade does to value').textContent;
+        const text = withInfoTexts(
+            sectionOf('What the next trade does to value'),
+        );
         expect(text).toContain(HAZARD_LINE);
         expect(text).not.toContain('of runs are sent live');
     });
@@ -603,7 +609,7 @@ describe('AdvicePanel live-transfer disclosure (PT-73f)', () => {
         });
 
         expect(
-            sectionOf('What the next trade does to value').textContent,
+            withInfoTexts(sectionOf('What the next trade does to value')),
         ).toContain(advisorLib.assumptionText(PRICED_TRIGGER));
     });
 
@@ -614,7 +620,7 @@ describe('AdvicePanel live-transfer disclosure (PT-73f)', () => {
         readyWith(valuesFor(risk));
 
         expect(
-            sectionOf('What the next trade does to value').textContent,
+            withInfoTexts(sectionOf('What the next trade does to value')),
         ).not.toContain('confirmed trigger');
     });
 
@@ -652,10 +658,10 @@ describe('AdvicePanel live-transfer disclosure (PT-73f)', () => {
 
         readyWith(valuesWithLiveTransfer(risk, 0.5));
 
-        const nextTrade = sectionOf(
-            'What the next trade does to value',
-        ).textContent;
-        const candidates = sectionOf('One-step risk candidates').textContent;
+        const nextTrade = withInfoTexts(
+            sectionOf('What the next trade does to value'),
+        );
+        const candidates = withInfoTexts(sectionOf('One-step risk candidates'));
         expect(nextTrade).toContain(liveTransferSentLiveText(0.37));
         expect(nextTrade).not.toContain(liveTransferSentLiveText(0.5));
         expect(candidates).toContain(liveTransferSentLiveText(0.5));
@@ -668,7 +674,7 @@ describe('AdvicePanel live-transfer disclosure (PT-73f)', () => {
 
         readyWith(valuesWithLiveTransfer(risk, 0.5));
 
-        const text = sectionOf('One-step risk candidates').textContent;
+        const text = withInfoTexts(sectionOf('One-step risk candidates'));
         expect(text.split(HAZARD_LINE)).toHaveLength(2);
         expect(text).toContain('Value runs:');
     });
@@ -679,7 +685,7 @@ describe('AdvicePanel live-transfer disclosure (PT-73f)', () => {
 
         readyWith(valuesFor(risk));
 
-        const text = sectionOf('One-step risk candidates').textContent;
+        const text = withInfoTexts(sectionOf('One-step risk candidates'));
         expect(text.split(HAZARD_LINE)).toHaveLength(2);
     });
 

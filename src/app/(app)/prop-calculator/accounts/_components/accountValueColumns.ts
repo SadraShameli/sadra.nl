@@ -16,7 +16,12 @@ import {
     estimateCurrency,
     estimatePercent,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/uncertainText';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import {
+    formatCurrency,
+    formatDisplayDate,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import {
     AdviceUnavailableReason,
     sampleAdequacy,
@@ -316,7 +321,7 @@ function adviceActionOf(advice: Advice): NextActionView {
             return actionView(
                 action,
                 advice.staleness.kind === AdviceStalenessKind.Stale
-                    ? `The latest snapshot (${advice.staleness.snapshotAsOf}) is out of date.`
+                    ? `The latest snapshot (${formatDisplayDate(advice.staleness.snapshotAsOf)}) is out of date.`
                     : null,
             );
         }

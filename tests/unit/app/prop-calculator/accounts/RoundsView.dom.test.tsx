@@ -30,6 +30,9 @@ import {
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
+import { typeInto } from '../../../components/formDialog';
+import { infoText } from '../infoPopover';
+
 interface FakeQuery {
     data: unknown;
     error: null | { message: string };
@@ -312,16 +315,6 @@ async function submitForm(scope: ParentNode) {
             new Event('submit', { bubbles: true, cancelable: true }),
         );
         await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-}
-
-function typeInto(target: HTMLInputElement, value: string) {
-    act(() => {
-        Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            'value',
-        )?.set?.call(target, value);
-        target.dispatchEvent(new Event('input', { bubbles: true }));
     });
 }
 
@@ -949,14 +942,14 @@ describe('RoundsView', () => {
         );
         expect(headers).toContain('Closed');
         const cells = Array.from(
-            table.querySelectorAll(':scope tbody tr td'),
+            table.querySelectorAll(':scope tbody tr > :is(th, td)'),
             (cell) => cell.textContent,
         );
         expect(cells.slice(0, 3)).toEqual([FIRST_FIRM.displayName, '2', '1']);
         expect(cells).toContain('2.00x');
         expect(cells).not.toContain('0.00x');
         expect(table.textContent).toContain('n = 1)');
-        expect(container.textContent).toContain(
+        expect(infoText(container, 'Rounds by firm')).toContain(
             'Multiples and share positive use closed rounds only',
         );
     });

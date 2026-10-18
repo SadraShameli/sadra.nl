@@ -3,6 +3,7 @@
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_BAR_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
@@ -72,8 +73,8 @@ export default function AccountsPassedDistributionChart({
                     />
                 )}
                 <Bar
+                    {...CHART_BAR_PROPS}
                     dataKey="p"
-                    isAnimationActive={false}
                     shape={(properties: unknown) => {
                         const {
                             height = 0,

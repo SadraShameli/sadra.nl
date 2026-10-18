@@ -10,6 +10,8 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { PooledCapCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/PooledCapCard';
 
+import { infoText } from '../infoPopover';
+
 const POOLED: PooledCapCardModel = {
     countingNote: 'Active and suspended funded accounts count toward a cap.',
     disclosure:
@@ -119,7 +121,7 @@ describe('PooledCapCard and LiveProximityCard', () => {
 
     function rowTexts(): string[] {
         return [...container.querySelectorAll(':scope tbody tr')].map((row) =>
-            [...row.querySelectorAll('td')]
+            [...row.querySelectorAll('th, td')]
                 .map((cell) => cell.textContent)
                 .join('|'),
         );
@@ -133,12 +135,14 @@ describe('PooledCapCard and LiveProximityCard', () => {
             'Firm A 50K|Shared pool|4|5|0|0|',
             'Firm B 100K|Cap scope unverified|1|5|Unverified|4|',
         ]);
-        expect(container.textContent).toContain(POOLED.countingNote);
+        expect(infoText(container, 'Pooled caps')).toContain(
+            POOLED.countingNote,
+        );
         const list = container.querySelector(
             '[aria-label="Firms with an unverified cap scope"]',
         );
         expect(list?.textContent).toBe('Firm B: cap scope unverified');
-        expect(container.textContent).toContain(POOLED.disclosure);
+        expect(infoText(container, 'Pooled caps')).toContain(POOLED.disclosure);
     });
 
     it('says no plan is in use and lists no unverified firm when there are no rows', () => {
@@ -173,7 +177,9 @@ describe('PooledCapCard and LiveProximityCard', () => {
                 />,
             );
         });
-        expect(container.textContent).toContain('Firm A counts a household.');
+        expect(infoText(container, 'Pooled caps')).toContain(
+            'Firm A counts a household.',
+        );
     });
 
     it('shows a firm total, a per-account distance, the single-day quote and the unlisted note, never a number for an unverified firm', () => {
@@ -193,11 +199,13 @@ describe('PooledCapCard and LiveProximityCard', () => {
         );
         expect(facts?.textContent).toContain('a synthetic firm quote');
         expect(facts?.textContent).toContain('https://example.test/policy');
-        expect(facts?.textContent).toContain('checked 2026-09-03');
-        expect(container.textContent).toContain(
+        expect(facts?.textContent).toContain('checked 3 Sep 2026');
+        expect(infoText(container, 'Live proximity')).toContain(
             PROXIMITY.unmeasuredNote ?? 'missing',
         );
-        expect(container.textContent).toContain(PROXIMITY.disclosure);
+        expect(infoText(container, 'Live proximity')).toContain(
+            PROXIMITY.disclosure,
+        );
         expect(container.textContent).toContain(
             PROXIMITY.unlistedNote ?? 'missing',
         );

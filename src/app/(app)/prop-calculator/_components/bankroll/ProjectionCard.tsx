@@ -3,9 +3,10 @@
 import { useCallback, useMemo } from 'react';
 import { Area, ComposedChart, Line, XAxis, YAxis } from 'recharts';
 
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import {
     CHART_STROKE_WIDTH,
     CHART_X_AXIS_PROPS,
@@ -229,36 +230,41 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
                     state={worker.state}
                 />
             ) : (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatCard
-                        label="Path ruin"
-                        value={formatPercent(summary.pathRuin)}
-                    />
-                    <StatCard
-                        label="P(final net < 0)"
-                        value={formatPercent(summary.pFinalNetNegative)}
-                    />
-                    <StatCard
-                        label="Cards bought (median)"
-                        value={summary.cardsBoughtMedian.toFixed(1)}
-                    />
-                    <StatCard
-                        label="Multiple (P50 cash / start)"
-                        value={
-                            summary.multiple === null
-                                ? NOT_APPLICABLE
-                                : `${summary.multiple.toFixed(2)}x`
-                        }
-                    />
-                    <StatCard
-                        label="Measured cycle days"
-                        value={
-                            summary.measuredCycleDays === null
-                                ? NOT_APPLICABLE
-                                : summary.measuredCycleDays.toFixed(1)
-                        }
-                    />
-                </div>
+                <StatStrip
+                    items={[
+                        {
+                            id: 'path-ruin',
+                            label: 'Path ruin',
+                            value: formatPercent(summary.pathRuin),
+                        },
+                        {
+                            id: 'final-net-negative',
+                            label: 'P(final net < 0)',
+                            value: formatPercent(summary.pFinalNetNegative),
+                        },
+                        {
+                            id: 'cards-bought',
+                            label: 'Cards bought (median)',
+                            value: summary.cardsBoughtMedian.toFixed(1),
+                        },
+                        {
+                            id: 'multiple',
+                            label: 'Multiple (P50 cash / start)',
+                            value:
+                                summary.multiple === null
+                                    ? NOT_APPLICABLE
+                                    : `${summary.multiple.toFixed(2)}x`,
+                        },
+                        {
+                            id: 'measured-cycle-days',
+                            label: 'Measured cycle days',
+                            value:
+                                summary.measuredCycleDays === null
+                                    ? NOT_APPLICABLE
+                                    : summary.measuredCycleDays.toFixed(1),
+                        },
+                    ]}
+                />
             )}
             {projection === null ? null : (
                 <MonthEndBands monthEnds={projection.monthEnds} />
@@ -290,9 +296,9 @@ function MonthEndBands({
     }));
     return (
         <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-foreground">
+            <PanelSubheading>
                 Bankroll at each month end (P10 to P90)
-            </h3>
+            </PanelSubheading>
             <ChartContainer
                 className="app-prop-calculator__bankroll-month-end-chart"
                 config={monthEndChartConfig}
@@ -356,6 +362,7 @@ function MonthEndBands({
                         ),
                         header: 'Month',
                         id: ProjectionCardColumn.Month,
+                        meta: { isRowHeader: true },
                     },
                     {
                         cell: ({ row }) => (

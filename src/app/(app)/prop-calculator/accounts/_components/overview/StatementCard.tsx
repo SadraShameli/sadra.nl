@@ -5,10 +5,12 @@ import { memo } from 'react';
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
-import { NOT_APPLICABLE } from '~/lib/format';
+import { formatDisplayMonth, NOT_APPLICABLE } from '~/lib/format';
 
 import { MonthlyPayoutChart } from './MonthlyPayoutChart';
 import { type StatementCardModel } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 import { PurchaseCohortsView } from './PurchaseCohortsView';
 
 enum StatementCardColumn {
@@ -35,11 +37,16 @@ export const StatementCard = memo(function StatementCard({
     readonly model: StatementCardModel;
 }) {
     return model.months.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-            No fee, payout or event recorded yet.
-        </p>
+        <OverviewPanel section={OverviewSectionId.Statement}>
+            <p className="text-sm text-muted-foreground">
+                No fee, payout or event recorded yet.
+            </p>
+        </OverviewPanel>
     ) : (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={model.caveat}
+            section={OverviewSectionId.Statement}
+        >
             <PanelErrorBoundary section="Monthly payout chart">
                 <MonthlyPayoutChart
                     points={model.chart}
@@ -69,8 +76,7 @@ export const StatementCard = memo(function StatementCard({
                     </PanelErrorBoundary>
                 </TabsContent>
             </Tabs>
-            <p className="text-xs text-muted-foreground">{model.caveat}</p>
-        </div>
+        </OverviewPanel>
     );
 });
 
@@ -81,7 +87,7 @@ function CashByMonthTable({ model }: { readonly model: StatementCardModel }) {
                 {
                     cell: ({ row }) => (
                         <span className="tabular-nums">
-                            {row.original.month}
+                            {formatDisplayMonth(row.original.month)}
                             {row.original.isPartial && (
                                 <span className="ml-1 text-xs text-muted-foreground">
                                     (partial)
@@ -91,6 +97,7 @@ function CashByMonthTable({ model }: { readonly model: StatementCardModel }) {
                     ),
                     header: 'Month',
                     id: StatementCardColumn.Month,
+                    meta: { isRowHeader: true },
                 },
                 {
                     cell: ({ row }) => <>{row.original.spend}</>,

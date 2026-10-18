@@ -93,7 +93,7 @@ describe('CooldownActiveRule', () => {
             kind: AlertSubjectKind.Account,
             label: account.label,
         });
-        expect(alert?.message).toContain('2026-09-10');
+        expect(alert?.message).toContain('10 Sep 2026');
     });
 
     it('gives an info notice once the cooldown window has just ended', () => {

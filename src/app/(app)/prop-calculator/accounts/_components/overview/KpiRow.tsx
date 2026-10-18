@@ -1,43 +1,25 @@
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
+import { StatStrip, StatTone } from '~/components/StatStrip';
 
 import { KpiTone, type OverviewKpi } from './overviewModel';
 
+const STAT_TONE: Readonly<Record<KpiTone, StatTone>> = {
+    [KpiTone.Negative]: StatTone.Negative,
+    [KpiTone.Neutral]: StatTone.Default,
+    [KpiTone.Pending]: StatTone.Muted,
+    [KpiTone.Positive]: StatTone.Positive,
+};
+
 export function KpiRow({ kpis }: { readonly kpis: readonly OverviewKpi[] }) {
     return (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            {kpis.map((kpi) => (
-                <StatCard
-                    key={kpi.kind}
-                    label={kpi.label}
-                    sub={subOf(kpi)}
-                    value={kpi.value}
-                    valueClassName={toneClassName(kpi.tone)}
-                />
-            ))}
-        </div>
+        <StatStrip
+            items={kpis.map((kpi) => ({
+                caption: kpi.detail ?? undefined,
+                id: kpi.kind,
+                info: kpi.note ?? undefined,
+                label: kpi.label,
+                tone: STAT_TONE[kpi.tone],
+                value: kpi.value,
+            }))}
+        />
     );
-}
-
-function subOf(kpi: OverviewKpi): string | undefined {
-    const parts = [kpi.detail, kpi.note].filter(
-        (part): part is string => part !== null,
-    );
-    return parts.length === 0 ? undefined : parts.join('; ');
-}
-
-function toneClassName(tone: KpiTone): string | undefined {
-    switch (tone) {
-        case KpiTone.Negative: {
-            return 'text-destructive';
-        }
-        case KpiTone.Neutral: {
-            return undefined;
-        }
-        case KpiTone.Pending: {
-            return 'text-muted-foreground';
-        }
-        case KpiTone.Positive: {
-            return 'text-success';
-        }
-    }
 }

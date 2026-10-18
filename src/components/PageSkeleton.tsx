@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 
 import { ToolPanel } from '~/components/ToolPanel';
-import { Card, CardContent, CardHeader } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utilities';
 
@@ -16,33 +16,14 @@ export function CardSkeleton({
 }) {
     return (
         <Card className={className}>
-            <CardHeader>
-                <Skeleton className="h-4 w-32" />
-            </CardHeader>
             <CardContent className="flex flex-col gap-3">
+                <Skeleton className="mb-3 h-6 w-40" />
                 {Array.from({ length: rows }, (_, index) => (
                     <Skeleton
                         className={cn('h-9 w-full', rowClassName)}
                         key={index}
                     />
                 ))}
-            </CardContent>
-        </Card>
-    );
-}
-
-export function LabelledStatSkeleton({
-    className,
-    label,
-}: {
-    readonly className?: string;
-    readonly label: ReactNode;
-}) {
-    return (
-        <Card className={cn('gap-2 py-4', className)}>
-            <CardContent>
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <Skeleton className="mt-1 h-8 w-16" />
             </CardContent>
         </Card>
     );

@@ -23,6 +23,7 @@ import {
     DataTableAlign,
     type DataTableColumn,
     dataTableFeatures,
+    DataTablePhoneLayout,
     type DataTableRow,
     type DataTableServerPagination,
     type DataTableSlot,
@@ -37,7 +38,7 @@ import {
     TableBody,
     TableCaption,
     TableCell,
-    TableFooter,
+    TableGroupHeader,
     TableHead,
     TableHeader,
     TableRow,
@@ -49,8 +50,10 @@ export {
     DataTableAlign,
     type DataTableColumn,
     type DataTableColumnMeta,
+    type DataTableCore,
     DataTableFilterFunction,
     type DataTableInstance,
+    DataTablePhoneLayout,
     type DataTableRow,
     type DataTableServerPagination,
     type DataTableSlot,
@@ -59,6 +62,26 @@ export {
 } from '~/components/ui/data-table.features';
 
 const DATA_TABLE_ROW_HEIGHT_REM = 2.25;
+
+const PHONE_CARD_CLASS = {
+    actionsCell: 'max-md:absolute max-md:top-3 max-md:right-3 max-md:p-0',
+    body: 'max-md:flex max-md:flex-col max-md:gap-3 max-md:[&_tr:last-child]:border',
+    container: 'max-md:overflow-visible',
+    fullRow: 'max-md:block max-md:border-0 max-md:bg-transparent',
+    fullRowCell: 'max-md:block max-md:px-0',
+    header: 'max-md:hidden',
+    hidden: 'max-md:hidden',
+    labelledCell:
+        'max-md:flex max-md:flex-wrap max-md:items-baseline max-md:justify-between max-md:gap-x-4 max-md:gap-y-0.5 max-md:p-0 max-md:text-right max-md:break-words max-md:[&>*]:ml-auto max-md:[&>*]:max-w-full max-md:[&>*]:min-w-0 max-md:before:max-w-full max-md:before:text-left max-md:before:type-micro max-md:before:text-ink-muted max-md:before:content-[attr(data-label)]',
+    plainCell:
+        'max-md:block max-md:min-w-0 max-md:p-0 max-md:text-left max-md:break-words',
+    row: 'max-md:relative max-md:flex max-md:flex-col max-md:gap-2 max-md:rounded-lg max-md:border max-md:border-line max-md:bg-card max-md:p-4',
+    rowHeaderCell:
+        'max-md:order-first max-md:block max-md:p-0 max-md:pr-10 max-md:text-left max-md:font-medium max-md:text-ink',
+    table: 'max-md:block max-md:min-w-0 max-md:whitespace-normal',
+    wrapper:
+        'max-md:overflow-visible max-md:rounded-none max-md:border-0 max-md:bg-transparent',
+} as const;
 
 type DataTableSearch = {
     readonly onChange: (value: string) => void;
@@ -82,7 +105,6 @@ export type DataTableProperties<TData extends RowData> = {
     emptyState?: DataTableSlot<TData>;
     filterPlaceholder?: string;
     filterPosition?: 'bottom' | 'top';
-    footer?: DataTableSlot<TData>;
     getRowCanExpand?: (row: DataTableRow<TData>) => boolean;
     hasExternalFilters?: boolean;
     headerActions?: DataTableSlot<TData>;
@@ -95,6 +117,7 @@ export type DataTableProperties<TData extends RowData> = {
     onRowSelectionChange?: (rows: TData[]) => void;
     onSortingChange?: (sorting: SortingState) => void;
     pageSize?: null | number;
+    phoneLayout?: DataTablePhoneLayout;
     regionLabel?: string;
     renderExpanded?: (row: DataTableRow<TData>) => React.ReactNode;
     rowClassName?: (row: TData) => string | undefined;
@@ -121,7 +144,6 @@ export function DataTable<TData extends RowData>({
     emptyState,
     filterPlaceholder = 'Search…',
     filterPosition = 'top',
-    footer,
     getRowCanExpand,
     hasExternalFilters = false,
     headerActions,
@@ -134,6 +156,7 @@ export function DataTable<TData extends RowData>({
     onRowSelectionChange,
     onSortingChange,
     pageSize = 10,
+    phoneLayout = DataTablePhoneLayout.Cards,
     regionLabel,
     renderExpanded,
     rowClassName,
@@ -198,6 +221,7 @@ export function DataTable<TData extends RowData>({
         },
     });
 
+    const isCards = phoneLayout === DataTablePhoneLayout.Cards;
     const colCount = table.getVisibleLeafColumns().length;
     const pageRows = table.getRowModel().rows;
     const loadedRowCount = table.getCoreRowModel().rows.length;
@@ -230,6 +254,7 @@ export function DataTable<TData extends RowData>({
 
     const searchField = showFilter ? (
         <Input
+            aria-label={filterPlaceholder}
             className={SEARCH_FIELD_CLASS}
             onChange={(event) => changeSearch(event.target.value)}
             placeholder={filterPlaceholder}
@@ -258,20 +283,29 @@ export function DataTable<TData extends RowData>({
                         {searchField}
                         {clearFilters}
                         {toolbarEnd === undefined ? null : (
-                            <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {toolbarEnd}
                             </div>
                         )}
                     </div>
                 ))}
-            <div className="w-full min-w-0 overflow-hidden rounded-lg border border-line bg-background">
+            <div
+                className={cn(
+                    'w-full min-w-0 overflow-hidden rounded-lg border border-line bg-background',
+                    isCards && PHONE_CARD_CLASS.wrapper,
+                )}
+            >
                 <Table
                     aria-label={ariaLabel}
                     aria-labelledby={labelledBy}
                     className={cn(
                         'min-w-max whitespace-nowrap',
+                        isCards && PHONE_CARD_CLASS.table,
                         tableClassName,
                     )}
+                    containerClassName={
+                        isCards ? PHONE_CARD_CLASS.container : undefined
+                    }
                     containerProps={
                         labelledBy === undefined && regionLabel === undefined
                             ? undefined
@@ -288,7 +322,11 @@ export function DataTable<TData extends RowData>({
                             {caption}
                         </TableCaption>
                     )}
-                    <TableHeader>
+                    <TableHeader
+                        className={
+                            isCards ? PHONE_CARD_CLASS.header : undefined
+                        }
+                    >
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => {
@@ -358,11 +396,17 @@ export function DataTable<TData extends RowData>({
                             </TableRow>
                         ))}
                     </TableHeader>
-                    <TableBody key={isLoading ? 'skeleton' : 'data'}>
+                    <TableBody
+                        className={isCards ? PHONE_CARD_CLASS.body : undefined}
+                        key={isLoading ? 'skeleton' : 'data'}
+                    >
                         {isLoading ? (
                             Array.from({ length: skeletonRows }, (_, index) => (
                                 <TableRow
-                                    className="animate-in duration-500 fade-in-0 fill-mode-both"
+                                    className={cn(
+                                        'animate-in duration-500 fade-in-0 fill-mode-both',
+                                        isCards && PHONE_CARD_CLASS.row,
+                                    )}
                                     key={`skeleton-${index}`}
                                     style={{
                                         animationDelay: `${index * 50}ms`,
@@ -371,7 +415,14 @@ export function DataTable<TData extends RowData>({
                                     {Array.from(
                                         { length: colCount },
                                         (_unused, index) => (
-                                            <TableCell key={index}>
+                                            <TableCell
+                                                className={
+                                                    isCards
+                                                        ? PHONE_CARD_CLASS.plainCell
+                                                        : undefined
+                                                }
+                                                key={index}
+                                            >
                                                 <Skeleton className="h-4 w-full" />
                                             </TableCell>
                                         ),
@@ -379,9 +430,17 @@ export function DataTable<TData extends RowData>({
                                 </TableRow>
                             ))
                         ) : pageRows.length === 0 ? (
-                            <TableRow className="animate-in duration-500 fade-in-0 fill-mode-both hover:bg-transparent">
+                            <TableRow
+                                className={cn(
+                                    'animate-in duration-500 fade-in-0 fill-mode-both hover:bg-transparent',
+                                    isCards && PHONE_CARD_CLASS.row,
+                                )}
+                            >
                                 <TableCell
-                                    className="p-0"
+                                    className={cn(
+                                        'p-0',
+                                        isCards && PHONE_CARD_CLASS.plainCell,
+                                    )}
                                     colSpan={colCount}
                                     style={
                                         reservedRows > 0
@@ -407,15 +466,23 @@ export function DataTable<TData extends RowData>({
                                 ) {
                                     return (
                                         <TableRow
-                                            className="border-t bg-muted/30 hover:bg-muted/30"
+                                            className={cn(
+                                                'border-t bg-muted/30 hover:bg-muted/30',
+                                                isCards &&
+                                                    PHONE_CARD_CLASS.fullRow,
+                                            )}
                                             key={row.id}
                                         >
-                                            <TableHead
+                                            <TableGroupHeader
+                                                className={
+                                                    isCards
+                                                        ? PHONE_CARD_CLASS.fullRowCell
+                                                        : undefined
+                                                }
                                                 colSpan={colCount}
-                                                scope="rowgroup"
                                             >
                                                 {groupHeading}
-                                            </TableHead>
+                                            </TableGroupHeader>
                                         </TableRow>
                                     );
                                 }
@@ -431,6 +498,7 @@ export function DataTable<TData extends RowData>({
                                         <TableRow
                                             className={cn(
                                                 'animate-in duration-500 fade-in-0 fill-mode-both',
+                                                isCards && PHONE_CARD_CLASS.row,
                                                 rowClassName?.(row.original),
                                             )}
                                             data-state={
@@ -448,15 +516,26 @@ export function DataTable<TData extends RowData>({
                                                     meta?.isRowHeader === true
                                                         ? TableRowHeader
                                                         : TableCell;
+                                                const phoneLabel = isCards
+                                                    ? phoneLabelOf(
+                                                          cell.column.columnDef,
+                                                      )
+                                                    : undefined;
                                                 return (
                                                     <CellTag
-                                                        className={
-                                                            align
-                                                                ? DATA_TABLE_ALIGN_CLASS_NAME[
-                                                                      align
-                                                                  ]
-                                                                : undefined
-                                                        }
+                                                        className={cn(
+                                                            align &&
+                                                                DATA_TABLE_ALIGN_CLASS_NAME[
+                                                                    align
+                                                                ],
+                                                            isCards &&
+                                                                phoneCellClassOf(
+                                                                    cell.column
+                                                                        .columnDef,
+                                                                    phoneLabel,
+                                                                ),
+                                                        )}
+                                                        data-label={phoneLabel}
                                                         key={cell.id}
                                                     >
                                                         <div
@@ -481,6 +560,11 @@ export function DataTable<TData extends RowData>({
                                             {shownCells.length <
                                                 cells.length && (
                                                 <TableCell
+                                                    className={
+                                                        isCards
+                                                            ? PHONE_CARD_CLASS.plainCell
+                                                            : undefined
+                                                    }
                                                     colSpan={
                                                         cells.length -
                                                         shownCells.length
@@ -492,9 +576,19 @@ export function DataTable<TData extends RowData>({
                                         </TableRow>
                                         {renderExpanded &&
                                             row.getIsExpanded() && (
-                                                <TableRow className="hover:bg-transparent">
+                                                <TableRow
+                                                    className={cn(
+                                                        'hover:bg-transparent',
+                                                        isCards &&
+                                                            PHONE_CARD_CLASS.fullRow,
+                                                    )}
+                                                >
                                                     <TableCell
-                                                        className="p-0"
+                                                        className={cn(
+                                                            'p-0',
+                                                            isCards &&
+                                                                PHONE_CARD_CLASS.fullRowCell,
+                                                        )}
                                                         colSpan={colCount}
                                                     >
                                                         {renderExpanded(row)}
@@ -509,18 +603,16 @@ export function DataTable<TData extends RowData>({
                             Array.from({ length: fillerRows }, (_, index) => (
                                 <TableRow
                                     aria-hidden
-                                    className="h-9 border-transparent hover:bg-transparent"
+                                    className={cn(
+                                        'h-9 border-transparent hover:bg-transparent',
+                                        isCards && PHONE_CARD_CLASS.hidden,
+                                    )}
                                     key={`filler-${String(index)}`}
                                 >
                                     <TableCell colSpan={colCount} />
                                 </TableRow>
                             ))}
                     </TableBody>
-                    {footer !== undefined && !isLoading && data.length > 0 && (
-                        <TableFooter>
-                            {renderDataTableSlot(footer, table)}
-                        </TableFooter>
-                    )}
                 </Table>
             </div>
             {serverPagination ? (
@@ -569,6 +661,32 @@ function DataTableCellContent<TContext>({
         ((context: TContext) => React.ReactNode) | React.ReactNode | undefined;
 }) {
     return typeof render === 'function' ? render(context) : render;
+}
+
+function phoneCellClassOf<TData extends RowData>(
+    column: DataTableColumn<TData>,
+    label: string | undefined,
+): string {
+    const { meta } = column;
+    if (meta?.isPhoneHidden === true) return PHONE_CARD_CLASS.hidden;
+    if (meta?.isRowActions === true) return PHONE_CARD_CLASS.actionsCell;
+    if (meta?.isRowHeader === true) return PHONE_CARD_CLASS.rowHeaderCell;
+    return label === undefined
+        ? PHONE_CARD_CLASS.plainCell
+        : PHONE_CARD_CLASS.labelledCell;
+}
+
+function phoneLabelOf<TData extends RowData>(
+    column: DataTableColumn<TData>,
+): string | undefined {
+    const { meta } = column;
+    if (meta?.isRowHeader === true || meta?.isRowActions === true) {
+        return undefined;
+    }
+    const label =
+        meta?.label ??
+        (typeof column.header === 'string' ? column.header : undefined);
+    return label === '' ? undefined : label;
 }
 
 function renderDataTableSlot<TData extends RowData>(
