@@ -6,8 +6,8 @@ import { useMemo, useState } from 'react';
 
 import { PrFiltersToolbar } from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
 import { usePrFilters } from '~/app/(app)/lifting/_components/shared/usePrFilters';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import AreaChartNew from '~/components/ui/chart/area-chart-new';
 import {
     DataTable,
@@ -86,39 +86,32 @@ export function ExerciseProgress({ exerciseId }: ExerciseProgressProperties) {
         <div className="flex flex-col gap-8">
             <E1rmTrendChart exerciseId={exerciseId} unitWeight={unitWeight} />
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        <Trophy className="size-4" /> Personal records
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <DataTable
-                        columns={columns}
-                        data={prFilters.filteredRows}
-                        emptyState={
-                            <EmptyState
-                                description={
-                                    prFilters.isActive
-                                        ? 'No PRs match these filters.'
-                                        : 'Log some sets and your PRs will show up here.'
-                                }
-                                icon={Trophy}
-                                title="No PRs yet"
-                            />
-                        }
-                        filterPlaceholder="Search PRs"
-                        hasExternalFilters={prFilters.isActive}
-                        headerActions={<PrFiltersToolbar filters={prFilters} />}
-                        isLoading={prs.isLoading}
-                        onResetFilters={prFilters.reset}
-                        pageSize={null}
-                        rowId={(r) => r.id}
-                        showFilter
-                        skeletonRows={4}
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel title="Personal records">
+                <DataTable
+                    columns={columns}
+                    data={prFilters.filteredRows}
+                    emptyState={
+                        <EmptyState
+                            description={
+                                prFilters.isActive
+                                    ? 'No PRs match these filters.'
+                                    : 'Log some sets and your PRs will show up here.'
+                            }
+                            icon={Trophy}
+                            title="No PRs yet"
+                        />
+                    }
+                    filterPlaceholder="Search PRs"
+                    hasExternalFilters={prFilters.isActive}
+                    headerActions={<PrFiltersToolbar filters={prFilters} />}
+                    isLoading={prs.isLoading}
+                    onResetFilters={prFilters.reset}
+                    pageSize={null}
+                    rowId={(r) => r.id}
+                    showFilter
+                    skeletonRows={4}
+                />
+            </ToolPanel>
         </div>
     );
 }
@@ -158,51 +151,45 @@ function E1rmTrendChart({
     );
 
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        <TrendingUp className="size-4" /> Estimated 1RM trend
-                    </CardTitle>
-                    <ToolbarSelect
-                        label="Trend period"
-                        onValueChange={(v) => {
-                            const next = E1RM_RANGE_VALUES.find((r) => r === v);
-                            if (next) setRange(next);
+        <ToolPanel
+            actions={
+                <ToolbarSelect
+                    label="Trend period"
+                    onValueChange={(v) => {
+                        const next = E1RM_RANGE_VALUES.find((r) => r === v);
+                        if (next) setRange(next);
+                    }}
+                    options={E1RM_RANGE_VALUES.map((r) => ({
+                        label: E1RM_RANGE_LABEL[r],
+                        value: r,
+                    }))}
+                    value={range}
+                />
+            }
+            title="Estimated 1RM trend"
+        >
+            {trend.isLoading ? (
+                <Skeleton className="h-48 w-full rounded-md" />
+            ) : chartData.length === 0 ? (
+                <EmptyState
+                    description="Log some sets for this exercise to see the estimated 1RM chart."
+                    icon={TrendingUp}
+                    title="No data yet"
+                />
+            ) : (
+                <div className="h-48">
+                    <AreaChartNew
+                        area={{ dataKey: 'e1rm' }}
+                        config={E1RM_CHART_CONFIG}
+                        data={chartData}
+                        tooltip={{ labelKey: 'date', nameKey: 'e1rm' }}
+                        xAxis={{ dataKey: 'date' }}
+                        yAxis={{
+                            tickFormatter: (v: number) => `${v} ${unitWeight}`,
                         }}
-                        options={E1RM_RANGE_VALUES.map((r) => ({
-                            label: E1RM_RANGE_LABEL[r],
-                            value: r,
-                        }))}
-                        value={range}
                     />
                 </div>
-            </CardHeader>
-            <CardContent>
-                {trend.isLoading ? (
-                    <Skeleton className="h-48 w-full rounded-md" />
-                ) : chartData.length === 0 ? (
-                    <EmptyState
-                        description="Log some sets for this exercise to see the estimated 1RM chart."
-                        icon={TrendingUp}
-                        title="No data yet"
-                    />
-                ) : (
-                    <div className="h-48">
-                        <AreaChartNew
-                            area={{ dataKey: 'e1rm' }}
-                            config={E1RM_CHART_CONFIG}
-                            data={chartData}
-                            tooltip={{ labelKey: 'date', nameKey: 'e1rm' }}
-                            xAxis={{ dataKey: 'date' }}
-                            yAxis={{
-                                tickFormatter: (v: number) =>
-                                    `${v} ${unitWeight}`,
-                            }}
-                        />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+            )}
+        </ToolPanel>
     );
 }

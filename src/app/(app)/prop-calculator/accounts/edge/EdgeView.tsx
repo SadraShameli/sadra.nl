@@ -104,7 +104,7 @@ export function EdgeView() {
                 </AlertDescription>
             </Alert>
             <div className="flex flex-col gap-2">
-                <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+                <div className="flex flex-wrap items-center gap-2">
                     <FilterIsoDateRange
                         label="Journal days"
                         max={LATEST_DATE}

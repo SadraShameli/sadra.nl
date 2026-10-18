@@ -3,7 +3,13 @@
 import { House, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type MouseEvent, type ReactNode, useRef, useState } from 'react';
+import {
+    type MouseEvent,
+    type ReactNode,
+    Suspense,
+    useRef,
+    useState,
+} from 'react';
 
 import { ColorModeToggle } from '~/components/ColorModeToggle';
 import {
@@ -47,20 +53,75 @@ import {
 import { useHeaderHeightVariable } from './useHeaderHeightVariable';
 import { useSlidingIndicator } from './useSlidingIndicator';
 
-export type NavMenuExtras = Readonly<Partial<Record<NavMenuId, ReactNode>>>;
-
 type NavbarHighlight = HomeNavTarget | NavMenuId;
+
+type NavMenuExtras = Readonly<Partial<Record<NavMenuId, ReactNode>>>;
 
 const CLOSED_MENU = '';
 
-export default function Navbar({
-    accountLink,
-    menuExtras,
-}: {
+interface NavbarProperties {
     readonly accountLink: ReactNode;
     readonly menuExtras: NavMenuExtras;
+}
+
+export default function Navbar(properties: NavbarProperties) {
+    return (
+        <Suspense fallback={<NavbarView {...properties} pathname={null} />}>
+            <NavbarAtPath {...properties} />
+        </Suspense>
+    );
+}
+
+function CapsuleDivider() {
+    return (
+        <span aria-hidden className="mx-1.5 hidden h-6 w-px bg-line md:block" />
+    );
+}
+
+function isLinkClick(event: MouseEvent<HTMLElement>): boolean {
+    return (
+        event.target instanceof Element && event.target.closest('a') !== null
+    );
+}
+
+function MenuPanel({
+    extra,
+    menu,
+}: {
+    readonly extra: ReactNode;
+    readonly menu: NavMenu;
 }) {
-    const pathname = usePathname();
+    return (
+        <div className="flex w-max max-w-[calc(100vw-2rem)] flex-wrap gap-x-10 gap-y-8 p-6">
+            {menu.groups.map((group) => (
+                <NavGroupColumn group={group} key={group.label} />
+            ))}
+            {extra}
+        </div>
+    );
+}
+
+function NavbarAtPath(properties: NavbarProperties) {
+    return <NavbarView {...properties} pathname={usePathname()} />;
+}
+
+function navbarHighlight(
+    pathname: null | string,
+    activeItem: ActiveHomeNavItem | null,
+): NavbarHighlight | null {
+    if (activeItem === null) {
+        return pathname === null ? null : navMenuForPath(pathname);
+    }
+    return activeItem === HomeNavTarget.Top
+        ? HomeNavTarget.Top
+        : HOME_SECTION_MENU[activeItem];
+}
+
+function NavbarView({
+    accountLink,
+    menuExtras,
+    pathname,
+}: NavbarProperties & { readonly pathname: null | string }) {
     const navReference = useRef<HTMLElement>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [openMenu, setOpenMenu] = useState(CLOSED_MENU);
@@ -70,7 +131,7 @@ export default function Navbar({
         setOpenMenu(next);
     };
     useHeaderHeightVariable(navReference);
-    const { activeItem, pin } = useActiveHomeNavItem();
+    const { activeItem, pin } = useActiveHomeNavItem(pathname === routes.home);
     const indicatorReference = useRef<HTMLSpanElement>(null);
     const itemReferences = useRef(new Map<NavbarHighlight, HTMLElement>());
     useSlidingIndicator(
@@ -263,45 +324,6 @@ export default function Navbar({
             <div className={'app-shell__subnav-slot'} id="navbar-subnav-slot" />
         </header>
     );
-}
-
-function CapsuleDivider() {
-    return (
-        <span aria-hidden className="mx-1.5 hidden h-6 w-px bg-line md:block" />
-    );
-}
-
-function isLinkClick(event: MouseEvent<HTMLElement>): boolean {
-    return (
-        event.target instanceof Element && event.target.closest('a') !== null
-    );
-}
-
-function MenuPanel({
-    extra,
-    menu,
-}: {
-    readonly extra: ReactNode;
-    readonly menu: NavMenu;
-}) {
-    return (
-        <div className="flex w-max max-w-[calc(100vw-2rem)] flex-wrap gap-x-10 gap-y-8 p-6">
-            {menu.groups.map((group) => (
-                <NavGroupColumn group={group} key={group.label} />
-            ))}
-            {extra}
-        </div>
-    );
-}
-
-function navbarHighlight(
-    pathname: string,
-    activeItem: ActiveHomeNavItem | null,
-): NavbarHighlight | null {
-    if (activeItem === null) return navMenuForPath(pathname);
-    return activeItem === HomeNavTarget.Top
-        ? HomeNavTarget.Top
-        : HOME_SECTION_MENU[activeItem];
 }
 
 function SocialLinks() {

@@ -103,7 +103,7 @@ export function JournalFilters({
                 'flex flex-col gap-4 rounded-lg border border-border/40 bg-card/60 p-4',
             )}
         >
-            <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+            <div className="flex flex-wrap items-center gap-2">
                 <FilterIsoDateRange
                     label="Journal date"
                     onChange={(range) =>
@@ -129,6 +129,7 @@ export function JournalFilters({
                     placeholder="Search notes…"
                     value={state.query ?? ''}
                 />
+                <ClearFiltersButton active={hasAny} onReset={onClear} />
             </div>
 
             <ChipRow
@@ -185,8 +186,6 @@ export function JournalFilters({
                     selected={state.planIds}
                 />
             )}
-
-            <ClearFiltersButton active={hasAny} onReset={onClear} />
         </div>
     );
 }

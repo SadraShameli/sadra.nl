@@ -1,17 +1,42 @@
 import { memo } from 'react';
 
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { NOT_APPLICABLE } from '~/lib/format';
 import { ruleViolationKindLabel } from '~/lib/prop-accounts';
 
 import { type ViolationsCardModel } from './overviewModel';
+
+enum ViolationKindColumn {
+    Cost = 'cost',
+    Count = 'count',
+    Kind = 'kind',
+}
+
+type ViolationKindRow = ViolationsCardModel['byKind'][number];
+
+const VIOLATION_KIND_COLUMNS: DataTableColumn<ViolationKindRow>[] = [
+    {
+        accessorFn: (row) => ruleViolationKindLabel(row.kind),
+        header: 'Kind',
+        id: ViolationKindColumn.Kind,
+    },
+    {
+        accessorFn: (row) => row.count,
+        header: 'Count',
+        id: ViolationKindColumn.Count,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        accessorFn: (row) => row.cost,
+        header: 'Cost',
+        id: ViolationKindColumn.Cost,
+        meta: { align: DataTableAlign.End },
+    },
+];
 
 export const ViolationsCard = memo(function ViolationsCard({
     model,
@@ -58,34 +83,13 @@ export const ViolationsCard = memo(function ViolationsCard({
                             </dd>
                         </div>
                     </dl>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Kind</TableHead>
-                                <TableHead className="text-right">
-                                    Count
-                                </TableHead>
-                                <TableHead className="text-right">
-                                    Cost
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {model.byKind.map((row) => (
-                                <TableRow key={row.key}>
-                                    <TableCell>
-                                        {ruleViolationKindLabel(row.kind)}
-                                    </TableCell>
-                                    <TableCell className="text-right tabular-nums">
-                                        {row.count}
-                                    </TableCell>
-                                    <TableCell className="text-right tabular-nums">
-                                        {row.cost}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                    <DataTable
+                        columns={VIOLATION_KIND_COLUMNS}
+                        data={[...model.byKind]}
+                        isSortable={false}
+                        pageSize={null}
+                        rowId={(row) => row.key}
+                    />
                 </>
             )}
             {model.disclosures.map((disclosure) => (

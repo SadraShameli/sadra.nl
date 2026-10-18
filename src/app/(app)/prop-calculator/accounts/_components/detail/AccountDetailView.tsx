@@ -44,16 +44,9 @@ import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Checkbox } from '~/components/ui/checkbox';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Field, FieldLabel } from '~/components/ui/field';
 import { Skeleton } from '~/components/ui/skeleton';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import { errorMessage } from '~/lib/errorMessage';
 import {
     AccountStage,
@@ -126,6 +119,14 @@ import { SnapshotHistoryChart } from './SnapshotHistoryChart';
 import { snapshotSeries } from './snapshotSeries';
 import { StateCard } from './StateCard';
 import { ViolationsSection } from './ViolationsSection';
+
+enum AccountDetailViewColumn {
+    Actions = 'actions',
+    AsOf = 'as-of',
+    Balance = 'balance',
+    HighestEndOfDay = 'highest-end-of-day',
+    TradingDays = 'trading-days',
+}
 
 enum LagLineKind {
     Failed = 'failed',
@@ -1061,44 +1062,50 @@ function SnapshotHistory({
                     )}
                     <SnapshotHistoryChart series={series} />
                     {rows.length > 0 && (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>As of</TableHead>
-                                    <TableHead className="text-right">
-                                        Balance
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        Highest end of day
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        Trading days
-                                    </TableHead>
-                                    <TableHead>
-                                        <span className="sr-only">Actions</span>
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {rows.map((row) => (
-                                    <TableRow key={row.id}>
-                                        <TableCell className="tabular-nums">
+                        <DataTable
+                            columns={[
+                                {
+                                    cell: ({ row: { original: row } }) => (
+                                        <div className="tabular-nums">
                                             {row.asOf}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {formatUsdCents(row.balanceCents)}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
+                                        </div>
+                                    ),
+                                    header: 'As of',
+                                    id: AccountDetailViewColumn.AsOf,
+                                },
+                                {
+                                    cell: ({ row: { original: row } }) => (
+                                        <>{formatUsdCents(row.balanceCents)}</>
+                                    ),
+                                    header: 'Balance',
+                                    id: AccountDetailViewColumn.Balance,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row: { original: row } }) => (
+                                        <>
                                             {row.highestEodBalanceCents === null
                                                 ? ''
                                                 : formatUsdCents(
                                                       row.highestEodBalanceCents,
                                                   )}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {row.tradingDays ?? ''}
-                                        </TableCell>
-                                        <TableCell>
+                                        </>
+                                    ),
+                                    header: 'Highest end of day',
+                                    id: AccountDetailViewColumn.HighestEndOfDay,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row: { original: row } }) => (
+                                        <>{row.tradingDays ?? ''}</>
+                                    ),
+                                    header: 'Trading days',
+                                    id: AccountDetailViewColumn.TradingDays,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row: { original: row } }) => (
+                                        <>
                                             <div className="flex justify-end">
                                                 <RemoveRecordDialog
                                                     confirmText="Delete"
@@ -1113,11 +1120,23 @@ function SnapshotHistory({
                                                     triggerLabel={`Delete the snapshot of ${row.asOf}`}
                                                 />
                                             </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                        </>
+                                    ),
+                                    header: () => (
+                                        <>
+                                            <span className="sr-only">
+                                                Actions
+                                            </span>
+                                        </>
+                                    ),
+                                    id: AccountDetailViewColumn.Actions,
+                                },
+                            ]}
+                            data={[...rows]}
+                            isSortable={false}
+                            pageSize={null}
+                            rowId={(row) => row.id}
+                        />
                     )}
                 </>
             )}

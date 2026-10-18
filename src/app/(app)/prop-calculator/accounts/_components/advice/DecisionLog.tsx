@@ -4,15 +4,12 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '~/components/ui/button';
-import { Input } from '~/components/ui/input';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
+import { Input } from '~/components/ui/input';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatCurrency } from '~/lib/format';
 import {
@@ -27,6 +24,14 @@ import {
 } from '~/lib/prop-accounts/metrics';
 import { type AdviceSource } from '~/lib/prop-calculator/advisor';
 import { api, type RouterOutputs } from '~/trpc/react';
+
+enum DecisionColumn {
+    Accepted = 'accepted',
+    Actual = 'actual',
+    Adherence = 'adherence',
+    DecidedOn = 'decided-on',
+    Headline = 'headline',
+}
 
 export type DecisionRow =
     RouterOutputs['propAccounts']['decision']['listForAccount'][number];
@@ -106,30 +111,13 @@ export function DecisionLog({
                     No sizing decisions have been logged yet.
                 </p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Decided on</TableHead>
-                            <TableHead className="text-right">
-                                Headline
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Accepted
-                            </TableHead>
-                            <TableHead className="text-right">Actual</TableHead>
-                            <TableHead>Adherence</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {decisions.map((decision) => (
-                            <DecisionRowView
-                                decision={decision}
-                                key={decision.id}
-                                stepCents={stepCents}
-                            />
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    columns={decisionColumns(stepCents)}
+                    data={[...decisions]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(decision) => decision.id}
+                />
             )}
         </div>
     );
@@ -144,13 +132,9 @@ function adherenceText(decision: DecisionRow, stepCents: number): string {
     return `${(ratio * 100).toFixed(0)}% of the accepted size, ${verdict}`;
 }
 
-function DecisionRowView({
-    decision,
-    stepCents,
-}: {
-    readonly decision: DecisionRow;
-    readonly stepCents: number;
-}) {
+const CURRENCY_DECIMALS = 2;
+
+function ActualRiskCell({ decision }: { readonly decision: DecisionRow }) {
     const [draft, setDraft] = useState('');
     const utilities = api.useUtils();
     const recordActual = api.propAccounts.decision.recordActual.useMutation({
@@ -163,63 +147,83 @@ function DecisionRowView({
         },
     });
 
-    return (
-        <TableRow>
-            <TableCell>{decision.decidedOn}</TableCell>
-            <TableCell className="text-right tabular-nums">
-                {formatCurrency(
-                    usdCentsToDollars(decision.headlineRiskCents),
-                    2,
-                )}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {formatCurrency(
-                    usdCentsToDollars(decision.acceptedRiskCents),
-                    2,
-                )}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {decision.actualRiskCents === null ? (
-                    <div className="flex items-center justify-end gap-2">
-                        <Input
-                            aria-label={`Actual risk for the decision of ${decision.decidedOn}`}
-                            className="w-24"
-                            onChange={(event) => {
-                                setDraft(event.target.value);
-                            }}
-                            type="number"
-                            value={draft}
-                        />
-                        <Button
-                            disabled={draft === '' || recordActual.isPending}
-                            onClick={() => {
-                                const dollars = Number(draft);
-                                if (!Number.isFinite(dollars) || dollars < 0) {
-                                    toast.error('Enter a valid risk amount');
-                                    return;
-                                }
-                                recordActual.mutate({
-                                    actualRiskCents:
-                                        usdCentsFromDollars(dollars),
-                                    id: decision.id,
-                                });
-                            }}
-                            size="sm"
-                            variant="outline"
-                        >
-                            Record actual
-                        </Button>
-                    </div>
-                ) : (
-                    formatCurrency(
-                        usdCentsToDollars(decision.actualRiskCents),
-                        2,
-                    )
-                )}
-            </TableCell>
-            <TableCell>{adherenceText(decision, stepCents)}</TableCell>
-        </TableRow>
+    return decision.actualRiskCents === null ? (
+        <div className="flex items-center justify-end gap-2">
+            <Input
+                aria-label={`Actual risk for the decision of ${decision.decidedOn}`}
+                className="w-24"
+                onChange={(event) => {
+                    setDraft(event.target.value);
+                }}
+                type="number"
+                value={draft}
+            />
+            <Button
+                disabled={draft === '' || recordActual.isPending}
+                onClick={() => {
+                    const dollars = Number(draft);
+                    if (!Number.isFinite(dollars) || dollars < 0) {
+                        toast.error('Enter a valid risk amount');
+                        return;
+                    }
+                    recordActual.mutate({
+                        actualRiskCents: usdCentsFromDollars(dollars),
+                        id: decision.id,
+                    });
+                }}
+                size="sm"
+                variant="outline"
+            >
+                Record actual
+            </Button>
+        </div>
+    ) : (
+        formatCurrency(usdCentsToDollars(decision.actualRiskCents), 2)
     );
+}
+
+function decisionColumns(stepCents: number): DataTableColumn<DecisionRow>[] {
+    return [
+        {
+            cell: ({ row: { original: decision } }) => decision.decidedOn,
+            header: 'Decided on',
+            id: DecisionColumn.DecidedOn,
+        },
+        {
+            cell: ({ row: { original: decision } }) =>
+                formatCurrency(
+                    usdCentsToDollars(decision.headlineRiskCents),
+                    CURRENCY_DECIMALS,
+                ),
+            header: 'Headline',
+            id: DecisionColumn.Headline,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: decision } }) =>
+                formatCurrency(
+                    usdCentsToDollars(decision.acceptedRiskCents),
+                    CURRENCY_DECIMALS,
+                ),
+            header: 'Accepted',
+            id: DecisionColumn.Accepted,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: decision } }) => (
+                <ActualRiskCell decision={decision} />
+            ),
+            header: 'Actual',
+            id: DecisionColumn.Actual,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: decision } }) =>
+                adherenceText(decision, stepCents),
+            header: 'Adherence',
+            id: DecisionColumn.Adherence,
+        },
+    ];
 }
 
 function isSuggestionAccepted(

@@ -366,7 +366,7 @@ describe('NextSlotView', () => {
         expect(region?.tabIndex).toBe(0);
     });
 
-    it('uses the shared Table with its container props and keeps no local scroll-table copy', () => {
+    it('uses the shared DataTable for its named scroll regions and keeps no local scroll-table copy', () => {
         const source = readFileSync(
             path.resolve(
                 import.meta.dirname,
@@ -374,8 +374,9 @@ describe('NextSlotView', () => {
             ),
             'utf8',
         );
-        expect(source).toContain("from '~/components/ui/table'");
-        expect(source).toMatch(/<Table\b/u);
+        expect(source).toContain("from '~/components/ui/data-table'");
+        expect(source).toMatch(/<DataTable\b/u);
+        expect(source).not.toContain("from '~/components/ui/table'");
         expect(source).not.toContain('ScrollTable');
         expect(source).not.toContain('SCROLL_REGION_TAB_INDEX');
         expect(source).not.toMatch(/<table\b/u);

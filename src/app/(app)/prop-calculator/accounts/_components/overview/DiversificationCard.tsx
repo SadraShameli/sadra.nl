@@ -1,18 +1,17 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import {
     type DiversificationCardModel,
     type FirmShareRow,
 } from './overviewModel';
+
+enum DiversificationCardColumn {
+    Amount = 'amount',
+    Firm = 'firm',
+    Share = 'share',
+}
 
 export const DiversificationCard = memo(function DiversificationCard({
     model,
@@ -50,28 +49,31 @@ function ShareTable({
             {rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{emptyMessage}</p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Firm</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead className="text-right">Share</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {rows.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.firm}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.amount}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.share}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row }) => <>{row.original.firm}</>,
+                            header: 'Firm',
+                            id: DiversificationCardColumn.Firm,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.amount}</>,
+                            header: 'Amount',
+                            id: DiversificationCardColumn.Amount,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.share}</>,
+                            header: 'Share',
+                            id: DiversificationCardColumn.Share,
+                            meta: { align: DataTableAlign.End },
+                        },
+                    ]}
+                    data={[...rows]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
         </div>
     );

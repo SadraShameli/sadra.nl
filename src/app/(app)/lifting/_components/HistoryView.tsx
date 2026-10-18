@@ -7,8 +7,8 @@ import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
@@ -16,7 +16,7 @@ import {
     type DataTableColumn,
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStatePanel } from '~/components/ui/empty-state';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { DurationFormat } from '~/lib/lifting/format';
@@ -165,86 +165,75 @@ export function HistoryView({ from }: HistoryViewProperties) {
     );
 
     return !dateRange && !workouts.isLoading && allRows.length === 0 ? (
-        <Card>
-            <CardContent>
-                <EmptyState
-                    description="Start a workout from the Log tab and it'll show up here."
-                    icon={Calendar}
-                    title="No workouts yet"
-                />
-            </CardContent>
-        </Card>
+        <EmptyStatePanel
+            description="Start a workout from the Log tab and it'll show up here."
+            icon={Calendar}
+            title="No workouts yet"
+        />
     ) : (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                    Workouts
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-                <DataTable
-                    columns={columns}
-                    data={allRows}
-                    emptyState={
-                        <EmptyState
-                            description="Try widening the filters or logging a workout."
-                            icon={Calendar}
-                            title="No workouts match"
-                        />
-                    }
-                    hasExternalFilters={Boolean(dateRange?.from)}
-                    headerActions={(table) => {
-                        const statusColumn = table.getColumn('status');
-                        const durationColumn = table.getColumn('duration');
-                        return (
-                            <div className="flex flex-wrap items-center gap-2">
-                                <FilterSelect
-                                    label="Status"
-                                    onValueChange={(v) =>
-                                        statusColumn?.setFilterValue(v)
-                                    }
-                                    options={STATUS_OPTIONS.filter(
-                                        (o) => o.value !== FILTER_ALL,
-                                    )}
-                                    placeholder="All statuses"
-                                    value={
-                                        statusColumn?.getFilterValue() as
-                                            StatusFilter | undefined
-                                    }
-                                />
-                                <FilterSelect
-                                    label="Duration"
-                                    onValueChange={(v) =>
-                                        durationColumn?.setFilterValue(
-                                            WorkoutDuration.bucketForValue(v)
-                                                ?.range,
-                                        )
-                                    }
-                                    options={WORKOUT_DURATION_BUCKETS}
-                                    placeholder="Any duration"
-                                    value={
-                                        WorkoutDuration.bucketForFilterValue(
-                                            durationColumn?.getFilterValue(),
-                                        )?.value
-                                    }
-                                />
-                                <FilterDateRange
-                                    label="Workout date"
-                                    maxDate={new Date()}
-                                    onChange={setDateRange}
-                                    placeholder="Any time"
-                                    value={dateRange}
-                                />
-                            </div>
-                        );
-                    }}
-                    isLoading={workouts.isLoading}
-                    onResetFilters={() => setDateRange(undefined)}
-                    pageSize={20}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
-            </CardContent>
-        </Card>
+        <ToolPanel contentClassName="flex flex-col gap-4" title="Workouts">
+            <DataTable
+                columns={columns}
+                data={allRows}
+                emptyState={
+                    <EmptyState
+                        description="Try widening the filters or logging a workout."
+                        icon={Calendar}
+                        title="No workouts match"
+                    />
+                }
+                hasExternalFilters={Boolean(dateRange?.from)}
+                headerActions={(table) => {
+                    const statusColumn = table.getColumn('status');
+                    const durationColumn = table.getColumn('duration');
+                    return (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <FilterSelect
+                                label="Status"
+                                onValueChange={(v) =>
+                                    statusColumn?.setFilterValue(v)
+                                }
+                                options={STATUS_OPTIONS.filter(
+                                    (o) => o.value !== FILTER_ALL,
+                                )}
+                                placeholder="All statuses"
+                                value={
+                                    statusColumn?.getFilterValue() as
+                                        StatusFilter | undefined
+                                }
+                            />
+                            <FilterSelect
+                                label="Duration"
+                                onValueChange={(v) =>
+                                    durationColumn?.setFilterValue(
+                                        WorkoutDuration.bucketForValue(v)
+                                            ?.range,
+                                    )
+                                }
+                                options={WORKOUT_DURATION_BUCKETS}
+                                placeholder="Any duration"
+                                value={
+                                    WorkoutDuration.bucketForFilterValue(
+                                        durationColumn?.getFilterValue(),
+                                    )?.value
+                                }
+                            />
+                            <FilterDateRange
+                                label="Workout date"
+                                maxDate={new Date()}
+                                onChange={setDateRange}
+                                placeholder="Any time"
+                                value={dateRange}
+                            />
+                        </div>
+                    );
+                }}
+                isLoading={workouts.isLoading}
+                onResetFilters={() => setDateRange(undefined)}
+                pageSize={20}
+                rowId={(r) => r.id}
+                showFilter
+            />
+        </ToolPanel>
     );
 }

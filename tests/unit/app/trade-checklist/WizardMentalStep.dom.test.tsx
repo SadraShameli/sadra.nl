@@ -73,8 +73,10 @@ describe('the wizard mental-state step', () => {
 
     it('flags a knockout when its row text is clicked', () => {
         const container = renderWizard();
-        const row = switchesIn(container)[0]?.closest('label');
-        act(() => row?.querySelector('p')?.click());
+        const label = switchesIn(container)[0]
+            ?.closest('[data-slot="field"]')
+            ?.querySelector('label');
+        act(() => label?.click());
         expect(switchesIn(container)[0]?.getAttribute('aria-checked')).toBe(
             'true',
         );

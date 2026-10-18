@@ -1,15 +1,16 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type TiltVarianceCardModel } from './overviewModel';
+
+enum TiltVarianceCardColumn {
+    Firm = 'firm',
+    Month = 'month',
+    NetCash = 'net-cash',
+    NetWithoutViolations = 'net-without-violations',
+    ViolationCost = 'violation-cost',
+}
 
 export const TiltVarianceCard = memo(function TiltVarianceCard({
     model,
@@ -23,40 +24,46 @@ export const TiltVarianceCard = memo(function TiltVarianceCard({
                     No months with net cash yet.
                 </p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Firm</TableHead>
-                            <TableHead>Month</TableHead>
-                            <TableHead className="text-right">
-                                Net cash
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Violation cost
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Net without violations
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {model.rows.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.firm}</TableCell>
-                                <TableCell>{row.month}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.netCash}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.violationCost}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.netWithoutViolations}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row }) => <>{row.original.firm}</>,
+                            header: 'Firm',
+                            id: TiltVarianceCardColumn.Firm,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.month}</>,
+                            header: 'Month',
+                            id: TiltVarianceCardColumn.Month,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.netCash}</>,
+                            header: 'Net cash',
+                            id: TiltVarianceCardColumn.NetCash,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.violationCost}</>
+                            ),
+                            header: 'Violation cost',
+                            id: TiltVarianceCardColumn.ViolationCost,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.netWithoutViolations}</>
+                            ),
+                            header: 'Net without violations',
+                            id: TiltVarianceCardColumn.NetWithoutViolations,
+                            meta: { align: DataTableAlign.End },
+                        },
+                    ]}
+                    data={[...model.rows]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
             <p className="text-xs text-muted-foreground">{model.disclosure}</p>
             {model.droppedNote !== null && (

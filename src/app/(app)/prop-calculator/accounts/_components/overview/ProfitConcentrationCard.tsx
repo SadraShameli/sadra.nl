@@ -1,15 +1,17 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type ProfitConcentrationCardModel } from './overviewModel';
+
+enum ProfitConcentrationCardColumn {
+    Firm = 'firm',
+    FundedAccountsInProfit = 'funded-accounts-in-profit',
+    RecentPayouts = 'recent-payouts',
+    ShareOfYourWithdrawable = 'share-of-your-withdrawable',
+    SinceTheLastMoveLive = 'since-the-last-move-live',
+    WithdrawableAboveTheRetainedCushion = 'withdrawable-above-the-retained-cushion',
+}
 
 export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
     model,
@@ -23,42 +25,58 @@ export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
                     No account at a modeled firm yet.
                 </p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Firm</TableHead>
-                            <TableHead className="text-right">
-                                Funded accounts in profit
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Withdrawable above the retained cushion
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Share of your withdrawable
-                            </TableHead>
-                            <TableHead>Recent payouts</TableHead>
-                            <TableHead>Since the last move live</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {model.rows.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.firm}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.inProfit} of {row.fundedAccounts}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.withdrawable}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.withdrawableShare}
-                                </TableCell>
-                                <TableCell>{row.recentPayouts}</TableCell>
-                                <TableCell>{row.sinceMovedLive}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row }) => <>{row.original.firm}</>,
+                            header: 'Firm',
+                            id: ProfitConcentrationCardColumn.Firm,
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>
+                                    {row.original.inProfit} of{' '}
+                                    {row.original.fundedAccounts}
+                                </>
+                            ),
+                            header: 'Funded accounts in profit',
+                            id: ProfitConcentrationCardColumn.FundedAccountsInProfit,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.withdrawable}</>,
+                            header: 'Withdrawable above the retained cushion',
+                            id: ProfitConcentrationCardColumn.WithdrawableAboveTheRetainedCushion,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.withdrawableShare}</>
+                            ),
+                            header: 'Share of your withdrawable',
+                            id: ProfitConcentrationCardColumn.ShareOfYourWithdrawable,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.recentPayouts}</>
+                            ),
+                            header: 'Recent payouts',
+                            id: ProfitConcentrationCardColumn.RecentPayouts,
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.sinceMovedLive}</>
+                            ),
+                            header: 'Since the last move live',
+                            id: ProfitConcentrationCardColumn.SinceTheLastMoveLive,
+                        },
+                    ]}
+                    data={[...model.rows]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
             {model.caveats.length > 0 && (
                 <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-warning">

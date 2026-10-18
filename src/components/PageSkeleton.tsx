@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utilities';
 
@@ -74,17 +75,8 @@ export function TitledCardSkeleton({
     readonly title: ReactNode;
 }) {
     return (
-        <Card className={className}>
-            <CardHeader>
-                <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                    {title}
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Skeleton
-                    className={cn('h-40 w-full rounded-md', bodyClassName)}
-                />
-            </CardContent>
-        </Card>
+        <ToolPanel className={className} title={title}>
+            <Skeleton className={cn('h-40 w-full rounded-md', bodyClassName)} />
+        </ToolPanel>
     );
 }

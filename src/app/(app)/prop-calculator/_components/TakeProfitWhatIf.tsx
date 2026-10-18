@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo } from 'react';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { useBankrollVariant } from '~/app/(app)/prop-calculator/_components/bankroll/useBankrollVariant';
 import { useToolsRequest } from '~/app/(app)/prop-calculator/_components/bankroll/useToolsRequest';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
@@ -11,17 +10,11 @@ import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDe
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { toolsWorkerPendingText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Card } from '~/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable } from '~/components/ui/data-table';
 import { formatGateCurrency, formatPercent } from '~/lib/format';
 import { stableJson } from '~/lib/stableJson';
 
@@ -30,6 +23,16 @@ import {
     takeProfitWhatIfRequest,
     takeProfitWhatIfRowViews,
 } from './takeProfitWhatIfModel';
+
+enum TakeProfitColumn {
+    CycleNet = 'cycle-net',
+    DaysToPass = 'days-to-pass',
+    MonthlyNet = 'monthly-net',
+    Note = 'note',
+    PassProbability = 'pass-probability',
+    Rr = 'rr',
+    WinRate = 'win-rate',
+}
 
 export default function TakeProfitWhatIf() {
     const { state: calculatorState } = useCalculatorInputs();
@@ -91,58 +94,85 @@ export default function TakeProfitWhatIf() {
                         </Alert>
                     )
                 ) : (
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>RR</TableHead>
-                                <TableHead>Win rate</TableHead>
-                                <TableHead>P(pass)</TableHead>
-                                <TableHead>Days to pass</TableHead>
-                                <TableHead>Monthly net</TableHead>
-                                <TableHead>Cycle net</TableHead>
-                                <TableHead>Note</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody className="font-mono">
-                            {rows.map((row) => (
-                                <TableRow key={row.rrRatio}>
-                                    <TableCell>
+                    <DataTable
+                        columns={[
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <span className="font-mono">
                                         {row.rrRatio.toFixed(2)}
-                                    </TableCell>
-                                    <TableCell>
+                                    </span>
+                                ),
+                                header: 'RR',
+                                id: TakeProfitColumn.Rr,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <span className="font-mono">
                                         {formatPercent(row.winrate)}
-                                    </TableCell>
-                                    <TableCell>
+                                    </span>
+                                ),
+                                header: 'Win rate',
+                                id: TakeProfitColumn.WinRate,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <span className="font-mono">
                                         {formatPercent(
                                             row.attemptPassProbability,
                                         )}
-                                    </TableCell>
-                                    <TableCell>
+                                    </span>
+                                ),
+                                header: 'P(pass)',
+                                id: TakeProfitColumn.PassProbability,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <span className="font-mono">
                                         {row.daysToPassP50.toFixed(0)}
-                                    </TableCell>
-                                    <TableCell>
+                                    </span>
+                                ),
+                                header: 'Days to pass',
+                                id: TakeProfitColumn.DaysToPass,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <span className="font-mono">
                                         {formatGateCurrency(
                                             row.expectedMonthlyNet,
                                         )}
-                                    </TableCell>
-                                    <TableCell>
+                                    </span>
+                                ),
+                                header: 'Monthly net',
+                                id: TakeProfitColumn.MonthlyNet,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <span className="font-mono">
                                         {formatGateCurrency(row.expectedNet)}
-                                    </TableCell>
-                                    <TableCell className="font-sans">
-                                        <Badge
-                                            variant={
-                                                row.isAnchor
-                                                    ? 'success'
-                                                    : 'warning'
-                                            }
-                                        >
-                                            {row.label}
-                                        </Badge>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                                    </span>
+                                ),
+                                header: 'Cycle net',
+                                id: TakeProfitColumn.CycleNet,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <Badge
+                                        variant={
+                                            row.isAnchor ? 'success' : 'warning'
+                                        }
+                                    >
+                                        {row.label}
+                                    </Badge>
+                                ),
+                                header: 'Note',
+                                id: TakeProfitColumn.Note,
+                            },
+                        ]}
+                        data={[...rows]}
+                        isSortable={false}
+                        pageSize={null}
+                        rowId={(row) => String(row.rrRatio)}
+                    />
                 )}
             </Card>
         </section>

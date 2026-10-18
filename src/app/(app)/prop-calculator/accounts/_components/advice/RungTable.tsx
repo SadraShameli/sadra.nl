@@ -1,13 +1,17 @@
 import {
-    Table,
-    TableBody,
-    TableCaption,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { formatCurrency } from '~/lib/format';
+
+enum RungColumn {
+    CappedBy = 'capped-by',
+    Risk = 'risk',
+    RunningLossAfter = 'running-loss-after',
+    TakeProfit = 'take-profit',
+    Trade = 'trade',
+}
 
 export interface RungTableRow {
     readonly cappedByText: readonly string[];
@@ -15,6 +19,42 @@ export interface RungTableRow {
     readonly runningLossAfter: number;
     readonly takeProfit: number;
 }
+
+const CURRENCY_DECIMALS = 2;
+
+const RUNG_COLUMNS: DataTableColumn<RungTableRow>[] = [
+    {
+        cell: ({ row }) => row.index + 1,
+        header: 'Trade',
+        id: RungColumn.Trade,
+    },
+    {
+        cell: ({ row: { original: rung } }) =>
+            formatCurrency(rung.risk, CURRENCY_DECIMALS),
+        header: 'Risk',
+        id: RungColumn.Risk,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        cell: ({ row: { original: rung } }) =>
+            formatCurrency(rung.takeProfit, CURRENCY_DECIMALS),
+        header: 'Take profit',
+        id: RungColumn.TakeProfit,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        cell: ({ row: { original: rung } }) =>
+            formatCurrency(rung.runningLossAfter, CURRENCY_DECIMALS),
+        header: 'Running loss after',
+        id: RungColumn.RunningLossAfter,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        cell: ({ row: { original: rung } }) => rung.cappedByText.join(', '),
+        header: 'Capped by',
+        id: RungColumn.CappedBy,
+    },
+];
 
 export function RungTable({
     label,
@@ -24,36 +64,12 @@ export function RungTable({
     readonly rungs: readonly RungTableRow[];
 }) {
     return (
-        <Table>
-            <TableCaption className="sr-only">{label}</TableCaption>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Trade</TableHead>
-                    <TableHead className="text-right">Risk</TableHead>
-                    <TableHead className="text-right">Take profit</TableHead>
-                    <TableHead className="text-right">
-                        Running loss after
-                    </TableHead>
-                    <TableHead>Capped by</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {rungs.map((rung, index) => (
-                    <TableRow key={String(index)}>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {formatCurrency(rung.risk, 2)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {formatCurrency(rung.takeProfit, 2)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {formatCurrency(rung.runningLossAfter, 2)}
-                        </TableCell>
-                        <TableCell>{rung.cappedByText.join(', ')}</TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+        <DataTable
+            caption={label}
+            columns={RUNG_COLUMNS}
+            data={[...rungs]}
+            isSortable={false}
+            pageSize={null}
+        />
     );
 }

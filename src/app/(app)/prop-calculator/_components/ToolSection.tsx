@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import InfoPopover from '~/components/ui/info-popover';
 import { type FirmId } from '~/lib/prop-calculator';
 import { type LegacySection } from '~/lib/site/legacyCalculatorLinks';

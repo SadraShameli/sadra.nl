@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Info, TriangleAlert } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -241,10 +241,10 @@ function EventForm({
             form.resetField('occurredOn', { defaultValue: day });
         },
     });
-    const kind = form.watch('kind');
+    const kind = useWatch({ control: form.control, name: 'kind' });
     const isBusted = kind === AccountEventKind.Busted;
     const selected = options.find((option) => option.kind === kind);
-    const draft = schema.safeParse(form.watch());
+    const draft = schema.safeParse(useWatch({ control: form.control }));
     const shown = draft.success ? preview(draft.data) : null;
     const shownKey = shown === null ? null : previewKey(shown);
     const [confirmedKey, setConfirmedKey] = useState<null | string>(null);

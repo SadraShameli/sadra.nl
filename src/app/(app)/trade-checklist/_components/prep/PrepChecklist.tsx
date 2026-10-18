@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Save, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useId, useTransition } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
@@ -86,7 +86,7 @@ export function PrepChecklist({
         resolver: zodResolver(prepFormSchema),
     });
     const formId = useId();
-    const checks = form.watch('checks');
+    const checks = useWatch({ control: form.control, name: 'checks' });
 
     const completed = PREP_CHECK_KEYS.filter((k) => checks[k]).length;
     const score = (completed / PREP_CHECK_KEYS.length) * 100;

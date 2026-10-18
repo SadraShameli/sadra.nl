@@ -3,7 +3,6 @@
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import FirmPlanPicker from '~/app/(app)/prop-calculator/_components/FirmPlanPicker';
 import {
     formatPoints,
@@ -37,6 +36,7 @@ import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import {
     Field,
     FieldDescription,

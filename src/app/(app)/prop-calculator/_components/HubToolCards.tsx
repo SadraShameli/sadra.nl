@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { subnavHref } from '~/app/(app)/_components/routeSubnavLinks';
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import {
     Card,
     CardDescription,

@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Bookmark, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useId, useState, useSyncExternalStore } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -402,6 +402,7 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
         resolver: zodResolver(savedScenarioFormSchema),
     });
     const formId = useId();
+    const scenarioName = useWatch({ control: form.control, name: 'name' });
 
     const status = scenarioListStatus(loadError, scenarios);
 
@@ -440,7 +441,7 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
                 />
                 <Button
                     className="h-8 px-3 text-xs"
-                    disabled={busy || !form.watch('name').trim()}
+                    disabled={busy || !scenarioName.trim()}
                     size="sm"
                     type="submit"
                 >

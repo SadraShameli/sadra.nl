@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useId, useState, useTransition } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import type {
@@ -140,8 +140,8 @@ function OutcomeForm({
     });
     const formId = useId();
 
-    const deviations = form.watch('deviations');
-    const outcome = form.watch('outcome');
+    const deviations = useWatch({ control: form.control, name: 'deviations' });
+    const outcome = useWatch({ control: form.control, name: 'outcome' });
 
     const toggleDeviation = (key: ExecutionDeviation) => {
         const current = form.getValues('deviations');

@@ -29,8 +29,8 @@ import type {
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { ImportEvent, Stage } from '~/lib/accounting/runner-types';
 
-import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';

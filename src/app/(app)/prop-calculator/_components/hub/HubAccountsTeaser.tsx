@@ -4,7 +4,6 @@ import { ArrowRight, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import {
     ACCOUNT_LIST_INPUT,
@@ -19,6 +18,7 @@ import {
     type SetupChecklistCardModel,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SetupChecklistCompact } from '~/app/(app)/prop-calculator/accounts/_components/overview/SetupChecklistCard';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Button } from '~/components/ui/button';
 import {
     Card,

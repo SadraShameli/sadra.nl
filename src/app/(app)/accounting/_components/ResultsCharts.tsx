@@ -5,7 +5,7 @@ import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 
 import type { ConversionResult } from '~/lib/accounting/core/types';
 
-import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
+import { ToolPanel } from '~/components/ToolPanel';
 import {
     CHART_BAR_RADIUS,
     CHART_X_AXIS_PROPS,

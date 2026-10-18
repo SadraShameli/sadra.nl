@@ -4,7 +4,6 @@ import { CircleAlert, CircleCheck } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { DEFAULT_FUNDED_HORIZON_DAYS } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
 import FirmPlanPicker from '~/app/(app)/prop-calculator/_components/FirmPlanPicker';
@@ -57,18 +56,11 @@ import {
 import { payoutStakeViewOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
 import { type AssumptionView } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceViewModel';
 import { AssumptionsList } from '~/app/(app)/prop-calculator/accounts/_components/advice/AssumptionsList';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Badge } from '~/components/ui/badge';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
-import {
-    Table,
-    TableBody,
-    TableCaption,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import { formatGateCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -124,6 +116,24 @@ const MID_SIZE_BAND_MIN = 1000;
 const MID_SIZE_BAND_MAX = 2000;
 const SWEEP_SEED = 42;
 const SWEEP_TRIALS = 2000;
+enum SweepColumn {
+    BustProbability = 'bust-probability',
+    CreditFree = 'credit-free',
+    CreditInclusive = 'credit-inclusive',
+    RequestSize = 'request-size',
+    SentLive = 'sent-live',
+}
+
+const SENT_LIVE_COLUMN: DataTableColumn<PayoutSizeSweepRow> = {
+    cell: ({ row: { original: row } }) => (
+        <span className="tabular-nums">
+            {formatPercent(row.out.liveTransferProbability)}
+        </span>
+    ),
+    header: 'Sent live',
+    id: SweepColumn.SentLive,
+};
+
 const SWEEP_TABLE_CAPTION =
     'Payout-size sweep: simulated request sizes with their monthly net and bust probability';
 const SWEEP_HAZARD_RANKING_TEXT =
@@ -1183,38 +1193,12 @@ function PayoutSweepOutcome({
                 payout, T32); the credit-free realized monthly net is shown
                 alongside.
             </p>
-            <Table>
-                <TableCaption className="sr-only">
-                    {SWEEP_TABLE_CAPTION}
-                </TableCaption>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead scope="col">Request size</TableHead>
-                        <TableHead scope="col">
-                            Credit-inclusive net/mo (± SE)
-                        </TableHead>
-                        <TableHead scope="col">
-                            Credit-free net/mo (± SE)
-                        </TableHead>
-                        <TableHead scope="col">
-                            Bust probability (± SE)
-                        </TableHead>
-                        {isTransferPriced ? (
-                            <TableHead scope="col">Sent live</TableHead>
-                        ) : null}
-                    </TableRow>
-                </TableHeader>
-                <TableBody className="tabular-nums">
-                    {optimum.rows.map((row) => (
-                        <TableRow
-                            className={
-                                row.requestSize === documentedSize
-                                    ? 'font-semibold text-foreground'
-                                    : 'text-muted-foreground'
-                            }
-                            key={row.requestSize}
-                        >
-                            <TableCell>
+            <DataTable
+                caption={SWEEP_TABLE_CAPTION}
+                columns={[
+                    {
+                        cell: ({ row: { original: row } }) => (
+                            <>
                                 <span className="flex flex-wrap items-center gap-2">
                                     {formatGateCurrency(row.requestSize)}
                                     {sweepRowTags(
@@ -1251,38 +1235,61 @@ function PayoutSweepOutcome({
                                             .join(', ')}
                                     </div>
                                 ) : null}
-                            </TableCell>
-                            <TableCell>
+                            </>
+                        ),
+                        header: 'Request size',
+                        id: SweepColumn.RequestSize,
+                    },
+                    {
+                        cell: ({ row: { original: row } }) => (
+                            <span className="tabular-nums">
                                 {formatGateCurrency(creditInclusiveOf(row))}
                                 {standardErrorText(
                                     creditInclusiveStandardErrorOf(row),
                                 )}
-                            </TableCell>
-                            <TableCell>
+                            </span>
+                        ),
+                        header: 'Credit-inclusive net/mo (± SE)',
+                        id: SweepColumn.CreditInclusive,
+                    },
+                    {
+                        cell: ({ row: { original: row } }) => (
+                            <span className="tabular-nums">
                                 {formatGateCurrency(creditFreeOf(row))}
                                 {standardErrorText(
                                     creditFreeStandardErrorOf(row),
                                 )}
-                            </TableCell>
-                            <TableCell>
+                            </span>
+                        ),
+                        header: 'Credit-free net/mo (± SE)',
+                        id: SweepColumn.CreditFree,
+                    },
+                    {
+                        cell: ({ row: { original: row } }) => (
+                            <span className="tabular-nums">
                                 {formatPercent(row.out.fundedBustProbability)}
                                 {standardErrorText(
                                     row.out.estimates.fundedBustProbability
                                         .standardError,
                                     formatPercent,
                                 )}
-                            </TableCell>
-                            {isTransferPriced ? (
-                                <TableCell>
-                                    {formatPercent(
-                                        row.out.liveTransferProbability,
-                                    )}
-                                </TableCell>
-                            ) : null}
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+                            </span>
+                        ),
+                        header: 'Bust probability (± SE)',
+                        id: SweepColumn.BustProbability,
+                    },
+                    ...(isTransferPriced ? [SENT_LIVE_COLUMN] : []),
+                ]}
+                data={[...optimum.rows]}
+                isSortable={false}
+                pageSize={null}
+                rowClassName={(row) =>
+                    row.requestSize === documentedSize
+                        ? 'font-semibold text-foreground'
+                        : 'text-muted-foreground'
+                }
+                rowId={(row) => String(row.requestSize)}
+            />
             <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {sweepOptimumNotes(optimum, documentedSize).map((note) => (
                     <li key={note}>{note}</li>

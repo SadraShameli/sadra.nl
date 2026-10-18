@@ -10,11 +10,7 @@ import {
 } from '~/app/(app)/_components/useActiveHomeNavItem';
 import { HOME_SECTIONS, HomeSectionId } from '~/lib/site/homeSections';
 
-const pathname = vi.hoisted(() => ({ current: '/' }));
-
-vi.mock('next/navigation', () => ({
-    usePathname: () => pathname.current,
-}));
+const page = { isHome: true };
 
 const VIEWPORT_HEIGHT = 1000;
 const SCROLL_IDLE_WAIT_MS = 220;
@@ -35,7 +31,7 @@ function placeSections(scrollY: number): void {
 }
 
 function Probe() {
-    probe.nav = useActiveHomeNavItem();
+    probe.nav = useActiveHomeNavItem(page.isHome);
     return null;
 }
 
@@ -65,7 +61,7 @@ function seen(): ActiveHomeNavItem | null | undefined {
 beforeEach(() => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     vi.stubGlobal('innerHeight', VIEWPORT_HEIGHT);
-    pathname.current = '/';
+    page.isHome = true;
     for (const section of HOME_SECTIONS) {
         const element = document.createElement('section');
         element.id = section.id;
@@ -131,7 +127,7 @@ describe('useActiveHomeNavItem', () => {
     });
 
     it('marks nothing away from the homepage', async () => {
-        pathname.current = '/portfolio';
+        page.isHome = false;
 
         await render();
 

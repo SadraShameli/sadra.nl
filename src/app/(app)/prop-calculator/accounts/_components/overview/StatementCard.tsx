@@ -3,20 +3,26 @@
 import { memo } from 'react';
 
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { MonthlyPayoutChart } from './MonthlyPayoutChart';
 import { type StatementCardModel } from './overviewModel';
 import { PurchaseCohortsView } from './PurchaseCohortsView';
+
+enum StatementCardColumn {
+    CumulativeNet = 'cumulative-net',
+    Growth = 'growth',
+    MeetsTarget = 'meets-target',
+    Month = 'month',
+    Multiple = 'multiple',
+    Net = 'net',
+    PayoutCount = 'payout-count',
+    PayoutsReceived = 'payouts-received',
+    Spend = 'spend',
+    Trailing3MonthMultiple = 'trailing-3-month-multiple',
+}
 
 enum StatementView {
     ByPurchaseCohort = 'by-purchase-cohort',
@@ -70,70 +76,90 @@ export const StatementCard = memo(function StatementCard({
 
 function CashByMonthTable({ model }: { readonly model: StatementCardModel }) {
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Month</TableHead>
-                    <TableHead className="text-right">Spend</TableHead>
-                    <TableHead className="text-right">
-                        Payouts received
-                    </TableHead>
-                    <TableHead className="text-right">Payout count</TableHead>
-                    <TableHead className="text-right">Net</TableHead>
-                    <TableHead className="text-right">Cumulative net</TableHead>
-                    <TableHead className="text-right">Multiple</TableHead>
-                    <TableHead className="text-right">
-                        Trailing 3-month multiple
-                    </TableHead>
-                    <TableHead className="text-right">Growth</TableHead>
-                    <TableHead>Meets target</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {model.months.map((row) => (
-                    <TableRow key={row.key}>
-                        <TableCell className="tabular-nums">
-                            {row.month}
-                            {row.isPartial && (
+        <DataTable
+            columns={[
+                {
+                    cell: ({ row }) => (
+                        <span className="tabular-nums">
+                            {row.original.month}
+                            {row.original.isPartial && (
                                 <span className="ml-1 text-xs text-muted-foreground">
                                     (partial)
                                 </span>
                             )}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.spend}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.payouts}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.payoutCount}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.net}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.cumulativeNet}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.multiple}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.trailingThreeMonthMultiple}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.payoutGrowth}
-                        </TableCell>
-                        <TableCell>
+                        </span>
+                    ),
+                    header: 'Month',
+                    id: StatementCardColumn.Month,
+                },
+                {
+                    cell: ({ row }) => <>{row.original.spend}</>,
+                    header: 'Spend',
+                    id: StatementCardColumn.Spend,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.payouts}</>,
+                    header: 'Payouts received',
+                    id: StatementCardColumn.PayoutsReceived,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.payoutCount}</>,
+                    header: 'Payout count',
+                    id: StatementCardColumn.PayoutCount,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.net}</>,
+                    header: 'Net',
+                    id: StatementCardColumn.Net,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.cumulativeNet}</>,
+                    header: 'Cumulative net',
+                    id: StatementCardColumn.CumulativeNet,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.multiple}</>,
+                    header: 'Multiple',
+                    id: StatementCardColumn.Multiple,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => (
+                        <>{row.original.trailingThreeMonthMultiple}</>
+                    ),
+                    header: 'Trailing 3-month multiple',
+                    id: StatementCardColumn.Trailing3MonthMultiple,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.payoutGrowth}</>,
+                    header: 'Growth',
+                    id: StatementCardColumn.Growth,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => (
+                        <>
                             {meetsTargetLabel(
-                                row.meetsPayoutTarget,
-                                row.meetsMultipleTarget,
+                                row.original.meetsPayoutTarget,
+                                row.original.meetsMultipleTarget,
                             )}
-                        </TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                        </>
+                    ),
+                    header: 'Meets target',
+                    id: StatementCardColumn.MeetsTarget,
+                },
+            ]}
+            data={[...model.months]}
+            isSortable={false}
+            pageSize={null}
+            rowId={(row) => row.key}
+        />
     );
 }
 

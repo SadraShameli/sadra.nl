@@ -1,15 +1,8 @@
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { Badge } from '~/components/ui/badge';
 import { Card } from '~/components/ui/card';
+import { DataTable } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 
 import {
     type DpAdviceRecordInput,
@@ -20,6 +13,11 @@ import {
     figureTextOf,
     type OptimumRowView,
 } from './adviceViewModel';
+
+enum OptimaTableColumn {
+    Result = 'result',
+    Source = 'source',
+}
 
 export interface DpAdviceQuery {
     readonly data: readonly DpAdviceRecordInput[] | undefined;
@@ -74,18 +72,16 @@ export function OptimaTable({
         );
     }
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Result</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {rows.map((row) => (
-                    <TableRow key={`${row.source}-${row.label}`}>
-                        <TableCell>{row.label}</TableCell>
-                        <TableCell>
+        <DataTable
+            columns={[
+                {
+                    cell: ({ row: { original: row } }) => <>{row.label}</>,
+                    header: 'Source',
+                    id: OptimaTableColumn.Source,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <>
                             <p>{row.text}</p>
                             {row.figures.length > 0 && (
                                 <ul className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground tabular-nums">
@@ -97,11 +93,17 @@ export function OptimaTable({
                                     ))}
                                 </ul>
                             )}
-                        </TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                        </>
+                    ),
+                    header: 'Result',
+                    id: OptimaTableColumn.Result,
+                },
+            ]}
+            data={[...rows]}
+            isSortable={false}
+            pageSize={null}
+            rowId={(row) => `${row.source}-${row.label}`}
+        />
     );
 }
 

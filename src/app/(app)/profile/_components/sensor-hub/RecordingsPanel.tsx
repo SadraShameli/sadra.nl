@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AudioLines, Download, Pencil, Plus } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
@@ -333,7 +333,7 @@ function NewRecordingDialog({
         fileReader.readAsDataURL(file);
     };
 
-    const fileName = form.watch('fileName');
+    const fileName = useWatch({ control: form.control, name: 'fileName' });
 
     return (
         <ProfileFormDialog

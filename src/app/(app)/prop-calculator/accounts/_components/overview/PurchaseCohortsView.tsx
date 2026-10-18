@@ -1,13 +1,15 @@
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type PurchaseCohortRow } from './overviewModel';
+
+enum PurchaseCohortsViewColumn {
+    InProgress = 'in-progress',
+    Payouts = 'payouts',
+    PurchaseMonth = 'purchase-month',
+    RealizedMultipleEnded = 'realized-multiple-ended',
+    Spend = 'spend',
+    ToDateMultiple = 'to-date-multiple',
+}
 
 export function PurchaseCohortsView({
     rows,
@@ -22,45 +24,52 @@ export function PurchaseCohortsView({
         );
     }
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Purchase month</TableHead>
-                    <TableHead className="text-right">Spend</TableHead>
-                    <TableHead className="text-right">Payouts</TableHead>
-                    <TableHead className="text-right">
-                        Realized multiple (ended)
-                    </TableHead>
-                    <TableHead className="text-right">
-                        To-date multiple
-                    </TableHead>
-                    <TableHead className="text-right">In progress</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {rows.map((row) => (
-                    <TableRow key={row.key}>
-                        <TableCell className="tabular-nums">
-                            {row.month}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.spend}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.payouts}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.realizedMultiple}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.toDateMultiple}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                            {row.inProgressCount}
-                        </TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+        <DataTable
+            columns={[
+                {
+                    cell: ({ row }) => (
+                        <span className="tabular-nums">
+                            {row.original.month}
+                        </span>
+                    ),
+                    header: 'Purchase month',
+                    id: PurchaseCohortsViewColumn.PurchaseMonth,
+                },
+                {
+                    cell: ({ row }) => <>{row.original.spend}</>,
+                    header: 'Spend',
+                    id: PurchaseCohortsViewColumn.Spend,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.payouts}</>,
+                    header: 'Payouts',
+                    id: PurchaseCohortsViewColumn.Payouts,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.realizedMultiple}</>,
+                    header: 'Realized multiple (ended)',
+                    id: PurchaseCohortsViewColumn.RealizedMultipleEnded,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.toDateMultiple}</>,
+                    header: 'To-date multiple',
+                    id: PurchaseCohortsViewColumn.ToDateMultiple,
+                    meta: { align: DataTableAlign.End },
+                },
+                {
+                    cell: ({ row }) => <>{row.original.inProgressCount}</>,
+                    header: 'In progress',
+                    id: PurchaseCohortsViewColumn.InProgress,
+                    meta: { align: DataTableAlign.End },
+                },
+            ]}
+            data={[...rows]}
+            isSortable={false}
+            pageSize={null}
+            rowId={(row) => row.key}
+        />
     );
 }

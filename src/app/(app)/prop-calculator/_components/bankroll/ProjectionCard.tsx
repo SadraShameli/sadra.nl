@@ -13,14 +13,7 @@ import {
     type ChartConfig,
     ChartContainer,
 } from '~/components/ui/chart';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable } from '~/components/ui/data-table';
 import {
     formatCompactCurrency,
     formatGateCurrency,
@@ -52,6 +45,15 @@ import {
 } from './bankrollUrlState';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
+
+enum ProjectionCardColumn {
+    BankrollP10 = 'bankroll-p10',
+    BankrollP50 = 'bankroll-p50',
+    BankrollP90 = 'bankroll-p90',
+    Month = 'month',
+    PayoutsP50 = 'payouts-p50',
+    SpendP50 = 'spend-p50',
+}
 
 interface ProjectionCardProperties {
     onChange: (patch: Partial<BankrollViewState>) => void;
@@ -343,42 +345,69 @@ function MonthEndBands({
                     />
                 </ComposedChart>
             </ChartContainer>
-            <Table aria-label="Month-end projection">
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Month</TableHead>
-                        <TableHead>Bankroll P10</TableHead>
-                        <TableHead>Bankroll P50</TableHead>
-                        <TableHead>Bankroll P90</TableHead>
-                        <TableHead>Payouts (P50)</TableHead>
-                        <TableHead>Spend (P50)</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {monthEnds.map((row) => (
-                        <TableRow key={row.month}>
-                            <TableCell>
-                                {row.month} (day {row.day})
-                            </TableCell>
-                            <TableCell className="font-mono">
-                                {formatGateCurrency(row.cashP10)}
-                            </TableCell>
-                            <TableCell className="font-mono">
-                                {formatGateCurrency(row.cashP50)}
-                            </TableCell>
-                            <TableCell className="font-mono">
-                                {formatGateCurrency(row.cashP90)}
-                            </TableCell>
-                            <TableCell className="font-mono">
-                                {formatGateCurrency(row.payoutsP50)}
-                            </TableCell>
-                            <TableCell className="font-mono">
-                                {formatGateCurrency(row.spendP50)}
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                aria-label="Month-end projection"
+                columns={[
+                    {
+                        cell: ({ row }) => (
+                            <>
+                                {row.original.month} (day {row.original.day})
+                            </>
+                        ),
+                        header: 'Month',
+                        id: ProjectionCardColumn.Month,
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="font-mono">
+                                {formatGateCurrency(row.original.cashP10)}
+                            </span>
+                        ),
+                        header: 'Bankroll P10',
+                        id: ProjectionCardColumn.BankrollP10,
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="font-mono">
+                                {formatGateCurrency(row.original.cashP50)}
+                            </span>
+                        ),
+                        header: 'Bankroll P50',
+                        id: ProjectionCardColumn.BankrollP50,
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="font-mono">
+                                {formatGateCurrency(row.original.cashP90)}
+                            </span>
+                        ),
+                        header: 'Bankroll P90',
+                        id: ProjectionCardColumn.BankrollP90,
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="font-mono">
+                                {formatGateCurrency(row.original.payoutsP50)}
+                            </span>
+                        ),
+                        header: 'Payouts (P50)',
+                        id: ProjectionCardColumn.PayoutsP50,
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="font-mono">
+                                {formatGateCurrency(row.original.spendP50)}
+                            </span>
+                        ),
+                        header: 'Spend (P50)',
+                        id: ProjectionCardColumn.SpendP50,
+                    },
+                ]}
+                data={[...monthEnds]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => String(row.month)}
+            />
         </div>
     );
 }

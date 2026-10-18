@@ -1,15 +1,19 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type OutcomesCardModel } from './overviewModel';
+
+enum RealizedOutcomesCardColumn {
+    FundedSurvival = 'funded-survival',
+    ModeledFundedSurvival = 'modeled-funded-survival',
+    ModeledPassRate = 'modeled-pass-rate',
+    ModeledSessionsToFunded = 'modeled-sessions-to-funded',
+    PassRate = 'pass-rate',
+    Plan = 'plan',
+    SessionsToFunded = 'sessions-to-funded',
+    StillOpen = 'still-open',
+}
 
 export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
     model,
@@ -23,68 +27,89 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
                     No account with a modeled plan yet.
                 </p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Plan</TableHead>
-                            <TableHead className="text-right">
-                                Pass rate
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Modeled pass rate
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Sessions to funded
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Modeled sessions to funded
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Funded survival
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Modeled funded survival
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Still open
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {model.rows.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.plan}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.passRate}
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row }) => <>{row.original.plan}</>,
+                            header: 'Plan',
+                            id: RealizedOutcomesCardColumn.Plan,
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>
+                                    {row.original.passRate}
                                     <span className="block text-xs text-muted-foreground">
-                                        {row.passRateCounts}
+                                        {row.original.passRateCounts}
                                     </span>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground tabular-nums">
-                                    {row.modeledPassRate}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.sessionsToFunded}
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground tabular-nums">
-                                    {row.modeledSessionsToFunded}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.fundedSurvival}
+                                </>
+                            ),
+                            header: 'Pass rate',
+                            id: RealizedOutcomesCardColumn.PassRate,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <span className="text-muted-foreground">
+                                    {row.original.modeledPassRate}
+                                </span>
+                            ),
+                            header: 'Modeled pass rate',
+                            id: RealizedOutcomesCardColumn.ModeledPassRate,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.sessionsToFunded}</>
+                            ),
+                            header: 'Sessions to funded',
+                            id: RealizedOutcomesCardColumn.SessionsToFunded,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <span className="text-muted-foreground">
+                                    {row.original.modeledSessionsToFunded}
+                                </span>
+                            ),
+                            header: 'Modeled sessions to funded',
+                            id: RealizedOutcomesCardColumn.ModeledSessionsToFunded,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>
+                                    {row.original.fundedSurvival}
                                     <span className="block text-xs text-muted-foreground">
-                                        {row.fundedSurvivalCounts}
+                                        {row.original.fundedSurvivalCounts}
                                     </span>
-                                </TableCell>
-                                <TableCell className="text-right text-muted-foreground tabular-nums">
-                                    {row.modeledFundedSurvival}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.openFunded}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                                </>
+                            ),
+                            header: 'Funded survival',
+                            id: RealizedOutcomesCardColumn.FundedSurvival,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <span className="text-muted-foreground">
+                                    {row.original.modeledFundedSurvival}
+                                </span>
+                            ),
+                            header: 'Modeled funded survival',
+                            id: RealizedOutcomesCardColumn.ModeledFundedSurvival,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.openFunded}</>,
+                            header: 'Still open',
+                            id: RealizedOutcomesCardColumn.StillOpen,
+                            meta: { align: DataTableAlign.End },
+                        },
+                    ]}
+                    data={[...model.rows]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
             <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {model.disclosures.map((disclosure) => (

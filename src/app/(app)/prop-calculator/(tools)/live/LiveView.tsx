@@ -1,6 +1,5 @@
 'use client';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { EvalLadderScope } from '~/app/(app)/prop-calculator/_components/AppliedEvalLadderNotice';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
@@ -17,6 +16,7 @@ import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useDebouncedComputation } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import { type LiveOutputs, simulateLiveAccount } from '~/lib/prop-calculator';

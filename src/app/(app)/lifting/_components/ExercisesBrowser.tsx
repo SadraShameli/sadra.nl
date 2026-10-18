@@ -4,8 +4,9 @@ import { ChevronRight, Dumbbell } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
@@ -120,62 +121,53 @@ export function ExercisesBrowser() {
                 <StatCard label="Built-in" value={stats.builtin.toString()} />
             </section>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        Library
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    <DataTable<ExerciseRow>
-                        columns={columns}
-                        data={allRows}
-                        emptyState={
-                            <EmptyState
-                                description="Try a different search or clear the filters."
-                                icon={Dumbbell}
-                                title="No exercises match"
-                            />
-                        }
-                        filterPlaceholder="Search exercises"
-                        headerActions={(table) => {
-                            const sourceColumn = table.getColumn('source');
-                            return (
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <DataTableFacetSelect
-                                        column={table.getColumn(
-                                            'primaryMuscle',
-                                        )}
-                                        label="Muscle"
-                                        placeholder="All muscles"
-                                    />
-                                    <DataTableFacetSelect
-                                        column={table.getColumn('equipment')}
-                                        label="Equipment"
-                                        placeholder="All gear"
-                                    />
-                                    <FilterToggle
-                                        isPressed={
-                                            sourceColumn?.getFilterValue() === 1
-                                        }
-                                        label="Custom only"
-                                        onPressedChange={(pressed) =>
-                                            sourceColumn?.setFilterValue(
-                                                pressed ? 1 : undefined,
-                                            )
-                                        }
-                                    />
-                                </div>
-                            );
-                        }}
-                        isLoading={exercises.isLoading}
-                        pageSize={25}
-                        rowId={(r) => r.id}
-                        search={{ onChange: setSearch, value: search }}
-                        showFilter
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel contentClassName="flex flex-col gap-4" title="Library">
+                <DataTable<ExerciseRow>
+                    columns={columns}
+                    data={allRows}
+                    emptyState={
+                        <EmptyState
+                            description="Try a different search or clear the filters."
+                            icon={Dumbbell}
+                            title="No exercises match"
+                        />
+                    }
+                    filterPlaceholder="Search exercises"
+                    headerActions={(table) => {
+                        const sourceColumn = table.getColumn('source');
+                        return (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <DataTableFacetSelect
+                                    column={table.getColumn('primaryMuscle')}
+                                    label="Muscle"
+                                    placeholder="All muscles"
+                                />
+                                <DataTableFacetSelect
+                                    column={table.getColumn('equipment')}
+                                    label="Equipment"
+                                    placeholder="All gear"
+                                />
+                                <FilterToggle
+                                    isPressed={
+                                        sourceColumn?.getFilterValue() === 1
+                                    }
+                                    label="Custom only"
+                                    onPressedChange={(pressed) =>
+                                        sourceColumn?.setFilterValue(
+                                            pressed ? 1 : undefined,
+                                        )
+                                    }
+                                />
+                            </div>
+                        );
+                    }}
+                    isLoading={exercises.isLoading}
+                    pageSize={25}
+                    rowId={(r) => r.id}
+                    search={{ onChange: setSearch, value: search }}
+                    showFilter
+                />
+            </ToolPanel>
         </div>
     );
 }

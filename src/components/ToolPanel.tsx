@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import { cn } from '~/lib/utilities';
 

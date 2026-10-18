@@ -11,17 +11,16 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { CredentialKind } from '~/lib/accounting/credentials/registry';
 
-import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     Dialog,
@@ -30,7 +29,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '~/components/ui/dialog';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import {
@@ -240,15 +239,11 @@ export function ConnectionsManager() {
             )}
 
             {credentialsQ.data?.length === 0 && (
-                <Card>
-                    <CardContent>
-                        <EmptyState
-                            description="Add a credential to start importing"
-                            icon={KeyRound}
-                            title="No credentials yet"
-                        />
-                    </CardContent>
-                </Card>
+                <EmptyStatePanel
+                    description="Add a credential to start importing"
+                    icon={KeyRound}
+                    title="No credentials yet"
+                />
             )}
 
             {ROLE_ORDER.map((role) => {
@@ -313,16 +308,17 @@ function EditCredentialDialog({
     );
 }
 
-function EditCredentialForm({
+function EditCredentialFields({
     credential,
+    descriptor,
     onClose,
     onSaved,
 }: {
     credential: StoredCredential;
+    descriptor: CredentialDescriptor;
     onClose: () => void;
     onSaved: () => Promise<void>;
 }) {
-    const descriptor = CredentialRegistry.instance.get(credential.kind);
     const updateMut = api.accounting.credentials.update.useMutation();
     const form = useForm<CredentialUpdateInput>({
         defaultValues: {
@@ -333,25 +329,9 @@ function EditCredentialForm({
         },
         resolver: zodResolver(credentialUpdateSchema),
     });
-
-    if (!descriptor) {
-        return (
-            <>
-                <DialogHeader>
-                    <DialogTitle>Edit credential</DialogTitle>
-                </DialogHeader>
-                <p className="text-sm text-destructive">
-                    Unknown credential kind &quot;{credential.kind}&quot;: no
-                    descriptor registered.
-                </p>
-                <DialogFooter>
-                    <Button onClick={onClose} variant="ghost">
-                        Close
-                    </Button>
-                </DialogFooter>
-            </>
-        );
-    }
+    const label = useWatch({ control: form.control, name: 'label' }) ?? '';
+    const secret = useWatch({ control: form.control, name: 'secret' }) ?? '';
+    const meta = useWatch({ control: form.control, name: 'meta' }) ?? {};
 
     const onSubmit = form.handleSubmit(async (values) => {
         const trimmedSecret = values.secret?.trim();
@@ -376,10 +356,6 @@ function EditCredentialForm({
             );
         }
     });
-
-    const label = form.watch('label') ?? '';
-    const secret = form.watch('secret') ?? '';
-    const meta = form.watch('meta') ?? {};
 
     return (
         <>
@@ -439,6 +415,45 @@ function EditCredentialForm({
                 </DialogFooter>
             </form>
         </>
+    );
+}
+
+function EditCredentialForm({
+    credential,
+    onClose,
+    onSaved,
+}: {
+    credential: StoredCredential;
+    onClose: () => void;
+    onSaved: () => Promise<void>;
+}) {
+    const descriptor = CredentialRegistry.instance.get(credential.kind);
+    if (descriptor === undefined) {
+        return (
+            <>
+                <DialogHeader>
+                    <DialogTitle>Edit credential</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-destructive">
+                    Unknown credential kind &quot;{credential.kind}&quot;: no
+                    descriptor registered.
+                </p>
+                <DialogFooter>
+                    <Button onClick={onClose} variant="ghost">
+                        Close
+                    </Button>
+                </DialogFooter>
+            </>
+        );
+    }
+
+    return (
+        <EditCredentialFields
+            credential={credential}
+            descriptor={descriptor}
+            onClose={onClose}
+            onSaved={onSaved}
+        />
     );
 }
 

@@ -23,6 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -33,14 +34,6 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import { useSession } from '~/lib/auth/client';
 import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
@@ -77,6 +70,17 @@ import { firmEngagementSetSchema } from '~/lib/schemas/propAccounts';
 import { api } from '~/trpc/react';
 
 import { firmsModelOf } from './firmsModel';
+
+enum FirmRosterColumn {
+    Active = 'active',
+    Firm = 'firm',
+    FirstPurchase = 'first-purchase',
+    LastActivity = 'last-activity',
+    Lifetime = 'lifetime',
+    MovedLive = 'moved-live',
+    Status = 'status',
+    TransferRate = 'transfer-rate',
+}
 
 type FirmEngagementRow = z.infer<typeof propFirmEngagementOutputSchema>;
 
@@ -237,44 +241,89 @@ export function FirmsView() {
                             No firms yet. Add an account to see it here.
                         </p>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Firm</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">
-                                        Lifetime
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        Active
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        Moved live
-                                    </TableHead>
-                                    <TableHead>First purchase</TableHead>
-                                    <TableHead>Last activity</TableHead>
-                                    <TableHead>Live-transfer rate</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {model.roster.firms.map((entry) => (
-                                    <FirmRow
-                                        canEditEngagement={canEditEngagement}
-                                        entry={entry}
-                                        existingEngagement={firmEngagementFor(
+                        <DataTable
+                            columns={[
+                                {
+                                    cell: ({ row: { original: entry } }) =>
+                                        firmKeyLabel(
                                             entry.firmKey,
-                                            engagements,
-                                        )}
-                                        externalFirms={externalFirms}
-                                        key={firmKeyId(entry.firmKey)}
-                                        transferRate={transferRateFor(
-                                            entry.firmKey,
-                                            model.transferRate.perFirm,
-                                        )}
-                                    />
-                                ))}
-                            </TableBody>
-                        </Table>
+                                            externalFirms,
+                                        ),
+                                    header: 'Firm',
+                                    id: FirmRosterColumn.Firm,
+                                },
+                                {
+                                    cell: ({ row: { original: entry } }) => (
+                                        <FirmStatusForm
+                                            canEditEngagement={
+                                                canEditEngagement
+                                            }
+                                            entry={entry}
+                                            existingEngagement={firmEngagementFor(
+                                                entry.firmKey,
+                                                engagements,
+                                            )}
+                                            firmLabel={firmKeyLabel(
+                                                entry.firmKey,
+                                                externalFirms,
+                                            )}
+                                            key={`${firmKeyId(entry.firmKey)}:${String(canEditEngagement)}`}
+                                        />
+                                    ),
+                                    header: 'Status',
+                                    id: FirmRosterColumn.Status,
+                                },
+                                {
+                                    cell: ({ row: { original: entry } }) =>
+                                        entry.lifetimeAccounts,
+                                    header: 'Lifetime',
+                                    id: FirmRosterColumn.Lifetime,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row: { original: entry } }) =>
+                                        entry.activeAccounts,
+                                    header: 'Active',
+                                    id: FirmRosterColumn.Active,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row: { original: entry } }) =>
+                                        entry.movedLiveCount,
+                                    header: 'Moved live',
+                                    id: FirmRosterColumn.MovedLive,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row: { original: entry } }) =>
+                                        entry.firstPurchaseOn ?? NOT_APPLICABLE,
+                                    header: 'First purchase',
+                                    id: FirmRosterColumn.FirstPurchase,
+                                },
+                                {
+                                    cell: ({ row: { original: entry } }) =>
+                                        entry.lastActivityOn ?? NOT_APPLICABLE,
+                                    header: 'Last activity',
+                                    id: FirmRosterColumn.LastActivity,
+                                },
+                                {
+                                    cell: ({ row: { original: entry } }) => (
+                                        <TransferRateCell
+                                            transferRate={transferRateFor(
+                                                entry.firmKey,
+                                                model.transferRate.perFirm,
+                                            )}
+                                        />
+                                    ),
+                                    header: 'Live-transfer rate',
+                                    id: FirmRosterColumn.TransferRate,
+                                },
+                            ]}
+                            data={[...model.roster.firms]}
+                            isSortable={false}
+                            pageSize={null}
+                            rowId={(entry) => firmKeyId(entry.firmKey)}
+                        />
                     )}
                 </CardContent>
             </Card>
@@ -286,65 +335,6 @@ function firmColumnsFromKey(key: FirmKey): FirmColumns {
     return key.kind === FirmKeyKind.External
         ? { externalFirmId: key.externalFirmId, firmId: null }
         : { externalFirmId: null, firmId: key.firmId };
-}
-
-function FirmRow({
-    canEditEngagement,
-    entry,
-    existingEngagement,
-    externalFirms,
-    transferRate,
-}: {
-    readonly canEditEngagement: boolean;
-    readonly entry: FirmRosterEntry;
-    readonly existingEngagement: FirmEngagementRow | null;
-    readonly externalFirms: readonly ExternalFirmName[];
-    readonly transferRate: FirmLiveTransferRate | null;
-}) {
-    const firmLabel = firmKeyLabel(entry.firmKey, externalFirms);
-    return (
-        <TableRow>
-            <TableCell>{firmLabel}</TableCell>
-            <TableCell>
-                <FirmStatusForm
-                    canEditEngagement={canEditEngagement}
-                    entry={entry}
-                    existingEngagement={existingEngagement}
-                    firmLabel={firmLabel}
-                    key={`${firmKeyId(entry.firmKey)}:${String(canEditEngagement)}`}
-                />
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {entry.lifetimeAccounts}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {entry.activeAccounts}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {entry.movedLiveCount}
-            </TableCell>
-            <TableCell>{entry.firstPurchaseOn ?? NOT_APPLICABLE}</TableCell>
-            <TableCell>{entry.lastActivityOn ?? NOT_APPLICABLE}</TableCell>
-            <TableCell>
-                <div>
-                    {transferRateText(
-                        transferRate,
-                        transferRate?.perPaidPayout ?? null,
-                        transferRate?.perPaidPayoutUnavailable ?? null,
-                        'per paid payout',
-                    )}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                    {transferRateText(
-                        transferRate,
-                        transferRate?.perFundedAccountMonth ?? null,
-                        transferRate?.perFundedAccountMonthUnavailable ?? null,
-                        'per funded account-month',
-                    )}
-                </div>
-            </TableCell>
-        </TableRow>
-    );
 }
 
 function FirmStatusForm({
@@ -624,6 +614,33 @@ function ScaleGateCard({
                 )}
             </CardContent>
         </Card>
+    );
+}
+
+function TransferRateCell({
+    transferRate,
+}: {
+    readonly transferRate: FirmLiveTransferRate | null;
+}) {
+    return (
+        <>
+            <div>
+                {transferRateText(
+                    transferRate,
+                    transferRate?.perPaidPayout ?? null,
+                    transferRate?.perPaidPayoutUnavailable ?? null,
+                    'per paid payout',
+                )}
+            </div>
+            <div className="text-xs text-muted-foreground">
+                {transferRateText(
+                    transferRate,
+                    transferRate?.perFundedAccountMonth ?? null,
+                    transferRate?.perFundedAccountMonthUnavailable ?? null,
+                    'per funded account-month',
+                )}
+            </div>
+        </>
     );
 }
 

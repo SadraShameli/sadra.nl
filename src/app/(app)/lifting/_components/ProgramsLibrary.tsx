@@ -19,9 +19,10 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { EmptyState } from '~/components/ui/empty-state';
@@ -173,41 +174,10 @@ export function ProgramsLibrary({
                 <Skeleton className="h-40 w-full rounded-2xl" />
             ) : (
                 activeEnrollments.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                                Active
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                                {activeEnrollments.map((enrollment) => (
-                                    <ActiveEnrollmentCard
-                                        enrollment={enrollment}
-                                        key={enrollment.id}
-                                        program={programsById.get(
-                                            enrollment.programId,
-                                        )}
-                                    />
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )
-            )}
-
-            {(otherEnrollments.length > 0 ||
-                (mine.data?.owned.length ?? 0) > 0) && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            Your library
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {otherEnrollments.map((enrollment) => (
-                                <EnrollmentCard
+                    <ToolPanel title="Active">
+                        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                            {activeEnrollments.map((enrollment) => (
+                                <ActiveEnrollmentCard
                                     enrollment={enrollment}
                                     key={enrollment.id}
                                     program={programsById.get(
@@ -215,127 +185,128 @@ export function ProgramsLibrary({
                                     )}
                                 />
                             ))}
-                            {mine.data?.owned.map((p) => (
-                                <OwnedProgramCard key={p.id} program={p} />
-                            ))}
                         </div>
-                    </CardContent>
-                </Card>
+                    </ToolPanel>
+                )
             )}
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex flex-wrap items-baseline justify-between gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        <span>Browse programs</span>
-                        <span className="text-[10px] font-normal tabular-nums">
-                            {filtered.length} of {officialCount}
-                        </span>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="relative w-fit">
-                            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-3.5 -translate-y-1/2 text-ink-muted" />
-                            <Input
-                                aria-label="Search programs"
-                                className={cn(SEARCH_FIELD_CLASS, 'pl-9')}
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
-                                }
-                                placeholder="Search programs"
-                                value={search}
+            {(otherEnrollments.length > 0 ||
+                (mine.data?.owned.length ?? 0) > 0) && (
+                <ToolPanel title="Your library">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {otherEnrollments.map((enrollment) => (
+                            <EnrollmentCard
+                                enrollment={enrollment}
+                                key={enrollment.id}
+                                program={programsById.get(enrollment.programId)}
                             />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <ClearFiltersButton
-                                active={isFiltersActive}
-                                onReset={() => {
-                                    setSearch('');
-                                    setCategory('all');
-                                    setDays('all');
-                                }}
-                            />
-                            <FilterSelect
-                                label="Category"
-                                onValueChange={(v) =>
-                                    setCategory(
-                                        PROGRAM_CATEGORY_VALUES.find(
-                                            (c) => c === v,
-                                        ) ?? 'all',
-                                    )
-                                }
-                                options={PROGRAM_CATEGORY_VALUES.map((c) => ({
-                                    label: (
-                                        <span className="capitalize">{c}</span>
-                                    ),
-                                    value: c,
-                                }))}
-                                placeholder="All categories"
-                                value={
-                                    category === 'all' ? undefined : category
-                                }
-                            />
-                            <FilterSelect
-                                label="Frequency"
-                                onValueChange={(v) =>
-                                    setDays(
-                                        DAYS_FILTER_VALUES.find(
-                                            (d) => d === v,
-                                        ) ?? 'all',
-                                    )
-                                }
-                                options={DAYS_FILTER_VALUES.filter(
-                                    (d) => d !== 'all',
-                                ).map((d) => ({
-                                    label: `${d}× / week`,
-                                    value: d,
-                                }))}
-                                placeholder="Any frequency"
-                                value={days === 'all' ? undefined : days}
-                            />
-                            <ToolbarSelect
-                                label="Sort"
-                                onValueChange={(v) => {
-                                    const next = SORT_VALUES.find(
-                                        (key) => key === v,
-                                    );
-                                    if (next) setSort(next);
-                                }}
-                                options={SORT_VALUES.map((key) => ({
-                                    label: SORT_LABEL[key],
-                                    value: key,
-                                }))}
-                                value={sort}
-                            />
-                        </div>
+                        ))}
+                        {mine.data?.owned.map((p) => (
+                            <OwnedProgramCard key={p.id} program={p} />
+                        ))}
                     </div>
+                </ToolPanel>
+            )}
 
-                    {filtered.length === 0 && (
-                        <EmptyState
-                            description={
-                                isFiltersActive
-                                    ? 'Try clearing some filters.'
-                                    : 'No programs available yet.'
-                            }
-                            icon={Search}
-                            title="No programs match"
+            <ToolPanel
+                contentClassName="gap-4"
+                description={
+                    <span className="tabular-nums">
+                        {filtered.length} of {officialCount} programs
+                    </span>
+                }
+                title="Browse programs"
+            >
+                <div className="flex flex-wrap items-center gap-2">
+                    <FilterSelect
+                        label="Category"
+                        onValueChange={(v) =>
+                            setCategory(
+                                PROGRAM_CATEGORY_VALUES.find((c) => c === v) ??
+                                    'all',
+                            )
+                        }
+                        options={PROGRAM_CATEGORY_VALUES.map((c) => ({
+                            label: <span className="capitalize">{c}</span>,
+                            value: c,
+                        }))}
+                        placeholder="All categories"
+                        value={category === 'all' ? undefined : category}
+                    />
+                    <FilterSelect
+                        label="Frequency"
+                        onValueChange={(v) =>
+                            setDays(
+                                DAYS_FILTER_VALUES.find((d) => d === v) ??
+                                    'all',
+                            )
+                        }
+                        options={DAYS_FILTER_VALUES.filter(
+                            (d) => d !== 'all',
+                        ).map((d) => ({
+                            label: `${d}× / week`,
+                            value: d,
+                        }))}
+                        placeholder="Any frequency"
+                        value={days === 'all' ? undefined : days}
+                    />
+                    <ToolbarSelect
+                        label="Sort"
+                        onValueChange={(v) => {
+                            const next = SORT_VALUES.find((key) => key === v);
+                            if (next) setSort(next);
+                        }}
+                        options={SORT_VALUES.map((key) => ({
+                            label: SORT_LABEL[key],
+                            value: key,
+                        }))}
+                        value={sort}
+                    />
+                    <div className="relative w-fit">
+                        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-3.5 -translate-y-1/2 text-ink-muted" />
+                        <Input
+                            aria-label="Search programs"
+                            className={cn(SEARCH_FIELD_CLASS, 'pl-9')}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search programs"
+                            value={search}
                         />
-                    )}
+                    </div>
+                    <ClearFiltersButton
+                        active={isFiltersActive}
+                        onReset={() => {
+                            setSearch('');
+                            setCategory('all');
+                            setDays('all');
+                        }}
+                    />
+                </div>
 
-                    {filtered.length > 0 && (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {filtered.map((p) => (
-                                <OfficialProgramCard
-                                    enrolled={enrolledProgramIds.has(p.id)}
-                                    inLibrary={ownedNames.has(p.name)}
-                                    key={p.id}
-                                    program={p}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                {filtered.length === 0 && (
+                    <EmptyState
+                        description={
+                            isFiltersActive
+                                ? 'Try clearing some filters.'
+                                : 'No programs available yet.'
+                        }
+                        icon={Search}
+                        title="No programs match"
+                    />
+                )}
+
+                {filtered.length > 0 && (
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {filtered.map((p) => (
+                            <OfficialProgramCard
+                                enrolled={enrolledProgramIds.has(p.id)}
+                                inLibrary={ownedNames.has(p.name)}
+                                key={p.id}
+                                program={p}
+                            />
+                        ))}
+                    </div>
+                )}
+            </ToolPanel>
         </div>
     );
 }

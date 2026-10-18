@@ -3,7 +3,6 @@
 import { ChevronDown } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import {
     fundedOptimizerLiveTransferLines,
@@ -28,6 +27,7 @@ import {
     type FundedSweepRequest,
     type FundedSweepResult,
 } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import {
@@ -35,14 +35,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '~/components/ui/collapsible';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable } from '~/components/ui/data-table';
 import { LifetimePayoutCapBasis } from '~/lib/prop-calculator/advisor';
 import { type Plan } from '~/lib/prop-calculator/core';
 import {
@@ -55,6 +48,10 @@ import {
     fundedSurvivorsNote,
 } from '~/lib/prop-calculator/optimize';
 import { type SimInputs } from '~/lib/prop-calculator/simulator';
+
+function fundedColumnId(index: number): string {
+    return `funded-column-${String(index)}`;
+}
 
 const RESULT_HEADING_ID = 'funded-optimizer-result-heading';
 
@@ -207,41 +204,32 @@ function FundedOptimizerResult({
                     ))}
                 </ul>
             )}
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        {FUNDED_ROW_HEADERS.map((label) => (
-                            <TableHead
-                                className="first-letter:uppercase"
-                                key={label}
-                                scope="col"
-                            >
-                                {label}
-                            </TableHead>
-                        ))}
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {rows.map((row) => (
-                        <TableRow key={row.cells[0]}>
-                            {row.cells.map((cell, index) => {
-                                const standardError =
-                                    row.standardErrors[index] ?? null;
-                                return (
-                                    <TableCell
-                                        className="whitespace-nowrap tabular-nums"
-                                        key={`${row.cells[0]}-${index}`}
-                                    >
-                                        {cell}
-                                        {standardError !== null &&
-                                            ` (SE ${standardError})`}
-                                    </TableCell>
-                                );
-                            })}
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                columns={FUNDED_ROW_HEADERS.map((label, index) => ({
+                    cell: ({
+                        row: { original: row },
+                    }: {
+                        row: { original: (typeof rows)[number] };
+                    }) => {
+                        const standardError = row.standardErrors[index] ?? null;
+                        return (
+                            <span className="whitespace-nowrap tabular-nums">
+                                {row.cells[index]}
+                                {standardError !== null &&
+                                    ` (SE ${standardError})`}
+                            </span>
+                        );
+                    },
+                    header: () => (
+                        <span className="first-letter:uppercase">{label}</span>
+                    ),
+                    id: fundedColumnId(index),
+                }))}
+                data={[...rows]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => String(row.cells[0])}
+            />
             <Collapsible className="rounded-md border">
                 <CollapsibleTrigger asChild>
                     <Button

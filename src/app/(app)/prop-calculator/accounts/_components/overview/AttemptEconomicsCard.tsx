@@ -1,16 +1,29 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type AttemptEconomicsCardModel } from './overviewModel';
+
+enum AttemptEconomicsCardColumn {
+    AttemptCost = 'attempt-cost',
+    Attempts = 'attempts',
+    AveragePayout = 'average-payout',
+    BreakevenPassRate = 'breakeven-pass-rate',
+    FundedValue = 'funded-value',
+    FundedValueAttemptCost = 'funded-value-attempt-cost',
+    MarginAboveBreakeven = 'margin-above-breakeven',
+    ModeledEVPerAttempt = 'modeled-ev-per-attempt',
+    ModeledFundedValue = 'modeled-funded-value',
+    ModeledPassRate = 'modeled-pass-rate',
+    ModeledPayoutRate = 'modeled-payout-rate',
+    ModeledPayoutsPerPaidFunded = 'modeled-payouts-per-paid-funded',
+    PassRate = 'pass-rate',
+    PayoutRate = 'payout-rate',
+    PayoutsPerPaidFunded = 'payouts-per-paid-funded',
+    Plan = 'plan',
+    RealizedEVPerAttempt = 'realized-ev-per-attempt',
+}
 
 export const AttemptEconomicsCard = memo(function AttemptEconomicsCard({
     model,
@@ -26,112 +39,145 @@ export const AttemptEconomicsCard = memo(function AttemptEconomicsCard({
     }
     return (
         <div className="flex flex-col gap-3">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Plan</TableHead>
-                        <TableHead className="text-right">Attempts</TableHead>
-                        <TableHead className="text-right">
-                            Attempt cost
-                        </TableHead>
-                        <TableHead className="text-right">Pass rate</TableHead>
-                        <TableHead className="text-right">
-                            Payout rate
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Payouts per paid funded
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Average payout
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Funded value
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Funded value / attempt cost
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Breakeven pass rate
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Realized EV per attempt
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Modeled EV per attempt
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Modeled pass rate
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Modeled payout rate
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Modeled payouts per paid funded
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Modeled funded value
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Margin above breakeven
-                        </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {model.rows.map((row) => (
-                        <TableRow key={row.key}>
-                            <TableCell>{row.plan}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.attempts}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.attemptCost}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.passRate}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.payoutRate}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.payoutsPerPaidFunded}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.averagePayout}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.fundedValue}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.fundedValueToAttemptCost}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.breakevenPassRate}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.realizedEvPerAttempt}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground tabular-nums">
-                                {row.modeledEvPerAttempt}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground tabular-nums">
-                                {row.modeledPassRate}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground tabular-nums">
-                                {row.modeledPayoutRate}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground tabular-nums">
-                                {row.modeledPayoutsPerPaidFunded}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground tabular-nums">
-                                {row.modeledFundedValue}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.marginAboveBreakeven}
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                columns={[
+                    {
+                        cell: ({ row }) => <>{row.original.plan}</>,
+                        header: 'Plan',
+                        id: AttemptEconomicsCardColumn.Plan,
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.attempts}</>,
+                        header: 'Attempts',
+                        id: AttemptEconomicsCardColumn.Attempts,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.attemptCost}</>,
+                        header: 'Attempt cost',
+                        id: AttemptEconomicsCardColumn.AttemptCost,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.passRate}</>,
+                        header: 'Pass rate',
+                        id: AttemptEconomicsCardColumn.PassRate,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.payoutRate}</>,
+                        header: 'Payout rate',
+                        id: AttemptEconomicsCardColumn.PayoutRate,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <>{row.original.payoutsPerPaidFunded}</>
+                        ),
+                        header: 'Payouts per paid funded',
+                        id: AttemptEconomicsCardColumn.PayoutsPerPaidFunded,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.averagePayout}</>,
+                        header: 'Average payout',
+                        id: AttemptEconomicsCardColumn.AveragePayout,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.fundedValue}</>,
+                        header: 'Funded value',
+                        id: AttemptEconomicsCardColumn.FundedValue,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <>{row.original.fundedValueToAttemptCost}</>
+                        ),
+                        header: 'Funded value / attempt cost',
+                        id: AttemptEconomicsCardColumn.FundedValueAttemptCost,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <>{row.original.breakevenPassRate}</>
+                        ),
+                        header: 'Breakeven pass rate',
+                        id: AttemptEconomicsCardColumn.BreakevenPassRate,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <>{row.original.realizedEvPerAttempt}</>
+                        ),
+                        header: 'Realized EV per attempt',
+                        id: AttemptEconomicsCardColumn.RealizedEVPerAttempt,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="text-muted-foreground">
+                                {row.original.modeledEvPerAttempt}
+                            </span>
+                        ),
+                        header: 'Modeled EV per attempt',
+                        id: AttemptEconomicsCardColumn.ModeledEVPerAttempt,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="text-muted-foreground">
+                                {row.original.modeledPassRate}
+                            </span>
+                        ),
+                        header: 'Modeled pass rate',
+                        id: AttemptEconomicsCardColumn.ModeledPassRate,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="text-muted-foreground">
+                                {row.original.modeledPayoutRate}
+                            </span>
+                        ),
+                        header: 'Modeled payout rate',
+                        id: AttemptEconomicsCardColumn.ModeledPayoutRate,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="text-muted-foreground">
+                                {row.original.modeledPayoutsPerPaidFunded}
+                            </span>
+                        ),
+                        header: 'Modeled payouts per paid funded',
+                        id: AttemptEconomicsCardColumn.ModeledPayoutsPerPaidFunded,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="text-muted-foreground">
+                                {row.original.modeledFundedValue}
+                            </span>
+                        ),
+                        header: 'Modeled funded value',
+                        id: AttemptEconomicsCardColumn.ModeledFundedValue,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <>{row.original.marginAboveBreakeven}</>
+                        ),
+                        header: 'Margin above breakeven',
+                        id: AttemptEconomicsCardColumn.MarginAboveBreakeven,
+                        meta: { align: DataTableAlign.End },
+                    },
+                ]}
+                data={[...model.rows]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => row.key}
+            />
             <ul
                 aria-label="Realized formula by plan"
                 className="flex flex-col gap-1 text-xs text-muted-foreground"

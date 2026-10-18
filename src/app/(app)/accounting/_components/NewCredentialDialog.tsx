@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
@@ -50,10 +50,10 @@ export function NewCredentialDialog() {
         resolver: zodResolver(credentialCreateSchema),
     });
 
-    const kind = form.watch('kind');
-    const label = form.watch('label');
-    const secret = form.watch('secret');
-    const meta = form.watch('meta') ?? {};
+    const kind = useWatch({ control: form.control, name: 'kind' });
+    const label = useWatch({ control: form.control, name: 'label' });
+    const secret = useWatch({ control: form.control, name: 'secret' });
+    const meta = useWatch({ control: form.control, name: 'meta' }) ?? {};
     const descriptor = descriptors.find((d) => d.id === kind);
 
     if (!descriptor) {

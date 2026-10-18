@@ -1,12 +1,9 @@
 import { uncertainCurrencyText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { formatGateCurrency } from '~/lib/format';
 
 import {
@@ -26,6 +23,15 @@ const CANDIDATES_HAZARD_LABEL =
 const DOCUMENTED_RUNG_STAYS_TEXT =
     'The documented rung stays your plan: this table compares one trade and does not change it.';
 
+enum RiskCandidateColumn {
+    Continuation = 'continuation',
+    Contracts = 'contracts',
+    NetOfDurationCharge = 'net-of-duration-charge',
+    Note = 'note',
+    Rank = 'rank',
+    Risk = 'risk',
+}
+
 export function RiskCandidatesTable({
     view,
 }: {
@@ -44,54 +50,73 @@ export function RiskCandidatesTable({
                     {view.sizingNote}
                 </p>
             )}
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        {view.isRanked && <TableHead>Rank</TableHead>}
-                        <TableHead className="text-right">Risk</TableHead>
-                        <TableHead className="text-right">Contracts</TableHead>
-                        <TableHead className="text-right">
-                            Continuation value (with credit)
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Net of duration charge
-                        </TableHead>
-                        <TableHead>Note</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {view.rows.map((row) => (
-                        <TableRow key={row.rank}>
-                            {view.isRanked && <TableCell>{row.rank}</TableCell>}
-                            <TableCell className="text-right tabular-nums">
-                                {row.risk.text}
-                                <span className="sr-only">
-                                    {' '}
-                                    ({row.risk.label})
-                                </span>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.contractsText ?? ''}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {uncertainCurrencyText(row.continuation)}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {formatGateCurrency(row.netOfDurationCharge)}
-                            </TableCell>
-                            <TableCell>
-                                {rowMarksOf(row, view.isRanked).join('; ')}
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                columns={riskCandidateColumns(view.isRanked)}
+                data={[...view.rows]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => String(row.rank)}
+            />
             <LiveTransferNotesList
                 label={CANDIDATES_HAZARD_LABEL}
                 notes={view.liveTransferNotes}
             />
         </div>
     );
+}
+
+function riskCandidateColumns(
+    isRanked: boolean,
+): DataTableColumn<RiskCandidateRowView>[] {
+    const rank: DataTableColumn<RiskCandidateRowView>[] = isRanked
+        ? [
+              {
+                  cell: ({ row: { original: row } }) => row.rank,
+                  header: 'Rank',
+                  id: RiskCandidateColumn.Rank,
+              },
+          ]
+        : [];
+    return [
+        ...rank,
+        {
+            cell: ({ row: { original: row } }) => (
+                <>
+                    {row.risk.text}
+                    <span className="sr-only"> ({row.risk.label})</span>
+                </>
+            ),
+            header: 'Risk',
+            id: RiskCandidateColumn.Risk,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: row } }) => row.contractsText ?? '',
+            header: 'Contracts',
+            id: RiskCandidateColumn.Contracts,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: row } }) =>
+                uncertainCurrencyText(row.continuation),
+            header: 'Continuation value (with credit)',
+            id: RiskCandidateColumn.Continuation,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: row } }) =>
+                formatGateCurrency(row.netOfDurationCharge),
+            header: 'Net of duration charge',
+            id: RiskCandidateColumn.NetOfDurationCharge,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: row } }) =>
+                rowMarksOf(row, isRanked).join('; '),
+            header: 'Note',
+            id: RiskCandidateColumn.Note,
+        },
+    ];
 }
 
 function rowMarksOf(

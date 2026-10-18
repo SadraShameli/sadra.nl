@@ -25,16 +25,9 @@ import {
     ChartLegend,
     ChartLegendContent,
 } from '~/components/ui/chart';
+import { DataTable } from '~/components/ui/data-table';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import {
     formatCompactCurrency,
     formatGateCurrency,
@@ -52,6 +45,17 @@ import { BankrollRunStatus } from './BankrollRunStatus';
 import { BankrollSection } from './BankrollSection';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
+
+enum CurveColumn {
+    Attempts = 'attempts',
+    Budget = 'budget',
+    ExpectedNet = 'expected-net',
+    ExpectedPayouts = 'expected-payouts',
+    ExpectedSpend = 'expected-spend',
+    LossProbability = 'loss-probability',
+    NetP10 = 'net-p10',
+    NetP90 = 'net-p90',
+}
 
 const MAX_BUDGETS = 10;
 const TOO_MANY_BUDGETS_TEXT = `Enter at most ${String(MAX_BUDGETS)} budgets.`;
@@ -236,70 +240,118 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
 
 function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
     return (
-        <Table aria-label="Spend and payout per budget">
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Budget</TableHead>
-                    <TableHead>Attempts</TableHead>
-                    <TableHead>Expected spend</TableHead>
-                    <TableHead>Expected payouts</TableHead>
-                    <TableHead>Expected net</TableHead>
-                    <TableHead>Net P10</TableHead>
-                    <TableHead>Net P90</TableHead>
-                    <TableHead>P(net &lt; 0)</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody className="font-mono">
-                {rows.map((row, index) => (
-                    <TableRow key={`${String(row.budget)}-${String(index)}`}>
-                        <TableCell>{formatGateCurrency(row.budget)}</TableCell>
-                        {row.figures === null ? (
-                            <TableCell
-                                className="font-sans text-warning"
-                                colSpan={7}
-                            >
-                                {NOT_APPLICABLE}
-                                {row.reason === null
-                                    ? ''
-                                    : `: ${ECONOMICS_REASON_TEXT[row.reason]}`}
-                            </TableCell>
-                        ) : (
-                            <>
-                                <TableCell>{row.figures.attempts}</TableCell>
-                                <TableCell>
-                                    {formatGateCurrency(
-                                        row.figures.expectedSpend,
-                                    )}
-                                </TableCell>
-                                <TableCell>
-                                    {formatGateCurrency(
-                                        row.figures.expectedPayouts,
-                                    )}
-                                </TableCell>
-                                <TableCell>
-                                    {formatGateCurrency(
-                                        row.figures.expectedNet,
-                                    )}
-                                </TableCell>
-                                <TableCell>
-                                    {formatGateCurrency(row.figures.netP10)}
-                                </TableCell>
-                                <TableCell>
-                                    {formatGateCurrency(row.figures.netP90)}
-                                </TableCell>
-                                <TableCell>
-                                    {row.figures
-                                        .lossProbabilityStandardError === null
-                                        ? formatPercent(
-                                              row.figures.lossProbability,
-                                          )
-                                        : `${formatPercent(row.figures.lossProbability)} (SE ${formatPercent(row.figures.lossProbabilityStandardError)})`}
-                                </TableCell>
-                            </>
-                        )}
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+        <DataTable
+            aria-label="Spend and payout per budget"
+            columns={[
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {formatGateCurrency(row.budget)}
+                        </span>
+                    ),
+                    header: 'Budget',
+                    id: CurveColumn.Budget,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.figures?.attempts}
+                        </span>
+                    ),
+                    header: 'Attempts',
+                    id: CurveColumn.Attempts,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.figures === null
+                                ? null
+                                : formatGateCurrency(row.figures.expectedSpend)}
+                        </span>
+                    ),
+                    header: 'Expected spend',
+                    id: CurveColumn.ExpectedSpend,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.figures === null
+                                ? null
+                                : formatGateCurrency(
+                                      row.figures.expectedPayouts,
+                                  )}
+                        </span>
+                    ),
+                    header: 'Expected payouts',
+                    id: CurveColumn.ExpectedPayouts,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.figures === null
+                                ? null
+                                : formatGateCurrency(row.figures.expectedNet)}
+                        </span>
+                    ),
+                    header: 'Expected net',
+                    id: CurveColumn.ExpectedNet,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.figures === null
+                                ? null
+                                : formatGateCurrency(row.figures.netP10)}
+                        </span>
+                    ),
+                    header: 'Net P10',
+                    id: CurveColumn.NetP10,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.figures === null
+                                ? null
+                                : formatGateCurrency(row.figures.netP90)}
+                        </span>
+                    ),
+                    header: 'Net P90',
+                    id: CurveColumn.NetP90,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.figures === null
+                                ? null
+                                : lossProbabilityText(row.figures)}
+                        </span>
+                    ),
+                    header: 'P(net < 0)',
+                    id: CurveColumn.LossProbability,
+                },
+            ]}
+            data={[...rows]}
+            isSortable={false}
+            pageSize={null}
+            rowId={(row) => String(row.budget)}
+            rowMessage={(row) =>
+                row.figures === null ? (
+                    <span className="text-warning">
+                        {NOT_APPLICABLE}
+                        {row.reason === null
+                            ? ''
+                            : `: ${ECONOMICS_REASON_TEXT[row.reason]}`}
+                    </span>
+                ) : undefined
+            }
+        />
     );
+}
+
+function lossProbabilityText(
+    figures: NonNullable<SpendPayoutCurveRow['figures']>,
+): string {
+    return figures.lossProbabilityStandardError === null
+        ? formatPercent(figures.lossProbability)
+        : `${formatPercent(figures.lossProbability)} (SE ${formatPercent(figures.lossProbabilityStandardError)})`;
 }

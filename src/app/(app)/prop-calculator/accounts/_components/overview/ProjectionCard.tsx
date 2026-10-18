@@ -2,20 +2,26 @@ import { memo } from 'react';
 
 import CashFlowBandChartView from '~/app/(app)/prop-calculator/_components/charts/CashFlowBandChartView';
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import {
     ExpectedNetStatus,
     type ProjectionCardModel,
     type ProjectionRow,
 } from './overviewModel';
+
+enum ProjectionCardColumn {
+    Accounts = 'accounts',
+    BreakEvenMonth = 'break-even-month',
+    ChanceOfEverBeingCashPositive = 'chance-of-ever-being-cash-positive',
+    ChanceTheFinalNetIsNegative = 'chance-the-final-net-is-negative',
+    FinalNetMedian = 'final-net-median',
+    FinalNetP10 = 'final-net-p10',
+    FinalNetP90 = 'final-net-p90',
+    MedianPayouts = 'median-payouts',
+    MedianSpend = 'median-spend',
+    Plan = 'plan',
+}
 
 export const ProjectionCard = memo(function ProjectionCard({
     model,
@@ -37,66 +43,77 @@ export const ProjectionCard = memo(function ProjectionCard({
                         {model.statusNote}
                     </p>
                 )}
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Plan</TableHead>
-                        <TableHead>Accounts</TableHead>
-                        <TableHead className="text-right">
-                            Final net, P10
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Final net, median
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Final net, P90
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Median spend
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Median payouts
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Chance the final net is negative
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Chance of ever being cash-positive
-                        </TableHead>
-                        <TableHead>Break-even month</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {model.rows.map((row) => (
-                        <TableRow key={row.key}>
-                            <TableCell>{row.plan}</TableCell>
-                            <TableCell>{row.accounts}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.finalNet.p10}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.finalNet.p50}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.finalNet.p90}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.finalSpendMedian}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.finalPayoutMedian}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.probabilityFinalNetNegative}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.probabilityEverPositive}
-                            </TableCell>
-                            <TableCell>{row.breakEvenMonth}</TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                columns={[
+                    {
+                        cell: ({ row }) => <>{row.original.plan}</>,
+                        header: 'Plan',
+                        id: ProjectionCardColumn.Plan,
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.accounts}</>,
+                        header: 'Accounts',
+                        id: ProjectionCardColumn.Accounts,
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.finalNet.p10}</>,
+                        header: 'Final net, P10',
+                        id: ProjectionCardColumn.FinalNetP10,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.finalNet.p50}</>,
+                        header: 'Final net, median',
+                        id: ProjectionCardColumn.FinalNetMedian,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.finalNet.p90}</>,
+                        header: 'Final net, P90',
+                        id: ProjectionCardColumn.FinalNetP90,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.finalSpendMedian}</>,
+                        header: 'Median spend',
+                        id: ProjectionCardColumn.MedianSpend,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <>{row.original.finalPayoutMedian}</>
+                        ),
+                        header: 'Median payouts',
+                        id: ProjectionCardColumn.MedianPayouts,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <>{row.original.probabilityFinalNetNegative}</>
+                        ),
+                        header: 'Chance the final net is negative',
+                        id: ProjectionCardColumn.ChanceTheFinalNetIsNegative,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <>{row.original.probabilityEverPositive}</>
+                        ),
+                        header: 'Chance of ever being cash-positive',
+                        id: ProjectionCardColumn.ChanceOfEverBeingCashPositive,
+                        meta: { align: DataTableAlign.End },
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.breakEvenMonth}</>,
+                        header: 'Break-even month',
+                        id: ProjectionCardColumn.BreakEvenMonth,
+                    },
+                ]}
+                data={[...model.rows]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => row.key}
+            />
             {model.rows.map((row) => (
                 <ProjectionDetail key={row.key} row={row} />
             ))}

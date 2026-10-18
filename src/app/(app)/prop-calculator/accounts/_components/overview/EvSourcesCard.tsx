@@ -1,15 +1,25 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type EvSourcesCardModel } from './overviewModel';
+
+enum ConversionEvColumn {
+    AttemptCost = 'attempt-cost',
+    ConversionEVPerAttemptModeled = 'conversion-ev-per-attempt-modeled',
+    ConversionEVPerAttemptRealized = 'conversion-ev-per-attempt-realized',
+    PassRate = 'pass-rate',
+    Plan = 'plan',
+    ValueOfAFreshFundedAccount = 'value-of-a-fresh-funded-account',
+}
+
+enum FundedProgressColumn {
+    FundedAccount = 'funded-account',
+    HeldInFundedProgress = 'held-in-funded-progress',
+    Plan = 'plan',
+    ValueFromItsOwnState = 'value-from-its-own-state',
+    ValueOfAFreshFundedAccount = 'value-of-a-fresh-funded-account',
+}
 
 export const EvSourcesCard = memo(function EvSourcesCard({
     model,
@@ -23,86 +33,107 @@ export const EvSourcesCard = memo(function EvSourcesCard({
                     No plan you hold yet.
                 </p>
             ) : (
-                <Table aria-label="Conversion EV per attempt by plan">
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Plan</TableHead>
-                            <TableHead className="text-right">
-                                Attempt cost
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Pass rate
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Value of a fresh funded account
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Conversion EV per attempt (modeled)
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Conversion EV per attempt (realized)
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {model.plans.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.plan}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.attemptCost}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.passRate}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.freshFundedValue}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.modeledConversionEv}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.realizedConversionEv}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    aria-label="Conversion EV per attempt by plan"
+                    columns={[
+                        {
+                            cell: ({ row }) => <>{row.original.plan}</>,
+                            header: 'Plan',
+                            id: ConversionEvColumn.Plan,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.attemptCost}</>,
+                            header: 'Attempt cost',
+                            id: ConversionEvColumn.AttemptCost,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.passRate}</>,
+                            header: 'Pass rate',
+                            id: ConversionEvColumn.PassRate,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.freshFundedValue}</>
+                            ),
+                            header: 'Value of a fresh funded account',
+                            id: ConversionEvColumn.ValueOfAFreshFundedAccount,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.modeledConversionEv}</>
+                            ),
+                            header: 'Conversion EV per attempt (modeled)',
+                            id: ConversionEvColumn.ConversionEVPerAttemptModeled,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.realizedConversionEv}</>
+                            ),
+                            header: 'Conversion EV per attempt (realized)',
+                            id: ConversionEvColumn.ConversionEVPerAttemptRealized,
+                            meta: { align: DataTableAlign.End },
+                        },
+                    ]}
+                    data={[...model.plans]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
             {model.accounts.length > 0 && (
-                <Table aria-label="Value held in funded progress by account">
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Funded account</TableHead>
-                            <TableHead>Plan</TableHead>
-                            <TableHead className="text-right">
-                                Value from its own state
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Value of a fresh funded account
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Held in funded progress ({model.heldLabel})
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {model.accounts.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.account}</TableCell>
-                                <TableCell>{row.plan}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.valueNow}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.freshFundedValue}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.heldInFundedProgress}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    aria-label="Value held in funded progress by account"
+                    columns={[
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <>{row.account}</>
+                            ),
+                            header: 'Funded account',
+                            id: FundedProgressColumn.FundedAccount,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <>{row.plan}</>
+                            ),
+                            header: 'Plan',
+                            id: FundedProgressColumn.Plan,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <>{row.valueNow}</>
+                            ),
+                            header: 'Value from its own state',
+                            id: FundedProgressColumn.ValueFromItsOwnState,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <>{row.freshFundedValue}</>
+                            ),
+                            header: 'Value of a fresh funded account',
+                            id: FundedProgressColumn.ValueOfAFreshFundedAccount,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <>{row.heldInFundedProgress}</>
+                            ),
+                            header: () => (
+                                <>Held in funded progress ({model.heldLabel})</>
+                            ),
+                            id: FundedProgressColumn.HeldInFundedProgress,
+                            meta: { align: DataTableAlign.End },
+                        },
+                    ]}
+                    data={[...model.accounts]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
             {model.liveTransferNotes.length > 0 && (
                 <ul

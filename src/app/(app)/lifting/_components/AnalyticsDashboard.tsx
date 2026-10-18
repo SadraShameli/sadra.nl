@@ -6,7 +6,8 @@ import { type ReactNode, useMemo } from 'react';
 
 import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Card, CardContent } from '~/components/ui/card';
 import { EmptyState } from '~/components/ui/empty-state';
 import { Progress } from '~/components/ui/progress';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -102,60 +103,43 @@ function AnalyticsPanels({
             </PanelErrorBoundary>
 
             <PanelErrorBoundary section="Sets per muscle">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            Sets per muscle (last 90 days)
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col gap-2">
-                            {MUSCLE_VALUES.map((m) => {
-                                const sets = volume?.setsPerMuscle[m] ?? 0;
-                                return (
-                                    <div
-                                        className="flex items-center gap-3"
-                                        key={m}
-                                    >
-                                        <span className="w-24 text-xs text-muted-foreground capitalize">
-                                            {m}
-                                        </span>
-                                        {volume ? (
-                                            <>
-                                                <Progress
-                                                    className="h-2 flex-1"
-                                                    value={Math.min(
-                                                        100,
-                                                        sets * 5,
-                                                    )}
-                                                />
-                                                <span className="w-10 text-right text-xs tabular-nums">
-                                                    {sets}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Skeleton className="h-2 flex-1" />
-                                                <Skeleton className="h-4 w-10" />
-                                            </>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </CardContent>
-                </Card>
+                <ToolPanel title="Sets per muscle (last 90 days)">
+                    <div className="flex flex-col gap-2">
+                        {MUSCLE_VALUES.map((m) => {
+                            const sets = volume?.setsPerMuscle[m] ?? 0;
+                            return (
+                                <div
+                                    className="flex items-center gap-3"
+                                    key={m}
+                                >
+                                    <span className="w-24 text-xs text-muted-foreground capitalize">
+                                        {m}
+                                    </span>
+                                    {volume ? (
+                                        <>
+                                            <Progress
+                                                className="h-2 flex-1"
+                                                value={Math.min(100, sets * 5)}
+                                            />
+                                            <span className="w-10 text-right text-xs tabular-nums">
+                                                {sets}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Skeleton className="h-2 flex-1" />
+                                            <Skeleton className="h-4 w-10" />
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </ToolPanel>
             </PanelErrorBoundary>
 
             <PanelErrorBoundary section="Frequency heatmap">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            Frequency heatmap
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>{heatmap}</CardContent>
-                </Card>
+                <ToolPanel title="Frequency heatmap">{heatmap}</ToolPanel>
             </PanelErrorBoundary>
         </div>
     );

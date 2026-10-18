@@ -5,16 +5,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { Badge } from '~/components/ui/badge';
+import { DataTable } from '~/components/ui/data-table';
 import { Field, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import {
     formatDelta,
     formatGateCurrency,
@@ -36,6 +29,18 @@ import { BankrollSection } from './BankrollSection';
 import { parseBankrollDollarsField } from './bankrollUrlState';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
+
+enum LeverColumn {
+    DeltaEvPerAttempt = 'delta-ev-per-attempt',
+    DeltaLossRisk = 'delta-loss-risk',
+    DeltaMonthlyNet = 'delta-monthly-net',
+    DeltaPassProbability = 'delta-pass-probability',
+    DeltaPaysProbability = 'delta-pays-probability',
+    Lever = 'lever',
+    LossRisk = 'loss-risk',
+    Note = 'note',
+    Value = 'value',
+}
 
 const LEVER_KIND_LABEL: Readonly<Record<BankrollLeverKind, string>> = {
     [BankrollLeverKind.Base]: 'Base',
@@ -149,36 +154,44 @@ export function LeversCard() {
             {rows === null ? (
                 <BankrollRunStatus isRequested={canRun} state={worker.state} />
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Lever</TableHead>
-                            <TableHead>Value</TableHead>
-                            <TableHead>Δ EV/attempt</TableHead>
-                            <TableHead>Δ Monthly net</TableHead>
-                            <TableHead>Δ P(pass)</TableHead>
-                            <TableHead>Δ P(pays)</TableHead>
-                            <TableHead>Loss risk</TableHead>
-                            <TableHead>Δ Loss risk</TableHead>
-                            <TableHead>Note</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {rows.map((row, index) => (
-                            <TableRow key={`${row.kind}-${String(index)}`}>
-                                <TableCell>
-                                    {LEVER_KIND_LABEL[row.kind]}
-                                </TableCell>
-                                <TableCell className="font-mono">
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row: { original: row } }) =>
+                                LEVER_KIND_LABEL[row.kind],
+                            header: 'Lever',
+                            id: LeverColumn.Lever,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <span className="font-mono">
                                     {formatLeverValue(row.kind, row.value)}
-                                </TableCell>
-                                <TableCell className="font-mono">
+                                </span>
+                            ),
+                            header: 'Value',
+                            id: LeverColumn.Value,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <span className="font-mono">
                                     {formatGateCurrency(row.deltaEvPerAttempt)}
-                                </TableCell>
-                                <TableCell className="font-mono">
+                                </span>
+                            ),
+                            header: 'Δ EV/attempt',
+                            id: LeverColumn.DeltaEvPerAttempt,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <span className="font-mono">
                                     {formatGateCurrency(row.deltaMonthlyNet)}
-                                </TableCell>
-                                <TableCell className="font-mono">
+                                </span>
+                            ),
+                            header: 'Δ Monthly net',
+                            id: LeverColumn.DeltaMonthlyNet,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <span className="font-mono">
                                     {
                                         formatDelta(
                                             row.deltaPassProbability,
@@ -186,8 +199,14 @@ export function LeversCard() {
                                             'percent',
                                         ).text
                                     }
-                                </TableCell>
-                                <TableCell className="font-mono">
+                                </span>
+                            ),
+                            header: 'Δ P(pass)',
+                            id: LeverColumn.DeltaPassProbability,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <span className="font-mono">
                                     {row.deltaAttemptPaysProbability ===
                                     undefined
                                         ? NOT_APPLICABLE
@@ -196,13 +215,25 @@ export function LeversCard() {
                                               0,
                                               'percent',
                                           ).text}
-                                </TableCell>
-                                <TableCell className="font-mono">
+                                </span>
+                            ),
+                            header: 'Δ P(pays)',
+                            id: LeverColumn.DeltaPaysProbability,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <span className="font-mono">
                                     {row.lossRisk === null
                                         ? NOT_APPLICABLE
                                         : formatPercent(row.lossRisk)}
-                                </TableCell>
-                                <TableCell className="font-mono">
+                                </span>
+                            ),
+                            header: 'Loss risk',
+                            id: LeverColumn.LossRisk,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <span className="font-mono">
                                     {row.deltaLossProbability === null
                                         ? NOT_APPLICABLE
                                         : formatDelta(
@@ -210,18 +241,24 @@ export function LeversCard() {
                                               0,
                                               'percent',
                                           ).text}
-                                </TableCell>
-                                <TableCell>
-                                    {row.label === null ? null : (
-                                        <Badge variant="warning">
-                                            {row.label}
-                                        </Badge>
-                                    )}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                                </span>
+                            ),
+                            header: 'Δ Loss risk',
+                            id: LeverColumn.DeltaLossRisk,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) =>
+                                row.label === null ? null : (
+                                    <Badge variant="warning">{row.label}</Badge>
+                                ),
+                            header: 'Note',
+                            id: LeverColumn.Note,
+                        },
+                    ]}
+                    data={[...rows]}
+                    isSortable={false}
+                    pageSize={null}
+                />
             )}
         </BankrollSection>
     );

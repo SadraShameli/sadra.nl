@@ -7,7 +7,6 @@ import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
     ListQueryStatus,
@@ -31,8 +30,14 @@ import {
     firmColumnsFromSelectValue,
     firmSelectOptions,
 } from '~/app/(app)/prop-calculator/accounts/rounds/roundsModel';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Button } from '~/components/ui/button';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import {
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import {
     Field,
@@ -51,14 +56,6 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import { useSession } from '~/lib/auth/client';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
@@ -72,7 +69,6 @@ import {
     firmKeyLabel,
     firmKeyOf,
     firmReconciliation,
-    type FirmReconciliationEntry,
     formatUsdCents,
     parseMoneyText,
     payoutLag,
@@ -110,6 +106,40 @@ import {
 } from '~/lib/schemas/propAccounts';
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
+
+enum LedgerColumn {
+    Account = 'account',
+    Amount = 'amount',
+    ApprovedOn = 'approved-on',
+    CashFlow = 'cash-flow',
+    Date = 'date',
+    Entry = 'entry',
+    Note = 'note',
+}
+
+enum PayoutLagColumn {
+    Firm = 'firm',
+    RequestToApproval = 'request-to-approval',
+    RequestToPaid = 'request-to-paid',
+}
+
+enum ReconciliationColumn {
+    Actions = 'actions',
+    AsOf = 'as-of',
+    Basis = 'basis',
+    Difference = 'difference',
+    Firm = 'firm',
+    Reported = 'reported',
+    YourLedger = 'your-ledger',
+}
+
+enum TransferColumn {
+    Actions = 'actions',
+    Amount = 'amount',
+    Date = 'date',
+    Kind = 'kind',
+    Note = 'note',
+}
 
 const CSV_MIME_TYPE = 'text/csv;charset=utf-8';
 
@@ -378,34 +408,44 @@ function DepositsWithdrawalsSection() {
                 </p>
             )}
             {rows !== undefined && rows.length > 0 && (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Kind</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead>Note</TableHead>
-                            <TableHead>
-                                <span className="sr-only">Actions</span>
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {rows.map((row) => (
-                            <TableRow key={row.id}>
-                                <TableCell className="tabular-nums">
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <div className="tabular-nums">
                                     {row.occurredOn}
-                                </TableCell>
-                                <TableCell>
-                                    {bankrollTransferKindLabel(row.kind)}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {formatUsdCents(row.amountCents)}
-                                </TableCell>
-                                <TableCell className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
+                                </div>
+                            ),
+                            header: 'Date',
+                            id: TransferColumn.Date,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <>{bankrollTransferKindLabel(row.kind)}</>
+                            ),
+                            header: 'Kind',
+                            id: TransferColumn.Kind,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <>{formatUsdCents(row.amountCents)}</>
+                            ),
+                            header: 'Amount',
+                            id: TransferColumn.Amount,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <div className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
                                     {row.note ?? ''}
-                                </TableCell>
-                                <TableCell>
+                                </div>
+                            ),
+                            header: 'Note',
+                            id: TransferColumn.Note,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <>
                                     <div className="flex justify-end gap-1">
                                         <Button
                                             aria-label={`Edit the ${bankrollTransferKindLabel(row.kind)} on ${row.occurredOn}`}
@@ -434,11 +474,21 @@ function DepositsWithdrawalsSection() {
                                             triggerLabel={`Delete the ${bankrollTransferKindLabel(row.kind)} on ${row.occurredOn}`}
                                         />
                                     </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                                </>
+                            ),
+                            header: () => (
+                                <>
+                                    <span className="sr-only">Actions</span>
+                                </>
+                            ),
+                            id: TransferColumn.Actions,
+                        },
+                    ]}
+                    data={[...rows]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.id}
+                />
             )}
             <TransferForm
                 editing={editing}
@@ -589,46 +639,127 @@ function FirmReconciliationSection({
                 subject="firm statements"
             />
             {entries !== null && entries.length > 0 && (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Firm</TableHead>
-                            <TableHead>As of</TableHead>
-                            <TableHead>Basis</TableHead>
-                            <TableHead className="text-right">
-                                Reported
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Your ledger
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Difference
-                            </TableHead>
-                            <TableHead>
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row: { original: entry } }) =>
+                                firmKeyLabel(entry.firmKey, externalFirms),
+                            header: 'Firm',
+                            id: ReconciliationColumn.Firm,
+                        },
+                        {
+                            cell: ({ row: { original: entry } }) => (
+                                <span className="tabular-nums">
+                                    {entry.asOf}
+                                </span>
+                            ),
+                            header: 'As of',
+                            id: ReconciliationColumn.AsOf,
+                        },
+                        {
+                            cell: ({ row: { original: entry } }) =>
+                                reportedPayoutBasisLabel(entry.basis),
+                            header: 'Basis',
+                            id: ReconciliationColumn.Basis,
+                        },
+                        {
+                            cell: ({ row: { original: entry } }) => (
+                                <>
+                                    {formatUsdCents(entry.reportedPayoutCents)}
+                                    {entry.decreasedFromPrevious && (
+                                        <div className="text-xs text-warning">
+                                            Down from the previous statement
+                                        </div>
+                                    )}
+                                </>
+                            ),
+                            header: 'Reported',
+                            id: ReconciliationColumn.Reported,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row: { original: entry } }) => (
+                                <>
+                                    {formatUsdCents(entry.ledgerPaidCents)}
+                                    {entry.grossOnlyCount > 0 && (
+                                        <div className="text-xs text-muted-foreground">
+                                            {entry.grossOnlyCount} paid without
+                                            a net amount
+                                        </div>
+                                    )}
+                                </>
+                            ),
+                            header: 'Your ledger',
+                            id: ReconciliationColumn.YourLedger,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row: { original: entry } }) => (
+                                <div
+                                    className={cn(
+                                        !entry.withinTolerance &&
+                                            'text-warning',
+                                    )}
+                                >
+                                    {formatUsdCents(
+                                        usdCents(entry.differenceCents),
+                                    )}
+                                    {!entry.withinTolerance && (
+                                        <div className="text-xs">
+                                            Outside tolerance
+                                        </div>
+                                    )}
+                                </div>
+                            ),
+                            header: 'Difference',
+                            id: ReconciliationColumn.Difference,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row: { original: entry } }) => (
+                                <div className="flex justify-end gap-1">
+                                    <Button
+                                        aria-label={`Edit the statement as of ${entry.asOf}`}
+                                        onClick={(event) => {
+                                            const stored = statementById.get(
+                                                entry.id,
+                                            );
+                                            if (stored !== undefined) {
+                                                startEditing(
+                                                    stored,
+                                                    event.currentTarget,
+                                                );
+                                            }
+                                        }}
+                                        size="icon"
+                                        type="button"
+                                        variant="ghost"
+                                    >
+                                        <Pencil />
+                                    </Button>
+                                    <RemoveRecordDialog
+                                        confirmText="Delete"
+                                        description="This permanently removes the statement."
+                                        isPending={remove.isPending}
+                                        onConfirm={() => {
+                                            remove.mutate({ id: entry.id });
+                                        }}
+                                        title="Delete this statement?"
+                                        triggerLabel={`Delete the statement as of ${entry.asOf}`}
+                                    />
+                                </div>
+                            ),
+                            header: () => (
                                 <span className="sr-only">Actions</span>
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {entries.map((entry) => (
-                            <ReconciliationRow
-                                entry={entry}
-                                externalFirms={externalFirms}
-                                isRemovePending={remove.isPending}
-                                key={entry.id}
-                                onEdit={(trigger) => {
-                                    const stored = statementById.get(entry.id);
-                                    if (stored !== undefined) {
-                                        startEditing(stored, trigger);
-                                    }
-                                }}
-                                onRemove={() => {
-                                    remove.mutate({ id: entry.id });
-                                }}
-                            />
-                        ))}
-                    </TableBody>
-                </Table>
+                            ),
+                            id: ReconciliationColumn.Actions,
+                        },
+                    ]}
+                    data={[...entries]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(entry) => entry.id}
+                />
             )}
             <StatementForm
                 editing={editing}
@@ -664,7 +795,7 @@ function LedgerFilterBar({
         filters.from !== DEFAULT_LEDGER_FILTERS.from ||
         filters.to !== DEFAULT_LEDGER_FILTERS.to;
     return (
-        <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+        <div className="flex flex-wrap items-center gap-2">
             <FilterSelect
                 label="Account"
                 onValueChange={(value) => {
@@ -718,73 +849,87 @@ function LedgerFilterBar({
 
 function LedgerTable({ entries }: { entries: readonly LedgerEntry[] }) {
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Account</TableHead>
-                    <TableHead>Entry</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Approved on</TableHead>
-                    <TableHead>Cash flow</TableHead>
-                    <TableHead>Note</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {entries.map((entry) => {
-                    const cashFlow = ledgerCashFlow(entry);
-                    const note =
-                        entry.kind === LedgerEntryKind.Fee
-                            ? entry.fee.note
-                            : entry.payout.note;
-                    return (
-                        <TableRow key={`${entry.kind}-${ledgerEntryId(entry)}`}>
-                            <TableCell className="align-top tabular-nums">
-                                {entry.on}
-                            </TableCell>
-                            <TableCell className="align-top">
-                                {entry.account === null ? (
-                                    <span className="text-muted-foreground">
-                                        Deleted account
-                                    </span>
-                                ) : (
-                                    ledgerAccountName(entry.account)
-                                )}
-                            </TableCell>
-                            <TableCell className="align-top">
-                                {describeEntry(entry)}
-                            </TableCell>
-                            <TableCell className="text-right align-top tabular-nums">
-                                <EntryAmount entry={entry} />
-                            </TableCell>
-                            <TableCell className="align-top tabular-nums">
-                                {entry.kind === LedgerEntryKind.Payout
-                                    ? (entry.payout.approvedOn ?? '')
-                                    : ''}
-                            </TableCell>
-                            <TableCell
-                                className={cn(
-                                    'align-top',
-                                    cashFlow === LedgerCashFlow.In &&
-                                        'text-success',
-                                    cashFlow === LedgerCashFlow.Out &&
-                                        'text-warning',
-                                    cashFlow === LedgerCashFlow.None &&
-                                        'text-muted-foreground',
-                                )}
-                            >
-                                {CASH_FLOW_LABEL[cashFlow]}
-                            </TableCell>
-                            <TableCell className="max-w-xs align-top text-xs whitespace-pre-line text-muted-foreground">
-                                {note ?? ''}
-                            </TableCell>
-                        </TableRow>
-                    );
-                })}
-            </TableBody>
-        </Table>
+        <DataTable
+            columns={LEDGER_COLUMNS}
+            data={[...entries]}
+            isSortable={false}
+            pageSize={null}
+            rowId={(entry) => `${entry.kind}-${ledgerEntryId(entry)}`}
+        />
     );
 }
+
+const LEDGER_COLUMNS: DataTableColumn<LedgerEntry>[] = [
+    {
+        cell: ({ row: { original: entry } }) => (
+            <span className="tabular-nums">{entry.on}</span>
+        ),
+        header: 'Date',
+        id: LedgerColumn.Date,
+    },
+    {
+        cell: ({ row: { original: entry } }) =>
+            entry.account === null ? (
+                <span className="text-muted-foreground">Deleted account</span>
+            ) : (
+                ledgerAccountName(entry.account)
+            ),
+        header: 'Account',
+        id: LedgerColumn.Account,
+    },
+    {
+        cell: ({ row: { original: entry } }) => describeEntry(entry),
+        header: 'Entry',
+        id: LedgerColumn.Entry,
+    },
+    {
+        cell: ({ row: { original: entry } }) => <EntryAmount entry={entry} />,
+        header: 'Amount',
+        id: LedgerColumn.Amount,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        cell: ({ row: { original: entry } }) => (
+            <span className="tabular-nums">
+                {entry.kind === LedgerEntryKind.Payout
+                    ? (entry.payout.approvedOn ?? '')
+                    : ''}
+            </span>
+        ),
+        header: 'Approved on',
+        id: LedgerColumn.ApprovedOn,
+    },
+    {
+        cell: ({ row: { original: entry } }) => {
+            const cashFlow = ledgerCashFlow(entry);
+            return (
+                <span
+                    className={cn(
+                        cashFlow === LedgerCashFlow.In && 'text-success',
+                        cashFlow === LedgerCashFlow.Out && 'text-warning',
+                        cashFlow === LedgerCashFlow.None &&
+                            'text-muted-foreground',
+                    )}
+                >
+                    {CASH_FLOW_LABEL[cashFlow]}
+                </span>
+            );
+        },
+        header: 'Cash flow',
+        id: LedgerColumn.CashFlow,
+    },
+    {
+        cell: ({ row: { original: entry } }) => (
+            <div className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
+                {(entry.kind === LedgerEntryKind.Fee
+                    ? entry.fee.note
+                    : entry.payout.note) ?? ''}
+            </div>
+        ),
+        header: 'Note',
+        id: LedgerColumn.Note,
+    },
+];
 
 function LedgerTotals({ entries }: { entries: readonly LedgerEntry[] }) {
     const cash = useMemo(
@@ -847,28 +992,37 @@ function PayoutLagCard({ rows }: { readonly rows: readonly PayoutLagRow[] }) {
             <h3 className="text-sm font-medium text-foreground">
                 Payout lag by firm
             </h3>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Firm</TableHead>
-                        <TableHead>Request to approval</TableHead>
-                        <TableHead>Request to paid</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {rows.map((row) => (
-                        <TableRow key={row.key}>
-                            <TableCell>{row.firm}</TableCell>
-                            <TableCell className="tabular-nums">
-                                {row.requestToApproval}
-                            </TableCell>
-                            <TableCell className="tabular-nums">
-                                {row.requestToPaid}
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                columns={[
+                    {
+                        cell: ({ row }) => <>{row.original.firm}</>,
+                        header: 'Firm',
+                        id: PayoutLagColumn.Firm,
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="tabular-nums">
+                                {row.original.requestToApproval}
+                            </span>
+                        ),
+                        header: 'Request to approval',
+                        id: PayoutLagColumn.RequestToApproval,
+                    },
+                    {
+                        cell: ({ row }) => (
+                            <span className="tabular-nums">
+                                {row.original.requestToPaid}
+                            </span>
+                        ),
+                        header: 'Request to paid',
+                        id: PayoutLagColumn.RequestToPaid,
+                    },
+                ]}
+                data={[...rows]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => row.key}
+            />
         </div>
     );
 }
@@ -886,78 +1040,6 @@ function payoutLagRowsOf(
         requestToPaid: formatLagDays(entry.requestToPaid),
     }));
 }
-function ReconciliationRow({
-    entry,
-    externalFirms,
-    isRemovePending,
-    onEdit,
-    onRemove,
-}: {
-    readonly entry: FirmReconciliationEntry;
-    readonly externalFirms: readonly ExternalFirmName[];
-    readonly isRemovePending: boolean;
-    readonly onEdit: (trigger: HTMLElement) => void;
-    readonly onRemove: () => void;
-}) {
-    return (
-        <TableRow>
-            <TableCell>{firmKeyLabel(entry.firmKey, externalFirms)}</TableCell>
-            <TableCell className="tabular-nums">{entry.asOf}</TableCell>
-            <TableCell>{reportedPayoutBasisLabel(entry.basis)}</TableCell>
-            <TableCell className="text-right tabular-nums">
-                {formatUsdCents(entry.reportedPayoutCents)}
-                {entry.decreasedFromPrevious && (
-                    <div className="text-xs text-warning">
-                        Down from the previous statement
-                    </div>
-                )}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {formatUsdCents(entry.ledgerPaidCents)}
-                {entry.grossOnlyCount > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                        {entry.grossOnlyCount} paid without a net amount
-                    </div>
-                )}
-            </TableCell>
-            <TableCell
-                className={cn(
-                    'text-right tabular-nums',
-                    !entry.withinTolerance && 'text-warning',
-                )}
-            >
-                {formatUsdCents(usdCents(entry.differenceCents))}
-                {!entry.withinTolerance && (
-                    <div className="text-xs">Outside tolerance</div>
-                )}
-            </TableCell>
-            <TableCell>
-                <div className="flex justify-end gap-1">
-                    <Button
-                        aria-label={`Edit the statement as of ${entry.asOf}`}
-                        onClick={(event) => {
-                            onEdit(event.currentTarget);
-                        }}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                    >
-                        <Pencil />
-                    </Button>
-                    <RemoveRecordDialog
-                        confirmText="Delete"
-                        description="This permanently removes the statement."
-                        isPending={isRemovePending}
-                        onConfirm={onRemove}
-                        title="Delete this statement?"
-                        triggerLabel={`Delete the statement as of ${entry.asOf}`}
-                    />
-                </div>
-            </TableCell>
-        </TableRow>
-    );
-}
-
 function StatementForm({
     editing,
     externalFirms,

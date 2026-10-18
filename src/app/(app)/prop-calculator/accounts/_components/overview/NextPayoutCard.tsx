@@ -8,13 +8,10 @@ import {
     AccordionTrigger,
 } from '~/components/ui/accordion';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 
 import { AccountFromStateDetails } from './AccountFromStateDetails';
 import {
@@ -44,31 +41,13 @@ export const NextPayoutCard = memo(function NextPayoutCard({
     }
     return (
         <div className="flex flex-col gap-4">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Account</TableHead>
-                        <TableHead>Plan</TableHead>
-                        <TableHead className="text-right">
-                            Value from this state, credit-free
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Value with end-of-horizon credit
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Expected time to the next payout
-                        </TableHead>
-                        <TableHead className="text-right">
-                            Chance the account is lost first
-                        </TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {model.rows.map((row) => (
-                        <NextPayoutTableRow key={row.accountId} row={row} />
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                columns={NEXT_PAYOUT_COLUMNS}
+                data={[...model.rows]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => row.accountId}
+            />
             <Accordion type="multiple">
                 {model.rows.map((row) => (
                     <NextPayoutRowNotes key={row.accountId} row={row} />
@@ -82,6 +61,15 @@ export const NextPayoutCard = memo(function NextPayoutCard({
         </div>
     );
 });
+
+enum NextPayoutColumn {
+    Account = 'account',
+    CreditFree = 'credit-free',
+    CreditInclusive = 'credit-inclusive',
+    Lost = 'lost',
+    Plan = 'plan',
+    Time = 'time',
+}
 
 function cellsOf(row: NextPayoutCardRow): {
     readonly creditFree: string;
@@ -143,27 +131,42 @@ function NextPayoutRowNotes({ row }: { readonly row: NextPayoutCardRow }) {
     }
 }
 
-function NextPayoutTableRow({ row }: { readonly row: NextPayoutCardRow }) {
-    const cells = cellsOf(row);
-    return (
-        <TableRow>
-            <TableCell>{row.label}</TableCell>
-            <TableCell>{row.plan}</TableCell>
-            <TableCell className="text-right tabular-nums">
-                {cells.creditFree}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {cells.creditInclusive}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {cells.time}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {cells.lost}
-            </TableCell>
-        </TableRow>
-    );
-}
+const NEXT_PAYOUT_COLUMNS: DataTableColumn<NextPayoutCardRow>[] = [
+    {
+        cell: ({ row: { original: row } }) => row.label,
+        header: 'Account',
+        id: NextPayoutColumn.Account,
+    },
+    {
+        cell: ({ row: { original: row } }) => row.plan,
+        header: 'Plan',
+        id: NextPayoutColumn.Plan,
+    },
+    {
+        cell: ({ row: { original: row } }) => cellsOf(row).creditFree,
+        header: 'Value from this state, credit-free',
+        id: NextPayoutColumn.CreditFree,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        cell: ({ row: { original: row } }) => cellsOf(row).creditInclusive,
+        header: 'Value with end-of-horizon credit',
+        id: NextPayoutColumn.CreditInclusive,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        cell: ({ row: { original: row } }) => cellsOf(row).time,
+        header: 'Expected time to the next payout',
+        id: NextPayoutColumn.Time,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        cell: ({ row: { original: row } }) => cellsOf(row).lost,
+        header: 'Chance the account is lost first',
+        id: NextPayoutColumn.Lost,
+        meta: { align: DataTableAlign.End },
+    },
+];
 
 function readyCellsOf(model: AccountFromStateModel) {
     return {

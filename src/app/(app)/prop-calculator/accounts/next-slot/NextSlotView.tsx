@@ -12,15 +12,12 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { useOverviewWorker } from '~/app/(app)/prop-calculator/accounts/_components/overview/useOverviewWorker';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
-import { Skeleton } from '~/components/ui/skeleton';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
+import { Skeleton } from '~/components/ui/skeleton';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import { NextSlotSortKey, PortfolioLedger } from '~/lib/prop-accounts';
 import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
@@ -34,6 +31,31 @@ import {
     type NextSlotRankedViewRow,
     nextSlotRequestsOf,
 } from './nextSlotModel';
+
+enum ListedColumn {
+    DocumentedNet = 'documented-net',
+    Plan = 'plan',
+    PlanReason = 'plan-reason',
+}
+
+enum RankedColumn {
+    Allocatable = 'allocatable',
+    BatchLoss = 'batch-loss',
+    CreditFree = 'credit-free',
+    CycleNet = 'cycle-net',
+    DocumentedNet = 'documented-net',
+    DocumentedRank = 'documented-rank',
+    FreeSlots = 'free-slots',
+    NoPayout = 'no-payout',
+    OptimumBust = 'optimum-bust',
+    OptimumNet = 'optimum-net',
+    OptimumRank = 'optimum-rank',
+    OptimumRequest = 'optimum-request',
+    PerScreenHour = 'per-screen-hour',
+    Plan = 'plan',
+    Rank = 'rank',
+    Request = 'request',
+}
 
 const sortKeySchema = z.enum(NextSlotSortKey);
 
@@ -217,53 +239,30 @@ function ListedSection({
     return (
         <Section id={id} title={title}>
             <p className="mb-3 text-sm text-muted-foreground">{description}</p>
-            <Table {...namedScrollRegion(`next-slot-${id}`)}>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead scope="col">Plan</TableHead>
-                        <TableHead className="text-right" scope="col">
-                            Documented monthly net, credit-inclusive
-                        </TableHead>
-                        <TableHead scope="col">Plan reason</TableHead>
-                    </TableRow>
-                </TableHeader>
-                {groups.map((group) => (
-                    <TableBody key={group.key}>
-                        <TableRow className="border-t bg-muted/30">
-                            <TableHead colSpan={3} scope="rowgroup">
-                                <span className="block font-semibold text-foreground">
-                                    {group.firm}
-                                </span>
-                                <ReasonList reasons={group.reasons} />
-                            </TableHead>
-                        </TableRow>
-                        {group.plans.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.plan}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.documentedNet}
-                                </TableCell>
-                                <TableCell>
-                                    <ReasonList reasons={row.reasons} />
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                ))}
-            </Table>
+            <DataTable
+                columns={LISTED_COLUMNS}
+                data={listedLinesOf(groups)}
+                isSortable={false}
+                labelledBy={`next-slot-${id}`}
+                pageSize={null}
+                rowGroupHeading={(line) =>
+                    line.kind === ListedLine.Firm ? (
+                        <>
+                            <span className="block font-semibold text-foreground">
+                                {line.group.firm}
+                            </span>
+                            <ReasonList reasons={line.group.reasons} />
+                        </>
+                    ) : undefined
+                }
+                rowId={(line) =>
+                    line.kind === ListedLine.Firm
+                        ? `firm-${line.group.key}`
+                        : line.row.key
+                }
+            />
         </Section>
     );
-}
-
-function namedScrollRegion(labelledBy: string) {
-    return {
-        'aria-labelledby': labelledBy,
-        containerProps: {
-            'aria-labelledby': labelledBy,
-            role: 'region',
-            tabIndex: 0,
-        },
-    } as const;
 }
 
 function Progress({ model }: { readonly model: NextSlotModel }) {
@@ -278,8 +277,27 @@ function Progress({ model }: { readonly model: NextSlotModel }) {
     );
 }
 
-function RankedRow({ row }: { readonly row: NextSlotRankedViewRow }) {
-    const notes = [
+function rankedFigure(
+    id: RankedColumn,
+    header: string,
+    figure: (row: NextSlotRankedViewRow) => ReactNode,
+    isMuted = false,
+): DataTableColumn<NextSlotRankedViewRow> {
+    return {
+        cell: ({ row: { original: row } }) =>
+            isMuted ? (
+                <span className="text-muted-foreground">{figure(row)}</span>
+            ) : (
+                figure(row)
+            ),
+        header,
+        id,
+        meta: { align: DataTableAlign.End },
+    };
+}
+
+function rankedNotesOf(row: NextSlotRankedViewRow): readonly string[] {
+    return [
         row.policySensitiveNote,
         row.optimumNote,
         row.minimumNote,
@@ -288,12 +306,21 @@ function RankedRow({ row }: { readonly row: NextSlotRankedViewRow }) {
         row.capacityNote,
         ...row.notes,
     ].filter((note): note is string => note !== null);
-    return (
-        <TableRow>
-            <TableCell className="tabular-nums">{row.rank}</TableCell>
-            <TableCell>
+}
+
+const RANKED_COLUMNS: DataTableColumn<NextSlotRankedViewRow>[] = [
+    {
+        cell: ({ row: { original: row } }) => (
+            <span className="tabular-nums">{row.rank}</span>
+        ),
+        header: 'Rank',
+        id: RankedColumn.Rank,
+    },
+    {
+        cell: ({ row: { original: row } }) => (
+            <>
                 {row.firm} {row.plan}
-                {notes.map((note) => (
+                {rankedNotesOf(row).map((note) => (
                     <span className="block text-xs text-warning" key={note}>
                         {note}
                     </span>
@@ -308,52 +335,127 @@ function RankedRow({ row }: { readonly row: NextSlotRankedViewRow }) {
                         ))}
                     </ul>
                 )}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.documentedNet}
-            </TableCell>
-            <TableCell className="text-right text-muted-foreground tabular-nums">
-                {row.creditFree}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.request}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.optimumNet}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.optimumRequest}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.optimumBust}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.documentedRank}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.optimumRank}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.cycleNet}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.noPayout}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.batchLoss}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.perScreenHour}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.freeSlots}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">
-                {row.allocatable}
-            </TableCell>
-        </TableRow>
-    );
+            </>
+        ),
+        header: 'Plan',
+        id: RankedColumn.Plan,
+    },
+    rankedFigure(
+        RankedColumn.DocumentedNet,
+        'Documented monthly net, credit-inclusive',
+        (row) => row.documentedNet,
+    ),
+    rankedFigure(
+        RankedColumn.CreditFree,
+        'Documented, credit-free',
+        (row) => row.creditFree,
+        true,
+    ),
+    rankedFigure(
+        RankedColumn.Request,
+        'Documented request',
+        (row) => row.request,
+    ),
+    rankedFigure(
+        RankedColumn.OptimumNet,
+        'Payout-size optimum, credit-inclusive',
+        (row) => row.optimumNet,
+    ),
+    rankedFigure(
+        RankedColumn.OptimumRequest,
+        'Optimum request',
+        (row) => row.optimumRequest,
+    ),
+    rankedFigure(
+        RankedColumn.OptimumBust,
+        'Funded bust at the optimum, share of all simulated attempts',
+        (row) => row.optimumBust,
+    ),
+    rankedFigure(
+        RankedColumn.DocumentedRank,
+        'Rank, documented',
+        (row) => row.documentedRank,
+    ),
+    rankedFigure(
+        RankedColumn.OptimumRank,
+        'Rank, optimum',
+        (row) => row.optimumRank,
+    ),
+    rankedFigure(RankedColumn.CycleNet, 'Cycle net', (row) => row.cycleNet),
+    rankedFigure(
+        RankedColumn.NoPayout,
+        'P(no payout) per attempt',
+        (row) => row.noPayout,
+    ),
+    rankedFigure(
+        RankedColumn.BatchLoss,
+        'Batch loss risk at your bankroll',
+        (row) => row.batchLoss,
+    ),
+    rankedFigure(
+        RankedColumn.PerScreenHour,
+        'Net per screen hour',
+        (row) => row.perScreenHour,
+    ),
+    rankedFigure(RankedColumn.FreeSlots, 'Free slots', (row) => row.freeSlots),
+    rankedFigure(
+        RankedColumn.Allocatable,
+        'Slots to fill',
+        (row) => row.allocatable,
+    ),
+];
+
+enum ListedLine {
+    Firm = 'firm',
+    Plan = 'plan',
 }
+
+type ListedLineRow =
+    | {
+          readonly group: NextSlotListedFirmGroup;
+          readonly kind: ListedLine.Firm;
+      }
+    | { readonly kind: ListedLine.Plan; readonly row: ListedPlanRow };
+
+type ListedPlanRow = NextSlotListedFirmGroup['plans'][number];
+
+function listedLinesOf(
+    groups: readonly NextSlotListedFirmGroup[],
+): ListedLineRow[] {
+    return groups.flatMap((group): ListedLineRow[] => [
+        { group, kind: ListedLine.Firm },
+        ...group.plans.map((row): ListedLineRow => ({
+            kind: ListedLine.Plan,
+            row,
+        })),
+    ]);
+}
+
+function listedPlanCell(
+    render: (row: ListedPlanRow) => ReactNode,
+): DataTableColumn<ListedLineRow>['cell'] {
+    return ({ row: { original: line } }) =>
+        line.kind === ListedLine.Plan ? render(line.row) : null;
+}
+
+const LISTED_COLUMNS: DataTableColumn<ListedLineRow>[] = [
+    {
+        cell: listedPlanCell((row) => row.plan),
+        header: 'Plan',
+        id: ListedColumn.Plan,
+    },
+    {
+        cell: listedPlanCell((row) => row.documentedNet),
+        header: 'Documented monthly net, credit-inclusive',
+        id: ListedColumn.DocumentedNet,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        cell: listedPlanCell((row) => <ReasonList reasons={row.reasons} />),
+        header: 'Plan reason',
+        id: ListedColumn.PlanReason,
+    },
+];
 
 function RankedTable({
     model,
@@ -401,62 +503,14 @@ function RankedTable({
                 </p>
             ) : (
                 <>
-                    <Table {...namedScrollRegion('next-slot-ranked')}>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead scope="col">Rank</TableHead>
-                                <TableHead scope="col">Plan</TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Documented monthly net, credit-inclusive
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Documented, credit-free
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Documented request
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Payout-size optimum, credit-inclusive
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Optimum request
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Funded bust at the optimum, share of all
-                                    simulated attempts
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Rank, documented
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Rank, optimum
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Cycle net
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    P(no payout) per attempt
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Batch loss risk at your bankroll
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Net per screen hour
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Free slots
-                                </TableHead>
-                                <TableHead className="text-right" scope="col">
-                                    Slots to fill
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {model.ranked.map((row) => (
-                                <RankedRow key={row.key} row={row} />
-                            ))}
-                        </TableBody>
-                    </Table>
+                    <DataTable
+                        columns={RANKED_COLUMNS}
+                        data={[...model.ranked]}
+                        isSortable={false}
+                        labelledBy="next-slot-ranked"
+                        pageSize={null}
+                        rowId={(row) => row.key}
+                    />
                     <div className="flex flex-col gap-2">
                         {model.ranked.map((row) => (
                             <p

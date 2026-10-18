@@ -19,10 +19,9 @@ import type {
     LedgerReference,
 } from '~/lib/accounting/core/types';
 
-import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
@@ -38,7 +37,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '~/components/ui/dialog';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStatePanel } from '~/components/ui/empty-state';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
@@ -370,14 +369,10 @@ export function RulesManager() {
                     />
                 </>
             ) : (
-                <Card>
-                    <CardContent>
-                        <EmptyState
-                            description="Add an accounting credential in Connections to manage its bank accounts and booking rules."
-                            title="No accounting credential"
-                        />
-                    </CardContent>
-                </Card>
+                <EmptyStatePanel
+                    description="Add an accounting credential in Connections to manage its bank accounts and booking rules."
+                    title="No accounting credential"
+                />
             )}
         </div>
     );

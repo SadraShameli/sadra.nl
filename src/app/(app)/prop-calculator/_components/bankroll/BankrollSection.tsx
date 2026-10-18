@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 
 interface BankrollSectionProperties {
     children: ReactNode;

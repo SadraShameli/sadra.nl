@@ -98,7 +98,7 @@ export function ProfileNav({
         <div className="flex flex-col gap-5 px-4 md:px-2">
             <div className="flex flex-col items-start gap-4 px-3 pt-2">
                 <Avatar className="size-14">
-                    <AvatarFallback className="bg-camel font-serif text-2xl text-on-camel">
+                    <AvatarFallback className="selected-pill font-serif text-2xl">
                         {initial}
                     </AvatarFallback>
                 </Avatar>

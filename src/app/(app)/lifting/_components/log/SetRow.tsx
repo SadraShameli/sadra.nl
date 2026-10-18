@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import type { SetType, UnitDistance, UnitWeight } from '~/lib/lifting/types';
@@ -116,11 +116,11 @@ export function SetRow({
     const stepInDisplay =
         unitWeight === 'kg' ? weightStepKg : weightStepKg / 0.45359237;
 
-    const rpeValue = form.watch('rpe');
-    const rirValue = form.watch('rir');
-    const tempoValue = form.watch('tempo');
-    const distanceValue = form.watch('distance');
-    const durationValue = form.watch('duration');
+    const rpeValue = useWatch({ control: form.control, name: 'rpe' });
+    const rirValue = useWatch({ control: form.control, name: 'rir' });
+    const tempoValue = useWatch({ control: form.control, name: 'tempo' });
+    const distanceValue = useWatch({ control: form.control, name: 'distance' });
+    const durationValue = useWatch({ control: form.control, name: 'duration' });
 
     const handleComplete = form.handleSubmit((values) => {
         const weightKg = WeightUnit.fromDisplay(

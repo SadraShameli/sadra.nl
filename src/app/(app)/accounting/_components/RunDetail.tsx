@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 import type { Booking, LedgerReference } from '~/lib/accounting/core/types';
 
-import { ToolPanel } from '~/app/(app)/_components/ToolPanel';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge, type BadgeProperties } from '~/components/ui/badge';
 import { Eur } from '~/lib/accounting/core/money';

@@ -68,7 +68,7 @@ export function ComponentCorrelationChart({
                 'flex flex-col gap-3',
             )}
         >
-            <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+            <div className="flex flex-wrap items-center gap-2">
                 <ToolbarSelect
                     label="Component"
                     onValueChange={(v) => {

@@ -3,7 +3,7 @@
 import { Trash2, TriangleAlert } from 'lucide-react';
 import { type ReactNode } from 'react';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';

@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
+import { useForm, type UseFormRegisterReturn, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import {
@@ -116,7 +116,24 @@ export default function FunnelWhatIfSection() {
         }),
     });
     const { isValid } = whatIfForm.formState;
-    const values = whatIfForm.watch();
+    const [attemptCost, attempts, averagePayout, passRate, payoutRate] =
+        useWatch({
+            control: whatIfForm.control,
+            name: [
+                'attemptCost',
+                'attempts',
+                'averagePayout',
+                'passRate',
+                'payoutRate',
+            ],
+        });
+    const values: FunnelWhatIfFormValues = {
+        attemptCost,
+        attempts,
+        averagePayout,
+        passRate,
+        payoutRate,
+    };
     const isFilled = [
         values.attemptCost,
         values.attempts,

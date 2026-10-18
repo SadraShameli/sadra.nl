@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import {
     readRecentTools,
     recentToolLinks,
@@ -13,6 +12,7 @@ import {
 import { hubCardHref } from '~/app/(app)/prop-calculator/_components/HubToolCards';
 import { readLastToolQuery } from '~/app/(app)/prop-calculator/_components/lastToolQuery';
 import { type ToolCatalogEntry } from '~/app/(app)/prop-calculator/_components/toolCatalog';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 

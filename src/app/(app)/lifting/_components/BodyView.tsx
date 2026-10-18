@@ -4,11 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { format, subDays } from 'date-fns';
 import { LineChart, Plus, Ruler, Trash2 } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
 import AreaChartNew from '~/components/ui/chart/area-chart-new';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
@@ -109,47 +110,38 @@ export function BodyView() {
                 unitWeight={unitWeight}
             />
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        History
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    <MeasurementsHistoryTable
-                        headerActions={(table) => (
-                            <div className="flex w-full flex-col gap-3">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <DataTableFacetSelect
-                                        column={table.getColumn('kind')}
-                                        format={(k) => (
-                                            <span className="capitalize">
-                                                {k.replaceAll('_', ' ')}
-                                            </span>
-                                        )}
-                                        label="Kind"
-                                        placeholder="All kinds"
-                                    />
-                                    <DataTableFacetSelect
-                                        column={table.getColumn('unit')}
-                                        label="Unit"
-                                        placeholder="All units"
-                                    />
-                                    <DataTableDateRange
-                                        column={table.getColumn('takenAt')}
-                                        label="Logged date"
-                                        maxDate={new Date()}
-                                        placeholder="Any time"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                        isLoading={measurements.isLoading}
-                        onDelete={(id) => remove.mutate({ id })}
-                        rows={rows}
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel contentClassName="flex flex-col gap-4" title="History">
+                <MeasurementsHistoryTable
+                    headerActions={(table) => (
+                        <>
+                            <DataTableFacetSelect
+                                column={table.getColumn('kind')}
+                                format={(k) => (
+                                    <span className="capitalize">
+                                        {k.replaceAll('_', ' ')}
+                                    </span>
+                                )}
+                                label="Kind"
+                                placeholder="All kinds"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('unit')}
+                                label="Unit"
+                                placeholder="All units"
+                            />
+                            <DataTableDateRange
+                                column={table.getColumn('takenAt')}
+                                label="Logged date"
+                                maxDate={new Date()}
+                                placeholder="Any time"
+                            />
+                        </>
+                    )}
+                    isLoading={measurements.isLoading}
+                    onDelete={(id) => remove.mutate({ id })}
+                    rows={rows}
+                />
+            </ToolPanel>
         </div>
     );
 }
@@ -181,7 +173,7 @@ function AddMeasurementCard({
     });
     const formId = useId();
 
-    const kind = form.watch('kind');
+    const kind = useWatch({ control: form.control, name: 'kind' });
 
     useEffect(() => {
         form.setValue('unit', defaultUnitFor(kind, unitWeight, unitLength));
@@ -202,187 +194,165 @@ function AddMeasurementCard({
     });
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                    Add measurement
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <Controller
-                            control={form.control}
-                            name="kind"
-                            render={({ field, fieldState }) => (
-                                <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel
-                                        className="text-xs text-muted-foreground"
-                                        htmlFor={`${formId}-kind`}
-                                    >
-                                        Kind
-                                    </FieldLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <SelectTrigger
-                                            aria-invalid={fieldState.invalid}
-                                            id={`${formId}-kind`}
-                                        >
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {MEASUREMENT_KIND_VALUES.map(
-                                                (k) => (
-                                                    <SelectItem
-                                                        key={k}
-                                                        value={k}
-                                                    >
-                                                        <span className="capitalize">
-                                                            {k.replaceAll(
-                                                                '_',
-                                                                ' ',
-                                                            )}
-                                                        </span>
-                                                    </SelectItem>
-                                                ),
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                    <FieldError errors={[fieldState.error]} />
-                                </Field>
-                            )}
-                        />
-                        <Controller
-                            control={form.control}
-                            name="valueNumeric"
-                            render={({ field, fieldState }) => (
-                                <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel
-                                        className="text-xs text-muted-foreground"
-                                        htmlFor={`${formId}-valueNumeric`}
-                                    >
-                                        Value
-                                    </FieldLabel>
-                                    <Input
-                                        aria-invalid={fieldState.invalid}
-                                        id={`${formId}-valueNumeric`}
-                                        inputMode="decimal"
-                                        onChange={(event) => {
-                                            const n = Number(
-                                                event.target.value,
-                                            );
-                                            field.onChange(
-                                                Number.isFinite(n) ? n : 0,
-                                            );
-                                        }}
-                                        ref={field.ref}
-                                        step="any"
-                                        type="number"
-                                        value={field.value}
-                                    />
-                                    <FieldError errors={[fieldState.error]} />
-                                </Field>
-                            )}
-                        />
-                        <Controller
-                            control={form.control}
-                            name="unit"
-                            render={({ field, fieldState }) => (
-                                <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel
-                                        className="text-xs text-muted-foreground"
-                                        htmlFor={`${formId}-unit`}
-                                    >
-                                        Unit
-                                    </FieldLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <SelectTrigger
-                                            aria-invalid={fieldState.invalid}
-                                            id={`${formId}-unit`}
-                                        >
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {MEASUREMENT_UNIT_VALUES.map(
-                                                (u) => (
-                                                    <SelectItem
-                                                        key={u}
-                                                        value={u}
-                                                    >
-                                                        {u}
-                                                    </SelectItem>
-                                                ),
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                    <FieldError errors={[fieldState.error]} />
-                                </Field>
-                            )}
-                        />
-                        <Controller
-                            control={form.control}
-                            name="takenAt"
-                            render={({ field, fieldState }) => (
-                                <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel
-                                        className="text-xs text-muted-foreground"
-                                        htmlFor={`${formId}-takenAt`}
-                                    >
-                                        When
-                                    </FieldLabel>
-                                    <DatePicker
-                                        className="w-full"
-                                        id={`${formId}-takenAt`}
-                                        maxDate={new Date()}
-                                        onChange={(d) =>
-                                            field.onChange(d ?? undefined)
-                                        }
-                                        value={field.value ?? undefined}
-                                    />
-                                    <FieldError errors={[fieldState.error]} />
-                                </Field>
-                            )}
-                        />
-                    </div>
+        <ToolPanel title="Add measurement">
+            <form className="flex flex-col gap-3" onSubmit={onSubmit}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Controller
                         control={form.control}
-                        name="notes"
+                        name="kind"
                         render={({ field, fieldState }) => (
                             <Field data-invalid={fieldState.invalid}>
                                 <FieldLabel
                                     className="text-xs text-muted-foreground"
-                                    htmlFor={`${formId}-notes`}
+                                    htmlFor={`${formId}-kind`}
                                 >
-                                    Notes (optional)
+                                    Kind
                                 </FieldLabel>
-                                <Textarea
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-kind`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {MEASUREMENT_KIND_VALUES.map((k) => (
+                                            <SelectItem key={k} value={k}>
+                                                <span className="capitalize">
+                                                    {k.replaceAll('_', ' ')}
+                                                </span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="valueNumeric"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-valueNumeric`}
+                                >
+                                    Value
+                                </FieldLabel>
+                                <Input
                                     aria-invalid={fieldState.invalid}
-                                    className="min-h-16 text-sm"
-                                    id={`${formId}-notes`}
-                                    placeholder="Anything notable about this measurement…"
-                                    {...field}
-                                    value={field.value ?? ''}
+                                    id={`${formId}-valueNumeric`}
+                                    inputMode="decimal"
+                                    onChange={(event) => {
+                                        const n = Number(event.target.value);
+                                        field.onChange(
+                                            Number.isFinite(n) ? n : 0,
+                                        );
+                                    }}
+                                    ref={field.ref}
+                                    step="any"
+                                    type="number"
+                                    value={field.value}
                                 />
                                 <FieldError errors={[fieldState.error]} />
                             </Field>
                         )}
                     />
-                    <Button
-                        className="gap-2 self-start"
-                        disabled={pending}
-                        type="submit"
-                    >
-                        <Plus className="size-4" />
-                        {pending ? 'Saving…' : 'Add'}
-                    </Button>
-                </form>
-            </CardContent>
-        </Card>
+                    <Controller
+                        control={form.control}
+                        name="unit"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-unit`}
+                                >
+                                    Unit
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-unit`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {MEASUREMENT_UNIT_VALUES.map((u) => (
+                                            <SelectItem key={u} value={u}>
+                                                {u}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="takenAt"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-takenAt`}
+                                >
+                                    When
+                                </FieldLabel>
+                                <DatePicker
+                                    className="w-full"
+                                    id={`${formId}-takenAt`}
+                                    maxDate={new Date()}
+                                    onChange={(d) =>
+                                        field.onChange(d ?? undefined)
+                                    }
+                                    value={field.value ?? undefined}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                </div>
+                <Controller
+                    control={form.control}
+                    name="notes"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel
+                                className="text-xs text-muted-foreground"
+                                htmlFor={`${formId}-notes`}
+                            >
+                                Notes (optional)
+                            </FieldLabel>
+                            <Textarea
+                                aria-invalid={fieldState.invalid}
+                                className="min-h-16 text-sm"
+                                id={`${formId}-notes`}
+                                placeholder="Anything notable about this measurement…"
+                                {...field}
+                                value={field.value ?? ''}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <Button
+                    className="gap-2 self-start"
+                    disabled={pending}
+                    type="submit"
+                >
+                    <Plus className="size-4" />
+                    {pending ? 'Saving…' : 'Add'}
+                </Button>
+            </form>
+        </ToolPanel>
     );
 }
 
@@ -597,58 +567,52 @@ function MeasurementTrendChart({
     );
 
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        <LineChart className="size-4" /> Trend
-                    </CardTitle>
-                    <ToolbarSelect
-                        label="Trend measurement"
-                        onValueChange={(v) => {
-                            const kind = MEASUREMENT_KIND_VALUES.find(
-                                (k) => k === v,
-                            );
-                            if (kind) setChartKind(kind);
+        <ToolPanel
+            actions={
+                <ToolbarSelect
+                    label="Trend measurement"
+                    onValueChange={(v) => {
+                        const kind = MEASUREMENT_KIND_VALUES.find(
+                            (k) => k === v,
+                        );
+                        if (kind) setChartKind(kind);
+                    }}
+                    options={MEASUREMENT_KIND_VALUES.map((k) => ({
+                        label: (
+                            <span className="capitalize">
+                                {k.replaceAll('_', ' ')}
+                            </span>
+                        ),
+                        value: k,
+                    }))}
+                    value={chartKind}
+                />
+            }
+            title="Trend"
+        >
+            {trendData.isLoading ? (
+                <Skeleton className="h-48 w-full rounded-md" />
+            ) : chartPoints.length === 0 ? (
+                <EmptyState
+                    description="Log a measurement to see the trend chart."
+                    icon={LineChart}
+                    title="No data yet"
+                />
+            ) : (
+                <div className="h-48">
+                    <AreaChartNew
+                        area={{ dataKey: 'value' }}
+                        config={TREND_CHART_CONFIG}
+                        data={chartPoints}
+                        tooltip={{ labelKey: 'date', nameKey: 'value' }}
+                        xAxis={{ dataKey: 'date' }}
+                        yAxis={{
+                            tickFormatter: (v: number) => `${v} ${displayUnit}`,
                         }}
-                        options={MEASUREMENT_KIND_VALUES.map((k) => ({
-                            label: (
-                                <span className="capitalize">
-                                    {k.replaceAll('_', ' ')}
-                                </span>
-                            ),
-                            value: k,
-                        }))}
-                        value={chartKind}
                     />
                 </div>
-            </CardHeader>
-            <CardContent>
-                {trendData.isLoading ? (
-                    <Skeleton className="h-48 w-full rounded-md" />
-                ) : chartPoints.length === 0 ? (
-                    <EmptyState
-                        description="Log a measurement to see the trend chart."
-                        icon={LineChart}
-                        title="No data yet"
-                    />
-                ) : (
-                    <div className="h-48">
-                        <AreaChartNew
-                            area={{ dataKey: 'value' }}
-                            config={TREND_CHART_CONFIG}
-                            data={chartPoints}
-                            tooltip={{ labelKey: 'date', nameKey: 'value' }}
-                            xAxis={{ dataKey: 'date' }}
-                            yAxis={{
-                                tickFormatter: (v: number) =>
-                                    `${v} ${displayUnit}`,
-                            }}
-                        />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+            )}
+        </ToolPanel>
     );
 }
 

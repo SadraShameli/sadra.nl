@@ -30,10 +30,11 @@ import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Calendar } from '~/components/ui/calendar';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
@@ -422,283 +423,246 @@ export function GoalsView() {
                 </Card>
             )}
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        New goal
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <form
-                        className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-                        onSubmit={submit}
-                    >
-                        <Controller
-                            control={newGoalForm.control}
-                            name="kind"
-                            render={({ field, fieldState }) => (
-                                <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel
-                                        className="text-xs text-muted-foreground"
-                                        htmlFor={`${formId}-kind`}
-                                    >
-                                        Kind
-                                    </FieldLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <SelectTrigger
-                                            aria-invalid={fieldState.invalid}
-                                            id={`${formId}-kind`}
-                                        >
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {GOAL_KIND_VALUES.map((k) => (
-                                                <SelectItem key={k} value={k}>
-                                                    {KIND_LABEL[k]}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FieldError errors={[fieldState.error]} />
-                                </Field>
-                            )}
-                        />
-                        <Controller
-                            control={newGoalForm.control}
-                            name="targetValue"
-                            render={({ field, fieldState }) => (
-                                <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel
-                                        className="text-xs text-muted-foreground"
-                                        htmlFor={`${formId}-targetValue`}
-                                    >
-                                        Target value
-                                    </FieldLabel>
-                                    <Input
+            <ToolPanel title="New goal">
+                <form
+                    className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+                    onSubmit={submit}
+                >
+                    <Controller
+                        control={newGoalForm.control}
+                        name="kind"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-kind`}
+                                >
+                                    Kind
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
                                         aria-invalid={fieldState.invalid}
-                                        id={`${formId}-targetValue`}
-                                        inputMode="decimal"
-                                        onChange={(event) => {
-                                            const n = Number(
-                                                event.target.value,
-                                            );
-                                            field.onChange(
-                                                Number.isFinite(n) ? n : 0,
-                                            );
-                                        }}
-                                        ref={field.ref}
-                                        step="any"
-                                        type="number"
-                                        value={field.value}
-                                    />
-                                    <FieldError errors={[fieldState.error]} />
-                                </Field>
-                            )}
-                        />
-                        <Controller
-                            control={newGoalForm.control}
-                            name="targetDate"
-                            render={({ field, fieldState }) => (
-                                <Field data-invalid={fieldState.invalid}>
-                                    <FieldLabel
-                                        className="text-xs text-muted-foreground"
-                                        htmlFor={`${formId}-targetDate`}
+                                        id={`${formId}-kind`}
                                     >
-                                        Target date
-                                    </FieldLabel>
-                                    <DatePicker
-                                        className="w-full"
-                                        id={`${formId}-targetDate`}
-                                        minDate={startOfDay(new Date())}
-                                        onChange={(d) =>
-                                            field.onChange(
-                                                d
-                                                    ? format(d, 'yyyy-MM-dd')
-                                                    : null,
-                                            )
-                                        }
-                                        value={
-                                            field.value
-                                                ? parseISO(field.value)
-                                                : undefined
-                                        }
-                                    />
-                                    <FieldError errors={[fieldState.error]} />
-                                </Field>
-                            )}
-                        />
-                        <div className="flex items-end">
-                            <Button
-                                className="w-full gap-2"
-                                disabled={create.isPending}
-                                type="submit"
-                            >
-                                <Plus className="size-4" /> Create
-                            </Button>
-                        </div>
-                        {create.error?.message && (
-                            <p className="col-span-full mt-1 text-xs text-destructive">
-                                {create.error.message}
-                            </p>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {GOAL_KIND_VALUES.map((k) => (
+                                            <SelectItem key={k} value={k}>
+                                                {KIND_LABEL[k]}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
                         )}
-                    </form>
-                </CardContent>
-            </Card>
+                    />
+                    <Controller
+                        control={newGoalForm.control}
+                        name="targetValue"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-targetValue`}
+                                >
+                                    Target value
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-targetValue`}
+                                    inputMode="decimal"
+                                    onChange={(event) => {
+                                        const n = Number(event.target.value);
+                                        field.onChange(
+                                            Number.isFinite(n) ? n : 0,
+                                        );
+                                    }}
+                                    ref={field.ref}
+                                    step="any"
+                                    type="number"
+                                    value={field.value}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={newGoalForm.control}
+                        name="targetDate"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-targetDate`}
+                                >
+                                    Target date
+                                </FieldLabel>
+                                <DatePicker
+                                    className="w-full"
+                                    id={`${formId}-targetDate`}
+                                    minDate={startOfDay(new Date())}
+                                    onChange={(d) =>
+                                        field.onChange(
+                                            d ? format(d, 'yyyy-MM-dd') : null,
+                                        )
+                                    }
+                                    value={
+                                        field.value
+                                            ? parseISO(field.value)
+                                            : undefined
+                                    }
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <div className="flex items-end">
+                        <Button
+                            className="w-full gap-2"
+                            disabled={create.isPending}
+                            type="submit"
+                        >
+                            <Plus className="size-4" /> Create
+                        </Button>
+                    </div>
+                    {create.error?.message && (
+                        <p className="col-span-full mt-1 text-xs text-destructive">
+                            {create.error.message}
+                        </p>
+                    )}
+                </form>
+            </ToolPanel>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
-                <Card className="h-full">
-                    <CardHeader>
-                        <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            Achievement heatmap
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-1 flex-col">
-                        <AchievementHeatmap heatmap={heatmap} />
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center justify-between text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            <span>Target calendar</span>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center gap-3">
-                        <Calendar
-                            mode="single"
-                            modifiers={{
-                                achieved: calendarMarkers.achieved,
-                                targetActive: calendarMarkers.targetActive,
-                                targetMissed: calendarMarkers.targetMissed,
-                            }}
-                            modifiersClassNames={CALENDAR_MODIFIER_CLASS}
-                            month={calendarMonth}
-                            onMonthChange={setCalendarMonth}
-                            selected={undefined}
-                        />
-                        <CalendarLegend />
-                    </CardContent>
-                </Card>
+                <ToolPanel
+                    className="h-full"
+                    contentClassName="flex flex-1 flex-col"
+                    title="Achievement heatmap"
+                >
+                    <AchievementHeatmap heatmap={heatmap} />
+                </ToolPanel>
+                <ToolPanel
+                    contentClassName="flex flex-col items-center gap-3"
+                    title="Target calendar"
+                >
+                    <Calendar
+                        mode="single"
+                        modifiers={{
+                            achieved: calendarMarkers.achieved,
+                            targetActive: calendarMarkers.targetActive,
+                            targetMissed: calendarMarkers.targetMissed,
+                        }}
+                        modifiersClassNames={CALENDAR_MODIFIER_CLASS}
+                        month={calendarMonth}
+                        onMonthChange={setCalendarMonth}
+                        selected={undefined}
+                    />
+                    <CalendarLegend />
+                </ToolPanel>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        <span>All goals</span>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <DataTable<GoalRow>
-                        columns={columns}
-                        data={goals}
-                        emptyState={(table) => {
-                            const status =
-                                (table.getColumn('status')?.getFilterValue() as
-                                    GoalStatus | undefined) ??
-                                STATUS_FILTER.ALL;
-                            return (
-                                <EmptyState
-                                    description={
-                                        status === STATUS_FILTER.ALL
-                                            ? 'Set a target so you have something to chase.'
-                                            : `No ${STATUS_LABEL[status].toLowerCase()} goals.`
-                                    }
-                                    icon={Target}
-                                    title="Nothing here yet"
-                                />
-                            );
-                        }}
-                        filterPosition="bottom"
-                        headerActions={(table) => {
-                            const statusColumn = table.getColumn('status');
-                            const statusFacets =
-                                statusColumn?.getFacetedUniqueValues() ??
-                                new Map<string, number>();
-                            const totalCount = statusFacets
-                                .values()
-                                .reduce((sum, n) => sum + n, 0);
-                            const currentStatus =
-                                (statusColumn?.getFilterValue() as
-                                    GoalStatus | undefined) ??
-                                STATUS_FILTER.ALL;
-                            return (
-                                <div className="flex w-full flex-col gap-3">
-                                    <Tabs
-                                        onValueChange={(v) =>
-                                            statusColumn?.setFilterValue(
-                                                v === STATUS_FILTER.ALL
-                                                    ? undefined
-                                                    : v,
-                                            )
-                                        }
-                                        value={currentStatus}
-                                    >
-                                        <TabsList className="flex h-auto w-fit flex-wrap self-start">
-                                            {STATUS_FILTER_VALUES.map((s) => (
-                                                <TabsTrigger key={s} value={s}>
-                                                    <span className="capitalize">
-                                                        {s === STATUS_FILTER.ALL
-                                                            ? 'All'
-                                                            : STATUS_LABEL[s]}
-                                                    </span>
-                                                    <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
-                                                        {s === STATUS_FILTER.ALL
-                                                            ? totalCount
-                                                            : (statusFacets.get(
-                                                                  s,
-                                                              ) ?? 0)}
-                                                    </span>
-                                                </TabsTrigger>
-                                            ))}
-                                        </TabsList>
-                                    </Tabs>
-
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <DataTableFacetSelect
-                                            column={table.getColumn('kind')}
-                                            format={(k) =>
-                                                KIND_LABEL[k as GoalKind]
-                                            }
-                                            label="Kind"
-                                            placeholder="All kinds"
-                                        />
-                                        <DataTableFacetSelect
-                                            column={table.getColumn('exercise')}
-                                            format={(id) =>
-                                                id === EXERCISE_NONE
-                                                    ? 'Unassigned'
-                                                    : (exerciseNameById.get(
-                                                          id,
-                                                      ) ?? id)
-                                            }
-                                            label="Exercise"
-                                            placeholder="All exercises"
-                                        />
-                                        <DataTableDateRange
-                                            column={table.getColumn(
-                                                'targetDate',
-                                            )}
-                                            label="Target date"
-                                            placeholder="Any target date"
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        }}
-                        isLoading={goalsQuery.isLoading}
-                        pageSize={10}
-                        rowClassName={(r) =>
-                            r.status === GOAL_STATUS.ACHIEVED
-                                ? 'bg-success/5'
-                                : undefined
-                        }
-                        rowId={(r) => r.id}
-                        showFilter
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel title="All goals">
+                <DataTable<GoalRow>
+                    belowFilter={(table) => (
+                        <>
+                            <DataTableFacetSelect
+                                column={table.getColumn('kind')}
+                                format={(k) => KIND_LABEL[k as GoalKind]}
+                                label="Kind"
+                                placeholder="All kinds"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('exercise')}
+                                format={(id) =>
+                                    id === EXERCISE_NONE
+                                        ? 'Unassigned'
+                                        : (exerciseNameById.get(id) ?? id)
+                                }
+                                label="Exercise"
+                                placeholder="All exercises"
+                            />
+                            <DataTableDateRange
+                                column={table.getColumn('targetDate')}
+                                label="Target date"
+                                placeholder="Any target date"
+                            />
+                        </>
+                    )}
+                    columns={columns}
+                    data={goals}
+                    emptyState={(table) => {
+                        const status =
+                            (table.getColumn('status')?.getFilterValue() as
+                                GoalStatus | undefined) ?? STATUS_FILTER.ALL;
+                        return (
+                            <EmptyState
+                                description={
+                                    status === STATUS_FILTER.ALL
+                                        ? 'Set a target so you have something to chase.'
+                                        : `No ${STATUS_LABEL[status].toLowerCase()} goals.`
+                                }
+                                icon={Target}
+                                title="Nothing here yet"
+                            />
+                        );
+                    }}
+                    filterPosition="bottom"
+                    headerActions={(table) => {
+                        const statusColumn = table.getColumn('status');
+                        const statusFacets =
+                            statusColumn?.getFacetedUniqueValues() ??
+                            new Map<string, number>();
+                        const totalCount = statusFacets
+                            .values()
+                            .reduce((sum, n) => sum + n, 0);
+                        const currentStatus =
+                            (statusColumn?.getFilterValue() as
+                                GoalStatus | undefined) ?? STATUS_FILTER.ALL;
+                        return (
+                            <Tabs
+                                onValueChange={(v) =>
+                                    statusColumn?.setFilterValue(
+                                        v === STATUS_FILTER.ALL ? undefined : v,
+                                    )
+                                }
+                                value={currentStatus}
+                            >
+                                <TabsList className="flex h-auto w-fit flex-wrap self-start">
+                                    {STATUS_FILTER_VALUES.map((s) => (
+                                        <TabsTrigger key={s} value={s}>
+                                            <span className="capitalize">
+                                                {s === STATUS_FILTER.ALL
+                                                    ? 'All'
+                                                    : STATUS_LABEL[s]}
+                                            </span>
+                                            <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
+                                                {s === STATUS_FILTER.ALL
+                                                    ? totalCount
+                                                    : (statusFacets.get(s) ??
+                                                      0)}
+                                            </span>
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                            </Tabs>
+                        );
+                    }}
+                    isLoading={goalsQuery.isLoading}
+                    pageSize={10}
+                    rowClassName={(r) =>
+                        r.status === GOAL_STATUS.ACHIEVED
+                            ? 'bg-success/5'
+                            : undefined
+                    }
+                    rowId={(r) => r.id}
+                    showFilter
+                />
+            </ToolPanel>
         </div>
     );
 }

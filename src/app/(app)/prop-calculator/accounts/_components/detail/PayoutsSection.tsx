@@ -14,6 +14,7 @@ import {
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
 import { payoutStatusLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { Button } from '~/components/ui/button';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -23,14 +24,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import { Textarea } from '~/components/ui/textarea';
 import {
     EntryTextKind,
@@ -50,6 +43,17 @@ import {
 } from './DetailParts';
 import { nullIfBlank, parsedOrIssues } from './formParsing';
 import { useRowEditing } from './useRowEditing';
+
+enum PayoutsSectionColumn {
+    Actions = 'actions',
+    ApprovedOn = 'approved-on',
+    Gross = 'gross',
+    Note = 'note',
+    PaidOn = 'paid-on',
+    Received = 'received',
+    Requested = 'requested',
+    Status = 'status',
+}
 
 type PayoutRow = RouterOutputs['propAccounts']['payout']['list'][number];
 
@@ -96,52 +100,74 @@ export function PayoutsSection({
             )}
             {rows !== undefined && rows.length > 0 && (
                 <>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Requested</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">
-                                    Gross
-                                </TableHead>
-                                <TableHead className="text-right">
-                                    Received
-                                </TableHead>
-                                <TableHead>Approved on</TableHead>
-                                <TableHead>Paid on</TableHead>
-                                <TableHead>Note</TableHead>
-                                <TableHead>
-                                    <span className="sr-only">Actions</span>
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {rows.map((row) => (
-                                <TableRow key={row.id}>
-                                    <TableCell className="tabular-nums">
+                    <DataTable
+                        columns={[
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <div className="tabular-nums">
                                         {row.requestedOn}
-                                    </TableCell>
-                                    <TableCell>
-                                        {payoutStatusLabel(row.status)}
-                                    </TableCell>
-                                    <TableCell className="text-right tabular-nums">
-                                        {formatUsdCents(row.grossCents)}
-                                    </TableCell>
-                                    <TableCell className="text-right tabular-nums">
+                                    </div>
+                                ),
+                                header: 'Requested',
+                                id: PayoutsSectionColumn.Requested,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <>{payoutStatusLabel(row.status)}</>
+                                ),
+                                header: 'Status',
+                                id: PayoutsSectionColumn.Status,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <>{formatUsdCents(row.grossCents)}</>
+                                ),
+                                header: 'Gross',
+                                id: PayoutsSectionColumn.Gross,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <>
                                         {row.netCents === null
                                             ? 'net not entered'
                                             : formatUsdCents(row.netCents)}
-                                    </TableCell>
-                                    <TableCell className="tabular-nums">
+                                    </>
+                                ),
+                                header: 'Received',
+                                id: PayoutsSectionColumn.Received,
+                                meta: { align: DataTableAlign.End },
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <div className="tabular-nums">
                                         {row.approvedOn ?? ''}
-                                    </TableCell>
-                                    <TableCell className="tabular-nums">
+                                    </div>
+                                ),
+                                header: 'Approved on',
+                                id: PayoutsSectionColumn.ApprovedOn,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <div className="tabular-nums">
                                         {row.paidOn ?? ''}
-                                    </TableCell>
-                                    <TableCell className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
+                                    </div>
+                                ),
+                                header: 'Paid on',
+                                id: PayoutsSectionColumn.PaidOn,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <div className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
                                         {row.note ?? ''}
-                                    </TableCell>
-                                    <TableCell>
+                                    </div>
+                                ),
+                                header: 'Note',
+                                id: PayoutsSectionColumn.Note,
+                            },
+                            {
+                                cell: ({ row: { original: row } }) => (
+                                    <>
                                         <div className="flex justify-end gap-1">
                                             {canRecord && (
                                                 <Button
@@ -172,11 +198,21 @@ export function PayoutsSection({
                                                 triggerLabel={`Delete the payout requested on ${row.requestedOn}`}
                                             />
                                         </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                                    </>
+                                ),
+                                header: () => (
+                                    <>
+                                        <span className="sr-only">Actions</span>
+                                    </>
+                                ),
+                                id: PayoutsSectionColumn.Actions,
+                            },
+                        ]}
+                        data={[...rows]}
+                        isSortable={false}
+                        pageSize={null}
+                        rowId={(row) => row.id}
+                    />
                     <GrossOnlyPayoutsNote
                         count={summarizeCash([], rows).grossOnlyPayouts}
                     />

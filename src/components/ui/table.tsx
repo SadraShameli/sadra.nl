@@ -51,13 +51,12 @@ function TableCaption({
     );
 }
 
+const TABLE_CELL_CLASS = 'px-3 py-2.5 align-middle has-[[role=checkbox]]:pr-0';
+
 function TableCell({ className, ...properties }: React.ComponentProps<'td'>) {
     return (
         <td
-            className={cn(
-                'px-3 py-2.5 align-middle has-[[role=checkbox]]:pr-0',
-                className,
-            )}
+            className={cn(TABLE_CELL_CLASS, className)}
             data-slot="table-cell"
             {...properties}
         />
@@ -122,6 +121,20 @@ function TableRow({ className, ...properties }: React.ComponentProps<'tr'>) {
     );
 }
 
+function TableRowHeader({
+    className,
+    ...properties
+}: Omit<React.ComponentProps<'th'>, 'scope'>) {
+    return (
+        <th
+            className={cn(TABLE_CELL_CLASS, 'text-left font-normal', className)}
+            data-slot="table-row-header"
+            scope="row"
+            {...properties}
+        />
+    );
+}
+
 export {
     Table,
     TableBody,
@@ -131,4 +144,5 @@ export {
     TableHead,
     TableHeader,
     TableRow,
+    TableRowHeader,
 };

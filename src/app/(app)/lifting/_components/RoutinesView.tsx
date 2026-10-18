@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -28,15 +28,11 @@ export function RoutinesView() {
         );
     }
     return !routines.data || routines.data.length === 0 ? (
-        <Card>
-            <CardContent>
-                <EmptyState
-                    description="Save your favorite workouts as routines for one-tap starts."
-                    icon={Dumbbell}
-                    title="No routines yet"
-                />
-            </CardContent>
-        </Card>
+        <EmptyStatePanel
+            description="Save your favorite workouts as routines for one-tap starts."
+            icon={Dumbbell}
+            title="No routines yet"
+        />
     ) : (
         <RoutinesList routines={routines.data} />
     );

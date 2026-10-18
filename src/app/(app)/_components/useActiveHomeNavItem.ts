@@ -1,10 +1,8 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { HOME_SECTIONS, type HomeSectionId } from '~/lib/site/homeSections';
-import { routes } from '~/lib/site/routes';
 
 const ACTIVATION_LINE_VIEWPORT_SHARE = 0.35;
 const SCROLL_IDLE_MS = 160;
@@ -20,8 +18,7 @@ export interface ActiveHomeNav {
 
 export type ActiveHomeNavItem = HomeNavTarget | HomeSectionId;
 
-export function useActiveHomeNavItem(): ActiveHomeNav {
-    const isHome = usePathname() === routes.home;
+export function useActiveHomeNavItem(isHome: boolean): ActiveHomeNav {
     const [active, setActive] = useState<ActiveHomeNavItem>(HomeNavTarget.Top);
     const pinned = useRef<ActiveHomeNavItem | null>(null);
     const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(

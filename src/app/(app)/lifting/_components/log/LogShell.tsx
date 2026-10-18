@@ -7,8 +7,7 @@ import { useEffect, useState } from 'react';
 import { LogShellSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { RestTimerOverlay } from '~/app/(app)/lifting/_components/shared/RestTimerOverlay';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     UNIT_DISTANCE_VALUES,
@@ -72,28 +71,24 @@ export function LogShell({ initialSettings }: LogShellProperties) {
     if (!workout) {
         return (
             <div>
-                <Card className="mx-auto max-w-md">
-                    <CardContent>
-                        <EmptyState
-                            action={
-                                <Button
-                                    className="gap-2"
-                                    disabled={startWorkout.isPending}
-                                    onClick={() => startWorkout.mutate({})}
-                                    type="button"
-                                >
-                                    <Play className="size-4" />
-                                    {startWorkout.isPending
-                                        ? 'Starting…'
-                                        : 'Start workout'}
-                                </Button>
-                            }
-                            description="Start an empty workout and add exercises as you go."
-                            icon={Dumbbell}
-                            title="No active workout"
-                        />
-                    </CardContent>
-                </Card>
+                <EmptyStatePanel
+                    action={
+                        <Button
+                            className="gap-2"
+                            disabled={startWorkout.isPending}
+                            onClick={() => startWorkout.mutate({})}
+                            type="button"
+                        >
+                            <Play className="size-4" />
+                            {startWorkout.isPending
+                                ? 'Starting…'
+                                : 'Start workout'}
+                        </Button>
+                    }
+                    description="Start an empty workout and add exercises as you go."
+                    icon={Dumbbell}
+                    title="No active workout"
+                />
             </div>
         );
     }

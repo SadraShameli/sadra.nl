@@ -1,15 +1,17 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type ReadinessBoardCardModel } from './overviewModel';
+
+enum ReadinessBoardCardColumn {
+    Account = 'account',
+    AsOf = 'as-of',
+    NetAfterSplit = 'net-after-split',
+    RuleCappedWithdrawableAtTheRequest = 'rule-capped-withdrawable-at-the-request',
+    Status = 'status',
+    WhatUnlocksIt = 'what-unlocks-it',
+}
 
 export const ReadinessBoardCard = memo(function ReadinessBoardCard({
     model,
@@ -23,45 +25,57 @@ export const ReadinessBoardCard = memo(function ReadinessBoardCard({
                     No funded account has a usable balance snapshot yet.
                 </p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Account</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">
-                                Rule-capped withdrawable at the request
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Net after split
-                            </TableHead>
-                            <TableHead>What unlocks it</TableHead>
-                            <TableHead>As of</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {model.rows.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.account}</TableCell>
-                                <TableCell>{row.status}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.requested}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.netAfterSplit}
-                                </TableCell>
-                                <TableCell>
-                                    {row.unlock}
-                                    {row.note !== null && (
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row }) => <>{row.original.account}</>,
+                            header: 'Account',
+                            id: ReadinessBoardCardColumn.Account,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.status}</>,
+                            header: 'Status',
+                            id: ReadinessBoardCardColumn.Status,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.requested}</>,
+                            header: 'Rule-capped withdrawable at the request',
+                            id: ReadinessBoardCardColumn.RuleCappedWithdrawableAtTheRequest,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.netAfterSplit}</>
+                            ),
+                            header: 'Net after split',
+                            id: ReadinessBoardCardColumn.NetAfterSplit,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>
+                                    {row.original.unlock}
+                                    {row.original.note !== null && (
                                         <span className="block text-xs text-muted-foreground">
-                                            {row.note}
+                                            {row.original.note}
                                         </span>
                                     )}
-                                </TableCell>
-                                <TableCell>{row.asOf}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                                </>
+                            ),
+                            header: 'What unlocks it',
+                            id: ReadinessBoardCardColumn.WhatUnlocksIt,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.asOf}</>,
+                            header: 'As of',
+                            id: ReadinessBoardCardColumn.AsOf,
+                        },
+                    ]}
+                    data={[...model.rows]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
             <p className="text-xs text-muted-foreground">{model.disclosure}</p>
             {model.notFundedCount > 0 && (

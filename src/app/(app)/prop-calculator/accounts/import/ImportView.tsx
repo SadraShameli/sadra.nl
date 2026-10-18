@@ -11,13 +11,13 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import {
     accountOptInOptions,
     accountPlanOptions,
     planTagLabel,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import {
     Accordion,
     AccordionContent,
@@ -28,17 +28,10 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Field, FieldDescription, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Skeleton } from '~/components/ui/skeleton';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Textarea } from '~/components/ui/textarea';
 import {
@@ -81,6 +74,19 @@ enum ImportKind {
 enum ImportReference {
     Columns = 'columns',
     PlanSerials = 'plan-serials',
+}
+
+enum ImportViewColumn {
+    AccountSize = 'accountsize',
+    Firm = 'firm',
+    OfferedOptIns = 'offered-opt-ins',
+    Plan = 'plan',
+    PlanSerial = 'plan-serial',
+}
+
+enum PreviewColumn {
+    Check = 'check',
+    Row = 'row',
 }
 
 interface ImportNoun {
@@ -573,43 +579,66 @@ function PlanReference() {
                 Plan serials for the plan column
             </AccordionTrigger>
             <AccordionContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>firm</TableHead>
-                            <TableHead>plan</TableHead>
-                            <TableHead>accountSize</TableHead>
-                            <TableHead>Plan</TableHead>
-                            <TableHead>Offered opt-ins</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {rows.map((row) => (
-                            <TableRow key={row.planSerial}>
-                                <TableCell className="font-mono text-xs">
-                                    {row.firmId}
-                                </TableCell>
-                                <TableCell className="font-mono text-xs">
-                                    {row.planSerial}
-                                </TableCell>
-                                <TableCell className="tabular-nums">
-                                    {row.size}
-                                </TableCell>
-                                <TableCell>
-                                    {row.label}
-                                    {row.tags !== '' && (
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row }) => (
+                                <span className="font-mono text-xs">
+                                    {row.original.firmId}
+                                </span>
+                            ),
+                            header: 'firm',
+                            id: ImportViewColumn.Firm,
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <span className="font-mono text-xs">
+                                    {row.original.planSerial}
+                                </span>
+                            ),
+                            header: 'plan',
+                            id: ImportViewColumn.PlanSerial,
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <span className="tabular-nums">
+                                    {row.original.size}
+                                </span>
+                            ),
+                            header: 'accountSize',
+                            id: ImportViewColumn.AccountSize,
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>
+                                    {row.original.label}
+                                    {row.original.tags !== '' && (
                                         <span className="ml-2 text-xs text-muted-foreground">
-                                            ({row.tags})
+                                            ({row.original.tags})
                                         </span>
                                     )}
-                                </TableCell>
-                                <TableCell className="text-muted-foreground">
-                                    {row.optIns === '' ? 'None' : row.optIns}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                                </>
+                            ),
+                            header: 'Plan',
+                            id: ImportViewColumn.Plan,
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <span className="text-muted-foreground">
+                                    {row.original.optIns === ''
+                                        ? 'None'
+                                        : row.original.optIns}
+                                </span>
+                            ),
+                            header: 'Offered opt-ins',
+                            id: ImportViewColumn.OfferedOptIns,
+                        },
+                    ]}
+                    data={[...rows]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.planSerial}
+                />
             </AccordionContent>
         </AccordionItem>
     );
@@ -651,6 +680,7 @@ function PreviewTable<Column extends string, Value>({
         (row) => row.issues.length > 0,
     ).length;
     const warningsByRow = Map.groupBy(warnings, (warning) => warning.rowNumber);
+    type PreviewRow = (typeof preview.rows)[number];
     return (
         <div className="flex flex-col gap-3">
             <p
@@ -667,61 +697,65 @@ function PreviewTable<Column extends string, Value>({
                 {warningsByRow.size > 0 &&
                     ` ${warningsByRow.size} ready ${warningsByRow.size === 1 ? 'row has a warning' : 'rows have warnings'} worth checking before you import.`}
             </p>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Row</TableHead>
-                        {shownColumns.map((column) => (
-                            <TableHead className="font-mono" key={column}>
-                                {column}
-                            </TableHead>
-                        ))}
-                        <TableHead>Check</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {preview.rows.map((row) => (
-                        <TableRow key={row.rowNumber}>
-                            <TableCell className="align-top tabular-nums">
+            <DataTable
+                columns={[
+                    {
+                        cell: ({ row: { original: row } }) => (
+                            <span className="tabular-nums">
                                 {row.rowNumber}
-                            </TableCell>
-                            {shownColumns.map((column) => (
-                                <TableCell
-                                    className="max-w-48 truncate align-top"
-                                    key={column}
-                                >
+                            </span>
+                        ),
+                        header: 'Row',
+                        id: PreviewColumn.Row,
+                    },
+                    ...shownColumns.map(
+                        (column): DataTableColumn<PreviewRow> => ({
+                            cell: ({ row: { original: row } }) => (
+                                <div className="max-w-48 truncate">
                                     {row.cells.get(column) ?? ''}
-                                </TableCell>
-                            ))}
-                            <TableCell className="align-top">
-                                {row.issues.length === 0 ? (
-                                    <div className="flex flex-col gap-1">
-                                        <span className="flex items-center gap-1 text-success">
-                                            <CircleCheck className="size-4" />
-                                            Ready
-                                        </span>
-                                        <RowWarnings
-                                            warnings={
-                                                warningsByRow.get(
-                                                    row.rowNumber,
-                                                ) ?? NO_CSV_WARNINGS
-                                            }
-                                        />
-                                    </div>
-                                ) : (
-                                    <ul className="flex flex-col gap-1 text-warning">
-                                        {row.issues.map((issue, index) => (
-                                            <li key={index}>
-                                                {describeIssue(issue)}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+                                </div>
+                            ),
+                            header: () => (
+                                <span className="font-mono normal-case">
+                                    {column}
+                                </span>
+                            ),
+                            id: column,
+                        }),
+                    ),
+                    {
+                        cell: ({ row: { original: row } }) =>
+                            row.issues.length === 0 ? (
+                                <div className="flex flex-col gap-1">
+                                    <span className="flex items-center gap-1 text-success">
+                                        <CircleCheck className="size-4" />
+                                        Ready
+                                    </span>
+                                    <RowWarnings
+                                        warnings={
+                                            warningsByRow.get(row.rowNumber) ??
+                                            NO_CSV_WARNINGS
+                                        }
+                                    />
+                                </div>
+                            ) : (
+                                <ul className="flex flex-col gap-1 text-warning">
+                                    {row.issues.map((issue, index) => (
+                                        <li key={index}>
+                                            {describeIssue(issue)}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ),
+                        header: 'Check',
+                        id: PreviewColumn.Check,
+                    },
+                ]}
+                data={[...preview.rows]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => String(row.rowNumber)}
+            />
         </div>
     );
 }

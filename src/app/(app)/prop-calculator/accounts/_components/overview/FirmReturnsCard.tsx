@@ -1,30 +1,38 @@
 'use client';
 
-import { ArrowUpDown } from 'lucide-react';
-import { memo, useMemo, useState } from 'react';
+import { memo } from 'react';
 
-import { Button } from '~/components/ui/button';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { NOT_APPLICABLE } from '~/lib/format';
 import { compareText } from '~/lib/prop-accounts';
 
 import { type FirmReturnsCardModel } from './overviewModel';
 import { SampleBadge } from './SampleBadge';
 
+enum FirmReturnsColumn {
+    AccountsWithPayout = 'accounts-with-payout',
+    Attempts = 'attempts',
+    Firm = 'firm',
+    FirstPayout = 'first-payout',
+    Funded = 'funded',
+    LastPayout = 'last-payout',
+    Multiple = 'multiple',
+    Net = 'net',
+    Payouts = 'payouts',
+    Spend = 'spend',
+    Verdict = 'verdict',
+}
+
 type FirmReturnRow = FirmReturnsCardModel['rows'][number];
 
-type SortKey = keyof Pick<
+type NumericKey = keyof Pick<
     FirmReturnRow,
     | 'accounts'
     | 'attempts'
-    | 'firm'
     | 'fundedAccounts'
     | 'multiple'
     | 'net'
@@ -32,18 +40,98 @@ type SortKey = keyof Pick<
     | 'spend'
 >;
 
-const DEFAULT_SORT: SortKey = 'firm';
+function badgedColumn(
+    id: FirmReturnsColumn,
+    header: string,
+    key: 'attempts' | 'fundedAccounts',
+    level: (row: FirmReturnRow) => FirmReturnRow['attemptsSampleLevel'],
+): DataTableColumn<FirmReturnRow> {
+    return {
+        ...numericColumn(id, header, key),
+        cell: ({ row: { original: row } }) => (
+            <span className="inline-flex items-center gap-1.5">
+                {row[key]}
+                <SampleBadge level={level(row)} />
+            </span>
+        ),
+    };
+}
+
+function numericColumn(
+    id: FirmReturnsColumn,
+    header: string,
+    key: NumericKey,
+): DataTableColumn<FirmReturnRow> {
+    return {
+        accessorFn: (row) => numericValue(row, key),
+        cell: ({ row: { original: row } }) => row[key],
+        header,
+        id,
+        meta: { align: DataTableAlign.End },
+    };
+}
+
+const FIRM_RETURNS_COLUMNS: DataTableColumn<FirmReturnRow>[] = [
+    {
+        accessorFn: (row) => row.firm,
+        header: 'Firm',
+        id: FirmReturnsColumn.Firm,
+        sortFn: (a, b) => compareText(a.original.firm, b.original.firm),
+    },
+    numericColumn(FirmReturnsColumn.Spend, 'Spend', 'spend'),
+    numericColumn(FirmReturnsColumn.Payouts, 'Payouts', 'payouts'),
+    numericColumn(FirmReturnsColumn.Net, 'Net', 'net'),
+    numericColumn(FirmReturnsColumn.Multiple, 'Multiple', 'multiple'),
+    badgedColumn(
+        FirmReturnsColumn.Attempts,
+        'Attempts',
+        'attempts',
+        (row) => row.attemptsSampleLevel,
+    ),
+    badgedColumn(
+        FirmReturnsColumn.Funded,
+        'Funded',
+        'fundedAccounts',
+        (row) => row.fundedSampleLevel,
+    ),
+    {
+        cell: ({ row: { original: row } }) => row.accountsWithPayout,
+        enableSorting: false,
+        header: 'Accounts with a payout',
+        id: FirmReturnsColumn.AccountsWithPayout,
+        meta: { align: DataTableAlign.End },
+    },
+    {
+        cell: ({ row: { original: row } }) => (
+            <span className="tabular-nums">{row.firstPayoutOn}</span>
+        ),
+        enableSorting: false,
+        header: 'First payout',
+        id: FirmReturnsColumn.FirstPayout,
+    },
+    {
+        cell: ({ row: { original: row } }) => (
+            <span className="tabular-nums">{row.lastPayoutOn}</span>
+        ),
+        enableSorting: false,
+        header: 'Last payout',
+        id: FirmReturnsColumn.LastPayout,
+    },
+    {
+        cell: ({ row: { original: row } }) => (
+            <span className="text-muted-foreground">{row.verdict}</span>
+        ),
+        enableSorting: false,
+        header: 'Noise verdict',
+        id: FirmReturnsColumn.Verdict,
+    },
+];
 
 export const FirmReturnsCard = memo(function FirmReturnsCard({
     model,
 }: {
     readonly model: FirmReturnsCardModel;
 }) {
-    const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT);
-    const rows = useMemo(
-        () => sortedRows(model.rows, sortKey),
-        [model.rows, sortKey],
-    );
     if (model.rows.length === 0) {
         return (
             <p className="text-sm text-muted-foreground">
@@ -51,123 +139,16 @@ export const FirmReturnsCard = memo(function FirmReturnsCard({
             </p>
         );
     }
-    const noted = rows.filter((row) => row.coverageNote !== null);
+    const noted = model.rows.filter((row) => row.coverageNote !== null);
     return (
         <div className="flex flex-col gap-3">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <SortableHead
-                            activeKey={sortKey}
-                            onSort={setSortKey}
-                            sortKey="firm"
-                        >
-                            Firm
-                        </SortableHead>
-                        <SortableHead
-                            activeKey={sortKey}
-                            align="right"
-                            onSort={setSortKey}
-                            sortKey="spend"
-                        >
-                            Spend
-                        </SortableHead>
-                        <SortableHead
-                            activeKey={sortKey}
-                            align="right"
-                            onSort={setSortKey}
-                            sortKey="payouts"
-                        >
-                            Payouts
-                        </SortableHead>
-                        <SortableHead
-                            activeKey={sortKey}
-                            align="right"
-                            onSort={setSortKey}
-                            sortKey="net"
-                        >
-                            Net
-                        </SortableHead>
-                        <SortableHead
-                            activeKey={sortKey}
-                            align="right"
-                            onSort={setSortKey}
-                            sortKey="multiple"
-                        >
-                            Multiple
-                        </SortableHead>
-                        <SortableHead
-                            activeKey={sortKey}
-                            align="right"
-                            onSort={setSortKey}
-                            sortKey="attempts"
-                        >
-                            Attempts
-                        </SortableHead>
-                        <SortableHead
-                            activeKey={sortKey}
-                            align="right"
-                            onSort={setSortKey}
-                            sortKey="fundedAccounts"
-                        >
-                            Funded
-                        </SortableHead>
-                        <TableHead className="text-right">
-                            Accounts with a payout
-                        </TableHead>
-                        <TableHead>First payout</TableHead>
-                        <TableHead>Last payout</TableHead>
-                        <TableHead>Noise verdict</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {rows.map((row) => (
-                        <TableRow key={row.key}>
-                            <TableCell>{row.firm}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.spend}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.payouts}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.net}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.multiple}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                <span className="inline-flex items-center gap-1.5">
-                                    {row.attempts}
-                                    <SampleBadge
-                                        level={row.attemptsSampleLevel}
-                                    />
-                                </span>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                <span className="inline-flex items-center gap-1.5">
-                                    {row.fundedAccounts}
-                                    <SampleBadge
-                                        level={row.fundedSampleLevel}
-                                    />
-                                </span>
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.accountsWithPayout}
-                            </TableCell>
-                            <TableCell className="tabular-nums">
-                                {row.firstPayoutOn}
-                            </TableCell>
-                            <TableCell className="tabular-nums">
-                                {row.lastPayoutOn}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                                {row.verdict}
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                columns={FIRM_RETURNS_COLUMNS}
+                data={[...model.rows]}
+                initialSorting={[{ desc: false, id: FirmReturnsColumn.Firm }]}
+                pageSize={null}
+                rowId={(row) => row.key}
+            />
             {noted.length > 0 && (
                 <ul
                     aria-label="Firm coverage"
@@ -184,55 +165,9 @@ export const FirmReturnsCard = memo(function FirmReturnsCard({
     );
 });
 
-function numericValue(row: FirmReturnRow, key: SortKey): number {
+function numericValue(row: FirmReturnRow, key: NumericKey): number {
     const value = row[key];
     if (value === NOT_APPLICABLE) return -Infinity;
     const parsed = Number(value.replaceAll(/[^0-9.-]/gu, ''));
     return Number.isNaN(parsed) ? -Infinity : parsed;
-}
-
-function SortableHead({
-    activeKey,
-    align,
-    children,
-    onSort,
-    sortKey,
-}: {
-    readonly activeKey: SortKey;
-    readonly align?: 'right';
-    readonly children: string;
-    readonly onSort: (key: SortKey) => void;
-    readonly sortKey: SortKey;
-}) {
-    return (
-        <TableHead className={align === 'right' ? 'text-right' : undefined}>
-            <Button
-                aria-pressed={activeKey === sortKey}
-                className={align === 'right' ? '-mr-3' : '-ml-3'}
-                onClick={() => {
-                    onSort(sortKey);
-                }}
-                size="sm"
-                type="button"
-                variant="ghost"
-            >
-                {children}
-                <ArrowUpDown
-                    aria-hidden="true"
-                    className={activeKey === sortKey ? undefined : 'opacity-40'}
-                />
-            </Button>
-        </TableHead>
-    );
-}
-
-function sortedRows(
-    rows: FirmReturnsCardModel['rows'],
-    sortKey: SortKey,
-): FirmReturnsCardModel['rows'] {
-    return rows.toSorted(
-        sortKey === 'firm'
-            ? (a, b) => compareText(a.firm, b.firm)
-            : (a, b) => numericValue(b, sortKey) - numericValue(a, sortKey),
-    );
 }

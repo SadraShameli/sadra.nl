@@ -11,6 +11,7 @@ import {
     FormProvider,
     useForm,
     useFormContext,
+    useWatch,
 } from 'react-hook-form';
 
 import type { Answers, AssessmentResult } from '~/lib/schemas/trading';
@@ -23,6 +24,15 @@ import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Checkbox } from '~/components/ui/checkbox';
+import {
+    Field,
+    FieldContent,
+    FieldDescription,
+    FieldGroup,
+    FieldLabel,
+    FieldLegend,
+    FieldSet,
+} from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Progress } from '~/components/ui/progress';
@@ -37,6 +47,9 @@ import { findCurrentWindow, scoreAssessment } from '~/lib/trading/scoring';
 import { cn } from '~/lib/utilities';
 
 type FormValues = z.infer<typeof answersSchema>;
+
+const CHOICE_CARD_CLASS =
+    'h-auto w-full flex-col items-start gap-0.5 rounded-2xl px-4 py-3 text-left';
 
 const stepIds = [
     'mental',
@@ -255,67 +268,64 @@ function BiasRow({
         | 'bias.oneHour'
         | 'bias.weekly';
 }) {
-    const { setValue, watch } = useFormContext<FormValues>();
-    const value = watch(name);
+    const { control, setValue } = useFormContext<FormValues>();
+    const value = useWatch({ control, name: name });
     return (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-border/60 p-3">
-            <Label className="text-sm">{label}</Label>
+        <Field className="gap-2 rounded-2xl border border-line p-3">
+            <FieldLabel>{label}</FieldLabel>
             <ToggleGroup
+                aria-label={`${label} bias`}
+                className="grid w-full grid-cols-3"
                 onValueChange={(v) =>
                     v &&
                     setValue(name, v as 'bearish' | 'bullish' | 'unclear', {
                         shouldValidate: true,
                     })
                 }
+                size="sm"
                 type="single"
                 value={value}
+                variant="outline"
             >
-                <ToggleGroupItem
-                    className="data-[state=on]:bg-success/20 data-[state=on]:text-success"
-                    value="bullish"
-                >
-                    Bull
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                    className="data-[state=on]:bg-destructive/20 data-[state=on]:text-destructive"
-                    value="bearish"
-                >
-                    Bear
-                </ToggleGroupItem>
+                <ToggleGroupItem value="bullish">Bull</ToggleGroupItem>
+                <ToggleGroupItem value="bearish">Bear</ToggleGroupItem>
                 <ToggleGroupItem value="unclear">Unclear</ToggleGroupItem>
             </ToggleGroup>
-        </div>
+        </Field>
     );
 }
 
 function BiasStep() {
-    const { setValue, watch } = useFormContext<FormValues>();
-    const conviction = watch('bias.conviction');
-    const weekly = watch('bias.weekly');
-    const daily = watch('bias.daily');
-    const fourHour = watch('bias.fourHour');
+    const { control, setValue } = useFormContext<FormValues>();
+    const conviction = useWatch({ control, name: 'bias.conviction' });
+    const weekly = useWatch({ control, name: 'bias.weekly' });
+    const daily = useWatch({ control, name: 'bias.daily' });
+    const fourHour = useWatch({ control, name: 'bias.fourHour' });
     const isShowLtf =
         weekly === 'unclear' && daily === 'unclear' && fourHour === 'unclear';
 
     return (
-        <div className="flex flex-col gap-3">
-            <BiasRow label="Weekly" name="bias.weekly" />
-            <BiasRow label="Daily" name="bias.daily" />
-            <BiasRow label="4H" name="bias.fourHour" />
-            {isShowLtf && (
-                <>
-                    <BiasRow label="1H" name="bias.oneHour" />
-                    <BiasRow label="15m" name="bias.fifteenMin" />
-                </>
-            )}
-            <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-4">
+        <div className="flex flex-col gap-2">
+            <div className="grid gap-2 md:grid-cols-2">
+                <BiasRow label="Weekly" name="bias.weekly" />
+                <BiasRow label="Daily" name="bias.daily" />
+                <BiasRow label="4H" name="bias.fourHour" />
+                {isShowLtf && (
+                    <>
+                        <BiasRow label="1H" name="bias.oneHour" />
+                        <BiasRow label="15m" name="bias.fifteenMin" />
+                    </>
+                )}
+            </div>
+            <Field className="gap-3 rounded-2xl border border-line px-4 py-3.5">
                 <div className="flex items-center justify-between">
-                    <Label className="text-sm">Bias conviction</Label>
-                    <span className="font-mono text-sm text-foreground">
+                    <FieldLabel>Bias conviction</FieldLabel>
+                    <span className="font-mono text-sm text-foreground tabular-nums">
                         {conviction}/10
                     </span>
                 </div>
                 <Slider
+                    aria-label="Bias conviction"
                     max={10}
                     min={1}
                     onValueChange={([v = 5]) =>
@@ -326,7 +336,7 @@ function BiasStep() {
                     step={1}
                     value={[conviction]}
                 />
-            </div>
+            </Field>
         </div>
     );
 }
@@ -367,112 +377,98 @@ function buildDefaults(plan: TradingPlanRow): FormValues {
 }
 
 function ContextStep({ plan }: { plan: TradingPlanRow }) {
-    const { setValue, watch } = useFormContext<FormValues>();
-    const windowId = watch('context.windowId');
-    const accountType = watch('context.accountType');
-    const isQuotaUsed = watch('context.windowQuotaUsed');
+    const { control, setValue } = useFormContext<FormValues>();
+    const windowId = useWatch({ control, name: 'context.windowId' });
+    const accountType = useWatch({ control, name: 'context.accountType' });
+    const isQuotaUsed = useWatch({ control, name: 'context.windowQuotaUsed' });
 
     return (
-        <div className="flex flex-col gap-5">
-            <div>
-                <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
-                    Current macro window
-                </Label>
+        <FieldGroup className="gap-6">
+            <FieldSet>
+                <FieldLegend variant="label">Current macro window</FieldLegend>
                 <ToggleGroup
-                    className="flex-wrap justify-start gap-2"
+                    aria-label="Current macro window"
+                    className="grid grid-cols-2 gap-2 md:grid-cols-4"
                     onValueChange={(selected) =>
                         setValue(
                             'context.windowId',
                             selected === '' ? null : selected,
-                            {
-                                shouldValidate: true,
-                            },
+                            { shouldValidate: true },
                         )
                     }
                     type="single"
                     value={windowId ?? ''}
+                    variant="outline"
                 >
                     {plan.config.windows.map((w) => (
                         <ToggleGroupItem
-                            className="hover:bg-accent hover:text-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground"
+                            className={CHOICE_CARD_CLASS}
                             key={w.id}
                             value={w.id}
                         >
-                            <div className="text-left">
-                                <div className="font-mono text-xs">
-                                    {w.start}–{w.end}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">
-                                    {w.label}
-                                </div>
-                            </div>
+                            <span className="font-mono text-sm tabular-nums">
+                                {w.start}–{w.end}
+                            </span>
+                            <span className="text-xs opacity-75">
+                                {w.label}
+                            </span>
                         </ToggleGroupItem>
                     ))}
                 </ToggleGroup>
                 {!windowId && (
-                    <p className="mt-2 text-xs text-destructive">
+                    <FieldDescription className="text-destructive">
                         Outside macro window: knockout active.
-                    </p>
+                    </FieldDescription>
                 )}
-            </div>
+            </FieldSet>
 
-            <div>
-                <Label className="mb-2 block text-xs tracking-wider text-muted-foreground uppercase">
-                    Account type
-                </Label>
-                <RadioGroup
+            <FieldSet>
+                <FieldLegend variant="label">Account type</FieldLegend>
+                <ToggleGroup
+                    aria-label="Account type"
                     className="grid grid-cols-2 gap-2"
-                    onValueChange={(v) =>
-                        setValue(
-                            'context.accountType',
-                            v as 'eval' | 'funded',
-                            { shouldValidate: true },
-                        )
-                    }
+                    onValueChange={(v) => {
+                        if (v === 'eval' || v === 'funded') {
+                            setValue('context.accountType', v, {
+                                shouldValidate: true,
+                            });
+                        }
+                    }}
+                    type="single"
                     value={accountType}
+                    variant="outline"
                 >
-                    {[
-                        {
-                            label: `Funded: $${plan.config.risk.fundedDollars}`,
-                            v: 'funded',
-                        },
-                        {
-                            label: `Eval: $${plan.config.risk.evalDollars}`,
-                            v: 'eval',
-                        },
-                    ].map((opt) => (
-                        <label
-                            className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition select-none ${
-                                accountType === opt.v
-                                    ? 'border-border bg-accent'
-                                    : 'border-border/60 hover:border-border'
-                            }`}
-                            htmlFor={`acct-${opt.v}`}
-                            key={opt.v}
-                        >
-                            <RadioGroupItem
-                                id={`acct-${opt.v}`}
-                                value={opt.v}
-                            />
-                            {opt.label}
-                        </label>
-                    ))}
-                </RadioGroup>
-            </div>
+                    <ToggleGroupItem
+                        className={CHOICE_CARD_CLASS}
+                        value="funded"
+                    >
+                        <span className="text-sm">Funded</span>
+                        <span className="font-mono text-xs tabular-nums opacity-75">
+                            ${plan.config.risk.fundedDollars} risk
+                        </span>
+                    </ToggleGroupItem>
+                    <ToggleGroupItem className={CHOICE_CARD_CLASS} value="eval">
+                        <span className="text-sm">Eval</span>
+                        <span className="font-mono text-xs tabular-nums opacity-75">
+                            ${plan.config.risk.evalDollars} risk
+                        </span>
+                    </ToggleGroupItem>
+                </ToggleGroup>
+            </FieldSet>
 
-            <label
-                className="flex cursor-pointer items-center justify-between rounded-lg border border-border/60 p-4 transition select-none hover:border-border"
-                htmlFor="context-window-quota-used"
+            <Field
+                className="rounded-2xl border border-line px-4 py-3"
+                orientation="horizontal"
             >
-                <div>
-                    <p className="text-sm font-medium text-foreground">
+                <FieldContent>
+                    <FieldLabel htmlFor="context-window-quota-used">
                         Already used this window&apos;s quota?
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                    </FieldLabel>
+                    <FieldDescription>
                         Plan limit: {plan.config.risk.maxTradesPerWindow}{' '}
                         trade(s) per window per account.
-                    </p>
-                </div>
+                    </FieldDescription>
+                </FieldContent>
                 <Switch
                     checked={isQuotaUsed}
                     id="context-window-quota-used"
@@ -482,17 +478,17 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                         })
                     }
                 />
-            </label>
-        </div>
+            </Field>
+        </FieldGroup>
     );
 }
 
 function DolStep({ plan }: { plan: TradingPlanRow }) {
-    const { setValue, watch } = useFormContext<FormValues>();
-    const type = watch('dol.type');
-    const isSingular = watch('dol.singular');
-    const isBothSided = watch('dol.bothSided');
-    const distanceR = watch('dol.distanceR');
+    const { control, setValue } = useFormContext<FormValues>();
+    const type = useWatch({ control, name: 'dol.type' });
+    const isSingular = useWatch({ control, name: 'dol.singular' });
+    const isBothSided = useWatch({ control, name: 'dol.bothSided' });
+    const distanceR = useWatch({ control, name: 'dol.distanceR' });
 
     return (
         <div className="flex flex-col gap-4">
@@ -592,8 +588,8 @@ function DolStep({ plan }: { plan: TradingPlanRow }) {
 }
 
 function EntryStep({ plan }: { plan: TradingPlanRow }) {
-    const { setValue, watch } = useFormContext<FormValues>();
-    const confluences = watch('entry.confluences');
+    const { control, setValue } = useFormContext<FormValues>();
+    const confluences = useWatch({ control, name: 'entry.confluences' });
 
     const toggle = (k: ConfluenceKey) => {
         const next = confluences.includes(k)
@@ -685,9 +681,9 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
 }
 
 function FinalsStep() {
-    const { register, setValue, watch } = useFormContext<FormValues>();
-    const isDolTaken = watch('finals.dolAlreadyTaken');
-    const isOverExtended = watch('finals.overExtended');
+    const { control, register, setValue } = useFormContext<FormValues>();
+    const isDolTaken = useWatch({ control, name: 'finals.dolAlreadyTaken' });
+    const isOverExtended = useWatch({ control, name: 'finals.overExtended' });
 
     return (
         <div className="flex flex-col gap-4">
@@ -757,7 +753,7 @@ function FinalsStep() {
 }
 
 function MentalStep() {
-    const { setValue, watch } = useFormContext<FormValues>();
+    const { control, setValue } = useFormContext<FormValues>();
     const rows: {
         name: keyof FormValues['mental'];
         rule: string;
@@ -785,45 +781,44 @@ function MentalStep() {
         },
     ];
 
+    const mental = useWatch({ control, name: 'mental' });
     return (
-        <div className="flex flex-col gap-3">
-            {rows.map((r) => {
-                const isChecked = watch(`mental.${r.name}`);
-                return (
-                    <label
-                        className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-card p-4 transition select-none hover:border-border"
-                        key={r.name}
-                    >
-                        <Switch
-                            checked={isChecked}
-                            className="mt-0.5"
-                            onCheckedChange={(v) =>
-                                setValue(`mental.${r.name}`, v, {
-                                    shouldValidate: true,
-                                })
-                            }
-                        />
-                        <div className="flex-1">
-                            <p className="text-sm font-medium text-foreground">
-                                {r.title}
-                            </p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                                {r.rule}
-                            </p>
-                        </div>
-                        {isChecked && <Badge variant="destructive">flag</Badge>}
-                    </label>
-                );
-            })}
-        </div>
+        <FieldGroup className="grid gap-2 md:grid-cols-2">
+            {rows.map((r) => (
+                <Field
+                    className="rounded-2xl border border-line px-4 py-3"
+                    key={r.name}
+                    orientation="horizontal"
+                >
+                    <Switch
+                        checked={mental[r.name]}
+                        id={`mental-${r.name}`}
+                        onCheckedChange={(v) =>
+                            setValue(`mental.${r.name}`, v, {
+                                shouldValidate: true,
+                            })
+                        }
+                    />
+                    <FieldContent>
+                        <FieldLabel htmlFor={`mental-${r.name}`}>
+                            {r.title}
+                        </FieldLabel>
+                        <FieldDescription>{r.rule}</FieldDescription>
+                    </FieldContent>
+                    {mental[r.name] && (
+                        <Badge variant="destructive">flag</Badge>
+                    )}
+                </Field>
+            ))}
+        </FieldGroup>
     );
 }
 
 function RrStep({ plan }: { plan: TradingPlanRow }) {
-    const { setValue, watch } = useFormContext<FormValues>();
-    const accountType = watch('context.accountType');
-    const targetR = watch('rr.targetR');
-    const slippageR = watch('rr.slippageR');
+    const { control, setValue } = useFormContext<FormValues>();
+    const accountType = useWatch({ control, name: 'context.accountType' });
+    const targetR = useWatch({ control, name: 'rr.targetR' });
+    const slippageR = useWatch({ control, name: 'rr.slippageR' });
     const dollars =
         accountType === 'funded'
             ? plan.config.risk.fundedDollars
@@ -905,10 +900,10 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
 }
 
 function SlStep({ plan }: { plan: TradingPlanRow }) {
-    const { setValue, watch } = useFormContext<FormValues>();
-    const isOb = watch('sl.ob');
-    const isBb = watch('sl.bb');
-    const isSwing = watch('sl.swing');
+    const { control, setValue } = useFormContext<FormValues>();
+    const isOb = useWatch({ control, name: 'sl.ob' });
+    const isBb = useWatch({ control, name: 'sl.bb' });
+    const isSwing = useWatch({ control, name: 'sl.swing' });
     const count = (isOb ? 1 : 0) + (isBb ? 1 : 0) + (isSwing ? 1 : 0);
     const required = plan.config.setup.requiredPdArrays;
     const isOk = count >= required;
@@ -935,39 +930,34 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
         },
     ];
 
+    const stopLoss = useWatch({ control, name: 'sl' });
     return (
         <div className="flex flex-col gap-3">
-            {rows.map((r) => {
-                const isV = watch(`sl.${r.name}`);
-                return (
-                    <label
-                        className="flex cursor-pointer items-center justify-between rounded-lg border border-border/60 p-4 transition select-none hover:border-border"
-                        htmlFor={`sl-${r.name}`}
+            <FieldGroup className="grid gap-2 md:grid-cols-2">
+                {rows.map((r) => (
+                    <Field
+                        className="rounded-2xl border border-line px-4 py-3"
                         key={r.name}
+                        orientation="horizontal"
                     >
-                        <div className="flex items-start gap-3">
-                            <Checkbox
-                                checked={isV}
-                                className="mt-0.5"
-                                id={`sl-${r.name}`}
-                                onCheckedChange={(x) =>
-                                    setValue(`sl.${r.name}`, Boolean(x), {
-                                        shouldValidate: true,
-                                    })
-                                }
-                            />
-                            <div>
-                                <p className="text-sm font-medium text-foreground">
-                                    {r.label}
-                                </p>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
-                                    {r.hint}
-                                </p>
-                            </div>
-                        </div>
-                    </label>
-                );
-            })}
+                        <Checkbox
+                            checked={stopLoss[r.name]}
+                            id={`sl-${r.name}`}
+                            onCheckedChange={(x) =>
+                                setValue(`sl.${r.name}`, Boolean(x), {
+                                    shouldValidate: true,
+                                })
+                            }
+                        />
+                        <FieldContent>
+                            <FieldLabel htmlFor={`sl-${r.name}`}>
+                                {r.label}
+                            </FieldLabel>
+                            <FieldDescription>{r.hint}</FieldDescription>
+                        </FieldContent>
+                    </Field>
+                ))}
+            </FieldGroup>
             <Alert
                 className="text-sm font-medium"
                 variant={isOk ? 'success' : 'destructive'}
@@ -982,11 +972,11 @@ function SlStep({ plan }: { plan: TradingPlanRow }) {
 }
 
 function StateStep() {
-    const { setValue, watch } = useFormContext<FormValues>();
-    const isSweep = watch('state.opposingSweep');
-    const displacement = watch('state.displacement');
-    const dayType = watch('state.dayType');
-    const setupType = watch('state.setupType');
+    const { control, setValue } = useFormContext<FormValues>();
+    const isSweep = useWatch({ control, name: 'state.opposingSweep' });
+    const displacement = useWatch({ control, name: 'state.displacement' });
+    const dayType = useWatch({ control, name: 'state.dayType' });
+    const setupType = useWatch({ control, name: 'state.setupType' });
 
     const isCoherent =
         (dayType === 'balanced' && setupType === 'reversal') ||

@@ -10,6 +10,7 @@ import {
     Controller,
     useForm,
     type UseFormReturn,
+    useWatch,
 } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -522,13 +523,18 @@ function AccountForm({
 
     const isCreate = stored === null;
     const selection: AccountPlanSelection = {
-        accountSize: form.watch('accountSize'),
-        firmId: form.watch('firmId'),
-        optIns: form.watch('optIns'),
-        planSerial: form.watch('planSerial'),
+        accountSize: useWatch({ control: form.control, name: 'accountSize' }),
+        firmId: useWatch({ control: form.control, name: 'firmId' }),
+        optIns: useWatch({ control: form.control, name: 'optIns' }),
+        planSerial: useWatch({ control: form.control, name: 'planSerial' }),
     };
-    const personalRulesText = form.watch('personalRules');
-    const isLedgerOnly = form.watch('tracking') === AccountTracking.LedgerOnly;
+    const personalRulesText = useWatch({
+        control: form.control,
+        name: 'personalRules',
+    });
+    const isLedgerOnly =
+        useWatch({ control: form.control, name: 'tracking' }) ===
+        AccountTracking.LedgerOnly;
     const plan = isLedgerOnly ? null : planOf(selection);
     const payoutNotice =
         plan === null
@@ -1078,8 +1084,8 @@ function LedgerOnlyPlanFields({
 }) {
     const formId = useId();
     const firmKey = ledgerFirmKeyOf(
-        form.watch('ledgerFirmId'),
-        form.watch('ledgerExternalFirmId'),
+        useWatch({ control: form.control, name: 'ledgerFirmId' }),
+        useWatch({ control: form.control, name: 'ledgerExternalFirmId' }),
     );
     const listedFirmId =
         firmKey?.kind === FirmKeyKind.Modeled
@@ -1222,7 +1228,9 @@ function LedgerOnlySwitch({
     plan: null | Plan;
     selection: AccountPlanSelection;
 }) {
-    const isLedgerOnly = form.watch('tracking') === AccountTracking.LedgerOnly;
+    const isLedgerOnly =
+        useWatch({ control: form.control, name: 'tracking' }) ===
+        AccountTracking.LedgerOnly;
     return (
         <div className="flex flex-col gap-1">
             <Field orientation="horizontal">
@@ -1355,8 +1363,10 @@ function PlanCard({
     stored: null | StoredAccount;
 }) {
     const errors = form.formState.errors;
-    const stage = form.watch('stage');
-    const isLedgerOnly = form.watch('tracking') === AccountTracking.LedgerOnly;
+    const stage = useWatch({ control: form.control, name: 'stage' });
+    const isLedgerOnly =
+        useWatch({ control: form.control, name: 'tracking' }) ===
+        AccountTracking.LedgerOnly;
     const intent =
         stored === null
             ? AccountPlanIntent.NewPurchase
@@ -1754,11 +1764,24 @@ function useAccountFormSubmit({
     );
     const [isSnapshotChecked, setIsSnapshotChecked] = useState(false);
     const isLedgerOnlySnapshot =
-        form.watch('tracking') === AccountTracking.LedgerOnly;
-    const accountStage = form.watch('stage');
+        useWatch({ control: form.control, name: 'tracking' }) ===
+        AccountTracking.LedgerOnly;
+    const accountStage = useWatch({ control: form.control, name: 'stage' });
+    const plausibilityAccountSize = useWatch({
+        control: form.control,
+        name: 'accountSize',
+    });
+    const plausibilityConvention = useWatch({
+        control: form.control,
+        name: 'dashboardConvention',
+    });
+    const plausibilityLiveStartCents = useWatch({
+        control: form.control,
+        name: 'liveStartBalanceCents',
+    });
     const snapshotAccount = {
-        fundedOn: form.watch('fundedOn'),
-        purchasedOn: form.watch('purchasedOn'),
+        fundedOn: useWatch({ control: form.control, name: 'fundedOn' }),
+        purchasedOn: useWatch({ control: form.control, name: 'purchasedOn' }),
         stage: accountStage,
     };
     const asOf = snapshotValues[SnapshotField.AsOf];
@@ -1772,11 +1795,11 @@ function useAccountFormSubmit({
             ? null
             : {
                   account: {
-                      accountSize: form.watch('accountSize'),
-                      dashboardConvention: form.watch('dashboardConvention'),
+                      accountSize: plausibilityAccountSize,
+                      dashboardConvention: plausibilityConvention,
                       liveStartBalanceCents: liveStartCentsOf(
                           accountStage,
-                          form.watch('liveStartBalanceCents'),
+                          plausibilityLiveStartCents,
                       ),
                   },
                   plan,

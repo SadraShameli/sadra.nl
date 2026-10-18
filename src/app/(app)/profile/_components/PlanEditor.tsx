@@ -20,7 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { GripVertical, Plus, Save, Trash2 } from 'lucide-react';
 import { useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import type {
@@ -67,8 +67,8 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
 
     useBlockNavigationWhile(form.formState.isDirty);
 
-    const name = form.watch('name');
-    const config = form.watch('config');
+    const name = useWatch({ control: form.control, name: 'name' });
+    const config = useWatch({ control: form.control, name: 'config' });
 
     const updateConfig = <K extends keyof TradingPlanConfig>(
         key: K,

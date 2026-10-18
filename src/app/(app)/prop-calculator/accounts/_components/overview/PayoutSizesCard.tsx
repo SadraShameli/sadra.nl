@@ -10,13 +10,10 @@ import {
     ChartContainer,
 } from '~/components/ui/chart';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { formatCompactCurrency } from '~/lib/format';
 import { type HistogramBin } from '~/lib/prop-calculator/stats';
 
@@ -103,6 +100,21 @@ export const PayoutSizesCard = memo(function PayoutSizesCard({
     );
 });
 
+enum PayoutSizeColumn {
+    Count = 'count',
+    Label = 'label',
+    Mean = 'mean',
+    Median = 'median',
+}
+
+interface PayoutSizeRow {
+    readonly count: string;
+    readonly key: string;
+    readonly label: string;
+    readonly mean: string;
+    readonly median?: string;
+}
+
 function PayoutHistogram({ bins }: { readonly bins: readonly HistogramBin[] }) {
     const data = bins.map((bin) => ({
         center: bin.binCenter,
@@ -148,6 +160,42 @@ function PayoutHistogram({ bins }: { readonly bins: readonly HistogramBin[] }) {
     );
 }
 
+function payoutSizeColumns(
+    columnLabel: string,
+    medianLabel: string | undefined,
+): DataTableColumn<PayoutSizeRow>[] {
+    const columns: DataTableColumn<PayoutSizeRow>[] = [
+        {
+            cell: ({ row: { original: row } }) => row.label,
+            header: columnLabel,
+            id: PayoutSizeColumn.Label,
+        },
+        {
+            cell: ({ row: { original: row } }) => row.count,
+            header: 'Count',
+            id: PayoutSizeColumn.Count,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: row } }) => row.mean,
+            header: 'Mean payout',
+            id: PayoutSizeColumn.Mean,
+            meta: { align: DataTableAlign.End },
+        },
+    ];
+    return medianLabel === undefined
+        ? columns
+        : [
+              ...columns,
+              {
+                  cell: ({ row: { original: row } }) => row.median,
+                  header: medianLabel,
+                  id: PayoutSizeColumn.Median,
+                  meta: { align: DataTableAlign.End },
+              },
+          ];
+}
+
 function PayoutSizeTable({
     columnLabel,
     medianLabel,
@@ -156,53 +204,20 @@ function PayoutSizeTable({
 }: {
     readonly columnLabel: string;
     readonly medianLabel?: string;
-    readonly rows: readonly {
-        readonly count: string;
-        readonly key: string;
-        readonly label: string;
-        readonly mean: string;
-        readonly median?: string;
-    }[];
+    readonly rows: readonly PayoutSizeRow[];
     readonly title: string;
 }) {
     if (rows.length === 0) return null;
     return (
         <div className="flex flex-col gap-2">
             <h3 className="text-sm font-medium text-foreground">{title}</h3>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>{columnLabel}</TableHead>
-                        <TableHead className="text-right">Count</TableHead>
-                        <TableHead className="text-right">
-                            Mean payout
-                        </TableHead>
-                        {medianLabel !== undefined && (
-                            <TableHead className="text-right">
-                                {medianLabel}
-                            </TableHead>
-                        )}
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {rows.map((row) => (
-                        <TableRow key={row.key}>
-                            <TableCell>{row.label}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.count}
-                            </TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.mean}
-                            </TableCell>
-                            {row.median !== undefined && (
-                                <TableCell className="text-right tabular-nums">
-                                    {row.median}
-                                </TableCell>
-                            )}
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                columns={payoutSizeColumns(columnLabel, medianLabel)}
+                data={[...rows]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => row.key}
+            />
         </div>
     );
 }

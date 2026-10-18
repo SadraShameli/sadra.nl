@@ -35,11 +35,13 @@ import { Skeleton } from '~/components/ui/skeleton';
 import {
     Table,
     TableBody,
+    TableCaption,
     TableCell,
     TableFooter,
     TableHead,
     TableHeader,
     TableRow,
+    TableRowHeader,
 } from '~/components/ui/table';
 import { cn } from '~/lib/utilities';
 
@@ -70,7 +72,9 @@ const ARIA_SORT = {
 } as const;
 
 export type DataTableProperties<TData extends RowData> = {
+    'aria-label'?: string;
     belowFilter?: DataTableSlot<TData>;
+    caption?: string;
     className?: string;
     columns: DataTableColumn<TData>[];
     data: TData[];
@@ -85,13 +89,18 @@ export type DataTableProperties<TData extends RowData> = {
     initialColumnVisibility?: ColumnVisibilityState;
     initialSorting?: SortingState;
     isLoading?: boolean;
+    isSortable?: boolean;
+    labelledBy?: string;
     onResetFilters?: () => void;
     onRowSelectionChange?: (rows: TData[]) => void;
     onSortingChange?: (sorting: SortingState) => void;
     pageSize?: null | number;
+    regionLabel?: string;
     renderExpanded?: (row: DataTableRow<TData>) => React.ReactNode;
     rowClassName?: (row: TData) => string | undefined;
+    rowGroupHeading?: (row: TData) => React.ReactNode;
     rowId?: (row: TData) => string;
+    rowMessage?: (row: TData) => React.ReactNode;
     rowSelection?: boolean;
     search?: DataTableSearch;
     serverPagination?: DataTableServerPagination;
@@ -102,7 +111,9 @@ export type DataTableProperties<TData extends RowData> = {
 };
 
 export function DataTable<TData extends RowData>({
+    'aria-label': ariaLabel,
     belowFilter,
+    caption,
     className,
     columns,
     data,
@@ -117,13 +128,18 @@ export function DataTable<TData extends RowData>({
     initialColumnVisibility,
     initialSorting,
     isLoading,
+    isSortable = true,
+    labelledBy,
     onResetFilters,
     onRowSelectionChange,
     onSortingChange,
     pageSize = 10,
+    regionLabel,
     renderExpanded,
     rowClassName,
+    rowGroupHeading,
     rowId,
+    rowMessage,
     rowSelection: enableSelection = false,
     search,
     serverPagination,
@@ -142,6 +158,7 @@ export function DataTable<TData extends RowData>({
         columns,
         data,
         enableRowSelection: enableSelection,
+        enableSorting: isSortable,
         features: dataTableFeatures,
         getRowCanExpand,
         getRowId: rowId ? (row) => rowId(row) : (_row, index) => String(index),
@@ -249,11 +266,28 @@ export function DataTable<TData extends RowData>({
                 ))}
             <div className="w-full min-w-0 overflow-hidden rounded-lg border border-line bg-background">
                 <Table
+                    aria-label={ariaLabel}
+                    aria-labelledby={labelledBy}
                     className={cn(
                         'min-w-max whitespace-nowrap',
                         tableClassName,
                     )}
+                    containerProps={
+                        labelledBy === undefined && regionLabel === undefined
+                            ? undefined
+                            : {
+                                  'aria-label': regionLabel,
+                                  'aria-labelledby': labelledBy,
+                                  role: 'region',
+                                  tabIndex: 0,
+                              }
+                    }
                 >
+                    {caption === undefined ? null : (
+                        <TableCaption className="sr-only">
+                            {caption}
+                        </TableCaption>
+                    )}
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
@@ -288,6 +322,7 @@ export function DataTable<TData extends RowData>({
                                                     : undefined
                                             }
                                             key={header.id}
+                                            scope="col"
                                         >
                                             {header.isPlaceholder ? null : isSortable ? (
                                                 <button
@@ -363,7 +398,34 @@ export function DataTable<TData extends RowData>({
                             </TableRow>
                         ) : (
                             pageRows.map((row, index) => {
+                                const groupHeading = rowGroupHeading?.(
+                                    row.original,
+                                );
+                                if (
+                                    groupHeading !== undefined &&
+                                    groupHeading !== null
+                                ) {
+                                    return (
+                                        <TableRow
+                                            className="border-t bg-muted/30 hover:bg-muted/30"
+                                            key={row.id}
+                                        >
+                                            <TableHead
+                                                colSpan={colCount}
+                                                scope="rowgroup"
+                                            >
+                                                {groupHeading}
+                                            </TableHead>
+                                        </TableRow>
+                                    );
+                                }
                                 const delay = `${Math.min(index, 12) * 35}ms`;
+                                const message = rowMessage?.(row.original);
+                                const cells = row.getVisibleCells();
+                                const shownCells =
+                                    message === undefined || message === null
+                                        ? cells
+                                        : cells.slice(0, 1);
                                 return (
                                     <Fragment key={row.id}>
                                         <TableRow
@@ -378,40 +440,55 @@ export function DataTable<TData extends RowData>({
                                             }
                                             style={{ animationDelay: delay }}
                                         >
-                                            {row
-                                                .getVisibleCells()
-                                                .map((cell) => {
-                                                    const align =
-                                                        cell.column.columnDef
-                                                            .meta?.align;
-                                                    return (
-                                                        <TableCell
-                                                            className={
-                                                                align
-                                                                    ? DATA_TABLE_ALIGN_CLASS_NAME[
-                                                                          align
-                                                                      ]
-                                                                    : undefined
-                                                            }
-                                                            key={cell.id}
+                                            {shownCells.map((cell) => {
+                                                const meta =
+                                                    cell.column.columnDef.meta;
+                                                const align = meta?.align;
+                                                const CellTag =
+                                                    meta?.isRowHeader === true
+                                                        ? TableRowHeader
+                                                        : TableCell;
+                                                return (
+                                                    <CellTag
+                                                        className={
+                                                            align
+                                                                ? DATA_TABLE_ALIGN_CLASS_NAME[
+                                                                      align
+                                                                  ]
+                                                                : undefined
+                                                        }
+                                                        key={cell.id}
+                                                    >
+                                                        <div
+                                                            className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-1"
+                                                            style={{
+                                                                animationDelay:
+                                                                    delay,
+                                                            }}
                                                         >
-                                                            <div
-                                                                className="animate-in duration-500 fade-in-0 fill-mode-both slide-in-from-bottom-1"
-                                                                style={{
-                                                                    animationDelay:
-                                                                        delay,
-                                                                }}
-                                                            >
-                                                                {flexRender(
+                                                            <DataTableCellContent
+                                                                context={cell.getContext()}
+                                                                render={
                                                                     cell.column
                                                                         .columnDef
-                                                                        .cell,
-                                                                    cell.getContext(),
-                                                                )}
-                                                            </div>
-                                                        </TableCell>
-                                                    );
-                                                })}
+                                                                        .cell
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </CellTag>
+                                                );
+                                            })}
+                                            {shownCells.length <
+                                                cells.length && (
+                                                <TableCell
+                                                    colSpan={
+                                                        cells.length -
+                                                        shownCells.length
+                                                    }
+                                                >
+                                                    {message}
+                                                </TableCell>
+                                            )}
                                         </TableRow>
                                         {renderExpanded &&
                                             row.getIsExpanded() && (
@@ -481,6 +558,17 @@ export function dataTableExpanderColumn<
         header: () => <span className="sr-only">Expand</span>,
         id: 'expander',
     };
+}
+
+function DataTableCellContent<TContext>({
+    context,
+    render,
+}: {
+    readonly context: TContext;
+    readonly render:
+        ((context: TContext) => React.ReactNode) | React.ReactNode | undefined;
+}) {
+    return typeof render === 'function' ? render(context) : render;
 }
 
 function renderDataTableSlot<TData extends RowData>(

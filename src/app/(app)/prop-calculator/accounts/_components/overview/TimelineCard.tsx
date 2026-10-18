@@ -1,15 +1,15 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type TimelineCardModel } from './overviewModel';
+
+enum TimelineCardColumn {
+    Account = 'account',
+    Cash = 'cash',
+    Date = 'date',
+    Entry = 'entry',
+}
 
 export const TimelineCard = memo(function TimelineCard({
     model,
@@ -25,30 +25,39 @@ export const TimelineCard = memo(function TimelineCard({
     }
     return (
         <div className="flex flex-col gap-3">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Account</TableHead>
-                        <TableHead>Entry</TableHead>
-                        <TableHead className="text-right">Cash</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {model.entries.map((row) => (
-                        <TableRow key={row.key}>
-                            <TableCell className="tabular-nums">
-                                {row.on}
-                            </TableCell>
-                            <TableCell>{row.account}</TableCell>
-                            <TableCell>{row.description}</TableCell>
-                            <TableCell className="text-right tabular-nums">
-                                {row.amount}
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <DataTable
+                columns={[
+                    {
+                        cell: ({ row }) => (
+                            <span className="tabular-nums">
+                                {row.original.on}
+                            </span>
+                        ),
+                        header: 'Date',
+                        id: TimelineCardColumn.Date,
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.account}</>,
+                        header: 'Account',
+                        id: TimelineCardColumn.Account,
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.description}</>,
+                        header: 'Entry',
+                        id: TimelineCardColumn.Entry,
+                    },
+                    {
+                        cell: ({ row }) => <>{row.original.amount}</>,
+                        header: 'Cash',
+                        id: TimelineCardColumn.Cash,
+                        meta: { align: DataTableAlign.End },
+                    },
+                ]}
+                data={[...model.entries]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => row.key}
+            />
             <p className="text-xs text-muted-foreground">
                 Cash you received shows as positive and cash you spent as
                 negative. A payout that is not paid moved no cash.

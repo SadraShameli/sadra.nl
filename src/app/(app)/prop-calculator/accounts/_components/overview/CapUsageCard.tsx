@@ -1,15 +1,16 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type CapUsageCardModel } from './overviewModel';
+
+enum CapUsageCardColumn {
+    Cap = 'cap',
+    FreeSlots = 'free-slots',
+    FundedInUse = 'funded-in-use',
+    Note = 'note',
+    Plan = 'plan',
+}
 
 export const CapUsageCard = memo(function CapUsageCard({
     model,
@@ -23,38 +24,42 @@ export const CapUsageCard = memo(function CapUsageCard({
                     No plan in use yet.
                 </p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Plan</TableHead>
-                            <TableHead className="text-right">
-                                Funded in use
-                            </TableHead>
-                            <TableHead className="text-right">Cap</TableHead>
-                            <TableHead className="text-right">
-                                Free slots
-                            </TableHead>
-                            <TableHead>Note</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {model.rows.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.plan}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.used}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.cap}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.freeSlots}
-                                </TableCell>
-                                <TableCell>{row.note}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row }) => <>{row.original.plan}</>,
+                            header: 'Plan',
+                            id: CapUsageCardColumn.Plan,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.used}</>,
+                            header: 'Funded in use',
+                            id: CapUsageCardColumn.FundedInUse,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.cap}</>,
+                            header: 'Cap',
+                            id: CapUsageCardColumn.Cap,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.freeSlots}</>,
+                            header: 'Free slots',
+                            id: CapUsageCardColumn.FreeSlots,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.note}</>,
+                            header: 'Note',
+                            id: CapUsageCardColumn.Note,
+                        },
+                    ]}
+                    data={[...model.rows]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
             <p className="text-xs text-muted-foreground">{model.disclosure}</p>
             {model.unresolvedNote !== null && (

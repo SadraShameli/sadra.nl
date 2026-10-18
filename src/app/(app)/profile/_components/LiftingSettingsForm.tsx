@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Save, X } from 'lucide-react';
 import { useId, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { Badge } from '~/components/ui/badge';
@@ -65,8 +65,11 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
     const [plateDraft, setPlateDraft] = useState('');
     const formId = useId();
 
-    const unitWeight = form.watch('unitWeight');
-    const availablePlatesKg = form.watch('availablePlatesKg');
+    const unitWeight = useWatch({ control: form.control, name: 'unitWeight' });
+    const availablePlatesKg = useWatch({
+        control: form.control,
+        name: 'availablePlatesKg',
+    });
 
     const onSubmit = form.handleSubmit((values) => {
         const isPlatesChanged =

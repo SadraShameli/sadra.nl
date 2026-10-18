@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
 import { CalculatorInputsForm } from '~/app/(app)/prop-calculator/_components/CalculatorInputsForm';
 import {
     useBaseResult,
@@ -33,6 +32,7 @@ import {
 } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import { ValueChainCard } from '~/app/(app)/prop-calculator/_components/value/ValueChainCard';
 import { accountPrefillHref } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Button } from '~/components/ui/button';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';

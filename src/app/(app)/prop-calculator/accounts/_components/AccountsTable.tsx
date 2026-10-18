@@ -12,24 +12,21 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { ToolSectionHeading } from '~/app/(app)/_components/ToolSectionHeading';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import {
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { FilterToggle } from '~/components/ui/filter-toggle';
 import InfoPopover from '~/components/ui/info-popover';
 import { Skeleton } from '~/components/ui/skeleton';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     AccountStage,
@@ -40,7 +37,6 @@ import {
     isActiveAccount,
 } from '~/lib/prop-accounts';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import {
@@ -89,6 +85,20 @@ const SORT_LABEL: Readonly<Record<AccountSortKey, string>> = {
     [AccountSortKey.Label]: 'Label',
     [AccountSortKey.Readiness]: 'Payout readiness',
 };
+
+enum AccountColumn {
+    Account = 'account',
+    Actions = 'actions',
+    Balance = 'balance',
+    CopyGroup = 'copy-group',
+    Cushion = 'cushion',
+    ExpectedPayouts = 'expected-payouts',
+    FirmAndPlan = 'firm-and-plan',
+    NextAction = 'next-action',
+    NextPayout = 'next-payout',
+    Stage = 'stage',
+    Status = 'status',
+}
 
 interface ArchivableAccount {
     readonly archivedAt: Date | null;
@@ -284,50 +294,23 @@ export function AccountsTableWithValues({
                     title="Nothing to show"
                 />
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Account</TableHead>
-                            <TableHead>Firm and plan</TableHead>
-                            <TableHead>Stage</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Next action</TableHead>
-                            <TableHead className="text-right">
-                                Expected payouts
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Next payout
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Balance
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Cushion
-                            </TableHead>
-                            <TableHead>Copy group</TableHead>
-                            <TableHead>
-                                <span className="sr-only">Actions</span>
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {visible.map((row) => (
-                            <AccountRow
-                                columns={values.columns.get(row.account.id)}
-                                externalFirms={externalFirmsQuery.data ?? []}
-                                groupName={
-                                    row.account.copyGroupId === null
-                                        ? undefined
-                                        : groupNames.get(
-                                              row.account.copyGroupId,
-                                          )
-                                }
-                                key={row.account.id}
-                                row={row}
-                            />
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    columns={accountColumns({
+                        externalFirms: externalFirmsQuery.data ?? [],
+                        groupNames,
+                        valueColumns: values.columns,
+                    })}
+                    data={[...visible]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowClassName={(row) =>
+                        row.account.archivedAt === null
+                            ? undefined
+                            : 'opacity-60'
+                    }
+                    rowId={(row) => row.account.id}
+                    tableClassName="[&_td]:align-top"
+                />
             )}
         </section>
     );
@@ -429,7 +412,7 @@ function AccountListFilterBar({
     sort: AccountListSort;
 }) {
     return (
-        <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+        <div className="flex flex-wrap items-center gap-2">
             <AccountFilterSelect
                 label="Firm"
                 onChange={(value) => {
@@ -548,141 +531,6 @@ function AccountListFilterBar({
     );
 }
 
-function AccountRow({
-    columns,
-    externalFirms,
-    groupName = 'None',
-    row,
-}: {
-    columns: AccountValueColumns | undefined;
-    externalFirms: readonly ExternalFirmName[];
-    groupName: string | undefined;
-    row: AccountListRow;
-}) {
-    const { account, latestSnapshot } = row;
-    const isArchived = account.archivedAt !== null;
-
-    return (
-        <TableRow className={cn(isArchived && 'opacity-60')}>
-            <TableCell className="align-top">
-                <Link
-                    className="font-medium underline-offset-4 hover:underline"
-                    href={routes.propCalculator.accounts.detail(account.id)}
-                    prefetch
-                >
-                    {account.label}
-                </Link>
-                {account.tags.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                        {account.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary">
-                                {tag}
-                            </Badge>
-                        ))}
-                    </div>
-                )}
-                {account.notes !== null && account.notes !== '' && (
-                    <p className="mt-1 line-clamp-2 max-w-xs text-xs whitespace-pre-line text-muted-foreground">
-                        {account.notes}
-                    </p>
-                )}
-                {isArchived && (
-                    <Badge className="mt-1" variant="outline">
-                        Archived
-                    </Badge>
-                )}
-            </TableCell>
-            <TableCell className="align-top">
-                <div>{accountFirmLabel(account, externalFirms)}</div>
-                <div className="text-xs text-muted-foreground">
-                    {accountPlanLabel(account)}
-                </div>
-                {row.isLedgerOnly && (
-                    <Badge className="mt-1" variant="outline">
-                        Ledger only
-                    </Badge>
-                )}
-                {row.planIssue !== null && (
-                    <p className="mt-1 flex items-start gap-1 text-xs text-warning">
-                        <TriangleAlert className="mt-0.5 size-3 shrink-0" />
-                        <span>{row.planIssue}. Read-only.</span>
-                        {row.readOnlyNotice !== null && (
-                            <InfoPopover
-                                title={readOnlyAlertTitle(account.label)}
-                            >
-                                <p>{row.readOnlyNotice}</p>
-                            </InfoPopover>
-                        )}
-                    </p>
-                )}
-            </TableCell>
-            <TableCell className="align-top">
-                {accountStageLabel(account.stage)}
-            </TableCell>
-            <TableCell className="align-top">
-                {accountStatusLabel(account.status)}
-            </TableCell>
-            <ValueCells account={account} columns={columns} />
-            <TableCell className="text-right align-top tabular-nums">
-                {latestSnapshot === null ? (
-                    <span className="text-muted-foreground">No balance</span>
-                ) : (
-                    <>
-                        <div>{formatUsdCents(latestSnapshot.balanceCents)}</div>
-                        <div className="text-xs text-muted-foreground">
-                            as of {latestSnapshot.asOf}
-                        </div>
-                    </>
-                )}
-            </TableCell>
-            <TableCell className="text-right align-top tabular-nums">
-                {row.cushionCents === null ? (
-                    <span className="text-xs text-muted-foreground">
-                        Needs the dashboard floor
-                    </span>
-                ) : (
-                    formatUsdCents(row.cushionCents)
-                )}
-            </TableCell>
-            <TableCell className="align-top">{groupName}</TableCell>
-            <TableCell className="align-top">
-                <div className="flex justify-end gap-1">
-                    {row.isReadOnly ? (
-                        <Button
-                            aria-label={`Edit ${account.label} (read-only)`}
-                            disabled
-                            size="icon"
-                            variant="ghost"
-                        >
-                            <Pencil />
-                        </Button>
-                    ) : (
-                        <Button
-                            aria-label={`Edit ${account.label}`}
-                            asChild
-                            size="icon"
-                            variant="ghost"
-                        >
-                            <Link
-                                href={routes.propCalculator.accounts.edit(
-                                    account.id,
-                                )}
-                            >
-                                <Pencil />
-                            </Link>
-                        </Button>
-                    )}
-                    <ArchiveAccountButton account={account} />
-                    <DeleteAccountDialog
-                        accountId={account.id}
-                        label={account.label}
-                    />
-                </div>
-            </TableCell>
-        </TableRow>
-    );
-}
-
 function encodeOption(value: string): string {
     return `${OPTION_PREFIX}${value}`;
 }
@@ -694,56 +542,249 @@ function parseEnum<T extends string>(
     return Object.values(enumObject).find((member) => member === value) ?? null;
 }
 
-function ValueCells({
-    account,
-    columns,
-}: {
-    account: AccountListRow['account'];
-    columns: AccountValueColumns | undefined;
-}) {
-    if (!isActiveAccount(account)) {
-        const reason =
-            account.archivedAt === null
-                ? accountStatusLabel(account.status)
-                : 'Archived';
-        return (
-            <>
-                <TableCell className="align-top text-muted-foreground">
-                    {reason}
-                </TableCell>
-                <TableCell className="text-right align-top text-muted-foreground">
-                    Not valued
-                </TableCell>
-                <TableCell className="text-right align-top text-muted-foreground">
-                    None
-                </TableCell>
-            </>
-        );
-    }
-    if (columns === undefined) {
-        return (
-            <TableCell className="align-top text-muted-foreground" colSpan={3}>
-                Computing
-            </TableCell>
-        );
-    }
-    return (
-        <>
-            <TableCell className="align-top">
-                <NextActionFigure action={columns.action} />
-            </TableCell>
-            <TableCell className="text-right align-top tabular-nums">
-                <ExpectedPayoutsFigure
-                    expectedPayouts={columns.expectedPayouts}
-                />
-                <ValueDetailLines columns={columns} />
-            </TableCell>
-            <TableCell className="text-right align-top tabular-nums">
-                <NextPayoutFigure
-                    isNoteCollapsed
-                    nextPayout={columns.nextPayout}
-                />
-            </TableCell>
-        </>
-    );
+const NO_COPY_GROUP = 'None';
+
+interface AccountColumnsInput {
+    readonly externalFirms: readonly ExternalFirmName[];
+    readonly groupNames: ReadonlyMap<string, string>;
+    readonly valueColumns: ReadonlyMap<string, AccountValueColumns>;
+}
+
+function accountColumns({
+    externalFirms,
+    groupNames,
+    valueColumns,
+}: AccountColumnsInput): DataTableColumn<AccountListRow>[] {
+    return [
+        {
+            cell: ({ row: { original: row } }) => {
+                const { account } = row;
+                return (
+                    <>
+                        <Link
+                            className="font-medium underline-offset-4 hover:underline"
+                            href={routes.propCalculator.accounts.detail(
+                                account.id,
+                            )}
+                            prefetch
+                        >
+                            {account.label}
+                        </Link>
+                        {account.tags.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                                {account.tags.map((tag) => (
+                                    <Badge key={tag} variant="secondary">
+                                        {tag}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
+                        {account.notes !== null && account.notes !== '' && (
+                            <p className="mt-1 line-clamp-2 max-w-xs text-xs whitespace-pre-line text-muted-foreground">
+                                {account.notes}
+                            </p>
+                        )}
+                        {account.archivedAt !== null && (
+                            <Badge className="mt-1" variant="outline">
+                                Archived
+                            </Badge>
+                        )}
+                    </>
+                );
+            },
+            header: 'Account',
+            id: AccountColumn.Account,
+        },
+        {
+            cell: ({ row: { original: row } }) => (
+                <>
+                    <div>{accountFirmLabel(row.account, externalFirms)}</div>
+                    <div className="text-xs text-muted-foreground">
+                        {accountPlanLabel(row.account)}
+                    </div>
+                    {row.isLedgerOnly && (
+                        <Badge className="mt-1" variant="outline">
+                            Ledger only
+                        </Badge>
+                    )}
+                    {row.planIssue !== null && (
+                        <p className="mt-1 flex items-start gap-1 text-xs text-warning">
+                            <TriangleAlert className="mt-0.5 size-3 shrink-0" />
+                            <span>{row.planIssue}. Read-only.</span>
+                            {row.readOnlyNotice !== null && (
+                                <InfoPopover
+                                    title={readOnlyAlertTitle(
+                                        row.account.label,
+                                    )}
+                                >
+                                    <p>{row.readOnlyNotice}</p>
+                                </InfoPopover>
+                            )}
+                        </p>
+                    )}
+                </>
+            ),
+            header: 'Firm and plan',
+            id: AccountColumn.FirmAndPlan,
+        },
+        {
+            cell: ({ row: { original: row } }) =>
+                accountStageLabel(row.account.stage),
+            header: 'Stage',
+            id: AccountColumn.Stage,
+        },
+        {
+            cell: ({ row: { original: row } }) =>
+                accountStatusLabel(row.account.status),
+            header: 'Status',
+            id: AccountColumn.Status,
+        },
+        {
+            cell: valueCell(
+                valueColumns,
+                inactiveReason,
+                <span className="text-muted-foreground">Computing</span>,
+                (columns) => <NextActionFigure action={columns.action} />,
+            ),
+            header: 'Next action',
+            id: AccountColumn.NextAction,
+        },
+        {
+            cell: valueCell(
+                valueColumns,
+                () => 'Not valued',
+                null,
+                (columns) => (
+                    <>
+                        <ExpectedPayoutsFigure
+                            expectedPayouts={columns.expectedPayouts}
+                        />
+                        <ValueDetailLines columns={columns} />
+                    </>
+                ),
+            ),
+            header: 'Expected payouts',
+            id: AccountColumn.ExpectedPayouts,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: valueCell(
+                valueColumns,
+                () => 'None',
+                null,
+                (columns) => (
+                    <NextPayoutFigure
+                        isNoteCollapsed
+                        nextPayout={columns.nextPayout}
+                    />
+                ),
+            ),
+            header: 'Next payout',
+            id: AccountColumn.NextPayout,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: row } }) =>
+                row.latestSnapshot === null ? (
+                    <span className="text-muted-foreground">No balance</span>
+                ) : (
+                    <>
+                        <div>
+                            {formatUsdCents(row.latestSnapshot.balanceCents)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                            as of {row.latestSnapshot.asOf}
+                        </div>
+                    </>
+                ),
+            header: 'Balance',
+            id: AccountColumn.Balance,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: row } }) =>
+                row.cushionCents === null ? (
+                    <span className="text-xs text-muted-foreground">
+                        Needs the dashboard floor
+                    </span>
+                ) : (
+                    formatUsdCents(row.cushionCents)
+                ),
+            header: 'Cushion',
+            id: AccountColumn.Cushion,
+            meta: { align: DataTableAlign.End },
+        },
+        {
+            cell: ({ row: { original: row } }) =>
+                row.account.copyGroupId === null
+                    ? NO_COPY_GROUP
+                    : (groupNames.get(row.account.copyGroupId) ??
+                      NO_COPY_GROUP),
+            header: 'Copy group',
+            id: AccountColumn.CopyGroup,
+        },
+        {
+            cell: ({ row: { original: row } }) => (
+                <div className="flex justify-end gap-1">
+                    {row.isReadOnly ? (
+                        <Button
+                            aria-label={`Edit ${row.account.label} (read-only)`}
+                            disabled
+                            size="icon"
+                            variant="ghost"
+                        >
+                            <Pencil />
+                        </Button>
+                    ) : (
+                        <Button
+                            aria-label={`Edit ${row.account.label}`}
+                            asChild
+                            size="icon"
+                            variant="ghost"
+                        >
+                            <Link
+                                href={routes.propCalculator.accounts.edit(
+                                    row.account.id,
+                                )}
+                            >
+                                <Pencil />
+                            </Link>
+                        </Button>
+                    )}
+                    <ArchiveAccountButton account={row.account} />
+                    <DeleteAccountDialog
+                        accountId={row.account.id}
+                        label={row.account.label}
+                    />
+                </div>
+            ),
+            header: () => <span className="sr-only">Actions</span>,
+            id: AccountColumn.Actions,
+        },
+    ];
+}
+
+function inactiveReason(account: AccountListRow['account']): string {
+    return account.archivedAt === null
+        ? accountStatusLabel(account.status)
+        : 'Archived';
+}
+
+function valueCell(
+    valueColumns: AccountColumnsInput['valueColumns'],
+    inactive: (account: AccountListRow['account']) => React.ReactNode,
+    computing: React.ReactNode,
+    ready: (columns: AccountValueColumns) => React.ReactNode,
+): DataTableColumn<AccountListRow>['cell'] {
+    return ({ row: { original: row } }) => {
+        if (!isActiveAccount(row.account)) {
+            return (
+                <span className="text-muted-foreground">
+                    {inactive(row.account)}
+                </span>
+            );
+        }
+        const columns = valueColumns.get(row.account.id);
+        return columns === undefined ? computing : ready(columns);
+    };
 }

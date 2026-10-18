@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
@@ -22,6 +23,7 @@ import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
+import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { FilterToggle } from '~/components/ui/filter-toggle';
 import { Input } from '~/components/ui/input';
@@ -309,92 +311,80 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 <StatCard label="PRs" value={stats.prs.toString()} />
             </section>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        Exercises
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <Input
-                            aria-label="Search exercise name"
-                            className="h-8 max-w-xs text-xs"
-                            onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search exercise name…"
-                            value={search}
-                        />
-                        <div className="flex flex-wrap items-center gap-2">
-                            <ClearFiltersButton
-                                active={hasFilters}
-                                onReset={reset}
-                            />
-                            <FilterSelect
-                                label="Exercise"
-                                onValueChange={(v) =>
-                                    setExerciseFilter(v ?? FILTER_ALL)
-                                }
-                                options={exercises.map((wex) => ({
-                                    label: wex.exercise.name,
-                                    value: wex.id,
-                                }))}
-                                placeholder="All exercises"
-                                value={
-                                    exerciseFilter === FILTER_ALL
-                                        ? undefined
-                                        : exerciseFilter
-                                }
-                            />
-                            <FilterToggle
-                                isPressed={prOnly}
-                                label="PRs only"
-                                onPressedChange={setPrOnly}
-                            />
-                        </div>
-                    </div>
+            <ToolPanel contentClassName="flex flex-col gap-4" title="Exercises">
+                <div className="flex flex-wrap items-center gap-2">
+                    <FilterSelect
+                        label="Exercise"
+                        onValueChange={(v) =>
+                            setExerciseFilter(v ?? FILTER_ALL)
+                        }
+                        options={exercises.map((wex) => ({
+                            label: wex.exercise.name,
+                            value: wex.id,
+                        }))}
+                        placeholder="All exercises"
+                        value={
+                            exerciseFilter === FILTER_ALL
+                                ? undefined
+                                : exerciseFilter
+                        }
+                    />
+                    <FilterToggle
+                        isPressed={prOnly}
+                        label="PRs only"
+                        onPressedChange={setPrOnly}
+                    />
+                    <Input
+                        aria-label="Search exercise name"
+                        className={SEARCH_FIELD_CLASS}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Search exercise name…"
+                        value={search}
+                    />
+                    <ClearFiltersButton active={hasFilters} onReset={reset} />
+                </div>
 
-                    {filteredExercises.length === 0 ? (
-                        <EmptyState
-                            description={
-                                hasFilters
-                                    ? 'Try widening the filters.'
-                                    : 'This workout has no exercises logged.'
-                            }
-                            icon={Layers}
-                            title="No exercises"
-                        />
-                    ) : (
-                        <ul className="flex flex-col gap-4">
-                            {filteredExercises.map((wex) => (
-                                <li key={wex.id}>
-                                    <Card className="gap-2 py-4">
-                                        <CardHeader>
-                                            <CardTitle className="text-base">
-                                                {wex.exercise.name}
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <DataTable
-                                                columns={workoutSetColumns}
-                                                data={wex.sets}
-                                                emptyState={
-                                                    <EmptyState
-                                                        description="This exercise has no sets recorded."
-                                                        icon={Layers}
-                                                        title="No sets logged"
-                                                    />
-                                                }
-                                                pageSize={null}
-                                                rowId={(s) => s.id}
-                                            />
-                                        </CardContent>
-                                    </Card>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </CardContent>
-            </Card>
+                {filteredExercises.length === 0 ? (
+                    <EmptyState
+                        description={
+                            hasFilters
+                                ? 'Try widening the filters.'
+                                : 'This workout has no exercises logged.'
+                        }
+                        icon={Layers}
+                        title="No exercises"
+                    />
+                ) : (
+                    <ul className="flex flex-col gap-4">
+                        {filteredExercises.map((wex) => (
+                            <li key={wex.id}>
+                                <Card className="gap-2 py-4">
+                                    <CardHeader>
+                                        <CardTitle className="text-base">
+                                            {wex.exercise.name}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <DataTable
+                                            columns={workoutSetColumns}
+                                            data={wex.sets}
+                                            emptyState={
+                                                <EmptyState
+                                                    description="This exercise has no sets recorded."
+                                                    icon={Layers}
+                                                    title="No sets logged"
+                                                />
+                                            }
+                                            pageSize={null}
+                                            rowId={(s) => s.id}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </ToolPanel>
         </div>
     );
 }

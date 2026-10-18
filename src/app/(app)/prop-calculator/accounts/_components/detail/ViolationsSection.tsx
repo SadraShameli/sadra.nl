@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil } from 'lucide-react';
 import { useEffect, useId } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -12,6 +12,7 @@ import {
     useTodayIsoDate,
 } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { Button } from '~/components/ui/button';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import {
     Field,
     FieldDescription,
@@ -26,14 +27,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import { Textarea } from '~/components/ui/textarea';
 import { NOT_APPLICABLE } from '~/lib/format';
 import {
@@ -56,6 +49,15 @@ import {
     violationFormSchema,
     type ViolationFormValues,
 } from './violationForm';
+
+enum ViolationsSectionColumn {
+    Actions = 'actions',
+    Cost = 'cost',
+    Date = 'date',
+    Kind = 'kind',
+    LinkedDecision = 'linked-decision',
+    Note = 'note',
+}
 
 export type ViolationDecisionOption = Pick<DecisionRow, 'decidedOn' | 'id'>;
 
@@ -106,7 +108,7 @@ export function ViolationForm({
             form.resetField('occurredOn', { defaultValue: day });
         },
     });
-    const kind = form.watch('kind');
+    const kind = useWatch({ control: form.control, name: 'kind' });
 
     useEffect(() => {
         if (isOpenedOnPurpose) setFocus('kind');
@@ -346,47 +348,69 @@ export function ViolationsSection({
                 </p>
             )}
             {rows !== undefined && rows.length > 0 && (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Kind</TableHead>
-                            <TableHead className="text-right">Cost</TableHead>
-                            <TableHead>Linked decision</TableHead>
-                            <TableHead>Note</TableHead>
-                            <TableHead>
-                                <span className="sr-only">Actions</span>
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {rows.map((row) => {
-                            const label = ruleViolationKindLabel(row.kind);
-                            const linkedDecision =
-                                row.decisionId === null
-                                    ? null
-                                    : (decisionsById.get(row.decisionId) ??
-                                      null);
-                            return (
-                                <TableRow key={row.id}>
-                                    <TableCell className="tabular-nums">
-                                        {row.occurredOn}
-                                    </TableCell>
-                                    <TableCell>{label}</TableCell>
-                                    <TableCell className="text-right tabular-nums">
-                                        {row.costCents === null
-                                            ? NOT_APPLICABLE
-                                            : formatUsdCents(row.costCents)}
-                                    </TableCell>
-                                    <TableCell className="tabular-nums">
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <div className="tabular-nums">
+                                    {row.occurredOn}
+                                </div>
+                            ),
+                            header: 'Date',
+                            id: ViolationsSectionColumn.Date,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => {
+                                const label = ruleViolationKindLabel(row.kind);
+                                return <>{label}</>;
+                            },
+                            header: 'Kind',
+                            id: ViolationsSectionColumn.Kind,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <>
+                                    {row.costCents === null
+                                        ? NOT_APPLICABLE
+                                        : formatUsdCents(row.costCents)}
+                                </>
+                            ),
+                            header: 'Cost',
+                            id: ViolationsSectionColumn.Cost,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => {
+                                const linkedDecision =
+                                    row.decisionId === null
+                                        ? null
+                                        : (decisionsById.get(row.decisionId) ??
+                                          null);
+                                return (
+                                    <div className="tabular-nums">
                                         {linkedDecision === null
                                             ? ''
                                             : `Decision on ${linkedDecision.decidedOn}`}
-                                    </TableCell>
-                                    <TableCell className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
-                                        {row.note ?? ''}
-                                    </TableCell>
-                                    <TableCell>
+                                    </div>
+                                );
+                            },
+                            header: 'Linked decision',
+                            id: ViolationsSectionColumn.LinkedDecision,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => (
+                                <div className="max-w-xs text-xs whitespace-pre-line text-muted-foreground">
+                                    {row.note ?? ''}
+                                </div>
+                            ),
+                            header: 'Note',
+                            id: ViolationsSectionColumn.Note,
+                        },
+                        {
+                            cell: ({ row: { original: row } }) => {
+                                const label = ruleViolationKindLabel(row.kind);
+                                return (
+                                    <>
                                         <div className="flex justify-end gap-1">
                                             {canRecord && (
                                                 <Button
@@ -417,12 +441,22 @@ export function ViolationsSection({
                                                 triggerLabel={`Delete the ${label} violation of ${row.occurredOn}`}
                                             />
                                         </div>
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
+                                    </>
+                                );
+                            },
+                            header: () => (
+                                <>
+                                    <span className="sr-only">Actions</span>
+                                </>
+                            ),
+                            id: ViolationsSectionColumn.Actions,
+                        },
+                    ]}
+                    data={[...rows]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.id}
+                />
             )}
             {canRecord && (
                 <ViolationForm

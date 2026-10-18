@@ -21,6 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import {
     Field,
     FieldDescription,
@@ -37,14 +38,6 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
 import { useSession } from '~/lib/auth/client';
 import {
     EntryTextKind,
@@ -70,6 +63,31 @@ import {
     roundsPageModel,
     type RoundSuggestionRow,
 } from './roundsModel';
+
+enum RoundColumn {
+    Budget = 'budget',
+    Cycle = 'cycle',
+    Firm = 'firm',
+    InProgress = 'in-progress',
+    Label = 'label',
+    Net = 'net',
+    Payouts = 'payouts',
+    PRoundLikeThisNetNegative = 'p-round-like-this-net-negative',
+    RealizedMultiple = 'realized-multiple',
+    Status = 'status',
+    ToDateMultiple = 'to-date-multiple',
+}
+
+enum RoundsByFirmColumn {
+    Closed = 'closed',
+    Firm = 'firm',
+    MaxMultiple = 'max-multiple',
+    MeanMultiple = 'mean-multiple',
+    MinMultiple = 'min-multiple',
+    Rounds = 'rounds',
+    Sample = 'sample',
+    SharePositive = 'share-positive',
+}
 
 const EMPTY_EXTERNAL_FIRMS: Parameters<typeof firmSelectOptions>[0] = [];
 
@@ -263,62 +281,83 @@ export function RoundsView() {
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3">
                         {model.perFirm.length > 0 && (
-                            <Table aria-label="Rounds by firm">
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Firm</TableHead>
-                                        <TableHead className="text-right">
-                                            Rounds
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Closed
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Min multiple
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Mean multiple
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Max multiple
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Share positive
-                                        </TableHead>
-                                        <TableHead>Sample</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {model.perFirm.map((row) => (
-                                        <TableRow key={row.key}>
-                                            <TableCell>{row.firm}</TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {row.rounds}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {row.closedRounds}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {row.min}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {row.mean}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {row.max}
-                                            </TableCell>
-                                            <TableCell className="text-right tabular-nums">
-                                                {row.sharePositive}
-                                            </TableCell>
-                                            <TableCell>
+                            <DataTable
+                                aria-label="Rounds by firm"
+                                columns={[
+                                    {
+                                        cell: ({ row }) => (
+                                            <>{row.original.firm}</>
+                                        ),
+                                        header: 'Firm',
+                                        id: RoundsByFirmColumn.Firm,
+                                    },
+                                    {
+                                        cell: ({ row }) => (
+                                            <>{row.original.rounds}</>
+                                        ),
+                                        header: 'Rounds',
+                                        id: RoundsByFirmColumn.Rounds,
+                                        meta: { align: DataTableAlign.End },
+                                    },
+                                    {
+                                        cell: ({ row }) => (
+                                            <>{row.original.closedRounds}</>
+                                        ),
+                                        header: 'Closed',
+                                        id: RoundsByFirmColumn.Closed,
+                                        meta: { align: DataTableAlign.End },
+                                    },
+                                    {
+                                        cell: ({ row }) => (
+                                            <>{row.original.min}</>
+                                        ),
+                                        header: 'Min multiple',
+                                        id: RoundsByFirmColumn.MinMultiple,
+                                        meta: { align: DataTableAlign.End },
+                                    },
+                                    {
+                                        cell: ({ row }) => (
+                                            <>{row.original.mean}</>
+                                        ),
+                                        header: 'Mean multiple',
+                                        id: RoundsByFirmColumn.MeanMultiple,
+                                        meta: { align: DataTableAlign.End },
+                                    },
+                                    {
+                                        cell: ({ row }) => (
+                                            <>{row.original.max}</>
+                                        ),
+                                        header: 'Max multiple',
+                                        id: RoundsByFirmColumn.MaxMultiple,
+                                        meta: { align: DataTableAlign.End },
+                                    },
+                                    {
+                                        cell: ({ row }) => (
+                                            <>{row.original.sharePositive}</>
+                                        ),
+                                        header: 'Share positive',
+                                        id: RoundsByFirmColumn.SharePositive,
+                                        meta: { align: DataTableAlign.End },
+                                    },
+                                    {
+                                        cell: ({ row }) => (
+                                            <>
                                                 <SampleBadge
-                                                    level={row.sampleLevel}
+                                                    level={
+                                                        row.original.sampleLevel
+                                                    }
                                                 />
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                            </>
+                                        ),
+                                        header: 'Sample',
+                                        id: RoundsByFirmColumn.Sample,
+                                    },
+                                ]}
+                                data={[...model.perFirm]}
+                                isSortable={false}
+                                pageSize={null}
+                                rowId={(row) => row.key}
+                            />
                         )}
                         {model.perFirm.length > 0 && (
                             <p className="text-xs text-muted-foreground">
@@ -348,92 +387,127 @@ export function RoundsView() {
                             suggestion above.
                         </p>
                     ) : (
-                        <Table aria-label="Rounds">
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Label</TableHead>
-                                    <TableHead>Firm</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Budget</TableHead>
-                                    <TableHead className="text-right">
-                                        Net
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        Payouts
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        Realized multiple
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        To-date multiple
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        In progress
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        Cycle
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        P(round like this net negative)
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {model.rounds.map((row) => (
-                                    <TableRow key={row.id}>
-                                        <TableCell>{row.label}</TableCell>
-                                        <TableCell>{row.firm}</TableCell>
-                                        <TableCell>{row.statusLabel}</TableCell>
-                                        <TableCell>
+                        <DataTable
+                            aria-label="Rounds"
+                            columns={[
+                                {
+                                    cell: ({ row }) => (
+                                        <>{row.original.label}</>
+                                    ),
+                                    header: 'Label',
+                                    id: RoundColumn.Label,
+                                },
+                                {
+                                    cell: ({ row }) => <>{row.original.firm}</>,
+                                    header: 'Firm',
+                                    id: RoundColumn.Firm,
+                                },
+                                {
+                                    cell: ({ row }) => (
+                                        <>{row.original.statusLabel}</>
+                                    ),
+                                    header: 'Status',
+                                    id: RoundColumn.Status,
+                                },
+                                {
+                                    cell: ({ row }) => (
+                                        <>
                                             <div className="flex flex-col gap-1">
                                                 <span className="text-xs text-muted-foreground">
-                                                    {row.budgetText}
+                                                    {row.original.budgetText}
                                                 </span>
-                                                {row.budgetPercentUsed !==
+                                                {row.original
+                                                    .budgetPercentUsed !==
                                                     null && (
                                                     <Progress
                                                         value={
-                                                            row.budgetPercentUsed
+                                                            row.original
+                                                                .budgetPercentUsed
                                                         }
                                                     />
                                                 )}
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {row.netCents}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {row.payoutsCents}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {row.realizedMultiple}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {row.toDateMultiple}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {row.inProgressText}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {row.cycleDays}
-                                        </TableCell>
-                                        <TableCell className="text-right tabular-nums">
+                                        </>
+                                    ),
+                                    header: 'Budget',
+                                    id: RoundColumn.Budget,
+                                },
+                                {
+                                    cell: ({ row }) => (
+                                        <>{row.original.netCents}</>
+                                    ),
+                                    header: 'Net',
+                                    id: RoundColumn.Net,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row }) => (
+                                        <>{row.original.payoutsCents}</>
+                                    ),
+                                    header: 'Payouts',
+                                    id: RoundColumn.Payouts,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row }) => (
+                                        <>{row.original.realizedMultiple}</>
+                                    ),
+                                    header: 'Realized multiple',
+                                    id: RoundColumn.RealizedMultiple,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row }) => (
+                                        <>{row.original.toDateMultiple}</>
+                                    ),
+                                    header: 'To-date multiple',
+                                    id: RoundColumn.ToDateMultiple,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row }) => (
+                                        <>{row.original.inProgressText}</>
+                                    ),
+                                    header: 'In progress',
+                                    id: RoundColumn.InProgress,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row }) => (
+                                        <>{row.original.cycleDays}</>
+                                    ),
+                                    header: 'Cycle',
+                                    id: RoundColumn.Cycle,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                                {
+                                    cell: ({ row }) => (
+                                        <>
                                             <div>
                                                 {
-                                                    row.likeThisEndsNetNegativeModeled
+                                                    row.original
+                                                        .likeThisEndsNetNegativeModeled
                                                 }
                                             </div>
                                             <div className="text-xs text-muted-foreground">
                                                 Closed-form check:{' '}
                                                 {
-                                                    row.likeThisEndsNetNegativeClosedForm
+                                                    row.original
+                                                        .likeThisEndsNetNegativeClosedForm
                                                 }
                                             </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                        </>
+                                    ),
+                                    header: 'P(round like this net negative)',
+                                    id: RoundColumn.PRoundLikeThisNetNegative,
+                                    meta: { align: DataTableAlign.End },
+                                },
+                            ]}
+                            data={[...model.rounds]}
+                            isSortable={false}
+                            pageSize={null}
+                            rowId={(row) => row.id}
+                        />
                     )}
                 </CardContent>
             </Card>

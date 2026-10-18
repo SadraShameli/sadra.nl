@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Activity, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
@@ -291,7 +291,7 @@ function NewReadingDialog({
         defaultValues: { deviceId: 0, sensorId: 0, value: 0 },
         resolver: zodResolver(readingCreateAdminSchema),
     });
-    const sensorId = form.watch('sensorId');
+    const sensorId = useWatch({ control: form.control, name: 'sensorId' });
     const selectedUnit = sensors.find((s) => s.id === sensorId)?.unit;
     return (
         <ProfileFormDialog

@@ -53,7 +53,7 @@ export function AnalyticsDashboard({
             )}
         >
             {plans.length > 1 && (
-                <div className="flex w-full flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+                <div className="flex flex-wrap items-center gap-2">
                     <FilterSelect
                         label="Plan"
                         onValueChange={(v) => setPlanFilter(v ?? ALL_PLANS)}

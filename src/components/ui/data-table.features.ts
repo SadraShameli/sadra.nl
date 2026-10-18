@@ -88,6 +88,7 @@ export const DATA_TABLE_ALIGN_CLASS_NAME: Record<DataTableAlign, string> = {
 
 export type DataTableColumnMeta = {
     align?: DataTableAlign;
+    isRowHeader?: boolean;
     label?: string;
 };
 

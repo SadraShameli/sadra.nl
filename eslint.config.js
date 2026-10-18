@@ -150,6 +150,21 @@ const config = defineConfig(
                     ],
                 },
             ],
+            'no-restricted-syntax': [
+                'error',
+                {
+                    message:
+                        "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.",
+                    selector:
+                        "CallExpression[callee.type='MemberExpression'][callee.property.name='watch']",
+                },
+                {
+                    message:
+                        "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.",
+                    selector:
+                        "VariableDeclarator[init.callee.name=/^use(Form|FormContext)$/] > ObjectPattern > Property[key.name='watch']",
+                },
+            ],
         },
     },
     {

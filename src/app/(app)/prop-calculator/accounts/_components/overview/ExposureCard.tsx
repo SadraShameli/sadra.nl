@@ -1,15 +1,25 @@
 import { memo } from 'react';
 
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '~/components/ui/table';
+import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
 import { type ExposureCardModel } from './overviewModel';
+
+enum AccountExposureColumn {
+    Account = 'account',
+    Basis = 'basis',
+    Cushion = 'cushion',
+    FirstTradeRisk = 'first-trade-risk',
+    MaximumDailyLoss = 'maximum-daily-loss',
+    ShareOfCushionAtRisk = 'share-of-cushion-at-risk',
+}
+
+enum CopyGroupExposureColumn {
+    Accounts = 'accounts',
+    CombinedCushion = 'combined-cushion',
+    CopyGroup = 'copy-group',
+    MaximumDailyLoss = 'maximum-daily-loss',
+    ShareOfCushionAtRisk = 'share-of-cushion-at-risk',
+}
 
 export const ExposureCard = memo(function ExposureCard({
     model,
@@ -23,87 +33,100 @@ export const ExposureCard = memo(function ExposureCard({
                     No active account has a usable balance snapshot yet.
                 </p>
             ) : (
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Account</TableHead>
-                            <TableHead className="text-right">
-                                First-trade risk
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Maximum daily loss
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Cushion
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Share of cushion at risk
-                            </TableHead>
-                            <TableHead>Basis</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {model.accounts.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>{row.account}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.firstTradeRisk}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.maxDailyLoss}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.cushion}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.shareOfCushionAtRisk}
-                                </TableCell>
-                                <TableCell>{row.basis}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                <DataTable
+                    columns={[
+                        {
+                            cell: ({ row }) => <>{row.original.account}</>,
+                            header: 'Account',
+                            id: AccountExposureColumn.Account,
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.firstTradeRisk}</>
+                            ),
+                            header: 'First-trade risk',
+                            id: AccountExposureColumn.FirstTradeRisk,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.maxDailyLoss}</>,
+                            header: 'Maximum daily loss',
+                            id: AccountExposureColumn.MaximumDailyLoss,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.cushion}</>,
+                            header: 'Cushion',
+                            id: AccountExposureColumn.Cushion,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.shareOfCushionAtRisk}</>
+                            ),
+                            header: 'Share of cushion at risk',
+                            id: AccountExposureColumn.ShareOfCushionAtRisk,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.basis}</>,
+                            header: 'Basis',
+                            id: AccountExposureColumn.Basis,
+                        },
+                    ]}
+                    data={[...model.accounts]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
             {model.groups.length > 0 && (
-                <Table aria-label="Exposure per copy group">
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Copy group</TableHead>
-                            <TableHead>Accounts</TableHead>
-                            <TableHead className="text-right">
-                                Maximum daily loss
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Combined cushion
-                            </TableHead>
-                            <TableHead className="text-right">
-                                Share of cushion at risk
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {model.groups.map((row) => (
-                            <TableRow key={row.key}>
-                                <TableCell>
-                                    {row.group}
+                <DataTable
+                    aria-label="Exposure per copy group"
+                    columns={[
+                        {
+                            cell: ({ row }) => (
+                                <>
+                                    {row.original.group}
                                     <span className="block text-xs text-muted-foreground">
-                                        {row.note}
+                                        {row.original.note}
                                     </span>
-                                </TableCell>
-                                <TableCell>{row.accounts}</TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.maxDailyLoss}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.totalCushion}
-                                </TableCell>
-                                <TableCell className="text-right tabular-nums">
-                                    {row.shareOfCushionAtRisk}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                                </>
+                            ),
+                            header: 'Copy group',
+                            id: CopyGroupExposureColumn.CopyGroup,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.accounts}</>,
+                            header: 'Accounts',
+                            id: CopyGroupExposureColumn.Accounts,
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.maxDailyLoss}</>,
+                            header: 'Maximum daily loss',
+                            id: CopyGroupExposureColumn.MaximumDailyLoss,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => <>{row.original.totalCushion}</>,
+                            header: 'Combined cushion',
+                            id: CopyGroupExposureColumn.CombinedCushion,
+                            meta: { align: DataTableAlign.End },
+                        },
+                        {
+                            cell: ({ row }) => (
+                                <>{row.original.shareOfCushionAtRisk}</>
+                            ),
+                            header: 'Share of cushion at risk',
+                            id: CopyGroupExposureColumn.ShareOfCushionAtRisk,
+                            meta: { align: DataTableAlign.End },
+                        },
+                    ]}
+                    data={[...model.groups]}
+                    isSortable={false}
+                    pageSize={null}
+                    rowId={(row) => row.key}
+                />
             )}
             <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 {model.disclosures.map((disclosure) => (

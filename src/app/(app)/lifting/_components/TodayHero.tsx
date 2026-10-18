@@ -7,9 +7,10 @@ import { useMemo } from 'react';
 
 import { PrFiltersToolbar } from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
 import { usePrFilters } from '~/app/(app)/lifting/_components/shared/usePrFilters';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     DataTableAlign,
@@ -105,93 +106,73 @@ export function TodayHero() {
                 />
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        Get started
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap gap-3">
-                        {active.isPending ? (
-                            <Skeleton className="h-9 w-40" />
-                        ) : active.data ? (
-                            <Button asChild className="gap-2">
-                                <Link href={routes.lifting.log}>
-                                    <Activity className="size-4" />
-                                    Resume {active.data.name ?? 'workout'}
-                                </Link>
-                            </Button>
-                        ) : (
-                            <Button
-                                className="gap-2"
-                                disabled={start.isPending}
-                                onClick={() => start.mutate({})}
-                                type="button"
-                            >
-                                <Play className="size-4" />
-                                {start.isPending
-                                    ? 'Starting…'
-                                    : 'Start workout'}
-                            </Button>
-                        )}
-                        <Button asChild type="button" variant="outline">
-                            <Link href={routes.lifting.routines}>
-                                From routine
+            <ToolPanel title="Get started">
+                <div className="flex flex-wrap gap-3">
+                    {active.isPending ? (
+                        <Skeleton className="h-9 w-40" />
+                    ) : active.data ? (
+                        <Button asChild className="gap-2">
+                            <Link href={routes.lifting.log}>
+                                <Activity className="size-4" />
+                                Resume {active.data.name ?? 'workout'}
                             </Link>
                         </Button>
-                        <Button asChild type="button" variant="outline">
-                            <Link href={routes.lifting.programs}>
-                                Pick a program
-                            </Link>
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        <Trophy className="size-4" /> Recent PRs
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {summary.data?.recentPrs.length === 0 ? (
-                        <EmptyState
-                            description="Log a heavier set to set your first PR."
-                            icon={Trophy}
-                            title="No PRs yet"
-                        />
                     ) : (
-                        <DataTable
-                            columns={prColumns}
-                            data={prFilters.filteredRows}
-                            emptyState={
-                                <EmptyState
-                                    description={
-                                        prFilters.range === PrRangePreset.All
-                                            ? 'Log a heavier set to set your first PR.'
-                                            : 'No PRs in this date range.'
-                                    }
-                                    icon={Trophy}
-                                    title="No PRs yet"
-                                />
-                            }
-                            filterPlaceholder="Search PRs"
-                            hasExternalFilters={prFilters.isActive}
-                            headerActions={
-                                <PrFiltersToolbar filters={prFilters} />
-                            }
-                            isLoading={summary.isLoading}
-                            onResetFilters={prFilters.reset}
-                            pageSize={null}
-                            rowId={(r) => r.id}
-                            showFilter
-                            skeletonRows={3}
-                        />
+                        <Button
+                            className="gap-2"
+                            disabled={start.isPending}
+                            onClick={() => start.mutate({})}
+                            type="button"
+                        >
+                            <Play className="size-4" />
+                            {start.isPending ? 'Starting…' : 'Start workout'}
+                        </Button>
                     )}
-                </CardContent>
-            </Card>
+                    <Button asChild type="button" variant="outline">
+                        <Link href={routes.lifting.routines}>From routine</Link>
+                    </Button>
+                    <Button asChild type="button" variant="outline">
+                        <Link href={routes.lifting.programs}>
+                            Pick a program
+                        </Link>
+                    </Button>
+                </div>
+            </ToolPanel>
+
+            <ToolPanel title="Recent PRs">
+                {summary.data?.recentPrs.length === 0 ? (
+                    <EmptyState
+                        description="Log a heavier set to set your first PR."
+                        icon={Trophy}
+                        title="No PRs yet"
+                    />
+                ) : (
+                    <DataTable
+                        columns={prColumns}
+                        data={prFilters.filteredRows}
+                        emptyState={
+                            <EmptyState
+                                description={
+                                    prFilters.range === PrRangePreset.All
+                                        ? 'Log a heavier set to set your first PR.'
+                                        : 'No PRs in this date range.'
+                                }
+                                icon={Trophy}
+                                title="No PRs yet"
+                            />
+                        }
+                        filterPlaceholder="Search PRs"
+                        hasExternalFilters={prFilters.isActive}
+                        headerActions={<PrFiltersToolbar filters={prFilters} />}
+                        isLoading={summary.isLoading}
+                        onResetFilters={prFilters.reset}
+                        pageSize={null}
+                        rowId={(r) => r.id}
+                        showFilter
+                        skeletonRows={3}
+                    />
+                )}
+            </ToolPanel>
         </div>
     );
 }
