@@ -14,7 +14,6 @@ import {
 import { ColorModeToggle } from '~/components/ColorModeToggle';
 import {
     Accordion,
-    AccordionContent,
     AccordionItem,
     AccordionTrigger,
 } from '~/components/ui/accordion';
@@ -23,6 +22,7 @@ import {
     NavigationMenu,
     NavigationMenuContent,
     NavigationMenuItem,
+    NavigationMenuLink,
     NavigationMenuList,
     NavigationMenuTrigger,
 } from '~/components/ui/navigation-menu';
@@ -32,19 +32,21 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '~/components/ui/popover';
-import { SocialIcon } from '~/components/ui/social-icon';
 import { siteContent } from '~/lib/site/content';
+import { homeSectionHref } from '~/lib/site/homeSections';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
-import { NavGroupColumn } from './navigation/NavGroupColumn';
+import { DesktopMenuPanel, PhoneMenuPanel } from './navigation/NavMenuPanels';
 import {
     HOME_SECTION_MENU,
-    NAV_MENUS,
-    type NavMenu,
+    NAV_ITEMS,
+    type NavHomeSectionLink,
+    NavItemKind,
     navMenuForPath,
     type NavMenuId,
 } from './navigation/siteNavigation';
+import { SocialLinkButtons } from './SocialLinkButtons';
 import {
     type ActiveHomeNavItem,
     HomeNavTarget,
@@ -59,16 +61,26 @@ type NavMenuExtras = Readonly<Partial<Record<NavMenuId, ReactNode>>>;
 
 const CLOSED_MENU = '';
 
+const PHONE_MENU_ROW_CLASS = 'px-4 py-3 text-base font-medium text-ink';
+
 interface NavbarProperties {
     readonly accountLink: ReactNode;
     readonly menuExtras: NavMenuExtras;
 }
 
 export default function Navbar(properties: NavbarProperties) {
+    const headerReference = useRef<HTMLElement>(null);
+    useHeaderHeightVariable(headerReference);
     return (
-        <Suspense fallback={<NavbarView {...properties} pathname={null} />}>
-            <NavbarAtPath {...properties} />
-        </Suspense>
+        <header
+            className={cn('app-shell__navbar', 'sticky inset-x-0 top-0 z-50')}
+            ref={headerReference}
+        >
+            <Suspense fallback={<NavbarView {...properties} pathname={null} />}>
+                <NavbarAtPath {...properties} />
+            </Suspense>
+            <div className="app-shell__subnav-slot" id="navbar-subnav-slot" />
+        </header>
     );
 }
 
@@ -78,26 +90,36 @@ function CapsuleDivider() {
     );
 }
 
-function isLinkClick(event: MouseEvent<HTMLElement>): boolean {
+function DesktopHomeSectionLink({
+    isCurrent,
+    item,
+    onNavigate,
+    reference,
+}: {
+    readonly isCurrent: boolean;
+    readonly item: NavHomeSectionLink;
+    readonly onNavigate: () => void;
+    readonly reference: (element: HTMLElement | null) => void;
+}) {
     return (
-        event.target instanceof Element && event.target.closest('a') !== null
+        <NavigationMenuItem>
+            <NavigationMenuLink asChild>
+                <Link
+                    aria-current={isCurrent ? 'location' : undefined}
+                    href={homeSectionHref(item.section)}
+                    onClick={onNavigate}
+                    ref={reference}
+                >
+                    {item.label}
+                </Link>
+            </NavigationMenuLink>
+        </NavigationMenuItem>
     );
 }
 
-function MenuPanel({
-    extra,
-    menu,
-}: {
-    readonly extra: ReactNode;
-    readonly menu: NavMenu;
-}) {
+function isLinkClick(event: MouseEvent<HTMLElement>): boolean {
     return (
-        <div className="flex w-max max-w-[calc(100vw-2rem)] flex-wrap gap-x-10 gap-y-8 p-6">
-            {menu.groups.map((group) => (
-                <NavGroupColumn group={group} key={group.label} />
-            ))}
-            {extra}
-        </div>
+        event.target instanceof Element && event.target.closest('a') !== null
     );
 }
 
@@ -122,7 +144,6 @@ function NavbarView({
     menuExtras,
     pathname,
 }: NavbarProperties & { readonly pathname: null | string }) {
-    const navReference = useRef<HTMLElement>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [openMenu, setOpenMenu] = useState(CLOSED_MENU);
     const [isSwitchingMenu, setIsSwitchingMenu] = useState(false);
@@ -130,15 +151,11 @@ function NavbarView({
         setIsSwitchingMenu(openMenu !== CLOSED_MENU && next !== CLOSED_MENU);
         setOpenMenu(next);
     };
-    useHeaderHeightVariable(navReference);
     const { activeItem, pin } = useActiveHomeNavItem(pathname === routes.home);
     const indicatorReference = useRef<HTMLSpanElement>(null);
     const itemReferences = useRef(new Map<NavbarHighlight, HTMLElement>());
-    useSlidingIndicator(
-        indicatorReference,
-        itemReferences,
-        navbarHighlight(pathname, activeItem),
-    );
+    const highlight = navbarHighlight(pathname, activeItem);
+    useSlidingIndicator(indicatorReference, itemReferences, highlight);
     const registerItem =
         (item: NavbarHighlight) => (element: HTMLElement | null) => {
             if (element === null) itemReferences.current.delete(item);
@@ -146,74 +163,80 @@ function NavbarView({
         };
 
     return (
-        <header
-            className={cn('app-shell__navbar', 'sticky inset-x-0 top-0 z-50')}
-            ref={navReference}
-        >
-            <div className="@container flex justify-center px-4 pt-4.5 pb-3">
-                <NavigationMenu
-                    aria-label="Main"
-                    className="w-full max-w-capsule"
-                    data-switching={isSwitchingMenu}
-                    delayDuration={80}
-                    onValueChange={changeMenu}
-                    value={openMenu}
+        <div className="@container flex justify-center px-4 pt-4.5 pb-3">
+            <NavigationMenu
+                aria-label="Main"
+                className="w-full max-w-capsule"
+                data-switching={isSwitchingMenu}
+                delayDuration={80}
+                onValueChange={changeMenu}
+                value={openMenu}
+            >
+                <Popover
+                    onOpenChange={setIsMobileMenuOpen}
+                    open={isMobileMenuOpen}
                 >
-                    <Popover
-                        onOpenChange={setIsMobileMenuOpen}
-                        open={isMobileMenuOpen}
-                    >
-                        <PopoverAnchor asChild>
-                            <div className="flex w-full items-center justify-between gap-1.5 rounded-4xl border glass p-2 md:flex-wrap md:justify-center @capsule:justify-between">
-                                <div className="relative flex items-center gap-0.5">
-                                    <span
-                                        aria-hidden
-                                        className="pointer-events-none absolute top-0 left-0 rounded-full bg-surface-high opacity-0 transition-[transform,width,height,opacity] duration-300 ease-out motion-reduce:transition-none"
-                                        ref={indicatorReference}
-                                    />
-                                    <Button
-                                        asChild
-                                        className={cn(
-                                            'app-shell__home',
-                                            'relative aria-[current=location]:text-ink',
-                                        )}
-                                        size="icon-tap"
-                                        variant="capsule"
+                    <PopoverAnchor asChild>
+                        <div className="flex w-full items-center justify-between gap-1.5 rounded-4xl border glass p-2 md:flex-wrap md:justify-center @capsule:justify-between">
+                            <div className="relative flex items-center gap-0.5">
+                                <span
+                                    aria-hidden
+                                    className="pointer-events-none absolute top-0 left-0 rounded-full bg-surface-high opacity-0 transition-[transform,width,height,opacity] duration-300 ease-out motion-reduce:transition-none"
+                                    ref={indicatorReference}
+                                />
+                                <Button
+                                    asChild
+                                    className={cn(
+                                        'app-shell__home',
+                                        'relative aria-[current=location]:text-ink',
+                                    )}
+                                    size="icon-tap"
+                                    variant="capsule"
+                                >
+                                    <Link
+                                        aria-current={
+                                            activeItem === HomeNavTarget.Top
+                                                ? 'location'
+                                                : undefined
+                                        }
+                                        aria-label="Home"
+                                        href={routes.home}
+                                        onClick={() => pin(HomeNavTarget.Top)}
+                                        ref={registerItem(HomeNavTarget.Top)}
                                     >
-                                        <Link
-                                            aria-current={
-                                                activeItem === HomeNavTarget.Top
-                                                    ? 'location'
-                                                    : undefined
-                                            }
-                                            aria-label="Home"
-                                            href={routes.home}
-                                            onClick={() =>
-                                                pin(HomeNavTarget.Top)
-                                            }
-                                            ref={registerItem(
-                                                HomeNavTarget.Top,
-                                            )}
-                                        >
-                                            <House
-                                                aria-hidden
-                                                strokeWidth={1.6}
+                                        <House aria-hidden strokeWidth={1.6} />
+                                    </Link>
+                                </Button>
+                                <span className="pr-2 pl-1 font-serif text-xl leading-none text-ink md:hidden">
+                                    {siteContent.manifest.shortName}
+                                </span>
+                                <NavigationMenuList className="hidden md:flex">
+                                    {NAV_ITEMS.map((item) =>
+                                        item.kind ===
+                                        NavItemKind.HomeSection ? (
+                                            <DesktopHomeSectionLink
+                                                isCurrent={
+                                                    activeItem !== null &&
+                                                    highlight === item.id
+                                                }
+                                                item={item}
+                                                key={item.id}
+                                                onNavigate={() =>
+                                                    pin(item.section)
+                                                }
+                                                reference={registerItem(
+                                                    item.id,
+                                                )}
                                             />
-                                        </Link>
-                                    </Button>
-                                    <span className="pr-2 pl-1 font-serif text-xl leading-none text-ink md:hidden">
-                                        {siteContent.manifest.shortName}
-                                    </span>
-                                    <NavigationMenuList className="hidden md:flex">
-                                        {NAV_MENUS.map((menu) => (
+                                        ) : (
                                             <NavigationMenuItem
-                                                key={menu.id}
-                                                value={menu.id}
+                                                key={item.id}
+                                                value={item.id}
                                             >
                                                 <NavigationMenuTrigger
-                                                    ref={registerItem(menu.id)}
+                                                    ref={registerItem(item.id)}
                                                 >
-                                                    {menu.label}
+                                                    {item.label}
                                                 </NavigationMenuTrigger>
                                                 <NavigationMenuContent
                                                     onClick={(event) => {
@@ -226,118 +249,113 @@ function NavbarView({
                                                         }
                                                     }}
                                                 >
-                                                    <MenuPanel
+                                                    <DesktopMenuPanel
                                                         extra={
-                                                            menuExtras[menu.id]
+                                                            menuExtras[item.id]
                                                         }
-                                                        menu={menu}
+                                                        menu={item}
                                                     />
                                                 </NavigationMenuContent>
                                             </NavigationMenuItem>
-                                        ))}
-                                    </NavigationMenuList>
+                                        ),
+                                    )}
+                                </NavigationMenuList>
+                            </div>
+
+                            <CapsuleDivider />
+
+                            <div className="flex items-center gap-1">
+                                <div className="hidden items-center gap-1 md:flex">
+                                    <SocialLinkButtons className="app-shell__social-link" />
                                 </div>
-
-                                <CapsuleDivider />
-
-                                <div className="flex items-center gap-1">
-                                    <div className="hidden items-center gap-1 md:flex">
-                                        <SocialLinks />
-                                    </div>
-                                    <ColorModeToggle className="app-shell__color-mode" />
-                                    {accountLink}
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            aria-label={
-                                                isMobileMenuOpen
-                                                    ? 'Close menu'
-                                                    : 'Open menu'
-                                            }
-                                            className="app-shell__menu-toggle md:hidden"
-                                            size="icon-tap"
-                                            type="button"
-                                            variant="capsule"
-                                        >
-                                            {isMobileMenuOpen ? (
-                                                <X
-                                                    aria-hidden
-                                                    strokeWidth={1.6}
-                                                />
-                                            ) : (
-                                                <Menu
-                                                    aria-hidden
-                                                    strokeWidth={1.6}
-                                                />
-                                            )}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                        className="max-h-[calc(100svh-7rem)] w-(--radix-popper-anchor-width) overflow-y-auto rounded-4xl border glass p-2"
-                                        onClick={(event) => {
-                                            if (isLinkClick(event)) {
-                                                setIsMobileMenuOpen(false);
-                                            }
-                                        }}
-                                        onOpenAutoFocus={(event) =>
-                                            event.preventDefault()
+                                <ColorModeToggle className="app-shell__color-mode" />
+                                {accountLink}
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        aria-label={
+                                            isMobileMenuOpen
+                                                ? 'Close menu'
+                                                : 'Open menu'
                                         }
-                                        sideOffset={12}
+                                        className="app-shell__menu-toggle md:hidden"
+                                        size="icon-tap"
+                                        type="button"
+                                        variant="capsule"
                                     >
-                                        <Accordion collapsible type="single">
-                                            {NAV_MENUS.map((menu) => (
+                                        {isMobileMenuOpen ? (
+                                            <X aria-hidden strokeWidth={1.6} />
+                                        ) : (
+                                            <Menu
+                                                aria-hidden
+                                                strokeWidth={1.6}
+                                            />
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                    className="max-h-[calc(100svh-7rem)] w-(--radix-popper-anchor-width) overflow-y-auto rounded-4xl border glass p-2"
+                                    onClick={(event) => {
+                                        if (isLinkClick(event)) {
+                                            setIsMobileMenuOpen(false);
+                                        }
+                                    }}
+                                    onOpenAutoFocus={(event) =>
+                                        event.preventDefault()
+                                    }
+                                    sideOffset={12}
+                                >
+                                    <Accordion collapsible type="single">
+                                        {NAV_ITEMS.map((item) =>
+                                            item.kind ===
+                                            NavItemKind.HomeSection ? (
+                                                <Link
+                                                    className={cn(
+                                                        PHONE_MENU_ROW_CLASS,
+                                                        'flex border-b border-line focus-camel',
+                                                    )}
+                                                    href={homeSectionHref(
+                                                        item.section,
+                                                    )}
+                                                    key={item.id}
+                                                    onClick={() =>
+                                                        pin(item.section)
+                                                    }
+                                                >
+                                                    {item.label}
+                                                </Link>
+                                            ) : (
                                                 <AccordionItem
                                                     className="border-line"
-                                                    key={menu.id}
-                                                    value={menu.id}
+                                                    key={item.id}
+                                                    value={item.id}
                                                 >
-                                                    <AccordionTrigger className="px-4 py-3 text-base font-medium text-ink hover:no-underline">
-                                                        {menu.label}
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="flex flex-col gap-5 px-4">
-                                                        {menu.groups.map(
-                                                            (group) => (
-                                                                <NavGroupColumn
-                                                                    group={
-                                                                        group
-                                                                    }
-                                                                    key={
-                                                                        group.label
-                                                                    }
-                                                                />
-                                                            ),
+                                                    <AccordionTrigger
+                                                        className={cn(
+                                                            PHONE_MENU_ROW_CLASS,
+                                                            'hover:no-underline',
                                                         )}
-                                                        {menuExtras[menu.id]}
-                                                    </AccordionContent>
+                                                    >
+                                                        {item.label}
+                                                    </AccordionTrigger>
+                                                    <PhoneMenuPanel
+                                                        extra={
+                                                            menuExtras[item.id]
+                                                        }
+                                                        menu={item}
+                                                    />
                                                 </AccordionItem>
-                                            ))}
-                                        </Accordion>
-                                        <div className="mt-2 flex items-center gap-1 px-2 pt-2">
-                                            <SocialLinks />
-                                        </div>
-                                    </PopoverContent>
-                                </div>
+                                            ),
+                                        )}
+                                    </Accordion>
+                                    <div className="mt-2 flex items-center gap-1 px-2 pt-2">
+                                        <SocialLinkButtons className="app-shell__social-link" />
+                                    </div>
+                                </PopoverContent>
                             </div>
-                        </PopoverAnchor>
-                    </Popover>
-                </NavigationMenu>
-            </div>
-            <div className={'app-shell__subnav-slot'} id="navbar-subnav-slot" />
-        </header>
+                        </div>
+                    </PopoverAnchor>
+                </Popover>
+            </NavigationMenu>
+        </div>
     );
-}
-
-function SocialLinks() {
-    return siteContent.socialLinks.map((profile) => (
-        <Button
-            asChild
-            className="app-shell__social-link"
-            key={profile.url}
-            size="icon-tap"
-            variant="capsule"
-        >
-            <Link aria-label={profile.title} href={profile.url}>
-                <SocialIcon platform={profile.platform} />
-            </Link>
-        </Button>
-    ));
 }

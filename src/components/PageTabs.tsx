@@ -40,6 +40,7 @@ export function PageTabs<TValue extends string>({
 
     return (
         <Tabs
+            activationMode="manual"
             className={cn('flex min-w-0 flex-col gap-4', className)}
             onValueChange={selectTab}
             value={value}

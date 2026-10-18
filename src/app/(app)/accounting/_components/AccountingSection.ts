@@ -1,3 +1,8 @@
+import { type RouteSubnavItem } from '~/app/(app)/_components/RouteSubnav';
+import {
+    subnavGroup,
+    type SubnavPage,
+} from '~/app/(app)/_components/routeSubnavLinks';
 import { type PageHeaderBackLink } from '~/components/PageHeader';
 import { routes } from '~/lib/site/routes';
 
@@ -14,17 +19,16 @@ export enum AccountingSection {
 
 export const ACCOUNTING_EYEBROW = 'Accounting importer';
 
-export interface AccountingNavSection {
-    readonly href: string;
-    readonly label: string;
-    readonly section: AccountingSection;
-}
-
 export interface AccountingSectionPage {
     readonly backLink?: PageHeaderBackLink;
     readonly lead: string;
     readonly title: string;
 }
+
+const RUNS_PAGE: AccountingSectionPage = {
+    lead: 'Every import run, with what it previewed and what it posted.',
+    title: 'Runs',
+};
 
 const PAGES: Readonly<Record<AccountingSection, AccountingSectionPage>> = {
     [AccountingSection.Connections]: {
@@ -33,7 +37,7 @@ const PAGES: Readonly<Record<AccountingSection, AccountingSectionPage>> = {
     },
     [AccountingSection.Dashboard]: {
         lead: 'Pick a start date and the sources, preview the bookings, then post them to the accounting backend.',
-        title: 'Run an import',
+        title: 'Import',
     },
     [AccountingSection.Ledgers]: {
         lead: 'The ledger accounts held by the connected accounting backend.',
@@ -41,67 +45,53 @@ const PAGES: Readonly<Record<AccountingSection, AccountingSectionPage>> = {
     },
     [AccountingSection.Mutations]: {
         lead: 'The bookings the accounting backend already holds.',
-        title: 'Recent mutations',
+        title: 'Mutations',
     },
     [AccountingSection.Rules]: {
         lead: 'How each counterpart is booked: its ledger, its direction and its tax code.',
         title: 'Booking rules',
     },
     [AccountingSection.RunDetail]: {
-        backLink: { href: routes.accounting.runs, label: 'Run history' },
+        backLink: { href: routes.accounting.runs, label: RUNS_PAGE.title },
         lead: 'One import run: its stages, its bookings and what was posted.',
         title: 'Run detail',
     },
-    [AccountingSection.Runs]: {
-        lead: 'Every import run, with what it previewed and what it posted.',
-        title: 'Run history',
-    },
+    [AccountingSection.Runs]: RUNS_PAGE,
     [AccountingSection.Transactions]: {
         lead: 'What each source returned, before any booking rule is applied.',
-        title: 'Recent transactions',
+        title: 'Transactions',
     },
 };
-
-export const ACCOUNTING_NAV: readonly AccountingNavSection[] = [
-    {
-        href: routes.accounting.index,
-        label: 'Dashboard',
-        section: AccountingSection.Dashboard,
-    },
-    {
-        href: routes.accounting.connections,
-        label: 'Connections',
-        section: AccountingSection.Connections,
-    },
-    {
-        href: routes.accounting.ledgers,
-        label: 'Ledgers',
-        section: AccountingSection.Ledgers,
-    },
-    {
-        href: routes.accounting.rules,
-        label: 'Booking rules',
-        section: AccountingSection.Rules,
-    },
-    {
-        href: routes.accounting.transactions,
-        label: 'Transactions',
-        section: AccountingSection.Transactions,
-    },
-    {
-        href: routes.accounting.mutations,
-        label: 'Mutations',
-        section: AccountingSection.Mutations,
-    },
-    {
-        href: routes.accounting.runs,
-        label: 'Runs',
-        section: AccountingSection.Runs,
-    },
-];
 
 export function accountingSectionPage(
     section: AccountingSection,
 ): AccountingSectionPage {
     return PAGES[section];
 }
+
+function sectionNavPage(section: AccountingSection, href: string): SubnavPage {
+    return { href, label: accountingSectionPage(section).title };
+}
+
+export const ACCOUNTING_NAV: readonly RouteSubnavItem[] = [
+    sectionNavPage(AccountingSection.Dashboard, routes.accounting.index),
+    sectionNavPage(AccountingSection.Runs, routes.accounting.runs),
+    subnavGroup('Data', [
+        sectionNavPage(
+            AccountingSection.Transactions,
+            routes.accounting.transactions,
+        ),
+        sectionNavPage(
+            AccountingSection.Mutations,
+            routes.accounting.mutations,
+        ),
+        sectionNavPage(AccountingSection.Ledgers, routes.accounting.ledgers),
+    ]),
+    subnavGroup('Setup', [
+        sectionNavPage(AccountingSection.Rules, routes.accounting.rules),
+        sectionNavPage(
+            AccountingSection.Connections,
+            routes.accounting.connections,
+        ),
+    ]),
+];

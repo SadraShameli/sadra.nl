@@ -241,12 +241,21 @@ export const siteContent: SiteData = {
     ],
 };
 
-export function siteToolTitle(ticker: ToolTicker): string {
-    const tool = siteTools.find((entry) => entry.ticker === ticker);
-    if (tool === undefined) {
-        throw new Error(`No site tool is registered for ${ticker}`);
+class UnknownSiteToolError extends Error {
+    constructor(ticker: ToolTicker) {
+        super(`No site tool is registered for ${ticker}`);
+        this.name = 'UnknownSiteToolError';
     }
-    return tool.title;
+}
+
+export function siteTool(ticker: ToolTicker): SiteTool {
+    const tool = siteTools.find((entry) => entry.ticker === ticker);
+    if (tool === undefined) throw new UnknownSiteToolError(ticker);
+    return tool;
+}
+
+export function siteToolTitle(ticker: ToolTicker): string {
+    return siteTool(ticker).title;
 }
 
 export const siteTools: readonly SiteTool[] = [

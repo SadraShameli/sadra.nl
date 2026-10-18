@@ -21,11 +21,11 @@ test('accounting dashboard shell commits under instant()', async ({
                 page.getByRole('heading', {
                     exact: true,
                     level: 1,
-                    name: 'Run an import',
+                    name: 'Import',
                 }),
             ).toBeVisible();
             await expect(
-                page.getByRole('link', { exact: true, name: 'Connections' }),
+                page.getByRole('link', { exact: true, name: 'Runs' }),
             ).toBeVisible();
             await expect(newRunPanel).toHaveCount(0);
         },

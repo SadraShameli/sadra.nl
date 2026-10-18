@@ -1,6 +1,5 @@
 'use client';
 
-import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import * as React from 'react';
 import { type DateRange } from 'react-day-picker';
@@ -12,6 +11,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '~/components/ui/popover';
+import { formatDisplayDate, formatDisplayDateRange } from '~/lib/format';
 import { cn } from '~/lib/utilities';
 
 interface DatePickerProperties {
@@ -81,7 +81,7 @@ export function DatePicker({
                 >
                     <CalendarIcon className="size-4 text-muted-foreground" />
                     {value ? (
-                        format(value, 'MMM d, y')
+                        formatDisplayDate(value)
                     ) : (
                         <span>{placeholder}</span>
                     )}
@@ -163,6 +163,6 @@ function formatRange(
 ): React.ReactNode {
     if (!range?.from) return <span>{placeholder}</span>;
     return range.to
-        ? `${format(range.from, 'MMM d, y')} – ${format(range.to, 'MMM d, y')}`
-        : format(range.from, 'MMM d, y');
+        ? formatDisplayDateRange(range.from, range.to)
+        : formatDisplayDate(range.from);
 }

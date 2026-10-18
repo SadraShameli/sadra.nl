@@ -156,6 +156,20 @@ describe('TOOL_CATALOG', () => {
         }>().not.toExtend<ToolPageHeadingProperties>();
     });
 
+    it('features exactly the simulator, compare, bankroll and strategy lab', () => {
+        const featuredIds = TOOL_CATALOG.filter((entry) => entry.featured).map(
+            (entry) => entry.id,
+        );
+        expect(featuredIds.toSorted(byName)).toEqual(
+            [
+                ToolId.Bankroll,
+                ToolId.Compare,
+                ToolId.Simulator,
+                ToolId.StrategyLab,
+            ].toSorted(byName),
+        );
+    });
+
     it('never gives an own codec to a calculator-input tool', () => {
         for (const entry of TOOL_CATALOG) {
             if (entry.usesCalculatorInputs) {

@@ -7778,7 +7778,7 @@ describe('buildOverview setup checklist (PT-69, F-V28)', () => {
             }),
         ]);
         expect(byKey.get(SetupStep.ExpectedValueComputed)?.href).toBe(
-            `${routes.propCalculator.accounts.index}#prop-overview-expected-net-heading`,
+            `${routes.propCalculator.accounts.index}?tab=money#prop-overview-expected-net`,
         );
     });
 

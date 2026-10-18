@@ -334,6 +334,7 @@ import {
     type SlotEngine,
     uniformSlotEngine,
 } from './engineSlot';
+import { overviewSectionHref, OverviewSectionId } from './overviewSections';
 import {
     type PayoutTimingCardModel,
     payoutTimingCardOf,
@@ -1737,8 +1738,9 @@ const CUSHION_BASIS_LABEL: Readonly<Record<CushionRatioBasis, string>> = {
     [CushionRatioBasis.Live]: 'Live',
 };
 
-const EXPECTED_NET_SECTION_HREF =
-    `${routes.propCalculator.accounts.index}#prop-overview-expected-net-heading` as const;
+const EXPECTED_NET_SECTION_HREF = overviewSectionHref(
+    OverviewSectionId.ExpectedNet,
+);
 
 const SETUP_STEP_LABEL: Readonly<Record<SetupStep, string>> = {
     [SetupStep.BudgetSet]: 'Budget set',

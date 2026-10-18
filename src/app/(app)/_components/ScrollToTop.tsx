@@ -24,7 +24,7 @@ export default function ScrollToTop() {
             aria-label="Scroll to top"
             className={cn(
                 'app-scroll',
-                'fixed right-4 bottom-4 z-50 size-12 sm:right-10 sm:bottom-10 sm:size-14',
+                'sticky bottom-4 z-50 -mt-16 mr-4 mb-4 size-12 self-end sm:bottom-10 sm:-mt-24 sm:mr-10 sm:mb-10 sm:size-14',
                 '[body:has([data-sticky-action-bar])_&]:bottom-20 sm:[body:has([data-sticky-action-bar])_&]:bottom-24',
                 'btn-transition ease-in-out hover:scale-110',
                 visible

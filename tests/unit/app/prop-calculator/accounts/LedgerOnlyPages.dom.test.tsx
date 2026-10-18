@@ -17,6 +17,7 @@ import {
     AccountEditor,
 } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
+import { OverviewTab } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewSections';
 import { OverviewView } from '~/app/(app)/prop-calculator/accounts/_components/overview/OverviewView';
 import { LEDGER_ONLY_SNAPSHOT_NOTICE } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import { ImportView } from '~/app/(app)/prop-calculator/accounts/import/ImportView';
@@ -51,6 +52,7 @@ import {
 import { typeInto } from '../../../components/formDialog';
 import { infoText } from '../infoPopover';
 import { AccountsTable } from './AccountsTableWithData';
+import { openOverviewTab, overviewNavigation } from './overviewTabs';
 import { pickOption } from './pickOption';
 
 interface FakeQuery {
@@ -137,11 +139,21 @@ const harness = vi.hoisted(() => {
     };
 });
 
-vi.mock('next/navigation', () => ({
-    usePathname: () => '/prop-calculator/accounts',
-    useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }),
-    useSearchParams: () => new URLSearchParams(),
-}));
+vi.mock('next/navigation', async () => {
+    const { overviewNavigation, useFakeSearchParams } =
+        await import('./overviewTabs');
+    return {
+        usePathname: () => '/prop-calculator/accounts',
+        useRouter: () => ({
+            push: vi.fn(),
+            refresh: vi.fn(),
+            replace: (href: string) => {
+                overviewNavigation.replace(href);
+            },
+        }),
+        useSearchParams: () => useFakeSearchParams(overviewNavigation),
+    };
+});
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
@@ -398,6 +410,7 @@ describe('ledger-only accounts across the accounts pages', () => {
         });
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.reset();
+        overviewNavigation.reset();
         harness.queries.set('propAccounts.externalFirm.list', answer([HOLA]));
         container = document.createElement('div');
         document.body.append(container);
@@ -609,14 +622,16 @@ describe('ledger-only accounts across the accounts pages', () => {
             isPending: false,
         });
         render(<OverviewView userId={USER_ID} />);
-        expect(sectionTitled('Costs').textContent).toContain(HOLA.name);
-        expect(container.textContent).not.toContain(UNLISTED_FIRM_LABEL);
         expect(
             infoText(
                 sectionTitled('Key figures'),
                 'Realized net per slot per month',
             ),
         ).toContain('1 ledger-only account not counted');
+        expect(container.textContent).not.toContain(UNLISTED_FIRM_LABEL);
+        openOverviewTab(container, OverviewTab.Costs);
+        expect(sectionTitled('Costs').textContent).toContain(HOLA.name);
+        expect(container.textContent).not.toContain(UNLISTED_FIRM_LABEL);
     });
 
     it('checks a ledger-only import row against your own firms', async () => {

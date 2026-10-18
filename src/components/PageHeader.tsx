@@ -17,6 +17,7 @@ export function PageHeader({
     eyebrow,
     lead,
     meta,
+    tabs,
     title,
     titleReference,
 }: {
@@ -26,6 +27,7 @@ export function PageHeader({
     readonly eyebrow?: string;
     readonly lead?: ReactNode;
     readonly meta?: ReactNode;
+    readonly tabs?: ReactNode;
     readonly title: ReactNode;
     readonly titleReference?: Ref<HTMLHeadingElement>;
 }) {
@@ -69,6 +71,9 @@ export function PageHeader({
                 <div className="flex flex-wrap items-center gap-2">
                     {actions}
                 </div>
+            )}
+            {tabs === undefined ? null : (
+                <div className="min-w-0 basis-full">{tabs}</div>
             )}
         </header>
     );

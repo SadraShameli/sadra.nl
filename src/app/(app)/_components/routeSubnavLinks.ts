@@ -11,6 +11,7 @@ export interface SubnavLink {
     carriesQuery?: boolean;
     href: string;
     match?: SubnavMatch;
+    pages?: SubnavPages;
     prefetch?: boolean;
     query?: string;
 }
@@ -18,6 +19,22 @@ export interface SubnavLink {
 export interface SubnavLinkAttributes {
     'aria-current': 'page' | undefined;
     'data-state': 'active' | 'inactive';
+}
+
+export interface SubnavPage {
+    readonly href: string;
+    readonly label: string;
+}
+
+export type SubnavPages = readonly [SubnavPage, ...SubnavPage[]];
+
+export function activeSubnavGroup<TLink extends SubnavLink>(
+    pathname: string,
+    items: readonly TLink[],
+): TLink | undefined {
+    return items.find(
+        (item) => item.pages?.some((page) => page.href === pathname) === true,
+    );
 }
 
 export function activeSubnavHref(
@@ -40,6 +57,9 @@ export function isSubnavItemActive(
     pathname: string,
     item: SubnavLink,
 ): boolean {
+    if (item.pages?.some((page) => page.href === pathname) === true) {
+        return true;
+    }
     const match = item.match ?? SubnavMatch.Exact;
     switch (match) {
         case SubnavMatch.Exact: {
@@ -52,6 +72,13 @@ export function isSubnavItemActive(
             return pathname === item.href || pathname.startsWith(prefix);
         }
     }
+}
+
+export function subnavGroup(
+    label: string,
+    pages: SubnavPages,
+): SubnavLink & { readonly label: string } {
+    return { href: pages[0].href, label, pages };
 }
 
 export function subnavHref(item: SubnavLink, query: string): Route {

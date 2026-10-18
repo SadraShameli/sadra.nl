@@ -8,14 +8,12 @@ import { memo, type ReactNode, useMemo, useState } from 'react';
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
-import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
 import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import { InfoNote } from '~/components/InfoNote';
+import { type PageTab, UrlPageTabs } from '~/components/PageTabs';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
-import { Collapsible, CollapsibleContent } from '~/components/ui/collapsible';
 import { Skeleton } from '~/components/ui/skeleton';
 import {
     isInvalidStoredRecord,
@@ -63,10 +61,14 @@ import {
 } from './overviewModel';
 import { OverviewPanel } from './OverviewPanel';
 import {
-    OVERVIEW_READY_LAYOUT,
-    OVERVIEW_SECTION_TITLE,
+    OVERVIEW_DEFAULT_TAB,
+    OVERVIEW_TAB_LABEL,
+    OVERVIEW_TAB_PARAMETER,
+    OVERVIEW_TABS,
     overviewSectionAnchor,
     OverviewSectionId,
+    type OverviewTab,
+    overviewTabSections,
 } from './overviewSections';
 import { PayoutSizesCard } from './PayoutSizesCard';
 import { PayoutTimingCard } from './PayoutTimingCard';
@@ -83,6 +85,14 @@ import { TiltVarianceCard } from './TiltVarianceCard';
 import { TimelineCard } from './TimelineCard';
 import { usePortfolioQueries } from './usePortfolioData';
 import { ViolationsCard } from './ViolationsCard';
+
+const LEDGER_FREE_SECTIONS = [
+    OverviewSectionId.Accounts,
+    OverviewSectionId.Alerts,
+    OverviewSectionId.Violations,
+] as const;
+
+type LedgerFreeSectionId = (typeof LEDGER_FREE_SECTIONS)[number];
 
 export function OverviewView({ userId }: { readonly userId: string }) {
     const load = useOverviewPortfolioData();
@@ -176,6 +186,14 @@ function AlertsSection({ alerts }: { readonly alerts: OverviewAlerts }) {
     );
 }
 
+function isLedgerFreeSection(
+    section: OverviewSectionId,
+): section is LedgerFreeSectionId {
+    const ledgerFreeSections: readonly OverviewSectionId[] =
+        LEDGER_FREE_SECTIONS;
+    return ledgerFreeSections.includes(section);
+}
+
 function isSetupShown(setup: OverviewSetup): boolean {
     switch (setup.kind) {
         case OverviewSectionStatus.Failed: {
@@ -190,47 +208,53 @@ function isSetupShown(setup: OverviewSetup): boolean {
     }
 }
 
-function JumpNav({
-    sections,
+function LedgerFreeSection({
+    accountsTable,
+    model,
+    section,
 }: {
-    readonly sections: readonly OverviewSectionId[];
+    readonly accountsTable: ReactNode;
+    readonly model: OverviewModel;
+    readonly section: LedgerFreeSectionId;
+}) {
+    switch (section) {
+        case OverviewSectionId.Accounts: {
+            return accountsTable;
+        }
+        case OverviewSectionId.Alerts: {
+            return <AlertsSection alerts={model.alerts} />;
+        }
+        case OverviewSectionId.Violations: {
+            return <ViolationsSummarySection violations={model.violations} />;
+        }
+    }
+}
+
+function LedgerGapSections({
+    accountsTable,
+    children,
+    model,
+    tab,
+}: {
+    readonly accountsTable: ReactNode;
+    readonly children: ReactNode;
+    readonly model: OverviewModel;
+    readonly tab: OverviewTab;
 }) {
     return (
-        <nav aria-label="Overview sections">
-            <Card className="py-3">
-                <CardContent>
-                    <Collapsible className="flex flex-col text-sm">
-                        <DisclosureTrigger className="font-medium text-foreground">
-                            Jump to a section ({String(sections.length)})
-                        </DisclosureTrigger>
-                        <CollapsibleContent>
-                            <ul className="mt-2 grid gap-x-6 gap-y-1 md:grid-cols-2 lg:grid-cols-4">
-                                {sections.map((section) => (
-                                    <li key={section}>
-                                        <Button
-                                            asChild
-                                            className="-ml-3 text-muted-foreground"
-                                            size="sm"
-                                            variant="link"
-                                        >
-                                            <a
-                                                href={`#${overviewSectionAnchor(section)}`}
-                                            >
-                                                {
-                                                    OVERVIEW_SECTION_TITLE[
-                                                        section
-                                                    ]
-                                                }
-                                            </a>
-                                        </Button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </CollapsibleContent>
-                    </Collapsible>
-                </CardContent>
-            </Card>
-        </nav>
+        <>
+            {overviewTabSections(tab)
+                .filter((section) => isLedgerFreeSection(section))
+                .map((section) => (
+                    <LedgerFreeSection
+                        accountsTable={accountsTable}
+                        key={section}
+                        model={model}
+                        section={section}
+                    />
+                ))}
+            {children}
+        </>
     );
 }
 
@@ -285,57 +309,96 @@ const OverviewSections = memo(function OverviewSections({
     readonly model: OverviewModel;
     readonly userId: string;
 }) {
+    const tabs: readonly PageTab<OverviewTab>[] = OVERVIEW_TABS.map((tab) => ({
+        content: (
+            <div className="flex flex-col gap-8">
+                <OverviewTabSections
+                    accountsTable={accountsTable}
+                    load={load}
+                    model={model}
+                    tab={tab}
+                    userId={userId}
+                />
+            </div>
+        ),
+        label: OVERVIEW_TAB_LABEL[tab],
+        value: tab,
+    }));
+    return (
+        <UrlPageTabs
+            defaultValue={OVERVIEW_DEFAULT_TAB}
+            searchParameter={OVERVIEW_TAB_PARAMETER}
+            tabs={tabs}
+        />
+    );
+});
+
+function OverviewTabSections({
+    accountsTable,
+    load,
+    model,
+    tab,
+    userId,
+}: {
+    readonly accountsTable: ReactNode;
+    readonly load: PortfolioLoad;
+    readonly model: OverviewModel;
+    readonly tab: OverviewTab;
+    readonly userId: string;
+}) {
     const { ledger } = model;
     switch (ledger.kind) {
         case OverviewSectionStatus.Failed: {
             return (
-                <>
-                    <AlertsSection alerts={model.alerts} />
-                    {accountsTable}
-                    <ViolationsSummarySection violations={model.violations} />
+                <LedgerGapSections
+                    accountsTable={accountsTable}
+                    model={model}
+                    tab={tab}
+                >
                     <Alert variant="destructive">
                         <TriangleAlert />
                         <AlertTitle>The ledger cards are not shown</AlertTitle>
                         <AlertDescription>{ledger.message}</AlertDescription>
                     </Alert>
-                </>
+                </LedgerGapSections>
             );
         }
         case OverviewSectionStatus.Pending: {
             return (
-                <>
-                    <AlertsSection alerts={model.alerts} />
-                    {accountsTable}
-                    <ViolationsSummarySection violations={model.violations} />
+                <LedgerGapSections
+                    accountsTable={accountsTable}
+                    model={model}
+                    tab={tab}
+                >
                     <SectionSkeleton label="Loading the ledger cards" />
-                </>
+                </LedgerGapSections>
             );
         }
         case OverviewSectionStatus.Ready: {
-            const sections = OVERVIEW_READY_LAYOUT.filter(
-                (section) =>
-                    section !== OverviewSectionId.Setup ||
-                    isSetupShown(model.setup),
-            );
             return (
                 <>
-                    <JumpNav sections={sections} />
-                    {sections.map((section) => (
-                        <ReadySection
-                            accountsTable={accountsTable}
-                            cards={ledger}
-                            key={section}
-                            load={load}
-                            model={model}
-                            section={section}
-                            userId={userId}
-                        />
-                    ))}
+                    {overviewTabSections(tab)
+                        .filter(
+                            (section) =>
+                                section !== OverviewSectionId.Setup ||
+                                isSetupShown(model.setup),
+                        )
+                        .map((section) => (
+                            <ReadySection
+                                accountsTable={accountsTable}
+                                cards={ledger}
+                                key={section}
+                                load={load}
+                                model={model}
+                                section={section}
+                                userId={userId}
+                            />
+                        ))}
                 </>
             );
         }
     }
-});
+}
 
 function PageSkeleton() {
     return (
@@ -366,11 +429,16 @@ function ReadySection({
     readonly userId: string;
 }) {
     switch (section) {
-        case OverviewSectionId.Accounts: {
-            return accountsTable;
-        }
-        case OverviewSectionId.Alerts: {
-            return <AlertsSection alerts={model.alerts} />;
+        case OverviewSectionId.Accounts:
+        case OverviewSectionId.Alerts:
+        case OverviewSectionId.Violations: {
+            return (
+                <LedgerFreeSection
+                    accountsTable={accountsTable}
+                    model={model}
+                    section={section}
+                />
+            );
         }
         case OverviewSectionId.AttemptEconomics: {
             return <AttemptEconomicsCard model={cards.attemptEconomics} />;
@@ -539,9 +607,6 @@ function ReadySection({
         }
         case OverviewSectionId.Timeline: {
             return <TimelineCard model={cards.timeline} />;
-        }
-        case OverviewSectionId.Violations: {
-            return <ViolationsSummarySection violations={model.violations} />;
         }
     }
 }

@@ -17,6 +17,11 @@ import {
     ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { type AccountListAccount } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import {
+    overviewSectionHref,
+    OverviewSectionId,
+    OverviewTab,
+} from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewSections';
 import { OverviewView } from '~/app/(app)/prop-calculator/accounts/_components/overview/OverviewView';
 import PropAccountsPage from '~/app/(app)/prop-calculator/accounts/page';
 import { formatDisplayDate } from '~/lib/format';
@@ -55,7 +60,7 @@ import { routes } from '~/lib/site/routes';
 
 import { resolveServerTree } from '../../resolveServerTree';
 import { infoText } from '../infoPopover';
-import { openDisclosure } from './openDisclosure';
+import { openOverviewTab, overviewNavigation } from './overviewTabs';
 
 interface FakeQuery {
     data: unknown;
@@ -105,14 +110,22 @@ vi.mock('next/server', async (importOriginal) => {
     const stubs = await import('../../nextRequestStubs');
     return stubs.nextServerWithoutConnection(importOriginal);
 });
-vi.mock('next/navigation', () => ({
-    redirect: (href: string) => {
-        throw new Error(`unexpected redirect to ${href}`);
-    },
-    usePathname: () => '/prop-calculator/accounts',
-    useRouter: () => ({ replace: vi.fn() }),
-    useSearchParams: () => new URLSearchParams(),
-}));
+vi.mock('next/navigation', async () => {
+    const { overviewNavigation: navigation, useFakeSearchParams } =
+        await import('./overviewTabs');
+    return {
+        redirect: (href: string) => {
+            throw new Error(`unexpected redirect to ${href}`);
+        },
+        usePathname: () => '/prop-calculator/accounts',
+        useRouter: () => ({
+            replace: (href: string) => {
+                navigation.replace(href);
+            },
+        }),
+        useSearchParams: () => useFakeSearchParams(navigation),
+    };
+});
 
 vi.mock('~/lib/auth/server', () => ({
     getServerSession: () => Promise.resolve({ user: { id: 'user-a' } }),
@@ -172,42 +185,60 @@ vi.mock('~/trpc/react', () => ({
 
 const { firm, plan } = firstEvalPlan();
 
-const SECTION_HEADINGS = [
-    'Setup checklist',
-    'Key figures',
-    'Alerts',
-    'Accounts',
-    'Bankroll',
-    'Firms',
-    'Cushion board',
-    'Payout readiness',
-    'Exposure',
-    'Profit concentration',
-    'Rule violations',
-    'Data notes',
-    'Expected net',
-    'Where EV comes from',
-    'Fresh-start projection',
-    "Next payout and value from today's state",
-    'Plan cap usage',
-    'Pooled caps',
-    'Live proximity',
-    'Stage funnel',
-    'Tilt vs variance',
-    'Diversification',
-    'Costs',
-    'Firm returns',
-    'Realized outcomes',
-    'Payout sizes',
-    'Payouts per funded account',
-    'Your attempt economics',
-    'Replacement',
-    'Monthly statement',
-    'Attempt throughput',
-    'Repeatability',
-    'Payout timing',
-    'Timeline',
-];
+const TAB_ORDER = [
+    OverviewTab.Today,
+    OverviewTab.Money,
+    OverviewTab.Payouts,
+    OverviewTab.Costs,
+    OverviewTab.Timeline,
+] as const;
+
+const TAB_HEADINGS: Readonly<Record<OverviewTab, readonly string[]>> = {
+    [OverviewTab.Costs]: [
+        'Costs',
+        'Your attempt economics',
+        'Replacement',
+        'Monthly statement',
+        'Stage funnel',
+        'Attempt throughput',
+        'Repeatability',
+    ],
+    [OverviewTab.Money]: [
+        'Bankroll',
+        'Exposure',
+        'Expected net',
+        'Where EV comes from',
+        'Fresh-start projection',
+        'Firms',
+        'Firm returns',
+        'Profit concentration',
+        'Diversification',
+        'Tilt vs variance',
+        'Live proximity',
+    ],
+    [OverviewTab.Payouts]: [
+        "Next payout and value from today's state",
+        'Plan cap usage',
+        'Pooled caps',
+        'Payout sizes',
+        'Payouts per funded account',
+        'Payout timing',
+    ],
+    [OverviewTab.Timeline]: ['Realized outcomes', 'Timeline', 'Data notes'],
+    [OverviewTab.Today]: [
+        'Setup checklist',
+        'Key figures',
+        'Alerts',
+        'Accounts',
+        'Cushion board',
+        'Payout readiness',
+        'Rule violations',
+    ],
+};
+
+const LEDGER_FREE_HEADINGS = ['Alerts', 'Accounts', 'Rule violations'];
+
+const OTHER_TABS = TAB_ORDER.filter((tab) => tab !== OverviewTab.Today);
 
 function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };
@@ -377,6 +408,10 @@ function evalSnapshotRow(
     };
 }
 
+function expectedHeadingsByTab(): [OverviewTab, readonly string[]][] {
+    return TAB_ORDER.map((tab) => [tab, TAB_HEADINGS[tab]]);
+}
+
 function failure(message: string, propRejection?: PropRejection): FakeQuery {
     return {
         data: undefined,
@@ -526,6 +561,39 @@ describe('OverviewView', () => {
         );
     }
 
+    function sectionTitles(): (string | undefined)[] {
+        return labelledSections().map(
+            (section) => headingOf(section)?.textContent,
+        );
+    }
+
+    function headingsByTab(): [OverviewTab, (string | undefined)[]][] {
+        return TAB_ORDER.map((tab) => {
+            openOverviewTab(container, tab);
+            return [tab, sectionTitles()];
+        });
+    }
+
+    function openTabPanel(): HTMLElement | null {
+        return container.querySelector<HTMLElement>(
+            '[role="tabpanel"][data-state="active"]',
+        );
+    }
+
+    function tabLabels(): string[] {
+        return [...container.querySelectorAll<HTMLElement>('[role="tab"]')].map(
+            (tab) => tab.textContent,
+        );
+    }
+
+    function selectedTabLabel(): string | undefined {
+        return (
+            container.querySelector<HTMLElement>(
+                '[role="tab"][aria-selected="true"]',
+            )?.textContent ?? undefined
+        );
+    }
+
     beforeEach(() => {
         vi.useFakeTimers({
             now: new Date(`${TODAY}T12:00:00Z`),
@@ -534,6 +602,7 @@ describe('OverviewView', () => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.queries.clear();
         harness.mutate.mockClear();
+        overviewNavigation.reset();
         container = document.createElement('div');
         document.body.append(container);
         root = createRoot(container);
@@ -548,59 +617,102 @@ describe('OverviewView', () => {
         vi.unstubAllGlobals();
     });
 
-    it('renders one h1 and an h2 per card, each section labelled by its heading, with the accounts table as the accounts section', async () => {
+    it('renders one h1 and an h2 per card on every tab, each section labelled by its heading, with the accounts table as the accounts section', async () => {
         answerEverything([
             overviewAccount('alpha'),
             overviewAccount('unknown', { planSerial: 'no-such-plan' }),
         ]);
         await renderPage();
-        expect(container.querySelectorAll('h1')).toHaveLength(1);
-        expect(container.querySelector('h1')?.textContent).toBe(
-            'Prop accounts',
+        const texts: string[] = [];
+        for (const tab of TAB_ORDER) {
+            openOverviewTab(container, tab);
+            expect(container.querySelectorAll('h1')).toHaveLength(1);
+            expect(container.querySelector('h1')?.textContent).toBe(
+                'Prop accounts',
+            );
+            const sections = labelledSections();
+            const headings = sections.map((section) => headingOf(section));
+            expect(headings.every((heading) => heading?.tagName === 'H2')).toBe(
+                true,
+            );
+            expect(container.querySelectorAll('h2')).toHaveLength(
+                sections.length,
+            );
+            expect(headings.map((heading) => heading?.textContent)).toEqual(
+                TAB_HEADINGS[tab],
+            );
+            texts.push(container.textContent);
+        }
+        openOverviewTab(container, OverviewTab.Today);
+        expect(sectionNamed('Accounts')?.getAttribute('aria-labelledby')).toBe(
+            'prop-accounts-list-heading',
         );
-        const sections = labelledSections();
-        const headings = sections.map((section) => headingOf(section));
-        expect(headings.every((heading) => heading?.tagName === 'H2')).toBe(
-            true,
-        );
-        expect(container.querySelectorAll('h2')).toHaveLength(sections.length);
-        expect(headings.map((heading) => heading?.textContent)).toEqual(
-            SECTION_HEADINGS,
-        );
-        expect(
-            sections[SECTION_HEADINGS.indexOf('Accounts')]?.getAttribute(
-                'aria-labelledby',
-            ),
-        ).toBe('prop-accounts-list-heading');
-        expect(container.textContent).toContain(
+        expect(texts.join('\n')).toContain(
             'Account events are loaded for the last 3 years only',
         );
-        expect(container.textContent).toContain('Unresolvable plan');
+        expect(texts.join('\n')).toContain('Unresolvable plan');
     });
 
-    it('lists every shown section in the jump navigation, in page order, each linking to its section', () => {
+    it('opens on today, gives every other tab its own address and drops the address again for today', () => {
         answerEverything([overviewAccount('alpha')]);
         render();
-        const nav = container.querySelector(
-            ':scope nav[aria-label="Overview sections"]',
+        expect(tabLabels()).toEqual([
+            'Today',
+            'Money',
+            'Payouts',
+            'Costs',
+            'Timeline',
+        ]);
+        expect(selectedTabLabel()).toBe('Today');
+        expect(sectionTitles()).toEqual(TAB_HEADINGS[OverviewTab.Today]);
+        openOverviewTab(container, OverviewTab.Payouts);
+        expect(new Set(overviewNavigation.replacedHrefs)).toEqual(
+            new Set(['?tab=payouts']),
         );
-        if (nav === null) throw new Error('no jump navigation');
-        const links = [
-            ...openDisclosure(
-                nav,
-                `Jump to a section (${String(SECTION_HEADINGS.length)})`,
-            ).querySelectorAll<HTMLAnchorElement>('a'),
-        ];
-        expect(links.map((link) => link.textContent)).toEqual(SECTION_HEADINGS);
-        for (const link of links) {
-            const target = container.querySelector(
-                `#${CSS.escape(link.getAttribute('href')?.slice(1) ?? '')}`,
-            );
-            expect(target?.textContent).toContain(link.textContent);
-        }
+        expect(selectedTabLabel()).toBe('Payouts');
+        expect(sectionTitles()).toEqual(TAB_HEADINGS[OverviewTab.Payouts]);
+        openOverviewTab(container, OverviewTab.Today);
+        expect(overviewNavigation.replacedHrefs.at(-1)).toBe('?');
+        expect(new Set(overviewNavigation.replacedHrefs)).toEqual(
+            new Set(['?', '?tab=payouts']),
+        );
+        expect(selectedTabLabel()).toBe('Today');
+        expect(sectionTitles()).toEqual(TAB_HEADINGS[OverviewTab.Today]);
     });
 
-    it('mounts the payout timing card after the repeatability card, as a named focusable region with its rows', () => {
+    it('opens the tab named in the address', () => {
+        answerEverything([overviewAccount('alpha')]);
+        overviewNavigation.reset('tab=costs');
+        render();
+        expect(selectedTabLabel()).toBe('Costs');
+        expect(sectionTitles()).toEqual(TAB_HEADINGS[OverviewTab.Costs]);
+    });
+
+    it('links the expected net step of the setup checklist to the money tab at the expected net section', () => {
+        answerEverything([overviewAccount('alpha')]);
+        render();
+        const href = [
+            ...(sectionNamed('Setup checklist')?.querySelectorAll('a') ?? []),
+        ]
+            .find((anchor) => anchor.textContent === 'See expected net')
+            ?.getAttribute('href');
+        expect(href).toBe(
+            `${routes.propCalculator.accounts.index}?tab=money#prop-overview-expected-net`,
+        );
+        expect(href).toBe(overviewSectionHref(OverviewSectionId.ExpectedNet));
+        act(() => {
+            overviewNavigation.replace(href ?? '');
+        });
+        expect(selectedTabLabel()).toBe('Money');
+        const target = container.querySelector<HTMLElement>(
+            '#prop-overview-expected-net',
+        );
+        expect(
+            target === null ? undefined : headingOf(target)?.textContent,
+        ).toBe('Expected net');
+    });
+
+    it('mounts the payout timing card last on the payouts tab, after the payouts per funded account card, as a named focusable region with its rows', () => {
         const alpha = overviewAccount('alpha', {
             fundedOn: '2026-08-01',
             purchasedOn: '2026-06-01',
@@ -624,11 +736,11 @@ describe('OverviewView', () => {
             ]),
         );
         render();
-        const titles = labelledSections().map(
-            (section) => headingOf(section)?.textContent,
-        );
+        openOverviewTab(container, OverviewTab.Payouts);
+        const titles = sectionTitles();
+        expect(titles.at(-1)).toBe('Payout timing');
         expect(titles.indexOf('Payout timing')).toBe(
-            titles.indexOf('Repeatability') + 1,
+            titles.indexOf('Payouts per funded account') + 1,
         );
         const region = sectionNamed(
             'Payout timing',
@@ -693,10 +805,12 @@ describe('OverviewView', () => {
         render();
         expect(container.textContent).toContain('Payout multiple');
         expect(container.textContent).toContain('2.00x');
+        openOverviewTab(container, OverviewTab.Money);
         const firmSection = labelledSections().find(
             (section) => headingOf(section)?.textContent === 'Firm returns',
         );
         expect(firmSection?.textContent).toContain(firm.displayName);
+        openOverviewTab(container, OverviewTab.Costs);
         const repeatabilitySection = labelledSections().find(
             (section) => headingOf(section)?.textContent === 'Repeatability',
         );
@@ -739,6 +853,7 @@ describe('OverviewView', () => {
             ]),
         );
         render();
+        openOverviewTab(container, OverviewTab.Money);
         const bankroll = sectionNamed('Bankroll');
         const labels = [...(bankroll?.querySelectorAll('dt') ?? [])].map(
             (node) => node.textContent,
@@ -787,6 +902,7 @@ describe('OverviewView', () => {
             ]),
         );
         render();
+        openOverviewTab(container, OverviewTab.Costs);
         const repeatability = sectionNamed('Repeatability');
         expect(repeatability?.textContent).toContain(
             'Per funded slot per month (measured accounts only)',
@@ -815,6 +931,7 @@ describe('OverviewView', () => {
         };
         harness.queries.set('payout.list', answer([paidPayout]));
         render();
+        openOverviewTab(container, OverviewTab.Costs);
         const statement = sectionNamed('Monthly statement');
         expect(statement?.textContent).toContain('Jun 2026');
         const cohortTab = [
@@ -836,6 +953,7 @@ describe('OverviewView', () => {
         const alpha = overviewAccount('alpha', { purchasedOn: '2026-06-01' });
         answerEverything([alpha]);
         render();
+        openOverviewTab(container, OverviewTab.Costs);
         const section = sectionNamed('Attempt throughput');
         expect(section?.textContent).toContain('Jun 2026');
         expect(section?.textContent).toContain(firm.displayName);
@@ -861,6 +979,7 @@ describe('OverviewView', () => {
         };
         harness.queries.set('payout.list', answer([paidPayout]));
         render();
+        openOverviewTab(container, OverviewTab.Payouts);
         const payoutSizes = sectionNamed('Payout sizes');
         expect(payoutSizes?.textContent).not.toContain('No paid payout yet.');
         expect(payoutSizes?.textContent).toContain('Mean');
@@ -869,6 +988,7 @@ describe('OverviewView', () => {
             'No funded account yet.',
         );
         expect(fundedPayouts?.textContent).toContain(firm.displayName);
+        openOverviewTab(container, OverviewTab.Costs);
         const attemptEconomics = sectionNamed('Your attempt economics');
         expect(attemptEconomics?.textContent).not.toContain(
             'No account with a modeled plan yet.',
@@ -1003,11 +1123,7 @@ describe('OverviewView', () => {
         ];
         expect(repairLinks).toHaveLength(1);
         expect(repairLinks[0]?.textContent).toBe('Repair the rulebook');
-        expect(
-            labelledSections().map(
-                (section) => headingOf(section)?.textContent,
-            ),
-        ).toEqual(SECTION_HEADINGS);
+        expect(headingsByTab()).toEqual(expectedHeadingsByTab());
     });
 
     it('links no rulebook repair page when the rulebook fails for another reason', () => {
@@ -1067,11 +1183,38 @@ describe('OverviewView', () => {
         expect(container.textContent).toContain(
             'Alerts that depend on account history could not be checked because your account events could not be loaded.',
         );
+        expect(sectionTitles()).toEqual(LEDGER_FREE_HEADINGS);
+        expect(openTabPanel()?.textContent).toContain(
+            'The ledger cards are not shown',
+        );
+        for (const tab of OTHER_TABS) {
+            openOverviewTab(container, tab);
+            expect(sectionTitles()).toEqual([]);
+            expect(openTabPanel()?.textContent).toContain(
+                'The ledger cards are not shown',
+            );
+        }
+    });
+
+    it('keeps the alerts, the accounts and the violations on today and shows the ledger placeholder on every tab while the fees load', () => {
+        answerEverything([overviewAccount('alpha')]);
+        harness.queries.delete('fee.list');
+        render();
+        expect(sectionTitles()).toEqual(LEDGER_FREE_HEADINGS);
         expect(
-            labelledSections().map(
-                (section) => headingOf(section)?.textContent,
+            openTabPanel()?.querySelector(
+                '[aria-busy="true"][aria-label="Loading the ledger cards"]',
             ),
-        ).toEqual(['Alerts', 'Accounts', 'Rule violations']);
+        ).not.toBeNull();
+        for (const tab of OTHER_TABS) {
+            openOverviewTab(container, tab);
+            expect(sectionTitles()).toEqual([]);
+            expect(
+                openTabPanel()?.querySelector(
+                    '[aria-busy="true"][aria-label="Loading the ledger cards"]',
+                ),
+            ).not.toBeNull();
+        }
     });
 
     it('keeps every card after a failed refetch and says which data is stale', () => {
@@ -1089,11 +1232,7 @@ describe('OverviewView', () => {
         expect(container.textContent).toContain(
             'Failed to fetch. The figures below use the last loaded latest balances.',
         );
-        expect(
-            labelledSections()
-                .map((section) => headingOf(section)?.textContent)
-                .slice(0, SECTION_HEADINGS.length),
-        ).toEqual(SECTION_HEADINGS);
+        expect(headingsByTab()).toEqual(expectedHeadingsByTab());
     });
 
     it('warns instead of silently naming firms of your own unlisted when the firm list fails to load', () => {
@@ -1128,11 +1267,12 @@ describe('OverviewView', () => {
             'The ledger cards could not be computed: Not a calendar date: "2026-02-30".',
         );
         expect(container.textContent).toContain('Invalid stored date');
-        const titles = labelledSections().map(
-            (section) => headingOf(section)?.textContent,
+        expect(sectionTitles()).toContain('Alerts');
+        openOverviewTab(container, OverviewTab.Costs);
+        expect(sectionTitles()).not.toContain('Costs');
+        expect(openTabPanel()?.textContent).toContain(
+            'The ledger cards could not be computed: Not a calendar date: "2026-02-30".',
         );
-        expect(titles).toContain('Alerts');
-        expect(titles).not.toContain('Costs');
     });
 
     it('shows a loading placeholder and no cards while the data is pending', async () => {
@@ -1203,6 +1343,7 @@ describe('OverviewView', () => {
     it('shows the firms tile with the roster counts, the scale gate and a link to the firms page (PT-69, F-V26, F-V27)', () => {
         answerEverything([overviewAccount('alpha')]);
         render();
+        openOverviewTab(container, OverviewTab.Money);
         const tile = sectionNamed('Firms');
         const figures = Object.fromEntries(
             [...(tile?.querySelectorAll('dt') ?? [])].map((term) => [
@@ -1229,6 +1370,7 @@ describe('OverviewView', () => {
             answerEverything([overviewAccount('alpha')]);
             harness.queries.delete(pendingQuery);
             render();
+            openOverviewTab(container, OverviewTab.Money);
             const tile = sectionNamed('Firms');
             expect(tile?.textContent).not.toContain('Firms used');
             expect(tile?.textContent).not.toContain('Scale gate');
@@ -1240,6 +1382,7 @@ describe('OverviewView', () => {
         answerEverything([overviewAccount('alpha')]);
         harness.queries.set('firmEngagement.list', failure('statuses down'));
         render();
+        openOverviewTab(container, OverviewTab.Money);
         expect(sectionNamed('Firms')?.textContent).toContain(
             'Your firm statuses could not be loaded',
         );
@@ -1248,6 +1391,7 @@ describe('OverviewView', () => {
     it('shows the profit concentration and where EV comes from cards with their labels (PT-69, F-V26, F-V28)', () => {
         answerEverything([heldFundedAccount()]);
         render();
+        openOverviewTab(container, OverviewTab.Money);
         expect(sectionNamed('Profit concentration')?.textContent).toContain(
             'The concentration alert is off',
         );
@@ -1497,6 +1641,7 @@ describe('OverviewView', () => {
             answerEverything([heldFundedAccount()]);
             render();
             await settle();
+            openOverviewTab(container, OverviewTab.Money);
             expect(sectionNamed('Expected net')?.textContent).toContain(
                 '$1,111 (SE $9)',
             );
@@ -1522,6 +1667,7 @@ describe('OverviewView', () => {
                 );
             });
             await settle();
+            openOverviewTab(container, OverviewTab.Money);
             expect(sectionNamed('Expected net')?.textContent).toContain(
                 '$1,111 (SE $9)',
             );
@@ -1553,6 +1699,7 @@ describe('OverviewView', () => {
             renderWithCache(root, cache);
             await settle();
             expect(posted).toHaveLength(3);
+            openOverviewTab(container, OverviewTab.Money);
             answerEverything([
                 heldFundedAccount(),
                 overviewAccount('beta', {
@@ -1585,6 +1732,7 @@ describe('OverviewView', () => {
             });
             root = createRoot(container);
             renderWithCache(root, cache);
+            openOverviewTab(container, OverviewTab.Money);
             expect(sectionNamed('Expected net')?.textContent).toContain(
                 '$1,111 (SE $9)',
             );
@@ -1628,6 +1776,10 @@ describe('OverviewView', () => {
                 OverviewRequestKind.PlanValues,
             ]);
             expect(posted[1]?.requests[0]?.accounts).toBe(1);
+            expect(sectionNamed('Key figures')?.textContent).toContain(
+                '$1,111',
+            );
+            openOverviewTab(container, OverviewTab.Money);
             expect(
                 sectionNamed('Fresh-start projection')?.textContent,
             ).toContain('one ES contract risks more than your risk');
@@ -1642,9 +1794,7 @@ describe('OverviewView', () => {
             expect(expectedNet?.textContent).toContain(
                 'one ES contract risks more than your risk',
             );
-            expect(sectionNamed('Key figures')?.textContent).toContain(
-                '$1,111',
-            );
+            openOverviewTab(container, OverviewTab.Costs);
             expect(sectionNamed('Costs')?.textContent).toContain('$777-$627');
         });
 
@@ -1671,6 +1821,7 @@ describe('OverviewView', () => {
             const [accountRequest] = postedAccountRequests();
             expect(accountRequest?.account?.asOf).toBe(TODAY);
             expect(accountRequest?.spec.start).toBeUndefined();
+            openOverviewTab(container, OverviewTab.Payouts);
             expect(
                 sectionNamed("Next payout and value from today's state")
                     ?.textContent,
@@ -1824,12 +1975,13 @@ describe('OverviewView', () => {
             vi.stubGlobal('Worker', undefined);
             answerEverything([heldFundedAccount()]);
             render();
+            expect(sectionNamed('Key figures')).toBeDefined();
+            openOverviewTab(container, OverviewTab.Money);
             const expectedNet = sectionNamed('Expected net');
             expect(expectedNet?.textContent).toContain(
                 'Web workers are not available in this browser.',
             );
             expect(expectedNet?.textContent).toContain('Not available');
-            expect(sectionNamed('Key figures')).toBeDefined();
         });
 
         it('sends nothing while no plan is held', () => {

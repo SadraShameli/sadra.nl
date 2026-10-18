@@ -55,6 +55,7 @@ export enum ToolUrlCodec {
 
 export interface ToolCatalogEntry {
     blurb: string;
+    featured: boolean;
     group: ToolGroup;
     hasPage: boolean;
     icon: LucideIcon;
@@ -101,6 +102,7 @@ function statelessTool(definition: ToolDefinition) {
 const TOOL_DEFINITIONS = {
     [ToolId.Analysis]: calculatorTool({
         blurb: 'Strategy edge with Kelly sizing, tail risk, drawdown duration, loss-streak resilience and a stress test of the plan rules.',
+        featured: false,
         group: ToolGroup.Analyse,
         hasPage: true,
         icon: Activity,
@@ -109,6 +111,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.Bankroll]: calculatorTool({
         blurb: 'How likely a batch ends net negative or runs out of cash, the budget your own loss-risk threshold needs, and a reinvesting projection with bands and path ruin.',
+        featured: true,
         group: ToolGroup.Plan,
         hasPage: true,
         icon: PiggyBank,
@@ -117,6 +120,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.CashFlow]: calculatorTool({
         blurb: 'Rules-aware cash flow over time: eval purchases and retries, funded payouts and re-buys, with the P10 to P90 spread of cumulative net.',
+        featured: false,
         group: ToolGroup.Plan,
         hasPage: true,
         icon: Wallet,
@@ -125,6 +129,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.Compare]: calculatorTool({
         blurb: 'Every plan of the selected firm and every firm at your account size, simulated on your inputs and ranked by expected monthly net.',
+        featured: true,
         group: ToolGroup.Compare,
         hasPage: true,
         icon: GitCompareArrows,
@@ -133,6 +138,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.FundedOptimizer]: calculatorTool({
         blurb: 'Ranks funded-stage candidates under your retained cushion and payout request, in the same order and columns as the command-line funded optimizer.',
+        featured: false,
         group: ToolGroup.Plan,
         hasPage: true,
         icon: Target,
@@ -141,6 +147,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.LadderLab]: calculatorTool({
         blurb: 'Searches within-day risk ladders on a grid and scores each on days to funded, cost per funded account and pass rate.',
+        featured: false,
         group: ToolGroup.Labs,
         hasPage: true,
         icon: FlaskConical,
@@ -149,6 +156,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.Live]: calculatorTool({
         blurb: 'Simulates the live stage for plans with a modeled live account, and says so where the model is only a firm-level approximation.',
+        featured: false,
         group: ToolGroup.Simulate,
         hasPage: true,
         icon: Radio,
@@ -158,6 +166,7 @@ const TOOL_DEFINITIONS = {
     [ToolId.PayoutPlanner]: ownCodecTool(
         {
             blurb: 'From a balance, a peak and past payouts: payout readiness, the blocking gate, the rule-capped withdrawable and the net after the split.',
+            featured: false,
             group: ToolGroup.Plan,
             hasPage: true,
             icon: Banknote,
@@ -168,6 +177,7 @@ const TOOL_DEFINITIONS = {
     ),
     [ToolId.Planner]: calculatorTool({
         blurb: panelDescriptions.portfolio,
+        featured: false,
         group: ToolGroup.Plan,
         hasPage: true,
         icon: LayoutGrid,
@@ -177,6 +187,7 @@ const TOOL_DEFINITIONS = {
     [ToolId.PositionSize]: ownCodecTool(
         {
             blurb: 'Contracts for a dollar risk at a stop, the leftover dollars, the stop that lands the risk exactly and the plan contract cap.',
+            featured: false,
             group: ToolGroup.Size,
             hasPage: true,
             icon: Crosshair,
@@ -187,6 +198,7 @@ const TOOL_DEFINITIONS = {
     ),
     [ToolId.Rules]: statelessTool({
         blurb: 'Browse the modeled rules of every plan: drawdown, daily loss limit, consistency, payout structure and fees.',
+        featured: false,
         group: ToolGroup.Compare,
         hasPage: true,
         icon: BookOpen,
@@ -195,6 +207,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.Simulator]: calculatorTool({
         blurb: 'Monte Carlo of a firm and plan against its real drawdown, daily-loss and consistency rules: pass odds, costs, payouts and charts.',
+        featured: true,
         group: ToolGroup.Simulate,
         hasPage: true,
         icon: Dices,
@@ -203,6 +216,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.Sizing]: calculatorTool({
         blurb: 'Risk-per-trade sweep from 0.25% to 5% and a winrate by reward-to-risk heatmap of pass odds, funded survival and monthly net.',
+        featured: false,
         group: ToolGroup.Size,
         hasPage: true,
         icon: Scale,
@@ -211,6 +225,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.StrategyLab]: calculatorTool({
         blurb: 'Compares copy-traded, grouped and independent multi-account strategies side by side on the current plan.',
+        featured: true,
         group: ToolGroup.Labs,
         hasPage: true,
         icon: TestTubes,
