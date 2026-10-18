@@ -42,11 +42,10 @@ export function readRecentTools(
 
 export function recentToolLinks(
     ids: readonly ToolId[],
+    catalog: readonly ToolCatalogEntry[] = LINKED_TOOL_CATALOG,
 ): readonly ToolCatalogEntry[] {
     return ids.flatMap((id) => {
-        const entry = LINKED_TOOL_CATALOG.find(
-            (candidate) => candidate.id === id,
-        );
+        const entry = catalog.find((candidate) => candidate.id === id);
         return entry === undefined ? [] : [entry];
     });
 }
@@ -54,9 +53,10 @@ export function recentToolLinks(
 export function recordToolVisit(
     pathname: string,
     storage: KeyValueStorage | null = localStorageOrNull(),
+    toolAt: (pathname: string) => null | ToolCatalogEntry = toolForPathname,
 ): readonly ToolId[] {
     const recent = readRecentTools(storage);
-    const entry = toolForPathname(pathname);
+    const entry = toolAt(pathname);
     if (storage === null || !entry?.hasPage) return recent;
     const next = withRecentTool(recent, entry.id);
     try {

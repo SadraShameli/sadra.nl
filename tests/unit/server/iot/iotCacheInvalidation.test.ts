@@ -20,6 +20,9 @@ vi.mock('next/cache', () => ({
 }));
 vi.mock('~/environment', () => ({ environment: { NODE_ENV: 'test' } }));
 vi.mock('~/server/db', () => ({ db: {} }));
+vi.mock('~/lib/auth/server', () => ({
+    auth: { api: { getSession: vi.fn() } },
+}));
 vi.mock('~/lib/email', () => ({}));
 vi.mock('~/lib/notify', () => ({ scheduleFanOut: vi.fn() }));
 vi.mock('~/server/api/root', () => ({ createCaller: mocks.createCaller }));

@@ -10,6 +10,7 @@ import {
 } from '~/app/(app)/prop-calculator/_components/hub/recentTools';
 import {
     TOOL_CATALOG,
+    type ToolCatalogEntry,
     toolCatalogEntry,
     ToolId,
 } from '~/app/(app)/prop-calculator/_components/toolCatalog';
@@ -42,6 +43,10 @@ function storedAs(raw: string): MemoryStorage {
     expect(storage.values.size).toBe(1);
     for (const key of storage.values.keys()) storage.setItem(key, raw);
     return storage;
+}
+
+function unbuiltTool(id: ToolId): ToolCatalogEntry {
+    return { ...toolCatalogEntry(id), hasPage: false };
 }
 
 describe('withRecentTool', () => {
@@ -137,15 +142,12 @@ describe('recordToolVisit and readRecentTools', () => {
         expect(readRecentTools(storage)).toEqual([]);
     });
 
-    it.skipIf(TOOL_CATALOG.every((entry) => entry.hasPage))(
-        'records nothing for a catalog tool that has no page yet',
-        () => {
-            const unbuilt = TOOL_CATALOG.filter((entry) => !entry.hasPage);
-            const storage = new MemoryStorage();
-            for (const entry of unbuilt) recordToolVisit(entry.route, storage);
-            expect(readRecentTools(storage)).toEqual([]);
-        },
-    );
+    it('records nothing for a catalog tool that has no page yet', () => {
+        const unbuilt = unbuiltTool(ToolId.Compare);
+        const storage = new MemoryStorage();
+        recordToolVisit(unbuilt.route, storage, () => unbuilt);
+        expect(readRecentTools(storage)).toEqual([]);
+    });
 
     it('returns an empty list when nothing was recorded', () => {
         expect(readRecentTools(new MemoryStorage())).toEqual([]);
@@ -224,16 +226,15 @@ describe('recentToolLinks', () => {
         ).toEqual([ToolId.Compare, ToolId.Simulator]);
     });
 
-    it.skipIf(TOOL_CATALOG.every((entry) => entry.hasPage))(
-        'drops a tool whose page does not exist, so the hub never links to a missing page',
-        () => {
-            const unbuilt = TOOL_CATALOG.find((entry) => !entry.hasPage);
-            if (unbuilt === undefined) throw new Error('every tool has a page');
-            expect(
-                recentToolLinks([unbuilt.id, ToolId.Sizing]).map(
-                    (entry) => entry.id,
-                ),
-            ).toEqual([ToolId.Sizing]);
-        },
-    );
+    it('drops a tool whose page does not exist, so the hub never links to a missing page', () => {
+        const unbuilt = unbuiltTool(ToolId.Compare);
+        const linked = TOOL_CATALOG.map((entry) =>
+            entry.id === unbuilt.id ? unbuilt : entry,
+        ).filter((entry) => entry.hasPage);
+        expect(
+            recentToolLinks([unbuilt.id, ToolId.Sizing], linked).map(
+                (entry) => entry.id,
+            ),
+        ).toEqual([ToolId.Sizing]);
+    });
 });
