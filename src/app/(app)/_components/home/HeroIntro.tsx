@@ -65,12 +65,13 @@ function HeroWord({
         <Toggle
             className={cn(
                 'app-home__hero-word',
-                'h-auto min-w-0 justify-start gap-0 rounded-none bg-transparent p-0 text-left font-[inherit] text-[length:inherit] leading-[inherit] tracking-[inherit] transition-[color,-webkit-text-stroke-color] duration-400 hover:bg-transparent hover:text-inherit focus-visible:rounded-md focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-1 focus-visible:outline-offset-10 focus-visible:outline-camel data-[state=on]:bg-transparent data-[state=on]:text-ink',
+                'h-auto min-w-0 justify-start gap-0 rounded-none bg-transparent p-0 text-left font-[inherit] text-[length:inherit] leading-[inherit] tracking-[inherit] transition-[color,-webkit-text-stroke-color] duration-400 hover:bg-transparent hover:text-inherit focus-visible:rounded-md focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-1 focus-visible:outline-offset-10 focus-visible:outline-camel data-[state=on]:text-ink',
                 mode === HeroMode.Developer && 'italic',
                 isActive ? 'text-ink' : 'outline-word',
             )}
             onPressedChange={onPick}
             pressed={isActive}
+            variant="bare"
         >
             {copy.word}
             <span className="text-camel [-webkit-text-stroke:0]">
