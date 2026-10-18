@@ -25,6 +25,8 @@ import {
 } from '~/lib/prop-calculator/optimize';
 import { simulate } from '~/lib/prop-calculator/simulator';
 
+import { infoText } from './infoPopover';
+
 vi.mock('~/lib/auth/client', () => ({
     useSession: () => ({
         data: null,
@@ -159,18 +161,8 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
         });
     }
 
-    function openRankingExplainer() {
-        const trigger = [...container.querySelectorAll('button')].find(
-            (button) =>
-                button.textContent ===
-                'How the ranking and the survivors column work',
-        );
-        if (trigger === undefined) throw new Error('no ranking explainer');
-        expect(trigger.getAttribute('aria-expanded')).toBe('false');
-        act(() => {
-            trigger.click();
-        });
-        expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    function rankingInfo(): string {
+        return infoText(container, 'Candidates, ranked by monthly net');
     }
 
     function headerTexts(): string[] {
@@ -180,11 +172,11 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
     }
 
     function rowTexts(): string[][] {
-        return [...container.querySelectorAll(':scope tbody tr')].map((row) =>
-            [...row.querySelectorAll(':scope td')].map(
-                (cell) => cell.textContent,
+        return [
+            ...container.querySelectorAll<HTMLTableRowElement>(
+                ':scope tbody tr',
             ),
-        );
+        ].map((row) => [...row.cells].map((cell) => cell.textContent));
     }
 
     beforeEach(() => {
@@ -245,11 +237,9 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
 
     it('prints the placement notes and the ranking description', () => {
         render({}, built(['flat $150 left out: below one contract']));
-        openRankingExplainer();
-        expect(container.textContent).toContain(
-            'flat $150 left out: below one contract',
-        );
-        expect(container.textContent).toContain(
+        const info = rankingInfo();
+        expect(info).toContain('flat $150 left out: below one contract');
+        expect(info).toContain(
             fundedSortDescription(FundedSortKey.Monthly, {
                 fundedHorizonDays: 20,
                 maxEvalDays: 20,
@@ -268,36 +258,29 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
 
     it('explains survivors as the CLI does, out of the trials the sweep ran', () => {
         render();
-        openRankingExplainer();
-        expect(container.textContent).toContain(
+        expect(rankingInfo()).toContain(
             `survivors = trials (out of ${TRIALS}) that passed eval and never busted funded`,
         );
     });
 
     it('says when the trial count was reduced to the sweep maximum', () => {
         render({ trials: 20_000 });
-        expect(container.textContent).toContain(
-            'trials reduced from 20,000 to 5,000',
-        );
+        expect(rankingInfo()).toContain('trials reduced from 20,000 to 5,000');
     });
 
     it('says nothing about trials when none were cut', () => {
         render();
-        expect(container.textContent).not.toContain('trials reduced');
+        expect(rankingInfo()).not.toContain('trials reduced');
     });
 
     it('prints the live-transfer assumption and continuation notes once the hazard is an input', () => {
         render({ liveTransferHazard: 0.25 });
-        expect(container.textContent).toContain(
-            'your assumption, not a firm rule',
-        );
+        expect(rankingInfo()).toContain('your assumption, not a firm rule');
     });
 
     it('prints no live-transfer line without a hazard', () => {
         render({ liveTransferHazard: 0 });
-        expect(container.textContent).not.toContain(
-            'your assumption, not a firm rule',
-        );
+        expect(rankingInfo()).not.toContain('your assumption, not a firm rule');
     });
 
     it('shows how many of the policies are done while the sweep runs', () => {
@@ -315,10 +298,14 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
     it('announces the progress count politely and marks the running region busy', () => {
         sweepBox.progress = { completed: 2, total: 6 };
         render({}, null);
-        const status = container.querySelector('[role="status"]');
-        expect(status?.textContent).toBe('2 of 6 policies');
+        const status = [...container.querySelectorAll('[role="status"]')].find(
+            (region) => region.textContent === '2 of 6 policies',
+        );
+        expect(status).toBeDefined();
         expect(
-            container.querySelector('[aria-busy="true"]')?.contains(status),
+            container
+                .querySelector('[aria-busy="true"]')
+                ?.contains(status ?? null),
         ).toBe(true);
     });
 

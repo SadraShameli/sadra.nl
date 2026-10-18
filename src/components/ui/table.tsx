@@ -9,13 +9,18 @@ type TableContainerProperties = Pick<
 
 function Table({
     className,
+    containerClassName,
     containerProps,
     ...properties
 }: React.ComponentProps<'table'> & {
+    readonly containerClassName?: string;
     readonly containerProps?: TableContainerProperties;
 }) {
     return (
-        <div className="relative w-full overflow-auto" {...containerProps}>
+        <div
+            className={cn('relative w-full overflow-auto', containerClassName)}
+            {...containerProps}
+        >
             <table
                 className={cn('w-full caption-bottom text-sm', className)}
                 data-slot="table"
@@ -74,6 +79,24 @@ function TableFooter({
                 className,
             )}
             data-slot="table-footer"
+            {...properties}
+        />
+    );
+}
+
+function TableGroupHeader({
+    className,
+    ...properties
+}: Omit<React.ComponentProps<'th'>, 'scope'>) {
+    return (
+        <th
+            className={cn(
+                TABLE_CELL_CLASS,
+                'text-left text-sm font-medium whitespace-normal text-ink',
+                className,
+            )}
+            data-slot="table-group-header"
+            scope="rowgroup"
             {...properties}
         />
     );
@@ -141,6 +164,7 @@ export {
     TableCaption,
     TableCell,
     TableFooter,
+    TableGroupHeader,
     TableHead,
     TableHeader,
     TableRow,

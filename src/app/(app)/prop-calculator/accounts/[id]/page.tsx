@@ -2,7 +2,7 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
-import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { AccountDetailSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { AdvicePanel } from '~/app/(app)/prop-calculator/accounts/_components/advice/AdvicePanel';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
 import { openAccountPage } from '~/app/(app)/prop-calculator/accounts/_components/detail/accountIdParameter';
@@ -32,7 +32,7 @@ export default function PropAccountDetailPage({
                     'container pt-spacing pb-24',
                 )}
             >
-                <Suspense fallback={<AccountsDataSkeleton />}>
+                <Suspense fallback={<AccountDetailSkeleton />}>
                     <PropAccountDetailContent params={params} />
                 </Suspense>
             </main>

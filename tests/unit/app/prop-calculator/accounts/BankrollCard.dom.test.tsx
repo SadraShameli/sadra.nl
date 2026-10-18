@@ -11,6 +11,8 @@ import {
 import { ScaleAtMultipleKind } from '~/lib/prop-accounts/bankroll';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
+import { infoText } from '../infoPopover';
+
 const SCALE_INPUTS: BankrollCardModel['scaleInputs'] = {
     capacityFillCents: 30_000,
     cohortMultiple: { interval: { lower: 1.5, upper: 2.5 }, n: 4, value: 2 },
@@ -93,7 +95,7 @@ describe('BankrollCard', () => {
         expect(text).toContain('35.2% (SE 1.1%)');
         expect(text).toContain('33.5%');
         expect(text).toContain('$1,200.00');
-        expect(text).toContain(
+        expect(infoText(container, 'Bankroll')).toContain(
             'Measured from 6 attempts decided within 14.0 days of funding (measured).',
         );
     });

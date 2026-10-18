@@ -1,6 +1,6 @@
 'use client';
 
-import { UserPlus } from 'lucide-react';
+import { CalendarClock, UserPlus } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useMemo } from 'react';
@@ -14,6 +14,7 @@ import {
     useLabSlots,
 } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { kpiDescriptions } from '~/app/(app)/prop-calculator/_components/kpiDescriptions';
+import { NO_PASS_DAYS_REASON } from '~/app/(app)/prop-calculator/_components/missingReasons';
 import {
     PanelSkeleton,
     PanelSkeletonSize,
@@ -34,6 +35,8 @@ import { ValueChainCard } from '~/app/(app)/prop-calculator/_components/value/Va
 import { accountPrefillHref } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Button } from '~/components/ui/button';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import InfoPopover from '~/components/ui/info-popover';
 import { formatCompactCurrency, formatDays } from '~/lib/format';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
 import { cn } from '~/lib/utilities';
@@ -153,6 +156,21 @@ export function SimulatorView() {
                                     />
                                     <PercentileBar
                                         description={kpiDescriptions.daysToPass}
+                                        emptyState={
+                                            result.daysToPassValues.length ===
+                                            0 ? (
+                                                <EmptyState
+                                                    description={
+                                                        NO_PASS_DAYS_REASON
+                                                    }
+                                                    icon={CalendarClock}
+                                                    size={
+                                                        EmptyStateSize.Compact
+                                                    }
+                                                    title="No passes to chart"
+                                                />
+                                            ) : undefined
+                                        }
                                         formatValue={formatDays}
                                         label="Days to pass distribution"
                                         p5={result.daysToPassP5}
@@ -178,12 +196,14 @@ export function SimulatorView() {
                     className={cn('flex flex-col gap-6', HEADER_SCROLL_MARGIN)}
                     id="value"
                 >
-                    <ToolSectionHeading id="value-heading">
-                        Value
-                    </ToolSectionHeading>
-                    <p className="text-sm text-muted-foreground">
-                        {valueBasisText(state, rulebook, rulebookSource)}
-                    </p>
+                    <div className="flex items-center gap-2">
+                        <ToolSectionHeading id="value-heading">
+                            Value
+                        </ToolSectionHeading>
+                        <InfoPopover title="Value">
+                            {valueBasisText(state, rulebook, rulebookSource)}
+                        </InfoPopover>
+                    </div>
                     <ValueChainCard cards={valueCards} />
                     <FundedValueCard
                         cards={valueCards}

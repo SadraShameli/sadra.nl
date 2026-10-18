@@ -51,7 +51,7 @@ describe('SetupAccountsTable', () => {
     }
 
     function headers(): readonly string[] {
-        return [...container.querySelectorAll('th')].map(
+        return [...container.querySelectorAll(':scope thead th')].map(
             (cell) => cell.textContent,
         );
     }
@@ -59,7 +59,7 @@ describe('SetupAccountsTable', () => {
     function firstColumn(): readonly string[] {
         return [
             ...container.querySelectorAll(':scope tbody tr:not([aria-hidden])'),
-        ].map((row) => row.querySelector(':scope > td')?.textContent ?? '');
+        ].map((row) => row.querySelector(':scope > th')?.textContent ?? '');
     }
 
     function button(label: string): HTMLButtonElement {
@@ -83,7 +83,7 @@ describe('SetupAccountsTable', () => {
         expect(row?.textContent).toContain('Tradeify');
         expect(row?.textContent).toContain('Pro 50K');
         expect(row?.textContent).toContain('Evaluation');
-        expect(row?.textContent).toContain('2026-10-15');
+        expect(row?.textContent).toContain('15 Oct 2026');
         expect(row?.querySelector(':scope a')?.getAttribute('href')).toBe(
             routes.propCalculator.accounts.detail('account-01'),
         );
@@ -95,14 +95,15 @@ describe('SetupAccountsTable', () => {
         expect(container.textContent).toContain('No balance yet');
     });
 
-    it('pages through many accounts ten at a time and searches them', () => {
-        render(Array.from({ length: 23 }, (_, index) => accountRow(index + 1)));
-        expect(firstColumn()).toHaveLength(10);
-        expect(container.textContent).toContain('Page 1 of 3');
+    it('pages through many accounts 25 at a time and searches them', () => {
+        render(Array.from({ length: 60 }, (_, index) => accountRow(index + 1)));
+        expect(firstColumn()).toHaveLength(25);
+        expect(container.textContent).toContain('1 to 25 of 60');
         act(() => {
             button('Next').click();
         });
-        expect(firstColumn()[0]).toBe('Account 11');
+        expect(firstColumn()[0]).toBe('Account 26');
+        expect(container.textContent).toContain('26 to 50 of 60');
         expect(
             container.querySelector('input[placeholder="Search accounts"]'),
         ).not.toBeNull();

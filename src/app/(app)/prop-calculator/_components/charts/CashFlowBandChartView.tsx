@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 
 import {
+    CHART_REFERENCE_LABEL_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_STROKE_WIDTH,
     CHART_X_AXIS_PROPS,
@@ -21,6 +22,8 @@ import {
 import { formatCompactCurrency } from '~/lib/format';
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator';
 import { type PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
+
+import { ChartEmptyState } from './ChartEmptyState';
 
 interface ChartRow {
     low: number;
@@ -35,19 +38,15 @@ interface Properties {
 
 const chartConfig: ChartConfig = {
     band: {
-        color: 'color-mix(in oklab, var(--success) 18%, transparent)',
+        color: 'color-mix(in oklab, var(--chart-1) 18%, transparent)',
         label: 'P10–P90',
     },
-    median: { color: 'var(--success)', label: 'Median net' },
+    median: { color: 'var(--chart-1)', label: 'Median net' },
 };
 
 export default function CashFlowBandChartView({ result }: Properties) {
     if (result.days.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                No simulation data yet.
-            </div>
-        );
+        return <ChartEmptyState title="No simulation data yet" />;
     }
 
     const data = buildChartData(result);
@@ -80,8 +79,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                 <ReferenceLine
                     {...CHART_REFERENCE_LINE_PROPS}
                     label={{
-                        fill: 'var(--muted-foreground)',
-                        fontSize: 11,
+                        ...CHART_REFERENCE_LABEL_PROPS,
                         position: 'insideBottomLeft',
                         value: 'Break-even',
                     }}
@@ -98,7 +96,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                 />
                 <Area
                     dataKey="range"
-                    fill="var(--success)"
+                    fill="var(--color-median)"
                     fillOpacity={0.18}
                     isAnimationActive={false}
                     legendType="none"
@@ -109,7 +107,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                     dataKey="net50"
                     dot={false}
                     isAnimationActive={false}
-                    stroke="var(--success)"
+                    stroke="var(--color-median)"
                     strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />

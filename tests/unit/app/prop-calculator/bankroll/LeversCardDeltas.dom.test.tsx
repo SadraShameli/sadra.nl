@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type BankrollLeverRowSummary } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { BankrollLeverKind } from '~/lib/prop-calculator/economics';
 
+import { missingValueText } from '../missingValue';
+
 const harness = vi.hoisted(() => ({
     rows: [] as unknown[],
 }));
@@ -79,15 +81,17 @@ describe('LeversCard changes (PT-81 step 3)', () => {
     });
 
     function rowCells(startsWith: string): string[] {
-        const row = [...container.querySelectorAll(':scope tbody tr')].find(
-            (tr) => tr.textContent.startsWith(startsWith),
-        );
+        const row = [
+            ...container.querySelectorAll<HTMLTableRowElement>(
+                ':scope tbody tr',
+            ),
+        ].find((tr) => tr.textContent.startsWith(startsWith));
         if (row === undefined) throw new Error(`no row ${startsWith}`);
-        return [...row.querySelectorAll('td')].map((td) => td.textContent);
+        return [...row.cells].map((cell) => cell.textContent);
     }
 
     function headers(): string[] {
-        return [...container.querySelectorAll(':scope th')].map(
+        return [...container.querySelectorAll(':scope thead th')].map(
             (th) => th.textContent,
         );
     }
@@ -166,7 +170,7 @@ describe('LeversCard changes (PT-81 step 3)', () => {
         expect(cells).not.toContain('+5.0pp');
     });
 
-    it('shows n/a for the loss-risk change when either loss risk is missing', () => {
+    it('shows a missing value, not n/a text, for the loss-risk change when either loss risk is missing', () => {
         harness.rows = [
             leverRow({}),
             leverRow({
@@ -178,7 +182,9 @@ describe('LeversCard changes (PT-81 step 3)', () => {
         ];
         render();
         expect(
-            rowCells('Payout request').filter((cell) => cell === 'n/a'),
+            rowCells('Payout request').filter(
+                (cell) => cell === missingValueText(),
+            ),
         ).toHaveLength(2);
     });
 });

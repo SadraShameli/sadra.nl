@@ -119,7 +119,14 @@ export function AccountPlanPicker({
                         value={value.firmId}
                     >
                         <SelectTrigger id="account-firm" {...errorProperties}>
-                            <SelectValue />
+                            <SelectValue>
+                                {
+                                    accountFirmOptions().find(
+                                        (option) =>
+                                            option.firmId === value.firmId,
+                                    )?.label
+                                }
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {accountFirmOptions().map((option) => (
@@ -145,7 +152,14 @@ export function AccountPlanPicker({
                     value={value.planSerial}
                 >
                     <SelectTrigger id="account-plan" {...errorProperties}>
-                        <SelectValue placeholder="Pick a plan" />
+                        <SelectValue placeholder="Pick a plan">
+                            {
+                                planOptions.find(
+                                    (option) =>
+                                        option.planSerial === value.planSerial,
+                                )?.label
+                            }
+                        </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         {planOptions.map((option) => (
@@ -156,7 +170,7 @@ export function AccountPlanPicker({
                                 <span className="flex items-center gap-2">
                                     {option.label}
                                     {option.tags.map((tag) => (
-                                        <Badge key={tag} variant="outline">
+                                        <Badge key={tag}>
                                             {planTagLabel(tag)}
                                         </Badge>
                                     ))}
@@ -195,7 +209,15 @@ export function AccountPlanPicker({
                     value={String(value.accountSize)}
                 >
                     <SelectTrigger id="account-size" {...errorProperties}>
-                        <SelectValue />
+                        <SelectValue>
+                            {
+                                sizeOptions.find(
+                                    (option) =>
+                                        option.accountSize ===
+                                        value.accountSize,
+                                )?.label
+                            }
+                        </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         {sizeOptions.map((option) => (

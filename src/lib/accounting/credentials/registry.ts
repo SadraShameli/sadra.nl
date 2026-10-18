@@ -12,14 +12,6 @@ export enum CredentialRole {
     Transactions = 'transactions',
 }
 
-export enum CredentialTone {
-    Amber = 'amber',
-    Emerald = 'emerald',
-    Rose = 'rose',
-    Sky = 'sky',
-    Violet = 'violet',
-}
-
 export enum MetaFieldType {
     Boolean = 'boolean',
     Number = 'number',
@@ -41,7 +33,6 @@ export interface CredentialDescriptor {
         minLength: number;
         placeholder?: string;
     };
-    readonly tone: CredentialTone;
     readonly transactionSourceId?: string;
     readonly transactionSourceKind?: 'api' | 'file';
 }
@@ -89,28 +80,4 @@ export class CredentialRegistry {
     register(d: CredentialDescriptor): void {
         this.descriptors.set(d.id, d);
     }
-}
-
-const TONE_CLASS: Record<CredentialTone, string> = {
-    [CredentialTone.Amber]: 'bg-warning/10 text-warning',
-    [CredentialTone.Emerald]: 'bg-success/10 text-success',
-    [CredentialTone.Rose]: 'bg-destructive/10 text-destructive',
-    [CredentialTone.Sky]: 'bg-info/10 text-info',
-    [CredentialTone.Violet]: 'bg-primary/10 text-primary',
-};
-
-export function toneClass(tone: CredentialTone): string {
-    return TONE_CLASS[tone];
-}
-
-const TONE_ACCENT: Record<CredentialTone, string> = {
-    [CredentialTone.Amber]: 'text-warning',
-    [CredentialTone.Emerald]: 'text-success',
-    [CredentialTone.Rose]: 'text-destructive',
-    [CredentialTone.Sky]: 'text-info',
-    [CredentialTone.Violet]: 'text-primary',
-};
-
-export function toneAccent(tone: CredentialTone): string {
-    return TONE_ACCENT[tone];
 }

@@ -49,6 +49,13 @@ import {
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { findFirm } from '~/lib/prop-calculator/firms';
 
+import {
+    isRowActionDisabled,
+    openRowActions,
+    rowActionItem,
+    rowActionLabels,
+} from '../../components/rowActionsMenu';
+import { infoText } from './infoPopover';
 import { labelledSelect, selectedText } from './labelledControl';
 
 interface PanelHarness {
@@ -341,12 +348,11 @@ describe('LadderLabPanel', () => {
         );
         render(baseInputs, null);
 
-        const apply = [...container.querySelectorAll('button')].find(
-            (button) => button.textContent === 'Apply' && !button.disabled,
-        );
-        expect(apply).toBeDefined();
+        openRowActions('200 / 300 / 400');
+        expect(isRowActionDisabled('Apply')).toBe(false);
+        const apply = rowActionItem('Apply');
         act(() => {
-            apply?.click();
+            apply.click();
         });
 
         expect(onApply).toHaveBeenCalledExactlyOnceWith({
@@ -389,19 +395,29 @@ describe('LadderLabPanel', () => {
             stopRule: scoredInputs.stopRule,
         });
 
-        const rowButtons = [
-            ...(container
-                .querySelector('tbody')
-                ?.querySelectorAll(':scope button') ?? []),
-        ].map((button) => button.textContent);
-        expect(rowButtons).toEqual([label]);
+        openRowActions(score.ladder.join(' / '));
+        expect(rowActionLabels()).toEqual([label]);
     });
 
     it('says Apply also sets the unaffordable rung choice for every trade, funded included', () => {
         render(baseInputsWith(RungSizing.CapToCushion), null);
-        expect(container.textContent).toContain(
+        expect(infoText(container, 'What Apply sets')).toContain(
             'Apply also sets the unaffordable rung choice for every trade in the simulation, eval and funded, not only for this ladder.',
         );
+    });
+
+    it('stacks the grid and rule fields in one column on phone', () => {
+        render(baseInputsWith(RungSizing.CapToCushion), null);
+        const gridFields = container
+            .querySelector('#ladder-lab-instrument')
+            ?.closest('.grid');
+        const ruleFields = container
+            .querySelector('#ladder-rung-sizing')
+            ?.closest('.grid');
+        expect(gridFields?.classList.contains('grid-cols-2')).toBe(false);
+        expect(gridFields?.classList.contains('md:grid-cols-3')).toBe(true);
+        expect(ruleFields?.classList.contains('sm:grid-cols-2')).toBe(false);
+        expect(ruleFields?.classList.contains('md:grid-cols-2')).toBe(true);
     });
 });
 

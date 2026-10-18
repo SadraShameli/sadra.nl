@@ -17,7 +17,7 @@ import {
     ToolsRequestKind,
     type ValueChainToolsRequest,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { formatGateCurrency, formatPercent } from '~/lib/format';
+import { formatPercent, formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     CENTS_PER_DOLLAR,
     findFirm,
@@ -99,6 +99,10 @@ export interface ValueChainCardStep {
 
 const positiveIntSchema = z.coerce.number().int().positive();
 
+const TOO_FEW_FUNDED_TRIALS_TEXT = 'too few funded trials for a standard error';
+
+const COMPUTATION_CANCELLED_TEXT = 'Computation cancelled.';
+
 const UNLABELLED_FIELD_TEXT = 'Engine policy';
 
 export function calculatorFieldLabelOf(path: readonly PropertyKey[]): string {
@@ -110,22 +114,12 @@ export function calculatorFieldLabelOf(path: readonly PropertyKey[]): string {
     return labelled?.[1] ?? path.map(String).join('.');
 }
 
-export function dollarRangeSubText(
-    range: FundedValueSampleRange | null | undefined,
-    sampleSize: null | number,
-): string {
-    if (range !== null && range !== undefined) return sampleRangeSubText(range);
-    return sampleSize === null
-        ? sampleRangeSubText(null)
-        : 'too few funded trials for a standard error';
-}
-
 export function dollarRangeText(
     range: FundedValueSampleRange | null | undefined,
 ): null | string {
     return range === null || range === undefined
         ? null
-        : `${formatGateCurrency(range.lower)} to ${formatGateCurrency(range.upper)}`;
+        : `${formatWholeOrCentsCurrency(range.lower)} to ${formatWholeOrCentsCurrency(range.upper)}`;
 }
 
 export function fundedValueEstimateToolsRequest(
@@ -158,11 +152,11 @@ export function parseFundedValueSampleSizeField(raw: string): null | number {
     return parsed.success ? parsed.data : null;
 }
 
-export function sampleRangeSubText(
-    range: FundedValueSampleRange | null,
+export function sampleRangeCaption(
+    range: FundedValueSampleRange | null | undefined,
 ): string {
-    return range === null
-        ? 'enter a sample size'
+    return range === null || range === undefined
+        ? TOO_FEW_FUNDED_TRIALS_TEXT
         : `${range.label}, n = ${String(range.sampleSize)}`;
 }
 
@@ -175,29 +169,21 @@ export function sampleRangeText(
 }
 
 export function signedCurrencyText(amount: number): string {
-    return `${amount >= 0 ? '+' : ''}${formatGateCurrency(amount)}`;
+    return `${amount >= 0 ? '+' : ''}${formatWholeOrCentsCurrency(amount)}`;
+}
+
+export function toolsWorkerCancelledText(
+    state: ToolsWorkerState,
+): null | string {
+    return state.phase === ToolsWorkerPhase.Cancelled
+        ? COMPUTATION_CANCELLED_TEXT
+        : null;
 }
 
 export function toolsWorkerFailureReason(
     state: ToolsWorkerState,
 ): null | string {
     return state.phase === ToolsWorkerPhase.Failed ? state.reason : null;
-}
-
-export function toolsWorkerPendingText(state: ToolsWorkerState): null | string {
-    switch (state.phase) {
-        case ToolsWorkerPhase.Cancelled: {
-            return 'Computation cancelled.';
-        }
-        case ToolsWorkerPhase.Failed:
-        case ToolsWorkerPhase.Idle:
-        case ToolsWorkerPhase.Succeeded: {
-            return null;
-        }
-        case ToolsWorkerPhase.Running: {
-            return 'Computing...';
-        }
-    }
 }
 
 export function uncertainCountText(value: UncertainValue): string {
@@ -208,8 +194,8 @@ export function uncertainCountText(value: UncertainValue): string {
 
 export function uncertainCurrencyText(value: UncertainValue): string {
     return value.standardError === null
-        ? formatGateCurrency(value.value)
-        : `${formatGateCurrency(value.value)} ± ${formatGateCurrency(value.standardError)}`;
+        ? formatWholeOrCentsCurrency(value.value)
+        : `${formatWholeOrCentsCurrency(value.value)} ± ${formatWholeOrCentsCurrency(value.standardError)}`;
 }
 
 export function valueBasisText(

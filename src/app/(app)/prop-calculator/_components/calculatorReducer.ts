@@ -138,11 +138,11 @@ export type CalculatorAction =
           type: CalculatorActionType.SetEvalDayPolicy;
       }
     | { rule: DayStopRule; type: CalculatorActionType.SetDayStop }
+    | { scenario: LabScenario; type: CalculatorActionType.AddLabScenario }
     | {
           state: CalculatorState;
           type: CalculatorActionType.ApplyState;
       }
-    | { type: CalculatorActionType.AddLabScenario }
     | { type: CalculatorActionType.ResetCoupon }
     | { type: CalculatorActionType.ResetLabScenarios }
     | { type: CalculatorActionType.Reset }
@@ -297,6 +297,15 @@ export function defaultCalculatorState(): CalculatorState {
     };
 }
 
+export function nextLabScenario(
+    scenarios: readonly LabScenario[],
+): LabScenario {
+    const last = scenarios.at(-1);
+    return last
+        ? { ...last, id: freshId(), label: `${last.label} copy` }
+        : defaultLabScenario();
+}
+
 function defaultLabScenario(): LabScenario {
     return {
         accounts: 10,
@@ -344,14 +353,10 @@ function reduceCalculator(
     switch (action.type) {
         case CalculatorActionType.AddLabScenario: {
             if (state.labScenarios.length >= MAX_LAB_SCENARIOS) return state;
-            const last = state.labScenarios.at(-1);
-            const base: LabScenario = last
-                ? { ...last, id: freshId(), label: `${last.label} copy` }
-                : defaultLabScenario();
             return {
                 ...state,
                 labLink: NO_LAB_LINK,
-                labScenarios: [...state.labScenarios, base],
+                labScenarios: [...state.labScenarios, action.scenario],
             };
         }
         case CalculatorActionType.ApplyState: {

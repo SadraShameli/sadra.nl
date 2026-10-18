@@ -1,4 +1,7 @@
-import { formatCompactCurrency, formatGateCurrency } from '~/lib/format';
+import {
+    formatCompactCurrency,
+    formatWholeOrCentsCurrency,
+} from '~/lib/format';
 import { describePayoutDayGate, type Plan } from '~/lib/prop-calculator';
 
 export function describeFirstPayoutGate(plan: Plan): string {
@@ -7,7 +10,7 @@ export function describeFirstPayoutGate(plan: Plan): string {
     const withCycle =
         perCycle === null
             ? gate
-            : `${gate} · ${formatGateCurrency(perCycle, { compact: true })}/cycle`;
+            : `${gate} · ${formatWholeOrCentsCurrency(perCycle, { compact: true })}/cycle`;
     const bufferBalance = plan.payoutBufferBalance();
     return bufferBalance === null
         ? withCycle

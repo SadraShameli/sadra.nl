@@ -4,16 +4,16 @@ import { ChevronRight, Dumbbell } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
-import { EmptyState } from '~/components/ui/empty-state';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { FilterToggle } from '~/components/ui/filter-toggle';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -60,6 +60,7 @@ export function ExercisesBrowser() {
                     </Link>
                 ),
                 header: 'Name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'primaryMuscle',
@@ -85,7 +86,7 @@ export function ExercisesBrowser() {
                 accessorFn: (r) => (r.isCustom ? 1 : 0),
                 cell: ({ row }) =>
                     row.original.isCustom ? (
-                        <Badge variant="secondary">Custom</Badge>
+                        <Badge>Custom</Badge>
                     ) : (
                         <span className="text-xs text-muted-foreground">
                             Built-in
@@ -108,6 +109,7 @@ export function ExercisesBrowser() {
                 enableSorting: false,
                 header: () => <span className="sr-only">Open</span>,
                 id: 'open',
+                meta: { isHiddenInCards: true },
             },
         ],
         [],
@@ -115,22 +117,33 @@ export function ExercisesBrowser() {
 
     return (
         <div className="flex flex-col gap-6">
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                <StatCard label="Total" value={stats.total.toString()} />
-                <StatCard label="Custom" value={stats.custom.toString()} />
-                <StatCard label="Built-in" value={stats.builtin.toString()} />
-            </section>
+            <StatStrip
+                isLoading={exercises.isLoading}
+                items={[
+                    {
+                        id: 'total',
+                        label: 'Total',
+                        value: stats.total.toString(),
+                    },
+                    {
+                        id: 'custom',
+                        label: 'Custom',
+                        value: stats.custom.toString(),
+                    },
+                    {
+                        id: 'built-in',
+                        label: 'Built-in',
+                        value: stats.builtin.toString(),
+                    },
+                ]}
+            />
 
             <ToolPanel contentClassName="flex flex-col gap-4" title="Library">
                 <DataTable<ExerciseRow>
                     columns={columns}
                     data={allRows}
                     emptyState={
-                        <EmptyState
-                            description="Try a different search or clear the filters."
-                            icon={Dumbbell}
-                            title="No exercises match"
-                        />
+                        <NoMatchesState icon={Dumbbell} noun="exercises" />
                     }
                     filterPlaceholder="Search exercises"
                     headerActions={(table) => {
@@ -162,27 +175,11 @@ export function ExercisesBrowser() {
                         );
                     }}
                     isLoading={exercises.isLoading}
-                    pageSize={25}
                     rowId={(r) => r.id}
                     search={{ onChange: setSearch, value: search }}
                     showFilter
                 />
             </ToolPanel>
         </div>
-    );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-    return (
-        <Card className="gap-1 py-3">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <span className="font-mono text-lg leading-none font-bold text-foreground tabular-nums">
-                    {value}
-                </span>
-            </CardContent>
-        </Card>
     );
 }

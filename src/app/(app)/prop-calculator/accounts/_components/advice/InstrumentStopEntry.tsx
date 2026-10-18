@@ -47,7 +47,7 @@ export function InstrumentStopEntry({
                     value={instrument}
                 >
                     <SelectTrigger id={instrumentId}>
-                        <SelectValue />
+                        <SelectValue>{instrument}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         {POSITION_SIZE_INSTRUMENTS.map((spec) => (

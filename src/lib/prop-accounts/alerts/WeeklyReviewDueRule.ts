@@ -1,3 +1,5 @@
+import { formatDisplayWeekdayDate } from '~/lib/format';
+
 import { type AccountAlert, AlertSubjectKind } from './AccountAlert';
 import { type AlertContext, isActive } from './AlertContext';
 import { AlertKind } from './AlertKind';
@@ -25,7 +27,7 @@ export class WeeklyReviewDueRule extends AlertRule {
             {
                 disclosures: [],
                 kind: this.kind,
-                message: `Weekly review due since ${weekday} ${reviewDay}: ${pending.length} of ${active.length} active accounts have no snapshot since then`,
+                message: `Weekly review due since ${formatDisplayWeekdayDate(reviewDay)}: ${pending.length} of ${active.length} active accounts have no snapshot since then`,
                 severity: AlertSeverity.Info,
                 subject: {
                     accountIds: pending.map(

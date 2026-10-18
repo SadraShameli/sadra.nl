@@ -27,6 +27,8 @@ import {
 import { MffuVariant } from '~/lib/prop-calculator/core';
 import { LiveTransferContinuationKind } from '~/lib/prop-calculator/simulator';
 
+import { infoContent } from './infoPopover';
+
 const toolsWorkerBox = vi.hoisted(() => ({
     instances: [] as {
         runSpy: ReturnType<typeof vi.fn<(request: unknown) => void>>;
@@ -199,6 +201,10 @@ describe('ValueChainCard prints the live-transfer hazard behind each step (PT-73
         vi.unstubAllGlobals();
     });
 
+    function valueChainInfo(): HTMLElement {
+        return infoContent(container, 'Value chain');
+    }
+
     function succeedWith(
         hazardSteps: readonly ValueChainStepKind[],
         triggerSteps: readonly ValueChainStepKind[] = [],
@@ -231,7 +237,7 @@ describe('ValueChainCard prints the live-transfer hazard behind each step (PT-73
         ]);
 
         for (const selector of [FUNDED_STEP_LIST, POST_PAYOUT_STEP_LIST]) {
-            const list = container.querySelector(selector);
+            const list = valueChainInfo().querySelector(selector);
             expect(list).not.toBeNull();
             const text = list?.textContent ?? '';
             expect(text).toContain(
@@ -245,9 +251,10 @@ describe('ValueChainCard prints the live-transfer hazard behind each step (PT-73
     it('prints no line under a step that priced no hazard', () => {
         succeedWith([ValueChainStepKind.FreshFunded]);
 
-        expect(container.querySelector(FUNDED_STEP_LIST)).not.toBeNull();
-        expect(container.querySelector(EVAL_STEP_LIST)).toBeNull();
-        expect(container.querySelector(POST_PAYOUT_STEP_LIST)).toBeNull();
+        const info = valueChainInfo();
+        expect(info.querySelector(FUNDED_STEP_LIST)).not.toBeNull();
+        expect(info.querySelector(EVAL_STEP_LIST)).toBeNull();
+        expect(info.querySelector(POST_PAYOUT_STEP_LIST)).toBeNull();
     });
 
     it('prints no live-transfer line when no step priced a hazard', () => {
@@ -255,21 +262,23 @@ describe('ValueChainCard prints the live-transfer hazard behind each step (PT-73
 
         expect(container.textContent).toContain('Fresh funded');
         expect(container.textContent).not.toContain('Live transfer');
+        expect(valueChainInfo().textContent).not.toContain('Live transfer');
     });
 
     it('prints the priced cumulative trigger under each step that priced one, with no hazard entered', () => {
         succeedWith([], [ValueChainStepKind.FreshFunded]);
 
-        const list = container.querySelector(FUNDED_TRIGGER_LIST);
+        const info = valueChainInfo();
+        const list = info.querySelector(FUNDED_TRIGGER_LIST);
         expect(list).not.toBeNull();
         expect(list?.textContent).toContain(assumptionText(PRICED_TRIGGER));
-        expect(container.querySelector(EVAL_TRIGGER_LIST)).toBeNull();
-        expect(container.querySelector(FUNDED_STEP_LIST)).toBeNull();
+        expect(info.querySelector(EVAL_TRIGGER_LIST)).toBeNull();
+        expect(info.querySelector(FUNDED_STEP_LIST)).toBeNull();
     });
 
     it('prints no trigger line when no step priced a trigger', () => {
         succeedWith([ValueChainStepKind.FreshFunded]);
 
-        expect(container.querySelector(FUNDED_TRIGGER_LIST)).toBeNull();
+        expect(valueChainInfo().querySelector(FUNDED_TRIGGER_LIST)).toBeNull();
     });
 });

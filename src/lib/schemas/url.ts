@@ -16,6 +16,10 @@ export {
     CalculatorUrlParameter,
     UrlFlag,
 } from '~/lib/schemas/calculatorUrlParameter';
+import {
+    formBoundedNumberSchema,
+    formPositiveWholeNumberSchema,
+} from '~/lib/schemas/formNumber';
 
 export const OBJECTIVE_URL_PARAMETER = 'obj';
 
@@ -162,11 +166,6 @@ function schemaFromBound({ fallback, isInteger, max, min }: ScalarBound) {
     return (isInteger ? base.transform(Math.floor) : base).catch(fallback);
 }
 
-function strictSchemaFromBound({ isInteger, max, min }: ScalarBound) {
-    const base = z.number().min(min).max(max);
-    return isInteger ? base.int() : base;
-}
-
 export const INSTRUMENT_STOP_PAIR_RULE =
     'instrument and stop points must both be set or both be empty';
 
@@ -180,48 +179,51 @@ function hasPairedStop({ instrument, stopPoints }: InstrumentStop): boolean {
 }
 
 const wireInstrumentSchema = z.enum(InstrumentSymbol).nullable().default(null);
-const wireStopPointsSchema = strictSchemaFromBound(CALCULATOR_SCALAR_BOUNDS.sp)
+const wireStopPointsSchema = formBoundedNumberSchema(
+    CALCULATOR_SCALAR_BOUNDS.sp,
+)
     .nullable()
     .default(null);
 
 export const labScenarioSchema = z
     .object({
-        accounts: strictSchemaFromBound(LAB_SCENARIO_BOUNDS.accounts),
+        accounts: formBoundedNumberSchema(LAB_SCENARIO_BOUNDS.accounts),
         correlation: z.enum(CorrelationMode),
         dayStop: dayStopRuleSchema,
-        groups: z.number().int().positive(),
+        groups: formPositiveWholeNumberSchema(),
         id: z.string(),
         instrument: wireInstrumentSchema,
         label: z.string(),
-        riskPerTrade: strictSchemaFromBound(LAB_SCENARIO_BOUNDS.riskPerTrade),
-        rrRatio: strictSchemaFromBound(CALCULATOR_SCALAR_BOUNDS.rr),
+        riskPerTrade: formBoundedNumberSchema(LAB_SCENARIO_BOUNDS.riskPerTrade),
+        rrRatio: formBoundedNumberSchema(CALCULATOR_SCALAR_BOUNDS.rr),
         stopPoints: wireStopPointsSchema,
-        tradesPerDay: strictSchemaFromBound(CALCULATOR_SCALAR_BOUNDS.tpd),
-        winrate: strictSchemaFromBound(CALCULATOR_SCALAR_BOUNDS.wr),
+        tradesPerDay: formBoundedNumberSchema(CALCULATOR_SCALAR_BOUNDS.tpd),
+        winrate: formBoundedNumberSchema(CALCULATOR_SCALAR_BOUNDS.wr),
     })
     .refine((scenario) => scenario.groups <= scenario.accounts, {
+        message: 'Use no more groups than accounts',
         path: ['groups'],
     })
     .refine(hasPairedStop, { message: INSTRUMENT_STOP_PAIR_RULE });
 
 export const portfolioEntrySchema = z
     .object({
-        activationDiscountPercent: strictSchemaFromBound(
+        activationDiscountPercent: formBoundedNumberSchema(
             CALCULATOR_SCALAR_BOUNDS.act,
         ),
-        count: z.number().int().positive(),
-        evalDiscountPercent: strictSchemaFromBound(
+        count: formPositiveWholeNumberSchema(),
+        evalDiscountPercent: formBoundedNumberSchema(
             CALCULATOR_SCALAR_BOUNDS.eval,
         ),
         firmId: z.string(),
         id: z.string(),
         instrument: wireInstrumentSchema,
         linkActivationDiscount: z.boolean(),
-        monthlySubscriptionDiscountPercent: strictSchemaFromBound(
+        monthlySubscriptionDiscountPercent: formBoundedNumberSchema(
             CALCULATOR_SCALAR_BOUNDS.msub,
         ).default(0),
         planId: z.string(),
-        resetDiscountPercent: strictSchemaFromBound(
+        resetDiscountPercent: formBoundedNumberSchema(
             CALCULATOR_SCALAR_BOUNDS.rstd,
         ).default(0),
         stopPoints: wireStopPointsSchema,

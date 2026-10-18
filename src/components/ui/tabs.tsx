@@ -7,15 +7,18 @@ import { cn } from '~/lib/utilities';
 
 const Tabs = TabsPrimitive.Root;
 
+const TABS_LIST_CLASS =
+    'inline-table h-10 items-center justify-center rounded-full bg-muted p-1 text-muted-foreground';
+
+const TABS_TRIGGER_CLASS =
+    'inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap ring-offset-background transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 data-[state=active]:selected-option';
+
 const TabsList = React.forwardRef<
     React.ComponentRef<typeof TabsPrimitive.List>,
     React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
 >(({ className, ...properties }, reference) => (
     <TabsPrimitive.List
-        className={cn(
-            'inline-table h-10 items-center justify-center rounded-full bg-muted p-1 text-muted-foreground',
-            className,
-        )}
+        className={cn(TABS_LIST_CLASS, className)}
         ref={reference}
         {...properties}
     />
@@ -27,10 +30,7 @@ const TabsTrigger = React.forwardRef<
     React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
 >(({ className, ...properties }, reference) => (
     <TabsPrimitive.Trigger
-        className={cn(
-            'inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap ring-offset-background transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 data-[state=active]:selected-pill',
-            className,
-        )}
+        className={cn(TABS_TRIGGER_CLASS, className)}
         ref={reference}
         {...properties}
     />
@@ -52,4 +52,11 @@ const TabsContent = React.forwardRef<
 ));
 TabsContent.displayName = TabsPrimitive.Content.displayName;
 
-export { Tabs, TabsContent, TabsList, TabsTrigger };
+export {
+    Tabs,
+    TABS_LIST_CLASS,
+    TABS_TRIGGER_CLASS,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+};

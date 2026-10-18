@@ -1,13 +1,9 @@
 'use client';
 
-import {
-    CircleCheck,
-    CircleX,
-    type LucideIcon,
-    TriangleAlert,
-} from 'lucide-react';
-import { type ReactNode } from 'react';
+import { Check } from 'lucide-react';
+import { type ReactNode, useId } from 'react';
 
+import { CheckboxCard } from '~/components/ToggleCard';
 import {
     Field,
     FieldDescription,
@@ -15,20 +11,14 @@ import {
     FieldLegend,
     FieldSet,
 } from '~/components/ui/field';
-import { Input } from '~/components/ui/input';
+import { Input, NUMBER_INPUT_CLASS } from '~/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { cn } from '~/lib/utilities';
 
-export const WIZARD_CARD_CLASS = 'rounded-2xl border border-line px-4 py-3';
+export const WIZARD_CARD_CLASS = 'rounded-md border border-line px-4 py-3';
 
 const CHOICE_CARD_CLASS =
-    'h-auto w-full flex-col items-start gap-0.5 rounded-2xl px-4 py-3 text-left whitespace-normal';
-
-export enum StatusTone {
-    Fail = 'fail',
-    Pass = 'pass',
-    Warn = 'warn',
-}
+    'h-full w-full flex-col items-start gap-0.5 rounded-md px-4 py-3 text-left whitespace-normal';
 
 export interface ChoiceOption<T extends string> {
     hint?: ReactNode;
@@ -67,18 +57,27 @@ export function ChoiceCards<T extends string>({
                 variant="outline"
             >
                 {options.map((option) => (
-                    <ToggleGroupItem
-                        className={CHOICE_CARD_CLASS}
-                        key={option.value}
-                        value={option.value}
-                    >
-                        <span className="text-sm">{option.label}</span>
-                        {option.hint !== undefined && (
-                            <span className="text-xs opacity-75">
-                                {option.hint}
+                    <div className="relative" key={option.value}>
+                        <ToggleGroupItem
+                            className={CHOICE_CARD_CLASS}
+                            value={option.value}
+                        >
+                            <span className="text-sm">{option.label}</span>
+                            {option.hint !== undefined && (
+                                <span className="text-xs opacity-75">
+                                    {option.hint}
+                                </span>
+                            )}
+                        </ToggleGroupItem>
+                        {option.value === value && (
+                            <span
+                                aria-hidden
+                                className="pointer-events-none absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                            >
+                                <Check className="size-3" strokeWidth={3} />
                             </span>
                         )}
-                    </ToggleGroupItem>
+                    </div>
                 ))}
             </ToggleGroup>
         </FieldSet>
@@ -88,6 +87,7 @@ export function ChoiceCards<T extends string>({
 export function MultiChoiceCards<T extends string>({
     actions,
     className,
+    description,
     legend,
     onValueChange,
     options,
@@ -95,11 +95,13 @@ export function MultiChoiceCards<T extends string>({
 }: {
     actions?: ReactNode;
     className?: string;
+    description?: ReactNode;
     legend: ReactNode;
     onValueChange: (value: T[]) => void;
     options: readonly ChoiceOption<T>[];
     value: readonly T[];
 }) {
+    const idPrefix = useId();
     return (
         <FieldSet>
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -108,29 +110,31 @@ export function MultiChoiceCards<T extends string>({
                 </FieldLegend>
                 {actions}
             </div>
-            <ToggleGroup
-                className={cn('grid grid-cols-2 gap-2', className)}
-                onValueChange={(selected) =>
-                    onValueChange(
-                        options
-                            .filter((o) => selected.includes(o.value))
-                            .map((o) => o.value),
-                    )
-                }
-                type="multiple"
-                value={[...value]}
-                variant="outline"
-            >
-                {options.map((option) => (
-                    <ToggleGroupItem
-                        className={CHOICE_CARD_CLASS}
+            {description !== undefined && (
+                <FieldDescription>{description}</FieldDescription>
+            )}
+            <div className={cn('grid grid-cols-2 gap-2', className)}>
+                {options.map((option, index) => (
+                    <CheckboxCard
+                        checked={value.includes(option.value)}
+                        description={option.hint}
+                        id={`${idPrefix}-${String(index)}`}
                         key={option.value}
-                        value={option.value}
-                    >
-                        <span className="text-sm">{option.label}</span>
-                    </ToggleGroupItem>
+                        label={option.label}
+                        onCheckedChange={(isChecked) =>
+                            onValueChange(
+                                options
+                                    .filter((candidate) =>
+                                        candidate.value === option.value
+                                            ? isChecked
+                                            : value.includes(candidate.value),
+                                    )
+                                    .map((candidate) => candidate.value),
+                            )
+                        }
+                    />
                 ))}
-            </ToggleGroup>
+            </div>
         </FieldSet>
     );
 }
@@ -154,7 +158,7 @@ export function NumberCard({
         <Field className={cn(WIZARD_CARD_CLASS, 'gap-2')}>
             <FieldLabel htmlFor={id}>{label}</FieldLabel>
             <Input
-                className="font-mono tabular-nums"
+                className={cn(NUMBER_INPUT_CLASS, 'font-mono')}
                 id={id}
                 inputMode="decimal"
                 onChange={(event) => {
@@ -169,85 +173,5 @@ export function NumberCard({
                 <FieldDescription>{description}</FieldDescription>
             )}
         </Field>
-    );
-}
-
-const STATUS_TONE_CLASS: Record<StatusTone, string> = {
-    [StatusTone.Fail]: 'bg-destructive/15 text-destructive',
-    [StatusTone.Pass]: 'bg-success/15 text-success',
-    [StatusTone.Warn]: 'bg-warning/15 text-warning',
-};
-
-const STATUS_METER_CLASS: Record<StatusTone, string> = {
-    [StatusTone.Fail]: 'bg-destructive',
-    [StatusTone.Pass]: 'bg-success',
-    [StatusTone.Warn]: 'bg-warning',
-};
-
-const STATUS_ICON: Record<StatusTone, LucideIcon> = {
-    [StatusTone.Fail]: CircleX,
-    [StatusTone.Pass]: CircleCheck,
-    [StatusTone.Warn]: TriangleAlert,
-};
-
-export function StatusRow({
-    detail,
-    meter,
-    title,
-    tone,
-    value,
-}: {
-    detail?: ReactNode;
-    meter?: { filled: number; total: number };
-    title: ReactNode;
-    tone: StatusTone;
-    value?: ReactNode;
-}) {
-    const Icon = STATUS_ICON[tone];
-    return (
-        <div
-            className={cn(WIZARD_CARD_CLASS, 'flex flex-col gap-3')}
-            role="status"
-        >
-            <div className="flex items-center gap-3">
-                <span
-                    className={cn(
-                        'flex size-9 shrink-0 items-center justify-center rounded-full',
-                        STATUS_TONE_CLASS[tone],
-                    )}
-                >
-                    <Icon aria-hidden className="size-4.5" />
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <p className="m-0 text-sm font-medium text-foreground">
-                        {title}
-                    </p>
-                    {detail !== undefined && (
-                        <p className="m-0 text-xs text-muted-foreground">
-                            {detail}
-                        </p>
-                    )}
-                </div>
-                {value !== undefined && (
-                    <span className="font-mono text-lg text-foreground tabular-nums">
-                        {value}
-                    </span>
-                )}
-            </div>
-            {meter !== undefined && (
-                <div aria-hidden className="flex gap-1">
-                    {Array.from({ length: meter.total }, (_, index) => (
-                        <span
-                            className={cn(
-                                'h-1.5 flex-1 rounded-full bg-muted',
-                                index < meter.filled &&
-                                    STATUS_METER_CLASS[tone],
-                            )}
-                            key={index}
-                        />
-                    ))}
-                </div>
-            )}
-        </div>
     );
 }

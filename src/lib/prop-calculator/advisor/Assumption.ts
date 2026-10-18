@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { formatCurrency } from '~/lib/format';
+import { formatCurrency, formatDisplayDate } from '~/lib/format';
 import { type VerifiedCumulativeTrigger } from '~/lib/prop-calculator/core';
 import {
     LIVE_TRANSFER_CONTINUATION_TEXT,
@@ -342,7 +342,7 @@ function cumulativePayoutTriggerText(
 ): string {
     const { amount, continuation, notes, source } = assumption;
     return [
-        `The simulation sends an account live once the payouts it receives, counted after the profit split, total ${formatCurrency(amount, 0)}, the firm's confirmed trigger (source: ${source.url}, fetched ${source.fetchedOn}, quote: "${source.quote}").`,
+        `The simulation sends an account live once the payouts it receives, counted after the profit split, total ${formatCurrency(amount, 0)}, the firm's confirmed trigger (source: ${source.url}, fetched ${formatDisplayDate(source.fetchedOn)}, quote: "${source.quote}").`,
         CUMULATIVE_TRIGGER_CROSSING_PAYOUT_TEXT,
         LIVE_TRANSFER_CONTINUATION_TEXT[continuation],
         ...notes,

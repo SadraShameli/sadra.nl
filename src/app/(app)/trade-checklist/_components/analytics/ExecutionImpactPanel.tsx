@@ -1,8 +1,13 @@
 'use client';
 
+import { ListChecks } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/card';
+import { executionDeviationLabel } from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatPercent, formatR } from '~/lib/format';
 import {
     deviationFrequency,
@@ -10,18 +15,6 @@ import {
     type LightAssessment,
 } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
-
-const DEVIATION_LABELS: Record<string, string> = {
-    'chased-entry': 'Chased entry',
-    'entered-late': 'Entered late',
-    'exited-before-target': 'Exited before target',
-    'exited-past-target': 'Exited past target',
-    'moved-stop-early': 'Moved stop early',
-    'moved-stop-to-be': 'Moved stop to BE',
-    'no-fill': 'No fill',
-    'sized-down': 'Sized down',
-    'sized-up': 'Sized up',
-};
 
 export function ExecutionImpactPanel({
     assessments,
@@ -44,67 +37,59 @@ export function ExecutionImpactPanel({
                 'flex flex-col gap-4',
             )}
         >
-            <div>
-                <p className="text-xs tracking-wider text-muted-foreground uppercase">
-                    Plan-followed vs deviated
-                </p>
+            <div className="flex flex-col gap-2">
+                <PanelSubheading>Plan-followed vs deviated</PanelSubheading>
                 {hasComparison ? (
-                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                        <Card className="p-4">
-                            <p className="text-xs text-success">
-                                Followed plan
-                            </p>
-                            <p className="mt-1 font-mono text-2xl text-success">
-                                {formatPercent(impact.followed.winRate, 0)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {impact.followed.count} trade
-                                {impact.followed.count === 1 ? '' : 's'} ·{' '}
-                                {formatR(impact.followed.avgR)} avg
-                            </p>
-                        </Card>
-                        <Card className="p-4">
-                            <p className="text-xs text-warning">Deviated</p>
-                            <p
-                                className={cn(
-                                    'mt-1 font-mono text-2xl',
-                                    impact.deviated.winRate >
-                                        impact.followed.winRate
-                                        ? 'text-success'
-                                        : 'text-destructive',
-                                )}
-                            >
-                                {formatPercent(impact.deviated.winRate, 0)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {impact.deviated.count} trade
-                                {impact.deviated.count === 1 ? '' : 's'} ·{' '}
-                                {formatR(impact.deviated.avgR)} avg
-                            </p>
-                        </Card>
-                    </div>
+                    <StatStrip
+                        items={[
+                            {
+                                caption: cohortCaption(impact.followed),
+                                id: 'followed-plan',
+                                label: 'Followed plan',
+                                value: formatPercent(
+                                    impact.followed.winRate,
+                                    0,
+                                ),
+                            },
+                            {
+                                caption: cohortCaption(impact.deviated),
+                                id: 'deviated',
+                                label: 'Deviated',
+                                value: formatPercent(
+                                    impact.deviated.winRate,
+                                    0,
+                                ),
+                            },
+                        ]}
+                    />
                 ) : (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Need at least 3 outcomes recorded for each cohort
-                        (followed plan vs deviated). Use the &ldquo;Execution
-                        details&rdquo; section when recording outcomes.
-                    </p>
+                    <StatusRow
+                        detail={
+                            <>
+                                Use the &ldquo;Execution details&rdquo; section
+                                when recording outcomes.
+                            </>
+                        }
+                        title="Need at least 3 outcomes recorded for each cohort (followed plan vs deviated)."
+                        tone={StatusTone.Neutral}
+                    />
                 )}
             </div>
 
-            <div>
-                <p className="text-xs tracking-wider text-muted-foreground uppercase">
-                    Most frequent deviations
-                </p>
+            <div className="flex flex-col gap-2">
+                <PanelSubheading>Most frequent deviations</PanelSubheading>
                 {freq.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        No deviations recorded yet.
-                    </p>
+                    <EmptyState
+                        description="Deviations you tag when recording outcomes show up here."
+                        icon={ListChecks}
+                        size={EmptyStateSize.Compact}
+                        title="No deviations yet"
+                    />
                 ) : (
                     <ul
                         className={cn(
                             'app-trade-checklist__deviations-list',
-                            'mt-2 divide-y divide-border/40 rounded-md border border-border/40',
+                            'divide-y divide-border/40 rounded-md border border-border/40',
                         )}
                     >
                         {freq.map((d) => (
@@ -113,8 +98,7 @@ export function ExecutionImpactPanel({
                                 key={d.deviation}
                             >
                                 <span>
-                                    {DEVIATION_LABELS[d.deviation] ??
-                                        d.deviation}
+                                    {executionDeviationLabel(d.deviation)}
                                 </span>
                                 <span className="font-mono text-xs text-muted-foreground">
                                     {d.count} · WR {formatPercent(d.winRate, 0)}
@@ -126,4 +110,14 @@ export function ExecutionImpactPanel({
             </div>
         </div>
     );
+}
+
+function cohortCaption({
+    avgR,
+    count,
+}: {
+    readonly avgR: number;
+    readonly count: number;
+}): string {
+    return `${count} trade${count === 1 ? '' : 's'} · ${formatR(avgR)} avg`;
 }

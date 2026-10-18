@@ -377,7 +377,7 @@ describe('nextActionOf (F-V18, PT-74 accountActionOf)', () => {
             kind: NextActionSourceKind.Advice,
         });
         expect(view.action).toBe(AccountAction.EnterSnapshot);
-        expect(view.reason).toContain('2026-08-01');
+        expect(view.reason).toContain('1 Aug 2026');
     });
 
     it('says StopForToday when the day plan has no rung left', () => {
@@ -562,7 +562,7 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
         expect(unlikely.text).toBe('3.4 calendar days (SE 0.4)');
     });
 
-    it('prints a missing standard error as not applicable', () => {
+    it('leaves out a missing standard error instead of printing n/a', () => {
         const account = fundedAccount(1800, {
             ...projection(3.4),
             expectedCalendarDaysToFirstPayout: {
@@ -570,9 +570,7 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
                 value: 3.4,
             },
         });
-        expect(columnsOf(account).nextPayout.text).toBe(
-            '3.4 calendar days (SE n/a)',
-        );
+        expect(columnsOf(account).nextPayout.text).toBe('3.4 calendar days');
     });
 
     it('highlights a payout within the configured number of days, boundary included, and not beyond', () => {
@@ -597,7 +595,7 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
     it('names the highlight window and the paying share floor in the note, so the user can see why a row is or is not highlighted', () => {
         const near = columnsOf(funded(3.4), { highlightWithinDays: 10 });
         expect(near.nextPayout.note).toContain(
-            'Highlighted when the first payout is expected within 10 calendar days and at least 50.0% of the simulated trials reach one.',
+            'Marked soon when the first payout is expected within 10 calendar days and at least 50.0% of the simulated trials reach one.',
         );
         const far = columnsOf(funded(20, 1200), { highlightWithinDays: 3 });
         expect(far.nextPayout.isSoon).toBe(false);

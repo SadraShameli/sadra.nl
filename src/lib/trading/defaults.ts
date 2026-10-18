@@ -68,7 +68,11 @@ export const WEIGHT_CATEGORIES: {
 
 export const CONFLUENCE_GROUPS: ConfluenceGroup[] = [
     { items: [...ENTRY_CONFLUENCE_KEYS], label: 'Entry confluences' },
-    { items: [...DOL_CONFLUENCE_KEYS], label: 'Draw on liquidity' },
+    {
+        hint: 'Liquidity levels stacked at the entry, besides the main draw you picked in step 4.',
+        items: [...DOL_CONFLUENCE_KEYS],
+        label: 'DOL confluences present',
+    },
 ];
 
 export const CONFLUENCE_OPTIONS = CONFLUENCE_GROUPS.flatMap((g) => g.items);

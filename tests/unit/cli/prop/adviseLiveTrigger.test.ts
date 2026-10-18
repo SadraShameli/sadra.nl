@@ -11,6 +11,7 @@ import {
     NextTradeRiskReportKind,
     readAdviseInputs,
 } from '~/cli/commands/prop/advise/command';
+import { formatDisplayDate } from '~/lib/format';
 import {
     type AccountState,
     dollars,
@@ -151,7 +152,7 @@ describe('prop advise words the live trigger by scope (PT-36f, step 6)', () => {
         expect(payoutLine).toContain('2 of 3 payouts taken on this account');
         expect(payoutLine).toContain(SOURCE.url);
         expect(payoutLine).toContain(SOURCE.quote);
-        expect(payoutLine).toContain(SOURCE.fetchedOn);
+        expect(payoutLine).toContain(formatDisplayDate(SOURCE.fetchedOn));
     });
 
     it("names the firm-wide count since the last live account for a firm-total trigger, never this account's count", () => {

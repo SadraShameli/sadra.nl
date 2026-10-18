@@ -3,38 +3,46 @@
 import { useCallback, useMemo } from 'react';
 import { Area, ComposedChart, Line, XAxis, YAxis } from 'recharts';
 
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { MissingValue } from '~/components/MissingValue';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip, type StatStripItem } from '~/components/StatStrip';
 import {
     CHART_STROKE_WIDTH,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
+    ChartSkeleton,
 } from '~/components/ui/chart';
 import { DataTable } from '~/components/ui/data-table';
+import { Separator } from '~/components/ui/separator';
 import {
     formatCompactCurrency,
-    formatGateCurrency,
     formatPercent,
-    NOT_APPLICABLE,
+    formatWholeOrCentsCurrency,
 } from '~/lib/format';
 import { fraction } from '~/lib/prop-calculator';
 import { type ProjectionMonthEnd } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 
+import { BankrollField, BankrollFieldKind } from './BankrollField';
 import {
     BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL,
     bankrollCycleDescription,
     bankrollCycleFigures,
     bankrollCycleInput,
     bankrollProjectionRequest,
+    type BankrollProjectionSummary,
     bankrollProjectionSummary,
 } from './bankrollModel';
-import { BankrollNumberField } from './BankrollNumberField';
-import { BankrollRunStatus } from './BankrollRunStatus';
+import {
+    BankrollRunStatus,
+    isAwaitingRequestedResult,
+} from './BankrollRunStatus';
 import { BankrollSection } from './BankrollSection';
+import { growthStatItems, readyValue } from './bankrollStatItems';
 import {
     type BankrollViewState,
     parseBankrollDollarsField,
@@ -62,10 +70,10 @@ interface ProjectionCardProperties {
 
 const monthEndChartConfig: ChartConfig = {
     band: {
-        color: 'color-mix(in oklab, var(--success) 18%, transparent)',
+        color: 'color-mix(in oklab, var(--chart-1) 18%, transparent)',
         label: 'P10 to P90',
     },
-    median: { color: 'var(--success)', label: 'Median bankroll' },
+    median: { color: 'var(--chart-1)', label: 'Median bankroll' },
 };
 
 export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
@@ -110,10 +118,6 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
         worker.state.result.kind === ToolsResponseKind.Projection
             ? worker.state.result
             : null;
-    const summary =
-        projection === null
-            ? null
-            : bankrollProjectionSummary(projection.result);
 
     const cycle = bankrollCycleInput(state.cycleMultiple, state.cycleDays);
     const illustration =
@@ -126,153 +130,166 @@ export function ProjectionCard({ onChange, state }: ProjectionCardProperties) {
 
     return (
         <BankrollSection
-            description="Simulates reinvesting payouts into new attempts over a horizon, with P10 to P90 bands and the chance the bankroll runs dry."
             headingId="bankroll-projection-heading"
+            info="Simulates reinvesting payouts into new attempts over a horizon, with P10 to P90 bands and the chance the bankroll runs dry."
+            inputs={
+                <>
+                    <BankrollField
+                        id="bankroll-start"
+                        info="The cash you start with, in dollars."
+                        initial={state.start}
+                        label="Starting bankroll"
+                        onChange={(raw) =>
+                            onChange({ start: parseBankrollDollarsField(raw) })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-horizon"
+                        info="How many trading days to simulate."
+                        initial={state.horizonDays}
+                        kind={BankrollFieldKind.Integer}
+                        label="Horizon"
+                        onChange={(raw) =>
+                            onChange({
+                                horizonDays: parseBankrollPositiveIntField(raw),
+                            })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-reinvest"
+                        info="The share of each payout put back into the bankroll, from 0 to 1. Empty means 0: every payout is withdrawn."
+                        initial={state.reinvestFraction}
+                        label="Reinvest fraction"
+                        onChange={(raw) =>
+                            onChange({
+                                reinvestFraction:
+                                    parseBankrollReinvestFractionField(raw),
+                            })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-monthly-budget"
+                        info="Optional. The most you spend on new attempts in one month, in dollars."
+                        initial={state.monthlyBudget}
+                        label="Monthly budget"
+                        onChange={(raw) =>
+                            onChange({
+                                monthlyBudget: parseBankrollDollarsField(raw),
+                            })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-round-budget"
+                        info="Optional. The most you spend on attempts over the whole horizon, in dollars."
+                        initial={state.roundBudget}
+                        label="Round budget"
+                        onChange={(raw) =>
+                            onChange({
+                                roundBudget: parseBankrollDollarsField(raw),
+                            })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-capacity"
+                        info="Optional. The most accounts you hold at once, capped at the plan's funded account limit."
+                        initial={state.capacity}
+                        kind={BankrollFieldKind.Integer}
+                        label="Capacity"
+                        onChange={(raw) =>
+                            onChange({
+                                capacity: parseBankrollPositiveIntField(raw),
+                            })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-payout-lag"
+                        info="Trading days between a payout and its cash reaching the bankroll. Empty means 0."
+                        initial={state.payoutLagDays}
+                        kind={BankrollFieldKind.Integer}
+                        label="Payout lag"
+                        onChange={(raw) =>
+                            onChange({
+                                payoutLagDays:
+                                    parseBankrollNonNegativeIntField(raw),
+                            })
+                        }
+                    />
+                    <Separator />
+                    <PanelSubheading info="Optional. A deterministic figure, not a forecast: the starting bankroll multiplied by the cycle multiple once per cycle over the horizon. It shows beside the bands once both are set.">
+                        Cycle illustration
+                    </PanelSubheading>
+                    <BankrollField
+                        id="bankroll-cycle-multiple"
+                        info="Optional. How many times the bankroll grows per cycle."
+                        initial={state.cycleMultiple}
+                        label="Cycle multiple"
+                        onChange={(raw) =>
+                            onChange({
+                                cycleMultiple: parseBankrollMultipleField(raw),
+                            })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-cycle-days"
+                        info="Optional. Trading days per cycle."
+                        initial={state.cycleDays}
+                        kind={BankrollFieldKind.Integer}
+                        label="Cycle length"
+                        onChange={(raw) =>
+                            onChange({
+                                cycleDays: parseBankrollPositiveIntField(raw),
+                            })
+                        }
+                    />
+                </>
+            }
+            isComputing={isAwaitingRequestedResult(
+                requestKey !== null,
+                worker.state,
+            )}
+            results={
+                projection === null ? (
+                    <BankrollRunStatus
+                        emptyText="Enter a starting bankroll and a horizon to project."
+                        isRequested={requestKey !== null}
+                        skeleton={
+                            <>
+                                <StatStrip
+                                    isLoading
+                                    items={projectionItems(null)}
+                                />
+                                <ChartSkeleton />
+                            </>
+                        }
+                        state={worker.state}
+                    />
+                ) : (
+                    <>
+                        <StatStrip
+                            items={projectionItems(
+                                bankrollProjectionSummary(projection.result),
+                            )}
+                        />
+                        <MonthEndBands monthEnds={projection.monthEnds} />
+                        {illustration === undefined ||
+                        illustration === null ? null : (
+                            <p className="text-xs text-muted-foreground">
+                                {BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL} (
+                                {bankrollCycleDescription(illustration)}):{' '}
+                                {illustration.quantity.value === null ? (
+                                    <MissingValue />
+                                ) : (
+                                    formatWholeOrCentsCurrency(
+                                        illustration.quantity.value,
+                                    )
+                                )}
+                            </p>
+                        )}
+                    </>
+                )
+            }
             title="Projection"
-        >
-            <div className="grid gap-4 sm:grid-cols-2">
-                <BankrollNumberField
-                    id="bankroll-start"
-                    initial={state.start}
-                    label="Starting bankroll ($)"
-                    onChange={(raw) =>
-                        onChange({ start: parseBankrollDollarsField(raw) })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-monthly-budget"
-                    initial={state.monthlyBudget}
-                    label="Monthly budget ($, optional)"
-                    onChange={(raw) =>
-                        onChange({
-                            monthlyBudget: parseBankrollDollarsField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-reinvest"
-                    initial={state.reinvestFraction}
-                    label="Reinvest fraction (0 to 1)"
-                    onChange={(raw) =>
-                        onChange({
-                            reinvestFraction:
-                                parseBankrollReinvestFractionField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-capacity"
-                    initial={state.capacity}
-                    label="Capacity (max concurrent accounts, optional)"
-                    onChange={(raw) =>
-                        onChange({
-                            capacity: parseBankrollPositiveIntField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-payout-lag"
-                    initial={state.payoutLagDays}
-                    label="Payout lag (days)"
-                    onChange={(raw) =>
-                        onChange({
-                            payoutLagDays:
-                                parseBankrollNonNegativeIntField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-horizon"
-                    initial={state.horizonDays}
-                    label="Horizon (trading days)"
-                    onChange={(raw) =>
-                        onChange({
-                            horizonDays: parseBankrollPositiveIntField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-round-budget"
-                    initial={state.roundBudget}
-                    label="Round budget ($, optional)"
-                    onChange={(raw) =>
-                        onChange({
-                            roundBudget: parseBankrollDollarsField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-cycle-multiple"
-                    initial={state.cycleMultiple}
-                    label="Cycle multiple for the illustration (optional)"
-                    onChange={(raw) =>
-                        onChange({
-                            cycleMultiple: parseBankrollMultipleField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-cycle-days"
-                    initial={state.cycleDays}
-                    label="Cycle length for the illustration (trading days, optional)"
-                    onChange={(raw) =>
-                        onChange({
-                            cycleDays: parseBankrollPositiveIntField(raw),
-                        })
-                    }
-                />
-            </div>
-            {summary === null ? (
-                <BankrollRunStatus
-                    idleText="Enter a starting bankroll and a horizon to project."
-                    isRequested={requestKey !== null}
-                    state={worker.state}
-                />
-            ) : (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <StatCard
-                        label="Path ruin"
-                        value={formatPercent(summary.pathRuin)}
-                    />
-                    <StatCard
-                        label="P(final net < 0)"
-                        value={formatPercent(summary.pFinalNetNegative)}
-                    />
-                    <StatCard
-                        label="Cards bought (median)"
-                        value={summary.cardsBoughtMedian.toFixed(1)}
-                    />
-                    <StatCard
-                        label="Multiple (P50 cash / start)"
-                        value={
-                            summary.multiple === null
-                                ? NOT_APPLICABLE
-                                : `${summary.multiple.toFixed(2)}x`
-                        }
-                    />
-                    <StatCard
-                        label="Measured cycle days"
-                        value={
-                            summary.measuredCycleDays === null
-                                ? NOT_APPLICABLE
-                                : summary.measuredCycleDays.toFixed(1)
-                        }
-                    />
-                </div>
-            )}
-            {projection === null ? null : (
-                <MonthEndBands monthEnds={projection.monthEnds} />
-            )}
-            {illustration === undefined || illustration === null ? null : (
-                <p className="text-xs text-muted-foreground">
-                    {BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL} (
-                    {bankrollCycleDescription(illustration)}):{' '}
-                    {illustration.quantity.value === null
-                        ? NOT_APPLICABLE
-                        : formatGateCurrency(illustration.quantity.value)}
-                </p>
-            )}
-        </BankrollSection>
+        />
     );
 }
 
@@ -290,9 +307,9 @@ function MonthEndBands({
     }));
     return (
         <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-foreground">
+            <PanelSubheading>
                 Bankroll at each month end (P10 to P90)
-            </h3>
+            </PanelSubheading>
             <ChartContainer
                 className="app-prop-calculator__bankroll-month-end-chart"
                 config={monthEndChartConfig}
@@ -328,7 +345,7 @@ function MonthEndBands({
                     />
                     <Area
                         dataKey="range"
-                        fill="var(--success)"
+                        fill="var(--color-median)"
                         fillOpacity={0.18}
                         isAnimationActive={false}
                         legendType="none"
@@ -339,7 +356,7 @@ function MonthEndBands({
                         dataKey="median"
                         dot={false}
                         isAnimationActive={false}
-                        stroke="var(--success)"
+                        stroke="var(--color-median)"
                         strokeWidth={CHART_STROKE_WIDTH}
                         type="monotone"
                     />
@@ -356,11 +373,14 @@ function MonthEndBands({
                         ),
                         header: 'Month',
                         id: ProjectionCardColumn.Month,
+                        meta: { isRowHeader: true },
                     },
                     {
                         cell: ({ row }) => (
                             <span className="font-mono">
-                                {formatGateCurrency(row.original.cashP10)}
+                                {formatWholeOrCentsCurrency(
+                                    row.original.cashP10,
+                                )}
                             </span>
                         ),
                         header: 'Bankroll P10',
@@ -369,7 +389,9 @@ function MonthEndBands({
                     {
                         cell: ({ row }) => (
                             <span className="font-mono">
-                                {formatGateCurrency(row.original.cashP50)}
+                                {formatWholeOrCentsCurrency(
+                                    row.original.cashP50,
+                                )}
                             </span>
                         ),
                         header: 'Bankroll P50',
@@ -378,7 +400,9 @@ function MonthEndBands({
                     {
                         cell: ({ row }) => (
                             <span className="font-mono">
-                                {formatGateCurrency(row.original.cashP90)}
+                                {formatWholeOrCentsCurrency(
+                                    row.original.cashP90,
+                                )}
                             </span>
                         ),
                         header: 'Bankroll P90',
@@ -387,7 +411,9 @@ function MonthEndBands({
                     {
                         cell: ({ row }) => (
                             <span className="font-mono">
-                                {formatGateCurrency(row.original.payoutsP50)}
+                                {formatWholeOrCentsCurrency(
+                                    row.original.payoutsP50,
+                                )}
                             </span>
                         ),
                         header: 'Payouts (P50)',
@@ -396,7 +422,9 @@ function MonthEndBands({
                     {
                         cell: ({ row }) => (
                             <span className="font-mono">
-                                {formatGateCurrency(row.original.spendP50)}
+                                {formatWholeOrCentsCurrency(
+                                    row.original.spendP50,
+                                )}
                             </span>
                         ),
                         header: 'Spend (P50)',
@@ -410,4 +438,33 @@ function MonthEndBands({
             />
         </div>
     );
+}
+
+function projectionItems(
+    summary: BankrollProjectionSummary | null,
+): readonly StatStripItem[] {
+    return [
+        {
+            id: 'path-ruin',
+            label: 'Path ruin',
+            value: readyValue(summary, (ready) =>
+                formatPercent(ready.pathRuin),
+            ),
+        },
+        {
+            id: 'final-net-negative',
+            label: 'P(final net < 0)',
+            value: readyValue(summary, (ready) =>
+                formatPercent(ready.pFinalNetNegative),
+            ),
+        },
+        {
+            id: 'cards-bought',
+            label: 'Cards bought (median)',
+            value: readyValue(summary, (ready) =>
+                ready.cardsBoughtMedian.toFixed(1),
+            ),
+        },
+        ...growthStatItems(summary),
+    ];
 }

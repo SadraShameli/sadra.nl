@@ -453,13 +453,13 @@ describe('dpAdviceRowViewsOf', () => {
 
     it('says a row stored without a solve was not solved', () => {
         expect(onlyRow(record({ runtimeMs: 0 })).provenanceText).toBe(
-            'Recorded 2026-10-02 without a solve, solver 1, config a1b2c3d4e5f6, objective monthly net',
+            'Recorded 2 Oct 2026 without a solve, solver 1, config a1b2c3d4e5f6, objective monthly net',
         );
     });
 
     it('describes the solve from stored fields only', () => {
         expect(onlyRow(record()).provenanceText).toBe(
-            'Solved 2026-10-02 in 12.3s, solver 1, config a1b2c3d4e5f6, objective monthly net',
+            'Solved 2 Oct 2026 in 12.3s, solver 1, config a1b2c3d4e5f6, objective monthly net',
         );
     });
 

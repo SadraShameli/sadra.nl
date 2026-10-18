@@ -7,6 +7,7 @@ import {
     LINKED_TOOL_CATALOG,
     toolCatalogEntry,
     ToolId,
+    toolsByGroup,
 } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 
 import { basePath } from './toolPageFiles';
@@ -58,38 +59,52 @@ describe('PropCalculatorSubnav', () => {
         vi.unstubAllGlobals();
     });
 
-    it('renders a nav labelled Prop calculator tools in the navbar slot', () => {
+    it('renders a nav labelled Prop calculator tools in the navbar slot, with one link per tool group opening its first tool', () => {
         render(LINKED_TOOL_CATALOG[0]?.route ?? '/');
         const navs = slot.querySelectorAll('nav');
         expect(navs).toHaveLength(1);
         expect(navs[0]?.getAttribute('aria-label')).toBe(
             'Prop calculator tools',
         );
+        const groups = toolsByGroup(LINKED_TOOL_CATALOG);
         expect(
             links().map((link) => basePath(link.getAttribute('href') ?? '')),
-        ).toEqual(LINKED_TOOL_CATALOG.map((entry) => entry.route));
+        ).toEqual(groups.map((group) => group.tools[0].route));
+        expect(links().map((link) => link.textContent)).toEqual(
+            groups.map((group) =>
+                group.tools.length === 1 ? group.tools[0].label : group.label,
+            ),
+        );
     });
 
     it.each(
-        LINKED_TOOL_CATALOG.map((entry): [string, string] => [
+        LINKED_TOOL_CATALOG.map((entry): [string, string, string] => [
             entry.label,
             entry.route,
+            toolsByGroup(LINKED_TOOL_CATALOG).find(
+                (group) => group.group === entry.group,
+            )?.tools[0].route ?? '',
         ]),
-    )('marks only %s as the current page on its own route', (_label, route) => {
-        render(route);
-        const current = links().filter(
-            (link) => link.getAttribute('aria-current') === 'page',
-        );
-        expect(current).toHaveLength(1);
-        expect(basePath(current[0]?.getAttribute('href') ?? '')).toBe(route);
-        expect(
-            links().filter(
-                (link) => link.getAttribute('aria-current') !== null,
-            ),
-        ).toHaveLength(1);
-    });
+    )(
+        'marks only the group of %s as the current page on its route',
+        (_label, route, groupRoute) => {
+            render(route);
+            const current = links().filter(
+                (link) => link.getAttribute('aria-current') === 'page',
+            );
+            expect(current).toHaveLength(1);
+            expect(basePath(current[0]?.getAttribute('href') ?? '')).toBe(
+                groupRoute,
+            );
+            expect(
+                links().filter(
+                    (link) => link.getAttribute('aria-current') !== null,
+                ),
+            ).toHaveLength(1);
+        },
+    );
 
-    it('gives the strategy lab link the lab state and the planner link the portfolio, and drops both elsewhere (PT-119)', () => {
+    it('gives each group link the calculator query of its first tool, so the lab and portfolio state stay off the Labs and Plan links (PT-119)', () => {
         render(toolCatalogEntry(ToolId.Simulator).route);
         const hrefOf = (id: ToolId) =>
             links()
@@ -99,11 +114,11 @@ describe('PropCalculatorSubnav', () => {
                         toolCatalogEntry(id).route,
                 )
                 ?.getAttribute('href');
-        expect(hrefOf(ToolId.StrategyLab)).toBe(
-            `${toolCatalogEntry(ToolId.StrategyLab).route}?firm=apex&lab=LAB`,
+        expect(hrefOf(ToolId.LadderLab)).toBe(
+            `${toolCatalogEntry(ToolId.LadderLab).route}?firm=apex`,
         );
-        expect(hrefOf(ToolId.Planner)).toBe(
-            `${toolCatalogEntry(ToolId.Planner).route}?firm=apex&pf=PF`,
+        expect(hrefOf(ToolId.CashFlow)).toBe(
+            `${toolCatalogEntry(ToolId.CashFlow).route}?firm=apex`,
         );
         expect(hrefOf(ToolId.Analysis)).toBe(
             `${toolCatalogEntry(ToolId.Analysis).route}?firm=apex`,

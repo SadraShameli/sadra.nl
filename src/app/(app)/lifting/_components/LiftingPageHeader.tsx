@@ -1,5 +1,8 @@
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { SectionPageTabs } from '~/app/(app)/_components/SectionPageTabs';
+import { PageHeader } from '~/components/PageHeader';
 import { siteToolTitle, ToolTicker } from '~/lib/site/content';
+
+import { LIFTING_NAV } from './liftingNav';
 
 export function LiftingPageHeader({
     description,
@@ -9,9 +12,10 @@ export function LiftingPageHeader({
     readonly title: string;
 }) {
     return (
-        <ToolPageHeader
+        <PageHeader
             eyebrow={siteToolTitle(ToolTicker.Lifting)}
             lead={description}
+            tabs={<SectionPageTabs items={LIFTING_NAV} label="Lifting pages" />}
             title={title}
         />
     );

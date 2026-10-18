@@ -6,6 +6,7 @@ import { useId, useTransition } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ProfileFormFooter } from '~/app/(app)/profile/_components/ProfileFormFooter';
 import { Button } from '~/components/ui/button';
 import {
     Field,
@@ -209,9 +210,11 @@ export function AccountDetailsForm({
                 )}
             </FieldSet>
 
-            <Button className="self-start" disabled={pending} type="submit">
-                {pending ? 'Saving…' : 'Save changes'}
-            </Button>
+            <ProfileFormFooter
+                isDirty={form.formState.isDirty}
+                isPending={pending}
+                onCancel={() => form.reset()}
+            />
         </form>
     );
 }

@@ -1,6 +1,6 @@
 import { type Metadata } from 'next';
 
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 import { cn } from '~/lib/utilities';
@@ -23,7 +23,7 @@ export default function PropertyCalculatorPage() {
                 )}
             >
                 <HubLegacySectionRedirect />
-                <ToolPageHeader
+                <PageHeader
                     eyebrow={siteToolTitle(ToolTicker.PropCalculator)}
                     lead={
                         <>

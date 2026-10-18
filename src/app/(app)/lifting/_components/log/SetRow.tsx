@@ -1,29 +1,18 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, MoreHorizontal, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Check, CheckCheck } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
 import type { SetType, UnitDistance, UnitWeight } from '~/lib/lifting/types';
 
 import { NumberStepper } from '~/app/(app)/lifting/_components/shared/NumberStepper';
+import { deleteRowAction, RowActionsMenu } from '~/components/RowActionsMenu';
 import { Button } from '~/components/ui/button';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu';
 import { Field, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '~/components/ui/tooltip';
 import { DistanceUnit, WeightUnit } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
 
@@ -98,7 +87,6 @@ export function SetRow({
         defaultValues: deriveDefaults(set, unitWeight, unitDistance),
         resolver: zodResolver(logSetFormSchema),
     });
-    const [isDeleteDialogOpen, setDeleteOpen] = useState(false);
     const isCompleted = set.completedAt !== null;
 
     const currentSetReference = useRef(set);
@@ -140,10 +128,7 @@ export function SetRow({
 
     return (
         <form
-            className={cn(
-                'rounded-xl border border-border/30 bg-background/40 p-2 transition md:flex md:items-end md:gap-2',
-                isCompleted && 'bg-muted/40 opacity-90',
-            )}
+            className="rounded-xl border border-border/30 bg-background/40 p-2 transition md:flex md:items-end md:gap-2"
             onSubmit={handleComplete}
         >
             <div className="flex items-center justify-between gap-2 md:contents">
@@ -160,42 +145,31 @@ export function SetRow({
 
                 <div className="flex items-center gap-1 md:order-last md:ml-auto">
                     <Button
-                        aria-label="Complete set"
+                        aria-label={
+                            isCompleted
+                                ? 'Set done, save changes'
+                                : 'Complete set'
+                        }
                         className="size-9 rounded-full p-0"
                         disabled={busy}
                         type="submit"
-                        variant={isCompleted ? 'secondary' : 'default'}
                     >
-                        <Check className="size-4" />
+                        {isCompleted ? (
+                            <CheckCheck className="size-4" />
+                        ) : (
+                            <Check className="size-4" />
+                        )}
                     </Button>
-                    <DropdownMenu>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        aria-label="Set options"
-                                        className="size-9 p-0"
-                                        type="button"
-                                        variant="ghost"
-                                    >
-                                        <MoreHorizontal className="size-4 text-muted-foreground" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>Set options</TooltipContent>
-                        </Tooltip>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                                className="text-destructive"
-                                onSelect={(event) => {
-                                    event.preventDefault();
-                                    setDeleteOpen(true);
-                                }}
-                            >
-                                <Trash2 className="mr-2 size-4" /> Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RowActionsMenu
+                        actions={[
+                            deleteRowAction({
+                                description: `Set ${set.order} will be removed permanently.`,
+                                onDelete: () => onDelete(set.id),
+                                title: 'Delete set?',
+                            }),
+                        ]}
+                        label={`Set ${set.order}`}
+                    />
                 </div>
             </div>
 
@@ -245,7 +219,7 @@ export function SetRow({
                             data-invalid={fieldState.invalid}
                         >
                             <FieldLabel
-                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                className="type-micro text-muted-foreground"
                                 htmlFor={`set-${set.id}-rpe`}
                             >
                                 RPE
@@ -278,7 +252,7 @@ export function SetRow({
                             data-invalid={fieldState.invalid}
                         >
                             <FieldLabel
-                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                className="type-micro text-muted-foreground"
                                 htmlFor={`set-${set.id}-rir`}
                             >
                                 RIR
@@ -311,7 +285,7 @@ export function SetRow({
                             data-invalid={fieldState.invalid}
                         >
                             <FieldLabel
-                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                className="type-micro text-muted-foreground"
                                 htmlFor={`set-${set.id}-tempo`}
                             >
                                 Tempo
@@ -339,7 +313,7 @@ export function SetRow({
                             data-invalid={fieldState.invalid}
                         >
                             <FieldLabel
-                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                className="type-micro text-muted-foreground"
                                 htmlFor={`set-${set.id}-distance`}
                             >
                                 Distance ({unitDistance})
@@ -376,7 +350,7 @@ export function SetRow({
                             data-invalid={fieldState.invalid}
                         >
                             <FieldLabel
-                                className="text-[10px] tracking-wide text-muted-foreground uppercase"
+                                className="type-micro text-muted-foreground"
                                 htmlFor={`set-${set.id}-duration`}
                             >
                                 Duration (s)
@@ -399,15 +373,6 @@ export function SetRow({
                     )}
                 />
             </div>
-
-            <ConfirmDialog
-                confirmLabel="Delete"
-                description={<>Set {set.order} will be removed permanently.</>}
-                onConfirm={() => onDelete(set.id)}
-                onOpenChange={setDeleteOpen}
-                open={isDeleteDialogOpen}
-                title="Delete set?"
-            />
         </form>
     );
 }

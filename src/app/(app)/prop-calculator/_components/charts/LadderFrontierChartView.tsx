@@ -13,12 +13,14 @@ import {
 import { formatCurrency } from '~/lib/format';
 import { type LadderScore } from '~/lib/prop-calculator';
 
+import { ChartEmptyState } from './ChartEmptyState';
+
 interface Properties {
     frontier: readonly LadderScore[];
 }
 
 const chartConfig: ChartConfig = {
-    frontier: { color: 'var(--success)', label: 'Efficient frontier' },
+    frontier: { color: 'var(--chart-1)', label: 'Efficient frontier' },
 };
 
 export default function LadderFrontierChartView({ frontier }: Properties) {
@@ -28,7 +30,9 @@ export default function LadderFrontierChartView({ frontier }: Properties) {
         label: score.ladder.join(' / '),
     }));
 
-    return data.length === 0 ? null : (
+    return data.length === 0 ? (
+        <ChartEmptyState title="No frontier points" />
+    ) : (
         <ChartContainer
             className="app-prop-calculator__ladder-frontier"
             config={chartConfig}

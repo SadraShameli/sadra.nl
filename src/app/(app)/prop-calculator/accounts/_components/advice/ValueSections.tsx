@@ -2,6 +2,7 @@
 
 import { type ReactNode } from 'react';
 
+import { InfoNote } from '~/components/InfoNote';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 
@@ -22,9 +23,9 @@ export function NextTradeValue({
 }) {
     if (valueView.swings.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
+            <InfoNote>
                 No trade is placeable today, so there is no next trade to value.
-            </p>
+            </InfoNote>
         );
     }
     return (
@@ -43,9 +44,12 @@ export function NextTradeValue({
             </ul>
             {valueView.tree !== null && <OneStepTree tree={valueView.tree} />}
             {valueView.boundaryNote !== null && (
-                <p className="text-xs text-muted-foreground">
-                    {valueView.boundaryNote}
-                </p>
+                <InfoNote
+                    info={valueView.boundaryNote}
+                    infoTitle="Valuation assumption"
+                >
+                    Valuation assumption
+                </InfoNote>
             )}
         </div>
     );
@@ -58,25 +62,17 @@ export function RiskCandidates({
 }) {
     const { candidates } = valueView;
     if (candidates === null) {
-        return (
-            <p className="text-sm text-muted-foreground">
-                No risk candidates were computed.
-            </p>
-        );
+        return <InfoNote>No risk candidates were computed.</InfoNote>;
     }
     switch (candidates.kind) {
         case ValueSectionKind.Failed: {
-            return (
-                <p className="text-sm text-muted-foreground">
-                    Left out: {candidates.reason}
-                </p>
-            );
+            return <InfoNote>Left out: {candidates.reason}</InfoNote>;
         }
         case ValueSectionKind.NotModeled: {
             return (
-                <p className="text-sm text-muted-foreground">
+                <InfoNote>
                     Risk candidates are not modeled for this account.
-                </p>
+                </InfoNote>
             );
         }
         case ValueSectionKind.Ready: {
@@ -97,19 +93,13 @@ export function ValuesNotice({
     readonly values: AdviceValuesState;
 }) {
     if (isLive) {
-        return (
-            <p className="text-sm text-muted-foreground">
-                {NO_LIVE_VALUE_TEXT}
-            </p>
-        );
+        return <InfoNote>{NO_LIVE_VALUE_TEXT}</InfoNote>;
     }
     switch (values.phase) {
         case AdviceValuesPhase.Failed: {
             return (
                 <div className="flex flex-col gap-2">
-                    <p className="text-sm text-muted-foreground">
-                        Left out: {values.reason}
-                    </p>
+                    <InfoNote>Left out: {values.reason}</InfoNote>
                     <Button
                         className="self-start"
                         onClick={values.retry}
@@ -122,9 +112,9 @@ export function ValuesNotice({
         }
         case AdviceValuesPhase.Idle: {
             return (
-                <p className="text-sm text-muted-foreground">
+                <InfoNote>
                     The value views are unavailable for this account state.
-                </p>
+                </InfoNote>
             );
         }
         case AdviceValuesPhase.Loading: {
@@ -139,19 +129,15 @@ export function ValuesNotice({
                 <div className="flex flex-col gap-2">
                     {children}
                     {runNote !== null && (
-                        <p className="text-xs text-muted-foreground">
-                            {runNote}
-                        </p>
+                        <InfoNote info={runNote} infoTitle="Run settings">
+                            Run settings and assumptions
+                        </InfoNote>
                     )}
                 </div>
             );
         }
         case AdviceValuesPhase.Unavailable: {
-            return (
-                <p className="text-sm text-muted-foreground">
-                    Left out: {values.reason}
-                </p>
-            );
+            return <InfoNote>Left out: {values.reason}</InfoNote>;
         }
     }
 }

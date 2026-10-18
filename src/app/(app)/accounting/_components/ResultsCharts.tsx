@@ -1,13 +1,14 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Bar, BarChart, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import type { ConversionResult } from '~/lib/accounting/core/types';
 
 import { ToolPanel } from '~/components/ToolPanel';
 import {
-    CHART_BAR_RADIUS,
+    CHART_BAR_PROPS,
+    CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
@@ -16,29 +17,31 @@ import {
     ChartTooltipContent,
 } from '~/components/ui/chart';
 import { Eur } from '~/lib/accounting/core/money';
+import { formatDisplayDate } from '~/lib/format';
 
 const TOP_COUNTERPART_COUNT = 10;
 const FULL_WIDTH_PERCENT = 100;
 
 const perDayConfig = {
-    in: { color: 'var(--success)', label: 'IN' },
-    out: { color: 'var(--destructive)', label: 'OUT' },
+    in: { color: 'var(--chart-1)', label: 'In' },
+    out: { color: 'var(--chart-1)', label: 'Out' },
 } satisfies ChartConfig;
 
 export function ResultsCharts({ result }: { result: ConversionResult }) {
     const byDay = useMemo(() => {
         const map = new Map<
             string,
-            { date: string; in: number; out: number }
+            { date: string; dateLabel: string; in: number; out: number }
         >();
         for (const b of result.bookings) {
             const row = map.get(b.date) ?? {
                 date: b.date,
+                dateLabel: formatDisplayDate(b.date),
                 in: 0,
                 out: 0,
             };
             if (b.direction === 'IN') row.in += b.amountEur;
-            else row.out += b.amountEur;
+            else row.out -= b.amountEur;
             map.set(b.date, row);
         }
         return map
@@ -65,12 +68,12 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
     return result.bookings.length === 0 ? null : (
         <div className="grid gap-6 lg:grid-cols-2">
             <ToolPanel
-                description="IN and OUT stacked per booking date."
+                description="Money in above the zero line and money out below it, per booking date."
                 title="Per day"
             >
                 <ChartContainer config={perDayConfig}>
-                    <BarChart data={byDay}>
-                        <XAxis {...CHART_X_AXIS_PROPS} dataKey="date" />
+                    <BarChart data={byDay} stackOffset="sign">
+                        <XAxis {...CHART_X_AXIS_PROPS} dataKey="dateLabel" />
                         <YAxis
                             {...CHART_Y_AXIS_PROPS}
                             tickFormatter={(v: number) => Eur.formatWhole(v)}
@@ -94,18 +97,19 @@ export function ResultsCharts({ result }: { result: ConversionResult }) {
                                 />
                             }
                         />
+                        <ReferenceLine {...CHART_REFERENCE_LINE_PROPS} y={0} />
                         <Bar
+                            {...CHART_BAR_PROPS}
                             dataKey="in"
                             fill="var(--color-in)"
-                            name="IN"
-                            radius={CHART_BAR_RADIUS}
+                            name="In"
                             stackId="stack"
                         />
                         <Bar
+                            {...CHART_BAR_PROPS}
                             dataKey="out"
                             fill="var(--color-out)"
-                            name="OUT"
-                            radius={CHART_BAR_RADIUS}
+                            name="Out"
                             stackId="stack"
                         />
                     </BarChart>

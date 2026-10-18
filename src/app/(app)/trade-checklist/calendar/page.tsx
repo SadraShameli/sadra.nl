@@ -4,9 +4,9 @@ import { Suspense } from 'react';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { CalendarView } from '~/app/(app)/trade-checklist/_components/CalendarView';
 import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { siteToolTitle, ToolTicker } from '~/lib/site/content';
@@ -31,7 +31,7 @@ export default function TradeCalendarPage({
                     'container pt-spacing pb-24',
                 )}
             >
-                <ToolPageHeader
+                <PageHeader
                     eyebrow={siteToolTitle(ToolTicker.Checklist)}
                     lead={
                         <>

@@ -469,7 +469,9 @@ describe('the account detail page counts the firm payouts like the board (PT-36k
         expect(container.textContent).toContain(
             'The firm payout count could not be loaded',
         );
-        expect(container.textContent).toContain('ledger exploded');
+        expect(container.textContent).toContain(
+            'The firm payouts could not be loaded: ledger exploded. The account state is not shown,',
+        );
         expect(vi.mocked(stateCardOf)).not.toHaveBeenCalled();
         expect(vi.mocked(previousReconstructionOf)).not.toHaveBeenCalled();
     });

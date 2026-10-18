@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { formatCurrency, formatPercent } from '~/lib/format';
+import { formatCurrency, formatNumber, formatPercent } from '~/lib/format';
 import {
     type DayPolicy,
     type DayStopRule,
@@ -92,7 +92,7 @@ export const LINK_PARAMETER_LABELS: Readonly<Record<LinkParameter, string>> = {
 
 const UNREADABLE_LAB_PARAMETER = unreadableParameter(LAB_URL_PARAMETER);
 const NOT_A_SCENARIO_LIST = 'the lab parameter is not a list of scenarios';
-const SCENARIO_COUNT_OUT_OF_RANGE = `the lab parameter must hold 1 to ${plainNumber(MAX_LAB_SCENARIOS)} scenarios`;
+const SCENARIO_COUNT_OUT_OF_RANGE = `the lab parameter must hold 1 to ${formatNumber(MAX_LAB_SCENARIOS)} scenarios`;
 const NOT_A_PORTFOLIO =
     'the portfolio parameter is not a list of portfolio entries';
 const UNKNOWN_DAY_STOP = 'the day stop rule is not one the calculator knows';
@@ -104,11 +104,11 @@ const INSTRUMENT_SYMBOLS: readonly InstrumentSymbol[] =
     Object.values(InstrumentSymbol);
 
 const INSTRUMENT_RULE = `instrument must be empty or one of ${INSTRUMENT_SYMBOLS.join(', ')}`;
-const STOP_POINTS_RULE = `stop points must be empty or between ${plainNumber(CALCULATOR_SCALAR_BOUNDS.sp.min)} and ${plainNumber(CALCULATOR_SCALAR_BOUNDS.sp.max)} points`;
+const STOP_POINTS_RULE = `stop points must be empty or between ${formatNumber(CALCULATOR_SCALAR_BOUNDS.sp.min)} and ${formatNumber(CALCULATOR_SCALAR_BOUNDS.sp.max)} points`;
 
 const LAB_ENTRY_WORDING: EntryWording<keyof LabScenario> = {
     fieldRules: {
-        accounts: `accounts must be a whole number from ${plainNumber(LAB_SCENARIO_BOUNDS.accounts.min)} to ${plainNumber(LAB_SCENARIO_BOUNDS.accounts.max)}`,
+        accounts: `accounts must be a whole number from ${formatNumber(LAB_SCENARIO_BOUNDS.accounts.min)} to ${formatNumber(LAB_SCENARIO_BOUNDS.accounts.max)}`,
         correlation: 'account mode is not one the lab knows',
         dayStop: 'day-stop rule is not one the lab knows',
         groups: 'groups must be a whole number from 1 up to the number of accounts',
@@ -116,9 +116,9 @@ const LAB_ENTRY_WORDING: EntryWording<keyof LabScenario> = {
         instrument: INSTRUMENT_RULE,
         label: 'name must be text',
         riskPerTrade: `risk per trade must be between ${formatCurrency(LAB_SCENARIO_BOUNDS.riskPerTrade.min)} and ${formatCurrency(LAB_SCENARIO_BOUNDS.riskPerTrade.max)}`,
-        rrRatio: `reward to risk must be between ${plainNumber(CALCULATOR_SCALAR_BOUNDS.rr.min)} and ${plainNumber(CALCULATOR_SCALAR_BOUNDS.rr.max)}`,
+        rrRatio: `reward to risk must be between ${formatNumber(CALCULATOR_SCALAR_BOUNDS.rr.min)} and ${formatNumber(CALCULATOR_SCALAR_BOUNDS.rr.max)}`,
         stopPoints: STOP_POINTS_RULE,
-        tradesPerDay: `trades per day must be a whole number from ${plainNumber(CALCULATOR_SCALAR_BOUNDS.tpd.min)} to ${plainNumber(CALCULATOR_SCALAR_BOUNDS.tpd.max)}`,
+        tradesPerDay: `trades per day must be a whole number from ${formatNumber(CALCULATOR_SCALAR_BOUNDS.tpd.min)} to ${formatNumber(CALCULATOR_SCALAR_BOUNDS.tpd.max)}`,
         winrate: `win rate must be between ${formatPercent(CALCULATOR_SCALAR_BOUNDS.wr.min, 0)} and ${formatPercent(CALCULATOR_SCALAR_BOUNDS.wr.max, 0)}`,
     },
     item: 'scenario',
@@ -251,7 +251,7 @@ function discountRule(
     name: string,
     { max, min }: { max: number; min: number },
 ): string {
-    return `${name} must be between ${plainNumber(min)}% and ${plainNumber(max)}%`;
+    return `${name} must be between ${formatNumber(min)}% and ${formatNumber(max)}%`;
 }
 
 function isObjectiveWritten(
@@ -286,10 +286,6 @@ function linkOutcome<T>(decoded: BlobDecode<T>): LabLinkOutcome {
 
 function parseInstrumentSymbol(raw: null | string): InstrumentSymbol | null {
     return INSTRUMENT_SYMBOLS.find((symbol) => symbol === raw) ?? null;
-}
-
-function plainNumber(value: number): string {
-    return value.toLocaleString('en-US');
 }
 
 function readLabScenarios(parsed: unknown): ParameterRead<LabScenario[]> {

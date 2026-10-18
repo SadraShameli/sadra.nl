@@ -20,6 +20,7 @@ import {
     mffProLifetimeCapFixture,
     WINNING_TRADER_BASE,
 } from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
+import { statStripValue } from './statStripValue';
 
 const NO_OPT_INS: PlanOptIns = {
     takesFundedReset: false,
@@ -78,11 +79,7 @@ describe('the Planner never shows a combined net above what the pooled per-user 
     }
 
     function combinedNetCellText(): string | undefined {
-        const label = [...container.querySelectorAll('p')].find(
-            (node) => node.textContent === 'Combined monthly net',
-        );
-        const card = label?.closest('.px-3');
-        return card?.querySelector('.font-mono')?.textContent ?? undefined;
+        return statStripValue(container, 'Combined monthly net')?.textContent;
     }
 
     beforeEach(() => {

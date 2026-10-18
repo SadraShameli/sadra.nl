@@ -17,9 +17,6 @@
         --accent-foreground: var(--ink);
         --destructive: var(--danger);
         --destructive-foreground: var(--on-status);
-        --success-foreground: var(--on-status);
-        --warning-foreground: var(--on-status);
-        --info-foreground: var(--on-status);
         --border: var(--line);
         --input: var(--line-strong);
         --ring: var(--camel);

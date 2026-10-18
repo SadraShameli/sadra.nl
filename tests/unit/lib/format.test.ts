@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
     formatConjunctionList,
+    formatCount,
     formatCurrency,
     formatDays,
     formatFiniteCurrency,
-    formatGateCurrency,
+    formatFixedNumber,
+    formatNumber,
     formatOptionalPercent,
+    formatWholeOrCentsCurrency,
     NOT_APPLICABLE,
 } from '~/lib/format';
 
@@ -94,25 +97,29 @@ describe('formatFiniteCurrency', () => {
     });
 });
 
-describe('formatGateCurrency (R-8: one whole-dollars-or-cents gate formatter)', () => {
+describe('formatWholeOrCentsCurrency (R-8: one whole-dollars-or-cents gate formatter)', () => {
     it('prints a whole-dollar gate with no cents', () => {
-        expect(formatGateCurrency(500)).toBe('$500');
-        expect(formatGateCurrency(1500)).toBe('$1,500');
+        expect(formatWholeOrCentsCurrency(500)).toBe('$500');
+        expect(formatWholeOrCentsCurrency(1500)).toBe('$1,500');
     });
 
     it('prints a sub-dollar or fractional gate in cents', () => {
-        expect(formatGateCurrency(0.01)).toBe('$0.01');
-        expect(formatGateCurrency(250.5)).toBe('$250.50');
+        expect(formatWholeOrCentsCurrency(0.01)).toBe('$0.01');
+        expect(formatWholeOrCentsCurrency(250.5)).toBe('$250.50');
     });
 
     it('compacts a whole-dollar gate of $1,000 or more when asked', () => {
-        expect(formatGateCurrency(1500, { compact: true })).toBe('$1.5K');
-        expect(formatGateCurrency(500, { compact: true })).toBe('$500');
+        expect(formatWholeOrCentsCurrency(1500, { compact: true })).toBe(
+            '$1.5K',
+        );
+        expect(formatWholeOrCentsCurrency(500, { compact: true })).toBe('$500');
     });
 
     it('keeps cents for a fractional gate even when compact', () => {
-        expect(formatGateCurrency(0.01, { compact: true })).toBe('$0.01');
-        expect(formatGateCurrency(1500.25, { compact: true })).toBe(
+        expect(formatWholeOrCentsCurrency(0.01, { compact: true })).toBe(
+            '$0.01',
+        );
+        expect(formatWholeOrCentsCurrency(1500.25, { compact: true })).toBe(
             '$1,500.25',
         );
     });
@@ -129,5 +136,22 @@ describe('formatConjunctionList (WP39f: one list formatter for the CLI and the w
         ],
     ] as const)('joins %j as %j with no Oxford comma', (items, expected) => {
         expect(formatConjunctionList(items)).toBe(expected);
+    });
+});
+
+describe('number formatters', () => {
+    it('groups a whole count and rounds away decimals', () => {
+        expect(formatCount(12_345)).toBe('12,345');
+        expect(formatCount(2.6)).toBe('3');
+    });
+
+    it('keeps up to the given decimals and drops trailing zeros', () => {
+        expect(formatNumber(1234.5)).toBe('1,234.5');
+        expect(formatNumber(0.123456, 3)).toBe('0.123');
+    });
+
+    it('always shows the given decimals, without a currency symbol', () => {
+        expect(formatFixedNumber(1234.5)).toBe('1,234.50');
+        expect(formatFixedNumber(7, 0)).toBe('7');
     });
 });

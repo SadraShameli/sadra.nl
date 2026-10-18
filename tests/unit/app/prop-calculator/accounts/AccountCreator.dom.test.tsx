@@ -30,6 +30,8 @@ import {
 } from '~/lib/prop-calculator/firms';
 import { MAX_ACCOUNT_LABEL_LENGTH } from '~/lib/schemas/propAccounts';
 
+import { typeInto } from '../../../components/formDialog';
+
 const harness = vi.hoisted(() => ({
     create: vi.fn(() => Promise.resolve({ id: 'created-account' })),
     mutation: () => ({
@@ -182,16 +184,6 @@ async function submitForm(container: HTMLElement) {
             new Event('submit', { bubbles: true, cancelable: true }),
         );
         await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-}
-
-function typeInto(element: HTMLInputElement, value: string) {
-    act(() => {
-        Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            'value',
-        )?.set?.call(element, value);
-        element.dispatchEvent(new Event('input', { bubbles: true }));
     });
 }
 

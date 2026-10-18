@@ -1428,11 +1428,11 @@ describe('prop sim prints the economics after the existing lines (PT-54)', () =>
             '--rr',
             '1',
             '--tpd',
-            '4',
+            '3',
             '--compound-start',
             '5000',
         ]);
-        expect(stdout).toContain('so $5,000 becomes $5,020,073');
+        expect(stdout).toContain('so $5,000 becomes $891,815');
     });
 
     it('prints no plausibility note at a typical edge even with --compound-start (F-V22)', async () => {

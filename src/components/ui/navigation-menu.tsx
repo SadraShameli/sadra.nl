@@ -99,13 +99,34 @@ NavigationMenuList.displayName = NavigationMenuPrimitive.List.displayName;
 
 const NavigationMenuItem = NavigationMenuPrimitive.Item;
 
+const NAVIGATION_MENU_ITEM_CLASS =
+    'relative inline-flex items-center gap-1 rounded-full px-3.5 py-2.5 text-[15px] leading-[1.2] font-medium whitespace-nowrap text-ink-nav focus-camel transition-colors hover:text-ink';
+
+const NavigationMenuLink = React.forwardRef<
+    React.ComponentRef<typeof NavigationMenuPrimitive.Link>,
+    React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.Link>
+>(({ className, ...properties }, reference) => (
+    <NavigationMenuPrimitive.Link
+        className={cn(
+            NAVIGATION_MENU_ITEM_CLASS,
+            'aria-[current=location]:text-ink aria-[current=page]:text-ink',
+            className,
+        )}
+        data-slot="navigation-menu-link"
+        ref={reference}
+        {...properties}
+    />
+));
+NavigationMenuLink.displayName = NavigationMenuPrimitive.Link.displayName;
+
 const NavigationMenuTrigger = React.forwardRef<
     React.ComponentRef<typeof NavigationMenuPrimitive.Trigger>,
     React.ComponentPropsWithoutRef<typeof NavigationMenuPrimitive.Trigger>
 >(({ children, className, ...properties }, reference) => (
     <NavigationMenuPrimitive.Trigger
         className={cn(
-            'group relative inline-flex items-center gap-1 rounded-full px-3.5 py-2.5 text-[15px] leading-[1.2] font-medium whitespace-nowrap text-ink-nav focus-camel transition-colors hover:text-ink data-[state=open]:text-ink',
+            NAVIGATION_MENU_ITEM_CLASS,
+            'group data-[state=open]:text-ink',
             className,
         )}
         data-slot="navigation-menu-trigger"
@@ -139,6 +160,7 @@ export {
     NavigationMenu,
     NavigationMenuContent,
     NavigationMenuItem,
+    NavigationMenuLink,
     NavigationMenuList,
     NavigationMenuTrigger,
 };

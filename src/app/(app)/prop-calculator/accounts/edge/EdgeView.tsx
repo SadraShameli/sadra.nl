@@ -1,6 +1,6 @@
 'use client';
 
-import { NotebookPen, TriangleAlert } from 'lucide-react';
+import { NotebookPen } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -8,20 +8,21 @@ import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/
 import { pageEncodeOptions } from '~/app/(app)/prop-calculator/_components/calculatorUrlSync';
 import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
 import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
-import { Badge, type BadgeProperties } from '~/components/ui/badge';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { InfoNote } from '~/components/InfoNote';
+import { MissingValue } from '~/components/MissingValue';
+import { CardSkeleton } from '~/components/PageSkeleton';
+import { StatStrip } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
+import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '~/components/ui/card';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
+import { FieldError } from '~/components/ui/field';
 import { FilterIsoDateRange } from '~/components/ui/filter-iso-date-range';
-import InfoPopover from '~/components/ui/info-popover';
 import { Skeleton } from '~/components/ui/skeleton';
 import { formatPercent, formatR } from '~/lib/format';
 import {
@@ -51,23 +52,18 @@ import { api, type RouterOutputs } from '~/trpc/react';
 
 type EdgeReport = RouterOutputs['propAccounts']['edge']['summary'];
 
+const NO_OBSERVED_REASON =
+    'No journal trade in this range has a recorded result for this figure.';
+
 const EARLIEST_DATE = `${String(MIN_ACCOUNT_DATE_YEAR)}-01-01`;
 const LATEST_DATE = `${String(MAX_ACCOUNT_DATE_YEAR)}-12-31`;
 
-const DRIFT_BADGE: Readonly<
-    Record<
-        EdgeDrift,
-        { readonly label: string; readonly variant: BadgeProperties['variant'] }
-    >
-> = {
-    [EdgeDrift.Above]: { label: 'Above the assumption', variant: 'success' },
-    [EdgeDrift.Below]: { label: 'Below the assumption', variant: 'warning' },
-    [EdgeDrift.NoTrades]: { label: 'No trades yet', variant: 'outline' },
-    [EdgeDrift.TooFewTrades]: {
-        label: 'Too few trades to tell',
-        variant: 'outline',
-    },
-    [EdgeDrift.WithinNoise]: { label: 'Within noise', variant: 'secondary' },
+const DRIFT_LABEL: Readonly<Record<EdgeDrift, string>> = {
+    [EdgeDrift.Above]: 'Above the assumption',
+    [EdgeDrift.Below]: 'Below the assumption',
+    [EdgeDrift.NoTrades]: 'No trades yet',
+    [EdgeDrift.TooFewTrades]: 'Too few trades to tell',
+    [EdgeDrift.WithinNoise]: 'Within noise',
 };
 
 export function EdgeView() {
@@ -87,11 +83,14 @@ export function EdgeView() {
             aria-labelledby="prop-accounts-edge-heading"
             className="app-prop-accounts__edge-view flex flex-col gap-6"
         >
-            <h2 className="sr-only" id="prop-accounts-edge-heading">
+            <ToolSectionHeading
+                className="sr-only"
+                id="prop-accounts-edge-heading"
+            >
                 Journal edge
-            </h2>
+            </ToolSectionHeading>
             <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
+                <FilterToolbar label="Journal filters">
                     <FilterIsoDateRange
                         label="Journal days"
                         max={LATEST_DATE}
@@ -113,48 +112,57 @@ export function EdgeView() {
                             setTo('');
                         }}
                     />
-                </div>
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                </FilterToolbar>
+                <InfoNote
+                    info={
+                        <>
+                            <p>
+                                Drift is flagged only when the journal sits more
+                                than {DRIFT_STANDARD_ERRORS} standard errors
+                                from the assumption, with the standard error
+                                taken at the assumed win rate and reward to
+                                risk.
+                            </p>
+                            <p>
+                                It waits until the journal holds enough trades
+                                to expect at least{' '}
+                                {MIN_EXPECTED_WINS_AND_LOSSES} wins and{' '}
+                                {MIN_EXPECTED_WINS_AND_LOSSES} losses at that
+                                win rate.
+                            </p>
+                        </>
+                    }
+                    infoTitle="How drift is flagged"
+                >
                     Read only: journal numbers never change your rulebook or the
                     sizing advice.
-                    <InfoPopover title="How drift is flagged">
-                        <p>
-                            Drift is flagged only when the journal sits more
-                            than {DRIFT_STANDARD_ERRORS} standard errors from
-                            the assumption, with the standard error taken at the
-                            assumed win rate and reward to risk.
-                        </p>
-                        <p>
-                            It waits until the journal holds enough trades to
-                            expect at least {MIN_EXPECTED_WINS_AND_LOSSES} wins
-                            and {MIN_EXPECTED_WINS_AND_LOSSES} losses at that
-                            win rate.
-                        </p>
-                    </InfoPopover>
-                </div>
+                </InfoNote>
                 {[...rangeCheck.issues].map(([field, issue]) => (
-                    <p
-                        className="text-xs text-destructive first-letter:uppercase"
+                    <FieldError
+                        className="text-xs first-letter:uppercase"
                         key={field}
-                        role="alert"
                     >
                         {issue}
-                    </p>
+                    </FieldError>
                 ))}
             </div>
             {rangeCheck.isValid && summaryQuery.isPending && (
-                <Skeleton className="h-48 w-full" />
+                <div
+                    aria-busy="true"
+                    aria-label="Loading your journal edge"
+                    className="flex flex-col gap-6"
+                    role="status"
+                >
+                    <Skeleton className="h-24 w-full rounded-lg" />
+                    <CardSkeleton rows={2} />
+                    <CardSkeleton rows={2} />
+                </div>
             )}
             {summaryQuery.isError && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>
-                        The journal edge could not be loaded
-                    </AlertTitle>
-                    <AlertDescription>
-                        {summaryQuery.error.message}
-                    </AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    message={summaryQuery.error.message}
+                    title="The journal edge could not be loaded"
+                />
             )}
             {summaryQuery.isSuccess && (
                 <EdgeResult
@@ -166,11 +174,11 @@ export function EdgeView() {
     );
 }
 
-function EdgeMetricCard({
+function EdgeMetricPanel({
     description,
     format,
     formatError,
-    intervalText,
+    intervalText = null,
     metric,
     title,
 }: {
@@ -181,49 +189,47 @@ function EdgeMetricCard({
     readonly metric: EdgeMetric;
     readonly title: string;
 }) {
-    const badge = DRIFT_BADGE[metric.drift];
+    const captionLines = [
+        metric.standardError === null
+            ? null
+            : `standard error ${formatError(metric.standardError)}`,
+        intervalText,
+    ].filter((line): line is string => line !== null);
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex flex-wrap items-center justify-between gap-2">
-                    <h3>{title}</h3>
-                    <Badge variant={badge.variant}>{badge.label}</Badge>
-                </CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <dl className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <dt className="text-muted-foreground">Your journal</dt>
-                        <dd className="text-2xl font-semibold tabular-nums">
-                            {metric.observed === null
-                                ? 'n/a'
-                                : format(metric.observed)}
-                        </dd>
-                        {metric.standardError !== null && (
-                            <dd className="text-xs text-muted-foreground tabular-nums">
-                                standard error{' '}
-                                {formatError(metric.standardError)}
-                            </dd>
-                        )}
-                        {intervalText !== undefined &&
-                            intervalText !== null && (
-                                <dd className="text-xs text-muted-foreground tabular-nums">
-                                    {intervalText}
-                                </dd>
-                            )}
-                    </div>
-                    <div>
-                        <dt className="text-muted-foreground">
-                            Rulebook assumes
-                        </dt>
-                        <dd className="text-2xl font-semibold tabular-nums">
-                            {format(metric.assumed)}
-                        </dd>
-                    </div>
-                </dl>
-            </CardContent>
-        </Card>
+        <ToolPanel
+            actions={<Badge>{DRIFT_LABEL[metric.drift]}</Badge>}
+            description={description}
+            title={title}
+            titleAs="h3"
+        >
+            <StatStrip
+                items={[
+                    {
+                        caption:
+                            captionLines.length === 0
+                                ? undefined
+                                : captionLines.map((line) => (
+                                      <span className="block" key={line}>
+                                          {line}
+                                      </span>
+                                  )),
+                        id: 'observed',
+                        label: 'Your journal',
+                        value:
+                            metric.observed === null ? (
+                                <MissingValue reason={NO_OBSERVED_REASON} />
+                            ) : (
+                                format(metric.observed)
+                            ),
+                    },
+                    {
+                        id: 'assumed',
+                        label: 'Rulebook assumes',
+                        value: format(metric.assumed),
+                    },
+                ]}
+            />
+        </ToolPanel>
     );
 }
 
@@ -253,21 +259,17 @@ function EdgeResult({
         sampleThresholds,
     );
     const truncationNotice = truncated && (
-        <Alert role="status" variant="warning">
-            <TriangleAlert />
-            <AlertTitle>Only the latest trades are counted</AlertTitle>
-            <AlertDescription>
-                More than {MAX_EDGE_TRADES} journal trades match, so only the
-                latest {MAX_EDGE_TRADES} are counted. Narrow the range to
-                include older ones.
-            </AlertDescription>
-        </Alert>
+        <StatusRow
+            detail={`More than ${String(MAX_EDGE_TRADES)} journal trades match, so only the latest ${String(MAX_EDGE_TRADES)} are counted. Narrow the range to include older ones.`}
+            title="Only the latest trades are counted"
+            tone={StatusTone.Warn}
+        />
     );
     if (summary.sampleSize === 0) {
         return (
             <div className="flex flex-col gap-4">
                 {truncationNotice}
-                <EmptyState
+                <EmptyStatePanel
                     action={
                         <Button asChild variant="outline">
                             <Link href={routes.tradeChecklist.journal}>
@@ -298,7 +300,7 @@ function EdgeResult({
                 <SampleBadge level={sampleLevel} />
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-                <EdgeMetricCard
+                <EdgeMetricPanel
                     description="Share of counted trades that were wins."
                     format={(value) => formatPercent(value)}
                     formatError={(value) => formatPercent(value)}
@@ -309,7 +311,7 @@ function EdgeResult({
                     metric={summary.winRate}
                     title="Win rate"
                 />
-                <EdgeMetricCard
+                <EdgeMetricPanel
                     description={expectancyDescription(summary.rewardToRisk)}
                     format={(value) => formatR(value)}
                     formatError={(value) => `${value.toFixed(2)}R`}

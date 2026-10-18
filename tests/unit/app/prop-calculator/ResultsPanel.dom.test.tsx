@@ -16,7 +16,7 @@ vi.mock('recharts', async (importOriginal) => {
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import ResultsPanel from '~/app/(app)/prop-calculator/_components/ResultsPanel';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalculator';
-import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
+import { formatCurrency } from '~/lib/format';
 import {
     LifetimeCapScope,
     type Plan,
@@ -29,6 +29,16 @@ import {
     mffProLifetimeCapFixture,
     WINNING_TRADER,
 } from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
+import { hasComputingIndicator } from './computingIndicator';
+import { missingValueText } from './missingValue';
+import {
+    statStripCaption,
+    statStripLabels,
+    statStripValue,
+} from './statStripValue';
+
+const COLOUR_CODING_CLASS =
+    /(?:text|bg|border)-(?:success|warning|destructive|danger)/;
 
 vi.mock('~/components/ui/info-popover', () => ({
     default: ({ children, title }: { children: ReactNode; title: string }) => (
@@ -130,6 +140,52 @@ describe('ResultsPanel monthly net breakdown line reads the copy-account count f
     });
 });
 
+describe('ResultsPanel says a recompute is running in words, not by dimming the stale figures (wave 7 review)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+    const result = simulate(calculatorInputs(1));
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+    });
+
+    function renderedPanel(isPending: boolean): Element | null {
+        act(() => {
+            root.render(
+                <ResultsPanel
+                    isPending={isPending}
+                    onPin={vi.fn()}
+                    onUnpin={vi.fn()}
+                    pinned={null}
+                    plan={calculatorInputs(1).plan}
+                    result={result}
+                />,
+            );
+        });
+        return container.querySelector(':scope .app-prop-calculator__results');
+    }
+
+    it.each([true, false])(
+        'shows the Computing status and marks the panel busy only while pending (%s), never by opacity',
+        (isPending) => {
+            const panel = renderedPanel(isPending);
+            expect(hasComputingIndicator(panel)).toBe(isPending);
+            expect(panel?.getAttribute('aria-busy') === 'true').toBe(isPending);
+            expect(panel?.className).not.toMatch(/\bopacity-/);
+        },
+    );
+});
+
 describe('ResultsPanel shows EV per attempt beside monthly net when a funded horizon is given (F-V9, PT-61)', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -163,9 +219,7 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
                 />,
             );
         });
-        const labels = [...container.querySelectorAll('.uppercase')].map(
-            (node) => node.textContent,
-        );
+        const labels = statStripLabels(container);
         const netIndex = labels.indexOf('Monthly net (est)');
         const evIndex = labels.indexOf('EV per attempt');
         expect(netIndex).toBeGreaterThanOrEqual(0);
@@ -211,7 +265,34 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
         expect(card.textContent).toContain('funded value / attempt cost');
     });
 
-    it('shows n/a for funded value to attempt cost when the attempt costs nothing', () => {
+    it('lists the attempt economics rows through DetailList, one label and value per row', () => {
+        const result = simulate(calculatorInputs(1));
+        act(() => {
+            root.render(
+                <ResultsPanel
+                    fundedHorizonDays={60}
+                    isPending={false}
+                    onPin={vi.fn()}
+                    onUnpin={vi.fn()}
+                    pinned={null}
+                    plan={calculatorInputs(1).plan}
+                    result={result}
+                />,
+            );
+        });
+        const list = container.querySelector(
+            ':scope [data-testid="attempt-economics-card"] dl.app-detail-list',
+        );
+        if (list === null) throw new Error('attempt economics list missing');
+        const labels = [...list.querySelectorAll('dt')].map(
+            (term) => term.textContent,
+        );
+        expect(labels[0]).toBe('Attempt price');
+        expect(labels).toContain('Per-attempt pass');
+        expect(list.querySelectorAll('dd')).toHaveLength(labels.length);
+    });
+
+    it('shows a missing value, not n/a text, for funded value to attempt cost when the attempt costs nothing', () => {
         const result: SimOutputs = {
             ...simulate(calculatorInputs(1)),
             costPerAttempt: 0,
@@ -233,10 +314,11 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
             '[data-testid="attempt-economics-card"]',
         );
         if (!card) throw new Error('attempt economics card missing');
-        expect(card.textContent).toContain(NOT_APPLICABLE);
+        expect(card.textContent).toContain(missingValueText());
+        expect(card.textContent).not.toContain('n/a');
     });
 
-    it('colors EV per attempt negative when the value is negative, like other signed KPIs', () => {
+    it('shows a negative EV per attempt in the default ink with its minus sign, never a loss colour', () => {
         const result: SimOutputs = {
             ...simulate(calculatorInputs(1)),
             expectedNetPerAttempt: -50,
@@ -254,15 +336,13 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
                 />,
             );
         });
-        const evLabel = [...container.querySelectorAll('.uppercase')].find(
-            (node) => node.textContent === 'EV per attempt',
-        );
-        const card = evLabel?.closest('[data-slot="card"]');
-        const valueSpan = card?.querySelector('.font-mono.text-2xl');
-        expect(valueSpan?.className).toContain('text-destructive');
+        const value = statStripValue(container, 'EV per attempt');
+        expect(value?.className).toContain('text-ink');
+        expect(value?.className).not.toMatch(COLOUR_CODING_CLASS);
+        expect(value?.textContent.startsWith('-$')).toBe(true);
     });
 
-    it('colors EV per attempt positive when the value is positive, like other signed KPIs', () => {
+    it('shows a positive EV per attempt in the same default ink as a negative one', () => {
         const result: SimOutputs = {
             ...simulate(calculatorInputs(1)),
             expectedNetPerAttempt: 50,
@@ -280,12 +360,79 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
                 />,
             );
         });
-        const evLabel = [...container.querySelectorAll('.uppercase')].find(
-            (node) => node.textContent === 'EV per attempt',
+        const value = statStripValue(container, 'EV per attempt');
+        expect(value?.className).toContain('text-ink');
+        expect(value?.className).not.toMatch(COLOUR_CODING_CLASS);
+    });
+
+    it('says in words whether each pinned delta is better or worse, in the default ink', () => {
+        const result = simulate(calculatorInputs(1));
+        const pinned: SimOutputs = {
+            ...result,
+            evalPassProbability: result.evalPassProbability - 0.1,
+            expectedTotalCost: result.expectedTotalCost - 100,
+        };
+        act(() => {
+            root.render(
+                <ResultsPanel
+                    fundedHorizonDays={60}
+                    isPending={false}
+                    onPin={vi.fn()}
+                    onUnpin={vi.fn()}
+                    pinned={pinned}
+                    plan={calculatorInputs(1).plan}
+                    result={result}
+                />,
+            );
+        });
+        const evalPassCaption = statStripCaption(container, 'Eval pass');
+        const costCaption = statStripCaption(container, 'Total cost (avg)');
+        expect(evalPassCaption?.textContent).toContain(
+            '+10.0pp vs pinned, better',
         );
-        const card = evLabel?.closest('[data-slot="card"]');
-        const valueSpan = card?.querySelector('.font-mono.text-2xl');
-        expect(valueSpan?.className).toContain('text-success');
+        expect(costCaption?.textContent).toContain('+$100 vs pinned, worse');
+        for (const caption of [evalPassCaption, costCaption]) {
+            expect(caption?.outerHTML).not.toMatch(COLOUR_CODING_CLASS);
+        }
+    });
+
+    it('draws every KPI value in the default ink, whatever its sign or size', () => {
+        const result: SimOutputs = {
+            ...simulate(calculatorInputs(1)),
+            bustProbability: 0.9,
+            evalPassProbability: 0.05,
+            expectedMonthlyNet: -400,
+            fundedSurvivalProbability: 0.95,
+            risk5LossesPercent: 0.9,
+        };
+        act(() => {
+            root.render(
+                <ResultsPanel
+                    fundedHorizonDays={60}
+                    isPending={false}
+                    onPin={vi.fn()}
+                    onUnpin={vi.fn()}
+                    pinned={null}
+                    plan={calculatorInputs(1).plan}
+                    result={result}
+                />,
+            );
+        });
+        for (const label of [
+            'Eval pass',
+            'Funded survive',
+            'Monthly net (est)',
+            'Bust before passing',
+            'Risk of 5+ losses',
+            'ROI on cost',
+        ]) {
+            expect(statStripValue(container, label)?.className).toContain(
+                'text-ink',
+            );
+            expect(statStripValue(container, label)?.className).not.toContain(
+                'text-ink-muted',
+            );
+        }
     });
 });
 

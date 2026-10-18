@@ -1,3 +1,5 @@
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+
 import { type ReasonView } from './adviceViewModel';
 
 export function ReasonsList({
@@ -7,9 +9,10 @@ export function ReasonsList({
 }) {
     if (reasons.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No differences from the documented rule were found.
-            </p>
+            <EmptyState
+                size={EmptyStateSize.Compact}
+                title="No differences from the documented rule"
+            />
         );
     }
     return (

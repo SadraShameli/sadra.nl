@@ -1,11 +1,13 @@
 'use client';
 
 import { Settings2 } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { z } from 'zod';
 
 import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
-import Eyebrow from '~/components/Eyebrow';
+import { LabelWithInfo } from '~/components/LabelWithInfo';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import {
     Field,
@@ -31,11 +33,8 @@ import { Separator } from '~/components/ui/separator';
 import { Slider } from '~/components/ui/slider';
 import { Toggle } from '~/components/ui/toggle';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
-import {
-    formatCurrency,
-    formatGateCurrency,
-    formatPercent,
-} from '~/lib/format';
+import { WarningNote } from '~/components/WarningNote';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     capRiskToContractLimit,
@@ -56,7 +55,6 @@ import {
     type PlausibilityThresholds,
 } from '~/lib/prop-calculator/economics';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
-import { cn } from '~/lib/utilities';
 
 import DayStopRulePicker from './DayStopRulePicker';
 import { EVAL_DISCOUNT_REBUY_NOTE } from './evalDiscountRebuyNote';
@@ -66,6 +64,7 @@ import {
     describeMonthlySubscriptionFee,
     purchaseCouponDiscounts,
 } from './feePreview';
+import { instrumentPointValueLabel } from './instrumentLabels';
 import { inputHints } from './kpiDescriptions';
 import { PercentInput } from './PercentInput';
 import { describePlacedFundedRisk, placedFundedRisk } from './placedFundedRisk';
@@ -87,6 +86,16 @@ const SIZING_HINT_ID = 'position-sizing-hint';
 const RISK_INPUT_ID = 'risk-per-trade';
 const COUPON_HEADING_ID = 'coupon-heading';
 const INSTRUMENT_NOT_ENFORCED = 'not-enforced';
+const POSITION_SIZING_INSTRUMENT_OPTIONS: readonly {
+    label: string;
+    value: InstrumentSymbol | typeof INSTRUMENT_NOT_ENFORCED;
+}[] = [
+    { label: 'Not enforced', value: INSTRUMENT_NOT_ENFORCED },
+    ...ALL_INSTRUMENTS.map((spec) => ({
+        label: instrumentPointValueLabel(spec),
+        value: spec.symbol,
+    })),
+];
 const RISK_PERCENT_PRESETS = [0.25, 0.5, 1, 2, 5] as const;
 const RISK_PRESET_TOLERANCE = 0.01;
 const NO_RISK_PRESET = '';
@@ -97,6 +106,7 @@ const instrumentSymbolSchema = z.enum(InstrumentSymbol);
 
 interface TradingInputsProperties {
     activationDiscountPercent: number;
+    children?: ReactNode;
     commissionPerRoundTrip: number;
     copyAccounts: number;
     dayStop: DayStopRule;
@@ -180,6 +190,7 @@ export function tradingEdgePlausibilityNote(
 
 export default function TradingInputs({
     activationDiscountPercent,
+    children,
     commissionPerRoundTrip,
     copyAccounts,
     dayStop,
@@ -313,11 +324,8 @@ export default function TradingInputs({
     };
 
     return (
-        <div
-            className={cn('app-prop-calculator__inputs', 'flex flex-col gap-5')}
-        >
-            <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Your trading system</h3>
+        <ToolPanel
+            actions={
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button
@@ -397,11 +405,27 @@ export default function TradingInputs({
                                 </FieldDescription>
                             </Field>
                             <Field>
-                                <FieldLabel htmlFor="retained-cushion">
-                                    {
+                                <LabelWithInfo
+                                    htmlFor="retained-cushion"
+                                    info={
+                                        <>
+                                            How far above the drawdown floor a
+                                            simulated payout stops short.
+                                            Floored at the plan&apos;s full
+                                            funded drawdown (
+                                            {formatCurrency(
+                                                plan.defaultRetainedCushion(),
+                                            )}
+                                            ). No real trader drains cushion to
+                                            the edge on every withdrawal, so a
+                                            lower value is clamped up to this
+                                            floor.
+                                        </>
+                                    }
+                                    label={
                                         CALCULATOR_FIELD_LABELS.retainedCushionRequest
                                     }
-                                </FieldLabel>
+                                />
                                 <Input
                                     id="retained-cushion"
                                     min={plan.defaultRetainedCushion()}
@@ -418,17 +442,6 @@ export default function TradingInputs({
                                     type="number"
                                     value={retainedCushion?.toString() ?? ''}
                                 />
-                                <FieldDescription>
-                                    How far above the drawdown floor a simulated
-                                    payout stops short. Floored at the
-                                    plan&apos;s full funded drawdown (
-                                    {formatCurrency(
-                                        plan.defaultRetainedCushion(),
-                                    )}
-                                    ). No real trader drains cushion to the edge
-                                    on every withdrawal, so a lower value is
-                                    clamped up to this floor.
-                                </FieldDescription>
                             </Field>
                             <Field>
                                 <FieldLabel htmlFor="payout-request-size">
@@ -458,9 +471,30 @@ export default function TradingInputs({
                             </Field>
                             {earlyWithdrawal === null ? null : (
                                 <Field>
-                                    <FieldLabel htmlFor="one-time-early-withdrawal">
-                                        One-time early withdrawal
-                                    </FieldLabel>
+                                    <LabelWithInfo
+                                        htmlFor="one-time-early-withdrawal"
+                                        info={
+                                            <>
+                                                Once, after the payout day gate
+                                                and before the buffer clears,
+                                                withdraw up to{' '}
+                                                {formatPercent(
+                                                    earlyWithdrawal.maxProfitShare,
+                                                    0,
+                                                )}{' '}
+                                                of the profit (at least{' '}
+                                                {formatCurrency(
+                                                    earlyWithdrawal.minRequest,
+                                                )}
+                                                ) while the rest stays. Counted
+                                                as the first payout, so the MLL
+                                                moves to start + $100 and locks,
+                                                which leaves a thin cushion. Off
+                                                by default.
+                                            </>
+                                        }
+                                        label="One-time early withdrawal"
+                                    />
                                     <Toggle
                                         className="w-fit"
                                         id="one-time-early-withdrawal"
@@ -475,22 +509,6 @@ export default function TradingInputs({
                                             ? 'Taken'
                                             : 'Not taken'}
                                     </Toggle>
-                                    <FieldDescription>
-                                        Once, after the payout day gate and
-                                        before the buffer clears, withdraw up to{' '}
-                                        {formatPercent(
-                                            earlyWithdrawal.maxProfitShare,
-                                            0,
-                                        )}{' '}
-                                        of the profit (at least{' '}
-                                        {formatCurrency(
-                                            earlyWithdrawal.minRequest,
-                                        )}
-                                        ) while the rest stays. Counted as the
-                                        first payout, so the MLL moves to start
-                                        + $100 and locks, which leaves a thin
-                                        cushion. Off by default.
-                                    </FieldDescription>
                                 </Field>
                             )}
                             {fundedReset === null ? null : (
@@ -519,9 +537,18 @@ export default function TradingInputs({
                                 </Field>
                             )}
                             <Field>
-                                <FieldLabel htmlFor="idle-day-probability">
-                                    Idle-day probability
-                                </FieldLabel>
+                                <LabelWithInfo
+                                    htmlFor="idle-day-probability"
+                                    info={
+                                        <>
+                                            Chance any given day has zero
+                                            trades. Only matters for plans with
+                                            a modeled inactivity-closure rule
+                                            (e.g. MFFU Rapid EOD).
+                                        </>
+                                    }
+                                    label="Idle-day probability"
+                                />
                                 <Input
                                     id="idle-day-probability"
                                     max={1}
@@ -535,17 +562,30 @@ export default function TradingInputs({
                                     type="number"
                                     value={idleDayProbability}
                                 />
-                                <FieldDescription>
-                                    Chance any given day has zero trades. Only
-                                    matters for plans with a modeled
-                                    inactivity-closure rule (e.g. MFFU Rapid
-                                    EOD).
-                                </FieldDescription>
                             </Field>
                             <Field>
-                                <FieldLabel htmlFor="live-transfer-hazard">
-                                    Live-transfer hazard per paid payout
-                                </FieldLabel>
+                                <LabelWithInfo
+                                    htmlFor="live-transfer-hazard"
+                                    info={
+                                        <>
+                                            The chance, after each paid payout,
+                                            that the firm sends the account
+                                            live, which ends its simulated
+                                            payouts. It is your assumption, not
+                                            a firm rule. 0 leaves transfers
+                                            unpriced, as before. Only the
+                                            strategy lab uses it; the results,
+                                            sizing, compare and the other tools
+                                            stay unpriced. In the lab, a
+                                            scenario with an instrument and stop
+                                            points on a plan with a verified
+                                            live plan continues the account
+                                            through it; otherwise the rest of a
+                                            transferred account is valued at $0.
+                                        </>
+                                    }
+                                    label="Live-transfer hazard per paid payout"
+                                />
                                 <Input
                                     id="live-transfer-hazard"
                                     max={1}
@@ -559,20 +599,6 @@ export default function TradingInputs({
                                     type="number"
                                     value={liveTransferHazard}
                                 />
-                                <FieldDescription>
-                                    The chance, after each paid payout, that the
-                                    firm sends the account live, which ends its
-                                    simulated payouts. It is your assumption,
-                                    not a firm rule. 0 leaves transfers
-                                    unpriced, as before. Only the strategy lab
-                                    uses it; the results, sizing, compare and
-                                    the other tools stay unpriced. In the lab, a
-                                    scenario with an instrument and stop points
-                                    on a plan with a verified live plan
-                                    continues the account through it; otherwise
-                                    the rest of a transferred account is valued
-                                    at $0.
-                                </FieldDescription>
                             </Field>
                             <Field>
                                 <FieldLabel htmlFor="rung-sizing">
@@ -589,7 +615,9 @@ export default function TradingInputs({
                                     value={rungSizing}
                                 >
                                     <SelectTrigger id="rung-sizing">
-                                        <SelectValue />
+                                        <SelectValue>
+                                            {RUNG_SIZING_LABELS[rungSizing]}
+                                        </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {RUNG_SIZING_OPTIONS.map((option) => (
@@ -606,8 +634,11 @@ export default function TradingInputs({
                         </FieldGroup>
                     </PopoverContent>
                 </Popover>
-            </div>
-
+            }
+            className="app-prop-calculator__inputs"
+            title="Your trading system"
+            titleAs="h3"
+        >
             <Field>
                 <div className="flex items-center justify-between">
                     <FieldLabel id="winrate-label">Winrate</FieldLabel>
@@ -646,12 +677,10 @@ export default function TradingInputs({
                     step={0.1}
                     value={[rrRatio]}
                 />
-                <FieldDescription
-                    className="text-warning"
-                    id={PLAUSIBILITY_NOTE_ID}
-                    role="status"
-                >
-                    {plausibilityNote ?? ''}
+                <FieldDescription id={PLAUSIBILITY_NOTE_ID} role="status">
+                    {plausibilityNote === null ? null : (
+                        <WarningNote>{plausibilityNote}</WarningNote>
+                    )}
                 </FieldDescription>
             </Field>
             {plausibilityNote !== null && (
@@ -683,7 +712,7 @@ export default function TradingInputs({
                 </Field>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
                 <Field>
                     <FieldLabel htmlFor="trades-per-day">
                         Trades per day
@@ -711,9 +740,11 @@ export default function TradingInputs({
                     />
                 </Field>
                 <Field>
-                    <FieldLabel htmlFor="commission">
-                        Commission ($/trade)
-                    </FieldLabel>
+                    <LabelWithInfo
+                        htmlFor="commission"
+                        info="Round-trip commission in dollars, charged on every trade."
+                        label="Commission ($)"
+                    />
                     <Input
                         id="commission"
                         max={50}
@@ -735,7 +766,7 @@ export default function TradingInputs({
                 </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
                 <Field>
                     <FieldLabel htmlFor="max-attempts">
                         Max reset attempts
@@ -849,7 +880,7 @@ export default function TradingInputs({
                     ))}
                 </ToggleGroup>
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
                 <Field>
                     <FieldLabel htmlFor="position-sizing-instrument">
                         {CALCULATOR_FIELD_LABELS.instrument}
@@ -869,21 +900,28 @@ export default function TradingInputs({
                         value={instrument ?? INSTRUMENT_NOT_ENFORCED}
                     >
                         <SelectTrigger id="position-sizing-instrument">
-                            <SelectValue />
+                            <SelectValue>
+                                {
+                                    POSITION_SIZING_INSTRUMENT_OPTIONS.find(
+                                        (option) =>
+                                            option.value ===
+                                            (instrument ??
+                                                INSTRUMENT_NOT_ENFORCED),
+                                    )?.label
+                                }
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value={INSTRUMENT_NOT_ENFORCED}>
-                                Not enforced
-                            </SelectItem>
-                            {ALL_INSTRUMENTS.map((spec) => (
-                                <SelectItem
-                                    key={spec.symbol}
-                                    value={spec.symbol}
-                                >
-                                    {spec.symbol} (
-                                    {formatGateCurrency(spec.pointValue)}/pt)
-                                </SelectItem>
-                            ))}
+                            {POSITION_SIZING_INSTRUMENT_OPTIONS.map(
+                                (option) => (
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
+                                        {option.label}
+                                    </SelectItem>
+                                ),
+                            )}
                         </SelectContent>
                     </Select>
                 </Field>
@@ -932,9 +970,9 @@ export default function TradingInputs({
                 className="flex flex-col gap-3"
             >
                 <div className="flex items-center justify-between">
-                    <Eyebrow as="h4" id={COUPON_HEADING_ID}>
+                    <PanelSubheading as="h4" id={COUPON_HEADING_ID}>
                         Coupon
-                    </Eyebrow>
+                    </PanelSubheading>
                     <Button
                         disabled={
                             evalDiscountPercent === 0 &&
@@ -955,9 +993,11 @@ export default function TradingInputs({
                 <FieldGroup className="gap-4">
                     <Field>
                         <div className="flex items-center justify-between">
-                            <FieldLabel htmlFor="eval-discount">
-                                Eval fee discount
-                            </FieldLabel>
+                            <LabelWithInfo
+                                htmlFor="eval-discount"
+                                info={EVAL_DISCOUNT_REBUY_NOTE}
+                                label="Eval fee discount"
+                            />
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 {describeEvalFee(plan.fees, purchaseDiscounts)}
                             </span>
@@ -967,9 +1007,6 @@ export default function TradingInputs({
                             onChange={onEvalDiscountPercentChange}
                             value={evalDiscountPercent}
                         />
-                        <FieldDescription>
-                            {EVAL_DISCOUNT_REBUY_NOTE}
-                        </FieldDescription>
                     </Field>
 
                     <Field
@@ -1055,7 +1092,8 @@ export default function TradingInputs({
                     </Field>
                 </FieldGroup>
             </section>
-        </div>
+            {children}
+        </ToolPanel>
     );
 }
 

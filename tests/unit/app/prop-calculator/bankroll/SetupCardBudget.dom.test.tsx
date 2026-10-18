@@ -7,10 +7,27 @@ import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/
 import { dollars, fraction } from '~/lib/prop-calculator';
 import { type SimOutputs } from '~/lib/prop-calculator/simulator';
 
-const harness = vi.hoisted(() => ({
-    availableCents: null as null | number,
+import { statStripValue } from '../statStripValue';
+
+interface Harness {
+    availableCents: null | number;
+    baseError: null | string;
+    maxAttempts: number;
+    result: null | SimOutputs;
+    workerState: WorkerStateStub;
+}
+
+interface WorkerStateStub {
+    phase: string;
+    reason?: string;
+}
+
+const harness = vi.hoisted((): Harness => ({
+    availableCents: null,
+    baseError: null,
     maxAttempts: 1,
-    result: null as null | SimOutputs,
+    result: null,
+    workerState: { phase: 'idle' },
 }));
 
 vi.mock('next/navigation', () => ({
@@ -41,7 +58,7 @@ vi.mock('~/trpc/react', () => ({
 
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
     useBaseResult: () => ({
-        error: null,
+        error: harness.baseError,
         isPending: false,
         result: harness.result,
     }),
@@ -59,7 +76,7 @@ vi.mock(
         useToolsRequest: () => ({
             cancel: vi.fn(),
             run: vi.fn(),
-            state: { phase: 'idle' },
+            state: harness.workerState,
         }),
     }),
 );
@@ -107,7 +124,9 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.availableCents = null;
+        harness.baseError = null;
         harness.maxAttempts = 1;
+        harness.workerState = { phase: 'idle' };
         harness.result = simOutputs(TWO_POINT_NETS);
         container = document.createElement('div');
         document.body.append(container);
@@ -132,21 +151,35 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
         );
     }
 
-    it('tells a user below the threshold budget how much they need, in red, with the attempts', () => {
+    function statuses(): string[] {
+        return [...container.querySelectorAll('[role="status"]')].map(
+            (element) => element.textContent,
+        );
+    }
+
+    function budgetStatus(): Element | undefined {
+        return [...container.querySelectorAll('[role="status"]')].find(
+            (element) => element.textContent.startsWith('you need at least'),
+        );
+    }
+
+    it('tells a user below the threshold budget how much they need, with the attempts and a status icon in the default ink', () => {
         render(
             stateOf({
                 budget: dollars(500),
                 lossThreshold: fraction(0.05),
             }),
         );
-        const sentence = alerts().find((text) =>
+        const sentence = statuses().find((text) =>
             text.startsWith('you need at least'),
         );
         expect(sentence).toBe(
             'you need at least $4,300 (43 attempts) at this plan for your threshold',
         );
-        const alert = container.querySelector('[role="alert"]');
-        expect(alert?.className).toContain('text-destructive');
+        expect(budgetStatus()?.querySelector('svg')).not.toBeNull();
+        expect(budgetStatus()?.outerHTML).not.toMatch(
+            /(?:text|bg)-(?:success|warning|destructive|danger)/,
+        );
     });
 
     it('repeats the figure the minimum budget card shows', () => {
@@ -156,14 +189,12 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
                 lossThreshold: fraction(0.05),
             }),
         );
-        const card = [...container.querySelectorAll('span')].find(
-            (element) =>
-                element.textContent === 'Minimum budget for your threshold',
-        );
-        const cardValue = card?.nextElementSibling?.textContent ?? '';
+        const cardValue =
+            statStripValue(container, 'Minimum budget for your threshold')
+                ?.textContent ?? '';
         const match = /^(\$[\d,]+) \((\d+) attempts\)$/.exec(cardValue);
         expect(match).not.toBeNull();
-        expect(alerts()).toContain(
+        expect(statuses()).toContain(
             `you need at least ${match?.[1] ?? ''} (${match?.[2] ?? ''} attempts) at this plan for your threshold`,
         );
     });
@@ -176,6 +207,7 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
             }),
         );
         expect(alerts()).toEqual([]);
+        expect(budgetStatus()).toBeUndefined();
         expect(container.textContent).not.toContain('you need at least');
     });
 
@@ -234,5 +266,76 @@ describe('SetupCard budget check (PT-81 steps 1 and 4)', () => {
         harness.availableCents = 0;
         render(stateOf({}));
         expect(availableBankrollButton()).toBeUndefined();
+    });
+
+    function isSkeleton(label: string): boolean {
+        return (
+            statStripValue(container, label)?.querySelector(
+                '[data-slot="skeleton"]',
+            ) != null
+        );
+    }
+
+    it('shows only the batch figure as a skeleton while the batch prices, and the figures already known, never n/a', () => {
+        harness.workerState = { phase: 'running' };
+        render(stateOf({ budget: dollars(500) }));
+        expect(isSkeleton('P(batch net < 0)')).toBe(true);
+        expect(isSkeleton('Attempts affordable')).toBe(false);
+        expect(
+            statStripValue(container, 'Attempts affordable')?.textContent,
+        ).toBe('5');
+        expect(isSkeleton('P(no payout from 5 attempts)')).toBe(false);
+        expect(isSkeleton('Attempt cost')).toBe(false);
+        expect(statStripValue(container, 'Attempt cost')?.textContent).toBe(
+            '$100',
+        );
+        expect(container.textContent).not.toContain('n/a');
+    });
+
+    it('shows the budget figures as skeletons before the batch request is dispatched', () => {
+        render(stateOf({ budget: dollars(500) }));
+        expect(isSkeleton('P(batch net < 0)')).toBe(true);
+        expect(container.textContent).not.toContain('n/a');
+    });
+
+    it('shows the budget figures, not skeletons, once the batch request has failed', () => {
+        harness.workerState = { phase: 'failed', reason: 'worker failed' };
+        render(stateOf({ budget: dollars(500) }));
+        expect(isSkeleton('Attempts affordable')).toBe(false);
+        expect(
+            statStripValue(container, 'Attempts affordable')?.textContent,
+        ).toBe('5');
+        expect(alerts()).toEqual(['worker failed']);
+    });
+
+    it('shows the per-attempt figures as skeletons while the base simulation runs', () => {
+        harness.result = null;
+        render(stateOf({ budget: dollars(500) }));
+        expect(isSkeleton('Attempt cost')).toBe(true);
+        expect(isSkeleton('P(attempt pays)')).toBe(true);
+        expect(isSkeleton('Minimum budget for your threshold')).toBe(true);
+        expect(container.textContent).not.toContain('n/a');
+        expect(container.textContent).not.toContain('$0');
+    });
+
+    it('shows no skeleton once the base simulation has failed', () => {
+        harness.result = null;
+        harness.baseError = 'the simulation failed';
+        render(stateOf({ budget: dollars(500) }));
+        expect(container.querySelector('[data-slot="skeleton"]')).toBeNull();
+        expect(statStripValue(container, 'Attempt cost')).toBeUndefined();
+    });
+
+    it('asks for a budget instead of showing n/a budget figures without one', () => {
+        render(stateOf({}));
+        expect(container.textContent).toContain(
+            'Enter a budget to price the batch it buys.',
+        );
+        expect(
+            statStripValue(container, 'Attempts affordable'),
+        ).toBeUndefined();
+        expect(statStripValue(container, 'Attempt cost')?.textContent).toBe(
+            '$100',
+        );
     });
 });

@@ -7,24 +7,37 @@ import { useMemo, useState, useTransition } from 'react';
 import type {
     Answers,
     AssessmentResult,
-    Grade,
     Recommendation,
     TradeAssessmentRow,
     TradingPlanConfig,
 } from '~/lib/trading/types';
 
-import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
-import Eyebrow from '~/components/Eyebrow';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import {
+    expectancyStat,
+    outcomeCount,
+} from '~/app/(app)/trade-checklist/_components/analytics/outcomeStats';
+import { RECOMMENDATION_LABEL } from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
+import { StatStrip, StatStripSize } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
-import { Progress } from '~/components/ui/progress';
-import { Separator } from '~/components/ui/separator';
+import { Card, CardContent } from '~/components/ui/card';
+import {
+    formatCurrency,
+    formatPercent,
+    formatWholeOrCentsCurrency,
+} from '~/lib/format';
 import { saveAssessment } from '~/lib/trading/actions';
+import { outcomeTally } from '~/lib/trading/analytics';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 
+import {
+    ComponentScoreMeter,
+    ComponentScoresNotScored,
+    hasScoredComponents,
+} from './ComponentScores';
 import { OutcomeDialog } from './OutcomeDialog';
 import { ReasonListPanel } from './ReasonListPanel';
 
@@ -34,24 +47,12 @@ export interface ReportPlan {
     readonly name: string;
 }
 
-const recoMeta: Record<
-    Recommendation,
-    { label: string; tone: 'destructive' | 'success' | 'warning' }
-> = {
-    'hard-skip': { label: 'Hard skip', tone: 'destructive' },
-    marginal: { label: 'Marginal', tone: 'warning' },
-    skip: { label: 'Skip', tone: 'destructive' },
-    'strong-take': { label: 'Strong take', tone: 'success' },
-    take: { label: 'Take', tone: 'success' },
-};
-
-const recoBadgeVariant: Record<
-    'destructive' | 'success' | 'warning',
-    'default' | 'destructive' | 'outline' | 'secondary'
-> = {
-    destructive: 'destructive',
-    success: 'default',
-    warning: 'secondary',
+const RECOMMENDATION_TONE: Record<Recommendation, StatusTone> = {
+    'hard-skip': StatusTone.Fail,
+    marginal: StatusTone.Warn,
+    skip: StatusTone.Fail,
+    'strong-take': StatusTone.Pass,
+    take: StatusTone.Pass,
 };
 
 export function AnalysisReport({
@@ -73,7 +74,6 @@ export function AnalysisReport({
 }) {
     const [savePending, startSave] = useTransition();
     const [outcomeOpen, setOutcomeOpen] = useState(false);
-    const reco = recoMeta[result.recommendation];
 
     const dollars =
         answers.context.accountType === 'funded'
@@ -84,9 +84,10 @@ export function AnalysisReport({
     );
 
     const comparable = useMemo(
-        () => comparableStats(result.grade, history),
+        () => outcomeTally(history.filter((h) => h.grade === result.grade)),
         [result.grade, history],
     );
+    const isRiskAllowed = result.suggestedSizeMultiplier > 0;
 
     const persist = (onComplete?: () => void) => {
         if (savedId) {
@@ -120,7 +121,7 @@ export function AnalysisReport({
                     <div className="flex flex-col items-center justify-center">
                         <motion.div
                             animate={{ opacity: 1, scale: 1 }}
-                            className={`font-serif text-[6rem] leading-none font-medium tracking-tight ${gradeTextClass(result.grade)}`}
+                            className="type-display-section text-ink"
                             initial={{ opacity: 0, scale: 0.6 }}
                             transition={{ stiffness: 200, type: 'spring' }}
                         >
@@ -132,124 +133,87 @@ export function AnalysisReport({
                     </div>
 
                     <div className="flex flex-col gap-4">
-                        <div>
-                            <Badge
-                                className="text-sm uppercase"
-                                variant={recoBadgeVariant[reco.tone]}
-                            >
-                                {reco.label}
+                        <div className="flex flex-col items-start gap-3">
+                            <Badge className="text-sm uppercase">
+                                {RECOMMENDATION_LABEL[result.recommendation]}
                             </Badge>
-                            <h2 className="mt-3 text-2xl font-semibold text-foreground">
-                                {recommendationHeadline(
+                            <StatusRow
+                                className="w-full"
+                                detail={
+                                    <>
+                                        Plan: {plan.name} · Risk on this
+                                        account:{' '}
+                                        {formatWholeOrCentsCurrency(dollars)}
+                                    </>
+                                }
+                                title={recommendationHeadline(
                                     result.recommendation,
                                     recommendedDollars,
                                     dollars,
                                 )}
-                            </h2>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Plan: {plan.name} · Risk on this account: $
-                                {dollars.toLocaleString()}
-                            </p>
+                                tone={
+                                    RECOMMENDATION_TONE[result.recommendation]
+                                }
+                            />
                         </div>
 
-                        {result.suggestedSizeMultiplier > 0 ? (
-                            <Alert variant="success">
-                                <AlertTitle className="text-xs tracking-wider uppercase">
-                                    Recommended risk
-                                </AlertTitle>
-                                <AlertDescription className="flex flex-col gap-1">
-                                    <span className="font-mono text-3xl font-bold text-foreground">
-                                        ${recommendedDollars.toLocaleString()}
-                                    </span>
-                                    <span className="text-xs opacity-80">
-                                        {(
-                                            result.suggestedSizeMultiplier * 100
-                                        ).toFixed(0)}
-                                        % of standard plan risk.
-                                    </span>
-                                    {result.redFlags.length > 0 && (
-                                        <ul className="mt-3 flex flex-col gap-1 border-t border-current/20 pt-3">
-                                            {result.redFlags.map(
-                                                (flag, index) => (
-                                                    <li
-                                                        className="text-xs"
-                                                        key={index}
-                                                    >
-                                                        · {flag}
-                                                    </li>
-                                                ),
-                                            )}
-                                        </ul>
-                                    )}
-                                </AlertDescription>
-                            </Alert>
-                        ) : (
-                            <Alert variant="destructive">
-                                <AlertTitle className="text-xs tracking-wider uppercase">
-                                    Recommended risk
-                                </AlertTitle>
-                                <AlertDescription className="flex flex-col gap-1">
-                                    <span className="font-mono text-3xl font-bold text-foreground">
-                                        $0
-                                    </span>
-                                    <span className="text-xs">
-                                        Do not trade this setup.
-                                    </span>
-                                    {result.redFlags.length > 0 && (
-                                        <ul className="mt-3 flex flex-col gap-1 border-t border-current/20 pt-3">
-                                            {result.redFlags.map(
-                                                (flag, index) => (
-                                                    <li
-                                                        className="text-xs"
-                                                        key={index}
-                                                    >
-                                                        · {flag}
-                                                    </li>
-                                                ),
-                                            )}
-                                        </ul>
-                                    )}
-                                </AlertDescription>
-                            </Alert>
-                        )}
+                        <StatStrip
+                            items={[
+                                {
+                                    caption: isRiskAllowed
+                                        ? `${(
+                                              result.suggestedSizeMultiplier *
+                                              100
+                                          ).toFixed(0)}% of standard plan risk.`
+                                        : 'Do not trade this setup.',
+                                    id: 'recommended-risk',
+                                    label: 'Recommended risk',
+                                    value: formatCurrency(recommendedDollars),
+                                },
+                            ]}
+                            size={StatStripSize.Large}
+                        />
+
+                        {result.redFlags.map((flag, index) => (
+                            <StatusRow
+                                key={index}
+                                title={flag}
+                                tone={
+                                    isRiskAllowed
+                                        ? StatusTone.Warn
+                                        : StatusTone.Fail
+                                }
+                            />
+                        ))}
                     </div>
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Scorecard</CardTitle>
-                </CardHeader>
-                <Separator />
-                <CardContent className="grid gap-4 md:grid-cols-2">
-                    {WEIGHT_CATEGORIES.map(({ hint, key, label }) => {
-                        const s = result.componentScores[key];
-                        const pct =
-                            s.max > 0
-                                ? Math.min(100, (s.earned / s.max) * 100)
-                                : 0;
-                        return (
-                            <div
-                                className="rounded-lg border border-border/60 p-3"
-                                key={key}
-                            >
-                                <div className="flex items-baseline justify-between">
-                                    <p className="text-sm font-medium text-foreground">
-                                        {label}
-                                    </p>
-                                    <p className="font-mono text-xs text-muted-foreground">
-                                        {s.earned.toFixed(1)} / {s.max}
-                                    </p>
-                                </div>
-                                <Progress className="mt-2" value={pct} />
-                                <p className="mt-1.5 text-xs text-muted-foreground">
-                                    {s.note || hint}
-                                </p>
-                            </div>
-                        );
-                    })}
-                </CardContent>
-            </Card>
+            <ToolPanel
+                contentClassName="grid gap-4 md:grid-cols-2"
+                title="Scorecard"
+            >
+                {hasScoredComponents(result.componentScores) ? (
+                    WEIGHT_CATEGORIES.map(({ hint, key, label }) => (
+                        <div
+                            className="flex flex-col gap-1.5 rounded-lg border border-border/60 p-3"
+                            key={key}
+                        >
+                            <ComponentScoreMeter
+                                label={label}
+                                score={result.componentScores[key]}
+                            />
+                            <p className="m-0 text-xs text-muted-foreground">
+                                {result.componentScores[key].note || hint}
+                            </p>
+                        </div>
+                    ))
+                ) : (
+                    <div className="md:col-span-2">
+                        <ComponentScoresNotScored />
+                    </div>
+                )}
+            </ToolPanel>
 
             <div className="grid gap-4 md:grid-cols-2">
                 <ReasonListPanel
@@ -274,52 +238,32 @@ export function AnalysisReport({
                 />
             )}
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">
-                        Hindsight at grade {result.grade}
-                    </CardTitle>
-                </CardHeader>
-                <Separator />
-                <CardContent>
-                    {comparable.sample >= 3 ? (
-                        <div className="grid gap-3 sm:grid-cols-4">
-                            <Stat
-                                label="Sample"
-                                value={comparable.sample.toString()}
-                            />
-                            <Stat
-                                label="Win rate"
-                                tone={
-                                    comparable.winRate >= 0.55
-                                        ? 'good'
-                                        : undefined
-                                }
-                                value={`${(comparable.winRate * 100).toFixed(0)}%`}
-                            />
-                            <Stat
-                                label="Avg R"
-                                tone={comparable.avgR > 0 ? 'good' : 'bad'}
-                                value={`${comparable.avgR > 0 ? '+' : ''}${comparable.avgR.toFixed(2)}`}
-                            />
-                            <Stat
-                                label="Expectancy"
-                                tone={
-                                    comparable.expectancy > 0 ? 'good' : 'bad'
-                                }
-                                value={`${comparable.expectancy > 0 ? '+' : ''}${comparable.expectancy.toFixed(2)}R`}
-                            />
-                        </div>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">
-                            Not enough history at this grade yet (
-                            {comparable.sample} recorded outcome
-                            {comparable.sample === 1 ? '' : 's'}). Build the
-                            sample by saving and tagging outcomes.
-                        </p>
-                    )}
-                </CardContent>
-            </Card>
+            <ToolPanel title={`Hindsight at grade ${result.grade}`}>
+                {comparable.outcomes >= 3 ? (
+                    <StatStrip
+                        items={[
+                            {
+                                caption: `${String(comparable.withR)} with R`,
+                                id: 'sample',
+                                label: 'Sample',
+                                value: String(comparable.outcomes),
+                            },
+                            {
+                                id: 'win-rate',
+                                label: 'Win rate',
+                                value: formatPercent(comparable.winRate, 0),
+                            },
+                            expectancyStat(comparable),
+                        ]}
+                    />
+                ) : (
+                    <StatusRow
+                        detail="Build the sample by saving and tagging outcomes."
+                        title={`Not enough history at this grade yet (${outcomeCount(comparable.outcomes)} recorded).`}
+                        tone={StatusTone.Neutral}
+                    />
+                )}
+            </ToolPanel>
 
             <div className="flex flex-wrap items-center justify-end gap-2 pt-4">
                 <Button onClick={onRestart} variant="ghost">
@@ -368,23 +312,6 @@ export function AnalysisReport({
     );
 }
 
-function comparableStats(grade: Grade, history: TradeAssessmentRow[]) {
-    const peers = history.filter(
-        (h) => h.grade === grade && h.outcome !== null,
-    );
-    const sample = peers.length;
-    if (sample === 0) {
-        return { avgR: 0, expectancy: 0, sample, winRate: 0 };
-    }
-    const wins = peers.filter((p) => p.outcome === 'win').length;
-    const winRate = wins / sample;
-    const rs = peers
-        .map((p) => p.outcomeR)
-        .filter((r): r is number => typeof r === 'number');
-    const avgR = rs.length > 0 ? rs.reduce((s, r) => s + r, 0) / rs.length : 0;
-    return { avgR, expectancy: avgR, sample, winRate };
-}
-
 function recommendationHeadline(
     rec: Recommendation,
     sized: number,
@@ -397,42 +324,16 @@ function recommendationHeadline(
         case 'marginal': {
             return sized === 0
                 ? 'Sit this one out.'
-                : `Marginal setup: consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
+                : `Marginal setup: consider reduced size (${formatCurrency(sized)} vs ${formatWholeOrCentsCurrency(base)} standard).`;
         }
         case 'skip': {
             return 'Skip this setup.';
         }
         case 'strong-take': {
-            return `Take this trade at full risk ($${sized.toLocaleString()}).`;
+            return `Take this trade at full risk (${formatCurrency(sized)}).`;
         }
         case 'take': {
-            return `Take this trade ($${sized.toLocaleString()}).`;
+            return `Take this trade (${formatCurrency(sized)}).`;
         }
     }
-}
-
-function Stat({
-    label,
-    tone,
-    value,
-}: {
-    label: string;
-    tone?: 'bad' | 'good';
-    value: string;
-}) {
-    const color =
-        tone === 'good'
-            ? 'text-success'
-            : tone === 'bad'
-              ? 'text-destructive'
-              : 'text-foreground';
-
-    return (
-        <div className="rounded-lg border border-border/60 p-3">
-            <Eyebrow as="p">{label}</Eyebrow>
-            <p className={`mt-1 font-mono text-xl font-semibold ${color}`}>
-                {value}
-            </p>
-        </div>
-    );
 }

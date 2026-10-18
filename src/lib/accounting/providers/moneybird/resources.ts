@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import type { ExternalId } from '~/lib/accounting/core/ids';
 import type { MoneybirdClient } from '~/lib/accounting/providers/moneybird/client';
+import type { InvoiceFilter } from '~/lib/accounting/providers/moneybird/invoice-filter';
+import type { MoneybirdPage } from '~/lib/accounting/providers/moneybird/page';
 
 import {
     contactSchema,
@@ -86,19 +88,12 @@ export abstract class InvoiceResourceBase {
         });
     }
 
-    async findByReference(reference: string): Promise<MoneybirdInvoice | null> {
+    async list(
+        filter: InvoiceFilter,
+        page: MoneybirdPage,
+    ): Promise<MoneybirdInvoice[]> {
         const body = await this.client.request('GET', this.basePath, {
-            params: { filter: `reference:${reference}` },
-        });
-        const matches = z.array(invoiceSchema).parse(body);
-        return matches[0] ?? null;
-    }
-
-    async list(options: { period?: string } = {}): Promise<MoneybirdInvoice[]> {
-        const body = await this.client.request('GET', this.basePath, {
-            params: options.period
-                ? { filter: `period:${options.period}` }
-                : {},
+            params: { ...filter.toParams(), ...page.toParams() },
         });
         return z.array(invoiceSchema).parse(body);
     }
@@ -136,15 +131,9 @@ export class PurchaseInvoicesResource extends InvoiceResourceBase {
 export class TaxRatesResource {
     constructor(private readonly client: MoneybirdClient) {}
 
-    async list(options: {
-        page: number;
-        perPage: number;
-    }): Promise<MoneybirdTaxRate[]> {
+    async list(page: MoneybirdPage): Promise<MoneybirdTaxRate[]> {
         const body = await this.client.request('GET', '/tax_rates.json', {
-            params: {
-                page: String(options.page),
-                per_page: String(options.perPage),
-            },
+            params: page.toParams(),
         });
         return z.array(taxRateSchema).parse(body);
     }

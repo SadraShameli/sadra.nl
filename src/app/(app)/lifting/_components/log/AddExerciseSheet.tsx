@@ -13,7 +13,7 @@ import {
     CommandItem,
     CommandList,
 } from '~/components/ui/command';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { api } from '~/trpc/react';
 
@@ -72,7 +72,8 @@ export function AddExerciseSheet({
                                 <EmptyState
                                     description="Try a different search."
                                     icon={Search}
-                                    title="No matches"
+                                    size={EmptyStateSize.Compact}
+                                    title="No matching exercises"
                                 />
                             </CommandEmpty>
                             <CommandGroup>
@@ -97,15 +98,13 @@ export function AddExerciseSheet({
                                                     <p className="text-sm font-medium text-foreground/90">
                                                         {ex.name}
                                                     </p>
-                                                    <p className="text-[11px] text-muted-foreground">
+                                                    <p className="text-xs text-muted-foreground">
                                                         {ex.equipment} ·{' '}
                                                         {ex.primaryMuscle}
                                                     </p>
                                                 </div>
                                                 {ex.isCustom && (
-                                                    <Badge variant="secondary">
-                                                        Custom
-                                                    </Badge>
+                                                    <Badge>Custom</Badge>
                                                 )}
                                             </div>
                                         </CommandItem>

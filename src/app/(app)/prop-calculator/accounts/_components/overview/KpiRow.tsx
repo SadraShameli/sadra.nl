@@ -1,43 +1,47 @@
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
+import {
+    isMissingFigure,
+    isPendingFigure,
+} from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
+import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
+import { MissingValue } from '~/components/MissingValue';
+import { StatStrip } from '~/components/StatStrip';
 
-import { KpiTone, type OverviewKpi } from './overviewModel';
+import { KpiState, type OverviewKpi } from './overviewModel';
 
 export function KpiRow({ kpis }: { readonly kpis: readonly OverviewKpi[] }) {
     return (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            {kpis.map((kpi) => (
-                <StatCard
-                    key={kpi.kind}
-                    label={kpi.label}
-                    sub={subOf(kpi)}
-                    value={kpi.value}
-                    valueClassName={toneClassName(kpi.tone)}
-                />
-            ))}
-        </div>
+        <StatStrip
+            items={kpis
+                .filter(
+                    (kpi) =>
+                        kpi.state === KpiState.Failed ||
+                        !isMissingFigure(kpi.value),
+                )
+                .map((kpi) => {
+                    const isFailed = kpi.state === KpiState.Failed;
+                    const isLoading = isPendingFigure(kpi.value);
+                    return {
+                        caption:
+                            isLoading || isFailed
+                                ? undefined
+                                : (kpi.detail ?? undefined),
+                        id: kpi.kind,
+                        info: kpi.note ?? undefined,
+                        isLoading,
+                        label: kpi.label,
+                        value: isFailed ? (
+                            <MissingValue
+                                reason={
+                                    kpi.detail === null
+                                        ? undefined
+                                        : sentenceOf(kpi.detail)
+                                }
+                            />
+                        ) : (
+                            kpi.value
+                        ),
+                    };
+                })}
+        />
     );
-}
-
-function subOf(kpi: OverviewKpi): string | undefined {
-    const parts = [kpi.detail, kpi.note].filter(
-        (part): part is string => part !== null,
-    );
-    return parts.length === 0 ? undefined : parts.join('; ');
-}
-
-function toneClassName(tone: KpiTone): string | undefined {
-    switch (tone) {
-        case KpiTone.Negative: {
-            return 'text-destructive';
-        }
-        case KpiTone.Neutral: {
-            return undefined;
-        }
-        case KpiTone.Pending: {
-            return 'text-muted-foreground';
-        }
-        case KpiTone.Positive: {
-            return 'text-success';
-        }
-    }
 }

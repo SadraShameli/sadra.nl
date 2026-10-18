@@ -6,7 +6,11 @@ import {
     ValueChainStepOutcomeKind,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
 import { PAYOUT_STAKE_REQUEST_NOW_TRANSFER_TEXT } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
-import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
+import {
+    formatCurrency,
+    formatDisplayDate,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import {
     type AccountStateEventRow,
     AccountStateKind,
@@ -376,7 +380,7 @@ function modelOf(
                 ? null
                 : nextPayoutModelOf(figures.nextPayout),
         stage: figures.stage,
-        startBasis: `From the account state as of ${asOf}, not a fresh start`,
+        startBasis: `From the account state as of ${formatDisplayDate(asOf)}, not a fresh start`,
         trials: formatTrials(figures.trials),
         value: {
             creditFree: estimateCurrency(valueNow.creditFree),
@@ -395,11 +399,10 @@ function nextPayoutModelOf(
                 return NEXT_PAYOUT_ELIGIBLE_NOW_TEXT;
             }
             case NextPayoutTimingKind.InDays: {
-                const standardError =
-                    estimate.standardError === null
-                        ? NOT_APPLICABLE
-                        : estimate.standardError.toFixed(1);
-                return `${estimate.value.toFixed(1)} ${unit} (SE ${standardError})`;
+                const value = `${estimate.value.toFixed(1)} ${unit}`;
+                return estimate.standardError === null
+                    ? value
+                    : `${value} (SE ${estimate.standardError.toFixed(1)})`;
             }
             case NextPayoutTimingKind.NoTrialPaid: {
                 return NEXT_PAYOUT_NO_TRIAL_PAID_TEXT;

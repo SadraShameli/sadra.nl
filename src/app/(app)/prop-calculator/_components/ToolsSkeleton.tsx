@@ -2,13 +2,17 @@
 
 import { usePathname } from 'next/navigation';
 
+import { InputsBesideResults } from '~/components/InputsBesideResults';
 import { PageHeaderSkeleton } from '~/components/PageSkeleton';
 import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utilities';
 
 import { PanelSkeleton, PanelSkeletonSize } from './PanelSkeleton';
 import { toolForPathname } from './toolCatalog';
-import { ToolEntryHeader } from './ToolPageHeading';
+import { toolNavItems } from './toolNavItems';
+import { ToolEntryHeader, toolGroupTabs } from './ToolPageHeading';
+
+const SKELETON_NAV_ITEMS = toolNavItems('');
 
 export function ToolsPageSkeleton() {
     const entry = toolForPathname(usePathname());
@@ -27,14 +31,15 @@ export function ToolsPageSkeleton() {
                         ) : undefined
                     }
                     entry={entry}
+                    tabs={toolGroupTabs(entry, SKELETON_NAV_ITEMS)}
                 />
             )}
             <div className="mb-10 flex flex-col gap-6">
                 <PanelSkeleton size={PanelSkeletonSize.Bar} />
-                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-                    <PanelSkeleton />
-                    <PanelSkeleton size={PanelSkeletonSize.Aside} />
-                </div>
+                <InputsBesideResults
+                    inputs={<PanelSkeleton />}
+                    results={<PanelSkeleton size={PanelSkeletonSize.Aside} />}
+                />
             </div>
         </main>
     );

@@ -103,6 +103,10 @@ class RecordingProvider implements AccountingProvider {
             close: async () => {
                 await Promise.resolve();
             },
+            countMutations: async () => {
+                await Promise.resolve();
+                return null;
+            },
             latestMutationDate: async () => {
                 await Promise.resolve();
                 return null;

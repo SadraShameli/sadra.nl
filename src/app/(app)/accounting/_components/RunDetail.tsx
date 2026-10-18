@@ -1,34 +1,28 @@
 'use client';
 
-import { format } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import type { Booking, LedgerReference } from '~/lib/accounting/core/types';
 
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
-import { Badge, type BadgeProperties } from '~/components/ui/badge';
+import { Skeleton } from '~/components/ui/skeleton';
 import { Eur } from '~/lib/accounting/core/money';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { type RunStatus } from '~/lib/accounting/runs/types';
+import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import { PushPanel } from './PushPanel';
-import { BookingsTable, Tile, TileGrid } from './ResultTables';
+import { BookingsTable } from './ResultTables';
+import { RunStatusBadge } from './RunStatusBadge';
 
 type RunDetailData = RouterOutputs['accounting']['runs']['get'];
 
 const toastError = (error: { message: string }) => toast.error(error.message);
-
-const STATUS_VARIANT: Record<RunStatus, BadgeProperties['variant']> = {
-    failed: 'destructive',
-    partial: 'warning',
-    planned: 'outline',
-    posted: 'success',
-    posting: 'warning',
-};
 
 const PUSHABLE_STATUSES: ReadonlySet<RunStatus> = new Set([
     'failed',
@@ -60,6 +54,8 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
         : 'accounting backend';
     const isPostable =
         accountingCredentialId.length > 0 && PUSHABLE_STATUSES.has(run.status);
+    const skippedCount =
+        run.summary.skippedCurrency + run.summary.skippedNoBank;
 
     const ledgersQ = api.accounting.ledgers.list.useQuery(
         { credentialId: accountingCredentialId },
@@ -119,10 +115,16 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-3">
-                <Badge variant={STATUS_VARIANT[run.status]}>{run.status}</Badge>
+                <RunStatusBadge status={run.status} />
                 <span className="text-sm text-ink-muted">
-                    Created {format(run.createdAt, 'PPp')} · transactions since{' '}
-                    {run.startDate} · target {targetLabel}
+                    Created {formatDisplayDateTime(run.createdAt)} ·
+                    transactions since {formatDisplayDate(run.startDate)} ·
+                    target{' '}
+                    {credentialsQ.isPending ? (
+                        <Skeleton className="inline-block h-4 w-24 align-middle" />
+                    ) : (
+                        targetLabel
+                    )}
                 </span>
             </div>
 
@@ -133,36 +135,30 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
                 </Alert>
             )}
 
-            <TileGrid className="grid-cols-2 md:grid-cols-4">
-                <Tile
-                    label="Bookings"
-                    tone="default"
-                    value={run.summary.bookingsCount.toString()}
-                />
-                <Tile
-                    label="Total"
-                    tone="default"
-                    value={Eur.format(run.summary.totalEur)}
-                />
-                <Tile
-                    label="Unknown txns"
-                    tone={run.summary.unknownsCount > 0 ? 'warn' : 'default'}
-                    value={run.summary.unknownsCount.toString()}
-                />
-                <Tile
-                    label="Skipped"
-                    tone={
-                        run.summary.skippedCurrency +
-                            run.summary.skippedNoBank >
-                        0
-                            ? 'warn'
-                            : 'default'
-                    }
-                    value={(
-                        run.summary.skippedCurrency + run.summary.skippedNoBank
-                    ).toString()}
-                />
-            </TileGrid>
+            <StatStrip
+                items={[
+                    {
+                        id: 'bookings',
+                        label: 'Bookings',
+                        value: run.summary.bookingsCount.toString(),
+                    },
+                    {
+                        id: 'total',
+                        label: 'Total',
+                        value: Eur.format(run.summary.totalEur),
+                    },
+                    {
+                        id: 'unknown',
+                        label: 'Unknown txns',
+                        value: run.summary.unknownsCount.toString(),
+                    },
+                    {
+                        id: 'skipped',
+                        label: 'Skipped',
+                        value: skippedCount.toString(),
+                    },
+                ]}
+            />
 
             <ToolPanel
                 description={`${String(bookings.length)} bookings in this run. Edits are saved as you make them.`}

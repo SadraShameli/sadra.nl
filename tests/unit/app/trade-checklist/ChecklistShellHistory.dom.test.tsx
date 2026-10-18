@@ -2,15 +2,17 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type {
-    Answers,
-    TradeAssessmentRow,
-    TradingPlanRow,
-} from '~/lib/trading/types';
+import type { TradeAssessmentRow, TradingPlanRow } from '~/lib/trading/types';
 
+import { assessmentLabel } from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
 import { ChecklistShell } from '~/app/(app)/trade-checklist/_components/ChecklistShell';
 import { DEFAULT_PLAN } from '~/lib/trading/defaults';
-import { scoreAssessment } from '~/lib/trading/scoring';
+
+import {
+    chooseRowAction,
+    confirmButton,
+} from '../../components/rowActionsMenu';
+import { assessment, ASSESSMENT_ID } from './assessmentFixture';
 
 const actions = vi.hoisted(() => ({
     deleteAllAssessments: vi.fn(() => Promise.resolve()),
@@ -40,39 +42,6 @@ vi.mock('next/navigation', () => ({
     useRouter: () => ({ refresh: vi.fn() }),
 }));
 
-const ANSWERS: Answers = {
-    bias: {
-        conviction: 8,
-        daily: 'bullish',
-        fifteenMin: 'bullish',
-        fourHour: 'bullish',
-        oneHour: 'bullish',
-        weekly: 'bullish',
-    },
-    context: {
-        accountType: 'eval',
-        windowId: DEFAULT_PLAN.windows[0]?.id ?? null,
-        windowQuotaUsed: false,
-    },
-    dol: { bothSided: false, distanceR: 3, singular: true, type: 'None' },
-    entry: { confluences: [], onFvg: true },
-    finals: { dolAlreadyTaken: false, notes: '', overExtended: false },
-    mental: {
-        boredomHunt: false,
-        distracted: false,
-        hesitation: false,
-        revengeOrFomo: false,
-    },
-    rr: { slippageR: 0, targetR: 3 },
-    sl: { bb: true, ob: true, swing: true },
-    state: {
-        dayType: 'imbalanced',
-        displacement: 'toward',
-        opposingSweep: true,
-        setupType: 'continuation',
-    },
-};
-
 const ACTIVE_PLAN: TradingPlanRow = {
     config: {
         ...DEFAULT_PLAN,
@@ -86,38 +55,6 @@ const ACTIVE_PLAN: TradingPlanRow = {
     updatedAt: new Date('2026-09-01T00:00:00Z'),
     userId: 'trader',
 };
-
-const ASSESSMENT_ID = 'saved-assessment';
-
-function assessment(
-    overrides: Partial<TradeAssessmentRow> = {},
-): TradeAssessmentRow {
-    const snapshot = {
-        ...DEFAULT_PLAN,
-        risk: { ...DEFAULT_PLAN.risk, evalDollars: 100 },
-    };
-    const result = scoreAssessment(snapshot, ANSWERS);
-    return {
-        actualRiskTaken: null,
-        answers: ANSWERS,
-        createdAt: new Date('2026-09-10T14:00:00Z'),
-        executionDeviations: null,
-        followedPlan: null,
-        grade: result.grade,
-        id: ASSESSMENT_ID,
-        outcome: null,
-        outcomeNotes: null,
-        outcomeR: null,
-        outcomeRecordedAt: null,
-        planId: 'old-plan',
-        planSnapshot: snapshot,
-        recommendation: result.recommendation,
-        result,
-        score: result.score,
-        userId: 'trader',
-        ...overrides,
-    };
-}
 
 function buttonNamed(name: string): HTMLButtonElement {
     const button = [...document.body.querySelectorAll('button')].find(
@@ -133,6 +70,7 @@ describe('ChecklistShell history', () => {
 
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        actions.deleteAssessment.mockClear();
         actions.recordAssessmentOutcome.mockClear();
         container = document.createElement('div');
         document.body.append(container);
@@ -206,5 +144,20 @@ describe('ChecklistShell history', () => {
                 outcomeR: -1,
             }),
         );
+    });
+
+    it('deletes a past assessment only after confirming in its row menu', async () => {
+        const row = assessment();
+        render([row]);
+        chooseRowAction(assessmentLabel(row), 'Delete');
+        expect(actions.deleteAssessment).not.toHaveBeenCalled();
+        expect(document.body.textContent).toContain('Delete assessment?');
+        await act(async () => {
+            confirmButton('Delete').click();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+        expect(actions.deleteAssessment).toHaveBeenCalledWith({
+            id: ASSESSMENT_ID,
+        });
     });
 });

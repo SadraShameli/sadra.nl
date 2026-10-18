@@ -198,7 +198,7 @@ export default function RecordingSection({
                 <AutoplayVideo
                     className={cn(
                         'app-recording__video',
-                        'absolute inset-0 size-full object-contain',
+                        'absolute inset-0 size-full object-cover',
                     )}
                     video={decorVideo}
                 />

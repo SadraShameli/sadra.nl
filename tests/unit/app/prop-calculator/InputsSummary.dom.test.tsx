@@ -60,7 +60,7 @@ vi.mock('~/app/(app)/prop-calculator/_components/EditInputsDialog', () => ({
         evalLadderScope?: EvalLadderScope;
     }) => {
         harness.dialogScope = evalLadderScope;
-        return null;
+        return <span data-testid="edit-inputs-dialog" />;
     },
 }));
 
@@ -256,6 +256,49 @@ describe('InputsSummary', () => {
         render(stateWith(null));
         expect(clearButton()).toBeUndefined();
         expect(container.textContent).not.toContain('Eval ladder');
+    });
+
+    it('is a panel titled Inputs with the edit inputs dialog as its action', () => {
+        render(stateWith(null));
+        const panel = container.querySelector(
+            ':scope > .app-prop-calculator__inputs-summary',
+        );
+        expect(panel?.classList.contains('app-tool__panel')).toBe(true);
+        const header = panel?.querySelector(
+            ':scope > [data-slot="card-header"]',
+        );
+        expect(header?.querySelector('h2')?.textContent).toBe('Inputs');
+        expect(
+            header?.querySelector('[data-testid="edit-inputs-dialog"]'),
+        ).not.toBeNull();
+    });
+
+    it('shows every summary row as a label and value in one stat strip', () => {
+        const state = stateWith(LADDER, RungSizing.SkipIfUnaffordable);
+        render(state);
+        const strips = container.querySelectorAll('.app-stat-strip');
+        expect(strips).toHaveLength(1);
+        const rows = inputsSummaryRows(state);
+        expect(
+            [...(strips[0]?.querySelectorAll('dt') ?? [])].map(
+                (term) => term.textContent,
+            ),
+        ).toEqual(rows.map((row) => row.label));
+        expect(
+            [...(strips[0]?.querySelectorAll('dd') ?? [])].map(
+                (value) => value.textContent,
+            ),
+        ).toEqual(rows.map((row) => row.value));
+    });
+
+    it('takes focus back on the panel when the applied ladder is cleared', () => {
+        render(stateWith(LADDER));
+        act(() => {
+            clearButton()?.click();
+        });
+        expect(document.activeElement).toBe(
+            container.querySelector('.app-prop-calculator__inputs-summary'),
+        );
     });
 
     it('hands the edit dialog the Applied scope by default', () => {

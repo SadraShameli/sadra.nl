@@ -1,28 +1,11 @@
 'use client';
 
-import {
-    RouteSubnav,
-    type RouteSubnavItem,
-} from '~/app/(app)/_components/RouteSubnav';
+import { RouteSubnav } from '~/app/(app)/_components/RouteSubnav';
 
-import { useCalculatorInputs } from './CalculatorProvider';
-import { LINKED_TOOL_CATALOG, pageStateBlobsOf } from './toolCatalog';
-import { withPageStateBlobsOnly } from './urlState';
+import { useToolNavItems } from './useToolNavItems';
 
 export function PropCalculatorSubnav() {
-    const { debouncedQuery } = useCalculatorInputs();
-    const items: readonly RouteSubnavItem[] = LINKED_TOOL_CATALOG.map(
-        (entry) => ({
-            carriesQuery: entry.usesCalculatorInputs,
-            href: entry.route,
-            label: entry.label,
-            prefetch: false,
-            query: withPageStateBlobsOnly(
-                debouncedQuery,
-                pageStateBlobsOf(entry.id),
-            ),
-        }),
-    );
+    const items = useToolNavItems();
     return (
         <RouteSubnav
             ariaLabel="Prop calculator tools"

@@ -1,4 +1,9 @@
+import { ShoppingCart } from 'lucide-react';
+
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { formatDisplayMonth } from '~/lib/format';
 
 import { type PurchaseCohortRow } from './overviewModel';
 
@@ -18,9 +23,11 @@ export function PurchaseCohortsView({
 }) {
     if (rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No purchase recorded yet.
-            </p>
+            <EmptyState
+                icon={ShoppingCart}
+                size={EmptyStateSize.Compact}
+                title="No purchase recorded yet"
+            />
         );
     }
     return (
@@ -29,38 +36,47 @@ export function PurchaseCohortsView({
                 {
                     cell: ({ row }) => (
                         <span className="tabular-nums">
-                            {row.original.month}
+                            {formatDisplayMonth(row.original.month)}
                         </span>
                     ),
                     header: 'Purchase month',
                     id: PurchaseCohortsViewColumn.PurchaseMonth,
+                    meta: { isRowHeader: true },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.spend}</>,
+                    cell: ({ row }) => <FigureText text={row.original.spend} />,
                     header: 'Spend',
                     id: PurchaseCohortsViewColumn.Spend,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.payouts}</>,
+                    cell: ({ row }) => (
+                        <FigureText text={row.original.payouts} />
+                    ),
                     header: 'Payouts',
                     id: PurchaseCohortsViewColumn.Payouts,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.realizedMultiple}</>,
+                    cell: ({ row }) => (
+                        <FigureText text={row.original.realizedMultiple} />
+                    ),
                     header: 'Realized multiple (ended)',
                     id: PurchaseCohortsViewColumn.RealizedMultipleEnded,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.toDateMultiple}</>,
+                    cell: ({ row }) => (
+                        <FigureText text={row.original.toDateMultiple} />
+                    ),
                     header: 'To-date multiple',
                     id: PurchaseCohortsViewColumn.ToDateMultiple,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.inProgressCount}</>,
+                    cell: ({ row }) => (
+                        <FigureText text={row.original.inProgressCount} />
+                    ),
                     header: 'In progress',
                     id: PurchaseCohortsViewColumn.InProgress,
                     meta: { align: DataTableAlign.End },

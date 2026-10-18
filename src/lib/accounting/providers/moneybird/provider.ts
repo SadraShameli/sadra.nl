@@ -2,6 +2,8 @@ import 'server-only';
 
 import type { TaxCodeCatalog } from '~/lib/accounting/core/tax-code';
 import type { Booking } from '~/lib/accounting/core/types';
+import type { DateBounds } from '~/lib/accounting/providers/date-filter';
+import type { InvoiceResourceBase } from '~/lib/accounting/providers/moneybird/resources';
 import type { MoneybirdInvoice } from '~/lib/accounting/providers/moneybird/schemas';
 import type {
     AccountingProvider,
@@ -12,6 +14,8 @@ import type {
     ProviderMutation,
 } from '~/lib/accounting/providers/provider';
 
+import { EUR_CODE } from '~/lib/accounting/core/currency';
+import { DateFilter } from '~/lib/accounting/providers/date-filter';
 import {
     invoicePayload,
     isPurchaseInvoice,
@@ -20,6 +24,8 @@ import {
 import { MoneybirdClient } from '~/lib/accounting/providers/moneybird/client';
 import { MoneybirdContactResolver } from '~/lib/accounting/providers/moneybird/contact-resolver';
 import { MoneybirdTaxCodeCatalog } from '~/lib/accounting/providers/moneybird/enums';
+import { InvoiceFilter } from '~/lib/accounting/providers/moneybird/invoice-filter';
+import { MoneybirdPage } from '~/lib/accounting/providers/moneybird/page';
 import {
     ContactsResource,
     ExternalSalesInvoicesResource,
@@ -29,11 +35,15 @@ import {
 } from '~/lib/accounting/providers/moneybird/resources';
 import { MutationSource } from '~/lib/accounting/providers/moneybird/schemas';
 import {
+    newestMutationFirst,
     ProviderRegistry,
     ProviderSessionBase,
 } from '~/lib/accounting/providers/provider';
 
-const TAX_RATE_PAGE_SIZE = 100;
+interface SourcedInvoice {
+    readonly invoice: MoneybirdInvoice;
+    readonly source: MutationSource;
+}
 
 export class MoneybirdSession extends ProviderSessionBase {
     private readonly contactResolver: MoneybirdContactResolver;
@@ -54,19 +64,81 @@ export class MoneybirdSession extends ProviderSessionBase {
         );
     }
 
+    private async invoicePostedFor(
+        resource: InvoiceResourceBase,
+        booking: Booking,
+    ): Promise<MoneybirdInvoice | null> {
+        const filter = InvoiceFilter.within({
+            from: booking.date,
+            to: booking.date,
+        });
+        const invoices = await this.everyPage((page) =>
+            resource.list(filter, page),
+        );
+        return (
+            invoices.find((invoice) => invoice.reference === booking.txnId) ??
+            null
+        );
+    }
+
+    private everyPage<T>(
+        fetchPage: (page: MoneybirdPage) => Promise<T[]>,
+    ): Promise<T[]> {
+        return this.paginate(
+            (offset) => fetchPage(MoneybirdPage.atOffset(offset)),
+            MoneybirdPage.maximumSize,
+        );
+    }
+
+    private async invoicesWithin(
+        bounds: DateBounds,
+    ): Promise<SourcedInvoice[]> {
+        const filter = InvoiceFilter.within(bounds);
+        const [purchases, sales] = await Promise.all([
+            this.everyPage((page) => this.purchaseInvoices.list(filter, page)),
+            this.everyPage((page) =>
+                this.externalSalesInvoices.list(filter, page),
+            ),
+        ]);
+        return [
+            ...purchases.map((invoice) => ({
+                invoice,
+                source: MutationSource.PurchaseInvoice,
+            })),
+            ...sales.map((invoice) => ({
+                invoice,
+                source: MutationSource.ExternalSalesInvoice,
+            })),
+        ];
+    }
+
+    private async mutationsWithin(
+        bounds: DateBounds,
+    ): Promise<ProviderMutation[]> {
+        const invoices = await this.invoicesWithin(bounds);
+        return invoices
+            .map((sourced) => adaptInvoice(sourced))
+            .filter((mutation) => mutation !== null);
+    }
+
     close(): Promise<void> {
         return Promise.resolve();
     }
 
+    countMutations(): Promise<null | number> {
+        return Promise.resolve(null);
+    }
+
     async latestMutationDate(): Promise<null | string> {
-        const [purchases, sales] = await Promise.all([
-            this.purchaseInvoices.list(),
-            this.externalSalesInvoices.list(),
-        ]);
-        const dates = [...purchases, ...sales].map((invoice) => invoice.date);
-        return dates.length === 0
-            ? null
-            : (dates.toSorted((a, b) => a.localeCompare(b)).at(-1) ?? null);
+        const newest = await this.collectNewestFirst({}, 1, (slice) =>
+            this.invoicesWithin(slice),
+        );
+        return (
+            newest
+                .map(({ invoice }) => invoice.date)
+                .toSorted((a, b) => a.localeCompare(b))
+                .at(-1) ?? null
+        );
     }
 
     async listLedgers(
@@ -88,38 +160,22 @@ export class MoneybirdSession extends ProviderSessionBase {
     async listMutations(
         options: ListMutationsOptions,
     ): Promise<ProviderMutation[]> {
-        const [purchases, sales] = await Promise.all([
-            this.purchaseInvoices.list(),
-            this.externalSalesInvoices.list(),
-        ]);
-        let adapted = [
-            ...purchases.map((invoice) =>
-                adaptInvoice(invoice, MutationSource.PurchaseInvoice),
-            ),
-            ...sales.map((invoice) =>
-                adaptInvoice(invoice, MutationSource.ExternalSalesInvoice),
-            ),
-        ].filter((mutation) => mutation !== null);
-        if (options.dateFrom) {
-            const from = options.dateFrom;
-            adapted = adapted.filter((m) => m.date >= from);
-        }
-        if (options.dateTo) {
-            const to = options.dateTo;
-            adapted = adapted.filter((m) => m.date <= to);
-        }
-        const sorted = adapted.toSorted((a, b) =>
-            a.date === b.date ? 0 : a.date < b.date ? 1 : -1,
-        );
         const offset = options.offset ?? 0;
-        return sorted.slice(offset, offset + options.limit);
+        const found = await this.collectNewestFirst(
+            DateFilter.boundsOf(options),
+            offset + options.limit,
+            (slice) => this.mutationsWithin(slice),
+        );
+        return found
+            .toSorted(newestMutationFirst)
+            .slice(offset, offset + options.limit);
     }
 
     async postBooking(booking: Booking): Promise<PostBookingResult> {
         const resource = isPurchaseInvoice(booking)
             ? this.purchaseInvoices
             : this.externalSalesInvoices;
-        const existing = await resource.findByReference(booking.txnId);
+        const existing = await this.invoicePostedFor(resource, booking);
         const invoice =
             existing ??
             (await resource.create(
@@ -136,13 +192,8 @@ export class MoneybirdSession extends ProviderSessionBase {
 
     async taxCodes(): Promise<TaxCodeCatalog> {
         this.taxCodeCatalog ??= (async () => {
-            const rates = await this.paginate(
-                (offset) =>
-                    this.taxRates.list({
-                        page: offset / TAX_RATE_PAGE_SIZE + 1,
-                        perPage: TAX_RATE_PAGE_SIZE,
-                    }),
-                TAX_RATE_PAGE_SIZE,
+            const rates = await this.everyPage((page) =>
+                this.taxRates.list(page),
             );
             return new MoneybirdTaxCodeCatalog(rates);
         })();
@@ -150,13 +201,17 @@ export class MoneybirdSession extends ProviderSessionBase {
     }
 }
 
-function adaptInvoice(
-    invoice: MoneybirdInvoice,
-    type: MutationSource,
-): null | ProviderMutation {
+function adaptInvoice({
+    invoice,
+    source,
+}: SourcedInvoice): null | ProviderMutation {
     const ledgerId = invoice.details[0]?.ledgerAccountId ?? null;
     return ledgerId
         ? {
+              amount:
+                  invoice.currency === EUR_CODE
+                      ? invoice.totalPriceInclTax
+                      : null,
               date: invoice.date,
               description: invoice.reference,
               externalId: invoice.id,
@@ -168,7 +223,7 @@ function adaptInvoice(
                   ledgerId: detail.ledgerAccountId,
                   vatCode: detail.taxRateId,
               })),
-              type,
+              type: source,
           }
         : null;
 }

@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PositionSizeView } from '~/app/(app)/prop-calculator/(tools)/position-size/PositionSizeView';
 import { PositionSizeUrlParameter } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
-import { NOT_APPLICABLE } from '~/lib/format';
 import {
     DEFAULT_RULEBOOK,
     RiskDisplayUnit,
@@ -13,6 +12,8 @@ import {
     ECONOMICS_DISCLOSURE_TEXT,
     EconomicsDisclosure,
 } from '~/lib/prop-calculator/economics';
+
+import { statStripCaption, statStripValue } from './statStripValue';
 
 const harness = vi.hoisted(() => ({
     query: '',
@@ -91,28 +92,6 @@ beforeEach(() => {
 
 const FIX_TEXT = 'Fix the highlighted field to see the position.';
 
-function statCardLabelSpan(
-    scope: ParentNode,
-    label: string,
-): Element | undefined {
-    return [...scope.querySelectorAll('span')].find(
-        (candidate) => candidate.textContent === label,
-    );
-}
-
-function statCardSub(scope: ParentNode, label: string): string {
-    return (
-        statCardLabelSpan(scope, label)?.nextElementSibling?.nextElementSibling
-            ?.textContent ?? ''
-    );
-}
-
-function statCardValue(scope: ParentNode, label: string): string {
-    return (
-        statCardLabelSpan(scope, label)?.nextElementSibling?.textContent ?? ''
-    );
-}
-
 function typeInto(input: HTMLInputElement, text: string) {
     act(() => {
         Reflect.set(HTMLInputElement.prototype, 'value', text, input);
@@ -182,13 +161,16 @@ describe('PositionSizeView', () => {
         expect(ownQuery().get(PositionSizeUrlParameter.Risk)).toBe('475');
     });
 
-    it('shows no contract count or leftover while the risk field is empty, and leaves the risk out of the share link', () => {
+    it('shows an empty state instead of n/a tiles while the risk field is empty, and leaves the risk out of the share link', () => {
         typeInto(field('position-size-risk'), '');
         const text = positionSection().textContent;
         expect(text).toContain(FIX_TEXT);
         expect(text).not.toContain('3 NQ');
         expect(text).not.toContain('$25');
-        expect(text).toContain(NOT_APPLICABLE);
+        expect(text).not.toContain('n/a');
+        expect(
+            positionSection().querySelector('[data-slot="empty"]')?.textContent,
+        ).toContain(FIX_TEXT);
         expect(ownQuery().has(PositionSizeUrlParameter.Risk)).toBe(false);
         expect(ownQuery().get(PositionSizeUrlParameter.Stop)).toBe('7.5');
         expect(status()).toBe(FIX_TEXT);
@@ -212,6 +194,23 @@ describe('PositionSizeView', () => {
         expect(status()).toBe(
             '3 NQ, $25 left over; the stop for the exact risk is 7.75 points, risking $465.',
         );
+    });
+
+    it('sets the position beside the trade inputs from lg and stacks every field pair on phone', () => {
+        const layout = container.querySelector(
+            '.app-prop-calculator__position-size',
+        );
+        expect(layout?.classList.contains('app-inputs-beside-results')).toBe(
+            true,
+        );
+        const [inputs, results] = [...(layout?.children ?? [])];
+        expect(inputs?.querySelector('#position-size-risk')).not.toBeNull();
+        expect(results?.contains(positionSection())).toBe(true);
+        for (const id of ['position-size-risk', 'position-size-retry-fee']) {
+            const grid = field(id).closest('.grid');
+            expect(grid?.classList.contains('sm:grid-cols-2')).toBe(false);
+            expect(grid?.classList.contains('md:grid-cols-2')).toBe(true);
+        }
     });
 
     it('shows the retry fee field and an at-risk-if-busted line in the eval phase', () => {
@@ -366,12 +365,12 @@ describe('PositionSizeView risk display unit', () => {
     });
 
     it('shows the risk in the fee-equivalent unit chosen through the URL', () => {
-        expect(statCardValue(positionSection(), 'Risk, shown as')).not.toBe(
-            '$450',
-        );
-        expect(statCardSub(positionSection(), 'Risk, shown as')).toBe(
-            'Fee equivalent',
-        );
+        expect(
+            statStripValue(positionSection(), 'Risk, shown as')?.textContent,
+        ).not.toBe('$450');
+        expect(
+            statStripCaption(positionSection(), 'Risk, shown as')?.textContent,
+        ).toBe('Fee equivalent');
     });
 });
 

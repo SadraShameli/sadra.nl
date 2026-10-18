@@ -11,7 +11,7 @@ import {
     quantityOf,
 } from './EdgeMath';
 
-const EXPECTANCY_R_TOLERANCE = 1e-9;
+export const EDGE_COMPARISON_TOLERANCE = 1e-9;
 
 export enum PlausibilityLevel {
     Implausible = 'implausible',
@@ -76,15 +76,17 @@ function levelOf(
     expectancyR: number,
     thresholds: PlausibilityThresholds,
 ): PlausibilityLevel {
-    if (expectancyR <= EXPECTANCY_R_TOLERANCE) return PlausibilityLevel.NoEdge;
+    if (expectancyR <= EDGE_COMPARISON_TOLERANCE) {
+        return PlausibilityLevel.NoEdge;
+    }
     if (
         expectancyR <=
-        thresholds.typicalMaxExpectancyR + EXPECTANCY_R_TOLERANCE
+        thresholds.typicalMaxExpectancyR + EDGE_COMPARISON_TOLERANCE
     ) {
         return PlausibilityLevel.Typical;
     }
     return expectancyR <=
-        thresholds.strongMaxExpectancyR + EXPECTANCY_R_TOLERANCE
+        thresholds.strongMaxExpectancyR + EDGE_COMPARISON_TOLERANCE
         ? PlausibilityLevel.Strong
         : PlausibilityLevel.Implausible;
 }

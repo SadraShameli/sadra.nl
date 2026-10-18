@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
@@ -49,7 +50,11 @@ export function CredentialFormFields({
     return (
         <>
             <div className="flex flex-col gap-2">
-                <Label htmlFor="cred-kind">Provider</Label>
+                <LabelWithInfo
+                    htmlFor="cred-kind"
+                    info={descriptor.description}
+                    label="Provider"
+                />
                 {kindEditable === true && descriptors && onKindChange ? (
                     <Select
                         onValueChange={(v) =>
@@ -58,12 +63,14 @@ export function CredentialFormFields({
                         value={descriptor.id}
                     >
                         <SelectTrigger id="cred-kind">
-                            <SelectValue />
+                            <SelectValue>
+                                {descriptorLabel(descriptor)}
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {descriptors.map((d) => (
                                 <SelectItem key={d.id} value={d.id}>
-                                    {d.label} ({d.role})
+                                    {descriptorLabel(d)}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -72,13 +79,8 @@ export function CredentialFormFields({
                     <Input
                         disabled
                         id="cred-kind"
-                        value={`${descriptor.label} (${descriptor.role})`}
+                        value={descriptorLabel(descriptor)}
                     />
-                )}
-                {descriptor.description && (
-                    <p className="text-xs text-muted-foreground">
-                        {descriptor.description}
-                    </p>
                 )}
             </div>
 
@@ -153,4 +155,8 @@ export function defaultMetaFor(
         }
     }
     return out;
+}
+
+function descriptorLabel(descriptor: CredentialDescriptor): string {
+    return `${descriptor.label} (${descriptor.role})`;
 }

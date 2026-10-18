@@ -1,12 +1,11 @@
 'use client';
 
-import { Pencil, TriangleAlert } from 'lucide-react';
+import { Pencil, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import {
     ACCOUNT_LIST_INPUT,
@@ -22,6 +21,7 @@ import {
     upgradePlanSelection,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
 import { AccountPlanPicker } from '~/app/(app)/prop-calculator/accounts/_components/AccountPlanPicker';
+import { AccountDetailSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { ArchiveAccountButton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { reconstructedMaxRiskOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { DeleteAccountDialog } from '~/app/(app)/prop-calculator/accounts/_components/DeleteAccountDialog';
@@ -38,15 +38,26 @@ import {
     OverviewSectionStatus,
     PortfolioSource,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import {
+    ErrorNoticeTitle,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { periodTerminated } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
+import { StoredDateFix } from '~/app/(app)/prop-calculator/accounts/_components/storedDateFix';
 import { useAccountDetailValues } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
+import { InfoNote } from '~/components/InfoNote';
+import { PageHeader } from '~/components/PageHeader';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { deleteRowAction, rowActionsColumn } from '~/components/RowActionsMenu';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard } from '~/components/ToggleCard';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { errorMessage } from '~/lib/errorMessage';
+import { formatDisplayDate } from '~/lib/format';
 import {
     AccountStage,
     accountStageLabel,
@@ -120,7 +131,6 @@ import { StateCard } from './StateCard';
 import { ViolationsSection } from './ViolationsSection';
 
 enum AccountDetailViewColumn {
-    Actions = 'actions',
     AsOf = 'as-of',
     Balance = 'balance',
     HighestEndOfDay = 'highest-end-of-day',
@@ -353,17 +363,13 @@ export function AccountDetailView({
 
     if (account === undefined) {
         return accountQuery.error === null ? (
-            <div aria-busy="true" aria-label="Loading the account">
-                <Skeleton className="h-96 w-full" />
-            </div>
+            <AccountDetailSkeleton />
         ) : (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle as="h2">The account could not be loaded</AlertTitle>
-                <AlertDescription>
-                    {accountQuery.error.message}
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                message={accountQuery.error.message}
+                title={ErrorNoticeTitle.Account}
+                titleAs="h2"
+            />
         );
     }
 
@@ -387,32 +393,25 @@ export function AccountDetailView({
                 isReadOnly={isReadOnly}
             />
             {accountQuery.error !== null && (
-                <Alert variant="warning">
-                    <TriangleAlert />
-                    <AlertTitle>The account could not be refreshed</AlertTitle>
-                    <AlertDescription>
-                        {accountQuery.error.message}
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    detail={accountQuery.error.message}
+                    title="The account could not be refreshed"
+                    tone={StatusTone.Warn}
+                />
             )}
             {externalFirmsQuery.isError && account.externalFirmId !== null && (
-                <Alert variant="warning">
-                    <TriangleAlert />
-                    <AlertTitle>Your firms could not be loaded</AlertTitle>
-                    <AlertDescription>
-                        {externalFirmsQuery.error.message} This account shows it
-                        as an unlisted firm until your firms load.
-                    </AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    consequence="This account shows it as an unlisted firm until your firms load."
+                    message={externalFirmsQuery.error.message}
+                    title={ErrorNoticeTitle.Firms}
+                />
             )}
             {isReadOnly && (
-                <Alert role="status" variant="warning">
-                    <TriangleAlert />
-                    <AlertTitle>This account is read-only</AlertTitle>
-                    <AlertDescription>
-                        {readOnlyAccountNotice(account, issues)}
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    detail={readOnlyAccountNotice(account, issues)}
+                    title="This account is read-only"
+                    tone={StatusTone.Warn}
+                />
             )}
             {storedIssue !== null && (
                 <StoredRecordNotice
@@ -483,13 +482,7 @@ export function AccountDetailView({
                     />
                 </DetailSection>
             )}
-            {advice !== undefined && (
-                <Card className="app-prop-accounts__advice">
-                    <CardContent className="flex flex-col gap-4">
-                        {advice}
-                    </CardContent>
-                </Card>
-            )}
+            {advice}
             <DetailSection id="alerts" title="Alerts">
                 <AccountAlerts alerts={alerts} />
             </DetailSection>
@@ -564,7 +557,7 @@ export function AccountDetailView({
 function AccountAlerts({ alerts }: { readonly alerts: OverviewAlerts }) {
     switch (alerts.kind) {
         case OverviewSectionStatus.Failed: {
-            return <p className="text-sm text-destructive">{alerts.message}</p>;
+            return <QueryErrorNotice message={alerts.message} />;
         }
         case OverviewSectionStatus.Pending: {
             return (
@@ -577,9 +570,7 @@ function AccountAlerts({ alerts }: { readonly alerts: OverviewAlerts }) {
             return (
                 <>
                     {alerts.accountStatesCaveat !== null && (
-                        <p className="mb-3 text-sm text-muted-foreground">
-                            {alerts.accountStatesCaveat}
-                        </p>
+                        <InfoNote>{alerts.accountStatesCaveat}</InfoNote>
                     )}
                     <AlertsCenter alerts={alerts.alerts} />
                 </>
@@ -599,64 +590,57 @@ function AccountHeader({
 }) {
     const router = useRouter();
     return (
-        <header className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-col gap-2">
-                <Link
-                    className="inline-flex min-h-6 items-center self-start text-sm text-muted-foreground underline-offset-4 hover:underline"
-                    href={routes.propCalculator.accounts.index}
-                >
-                    All accounts
-                </Link>
-                <ToolPageTitle>{account.label}</ToolPageTitle>
-                <p className="text-sm text-muted-foreground sm:text-base">
+        <PageHeader
+            actions={
+                <>
+                    {!isReadOnly && (
+                        <Button asChild variant="outline">
+                            <Link
+                                href={routes.propCalculator.accounts.edit(
+                                    account.id,
+                                )}
+                            >
+                                <Pencil />
+                                Edit
+                            </Link>
+                        </Button>
+                    )}
+                    <ArchiveAccountButton account={account} />
+                    <DeleteAccountDialog
+                        accountId={account.id}
+                        label={account.label}
+                        onDeleted={() => {
+                            router.push(routes.propCalculator.accounts.index);
+                        }}
+                    />
+                </>
+            }
+            backLink={{
+                href: routes.propCalculator.accounts.index,
+                label: 'All accounts',
+            }}
+            className="mb-0"
+            lead={
+                <>
                     {firmName} {accountPlanLabel(account)}
                     {account.externalAlias === null
                         ? ''
                         : `, dashboard name ${account.externalAlias}`}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">
-                        {accountStageLabel(account.stage)}
-                    </Badge>
-                    <Badge variant="outline">
-                        {accountStatusLabel(account.status)}
-                    </Badge>
-                    {account.archivedAt !== null && (
-                        <Badge variant="outline">Archived</Badge>
-                    )}
-                    {account.tracking === AccountTracking.LedgerOnly && (
-                        <Badge variant="outline">Ledger only</Badge>
-                    )}
-                    {account.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary">
-                            {tag}
-                        </Badge>
-                    ))}
-                </div>
-            </div>
-            <div className="flex items-center gap-1">
-                {!isReadOnly && (
-                    <Button asChild variant="outline">
-                        <Link
-                            href={routes.propCalculator.accounts.edit(
-                                account.id,
-                            )}
-                        >
-                            <Pencil />
-                            Edit
-                        </Link>
-                    </Button>
-                )}
-                <ArchiveAccountButton account={account} />
-                <DeleteAccountDialog
-                    accountId={account.id}
-                    label={account.label}
-                    onDeleted={() => {
-                        router.push(routes.propCalculator.accounts.index);
-                    }}
-                />
-            </div>
-        </header>
+                    <span className="mt-3 flex flex-wrap gap-2">
+                        <Badge>{accountStageLabel(account.stage)}</Badge>
+                        <Badge>{accountStatusLabel(account.status)}</Badge>
+                        {account.archivedAt !== null && <Badge>Archived</Badge>}
+                        {account.tracking === AccountTracking.LedgerOnly && (
+                            <Badge>Ledger only</Badge>
+                        )}
+                        {account.tags.map((tag) => (
+                            <Badge key={tag}>{tag}</Badge>
+                        ))}
+                    </span>
+                </>
+            }
+            title={account.label}
+        />
     );
 }
 
@@ -786,28 +770,20 @@ function AccountStateSection({
 
     const firmCountFailure = firmPayoutCount.kind ===
         FirmPayoutCountKind.Failed && (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>The firm payout count could not be loaded</AlertTitle>
-            <AlertDescription>
-                {firmPayoutCount.message} The account state is not shown,
-                because it counts the payouts the whole firm has paid or
-                requested toward a firm-wide live trigger.
-            </AlertDescription>
-        </Alert>
+        <QueryErrorNotice
+            consequence="The account state is not shown, because it counts the payouts the whole firm has paid or requested toward a firm-wide live trigger."
+            message={firmPayoutCount.message}
+            title={ErrorNoticeTitle.FirmPayoutCount}
+        />
     );
 
     const rulebookFailure = rulebook === undefined &&
         rulebookError !== null && (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>Your rulebook could not be loaded</AlertTitle>
-                <AlertDescription>
-                    {rulebookError} The account state is not shown, because a
-                    live account is sized from your rulebook&apos;s live cushion
-                    percent.
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                consequence="The account state is not shown, because a live account is sized from your rulebook's live cushion percent."
+                message={rulebookError}
+                title={ErrorNoticeTitle.Rulebook}
+            />
         );
 
     if (view === null) {
@@ -834,22 +810,22 @@ function AccountStateSection({
             <StateCard view={view.state} />
             {view.performance !== null && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium">Performance</h3>
+                    <PanelSubheading>Performance</PanelSubheading>
                     <PerformanceCard view={view.performance} />
                 </div>
             )}
             {account.stage === AccountStage.Live && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium">Live rules</h3>
+                    <PanelSubheading>Live rules</PanelSubheading>
                     <LiveRulesCard view={view.liveRules} />
                 </div>
             )}
             {view.state.kind === StateCardKind.Ready && (
                 <>
                     <div className="flex flex-col gap-2">
-                        <h3 className="text-sm font-medium">
+                        <PanelSubheading>
                             Value and next payout from this state
-                        </h3>
+                        </PanelSubheading>
                         <NextPayoutSection
                             account={view.state.account}
                             detail={fromStateDetail}
@@ -859,18 +835,16 @@ function AccountStateSection({
                         />
                     </div>
                     <div className="flex flex-col gap-2">
-                        <h3 className="text-sm font-medium">
+                        <PanelSubheading>
                             Live transition preview
-                        </h3>
+                        </PanelSubheading>
                         <LiveTransitionPreviewCard
                             account={view.state.account}
                             plan={plan}
                         />
                     </div>
                     <div className="flex flex-col gap-2">
-                        <h3 className="text-sm font-medium">
-                            Simulate this account
-                        </h3>
+                        <PanelSubheading>Simulate this account</PanelSubheading>
                         <SimulateAccountLink
                             measuredRebuyLag={measuredRebuyLag}
                             personalMaxRiskPerTrade={reconstructedMaxRiskOf(
@@ -907,7 +881,7 @@ function BustDiagnosisSubsection({
     if (diagnosis === null) return null;
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium">Bust diagnosis</h3>
+            <PanelSubheading>Bust diagnosis</PanelSubheading>
             <BustDiagnosisCard diagnosis={diagnosis} />
         </div>
     );
@@ -918,7 +892,7 @@ function lagLineOf(line: null | RebuyLagLine): LagLine | null {
     return line.kind === RebuyLagLineKind.Failed
         ? {
               kind: LagLineKind.Failed,
-              text: `The rebuy lag could not be measured: ${line.message} Fix the stored date listed in the alerts on the accounts overview.`,
+              text: `${ErrorNoticeTitle.RebuyLag}: ${periodTerminated(line.message)} ${StoredDateFix.OnOverview}`,
           }
         : {
               kind: LagLineKind.Measured,
@@ -961,14 +935,26 @@ function ReplacementChain({
         <>
             <ListQueryStatus query={accountsQuery} subject="accounts" />
             <ListQueryStatus query={eventsQuery} subject="account events" />
+            {view !== null &&
+                view.replaces === null &&
+                account.replacesAccountId === null &&
+                view.replacedBy.length === 0 &&
+                view.lag === null && (
+                    <EmptyState
+                        icon={RefreshCw}
+                        size={EmptyStateSize.Compact}
+                        title="Not part of a replacement chain"
+                    />
+                )}
             {view !== null && (
                 <div className="flex flex-col gap-2 text-sm">
                     {view.replaces === null ? (
-                        <p className="text-muted-foreground">
-                            {account.replacesAccountId === null
-                                ? 'This account does not replace another account.'
-                                : 'This account replaces an account that no longer exists.'}
-                        </p>
+                        account.replacesAccountId !== null && (
+                            <p className="text-muted-foreground">
+                                This account replaces an account that no longer
+                                exists.
+                            </p>
+                        )
                     ) : (
                         <p>
                             Replaces{' '}
@@ -1000,17 +986,14 @@ function ReplacementChain({
                             ))}
                         </p>
                     )}
-                    {view.lag !== null && (
-                        <p
-                            className={
-                                view.lag.kind === LagLineKind.Failed
-                                    ? 'text-destructive'
-                                    : 'text-muted-foreground'
-                            }
-                        >
-                            {view.lag.text}
-                        </p>
-                    )}
+                    {view.lag !== null &&
+                        (view.lag.kind === LagLineKind.Failed ? (
+                            <QueryErrorNotice message={view.lag.text} />
+                        ) : (
+                            <p className="text-muted-foreground">
+                                {view.lag.text}
+                            </p>
+                        ))}
                 </div>
             )}
         </>
@@ -1052,7 +1035,7 @@ function SnapshotHistory({
                             <span className="font-medium tabular-nums">
                                 {formatUsdCents(latest.balanceCents)}
                             </span>{' '}
-                            as of {latest.asOf}
+                            as of {formatDisplayDate(latest.asOf)}
                             {latest.highestEodBalanceCents !== null &&
                                 `, highest end-of-day balance ${formatUsdCents(latest.highestEodBalanceCents)}`}
                             {latest.tradingDays !== null &&
@@ -1066,11 +1049,12 @@ function SnapshotHistory({
                                 {
                                     cell: ({ row: { original: row } }) => (
                                         <div className="tabular-nums">
-                                            {row.asOf}
+                                            {formatDisplayDate(row.asOf)}
                                         </div>
                                     ),
                                     header: 'As of',
                                     id: AccountDetailViewColumn.AsOf,
+                                    meta: { isRowHeader: true },
                                 },
                                 {
                                     cell: ({ row: { original: row } }) => (
@@ -1102,34 +1086,23 @@ function SnapshotHistory({
                                     id: AccountDetailViewColumn.TradingDays,
                                     meta: { align: DataTableAlign.End },
                                 },
-                                {
-                                    cell: ({ row: { original: row } }) => (
-                                        <>
-                                            <div className="flex justify-end">
-                                                <RemoveRecordDialog
-                                                    confirmText="Delete"
-                                                    description="This permanently removes the balance snapshot."
-                                                    isPending={remove.isPending}
-                                                    onConfirm={() => {
-                                                        remove.mutate({
-                                                            id: row.id,
-                                                        });
-                                                    }}
-                                                    title="Delete this snapshot?"
-                                                    triggerLabel={`Delete the snapshot of ${row.asOf}`}
-                                                />
-                                            </div>
-                                        </>
-                                    ),
-                                    header: () => (
-                                        <>
-                                            <span className="sr-only">
-                                                Actions
-                                            </span>
-                                        </>
-                                    ),
-                                    id: AccountDetailViewColumn.Actions,
-                                },
+                                rowActionsColumn<SnapshotRow>({
+                                    actionsOf: (row) => [
+                                        deleteRowAction({
+                                            description:
+                                                'This permanently removes the balance snapshot.',
+                                            onDelete: () => {
+                                                remove.mutate({ id: row.id });
+                                            },
+                                            title: 'Delete this snapshot?',
+                                        }),
+                                    ],
+                                    isPendingOf: (row) =>
+                                        remove.isPending &&
+                                        remove.variables.id === row.id,
+                                    labelOf: (row) =>
+                                        `the snapshot of ${formatDisplayDate(row.asOf)}`,
+                                }),
                             ]}
                             data={[...rows]}
                             isSortable={false}
@@ -1243,18 +1216,17 @@ function StoredRecordNotice({
     readonly onResolved: () => void;
 }) {
     return (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>A stored record needs your attention</AlertTitle>
-            <AlertDescription>
-                <p>{issue.message}</p>
+        <QueryErrorNotice
+            actions={
                 <StoredRecordActions
                     account={account}
                     onResolved={onResolved}
                     rejection={issue.rejection}
                 />
-            </AlertDescription>
-        </Alert>
+            }
+            message={issue.message}
+            title="A stored record needs your attention"
+        />
     );
 }
 
@@ -1276,7 +1248,6 @@ function StoredRecordRemoval({
                 onConfirm={onConfirm}
                 title={`Remove this ${record}?`}
                 triggerLabel={`Remove the ${record}`}
-                triggerShowsLabel
             />
         </div>
     );
@@ -1326,7 +1297,7 @@ function UpgradeToModeled({
                 void submit();
             }}
         >
-            <h3 className="text-sm font-medium">Upgrade to a modeled plan</h3>
+            <PanelSubheading>Upgrade to a modeled plan</PanelSubheading>
             <p className="text-sm text-muted-foreground">
                 Once its firm and size are modeled, pick the plan. The account
                 keeps its fees, payouts and events, its plan name is replaced by

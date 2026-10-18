@@ -1,37 +1,40 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Calendar, ExternalLink, Pencil, Play } from 'lucide-react';
+import { Calendar, ExternalLink, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
+    ProfileCollectionEmpty,
     ProfileDateCell,
     ProfileDatePrecision,
-    ProfileTableEmpty,
-    RowActionButton,
-    RowActionLink,
-    RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { FormDialog } from '~/components/FormDialog';
+import { MissingValue } from '~/components/MissingValue';
+import {
+    deleteRowAction,
+    editRowAction,
+    linkRowAction,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
     type DataTableInstance,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { DataTableDateRange } from '~/components/ui/data-table-date-range';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { Dialog } from '~/components/ui/dialog';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { Input } from '~/components/ui/input';
@@ -41,6 +44,7 @@ import {
     WORKOUT_DURATION_BUCKETS,
     WorkoutDuration,
 } from '~/lib/lifting/workout-duration';
+import { workoutName } from '~/lib/lifting/workout-name';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -106,12 +110,11 @@ export function WorkoutsManager() {
                         className="hover:underline"
                         href={routes.lifting.workout(row.original.id)}
                     >
-                        <PrimaryCell>
-                            {row.original.name ?? 'Workout'}
-                        </PrimaryCell>
+                        <PrimaryCell>{workoutName(row.original)}</PrimaryCell>
                     </Link>
                 ),
                 header: 'Workout',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => new Date(r.startedAt).getTime(),
@@ -129,10 +132,10 @@ export function WorkoutsManager() {
                 accessorFn: (r) => WorkoutDuration.seconds(r) ?? -1,
                 cell: ({ row }) => {
                     const dur = WorkoutDuration.seconds(row.original);
-                    return (
-                        <MutedCell>
-                            {dur === null ? '-' : DurationFormat.seconds(dur)}
-                        </MutedCell>
+                    return dur === null ? (
+                        <MissingValue />
+                    ) : (
+                        <MutedCell>{DurationFormat.seconds(dur)}</MutedCell>
                     );
                 },
                 filterFn: DataTableFilterFunction.InNumberRange,
@@ -153,83 +156,83 @@ export function WorkoutsManager() {
                 header: 'Status',
                 id: WorkoutColumn.Status,
             },
-            profileActionsColumn<WorkoutRow>((workout) => (
-                <>
-                    <RowActionLink
-                        href={routes.lifting.workout(workout.id)}
-                        icon={ExternalLink}
-                        label="Open workout"
-                    />
-                    <RowActionButton
-                        icon={Pencil}
-                        label="Edit workout"
-                        onClick={() => setEditing(workout)}
-                    />
-                    <RowConfirmAction
-                        description="Removes the workout and all its sets permanently."
-                        label="Delete workout"
-                        onConfirm={() => remove.mutate({ id: workout.id })}
-                        title={`Delete “${workout.name ?? 'Workout'}”?`}
-                    />
-                </>
-            )),
+            rowActionsColumn<WorkoutRow>({
+                actionsOf: (workout) => [
+                    linkRowAction({
+                        href: routes.lifting.workout(workout.id),
+                        icon: ExternalLink,
+                        label: 'Open',
+                    }),
+                    editRowAction(() => setEditing(workout)),
+                    deleteRowAction({
+                        description:
+                            'Removes the workout and all its sets permanently.',
+                        onDelete: () => remove.mutate({ id: workout.id }),
+                        title: `Delete “${workoutName(workout)}”?`,
+                    }),
+                ],
+                isPendingOf: (workout) =>
+                    remove.isPending && remove.variables.id === workout.id,
+                labelOf: workoutName,
+            }),
         ],
         [remove],
     );
 
-    const logButton = (
-        <Button asChild size="sm">
-            <Link href={routes.lifting.log}>
-                <Play className="size-4" />
-                Start workout
-            </Link>
-        </Button>
-    );
-
     return (
         <>
-            <ProfilePanel
-                action={logButton}
+            <ToolPanel
+                actions={
+                    <Button asChild size="sm">
+                        <Link href={routes.lifting.log}>
+                            <Play className="size-4" />
+                            Start workout
+                        </Link>
+                    </Button>
+                }
                 description="Every workout you logged. Edit the details here or open one to manage its sets."
                 title="Workouts"
             >
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={logButton}
-                            description="Start a workout from the log."
-                            filtered={hasActiveTableFilter(table)}
-                            icon={Calendar}
-                            noun="workouts"
-                        />
-                    )}
-                    filterPlaceholder="Search workouts…"
-                    headerActions={(table) => (
-                        <>
-                            <DataTableFacetSelect
-                                column={table.getColumn(WorkoutColumn.Status)}
-                                format={workoutStatusLabel}
-                                label="Status"
-                                placeholder="All statuses"
-                            />
-                            <DurationSelect table={table} />
-                            <DataTableDateRange
-                                align="end"
-                                column={table.getColumn(WorkoutColumn.Date)}
-                                label="Workout date"
-                                maxDate={new Date()}
-                                placeholder="Any time"
-                            />
-                        </>
-                    )}
-                    isLoading={workouts.isLoading}
-                    pageSize={20}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
-            </ProfilePanel>
+                {!workouts.isLoading && rows.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Workouts you log appear here."
+                        icon={Calendar}
+                        noun="workouts"
+                    />
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={
+                            <NoMatchesState icon={Calendar} noun="workouts" />
+                        }
+                        filterPlaceholder="Search workouts…"
+                        headerActions={(table) => (
+                            <>
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        WorkoutColumn.Status,
+                                    )}
+                                    format={workoutStatusLabel}
+                                    label="Status"
+                                    placeholder="All statuses"
+                                />
+                                <DurationSelect table={table} />
+                                <DataTableDateRange
+                                    align="end"
+                                    column={table.getColumn(WorkoutColumn.Date)}
+                                    label="Workout date"
+                                    maxDate={new Date()}
+                                    placeholder="Any time"
+                                />
+                            </>
+                        )}
+                        isLoading={workouts.isLoading}
+                        rowId={(r) => r.id}
+                        showFilter
+                    />
+                )}
+            </ToolPanel>
 
             {editing && (
                 <WorkoutEditDialog
@@ -308,7 +311,7 @@ function WorkoutEditDialog({
             }}
             open
         >
-            <ProfileFormDialog
+            <FormDialog
                 form={form}
                 onCancel={onClose}
                 onSubmit={onSubmit}
@@ -398,7 +401,7 @@ function WorkoutEditDialog({
                         </Field>
                     )}
                 />
-            </ProfileFormDialog>
+            </FormDialog>
         </Dialog>
     );
 }

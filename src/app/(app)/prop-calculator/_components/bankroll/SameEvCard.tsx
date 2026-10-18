@@ -2,30 +2,31 @@
 
 import { useCallback, useState } from 'react';
 
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import {
     type SameEvOutcome,
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { Field, FieldLabel } from '~/components/ui/field';
-import { Input } from '~/components/ui/input';
-import {
-    formatGateCurrency,
-    formatPercent,
-    NOT_APPLICABLE,
-} from '~/lib/format';
+import { MissingValue } from '~/components/MissingValue';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
+import { formatPercent, formatWholeOrCentsCurrency } from '~/lib/format';
 import { type Dollars } from '~/lib/prop-calculator';
-import { BankrollLeverLabel } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 
+import { BankrollField } from './BankrollField';
 import {
     bankrollSameEvRequest,
     bankrollVariantWithRisk,
 } from './bankrollModel';
-import { BankrollRunStatus } from './BankrollRunStatus';
+import {
+    BankrollRunStatus,
+    isAwaitingRequestedResult,
+} from './BankrollRunStatus';
 import { BankrollSection } from './BankrollSection';
+import { readyValue } from './bankrollStatItems';
 import { parseBankrollDollarsField } from './bankrollUrlState';
+import { StrategyBRiskField } from './StrategyBRiskField';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
 
@@ -62,100 +63,96 @@ export function SameEvCard() {
 
     return (
         <BankrollSection
-            description="Two risk sizes can earn a similar expected value per attempt yet carry very different odds of losing the bankroll. Compare them at one bankroll."
             headingId="bankroll-same-ev-heading"
-            title="Same EV, different risk"
-        >
-            <div className="grid gap-4 sm:grid-cols-2">
-                <Field>
-                    <FieldLabel htmlFor="bankroll-same-ev-bankroll">
-                        Bankroll ($)
-                    </FieldLabel>
-                    <Input
+            info="Two risk sizes can earn a similar expected value per attempt yet carry very different odds of losing the bankroll. Compare them at one bankroll."
+            inputs={
+                <>
+                    <BankrollField
                         id="bankroll-same-ev-bankroll"
-                        inputMode="decimal"
-                        onChange={(event) =>
-                            setBankroll(
-                                parseBankrollDollarsField(event.target.value),
-                            )
+                        info="The bankroll both strategies spend from, in dollars. Loss risk is measured at this budget."
+                        label="Bankroll"
+                        onChange={(raw) =>
+                            setBankroll(parseBankrollDollarsField(raw))
                         }
                         placeholder="Enter your bankroll"
-                        type="number"
                     />
-                </Field>
-                <Field>
-                    <FieldLabel htmlFor="bankroll-same-ev-risk-b">
-                        Strategy B risk per trade ($)
-                    </FieldLabel>
-                    <Input
-                        aria-describedby={
-                            riskB === null
-                                ? undefined
-                                : RISK_B_CONFLICT_MESSAGE_ID
-                        }
+                    <StrategyBRiskField
+                        conflictId={RISK_B_CONFLICT_MESSAGE_ID}
                         id="bankroll-same-ev-risk-b"
-                        inputMode="decimal"
-                        onChange={(event) =>
-                            setRiskB(
-                                parseBankrollDollarsField(event.target.value),
-                            )
-                        }
-                        placeholder="e.g. 500"
-                        type="number"
+                        onChange={setRiskB}
+                        risk={riskB}
                     />
-                </Field>
-            </div>
-            {riskB === null ? null : (
-                <p
-                    className="text-xs text-warning"
-                    id={RISK_B_CONFLICT_MESSAGE_ID}
-                >
-                    Strategy B: {BankrollLeverLabel.ConflictsWithHardRule3}
-                </p>
-            )}
-            {results === null ? (
-                <BankrollRunStatus isRequested={canRun} state={worker.state} />
-            ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <StrategyOutcomeColumn label="A" outcome={results[0]} />
-                    <StrategyOutcomeColumn label="B" outcome={results[1]} />
-                </div>
-            )}
-        </BankrollSection>
+                </>
+            }
+            isComputing={isAwaitingRequestedResult(canRun, worker.state)}
+            results={
+                results === null ? (
+                    <BankrollRunStatus
+                        emptyText="Enter a bankroll and a strategy B risk to compare."
+                        isRequested={canRun}
+                        skeleton={
+                            <>
+                                <StrategyOutcome label="A" outcome={null} />
+                                <StrategyOutcome label="B" outcome={null} />
+                            </>
+                        }
+                        state={worker.state}
+                    />
+                ) : (
+                    <>
+                        <StrategyOutcome label="A" outcome={results[0]} />
+                        <StrategyOutcome label="B" outcome={results[1]} />
+                    </>
+                )
+            }
+            title="Same EV, different risk"
+        />
     );
 }
 
-function StrategyOutcomeColumn({
+function StrategyOutcome({
     label,
     outcome,
 }: {
-    label: string;
-    outcome: SameEvOutcome;
+    readonly label: string;
+    readonly outcome: null | SameEvOutcome;
 }) {
     return (
-        <div className="grid gap-3">
-            <p className="text-xs font-medium text-muted-foreground">
-                Strategy {label}
-            </p>
-            <StatCard
-                label="EV per attempt"
-                value={formatGateCurrency(outcome.evPerAttempt)}
-            />
-            <StatCard
-                label="P(no payout)"
-                value={
-                    outcome.noPayoutProbability === null
-                        ? NOT_APPLICABLE
-                        : formatPercent(outcome.noPayoutProbability)
-                }
-            />
-            <StatCard
-                label="Loss risk at the budget"
-                value={
-                    outcome.lossRisk === null
-                        ? NOT_APPLICABLE
-                        : formatPercent(outcome.lossRisk)
-                }
+        <div className="flex flex-col gap-3">
+            <PanelSubheading>Strategy {label}</PanelSubheading>
+            <StatStrip
+                isLoading={outcome === null}
+                items={[
+                    {
+                        id: 'ev-per-attempt',
+                        label: 'EV per attempt',
+                        value: readyValue(outcome, (ready) =>
+                            formatWholeOrCentsCurrency(ready.evPerAttempt),
+                        ),
+                    },
+                    {
+                        id: 'no-payout',
+                        label: 'P(no payout)',
+                        value: readyValue(outcome, (ready) =>
+                            ready.noPayoutProbability === null ? (
+                                <MissingValue />
+                            ) : (
+                                formatPercent(ready.noPayoutProbability)
+                            ),
+                        ),
+                    },
+                    {
+                        id: 'loss-risk',
+                        label: 'Loss risk at the budget',
+                        value: readyValue(outcome, (ready) =>
+                            ready.lossRisk === null ? (
+                                <MissingValue />
+                            ) : (
+                                formatPercent(ready.lossRisk)
+                            ),
+                        ),
+                    },
+                ]}
             />
         </div>
     );

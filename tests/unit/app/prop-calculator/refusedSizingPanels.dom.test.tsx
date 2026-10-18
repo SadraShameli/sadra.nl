@@ -52,6 +52,7 @@ import {
 } from '~/lib/prop-calculator/simulator';
 
 import { InlineToolsWorker } from './labWorkerFixtures';
+import { statStripValue } from './statStripValue';
 
 interface ProviderHarness {
     base: { error: null | string; isPending: boolean; result: null };
@@ -610,14 +611,10 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 />,
             );
             expect(simulate).toHaveBeenCalledTimes(2);
-            const accountsCard = [...container.querySelectorAll('p')]
-                .find((node) => node.textContent === 'Total accounts')
-                ?.closest('.px-3');
-            expect(accountsCard?.querySelector('.font-mono')?.textContent).toBe(
-                '3',
-            );
-            expect(container.textContent).toContain('Total (3 accounts)');
-            expect(container.textContent).not.toContain('Total (6 accounts)');
+            expect(
+                statStripValue(container, 'Total accounts')?.textContent,
+            ).toBe('3');
+            expect(container.querySelector('tfoot')).toBeNull();
         });
 
         it('StrategyLabPanel skips a refused scenario, says why, and simulates the others', () => {
@@ -771,12 +768,9 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                 />,
             );
             expect(container.textContent).toContain('P(ends net negative)');
-            const card = [...container.querySelectorAll('span')]
-                .find((node) => node.textContent === 'P(ends net negative)')
-                ?.closest('.px-3');
-            expect(card?.querySelector('.font-mono')?.textContent).toMatch(
-                /^\d+\.\d%$/,
-            );
+            expect(
+                statStripValue(container, 'P(ends net negative)')?.textContent,
+            ).toMatch(/^\d+\.\d%$/);
         });
 
         it('does not apply an undisclosed 0.5 red/green threshold to P(ends net negative), matching the neutral treatment of the same figure on ProjectionCard (PT-62b review HIGH fix)', () => {
@@ -790,12 +784,9 @@ describe('refused sizing in the web panels (PT-11f)', () => {
                     maxAccounts={5}
                 />,
             );
-            const card = [...container.querySelectorAll('span')]
-                .find((node) => node.textContent === 'P(ends net negative)')
-                ?.closest('.px-3');
-            const valueSpan = card?.querySelector('.font-mono');
-            expect(valueSpan?.className).not.toContain('text-destructive');
-            expect(valueSpan?.className).not.toContain('text-success');
+            const value = statStripValue(container, 'P(ends net negative)');
+            expect(value?.outerHTML).not.toContain('text-destructive');
+            expect(value?.outerHTML).not.toContain('text-success');
         });
 
         describe('the funnel what-if form (PT-62b, F-V11)', () => {

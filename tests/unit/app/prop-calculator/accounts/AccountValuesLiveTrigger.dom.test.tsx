@@ -32,6 +32,7 @@ import {
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
+import { withInfoTexts } from '../infoPopover';
 import {
     AccountDetailValuesProbe,
     AccountsTable,
@@ -566,7 +567,7 @@ describe('the account list passes the firm payout count to the advice and the bo
             render(
                 <AccountDetailValuesProbe accountId="alpha" userId={USER_ID} />,
             );
-            expect(container.textContent).toContain(
+            expect(withInfoTexts(container)).toContain(
                 'The firm payout count is unknown',
             );
         });

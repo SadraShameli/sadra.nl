@@ -1,8 +1,13 @@
+import { Layers } from 'lucide-react';
 import { memo } from 'react';
 
+import { figureColumns } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 import { type CapUsageCardModel } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum CapUsageCardColumn {
     Cap = 'cap',
@@ -18,55 +23,63 @@ export const CapUsageCard = memo(function CapUsageCard({
     readonly model: CapUsageCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={model.disclosure}
+            section={OverviewSectionId.CapUsage}
+        >
             {model.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No plan in use yet.
-                </p>
+                <EmptyState
+                    icon={Layers}
+                    size={EmptyStateSize.Compact}
+                    title="No plan in use yet"
+                />
             ) : (
                 <DataTable
-                    columns={[
-                        {
-                            cell: ({ row }) => <>{row.original.plan}</>,
-                            header: 'Plan',
-                            id: CapUsageCardColumn.Plan,
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.used}</>,
-                            header: 'Funded in use',
-                            id: CapUsageCardColumn.FundedInUse,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.cap}</>,
-                            header: 'Cap',
-                            id: CapUsageCardColumn.Cap,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.freeSlots}</>,
-                            header: 'Free slots',
-                            id: CapUsageCardColumn.FreeSlots,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.note}</>,
-                            header: 'Note',
-                            id: CapUsageCardColumn.Note,
-                        },
-                    ]}
+                    columns={figureColumns(
+                        [
+                            {
+                                header: 'Plan',
+                                id: CapUsageCardColumn.Plan,
+                                isRowHeader: true,
+                                textOf: (row) => row.plan,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Funded in use',
+                                id: CapUsageCardColumn.FundedInUse,
+                                textOf: (row) => row.used,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Cap',
+                                id: CapUsageCardColumn.Cap,
+                                textOf: (row) => row.cap,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Free slots',
+                                id: CapUsageCardColumn.FreeSlots,
+                                textOf: (row) => row.freeSlots,
+                            },
+                            {
+                                header: 'Note',
+                                id: CapUsageCardColumn.Note,
+                                textOf: (row) => row.note ?? '',
+                            },
+                        ],
+                        model.rows,
+                    )}
                     data={[...model.rows]}
                     isSortable={false}
                     pageSize={null}
                     rowId={(row) => row.key}
                 />
             )}
-            <p className="text-xs text-muted-foreground">{model.disclosure}</p>
             {model.unresolvedNote !== null && (
                 <p className="text-xs text-muted-foreground">
                     {model.unresolvedNote}
                 </p>
             )}
-        </div>
+        </OverviewPanel>
     );
 });

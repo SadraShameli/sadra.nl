@@ -9,10 +9,11 @@ import type {
     TransactionMatch,
 } from '~/lib/accounting/core/types';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
+    DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
     hasActiveTableFilter,
@@ -20,10 +21,15 @@ import {
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
+import { CurrencyAmount } from '~/lib/accounting/core/money';
+import { CredentialRole } from '~/lib/accounting/credentials/index';
+import { formatDisplayDate } from '~/lib/format';
 import { api } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
-import { DirectionBadge } from './DirectionBadge';
+import { DIRECTION_OPTIONS, DirectionBadge } from './DirectionBadge';
+import { NoConnectionState } from './NoConnectionState';
+import { columnWhenAnyRow } from './tableColumns';
 import { useActiveCredentials } from './useActiveCredentials';
 
 const MATCHED = '__matched__';
@@ -31,11 +37,6 @@ const UNKNOWN = '__unknown__';
 const LOOKBACK_DAYS = 90;
 
 type TxnRow = RawTransaction & { match: null | TransactionMatch };
-
-const amountFormat = new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-});
 
 const toIso = (d: Date): string => d.toISOString().slice(0, 10);
 
@@ -47,7 +48,11 @@ const defaultRange = (): DateRange => {
 };
 
 export function TransactionsBrowser() {
-    const { accounting, source } = useActiveCredentials();
+    const {
+        accounting,
+        isLoading: isCredentialsLoading,
+        source,
+    } = useActiveCredentials();
     const credentialId = source?.id ?? '';
     const accountingCredentialId = accounting?.id ?? '';
     const [initialDateRange] = useState<DateRange>(defaultRange);
@@ -75,6 +80,9 @@ export function TransactionsBrowser() {
     );
 
     const rows = useMemo(() => txnsQ.data ?? [], [txnsQ.data]);
+    const isLoading =
+        isCredentialsLoading || (!!credentialId && txnsQ.isPending);
+    const hasExternalFilters = dateRange !== initialDateRange;
 
     const columns = useMemo<DataTableColumn<TxnRow>[]>(
         () => [
@@ -91,7 +99,7 @@ export function TransactionsBrowser() {
                 accessorKey: 'date',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs">
-                        {row.original.date}
+                        {formatDisplayDate(row.original.date)}
                     </span>
                 ),
                 enableSorting: true,
@@ -108,60 +116,52 @@ export function TransactionsBrowser() {
             {
                 accessorKey: 'merchant',
                 cell: ({ row }) => (
-                    <Badge className="w-fit" variant="outline">
-                        {row.original.merchant}
-                    </Badge>
+                    <Badge className="w-fit">{row.original.merchant}</Badge>
                 ),
                 header: 'Merchant',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'sourceAmount',
                 cell: ({ row }) => (
-                    <span
-                        className={
-                            row.original.direction === 'IN'
-                                ? 'font-mono text-xs text-success'
-                                : 'font-mono text-xs text-destructive'
-                        }
-                    >
-                        {amountFormat.format(row.original.sourceAmount)}{' '}
-                        {row.original.sourceCurrency}
+                    <span className="font-mono text-xs">
+                        {CurrencyAmount.format({
+                            amount: row.original.sourceAmount,
+                            currency: row.original.sourceCurrency,
+                        })}
                     </span>
                 ),
                 header: 'Amount',
+                meta: { align: DataTableAlign.End },
             },
-            {
+            ...columnWhenAnyRow<TxnRow>(rows, (r) => r.sourceFee !== 0, {
                 accessorKey: 'sourceFee',
-                cell: ({ row }) =>
-                    row.original.sourceFee > 0 ? (
-                        <span className="font-mono text-[10px] text-muted-foreground">
-                            {amountFormat.format(row.original.sourceFee)}{' '}
-                            {row.original.sourceFeeCurrency ??
-                                row.original.sourceCurrency}
-                        </span>
-                    ) : (
-                        '-'
-                    ),
+                cell: ({ row }) => (
+                    <span className="font-mono text-xs text-muted-foreground">
+                        {CurrencyAmount.format({
+                            amount: row.original.sourceFee,
+                            currency:
+                                row.original.sourceFeeCurrency ??
+                                row.original.sourceCurrency,
+                        })}
+                    </span>
+                ),
                 header: 'Fee',
-            },
+                meta: { align: DataTableAlign.End },
+            }),
             {
                 accessorKey: 'match',
                 cell: ({ row }) => {
                     const match = row.original.match;
                     return match ? (
                         <div className="flex flex-col items-start gap-0.5">
-                            <Badge variant="outline">{match.display}</Badge>
-                            <span className="font-mono text-[10px] text-muted-foreground">
+                            <Badge>{match.display}</Badge>
+                            <span className="font-mono text-xs text-muted-foreground">
                                 {match.ledgerLabel}
                             </span>
                         </div>
                     ) : (
-                        <Badge
-                            className="font-mono text-[10px] text-warning"
-                            variant="outline"
-                        >
-                            Unknown
-                        </Badge>
+                        <Badge>Unknown</Badge>
                     );
                 },
                 filterFn: (row, _columnId, filterValue: string) => {
@@ -173,110 +173,102 @@ export function TransactionsBrowser() {
                 header: 'Match',
             },
         ],
-        [],
+        [rows],
     );
 
     return (
-        <Card>
-            <CardContent>
-                {txnsQ.error ? (
-                    <EmptyState
-                        description={txnsQ.error.message}
-                        title="Could not fetch transactions"
+        <ToolPanel
+            description={
+                <span className="inline-flex flex-wrap gap-x-4">
+                    <ActiveConnectionNote
+                        credential={source}
+                        role={CredentialRole.Transactions}
                     />
-                ) : (
-                    <DataTable
-                        columns={columns}
-                        data={rows}
-                        emptyState={(table) => (
+                    <ActiveConnectionNote
+                        credential={accounting}
+                        role={CredentialRole.Accounting}
+                    />
+                </span>
+            }
+            title="Transactions"
+        >
+            {txnsQ.error ? (
+                <EmptyState
+                    description={txnsQ.error.message}
+                    title="Could not fetch transactions"
+                />
+            ) : isLoading || credentialId ? (
+                <DataTable
+                    columns={columns}
+                    data={rows}
+                    emptyState={(table) =>
+                        hasExternalFilters || hasActiveTableFilter(table) ? (
                             <EmptyState
-                                description={
-                                    credentialId
-                                        ? hasActiveTableFilter(table)
-                                            ? 'No transactions match this filter.'
-                                            : 'Fetched transactions from this credential will appear here.'
-                                        : 'Pick a transactions credential above to load transactions.'
-                                }
+                                description="No transactions match these filters."
                                 icon={ArrowLeftRight}
-                                title={
-                                    credentialId
-                                        ? 'No transactions yet'
-                                        : 'No credential selected'
+                                title="No matches"
+                            />
+                        ) : (
+                            <EmptyState
+                                description={`This source has no transactions in the last ${String(LOOKBACK_DAYS)} days. Pick an earlier transaction date to look further back.`}
+                                icon={ArrowLeftRight}
+                                title="No transactions yet"
+                            />
+                        )
+                    }
+                    filterPlaceholder="Search transactions…"
+                    hasExternalFilters={hasExternalFilters}
+                    headerActions={(table) => (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <FilterSelect
+                                label="Direction"
+                                onValueChange={(v) =>
+                                    table
+                                        .getColumn('direction')
+                                        ?.setFilterValue(v)
+                                }
+                                options={DIRECTION_OPTIONS}
+                                placeholder="All directions"
+                                value={
+                                    table
+                                        .getColumn('direction')
+                                        ?.getFilterValue() as string | undefined
                                 }
                             />
-                        )}
-                        filterPlaceholder="Search transactions…"
-                        hasExternalFilters={dateRange !== initialDateRange}
-                        headerActions={(table) => (
-                            <div className="flex flex-wrap items-center gap-2">
-                                <FilterSelect
-                                    label="Direction"
-                                    onValueChange={(v) =>
-                                        table
-                                            .getColumn('direction')
-                                            ?.setFilterValue(v)
-                                    }
-                                    options={[
-                                        { label: 'In', value: 'IN' },
-                                        { label: 'Out', value: 'OUT' },
-                                    ]}
-                                    placeholder="All directions"
-                                    value={
-                                        table
-                                            .getColumn('direction')
-                                            ?.getFilterValue() as
-                                            string | undefined
-                                    }
-                                />
-                                <FilterSelect
-                                    label="Match"
-                                    onValueChange={(v) =>
-                                        table
-                                            .getColumn('match')
-                                            ?.setFilterValue(v)
-                                    }
-                                    options={[
-                                        { label: 'Matched', value: MATCHED },
-                                        { label: 'Unknown', value: UNKNOWN },
-                                    ]}
-                                    placeholder="All matches"
-                                    value={
-                                        table
-                                            .getColumn('match')
-                                            ?.getFilterValue() as
-                                            string | undefined
-                                    }
-                                />
-                                <FilterDateRange
-                                    align="end"
-                                    label="Transaction date"
-                                    onChange={setDateRange}
-                                    placeholder="Any date"
-                                    value={dateRange}
-                                />
-                            </div>
-                        )}
-                        initialSorting={[{ desc: true, id: 'date' }]}
-                        isLoading={!!credentialId && txnsQ.isPending}
-                        onResetFilters={() => setDateRange(initialDateRange)}
-                        pageSize={25}
-                        rowId={(r) => r.txnId}
-                        showFilter
-                        toolbarEnd={
-                            <>
-                                <ActiveConnectionNote
-                                    credential={source}
-                                    roleNoun="transaction source"
-                                />
-                                <ActiveConnectionNote
-                                    credential={accounting}
-                                    roleNoun="accounting credential"
-                                />
-                            </>
-                        }
-                    />
-                )}
-            </CardContent>
-        </Card>
+                            <FilterSelect
+                                label="Match"
+                                onValueChange={(v) =>
+                                    table.getColumn('match')?.setFilterValue(v)
+                                }
+                                options={[
+                                    { label: 'Matched', value: MATCHED },
+                                    { label: 'Unknown', value: UNKNOWN },
+                                ]}
+                                placeholder="All matches"
+                                value={
+                                    table
+                                        .getColumn('match')
+                                        ?.getFilterValue() as string | undefined
+                                }
+                            />
+                            <FilterDateRange
+                                align="end"
+                                label="Transaction date"
+                                onChange={setDateRange}
+                                placeholder="Any date"
+                                value={dateRange}
+                            />
+                        </div>
+                    )}
+                    initialSorting={[{ desc: true, id: 'date' }]}
+                    isLoading={isLoading}
+                    onResetFilters={() => setDateRange(initialDateRange)}
+                    rowId={(r) => r.txnId}
+                    showFilter
+                />
+            ) : (
+                <NoConnectionState role={CredentialRole.Transactions} />
+            )}
+        </ToolPanel>
     );
 }

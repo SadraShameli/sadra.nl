@@ -21,7 +21,6 @@ import {
     type LabScenario,
 } from '~/app/(app)/prop-calculator/_components/types';
 import { type LabResult } from '~/app/(app)/prop-calculator/_components/useLabSimulation';
-import { NOT_APPLICABLE } from '~/lib/format';
 import {
     CorrelationMode,
     DayStopRuleKind,
@@ -46,7 +45,26 @@ import {
     LiveTransferContinuationKind,
 } from '~/lib/prop-calculator/simulator';
 
+import {
+    dialogField,
+    isDialogOpen,
+    submitDialog,
+    typeInto,
+} from '../../components/formDialog';
+import {
+    chooseRowAction,
+    confirmRowAction,
+    isRowActionDisabled,
+    openRowActions,
+    rowActionItem,
+    rowActionLabels,
+} from '../../components/rowActionsMenu';
+import { expectDialogFieldGridsOneColumnBelowMd } from './dialogFieldGrids';
 import { InlineToolsWorker } from './labWorkerFixtures';
+import {
+    MISSING_REASON_BUTTON_SELECTOR,
+    missingValueText,
+} from './missingValue';
 
 vi.mock('next/dynamic', () => ({ default: () => renderNothing }));
 
@@ -154,15 +172,7 @@ function renderNothing(): null {
 }
 
 function rowLabel(row: HTMLTableRowElement): string {
-    return row.querySelector('input')?.value ?? '';
-}
-
-function typeInto(input: HTMLInputElement, text: string) {
-    act(() => {
-        Reflect.set(HTMLInputElement.prototype, 'value', text, input);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    flush();
+    return row.querySelector(':scope > th[scope="row"]')?.textContent ?? '';
 }
 
 describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
@@ -193,11 +203,20 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
         ];
     }
 
+    function cellAt(
+        label: string,
+        header: string,
+    ): HTMLTableCellElement | undefined {
+        return bodyRows().find((row) => rowLabel(row) === label)?.cells[
+            columnIndex(header)
+        ];
+    }
+
     function theoReasonOf(label: string): null | string {
         const trigger = bodyRows()
             .find((row) => rowLabel(row) === label)
             ?.cells[columnIndex('Theo')]?.querySelector(
-                'button[aria-label="About Theo not applicable"]',
+                MISSING_REASON_BUTTON_SELECTOR,
             );
         if (!(trigger instanceof HTMLButtonElement)) return null;
         act(() => {
@@ -239,34 +258,191 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
         vi.unstubAllGlobals();
     });
 
-    it('names every editable cell of a scenario row after its column and scenario', () => {
+    it('keeps editing out of the scenario row and names every field of its edit dialog', () => {
         render(scenarios);
         const row = bodyRows().find(
             (candidate) => rowLabel(candidate) === 'One to two',
         );
+        expect(
+            row?.querySelectorAll('input, select, textarea, [role="combobox"]'),
+        ).toHaveLength(0);
+        openRowActions('One to two');
+        expect(rowActionLabels()).toEqual(['Edit', 'Remove']);
+        act(() => {
+            rowActionItem('Edit').click();
+        });
         const controls = [
-            ...(row?.querySelectorAll<HTMLElement>(
-                'input, button[role="combobox"]',
-            ) ?? []),
+            ...document.body.querySelectorAll<HTMLElement>(
+                ':scope [role="dialog"] input, :scope [role="dialog"] [role="combobox"]',
+            ),
         ];
         expect(controls.length).toBeGreaterThan(0);
         for (const control of controls) {
-            expect(control.getAttribute('aria-label')).toBeTruthy();
+            const isLabelled =
+                control.getAttribute('aria-label') !== null ||
+                document.querySelector(`label[for="${CSS.escape(control.id)}"]`)
+                    ?.textContent !== undefined;
+            expect({ control: control.outerHTML, isLabelled }).toEqual({
+                control: control.outerHTML,
+                isLabelled: true,
+            });
         }
-        const inputs = [...(row?.querySelectorAll('input') ?? [])];
-        expect(inputs.length).toBeGreaterThan(0);
-        for (const input of inputs) {
-            expect(input.getAttribute('aria-label')).toMatch(/, One to two$/);
-        }
-        expect(
-            row?.querySelector('button[aria-label="Remove One to two"]'),
-        ).not.toBeNull();
+        expect(dialogField('Scenario name').value).toBe('One to two');
+    });
+
+    it('keeps the field grid of its edit dialog one column below md', () => {
+        render(scenarios);
+        chooseRowAction('One to two', 'Edit');
+        expectDialogFieldGridsOneColumnBelowMd();
+    });
+
+    it('asks before removing a scenario and keeps the last one', () => {
+        const onRemove = vi.fn<(id: string) => void>();
+        act(() => {
+            root.render(
+                <StrategyLabPanel
+                    activationDiscountPercent={0}
+                    commissionPerRoundTrip={0}
+                    evalDiscountPercent={0}
+                    fundedHorizonDays={5}
+                    labLink={{ status: LabLinkStatus.Absent }}
+                    linkActivationDiscount={false}
+                    maxEvalDays={10}
+                    minRetainedCushion={undefined}
+                    monthlySubscriptionDiscountPercent={0}
+                    onAdd={vi.fn()}
+                    onRemove={onRemove}
+                    onReset={vi.fn()}
+                    onUpdate={vi.fn()}
+                    payoutRequestSize={undefined}
+                    plan={defaultCalculatorState().plan}
+                    resetDiscountPercent={0}
+                    rungSizing={undefined}
+                    scenarios={[baseScenario]}
+                    seed={1}
+                />,
+            );
+        });
+        flush();
+        openRowActions('One to two');
+        expect(isRowActionDisabled('Remove')).toBe(true);
+        act(() => {
+            root.render(
+                <StrategyLabPanel
+                    activationDiscountPercent={0}
+                    commissionPerRoundTrip={0}
+                    evalDiscountPercent={0}
+                    fundedHorizonDays={5}
+                    labLink={{ status: LabLinkStatus.Absent }}
+                    linkActivationDiscount={false}
+                    maxEvalDays={10}
+                    minRetainedCushion={undefined}
+                    monthlySubscriptionDiscountPercent={0}
+                    onAdd={vi.fn()}
+                    onRemove={onRemove}
+                    onReset={vi.fn()}
+                    onUpdate={vi.fn()}
+                    payoutRequestSize={undefined}
+                    plan={defaultCalculatorState().plan}
+                    resetDiscountPercent={0}
+                    rungSizing={undefined}
+                    scenarios={scenarios}
+                    seed={1}
+                />,
+            );
+        });
+        flush();
+        chooseRowAction('One to two', 'Remove');
+        expect(onRemove).not.toHaveBeenCalled();
+        confirmRowAction('Remove');
+        expect(onRemove).toHaveBeenCalledExactlyOnceWith(baseScenario.id);
+    });
+
+    it('adds a scenario from the add dialog, prefilled with a copy of the last one', async () => {
+        const onAdd = vi.fn<(scenario: LabScenario) => void>();
+        act(() => {
+            root.render(
+                <StrategyLabPanel
+                    activationDiscountPercent={0}
+                    commissionPerRoundTrip={0}
+                    evalDiscountPercent={0}
+                    fundedHorizonDays={5}
+                    labLink={{ status: LabLinkStatus.Absent }}
+                    linkActivationDiscount={false}
+                    maxEvalDays={10}
+                    minRetainedCushion={undefined}
+                    monthlySubscriptionDiscountPercent={0}
+                    onAdd={onAdd}
+                    onRemove={vi.fn()}
+                    onReset={vi.fn()}
+                    onUpdate={vi.fn()}
+                    payoutRequestSize={undefined}
+                    plan={defaultCalculatorState().plan}
+                    resetDiscountPercent={0}
+                    rungSizing={undefined}
+                    scenarios={[baseScenario]}
+                    seed={1}
+                />,
+            );
+        });
+        flush();
+        const add = [...container.querySelectorAll('button')].find((node) =>
+            node.textContent.includes('Add scenario'),
+        );
+        act(() => {
+            add?.click();
+        });
+        expect(onAdd).not.toHaveBeenCalled();
+        expect(dialogField('Scenario name').value).toBe('One to two copy');
+        typeInto(dialogField('Reward to risk'), '3');
+        await submitDialog('Add', () => vi.advanceTimersByTimeAsync(0));
+        expect(onAdd).toHaveBeenCalledOnce();
+        const added = onAdd.mock.calls[0]?.[0];
+        expect(added?.label).toBe('One to two copy');
+        expect(added?.rrRatio).toBe(3);
+        expect(added?.id).not.toBe(baseScenario.id);
+        expect(isDialogOpen()).toBe(false);
+    });
+
+    it('drops the stop and groups columns when no scenario has a stop or groups, instead of a column of n/a', () => {
+        render(scenarios);
+        const headers = [...container.querySelectorAll(':scope thead th')].map(
+            (node) => node.textContent.trim(),
+        );
+        expect(headers).not.toContain('Stop pts');
+        expect(headers).not.toContain('Groups');
+        expect(container.textContent).not.toContain('n/a');
+    });
+
+    it('shows the stop and groups columns once one scenario has them, with a missing value on the rows without', () => {
+        render([
+            baseScenario,
+            {
+                ...baseScenario,
+                correlation: CorrelationMode.Grouped,
+                groups: 2,
+                id: 'grouped',
+                instrument: InstrumentSymbol.NQ,
+                label: 'Grouped',
+                stopPoints: 10,
+            },
+        ]);
+        expect(cellAt('Grouped', 'Stop pts')?.textContent.trim()).toBe('10');
+        expect(cellAt('Grouped', 'Groups')?.textContent.trim()).toBe('2');
+        expect(cellAt('One to two', 'Stop pts')?.textContent.trim()).toBe(
+            missingValueText(),
+        );
+        expect(cellAt('One to two', 'Groups')?.textContent.trim()).toBe(
+            missingValueText(),
+        );
+        expect(container.textContent).not.toContain('n/a');
     });
 
     it('shows the not-applicable marker, never NaN%, for a reward:risk the walk cannot represent', () => {
         render(scenarios);
         const theo = theoByLabel();
-        expect(theo.Unrepresentable).toBe(NOT_APPLICABLE);
+        expect(theo.Unrepresentable).toBe(missingValueText());
+        expect(container.textContent).not.toContain('n/a');
         expect(container.textContent).not.toContain('NaN');
         expect(theo['One to two']).toMatch(/^\d+\.\d%$/);
         expect(theo['One to one']).toMatch(/^\d+\.\d%$/);
@@ -318,7 +494,9 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
         const theo = columnIndex('Theo');
         const cellOf = (label: string) =>
             bodyRows().find((row) => rowLabel(row) === label)?.cells[theo];
-        expect(cellOf('Tiny risk')?.textContent.trim()).toBe(NOT_APPLICABLE);
+        expect(cellOf('Tiny risk')?.textContent.trim()).toBe(
+            missingValueText(),
+        );
         expect(theoReasonOf('Unrepresentable')).toContain(
             ECONOMICS_REASON_TEXT[EconomicsReason.UnsupportedRatio],
         );
@@ -340,7 +518,7 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
                     riskPerTrade,
                 },
             ]);
-            expect(theoByLabel()['Bad risk']).toBe(NOT_APPLICABLE);
+            expect(theoByLabel()['Bad risk']).toBe(missingValueText());
             expect(theoReasonOf('Bad risk')).toContain(
                 ECONOMICS_REASON_TEXT[EconomicsReason.InvalidInput],
             );
@@ -350,7 +528,7 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
     it('describes Theo as the exact pass probability of a random walk with a fixed drawdown floor and the library disclosure', () => {
         render([baseScenario]);
         const about = document.querySelector(
-            'button[aria-label="About Multi-account strategy lab"]',
+            'button[aria-label="About Scenarios"]',
         );
         if (!(about instanceof HTMLButtonElement)) {
             throw new TypeError('no strategy lab help button');
@@ -387,16 +565,19 @@ describe('StrategyLabPanel theoretical pass probability (PT-53b)', () => {
         >();
     });
 
-    it('shows the not-applicable marker after a typed RR of 1.333', () => {
+    it('shows the not-applicable marker after an RR of 1.333 is saved in the edit dialog', async () => {
         render([baseScenario]);
         expect(theoByLabel()['One to two']).toMatch(/^\d+\.\d%$/);
-        const rr =
-            bodyRows()[0]?.cells[columnIndex('RR')]?.querySelector('input');
-        if (!(rr instanceof HTMLInputElement))
-            throw new TypeError('no RR input');
+        chooseRowAction('One to two', 'Edit');
+        const rr = dialogField('Reward to risk');
         typeInto(rr, String(UNREPRESENTABLE_RR));
         expect(rr.value).toBe(String(UNREPRESENTABLE_RR));
-        expect(theoByLabel()['One to two']).toBe(NOT_APPLICABLE);
+        await submitDialog('Save', () => vi.advanceTimersByTimeAsync(0));
+        flush();
+        expect(
+            bodyRows()[0]?.cells[columnIndex('RR')]?.textContent.trim(),
+        ).toBe(String(UNREPRESENTABLE_RR));
+        expect(theoByLabel()['One to two']).toBe(missingValueText());
         expect(container.textContent).not.toContain('NaN');
     });
 });
@@ -457,6 +638,228 @@ describe('StrategyLabPanel lifetime cap pooling gap (PT-12h, F-110 REV-5)', () =
         });
         flush();
         expect(container.textContent).not.toContain('lifetime cap is per user');
+    });
+});
+
+describe('StrategyLabPanel scenario charts', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    function chartGrid(): Element | null {
+        return container.querySelector(
+            ':scope > .app-prop-calculator__strategy-lab-charts',
+        );
+    }
+
+    function chartPanels(): Element[] {
+        return [
+            ...(chartGrid()?.querySelectorAll(':scope > .app-tool__panel') ??
+                []),
+        ];
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', InlineToolsWorker);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+        act(() => {
+            root.render(<LabHarness initial={scenarios} />);
+        });
+        flush();
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+    });
+
+    it('lays the charts out after the lab panel, one column below lg and two from lg', () => {
+        const grid = chartGrid();
+        expect(
+            grid?.previousElementSibling?.classList.contains(
+                'app-prop-calculator__strategy-lab',
+            ),
+        ).toBe(true);
+        const classes = grid?.className.split(' ') ?? [];
+        expect(classes).toEqual(
+            expect.arrayContaining(['grid', 'lg:grid-cols-2']),
+        );
+        expect(
+            classes.filter((name) => /^(?:sm|md):grid-cols-/.test(name)),
+        ).toEqual([]);
+    });
+
+    it('gives each scenario its own chart panel, titled by the scenario, in scenario order', () => {
+        expect(
+            chartPanels().map(
+                (panel) => panel.querySelector('h3')?.textContent,
+            ),
+        ).toEqual(scenarios.map((scenario) => scenario.label));
+    });
+
+    it('shows the expected max loss streak and the actual trades per day of each scenario as figures', () => {
+        expect(
+            chartPanels().filter(
+                (panel) => panel.getAttribute('aria-busy') !== null,
+            ),
+        ).toEqual([]);
+        for (const panel of chartPanels()) {
+            expect(
+                [...panel.querySelectorAll(':scope .app-stat-strip dt')].map(
+                    (term) => term.textContent,
+                ),
+            ).toEqual(['Expected max loss streak', 'Actual trades per day']);
+        }
+    });
+});
+
+describe('StrategyLabPanel scenario waiting for its run', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    const added: LabScenario = {
+        ...baseScenario,
+        id: 'added',
+        label: 'Added',
+        rrRatio: 3,
+    };
+
+    const refusedScenario: LabScenario = {
+        ...baseScenario,
+        id: 'refused',
+        instrument: InstrumentSymbol.NQ,
+        label: 'Refused NQ',
+        riskPerTrade: 150,
+        stopPoints: 10,
+    };
+
+    function render(list: LabScenario[]) {
+        act(() => {
+            root.render(
+                <StrategyLabPanel
+                    activationDiscountPercent={0}
+                    commissionPerRoundTrip={0}
+                    evalDiscountPercent={0}
+                    fundedHorizonDays={5}
+                    labLink={{ status: LabLinkStatus.Absent }}
+                    linkActivationDiscount={false}
+                    maxEvalDays={10}
+                    minRetainedCushion={undefined}
+                    monthlySubscriptionDiscountPercent={0}
+                    onAdd={vi.fn()}
+                    onRemove={vi.fn()}
+                    onReset={vi.fn()}
+                    onUpdate={vi.fn()}
+                    payoutRequestSize={undefined}
+                    plan={defaultCalculatorState().plan}
+                    resetDiscountPercent={0}
+                    rungSizing={undefined}
+                    scenarios={list}
+                    seed={1}
+                />,
+            );
+        });
+    }
+
+    function passCell(label: string): HTMLTableCellElement | undefined {
+        const headers = [...container.querySelectorAll(':scope thead th')].map(
+            (node) => node.textContent.trim(),
+        );
+        return [
+            ...container.querySelectorAll<HTMLTableRowElement>(
+                ':scope tbody tr',
+            ),
+        ].find((row) => rowLabel(row) === label)?.cells[
+            headers.indexOf('MC eval pass')
+        ];
+    }
+
+    function chartPanel(label: string): Element | undefined {
+        return [
+            ...container.querySelectorAll(
+                ':scope > .app-prop-calculator__strategy-lab-charts > .app-tool__panel',
+            ),
+        ].find((panel) => panel.querySelector('h3')?.textContent === label);
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        vi.stubGlobal('Worker', InlineToolsWorker);
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        vi.clearAllTimers();
+        vi.useRealTimers();
+        vi.unstubAllGlobals();
+    });
+
+    it('shows a just-added scenario as loading, not as not simulated, before its debounced run starts', () => {
+        render([baseScenario]);
+        flush();
+        render([baseScenario, added]);
+        expect(
+            passCell('Added')?.querySelector('[data-slot="skeleton"]'),
+        ).not.toBeNull();
+        expect(
+            passCell('Added')?.querySelector(MISSING_REASON_BUTTON_SELECTOR),
+        ).toBeNull();
+        expect(
+            chartPanel('Added')?.querySelector('[data-slot="empty"]'),
+        ).toBeNull();
+        expect(
+            chartPanel('Added')?.querySelector('[data-slot="skeleton"]'),
+        ).not.toBeNull();
+        flush();
+        expect(passCell('Added')?.textContent.trim()).toMatch(/^\d+\.\d%$/);
+    });
+
+    it('keeps a refused scenario not simulated, with its reason, before and after the run', () => {
+        render([baseScenario]);
+        flush();
+        render([baseScenario, refusedScenario]);
+        expect(
+            passCell('Refused NQ')?.querySelector(
+                MISSING_REASON_BUTTON_SELECTOR,
+            ),
+        ).not.toBeNull();
+        expect(
+            chartPanel('Refused NQ')?.querySelector('[data-slot="empty"]'),
+        ).not.toBeNull();
+        flush();
+        expect(passCell('Refused NQ')?.textContent.trim()).toBe(
+            missingValueText(),
+        );
+        expect(
+            passCell('Refused NQ')?.querySelector('[data-slot="skeleton"]'),
+        ).toBeNull();
+        expect(
+            chartPanel('Refused NQ')?.querySelector('[data-slot="empty"]'),
+        ).not.toBeNull();
+    });
+
+    it('names the reset action by its visible text, with no native title tooltip', () => {
+        render([baseScenario]);
+        const reset = [...container.querySelectorAll('button')].find(
+            (button) => button.textContent.trim() === 'Reset',
+        );
+        expect(reset).toBeDefined();
+        expect(reset?.hasAttribute('title')).toBe(false);
     });
 });
 

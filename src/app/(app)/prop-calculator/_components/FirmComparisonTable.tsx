@@ -3,31 +3,13 @@
 import { Building2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { Card } from '~/components/ui/card';
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { InfoNote } from '~/components/InfoNote';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
-import {
-    Field,
-    FieldDescription,
-    FieldError,
-    FieldLabel,
-} from '~/components/ui/field';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import InfoPopover from '~/components/ui/info-popover';
-import { Input } from '~/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/select';
-import {
-    formatCurrency,
-    formatDays,
-    formatOptionalPercent,
-    formatPercent,
-    NOT_APPLICABLE,
-} from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     dollars,
     type FirmId,
@@ -46,31 +28,45 @@ import {
     noPayoutProbabilityFromDistribution,
 } from '~/lib/prop-calculator/economics';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
-import { cn } from '~/lib/utilities';
 
 import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
+import {
+    NO_FUNDED_ACCOUNT_REASON,
+    NO_SCREEN_HOUR_REASON,
+} from './missingReasons';
 import {
     BatchLossCache,
     type PricedComparisonRow,
     rankComparison,
     type RankedComparison,
 } from './objectiveRanking';
-import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
+import {
+    bestExpectedMonthlyNet,
+    monthlyNetScoreText,
+    scoreByExpectedMonthlyNet,
+} from './scoring';
+import {
+    parseAccountsPerSession,
+    parsePositiveNumber,
+    parseTopLimit,
+    type ScreenHourFilters,
+    ScreenHourInputs,
+    useScreenHourFilters,
+} from './ScreenHourFilters';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { passDaysColumn, roiColumn } from './simOutputColumns';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
+import { useSectionComputing } from './ToolSection';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 import {
     openInSimulatorColumn,
     useOpenInSimulator,
 } from './useOpenInSimulator';
+import { ValueOrMissing } from './ValueOrMissing';
 
 const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 500;
-const TOP_LIMIT_ALL = 'all';
-const TOP_LIMIT_CHOICES: readonly number[] = [3, 5, 10];
-const TOP_LIMIT_DISABLED_HINT =
-    'Set hours per day and accounts per session first';
 
 export interface ComparisonViewRequest {
     bankrollCents: null | number;
@@ -94,17 +90,8 @@ interface FirmComparisonTableProperties {
     isBankrollPending?: boolean;
     objective?: SizingObjective;
     planOptIns: PlanOptIns;
+    screenHourFilters?: ScreenHourFilters;
     targetAccountSize: number;
-}
-
-interface ScreenHourInputsProperties {
-    accountsPerSessionInput: string;
-    hoursPerDayInput: string;
-    idPrefix: string;
-    onAccountsPerSessionChange: (value: string) => void;
-    onHoursPerDayChange: (value: string) => void;
-    onTopLimitChange: (value: string) => void;
-    topLimitInput: string;
 }
 
 export function ComparisonRankingLabel({
@@ -113,10 +100,10 @@ export function ComparisonRankingLabel({
     ranked: Pick<RankedComparison<unknown>, 'label'>;
 }) {
     return (
-        <span className="text-xs text-muted-foreground">
+        <>
             Ranked by {ranked.label}; a column header click re-sorts the rows
             shown
-        </span>
+        </>
     );
 }
 
@@ -126,7 +113,23 @@ export function ComparisonRankingNote({
     ranked: Pick<RankedComparison<unknown>, 'note'>;
 }) {
     return ranked.note === null ? null : (
-        <p className="text-xs text-warning">{ranked.note}</p>
+        <StatusRow title={ranked.note} tone={StatusTone.Warn} />
+    );
+}
+
+export function ComparisonScreenHourToolbar({
+    filters,
+    idPrefix,
+    label,
+}: {
+    filters: ScreenHourFilters;
+    idPrefix: string;
+    label: string;
+}) {
+    return (
+        <FilterToolbar label={label}>
+            <ScreenHourInputs idPrefix={idPrefix} {...filters} />
+        </FilterToolbar>
     );
 }
 
@@ -138,6 +141,7 @@ export default function FirmComparisonTable({
     isBankrollPending = false,
     objective = SizingObjective.MonthlyNet,
     planOptIns,
+    screenHourFilters,
     targetAccountSize,
 }: FirmComparisonTableProperties) {
     const key = buildCacheKey(baseInputs, targetAccountSize, planOptIns);
@@ -176,6 +180,7 @@ export default function FirmComparisonTable({
     );
 
     const openInSimulator = useOpenInSimulator(planOptIns);
+    useSectionComputing(pending);
 
     const {
         accountsPerSession,
@@ -184,12 +189,16 @@ export default function FirmComparisonTable({
         inputs,
         ranked,
         shownRows,
-    } = useComparisonView(rows, {
-        bankrollCents,
-        isBankrollPending,
-        objective,
-        seed: baseInputs.seed,
-    });
+    } = useComparisonView(
+        rows,
+        {
+            bankrollCents,
+            isBankrollPending,
+            objective,
+            seed: baseInputs.seed,
+        },
+        screenHourFilters,
+    );
 
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
@@ -212,6 +221,7 @@ export default function FirmComparisonTable({
                 },
                 header: 'Firm',
                 id: 'firm',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.plan.label,
@@ -237,12 +247,7 @@ export default function FirmComparisonTable({
                 header: 'Funded survive',
                 id: 'fundedSurvive',
             },
-            {
-                accessorFn: (r) => r.out.daysToPassP50,
-                cell: ({ row }) => formatDays(row.original.out.daysToPassP50),
-                header: 'Days',
-                id: 'days',
-            },
+            passDaysColumn<Row>(),
             {
                 accessorFn: (r) => r.out.expectedTotalCost,
                 cell: ({ row }) =>
@@ -263,24 +268,10 @@ export default function FirmComparisonTable({
                 header: 'Cycle net',
                 id: 'cycleNet',
             },
-            {
-                accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
-                cell: ({ row }) =>
-                    formatOptionalPercent(row.original.out.roiOnCost.value),
-                header: 'ROI',
-                id: 'roi',
-                sortUndefined: 'last',
-            },
+            roiColumn<Row>(),
             {
                 accessorFn: (r) => r.score,
-                cell: ({ row }) => (
-                    <span className="text-warning">
-                        {'★'.repeat(row.original.score)}
-                        <span className="text-muted-foreground">
-                            {'★'.repeat(5 - row.original.score)}
-                        </span>
-                    </span>
-                ),
+                cell: ({ row }) => monthlyNetScoreText(row.original.score),
                 header: 'Monthly net score',
                 id: 'score',
             },
@@ -296,27 +287,26 @@ export default function FirmComparisonTable({
     );
 
     return (
-        <Card
-            className={cn('app-prop-calculator__firm-comparison', 'px-5 py-4')}
-        >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">
-                        Firm comparison at your inputs
-                    </h3>
-                    <ComparisonRankingLabel ranked={ranked} />
-                    <InfoPopover title="Firm comparison">
-                        {panelDescriptions.firmComparison}
-                    </InfoPopover>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                    {pending
-                        ? 'computing…'
-                        : `closest plan to $${(targetAccountSize / 1000).toFixed(0)}K${shownRows.length < ranked.rows.length ? `, showing ${shownRows.length} of ${ranked.rows.length}` : ''}`}
-                </span>
-            </div>
-            <ScreenHourInputs idPrefix="firm-comparison" {...inputs} />
+        <div className="app-prop-calculator__firm-comparison flex flex-col gap-4">
+            <InfoNote
+                info={panelDescriptions.firmComparison}
+                infoTitle="Firm comparison"
+            >
+                <ComparisonRankingLabel ranked={ranked} />
+            </InfoNote>
+            {screenHourFilters === undefined ? (
+                <ComparisonScreenHourToolbar
+                    filters={inputs}
+                    idPrefix="firm-comparison"
+                    label="Firm comparison filters"
+                />
+            ) : null}
             <ComparisonRankingNote ranked={ranked} />
+            {rows.length === 0 ? null : (
+                <p className="m-0 text-xs text-muted-foreground">
+                    {`closest plan to $${(targetAccountSize / 1000).toFixed(0)}K${shownRows.length < ranked.rows.length ? `, showing ${shownRows.length} of ${ranked.rows.length}` : ''}`}
+                </p>
+            )}
             {error === null ? (
                 <DataTable<Row>
                     className="app-prop-calculator__firm-comparison-table text-xs tabular-nums"
@@ -325,21 +315,19 @@ export default function FirmComparisonTable({
                     emptyState={
                         <EmptyState
                             icon={Building2}
-                            title={pending ? 'Computing…' : 'No matching plans'}
+                            size={EmptyStateSize.Compact}
+                            title="No matching plans"
                         />
                     }
+                    isCurrentRow={(r) => r.firm.id === activeFirmId}
+                    isLoading={pending && rows.length === 0}
                     pageSize={null}
-                    rowClassName={(r) =>
-                        r.firm.id === activeFirmId
-                            ? 'bg-primary/10 font-semibold text-foreground'
-                            : undefined
-                    }
                     rowId={(r) => r.firm.id}
                 />
             ) : (
                 <SimulationFailureNotice message={error} />
             )}
-        </Card>
+        </div>
     );
 }
 
@@ -361,29 +349,17 @@ export function noPayoutColumn<
         accessorFn: (r) => valueOf(r) ?? undefined,
         cell: ({ row }) => {
             const value = valueOf(row.original);
-            return value === null ? NOT_APPLICABLE : formatPercent(value);
+            return (
+                <ValueOrMissing
+                    reason={NO_FUNDED_ACCOUNT_REASON}
+                    value={value === null ? null : formatPercent(value)}
+                />
+            );
         },
         header: 'P(no payout)',
         id: 'noPayout',
         sortUndefined: 'last',
     };
-}
-
-export function parseAccountsPerSession(text: string): null | number {
-    if (text.trim() === '') return null;
-    const n = Number(text);
-    return Number.isSafeInteger(n) && n >= 1 ? n : null;
-}
-
-export function parsePositiveNumber(text: string): null | number {
-    if (text.trim() === '') return null;
-    const n = Number(text);
-    return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-export function parseTopLimit(text: string): null | number {
-    const n = Number(text);
-    return TOP_LIMIT_CHOICES.includes(n) ? n : null;
 }
 
 export function screenHourColumn<Row extends { out: SimOutputs }>(
@@ -402,7 +378,12 @@ export function screenHourColumn<Row extends { out: SimOutputs }>(
         accessorFn: (r) => valueOf(r) ?? undefined,
         cell: ({ row }) => {
             const value = valueOf(row.original);
-            return value === null ? NOT_APPLICABLE : formatCurrency(value);
+            return (
+                <ValueOrMissing
+                    reason={NO_SCREEN_HOUR_REASON}
+                    value={value === null ? null : formatCurrency(value)}
+                />
+            );
         },
         header: '$/screen hour',
         id: 'netPerScreenHour',
@@ -410,127 +391,19 @@ export function screenHourColumn<Row extends { out: SimOutputs }>(
     };
 }
 
-export function ScreenHourInputs({
-    accountsPerSessionInput,
-    hoursPerDayInput,
-    idPrefix,
-    onAccountsPerSessionChange,
-    onHoursPerDayChange,
-    onTopLimitChange,
-    topLimitInput,
-}: ScreenHourInputsProperties) {
-    const isTopLimitEnabled =
-        parsePositiveNumber(hoursPerDayInput) !== null &&
-        parseAccountsPerSession(accountsPerSessionInput) !== null;
-    const hoursHintId = `${idPrefix}-hours-per-day-hint`;
-    const accountsHintId = `${idPrefix}-accounts-per-session-hint`;
-    const topLimitHintId = `${idPrefix}-top-limit-hint`;
-    const isHoursInvalid =
-        hoursPerDayInput.trim() !== '' &&
-        parsePositiveNumber(hoursPerDayInput) === null;
-    const isAccountsInvalid =
-        accountsPerSessionInput.trim() !== '' &&
-        parseAccountsPerSession(accountsPerSessionInput) === null;
-    return (
-        <div className="flex flex-wrap items-start gap-3">
-            <Field className="w-auto" data-invalid={isHoursInvalid}>
-                <FieldLabel htmlFor={`${idPrefix}-hours-per-day`}>
-                    Hours per day
-                </FieldLabel>
-                <Input
-                    aria-describedby={isHoursInvalid ? hoursHintId : undefined}
-                    aria-invalid={isHoursInvalid}
-                    className="w-24"
-                    id={`${idPrefix}-hours-per-day`}
-                    min={0}
-                    onChange={(event) =>
-                        onHoursPerDayChange(event.target.value)
-                    }
-                    placeholder="off"
-                    step={0.5}
-                    type="number"
-                    value={hoursPerDayInput}
-                />
-                {isHoursInvalid ? (
-                    <FieldError id={hoursHintId}>
-                        A number of hours above 0
-                    </FieldError>
-                ) : null}
-            </Field>
-            <Field className="w-auto" data-invalid={isAccountsInvalid}>
-                <FieldLabel htmlFor={`${idPrefix}-accounts-per-session`}>
-                    Accounts per session
-                </FieldLabel>
-                <Input
-                    aria-describedby={
-                        isAccountsInvalid ? accountsHintId : undefined
-                    }
-                    aria-invalid={isAccountsInvalid}
-                    className="w-24"
-                    id={`${idPrefix}-accounts-per-session`}
-                    min={1}
-                    onChange={(event) =>
-                        onAccountsPerSessionChange(event.target.value)
-                    }
-                    placeholder="off"
-                    step={1}
-                    type="number"
-                    value={accountsPerSessionInput}
-                />
-                {isAccountsInvalid ? (
-                    <FieldError id={accountsHintId}>
-                        Whole number, at least 1
-                    </FieldError>
-                ) : null}
-            </Field>
-            <Field className="w-auto" data-disabled={!isTopLimitEnabled}>
-                <FieldLabel htmlFor={`${idPrefix}-top-limit`}>
-                    Show top
-                </FieldLabel>
-                <Select
-                    disabled={!isTopLimitEnabled}
-                    onValueChange={onTopLimitChange}
-                    value={topLimitInput}
-                >
-                    <SelectTrigger
-                        aria-describedby={
-                            isTopLimitEnabled ? undefined : topLimitHintId
-                        }
-                        className="w-28"
-                        id={`${idPrefix}-top-limit`}
-                    >
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {TOP_LIMIT_CHOICES.map((choice) => (
-                            <SelectItem key={choice} value={String(choice)}>
-                                Top {choice}
-                            </SelectItem>
-                        ))}
-                        <SelectItem value={TOP_LIMIT_ALL}>All</SelectItem>
-                    </SelectContent>
-                </Select>
-                {isTopLimitEnabled ? null : (
-                    <FieldDescription id={topLimitHintId}>
-                        {TOP_LIMIT_DISABLED_HINT}
-                    </FieldDescription>
-                )}
-            </Field>
-        </div>
-    );
-}
-
 export function useComparisonView<Row extends PricedComparisonRow>(
     rows: readonly Row[],
     request: ComparisonViewRequest,
+    sharedFilters?: ScreenHourFilters,
 ) {
     const { bankrollCents, isBankrollPending, objective, seed } = request;
-    const [hoursPerDayInput, setHoursPerDayInput] = useState('');
-    const [accountsPerSessionInput, setAccountsPerSessionInput] = useState('');
-    const [topLimitInput, setTopLimitInput] = useState(TOP_LIMIT_ALL);
+    const ownFilters = useScreenHourFilters();
+    const inputs = sharedFilters ?? ownFilters;
     const [batchLossCache] = useState(() => new BatchLossCache());
-    const hoursPerDay = parsePositiveNumber(hoursPerDayInput);
-    const accountsPerSession = parseAccountsPerSession(accountsPerSessionInput);
+    const hoursPerDay = parsePositiveNumber(inputs.hoursPerDayInput);
+    const accountsPerSession = parseAccountsPerSession(
+        inputs.accountsPerSessionInput,
+    );
     const hasScreenHourInputs =
         hoursPerDay !== null && accountsPerSession !== null;
     const ranked = useMemo(() => {
@@ -551,26 +424,8 @@ export function useComparisonView<Row extends PricedComparisonRow>(
     ]);
     const shownRows = limitRows(
         ranked.rows,
-        hasScreenHourInputs ? parseTopLimit(topLimitInput) : null,
+        hasScreenHourInputs ? parseTopLimit(inputs.topLimitInput) : null,
     );
-    const inputs: Omit<ScreenHourInputsProperties, 'idPrefix'> = {
-        accountsPerSessionInput,
-        hoursPerDayInput,
-        onAccountsPerSessionChange: (value) => {
-            setAccountsPerSessionInput(value);
-            if (parseAccountsPerSession(value) === null) {
-                setTopLimitInput(TOP_LIMIT_ALL);
-            }
-        },
-        onHoursPerDayChange: (value) => {
-            setHoursPerDayInput(value);
-            if (parsePositiveNumber(value) === null) {
-                setTopLimitInput(TOP_LIMIT_ALL);
-            }
-        },
-        onTopLimitChange: setTopLimitInput,
-        topLimitInput,
-    };
     return {
         accountsPerSession,
         hasScreenHourInputs,

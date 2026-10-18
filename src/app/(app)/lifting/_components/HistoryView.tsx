@@ -1,29 +1,36 @@
 'use client';
 
-import { endOfDay, format, startOfDay } from 'date-fns';
-import { Calendar, Trash2 } from 'lucide-react';
+import { endOfDay, startOfDay } from 'date-fns';
+import { Calendar, ExternalLink, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 
+import { MissingValue } from '~/components/MissingValue';
+import {
+    deleteRowAction,
+    linkRowAction,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
-import { EmptyState, EmptyStatePanel } from '~/components/ui/empty-state';
+import { EmptyStatePanel, NoMatchesState } from '~/components/ui/empty-state';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
+import { formatDisplayDateTime } from '~/lib/format';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     WORKOUT_DURATION_BUCKETS,
     WorkoutDuration,
 } from '~/lib/lifting/workout-duration';
+import { workoutName } from '~/lib/lifting/workout-name';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -75,40 +82,31 @@ export function HistoryView({ from }: HistoryViewProperties) {
                         className="font-medium text-foreground hover:underline"
                         href={routes.lifting.workout(row.original.id)}
                     >
-                        {row.original.name ?? 'Workout'}
+                        {workoutName(row.original)}
                     </Link>
                 ),
                 header: 'Workout',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => new Date(r.startedAt).getTime(),
                 cell: ({ row }) => (
                     <span className="text-muted-foreground tabular-nums">
-                        {format(new Date(row.original.startedAt), 'EEE MMM d')}
+                        {formatDisplayDateTime(row.original.startedAt)}
                     </span>
                 ),
                 header: 'Date',
                 id: 'date',
             },
             {
-                accessorFn: (r) =>
-                    new Date(r.startedAt).getHours() * 60 +
-                    new Date(r.startedAt).getMinutes(),
-                cell: ({ row }) => (
-                    <span className="text-muted-foreground tabular-nums">
-                        {format(new Date(row.original.startedAt), 'HH:mm')}
-                    </span>
-                ),
-                header: 'Start',
-                id: 'start',
-            },
-            {
                 accessorFn: (r) => WorkoutDuration.seconds(r) ?? -1,
                 cell: ({ row }) => {
                     const dur = WorkoutDuration.seconds(row.original);
-                    return (
+                    return dur === null ? (
+                        <MissingValue />
+                    ) : (
                         <span className="text-muted-foreground tabular-nums">
-                            {dur === null ? '-' : DurationFormat.seconds(dur)}
+                            {DurationFormat.seconds(dur)}
                         </span>
                     );
                 },
@@ -123,50 +121,38 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 header: 'Status',
                 id: 'status',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex justify-end">
-                        <ConfirmDialog
-                            confirmLabel="Delete"
-                            description={
-                                <>
-                                    &ldquo;
-                                    {row.original.name ?? 'Workout'}&rdquo; and
-                                    all its sets will be permanently removed.
-                                    This cannot be undone.
-                                </>
-                            }
-                            isPending={remove.isPending}
-                            onConfirm={() =>
-                                remove.mutate({
-                                    id: row.original.id,
-                                })
-                            }
-                            title="Delete workout?"
-                            tooltip="Delete workout"
-                        >
-                            <Button
-                                aria-label={`Delete ${row.original.name ?? 'workout'}`}
-                                className="size-8 p-0 text-muted-foreground hover:text-destructive"
-                                type="button"
-                                variant="ghost"
-                            >
-                                <Trash2 className="size-4" />
-                            </Button>
-                        </ConfirmDialog>
-                    </div>
-                ),
-                enableSorting: false,
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            rowActionsColumn<WorkoutRow>({
+                actionsOf: (workout) => [
+                    linkRowAction({
+                        href: routes.lifting.workout(workout.id),
+                        icon: ExternalLink,
+                        label: 'Open',
+                    }),
+                    deleteRowAction({
+                        description: `“${workoutName(workout)}” and all its sets will be permanently removed. This cannot be undone.`,
+                        onDelete: () => remove.mutate({ id: workout.id }),
+                        title: 'Delete workout?',
+                    }),
+                ],
+                isPendingOf: (workout) =>
+                    remove.isPending && remove.variables.id === workout.id,
+                labelOf: workoutName,
+            }),
         ],
         [remove],
     );
 
     return !dateRange && !workouts.isLoading && allRows.length === 0 ? (
         <EmptyStatePanel
-            description="Start a workout from the Log tab and it'll show up here."
+            action={
+                <Button asChild className="gap-2">
+                    <Link href={routes.lifting.log}>
+                        <Play className="size-4" />
+                        Start workout
+                    </Link>
+                </Button>
+            }
+            description="Workouts you log show up here."
             icon={Calendar}
             title="No workouts yet"
         />
@@ -175,13 +161,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
             <DataTable
                 columns={columns}
                 data={allRows}
-                emptyState={
-                    <EmptyState
-                        description="Try widening the filters or logging a workout."
-                        icon={Calendar}
-                        title="No workouts match"
-                    />
-                }
+                emptyState={<NoMatchesState icon={Calendar} noun="workouts" />}
                 hasExternalFilters={Boolean(dateRange?.from)}
                 headerActions={(table) => {
                     const statusColumn = table.getColumn('status');
@@ -230,7 +210,6 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 }}
                 isLoading={workouts.isLoading}
                 onResetFilters={() => setDateRange(undefined)}
-                pageSize={20}
                 rowId={(r) => r.id}
                 showFilter
             />

@@ -1,19 +1,12 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 
-import { PageTransition } from '~/components/PageTransition';
+import { AuthPageFrame } from '~/app/(auth)/_components/AuthPageFrame';
 import { Alert, AlertDescription } from '~/components/ui/alert';
-import {
-    Card,
-    CardContent,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from '~/components/ui/card';
+import { CardContent, CardFooter } from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { authErrorSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 
 const errorMessages: Record<string, string> = {
     AccessDenied: 'Access denied.',
@@ -40,47 +33,29 @@ export default function AuthErrorPage({
     searchParams,
 }: AuthErrorPageProperties) {
     return (
-        <PageTransition>
-            <div
-                className={cn(
-                    'app-auth__page',
-                    'flex flex-1 items-center justify-center px-4 pt-20 pb-12',
-                )}
-            >
-                <div className="w-full max-w-sm">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Sign-in problem</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <Alert variant="destructive">
-                                <AlertDescription>
-                                    <Suspense
-                                        fallback={
-                                            <Skeleton className="h-5 w-full" />
-                                        }
-                                    >
-                                        <AuthErrorMessage
-                                            searchParams={searchParams}
-                                        />
-                                    </Suspense>
-                                </AlertDescription>
-                            </Alert>
-                        </CardContent>
-                        <CardFooter className="mt-2 flex flex-col gap-3">
-                            <p className="text-center text-sm text-muted-foreground">
-                                <Link
-                                    className="text-foreground underline underline-offset-4 hover:opacity-70"
-                                    href={routes.auth.login}
-                                >
-                                    Back to sign in
-                                </Link>
-                            </p>
-                        </CardFooter>
-                    </Card>
-                </div>
-            </div>
-        </PageTransition>
+        <AuthPageFrame title="Sign-in problem">
+            <CardContent>
+                <Alert variant="destructive">
+                    <AlertDescription>
+                        <Suspense
+                            fallback={<Skeleton className="h-5 w-full" />}
+                        >
+                            <AuthErrorMessage searchParams={searchParams} />
+                        </Suspense>
+                    </AlertDescription>
+                </Alert>
+            </CardContent>
+            <CardFooter className="mt-2 flex flex-col gap-3">
+                <p className="text-center text-sm text-muted-foreground">
+                    <Link
+                        className="text-foreground underline underline-offset-4 hover:opacity-70"
+                        href={routes.auth.login}
+                    >
+                        Back to sign in
+                    </Link>
+                </p>
+            </CardFooter>
+        </AuthPageFrame>
     );
 }
 

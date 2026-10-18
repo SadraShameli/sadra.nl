@@ -1,12 +1,12 @@
 'use client';
 
-import { Trash2, TriangleAlert } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { type ReactNode } from 'react';
 
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utilities';
@@ -14,6 +14,23 @@ import { cn } from '~/lib/utilities';
 export interface ListQuery<Row> {
     readonly data: readonly Row[] | undefined;
     readonly error: null | { readonly message: string };
+}
+
+export function AddRecordButton({
+    label,
+    onAdd,
+}: {
+    readonly label: string;
+    readonly onAdd: () => void;
+}) {
+    return (
+        <div>
+            <Button onClick={onAdd} type="button" variant="outline">
+                <Plus />
+                {label}
+            </Button>
+        </div>
+    );
 }
 
 export function DetailSection({
@@ -31,16 +48,13 @@ export function DetailSection({
             aria-labelledby={headingId}
             className={cn('app-prop-accounts__detail-section')}
         >
-            <Card>
-                <CardHeader>
-                    <ToolSectionHeading id={headingId}>
-                        {title}
-                    </ToolSectionHeading>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    {children}
-                </CardContent>
-            </Card>
+            <ToolPanel
+                contentClassName="gap-4"
+                title={title}
+                titleId={headingId}
+            >
+                {children}
+            </ToolPanel>
         </section>
     );
 }
@@ -53,18 +67,17 @@ export function ListQueryStatus<Row>({
     readonly subject: string;
 }) {
     if (query.error !== null) {
-        return (
-            <Alert
-                variant={query.data === undefined ? 'destructive' : 'warning'}
-            >
-                <TriangleAlert />
-                <AlertTitle>
-                    {query.data === undefined
-                        ? `The ${subject} could not be loaded`
-                        : `The ${subject} could not be refreshed`}
-                </AlertTitle>
-                <AlertDescription>{query.error.message}</AlertDescription>
-            </Alert>
+        return query.data === undefined ? (
+            <QueryErrorNotice
+                message={query.error.message}
+                title={`The ${subject} could not be loaded`}
+            />
+        ) : (
+            <StatusRow
+                detail={query.error.message}
+                title={`The ${subject} could not be refreshed`}
+                tone={StatusTone.Warn}
+            />
         );
     }
     return query.data === undefined ? (
@@ -81,7 +94,6 @@ export function RemoveRecordDialog({
     onConfirm,
     title,
     triggerLabel,
-    triggerShowsLabel = false,
 }: {
     readonly confirmText: string;
     readonly description: string;
@@ -89,7 +101,6 @@ export function RemoveRecordDialog({
     readonly onConfirm: () => void;
     readonly title: string;
     readonly triggerLabel: string;
-    readonly triggerShowsLabel?: boolean;
 }) {
     return (
         <ConfirmDialog
@@ -98,22 +109,10 @@ export function RemoveRecordDialog({
             onConfirm={onConfirm}
             title={title}
         >
-            {triggerShowsLabel ? (
-                <Button disabled={isPending} type="button" variant="outline">
-                    <Trash2 />
-                    {triggerLabel}
-                </Button>
-            ) : (
-                <Button
-                    aria-label={triggerLabel}
-                    disabled={isPending}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                >
-                    <Trash2 />
-                </Button>
-            )}
+            <Button disabled={isPending} type="button" variant="outline">
+                <Trash2 />
+                {triggerLabel}
+            </Button>
         </ConfirmDialog>
     );
 }

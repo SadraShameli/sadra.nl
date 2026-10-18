@@ -4,10 +4,11 @@ import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo } from 'react';
 
+import { WarningNote } from '~/components/WarningNote';
 import {
     formatConjunctionList,
     formatCurrency,
-    formatGateCurrency,
+    formatWholeOrCentsCurrency,
 } from '~/lib/format';
 import {
     type InstrumentSymbol,
@@ -86,22 +87,23 @@ export function DailyPlanCardView({
                 card.valueAfterWin !== null &&
                 card.valueAfterLoss !== null && (
                     <p className="text-sm">
-                        Value now {formatGateCurrency(card.valueNow)}; after a
-                        win {formatGateCurrency(card.valueAfterWin)}; after a
-                        loss {formatGateCurrency(card.valueAfterLoss)}{' '}
+                        Value now {formatWholeOrCentsCurrency(card.valueNow)};
+                        after a win{' '}
+                        {formatWholeOrCentsCurrency(card.valueAfterWin)}; after
+                        a loss {formatWholeOrCentsCurrency(card.valueAfterLoss)}{' '}
                         (credit-free expected cash, if the next trade is taken
                         at the first rung).
                     </p>
                 )}
             {isStopSettled && unplacedTrades.length > 0 && (
-                <p className="text-sm font-medium text-warning">
+                <WarningNote className="text-sm">
                     {unplacedTrades.length === 1 ? 'Trade' : 'Trades'}{' '}
                     {formatConjunctionList(unplacedTrades.map(String))} cannot
                     be placed: below one contract at this stop
                     {card.oneContractRisk !== null &&
                         `, where one contract risks ${formatCurrency(card.oneContractRisk, 2)}`}
                     .
-                </p>
+                </WarningNote>
             )}
             {sizing !== null &&
                 sizing.phase === TradingPhase.Eval &&
@@ -216,9 +218,9 @@ function ContractsSizing({
                         <p>{result.inline.siblingText}</p>
                     )}
                     {result.inline.siblingSeverityText !== null && (
-                        <p className="text-warning">
+                        <WarningNote>
                             {result.inline.siblingSeverityText}
-                        </p>
+                        </WarningNote>
                     )}
                 </div>
             )}

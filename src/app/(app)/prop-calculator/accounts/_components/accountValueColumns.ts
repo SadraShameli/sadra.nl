@@ -11,12 +11,13 @@ import {
 import {
     type EngineSlot,
     EngineSlotKind,
+    failureReasonOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import {
     estimateCurrency,
     estimatePercent,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/uncertainText';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { formatCurrency, formatDisplayDate, formatPercent } from '~/lib/format';
 import {
     AdviceUnavailableReason,
     sampleAdequacy,
@@ -316,7 +317,7 @@ function adviceActionOf(advice: Advice): NextActionView {
             return actionView(
                 action,
                 advice.staleness.kind === AdviceStalenessKind.Stale
-                    ? `The latest snapshot (${advice.staleness.snapshotAsOf}) is out of date.`
+                    ? `The latest snapshot (${formatDisplayDate(advice.staleness.snapshotAsOf)}) is out of date.`
                     : null,
             );
         }
@@ -473,20 +474,6 @@ function expectedPayoutsOf(
     }
 }
 
-function failureReasonOf(
-    ...slots: readonly EngineSlot<unknown>[]
-): null | string {
-    for (const slot of slots) {
-        if (
-            slot.kind === EngineSlotKind.Failed ||
-            slot.kind === EngineSlotKind.Refused
-        ) {
-            return slot.reason;
-        }
-    }
-    return null;
-}
-
 function joinedSentences(sentences: readonly (null | string)[]): null | string {
     const present = sentences.filter((sentence) => sentence !== null);
     return present.length === 0 ? null : present.join(' ');
@@ -512,7 +499,7 @@ function nextPayoutDisclosureOf(
             ? null
             : `The first payout caused a breach: ${estimatePercent({ standardError: projection.firstPayoutCausedBreachStandardError, value: breach })}.`,
         payingShare < 1 ? AVERAGED_OVER_PAYING_TRIALS_TEXT : null,
-        `Highlighted when the first payout is expected within ${String(options.highlightWithinDays)} calendar days and at least ${formatPercent(MIN_PAYING_SHARE_FOR_NEXT_PAYOUT_HIGHLIGHT)} of the simulated trials reach one.`,
+        `Marked soon when the first payout is expected within ${String(options.highlightWithinDays)} calendar days and at least ${formatPercent(MIN_PAYING_SHARE_FOR_NEXT_PAYOUT_HIGHLIGHT)} of the simulated trials reach one.`,
     ]
         .filter((sentence) => sentence !== null)
         .join(' ');
@@ -659,13 +646,12 @@ function readyNextPayoutOf(
         }
         case NextPayoutTimingKind.InDays: {
             const days = timing.calendarDays;
-            const standardError =
-                days.standardError === null
-                    ? NOT_APPLICABLE
-                    : days.standardError.toFixed(1);
+            const daysText = `${days.value.toFixed(1)} calendar days`;
             return nextPayoutView(
                 NextPayoutKind.InDays,
-                `${days.value.toFixed(1)} calendar days (SE ${standardError})`,
+                days.standardError === null
+                    ? daysText
+                    : `${daysText} (SE ${days.standardError.toFixed(1)})`,
                 {
                     days: days.value,
                     isSoon:

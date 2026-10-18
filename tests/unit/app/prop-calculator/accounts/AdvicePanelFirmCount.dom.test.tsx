@@ -442,6 +442,9 @@ describe('the advice panel counts the firm payouts requested at sibling and arch
         expect(container.textContent).toContain(
             'The firm payout count could not be loaded',
         );
+        expect(container.textContent).toContain(
+            'The firm payouts could not be loaded: ledger exploded. The advice below does not check a firm-wide live trigger,',
+        );
         expect(documentedOfLastInput()).not.toMatchObject({
             reason: { kind: PayoutBlockReasonKind.WouldTriggerLive },
         });

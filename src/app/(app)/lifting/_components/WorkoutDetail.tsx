@@ -1,33 +1,43 @@
 'use client';
 
-import { format } from 'date-fns';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
-    ArrowLeft,
+    BookmarkPlus,
     Calendar,
+    Clock,
     Flame,
     Layers,
     Trash2,
     Trophy,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { type z } from 'zod';
 
-import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
+import { RoutineDraft } from '~/app/(app)/lifting/_components/RoutineDraft';
+import { FormDialog } from '~/components/FormDialog';
+import { FormTextField } from '~/components/FormFields';
+import { MissingValue } from '~/components/MissingValue';
+import { PageHeader } from '~/components/PageHeader';
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { Dialog, DialogTrigger } from '~/components/ui/dialog';
 import { EmptyState } from '~/components/ui/empty-state';
 import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { FilterToggle } from '~/components/ui/filter-toggle';
 import { Input } from '~/components/ui/input';
+import { formatDisplayDateTime } from '~/lib/format';
 import { DistanceUnit, DurationFormat, WeightUnit } from '~/lib/lifting/format';
+import { routineInputSchema } from '~/lib/lifting/schemas';
+import { workoutName } from '~/lib/lifting/workout-name';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -40,6 +50,36 @@ interface WorkoutDetailViewProperties {
 type WorkoutExercise = WorkoutDetail['exercises'][number];
 
 const FILTER_ALL = '__all__';
+
+const SetColumn = {
+    Distance: 'distanceM',
+    Duration: 'durationS',
+    Reps: 'reps',
+    Rir: 'rir',
+    Rpe: 'rpe',
+    Tempo: 'tempo',
+    Weight: 'weightKg',
+} as const;
+
+type SetColumn = (typeof SetColumn)[keyof typeof SetColumn];
+
+const OPTIONAL_SET_COLUMNS: readonly SetColumn[] = Object.values(SetColumn);
+
+const SET_COLUMN_VALUE: Readonly<
+    Record<SetColumn, (set: SetRow) => null | number | string>
+> = {
+    [SetColumn.Distance]: (set) => set.distanceM,
+    [SetColumn.Duration]: (set) => set.durationS,
+    [SetColumn.Reps]: (set) => set.reps,
+    [SetColumn.Rir]: (set) => set.rir,
+    [SetColumn.Rpe]: (set) => set.rpe,
+    [SetColumn.Tempo]: (set) => set.tempo,
+    [SetColumn.Weight]: (set) => set.weightKg,
+};
+
+const routineNameSchema = routineInputSchema.pick({ name: true });
+
+type RoutineNameValues = z.infer<typeof routineNameSchema>;
 
 export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
     const router = useRouter();
@@ -121,89 +161,86 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                     </span>
                 ),
                 header: 'Set',
+                meta: { isRowHeader: true },
             },
             {
-                accessorKey: 'weightKg',
-                cell: ({ row }) => (
-                    <span className="font-semibold tabular-nums">
-                        {row.original.weightKg === null
-                            ? '-'
-                            : WeightUnit.format(
-                                  row.original.weightKg,
-                                  unitWeight,
-                              )}
-                    </span>
-                ),
-                header: () => <span className="block">Weight</span>,
+                accessorKey: SetColumn.Weight,
+                cell: ({ row }) =>
+                    row.original.weightKg === null ? (
+                        <MissingValue />
+                    ) : (
+                        <span className="font-semibold tabular-nums">
+                            {WeightUnit.format(
+                                row.original.weightKg,
+                                unitWeight,
+                            )}
+                        </span>
+                    ),
+                header: 'Weight',
             },
             {
-                accessorKey: 'reps',
-                cell: ({ row }) => (
-                    <span className="font-semibold tabular-nums">
-                        × {row.original.reps ?? '-'}
-                    </span>
-                ),
+                accessorKey: SetColumn.Reps,
+                cell: ({ row }) =>
+                    row.original.reps === null ? (
+                        <MissingValue />
+                    ) : (
+                        <span className="font-semibold tabular-nums">
+                            × {row.original.reps}
+                        </span>
+                    ),
                 header: 'Reps',
             },
             {
-                accessorKey: 'rpe',
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.rpe ?? '-'}
-                    </span>
-                ),
+                accessorKey: SetColumn.Rpe,
+                cell: ({ row }) => <SetDetailCell value={row.original.rpe} />,
                 header: 'RPE',
             },
             {
-                accessorKey: 'rir',
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.rir ?? '-'}
-                    </span>
-                ),
+                accessorKey: SetColumn.Rir,
+                cell: ({ row }) => <SetDetailCell value={row.original.rir} />,
                 header: 'RIR',
             },
             {
-                accessorKey: 'tempo',
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.tempo ?? '-'}
-                    </span>
-                ),
+                accessorKey: SetColumn.Tempo,
+                cell: ({ row }) => <SetDetailCell value={row.original.tempo} />,
                 enableSorting: false,
                 header: 'Tempo',
             },
             {
-                accessorKey: 'distanceM',
+                accessorKey: SetColumn.Distance,
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.distanceM === null
-                            ? '-'
-                            : `${DistanceUnit.toDisplay(
-                                  row.original.distanceM,
-                                  unitDistance,
-                              ).toFixed(
-                                  unitDistance === 'm' ? 0 : 2,
-                              )} ${unitDistance}`}
-                    </span>
+                    <SetDetailCell
+                        value={
+                            row.original.distanceM === null
+                                ? null
+                                : `${DistanceUnit.toDisplay(
+                                      row.original.distanceM,
+                                      unitDistance,
+                                  ).toFixed(
+                                      unitDistance === 'm' ? 0 : 2,
+                                  )} ${unitDistance}`
+                        }
+                    />
                 ),
                 header: 'Distance',
             },
             {
-                accessorKey: 'durationS',
+                accessorKey: SetColumn.Duration,
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.durationS === null
-                            ? '-'
-                            : DurationFormat.seconds(row.original.durationS)}
-                    </span>
+                    <SetDetailCell
+                        value={
+                            row.original.durationS === null
+                                ? null
+                                : DurationFormat.seconds(row.original.durationS)
+                        }
+                    />
                 ),
                 header: 'Duration',
             },
             {
                 cell: ({ row }) =>
                     row.original.isPr ? (
-                        <Badge className="gap-1" variant="warning">
+                        <Badge className="gap-1">
                             <Trophy className="size-3" /> PR
                         </Badge>
                     ) : null,
@@ -224,92 +261,96 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
 
     return (
         <div className="flex flex-col gap-6">
-            <Button
-                asChild
-                className="gap-2 self-start text-muted-foreground"
-                variant="ghost"
-            >
-                <Link href={routes.lifting.history}>
-                    <ArrowLeft className="size-4" /> History
-                </Link>
-            </Button>
-
-            <header className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="text-xs tracking-wide text-muted-foreground uppercase">
-                        {format(
-                            new Date(w.startedAt),
-                            'EEEE · MMMM d, y · HH:mm',
-                        )}
-                    </p>
-                    <ToolPageTitle className="mt-1">
-                        {w.name ?? 'Workout'}
-                    </ToolPageTitle>
-                    <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                        {durationSeconds !== null && (
-                            <span className="inline-flex items-center gap-1 tabular-nums">
-                                <Flame className="size-3" />
-                                {DurationFormat.seconds(durationSeconds)}
-                            </span>
-                        )}
-                        {w.bodyweightKg && (
-                            <span className="inline-flex items-center gap-1 tabular-nums">
-                                <Calendar className="size-3" />
-                                {WeightUnit.format(
-                                    w.bodyweightKg,
-                                    unitWeight,
-                                )}{' '}
-                                bodyweight
-                            </span>
-                        )}
-                    </div>
-                    {w.notes && (
-                        <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-                            {w.notes}
-                        </p>
-                    )}
-                </div>
-
-                <ConfirmDialog
-                    confirmLabel="Delete"
-                    description={
+            <div className="flex flex-col gap-3">
+                <PageHeader
+                    actions={
                         <>
-                            &ldquo;{w.name ?? 'Workout'}&rdquo; and all its sets
-                            will be permanently removed. This cannot be undone.
+                            <SaveAsRoutineButton workout={w} />
+                            <ConfirmDialog
+                                confirmLabel="Delete"
+                                description={
+                                    <>
+                                        &ldquo;{workoutName(w)}&rdquo; and all
+                                        its sets will be permanently removed.
+                                        This cannot be undone.
+                                    </>
+                                }
+                                isPending={remove.isPending}
+                                onConfirm={() => remove.mutate({ id: w.id })}
+                                title="Delete workout?"
+                            >
+                                <Button
+                                    aria-label="Delete workout"
+                                    className="shrink-0 gap-2"
+                                    type="button"
+                                    variant="outline"
+                                >
+                                    <Trash2 className="size-4" />
+                                    <span className="hidden sm:inline">
+                                        Delete
+                                    </span>
+                                </Button>
+                            </ConfirmDialog>
                         </>
                     }
-                    isPending={remove.isPending}
-                    onConfirm={() => remove.mutate({ id: w.id })}
-                    title="Delete workout?"
-                >
-                    <Button
-                        aria-label="Delete workout"
-                        className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
-                        type="button"
-                        variant="outline"
-                    >
-                        <Trash2 className="size-4" />
-                        <span className="hidden sm:inline">Delete</span>
-                    </Button>
-                </ConfirmDialog>
-            </header>
+                    backLink={{
+                        href: routes.lifting.history,
+                        label: 'History',
+                    }}
+                    className="mb-0"
+                    lead={w.notes ?? undefined}
+                    title={workoutName(w)}
+                />
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1 tabular-nums">
+                        <Clock className="size-3" />
+                        {formatDisplayDateTime(w.startedAt)}
+                    </span>
+                    {durationSeconds !== null && (
+                        <span className="inline-flex items-center gap-1 tabular-nums">
+                            <Flame className="size-3" />
+                            {DurationFormat.seconds(durationSeconds)}
+                        </span>
+                    )}
+                    {w.bodyweightKg && (
+                        <span className="inline-flex items-center gap-1 tabular-nums">
+                            <Calendar className="size-3" />
+                            {WeightUnit.format(w.bodyweightKg, unitWeight)}{' '}
+                            bodyweight
+                        </span>
+                    )}
+                </div>
+            </div>
 
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatCard
-                    label="Exercises"
-                    value={stats.exerciseCount.toString()}
-                />
-                <StatCard label="Sets" value={stats.totalSets.toString()} />
-                <StatCard
-                    label="Volume"
-                    value={
-                        stats.volumeKg > 0
-                            ? WeightUnit.format(stats.volumeKg, unitWeight)
-                            : '-'
-                    }
-                />
-                <StatCard label="PRs" value={stats.prs.toString()} />
-            </section>
+            <StatStrip
+                items={[
+                    {
+                        id: 'exercises',
+                        label: 'Exercises',
+                        value: stats.exerciseCount.toString(),
+                    },
+                    {
+                        id: 'sets',
+                        label: 'Sets',
+                        value: stats.totalSets.toString(),
+                    },
+                    {
+                        id: 'volume',
+                        label: 'Volume',
+                        value:
+                            stats.volumeKg > 0 ? (
+                                WeightUnit.format(stats.volumeKg, unitWeight)
+                            ) : (
+                                <MissingValue reason="Volume counts sets that have both a weight and reps." />
+                            ),
+                    },
+                    {
+                        id: 'prs',
+                        label: 'PRs',
+                        value: stats.prs.toString(),
+                    },
+                ]}
+            />
 
             <ToolPanel contentClassName="flex flex-col gap-4" title="Exercises">
                 <div className="flex flex-wrap items-center gap-2">
@@ -358,28 +399,27 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                     <ul className="flex flex-col gap-4">
                         {filteredExercises.map((wex) => (
                             <li key={wex.id}>
-                                <Card className="gap-2 py-4">
-                                    <CardHeader>
-                                        <CardTitle className="text-base">
-                                            {wex.exercise.name}
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <DataTable
-                                            columns={workoutSetColumns}
-                                            data={wex.sets}
-                                            emptyState={
-                                                <EmptyState
-                                                    description="This exercise has no sets recorded."
-                                                    icon={Layers}
-                                                    title="No sets logged"
-                                                />
-                                            }
-                                            pageSize={null}
-                                            rowId={(s) => s.id}
-                                        />
-                                    </CardContent>
-                                </Card>
+                                <ToolPanel
+                                    className="gap-2 py-4"
+                                    title={wex.exercise.name}
+                                >
+                                    <DataTable
+                                        columns={workoutSetColumns}
+                                        data={wex.sets}
+                                        emptyState={
+                                            <EmptyState
+                                                description="This exercise has no sets recorded."
+                                                icon={Layers}
+                                                title="No sets logged"
+                                            />
+                                        }
+                                        initialColumnVisibility={emptySetColumns(
+                                            wex.sets,
+                                        )}
+                                        pageSize={null}
+                                        rowId={(s) => s.id}
+                                    />
+                                </ToolPanel>
                             </li>
                         ))}
                     </ul>
@@ -389,17 +429,80 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
     );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function emptySetColumns(sets: readonly SetRow[]): Record<string, boolean> {
+    return Object.fromEntries(
+        OPTIONAL_SET_COLUMNS.filter((column) =>
+            sets.every((set) => SET_COLUMN_VALUE[column](set) === null),
+        ).map((column) => [column, false]),
+    );
+}
+
+function SaveAsRoutineButton({ workout }: { workout: WorkoutDetail }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const utilities = api.useUtils();
+    const blocks = useMemo(
+        () => RoutineDraft.blocksOf(workout.exercises),
+        [workout.exercises],
+    );
+    const form = useForm<RoutineNameValues>({
+        defaultValues: { name: workoutName(workout) },
+        resolver: zodResolver(routineNameSchema),
+    });
+    const create = api.lifting.routine.create.useMutation({
+        onError: (error) => toast.error(error.message),
+        onSuccess: async () => {
+            toast.success('Routine saved');
+            setIsOpen(false);
+            await utilities.lifting.routine.list.invalidate();
+        },
+    });
+
     return (
-        <Card className="gap-1 py-3">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <span className="font-mono text-lg leading-none font-bold text-foreground tabular-nums">
-                    {value}
-                </span>
-            </CardContent>
-        </Card>
+        <Dialog
+            onOpenChange={(open) => {
+                if (open) form.reset({ name: workoutName(workout) });
+                setIsOpen(open);
+            }}
+            open={isOpen}
+        >
+            <DialogTrigger asChild>
+                <Button
+                    className="shrink-0 gap-2"
+                    disabled={blocks.length === 0}
+                    type="button"
+                    variant="outline"
+                >
+                    <BookmarkPlus className="size-4" />
+                    Save as routine
+                </Button>
+            </DialogTrigger>
+            <FormDialog
+                description="Start future workouts with these exercises in one tap."
+                form={form}
+                onCancel={() => setIsOpen(false)}
+                onSubmit={(values) =>
+                    create.mutate({ blocks, name: values.name })
+                }
+                pending={create.isPending}
+                submitLabel="Save routine"
+                title="Save as routine"
+            >
+                <FormTextField
+                    control={form.control}
+                    label="Routine name"
+                    name="name"
+                />
+            </FormDialog>
+        </Dialog>
+    );
+}
+
+function SetDetailCell({ value }: { value: null | number | string }) {
+    return value === null ? (
+        <MissingValue />
+    ) : (
+        <span className="text-xs text-muted-foreground tabular-nums">
+            {value}
+        </span>
     );
 }

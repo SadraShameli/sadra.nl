@@ -3,16 +3,11 @@
 import { Layers } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/card';
+import { InfoNote } from '~/components/InfoNote';
+import { Badge } from '~/components/ui/badge';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
-import InfoPopover from '~/components/ui/info-popover';
-import {
-    formatCurrency,
-    formatDays,
-    formatOptionalPercent,
-    formatPercent,
-} from '~/lib/format';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type Plan,
     type PlanOptIns,
@@ -25,22 +20,28 @@ import {
 } from '~/lib/prop-calculator';
 import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
-import { cn } from '~/lib/utilities';
 
 import { ComputationId } from './ComputationId';
 import {
     ComparisonRankingLabel,
     ComparisonRankingNote,
+    ComparisonScreenHourToolbar,
     noPayoutColumn,
     screenHourColumn,
-    ScreenHourInputs,
     useComparisonView,
 } from './FirmComparisonTable';
 import { panelDescriptions } from './kpiDescriptions';
-import { ptddColor } from './metricColors';
-import { bestExpectedMonthlyNet, scoreByExpectedMonthlyNet } from './scoring';
+import { formatPtdd, planPtdd, ptddBench } from './ptddBench';
+import {
+    bestExpectedMonthlyNet,
+    monthlyNetScoreText,
+    scoreByExpectedMonthlyNet,
+} from './scoring';
+import { type ScreenHourFilters } from './ScreenHourFilters';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { passDaysColumn, roiColumn } from './simOutputColumns';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
+import { useSectionComputing } from './ToolSection';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 import {
     openInSimulatorColumn,
@@ -66,6 +67,7 @@ interface PlanComparisonTableProperties {
     isBankrollPending?: boolean;
     objective?: SizingObjective;
     planOptIns: PlanOptIns;
+    screenHourFilters?: ScreenHourFilters;
 }
 
 export default function PlanComparisonTable({
@@ -76,6 +78,7 @@ export default function PlanComparisonTable({
     isBankrollPending = false,
     objective = SizingObjective.MonthlyNet,
     planOptIns,
+    screenHourFilters,
 }: PlanComparisonTableProperties) {
     const key = buildCacheKey(baseInputs, firm.id, planOptIns);
     const {
@@ -95,7 +98,7 @@ export default function PlanComparisonTable({
                     trials,
                 }),
                 plan,
-                ptdd: plan.profitTarget / plan.drawdown.amount,
+                ptdd: planPtdd(plan),
             }));
             const bestNet = bestExpectedMonthlyNet(partial);
             return partial.map((r) => ({
@@ -113,6 +116,7 @@ export default function PlanComparisonTable({
     );
 
     const openInSimulator = useOpenInSimulator(planOptIns);
+    useSectionComputing(pending);
 
     const {
         accountsPerSession,
@@ -121,12 +125,16 @@ export default function PlanComparisonTable({
         inputs,
         ranked,
         shownRows,
-    } = useComparisonView(rows, {
-        bankrollCents,
-        isBankrollPending,
-        objective,
-        seed: baseInputs.seed,
-    });
+    } = useComparisonView(
+        rows,
+        {
+            bankrollCents,
+            isBankrollPending,
+            objective,
+            seed: baseInputs.seed,
+        },
+        screenHourFilters,
+    );
 
     const columns = useMemo<DataTableColumn<Row>[]>(
         () => [
@@ -135,17 +143,18 @@ export default function PlanComparisonTable({
                 cell: ({ row }) => row.original.plan.label,
                 header: 'Plan',
                 id: 'plan',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.ptdd,
                 cell: ({ row }) => (
-                    <span
-                        className={cn(
-                            'font-mono',
-                            ptddColor(row.original.ptdd),
-                        )}
-                    >
-                        {row.original.ptdd.toFixed(2)}×
+                    <span className="flex flex-col">
+                        <span className="font-mono">
+                            {formatPtdd(row.original.ptdd)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                            {ptddBench(row.original.ptdd)}
+                        </span>
                     </span>
                 ),
                 header: 'PT:DD',
@@ -165,12 +174,7 @@ export default function PlanComparisonTable({
                 header: 'Funded survive',
                 id: 'fundedSurvive',
             },
-            {
-                accessorFn: (r) => r.out.daysToPassP50,
-                cell: ({ row }) => formatDays(row.original.out.daysToPassP50),
-                header: 'Days',
-                id: 'days',
-            },
+            passDaysColumn<Row>(),
             {
                 accessorFn: (r) => r.out.expectedGrossSpend,
                 cell: ({ row }) =>
@@ -191,26 +195,16 @@ export default function PlanComparisonTable({
                 header: 'Cycle net',
                 id: 'cycleNet',
             },
-            {
-                accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
-                cell: ({ row }) =>
-                    formatOptionalPercent(row.original.out.roiOnCost.value),
-                header: 'ROI',
-                id: 'roi',
-                sortUndefined: 'last',
-            },
+            roiColumn<Row>(),
             {
                 accessorFn: (r) => r.score,
                 cell: ({ row }) => {
                     const isActive = row.original.plan === activePlan;
                     return (
-                        <span className="text-warning">
-                            {'★'.repeat(row.original.score)}
-                            <span className="text-muted-foreground">
-                                {'★'.repeat(5 - row.original.score)}
-                            </span>
+                        <span className="flex items-center gap-1.5">
+                            {monthlyNetScoreText(row.original.score)}
                             {row.original.isBest && !isActive && (
-                                <span className="ml-1 text-success">★</span>
+                                <Badge>Best</Badge>
                             )}
                         </span>
                     );
@@ -237,27 +231,26 @@ export default function PlanComparisonTable({
     );
 
     return (
-        <Card
-            className={cn('app-prop-calculator__plan-comparison', 'px-5 py-4')}
-        >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">
-                        Plans within {firm.displayName}
-                    </h3>
-                    <ComparisonRankingLabel ranked={ranked} />
-                    <InfoPopover title="Plan comparison">
-                        {panelDescriptions.planComparison}
-                    </InfoPopover>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                    {pending
-                        ? 'computing…'
-                        : planCountText(shownRows.length, rows.length)}
-                </span>
-            </div>
-            <ScreenHourInputs idPrefix="plan-comparison" {...inputs} />
+        <div className="app-prop-calculator__plan-comparison flex flex-col gap-4">
+            <InfoNote
+                info={panelDescriptions.planComparison}
+                infoTitle="Plan comparison"
+            >
+                <ComparisonRankingLabel ranked={ranked} />
+            </InfoNote>
+            {screenHourFilters === undefined ? (
+                <ComparisonScreenHourToolbar
+                    filters={inputs}
+                    idPrefix="plan-comparison"
+                    label="Plan comparison filters"
+                />
+            ) : null}
             <ComparisonRankingNote ranked={ranked} />
+            {rows.length === 0 ? null : (
+                <p className="m-0 text-xs text-muted-foreground">
+                    {planCountText(shownRows.length, rows.length)}
+                </p>
+            )}
             {error === null ? (
                 <DataTable<Row>
                     className="app-prop-calculator__plan-comparison-table text-xs tabular-nums"
@@ -266,21 +259,19 @@ export default function PlanComparisonTable({
                     emptyState={
                         <EmptyState
                             icon={Layers}
-                            title={pending ? 'Computing…' : 'No plans'}
+                            size={EmptyStateSize.Compact}
+                            title="No plans"
                         />
                     }
+                    isCurrentRow={(r) => r.plan === activePlan}
+                    isLoading={pending && rows.length === 0}
                     pageSize={null}
-                    rowClassName={(r) =>
-                        r.plan === activePlan
-                            ? 'bg-primary/10 font-semibold text-foreground'
-                            : undefined
-                    }
                     rowId={(r) => JSON.stringify(r.plan.id)}
                 />
             ) : (
                 <SimulationFailureNotice message={error} />
             )}
-        </Card>
+        </div>
     );
 }
 

@@ -1,13 +1,13 @@
 'use client';
 
-import { eachDayOfInterval, format, getDay, subMonths } from 'date-fns';
-import { CalendarRange } from 'lucide-react';
+import { eachDayOfInterval, getDay, subMonths } from 'date-fns';
+import { CalendarRange, Dumbbell } from 'lucide-react';
 import { type ReactNode, useMemo } from 'react';
 
 import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
+import { StatStrip, StatStripSize } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Card, CardContent } from '~/components/ui/card';
 import { EmptyState } from '~/components/ui/empty-state';
 import { Progress } from '~/components/ui/progress';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -17,6 +17,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '~/components/ui/tooltip';
+import { formatDisplayDate } from '~/lib/format';
+import { localIsoDate } from '~/lib/lifting/date-range';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
     MUSCLE_VALUES,
@@ -79,62 +81,89 @@ function AnalyticsPanels({
     return (
         <div className="flex flex-col gap-6">
             <PanelErrorBoundary section="Training stats">
-                <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <Stat
-                        label="Current streak"
-                        value={consistency && `${consistency.currentStreak} wk`}
-                    />
-                    <Stat
-                        label="Longest streak"
-                        value={consistency && `${consistency.longestStreak} wk`}
-                    />
-                    <Stat
-                        label="Sessions / week"
-                        value={consistency?.sessionsPerWeek.toFixed(1)}
-                    />
-                    <Stat
-                        label="Tonnage (90d)"
-                        value={
-                            volume &&
-                            WeightUnit.format(volume.tonnageKg, unitWeight)
-                        }
-                    />
-                </section>
+                <StatStrip
+                    isLoading={
+                        consistency === undefined || volume === undefined
+                    }
+                    items={[
+                        {
+                            id: 'current-streak',
+                            label: 'Current streak',
+                            value:
+                                consistency &&
+                                `${consistency.currentStreak} wk`,
+                        },
+                        {
+                            id: 'longest-streak',
+                            label: 'Longest streak',
+                            value:
+                                consistency &&
+                                `${consistency.longestStreak} wk`,
+                        },
+                        {
+                            id: 'sessions-per-week',
+                            label: 'Sessions / week',
+                            value: consistency?.sessionsPerWeek.toFixed(1),
+                        },
+                        {
+                            id: 'tonnage',
+                            label: 'Tonnage (90d)',
+                            value:
+                                volume &&
+                                WeightUnit.format(volume.tonnageKg, unitWeight),
+                        },
+                    ]}
+                    size={StatStripSize.Large}
+                />
             </PanelErrorBoundary>
 
             <PanelErrorBoundary section="Sets per muscle">
                 <ToolPanel title="Sets per muscle (last 90 days)">
-                    <div className="flex flex-col gap-2">
-                        {MUSCLE_VALUES.map((m) => {
-                            const sets = volume?.setsPerMuscle[m] ?? 0;
-                            return (
-                                <div
-                                    className="flex items-center gap-3"
-                                    key={m}
-                                >
-                                    <span className="w-24 text-xs text-muted-foreground capitalize">
-                                        {m}
-                                    </span>
-                                    {volume ? (
-                                        <>
-                                            <Progress
-                                                className="h-2 flex-1"
-                                                value={Math.min(100, sets * 5)}
-                                            />
-                                            <span className="w-10 text-right text-xs tabular-nums">
-                                                {sets}
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Skeleton className="h-2 flex-1" />
-                                            <Skeleton className="h-4 w-10" />
-                                        </>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
+                    {volume !== undefined &&
+                    MUSCLE_VALUES.every(
+                        (m) => volume.setsPerMuscle[m] === 0,
+                    ) ? (
+                        <EmptyState
+                            description="Log a workout to see how your sets spread across muscles."
+                            icon={Dumbbell}
+                            title="No sets yet"
+                        />
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {MUSCLE_VALUES.map((m) => {
+                                const sets = volume?.setsPerMuscle[m] ?? 0;
+                                return (
+                                    <div
+                                        className="flex items-center gap-3"
+                                        key={m}
+                                    >
+                                        <span className="w-24 text-xs text-muted-foreground capitalize">
+                                            {m}
+                                        </span>
+                                        {volume ? (
+                                            <>
+                                                <Progress
+                                                    className="h-2 flex-1"
+                                                    value={Math.min(
+                                                        100,
+                                                        sets * 5,
+                                                    )}
+                                                />
+                                                <span className="w-10 text-right text-xs tabular-nums">
+                                                    {sets}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Skeleton className="h-2 flex-1" />
+                                                <Skeleton className="h-4 w-10" />
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </ToolPanel>
             </PanelErrorBoundary>
 
@@ -170,10 +199,10 @@ function FrequencyHeatmap({
         if (!data) return null;
         const byDate = new Map(data.map((c) => [c.date, c.tonnageKg]));
         const days = eachDayOfInterval({ end: to, start: from });
-        const cells = days.map((d) => ({
-            date: format(d, 'yyyy-MM-dd'),
-            tonnageKg: byDate.get(format(d, 'yyyy-MM-dd')) ?? 0,
-        }));
+        const cells = days.map((d) => {
+            const date = localIsoDate(d);
+            return { date, tonnageKg: byDate.get(date) ?? 0 };
+        });
         const max = Math.max(0, ...cells.map((c) => c.tonnageKg));
         const level = (kg: number): number => {
             if (kg <= 0 || max <= 0) return 0;
@@ -222,7 +251,7 @@ function FrequencyHeatmap({
         <TooltipProvider delayDuration={100}>
             <div className="flex flex-col gap-2">
                 <div className="flex items-stretch gap-2">
-                    <div className="flex flex-col justify-between py-0.5 text-[10px] text-muted-foreground">
+                    <div className="flex flex-col justify-between py-0.5 type-micro text-muted-foreground">
                         {DAY_LABELS.map((d) => (
                             <span key={d}>{d}</span>
                         ))}
@@ -250,7 +279,7 @@ function FrequencyHeatmap({
                                                 className="text-xs"
                                                 side="top"
                                             >
-                                                {cell.date} ·{' '}
+                                                {formatDisplayDate(cell.date)} ·{' '}
                                                 {WeightUnit.format(
                                                     cell.tonnageKg,
                                                     unitWeight,
@@ -268,7 +297,7 @@ function FrequencyHeatmap({
                         ))}
                     </div>
                 </div>
-                <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
+                <div className="flex items-center justify-end gap-1 type-micro text-muted-foreground">
                     <span>Less</span>
                     {HEAT_LEVEL_CLASS.map((c, index) => (
                         <span
@@ -286,22 +315,5 @@ function FrequencyHeatmap({
             icon={CalendarRange}
             title="No activity yet"
         />
-    );
-}
-
-function Stat({ label, value }: { label: string; value: string | undefined }) {
-    return (
-        <Card className="gap-2 py-4">
-            <CardContent>
-                <p className="text-xs text-muted-foreground">{label}</p>
-                {value === undefined ? (
-                    <Skeleton className="mt-1 h-8 w-16" />
-                ) : (
-                    <p className="mt-1 text-2xl font-bold tabular-nums">
-                        {value}
-                    </p>
-                )}
-            </CardContent>
-        </Card>
     );
 }

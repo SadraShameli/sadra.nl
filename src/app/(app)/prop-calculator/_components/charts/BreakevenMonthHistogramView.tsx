@@ -14,10 +14,10 @@ const BIN_COUNT = 20;
 export default function BreakevenMonthHistogramView({ result }: Properties) {
     return (
         <HistogramChartView
-            barColor="var(--success)"
+            barColor="var(--chart-1)"
             barLabel="Trials"
             binCount={BIN_COUNT}
-            emptyMessage="No trials went cash-flow positive within this horizon."
+            emptyMessage="No trials went cash-flow positive within this horizon"
             size={ChartSize.Tall}
             values={result.breakEvenMonthValues}
             wrapperClassName="app-prop-calculator__breakeven-month-histogram"

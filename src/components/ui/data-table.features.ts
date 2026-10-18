@@ -86,11 +86,21 @@ export const DATA_TABLE_ALIGN_CLASS_NAME: Record<DataTableAlign, string> = {
     [DataTableAlign.Start]: 'text-left',
 };
 
+export const DataTableNarrowLayout = {
+    Cards: 'cards',
+    Scroll: 'scroll',
+} as const;
+
 export type DataTableColumnMeta = {
     align?: DataTableAlign;
+    isHiddenInCards?: boolean;
+    isRowActions?: boolean;
     isRowHeader?: boolean;
     label?: string;
 };
+
+export type DataTableNarrowLayout =
+    (typeof DataTableNarrowLayout)[keyof typeof DataTableNarrowLayout];
 
 export const dataTableFeatures = tableFeatures({
     columnFacetingFeature,
@@ -117,6 +127,11 @@ export type DataTableColumn<TData extends RowData> = ColumnDef<
     TData
 >;
 
+export type DataTableCore<TData extends RowData> = Table<
+    typeof dataTableFeatures,
+    TData
+>;
+
 export type DataTableInstance<TData extends RowData> = ReactTable<
     typeof dataTableFeatures,
     TData
@@ -133,13 +148,14 @@ export type DataTableServerPagination = {
     onPageIndexChange: (pageIndex: number) => void;
     pageIndex: number;
     pageSize: number;
+    totalCount?: number;
 };
 
 export type DataTableSlot<TData extends RowData> =
     ((table: DataTableInstance<TData>) => ReactNode) | ReactNode;
 
 export function hasActiveTableFilter<TData extends RowData>(
-    table: Table<typeof dataTableFeatures, TData>,
+    table: DataTableCore<TData>,
 ): boolean {
     const { columnFilters } = table.store.state;
     const globalFilter: unknown = table.store.state.globalFilter;

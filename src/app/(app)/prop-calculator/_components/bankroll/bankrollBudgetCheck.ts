@@ -1,4 +1,4 @@
-import { formatGateCurrency } from '~/lib/format';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 import { type Dollars } from '~/lib/prop-calculator';
 import {
     type BankrollMinimumBudget,
@@ -43,5 +43,5 @@ export function bankrollBudgetCheck(
 
 export function bankrollBudgetShortText(check: BankrollBudgetShort): string {
     const noun = check.attempts === 1 ? 'attempt' : 'attempts';
-    return `you need at least ${formatGateCurrency(check.minimumBudget)} (${String(check.attempts)} ${noun}) at this plan for your threshold`;
+    return `you need at least ${formatWholeOrCentsCurrency(check.minimumBudget)} (${String(check.attempts)} ${noun}) at this plan for your threshold`;
 }

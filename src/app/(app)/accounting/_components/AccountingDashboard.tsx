@@ -1,6 +1,5 @@
 'use client';
 
-import { format as formatDate } from 'date-fns';
 import {
     AlertCircle,
     CalendarDays,
@@ -8,6 +7,7 @@ import {
     Send,
     StopCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import {
     useCallback,
     useEffect,
@@ -28,9 +28,9 @@ import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { ImportEvent, Stage } from '~/lib/accounting/runner-types';
 
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
-import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Calendar } from '~/components/ui/calendar';
 import { Checkbox } from '~/components/ui/checkbox';
@@ -41,7 +41,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '~/components/ui/dialog';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { FieldLegend, FieldSet } from '~/components/ui/field';
 import { FilePicker } from '~/components/ui/file-picker';
 import { FILTER_CONTROL_CLASS } from '~/components/ui/filter-control';
@@ -51,18 +51,21 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '~/components/ui/popover';
+import { Skeleton } from '~/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
     CredentialRegistry,
     CredentialRole,
 } from '~/lib/accounting/credentials/index';
 import { STAGES } from '~/lib/accounting/runner-types';
+import { formatDisplayDate } from '~/lib/format';
 import { DurationFormat } from '~/lib/lifting/format';
-import { apiRoutes } from '~/lib/site/routes';
+import { apiRoutes, routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import { EventLog, type LogLine } from './EventLog';
+import { NoConnectionState } from './NoConnectionState';
 import { PushPanel } from './PushPanel';
 import { ResultsCharts } from './ResultsCharts';
 import {
@@ -114,6 +117,11 @@ const IDLE_STAGE_STATE = { status: 'idle' as const };
 
 const defaultStart = () => `${new Date().getFullYear()}-01-01`;
 
+const START_DATE_TRIGGER_CLASS = cn(
+    FILTER_CONTROL_CLASS,
+    'w-fit justify-start gap-2 px-4 font-normal',
+);
+
 const parseIsoDate = (iso: string): Date | undefined => {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
     if (!match) return undefined;
@@ -128,21 +136,23 @@ const formatIsoDate = (date: Date): string => {
     return `${y}-${m}-${d}`;
 };
 
+const dayAfter = (iso: string): string | undefined => {
+    const date = parseIsoDate(iso);
+    if (!date) return undefined;
+    date.setDate(date.getDate() + 1);
+    return formatIsoDate(date);
+};
+
 export function AccountingDashboard() {
     const { accounting, source, sources } = useActiveCredentials();
     const accountingCredentialId = accounting?.id ?? '';
     const startDateLabelId = useId();
 
-    const latestDateQ = api.accounting.mutations.latestDate.useQuery(
-        { credentialId: accountingCredentialId },
-        { enabled: !!accountingCredentialId },
-    );
-    const [startDate, setStartDate] = useState<string>(defaultStart());
-    const startDateTouched = useRef(false);
-    const handleStartDateChange = (v: string) => {
-        startDateTouched.current = true;
-        setStartDate(v);
-    };
+    const {
+        isResolving: isStartDateResolving,
+        setStartDate,
+        startDate,
+    } = useRunStartDate(accountingCredentialId);
     const [result, setResult] = useState<ConversionResult | null>(null);
     const [runId, setRunId] = useState<null | RunId>(null);
     const [pushOpen, setPushOpen] = useState(false);
@@ -227,16 +237,6 @@ export function AccountingDashboard() {
         }
     }, [stream.events]);
 
-    useEffect(() => {
-        if (startDateTouched.current) return;
-        const latest = latestDateQ.data;
-        if (!latest) return;
-        const date = parseIsoDate(latest);
-        if (!date) return;
-        date.setDate(date.getDate() + 1);
-        setStartDate(formatIsoDate(date));
-    }, [latestDateQ.data]);
-
     const fileSourceIds = useMemo(
         () =>
             new Set(
@@ -250,7 +250,10 @@ export function AccountingDashboard() {
         (id) => fileSourceIds.has(id) && !fileContents.has(id),
     );
     const isRunDisabled =
-        stream.running || apiCredentialIds.length === 0 || isMissingFileContent;
+        stream.running ||
+        isStartDateResolving ||
+        apiCredentialIds.length === 0 ||
+        isMissingFileContent;
 
     const handleRun = async () => {
         setResult(null);
@@ -295,19 +298,28 @@ export function AccountingDashboard() {
                         >
                             Start date
                         </span>
-                        <StartDatePicker
-                            onChange={handleStartDateChange}
-                            value={startDate}
-                        />
+                        {isStartDateResolving ? (
+                            <Skeleton
+                                aria-busy
+                                aria-label="Finding the latest booking date"
+                                className="h-9 w-36 rounded-full"
+                                role="status"
+                            />
+                        ) : (
+                            <StartDatePicker
+                                onChange={setStartDate}
+                                value={startDate}
+                            />
+                        )}
                     </div>
 
                     <FieldSet className="min-w-0 gap-2">
                         <FieldLegend variant="label">Sources</FieldLegend>
                         {sources.length === 0 ? (
-                            <p className="m-0 text-sm text-ink-muted">
-                                No transaction sources yet. Add one under
-                                Connections.
-                            </p>
+                            <NoConnectionState
+                                role={CredentialRole.Transactions}
+                                size={EmptyStateSize.Compact}
+                            />
                         ) : (
                             <ul className="m-0 flex list-none flex-col gap-2 p-0">
                                 {sources.map((s) => {
@@ -512,51 +524,57 @@ function ResultsView({
             <PanelErrorBoundary section="Preview">
                 <ToolPanel
                     actions={
-                        <>
-                            {!isPostable && (
-                                <Badge variant="outline">
-                                    Pick an accounting connection to post
-                                </Badge>
-                            )}
-                            <Dialog onOpenChange={setPushOpen} open={pushOpen}>
-                                <DialogTrigger asChild>
-                                    <Button
-                                        disabled={
-                                            !isPostable ||
-                                            bookings.length === 0 ||
-                                            !runId
-                                        }
-                                    >
-                                        <Send className="size-4" /> Post to{' '}
-                                        {targetLabel}
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent
-                                    className={cn('max-w-3xl sm:max-w-3xl')}
+                        <Dialog onOpenChange={setPushOpen} open={pushOpen}>
+                            <DialogTrigger asChild>
+                                <Button
+                                    disabled={
+                                        !isPostable ||
+                                        bookings.length === 0 ||
+                                        !runId
+                                    }
                                 >
-                                    <DialogHeader>
-                                        <DialogTitle>
-                                            Push to {targetLabel}
-                                        </DialogTitle>
-                                    </DialogHeader>
-                                    <PushPanel
-                                        accountingCredentialId={
-                                            accountingCredentialId || null
-                                        }
-                                        bookings={bookings}
-                                        onCompleted={(s) =>
-                                            void onPushedComplete(s)
-                                        }
-                                        runId={runId}
-                                        targetLabel={targetLabel}
-                                    />
-                                </DialogContent>
-                            </Dialog>
-                        </>
+                                    <Send className="size-4" /> Post to{' '}
+                                    {targetLabel}
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent
+                                className={cn('max-w-3xl sm:max-w-3xl')}
+                            >
+                                <DialogHeader>
+                                    <DialogTitle>
+                                        Push to {targetLabel}
+                                    </DialogTitle>
+                                </DialogHeader>
+                                <PushPanel
+                                    accountingCredentialId={
+                                        accountingCredentialId || null
+                                    }
+                                    bookings={bookings}
+                                    onCompleted={(s) =>
+                                        void onPushedComplete(s)
+                                    }
+                                    runId={runId}
+                                    targetLabel={targetLabel}
+                                />
+                            </DialogContent>
+                        </Dialog>
                     }
                     description="Check the bookings before posting. Edits are saved to the run."
                     title="Preview"
                 >
+                    {!isPostable && (
+                        <StatusRow
+                            actions={
+                                <Button asChild size="sm" variant="outline">
+                                    <Link href={routes.accounting.connections}>
+                                        Open connections
+                                    </Link>
+                                </Button>
+                            }
+                            title="Add an accounting connection to post"
+                            tone={StatusTone.Warn}
+                        />
+                    )}
                     {bookings.length === 0 ? (
                         <EmptyState
                             description="Run completed but no bookings were produced."
@@ -631,15 +649,12 @@ function StartDatePicker({
         <Popover onOpenChange={setOpen} open={open}>
             <PopoverTrigger asChild>
                 <Button
-                    className={cn(
-                        FILTER_CONTROL_CLASS,
-                        'w-fit justify-start gap-2 px-4 font-normal',
-                    )}
+                    className={START_DATE_TRIGGER_CLASS}
                     type="button"
                     variant="outline"
                 >
                     <CalendarDays className="size-3.5" />
-                    {date ? formatDate(date, 'PPP') : 'Pick a date'}
+                    {date ? formatDisplayDate(date) : 'Pick a date'}
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-auto p-0">
@@ -657,4 +672,20 @@ function StartDatePicker({
             </PopoverContent>
         </Popover>
     );
+}
+
+function useRunStartDate(accountingCredentialId: string) {
+    const latestDateQ = api.accounting.mutations.latestDate.useQuery(
+        { credentialId: accountingCredentialId },
+        { enabled: !!accountingCredentialId },
+    );
+    const [chosenStartDate, setChosenStartDate] = useState<null | string>(null);
+    const latest = latestDateQ.data;
+    const suggestedStartDate =
+        (latest ? dayAfter(latest) : undefined) ?? defaultStart();
+    return {
+        isResolving: !!accountingCredentialId && latestDateQ.isPending,
+        setStartDate: setChosenStartDate,
+        startDate: chosenStartDate ?? suggestedStartDate,
+    };
 }

@@ -9,9 +9,6 @@ const SCANNED_ROOT = 'src';
 const SCANNED_EXTENSIONS: ReadonlySet<string> = new Set(['.ts', '.tsx']);
 const LINE_BREAK = /\r?\n/;
 
-const FIXED_COLOR_FILES: ReadonlySet<string> = new Set([
-    'src/app/(app)/lifting/_components/shared/PlateVisualizer.tsx',
-]);
 const FIXED_COLOR_DIRECTORIES = ['src/lib/email/'] as const;
 
 const COLOR_UTILITY =
@@ -24,9 +21,8 @@ const THEME_BREAKING_CLASS = new RegExp(
 );
 
 function hasFixedColors(file: string): boolean {
-    return (
-        FIXED_COLOR_FILES.has(file) ||
-        FIXED_COLOR_DIRECTORIES.some((directory) => file.startsWith(directory))
+    return FIXED_COLOR_DIRECTORIES.some((directory) =>
+        file.startsWith(directory),
     );
 }
 

@@ -2,7 +2,7 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
-import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { RulebookSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
@@ -33,7 +33,7 @@ export default function PropRulebookPage() {
                     description="The documented rules the sizing suggester will use as its headline. Every value that differs from the skill is listed, with a preview of the custom rule label that headline will carry."
                     title="Rulebook"
                 />
-                <Suspense fallback={<AccountsDataSkeleton />}>
+                <Suspense fallback={<RulebookSkeleton />}>
                     <PropRulebookContent />
                 </Suspense>
             </main>

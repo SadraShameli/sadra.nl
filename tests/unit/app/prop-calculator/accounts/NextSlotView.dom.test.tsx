@@ -29,6 +29,7 @@ import {
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 
+import { infoContent, infoText, withInfoTexts } from '../infoPopover';
 import { ariaLabelledSelect } from '../labelledControl';
 import {
     chosenObjective,
@@ -36,6 +37,7 @@ import {
     pickObjective,
 } from '../objectiveSelect';
 import { pickOption } from './pickOption';
+import { inlineWarningNotes, warningNotes } from './warningNotes';
 
 interface FakeQuery {
     data: unknown;
@@ -268,7 +270,7 @@ describe('NextSlotView', () => {
             '[role="region"][aria-labelledby="next-slot-ranked"]',
         );
         return [...(region?.querySelectorAll(':scope tbody tr') ?? [])].map(
-            (row) => row.querySelectorAll('td')[1]?.textContent ?? '',
+            (row) => row.querySelector(':scope > th')?.textContent ?? '',
         );
     }
 
@@ -314,22 +316,26 @@ describe('NextSlotView', () => {
         expect(headings()).toEqual([
             'Ranked',
             'Listed, not ranked: unverified',
-            'Assumptions',
         ]);
-        expect(container.textContent).toContain('No plan is ranked yet');
+        expect(
+            infoContent(container, 'Ranked').querySelector(
+                'ul[aria-label="Assumptions"]',
+            ),
+        ).not.toBeNull();
+        expect(container.textContent).toContain('No plan to rank');
         const sections = [
             ...container.querySelectorAll<HTMLElement>(
                 'section[aria-labelledby]',
             ),
         ];
-        expect(sections).toHaveLength(3);
+        expect(sections).toHaveLength(2);
         for (const section of sections) {
             const id = section.getAttribute('aria-labelledby') ?? '';
             expect(container.querySelector(`#${CSS.escape(id)}`)?.tagName).toBe(
                 'H2',
             );
         }
-        expect(container.textContent).toContain('win rate');
+        expect(infoText(container, 'Ranked')).toContain('win rate');
     });
 
     it('renders the ranked table in a focusable named scroll region with column headers and the funded bust of the optimum', () => {
@@ -343,9 +349,20 @@ describe('NextSlotView', () => {
         expect(region?.tabIndex).toBe(0);
         const table = region?.querySelector('table');
         expect(table?.getAttribute('aria-labelledby')).toBe('next-slot-ranked');
-        const headers = [...(table?.querySelectorAll('th') ?? [])];
+        const headers = [
+            ...(table?.querySelectorAll<HTMLTableCellElement>(
+                ':scope thead th',
+            ) ?? []),
+        ];
         expect(headers.length).toBeGreaterThan(10);
         expect(headers.every((header) => header.scope === 'col')).toBe(true);
+        const rowHeaders = [
+            ...(table?.querySelectorAll<HTMLTableCellElement>(
+                ':scope tbody th',
+            ) ?? []),
+        ];
+        expect(rowHeaders.length).toBeGreaterThan(0);
+        expect(rowHeaders.every((header) => header.scope === 'row')).toBe(true);
         expect(
             headers.some(
                 (header) =>
@@ -355,6 +372,18 @@ describe('NextSlotView', () => {
         ).toBe(true);
         expect(table?.textContent).toContain('40.0%');
         expect(container.querySelector('[role="status"]')).toBeNull();
+    });
+
+    it('starts each plan note of a ranked row on its own line under the plan name', () => {
+        answerEverything();
+        verifyEveryFirm();
+        render();
+        const region = container.querySelector(
+            '[role="region"][aria-labelledby="next-slot-ranked"]',
+        );
+        if (region === null) throw new Error('no ranked region');
+        expect(warningNotes(region).length).toBeGreaterThan(0);
+        expect(inlineWarningNotes(region)).toEqual([]);
     });
 
     it('labels every other table with its section heading', () => {
@@ -406,7 +435,9 @@ describe('NextSlotView', () => {
         });
         render();
         expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
-        expect(container.querySelectorAll('h2')).toHaveLength(0);
+        expect(
+            container.querySelectorAll('section[aria-labelledby]'),
+        ).toHaveLength(0);
     });
 
     it('shows the page with a note when the journal fails to load', () => {
@@ -418,7 +449,9 @@ describe('NextSlotView', () => {
             isPending: false,
         });
         render();
-        expect(container.textContent).toContain('journal down');
+        expect(container.textContent).toContain(
+            'journal down. The scale gate treats your trade count as zero until it loads.',
+        );
         expect(container.querySelectorAll('h2').length).toBeGreaterThan(0);
     });
 
@@ -494,7 +527,7 @@ describe('NextSlotView', () => {
         expect(sortTrigger().disabled).toBe(false);
         await pickObjective(container, SizingObjective.CycleCash);
         const byObjective = rankedPlans();
-        expect(container.textContent).toContain('Ranked by the cycle net');
+        expect(withInfoTexts(container)).toContain('Ranked by the cycle net');
         expect(container.textContent).not.toContain('is not applied');
         await pickOption(sortTrigger(), 'Net per screen hour');
         expect(sortTrigger().textContent).toBe('Net per screen hour');
@@ -502,7 +535,9 @@ describe('NextSlotView', () => {
         expect(container.textContent).toContain(
             'Ranked by net per screen hour',
         );
-        expect(container.textContent).not.toContain('Ranked by the cycle net');
+        expect(withInfoTexts(container)).not.toContain(
+            'Ranked by the cycle net',
+        );
         expect(container.textContent).toContain(
             'cycle cash objective above is not applied',
         );

@@ -3,6 +3,8 @@
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_BAR_PROPS,
+    CHART_REFERENCE_LABEL_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
@@ -11,6 +13,8 @@ import {
     type ChartSize,
 } from '~/components/ui/chart';
 import { histogram } from '~/lib/prop-calculator/stats';
+
+import { ChartEmptyState } from './ChartEmptyState';
 
 interface HistogramChartViewProperties {
     barColor: string;
@@ -26,7 +30,6 @@ interface HistogramChartViewProperties {
 }
 
 interface HistogramReferenceLine {
-    color: string;
     label: string;
     x: number;
 }
@@ -49,11 +52,7 @@ export default function HistogramChartView({
     xAxisTickFormatter,
 }: HistogramChartViewProperties) {
     if (values.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                {emptyMessage}
-            </div>
-        );
+        return <ChartEmptyState title={emptyMessage} />;
     }
 
     const bins: HistogramRow[] = histogram(values, binCount).map((b) => ({
@@ -100,20 +99,18 @@ export default function HistogramChartView({
                         {...CHART_REFERENCE_LINE_PROPS}
                         key={line.label}
                         label={{
-                            fill: line.color,
-                            fontSize: 11,
+                            ...CHART_REFERENCE_LABEL_PROPS,
                             position: 'top',
                             value: line.label,
                         }}
-                        stroke={line.color}
                         x={line.x}
                     />
                 ))}
                 <Bar
+                    {...CHART_BAR_PROPS}
                     dataKey="count"
                     fill="var(--color-count)"
                     fillOpacity={0.75}
-                    isAnimationActive={false}
                 />
             </BarChart>
         </ChartContainer>

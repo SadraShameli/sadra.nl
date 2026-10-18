@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
+import type { DateFilter } from '~/lib/accounting/providers/date-filter';
 import type { EBoekhoudenClient } from '~/lib/accounting/providers/eboekhouden/client';
 
 import {
@@ -121,10 +122,15 @@ export class MutationsResource {
         return mutationSchema.parse(body);
     }
     async list(
-        options: { limit?: number; offset?: number } = {},
+        options: {
+            date?: DateFilter | null;
+            limit?: number;
+            offset?: number;
+        } = {},
     ): Promise<MutationResponse[]> {
         const body = await this.client.request('GET', '/mutation', {
             params: {
+                ...options.date?.toParams(),
                 limit: String(options.limit ?? 2000),
                 offset: String(options.offset ?? 0),
             },

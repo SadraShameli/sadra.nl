@@ -19,7 +19,7 @@ import {
     engineSlotOf,
     type SlotEngine,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
-import { formatCurrency } from '~/lib/format';
+import { formatCount, formatCurrency } from '~/lib/format';
 import { type PersonalRules } from '~/lib/prop-accounts';
 import {
     type Dollars,
@@ -365,11 +365,10 @@ function isNotComparable(figures: RetireComparisonResult): boolean {
 }
 
 function perDayText(rate: UncertainValue): string {
-    const standardError =
-        rate.standardError === null
-            ? 'n/a'
-            : formatCurrency(rate.standardError, 2);
-    return `${formatCurrency(rate.value, 2)} per day (SE ${standardError})`;
+    const perDay = `${formatCurrency(rate.value, 2)} per day`;
+    return rate.standardError === null
+        ? perDay
+        : `${perDay} (SE ${formatCurrency(rate.standardError, 2)})`;
 }
 
 function retireLiveTransferLinesOf(
@@ -411,7 +410,7 @@ function retireModelOf(figures: RetireComparisonResult): RetireModel {
         note: RETIRE_NOTE,
         reason:
             figures.reason === null ? null : RETIRE_REASON_TEXT[figures.reason],
-        remainingDays: `${figures.remainingDays.toLocaleString('en-US')} days`,
+        remainingDays: `${formatCount(figures.remainingDays)} days`,
         switchCost: formatCurrency(figures.switchCost),
         switchRate: perDayText(figures.switchRate),
         verdict: isComparable

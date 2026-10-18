@@ -1,4 +1,4 @@
-import { formatCurrency } from '~/lib/format';
+import { formatCurrency, formatDisplayDate } from '~/lib/format';
 import {
     type ScaleGate,
     ScaleGateStatus,
@@ -944,7 +944,7 @@ function preEngineReasonsOf(
         const isRetired = engagement.status === FirmEngagementStatus.Retired;
         return [
             {
-                detail: `you marked ${firmName} ${isRetired ? 'Retired' : 'Paused'} on ${engagement.sinceOn}`,
+                detail: `you marked ${firmName} ${isRetired ? 'Retired' : 'Paused'} on ${formatDisplayDate(engagement.sinceOn)}`,
                 reason: isRetired
                     ? NextSlotExclusionReason.FirmRetired
                     : NextSlotExclusionReason.FirmPaused,

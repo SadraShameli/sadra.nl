@@ -714,7 +714,8 @@ describe('planPayoutReadiness: the payout ceiling to stay simulated from verifie
         expect(text).toContain('$20,000');
         expect(text).toContain('stay simulated');
         expect(text).toContain('https://example.invalid/rule');
-        expect(text).toContain('2026-09-26');
+        expect(text).toContain('fetched 26 Sep 2026');
+        expect(text).not.toContain('2026-09-26');
         expect(text).toContain('cannot subtract your past payouts');
         expect(text).toMatch(/^[A-Z]/);
         expect(text).toMatch(/\.$/);

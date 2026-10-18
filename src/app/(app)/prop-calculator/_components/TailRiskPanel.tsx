@@ -1,19 +1,28 @@
 'use client';
 
+import { ChartNoAxesColumn } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/card';
+import { MissingValue } from '~/components/MissingValue';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import {
-    formatCompactCurrency,
-    formatPercent,
-    NOT_APPLICABLE,
-} from '~/lib/format';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
-import StatCard from './StatCard';
+import { benchCaption } from './benchCaption';
+import { CaptionedFigure } from './CaptionedFigure';
+import {
+    gainChanceBench,
+    lossChanceBench,
+    tailRatioBench,
+} from './tailRiskBench';
+
+const NO_GAIN_SCENARIO_REASON =
+    'The gain side is only measured at 10% and 25% of capital.';
 
 interface TailRiskPanelProperties {
     result: SimOutputs;
@@ -78,88 +87,87 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
         };
     }, [result]);
 
-    if (!m) return null;
+    if (!m) {
+        return (
+            <EmptyState
+                description="The run kept no final balances, so there is no tail to measure."
+                icon={ChartNoAxesColumn}
+                size={EmptyStateSize.Compact}
+                title="No final balances"
+            />
+        );
+    }
 
     const tailRatioString = Number.isFinite(m.tailRatio)
         ? m.tailRatio.toFixed(2)
         : '∞';
-    const tailColor =
-        m.tailRatio > 1.5
-            ? 'text-success'
-            : m.tailRatio > 1
-              ? 'text-warning'
-              : 'text-destructive';
 
     return (
-        <Card className={cn('app-prop-calculator__tail-risk', 'p-5')}>
-            <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
-                    <StatCard
-                        label="VaR 95%"
-                        sub="loss in 1-of-20 trials"
-                        subInheritsColor
-                        value={formatCompactCurrency(m.var95)}
-                        valueClassName="text-destructive"
-                    />
-                    <StatCard
-                        label="CVaR 95% (ES)"
-                        sub="avg loss in worst 5%"
-                        subInheritsColor
-                        value={formatCompactCurrency(m.cvar95)}
-                        valueClassName="text-destructive"
-                    />
-                    <StatCard
-                        label="VaR 99%"
-                        sub="loss in 1-of-100 trials"
-                        subInheritsColor
-                        value={formatCompactCurrency(m.var99)}
-                        valueClassName="text-destructive"
-                    />
-                    <StatCard
-                        label="CVaR 99% (ES)"
-                        sub="avg loss in worst 1%"
-                        subInheritsColor
-                        value={formatCompactCurrency(m.cvar99)}
-                        valueClassName="text-destructive"
-                    />
-                    <StatCard
-                        label="Tail ratio"
-                        sub="upside / downside tail"
-                        subInheritsColor
-                        value={tailRatioString}
-                        valueClassName={tailColor}
-                    />
-                </div>
+        <div className="app-prop-calculator__tail-risk flex flex-col gap-5">
+            <StatStrip
+                items={[
+                    {
+                        caption: 'loss in 1-of-20 trials',
+                        id: 'var-95',
+                        label: 'VaR 95%',
+                        value: formatCompactCurrency(m.var95),
+                    },
+                    {
+                        caption: 'avg loss in worst 5%',
+                        id: 'cvar-95',
+                        label: 'CVaR 95% (ES)',
+                        value: formatCompactCurrency(m.cvar95),
+                    },
+                    {
+                        caption: 'loss in 1-of-100 trials',
+                        id: 'var-99',
+                        label: 'VaR 99%',
+                        value: formatCompactCurrency(m.var99),
+                    },
+                    {
+                        caption: 'avg loss in worst 1%',
+                        id: 'cvar-99',
+                        label: 'CVaR 99% (ES)',
+                        value: formatCompactCurrency(m.cvar99),
+                    },
+                    {
+                        caption: benchCaption(
+                            'upside / downside tail',
+                            tailRatioBench(m.tailRatio),
+                        ),
+                        id: 'tail-ratio',
+                        label: 'Tail ratio',
+                        value: tailRatioString,
+                    },
+                ]}
+            />
 
-                <div>
-                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                        Loss probability
-                    </p>
-                    <TailRiskTable
-                        rows={[
-                            {
-                                gainP: m.gainProb10,
-                                label: 'Lose 10% of capital',
-                                lossP: m.lossProb10,
-                                threshold: m.accountSize * 0.1,
-                            },
-                            {
-                                gainP: m.gainProb25,
-                                label: 'Lose 25% of capital',
-                                lossP: m.lossProb25,
-                                threshold: m.accountSize * 0.25,
-                            },
-                            {
-                                gainP: null,
-                                label: 'Lose 50% of capital',
-                                lossP: m.lossProb50,
-                                threshold: m.accountSize * 0.5,
-                            },
-                        ]}
-                    />
-                </div>
+            <div className="flex flex-col gap-2">
+                <PanelSubheading>Loss probability</PanelSubheading>
+                <TailRiskTable
+                    rows={[
+                        {
+                            gainP: m.gainProb10,
+                            label: 'Lose 10% of capital',
+                            lossP: m.lossProb10,
+                            threshold: m.accountSize * 0.1,
+                        },
+                        {
+                            gainP: m.gainProb25,
+                            label: 'Lose 25% of capital',
+                            lossP: m.lossProb25,
+                            threshold: m.accountSize * 0.25,
+                        },
+                        {
+                            gainP: null,
+                            label: 'Lose 50% of capital',
+                            lossP: m.lossProb50,
+                            threshold: m.accountSize * 0.5,
+                        },
+                    ]}
+                />
             </div>
-        </Card>
+        </div>
     );
 }
 
@@ -175,6 +183,7 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
                 ),
                 header: 'Scenario',
                 id: 'scenario',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.threshold,
@@ -188,23 +197,12 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
             },
             {
                 accessorFn: (r) => r.lossP,
-                cell: ({ row }) => {
-                    const p = row.original.lossP;
-                    return (
-                        <span
-                            className={cn(
-                                'font-medium',
-                                p > 0.25
-                                    ? 'text-destructive'
-                                    : p > 0.1
-                                      ? 'text-warning'
-                                      : 'text-success',
-                            )}
-                        >
-                            {formatPercent(p)}
-                        </span>
-                    );
-                },
+                cell: ({ row }) => (
+                    <CaptionedFigure
+                        caption={lossChanceBench(row.original.lossP)}
+                        figure={formatPercent(row.original.lossP)}
+                    />
+                ),
                 header: 'P(loss ≥ threshold)',
                 id: 'lossP',
             },
@@ -212,20 +210,13 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
                 accessorFn: (r) => r.gainP ?? -1,
                 cell: ({ row }) => {
                     const g = row.original.gainP;
-                    return (
-                        <span
-                            className={cn(
-                                g === null
-                                    ? 'text-muted-foreground'
-                                    : g > 0.5
-                                      ? 'text-success'
-                                      : g > 0.25
-                                        ? 'text-warning'
-                                        : 'text-muted-foreground',
-                            )}
-                        >
-                            {g === null ? NOT_APPLICABLE : formatPercent(g)}
-                        </span>
+                    return g === null ? (
+                        <MissingValue reason={NO_GAIN_SCENARIO_REASON} />
+                    ) : (
+                        <CaptionedFigure
+                            caption={gainChanceBench(g)}
+                            figure={formatPercent(g)}
+                        />
                     );
                 },
                 header: 'P(gain ≥ threshold)',

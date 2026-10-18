@@ -5,39 +5,48 @@ import {
     Calendar,
     Check,
     ChevronDown,
-    ChevronRight,
     ChevronUp,
+    ExternalLink,
+    LibraryBig,
     LineChart,
+    LogOut,
     Pause,
-    Pencil,
     Play,
     Search,
-    Trash2,
     Trophy,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { TitledCardSkeleton } from '~/components/PageSkeleton';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import {
+    deleteRowAction,
+    linkRowAction,
+    type RowAction,
+    RowActionKind,
+    RowActionsMenu,
+    type RowSelectAction,
+} from '~/components/RowActionsMenu';
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, NoMatchesState } from '~/components/ui/empty-state';
 import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { Input } from '~/components/ui/input';
 import { Progress } from '~/components/ui/progress';
-import { Skeleton } from '~/components/ui/skeleton';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     PROGRAM_CATEGORY_VALUES,
     type ProgramBlock,
     type ProgramCategory,
     USER_PROGRAM_STATUS,
-    type UserProgramStatus,
 } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -61,15 +70,6 @@ const SORT_LABEL: Record<SortKey, string> = {
 
 const DAYS_FILTER_VALUES = ['all', '3', '4', '5', '6'] as const;
 type DaysFilter = (typeof DAYS_FILTER_VALUES)[number];
-
-const STATUS_VARIANT: Record<
-    UserProgramStatus,
-    'secondary' | 'success' | 'warning'
-> = {
-    active: 'success',
-    completed: 'secondary',
-    paused: 'warning',
-};
 
 export function ProgramsLibrary({
     officialPrograms,
@@ -157,21 +157,34 @@ export function ProgramsLibrary({
 
     return (
         <div className="flex flex-col gap-6">
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatCard
-                    label="Active"
-                    value={activeEnrollments.length.toString()}
-                />
-                <StatCard
-                    label="Enrollments"
-                    value={totalEnrollments.toString()}
-                />
-                <StatCard label="Custom" value={ownedCount.toString()} />
-                <StatCard label="Available" value={officialCount.toString()} />
-            </section>
+            <StatStrip
+                isLoading={mine.isLoading}
+                items={[
+                    {
+                        id: 'active',
+                        label: 'Active',
+                        value: activeEnrollments.length.toString(),
+                    },
+                    {
+                        id: 'enrollments',
+                        label: 'Enrollments',
+                        value: totalEnrollments.toString(),
+                    },
+                    {
+                        id: 'custom',
+                        label: 'Custom',
+                        value: ownedCount.toString(),
+                    },
+                    {
+                        id: 'available',
+                        label: 'Available',
+                        value: officialCount.toString(),
+                    },
+                ]}
+            />
 
             {mine.isLoading ? (
-                <Skeleton className="h-40 w-full rounded-2xl" />
+                <TitledCardSkeleton title="Active" />
             ) : (
                 activeEnrollments.length > 0 && (
                     <ToolPanel title="Active">
@@ -217,7 +230,7 @@ export function ProgramsLibrary({
                 }
                 title="Browse programs"
             >
-                <div className="flex flex-wrap items-center gap-2">
+                <FilterToolbar label="Program filters">
                     <FilterSelect
                         label="Category"
                         onValueChange={(v) =>
@@ -280,19 +293,18 @@ export function ProgramsLibrary({
                             setDays('all');
                         }}
                     />
-                </div>
+                </FilterToolbar>
 
-                {filtered.length === 0 && (
-                    <EmptyState
-                        description={
-                            isFiltersActive
-                                ? 'Try clearing some filters.'
-                                : 'No programs available yet.'
-                        }
-                        icon={Search}
-                        title="No programs match"
-                    />
-                )}
+                {filtered.length === 0 &&
+                    (isFiltersActive ? (
+                        <NoMatchesState icon={Search} noun="programs" />
+                    ) : (
+                        <EmptyState
+                            description="Official programs show up here once they are published."
+                            icon={LibraryBig}
+                            title="No programs yet"
+                        />
+                    ))}
 
                 {filtered.length > 0 && (
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -375,30 +387,42 @@ function ActiveEnrollmentCard({
             <CardContent className="flex flex-col gap-4">
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-col gap-1">
-                        <Badge className="w-fit" variant="success">
-                            Active
-                        </Badge>
-                        <h3 className="text-lg font-semibold">
-                            {program?.name ?? 'Program'}
-                        </h3>
+                        <Badge className="w-fit">Active</Badge>
+                        <PanelSubheading className="text-lg font-semibold">
+                            <ProgramTitle
+                                fallback={programName(program)}
+                                program={program}
+                            />
+                        </PanelSubheading>
                         <p className="text-xs text-muted-foreground tabular-nums">
                             Week {enrollment.currentWeek} of{' '}
                             {program?.lengthWeeks ?? '-'} · Day{' '}
                             {enrollment.currentDay}
                         </p>
                     </div>
-                    {program && (
-                        <Button
-                            asChild
-                            className="gap-1.5"
-                            size="sm"
-                            type="button"
-                        >
-                            <Link href={routes.lifting.program(program.slug)}>
-                                Open <ChevronRight className="size-3.5" />
-                            </Link>
-                        </Button>
-                    )}
+                    <div className="flex items-center gap-1">
+                        <RowActionsMenu
+                            actions={[
+                                ...openProgramActions(program),
+                                {
+                                    icon: Pause,
+                                    isDisabled: updateEnrollment.isPending,
+                                    kind: RowActionKind.Select,
+                                    label: 'Pause',
+                                    onSelect: () =>
+                                        updateEnrollment.mutate({
+                                            id: enrollment.id,
+                                            status: USER_PROGRAM_STATUS.PAUSED,
+                                        }),
+                                },
+                                unenrollAction(program, () =>
+                                    unenroll.mutate({ id: enrollment.id }),
+                                ),
+                            ]}
+                            isPending={unenroll.isPending}
+                            label={programName(program)}
+                        />
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -464,48 +488,16 @@ function ActiveEnrollmentCard({
                     </div>
                 )}
 
-                <div className="flex flex-wrap gap-2">
-                    <Button
-                        className="gap-1.5"
-                        disabled={advance.isPending}
-                        onClick={() => advance.mutate({ id: enrollment.id })}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                    >
-                        <Check className="size-3.5" /> Mark day done
-                    </Button>
-                    <Button
-                        className="gap-1.5"
-                        disabled={updateEnrollment.isPending}
-                        onClick={() =>
-                            updateEnrollment.mutate({
-                                id: enrollment.id,
-                                status: USER_PROGRAM_STATUS.PAUSED,
-                            })
-                        }
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                    >
-                        <Pause className="size-3.5" /> Pause
-                    </Button>
-                    <ConfirmDialog
-                        confirmLabel="Unenroll"
-                        description="Your progress for this enrollment will be removed. You can re-enroll later."
-                        onConfirm={() => unenroll.mutate({ id: enrollment.id })}
-                        title={<>Unenroll from {program?.name ?? 'program'}?</>}
-                    >
-                        <Button
-                            className="ml-auto gap-1.5 text-destructive"
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                        >
-                            <Trash2 className="size-3.5" /> Unenroll
-                        </Button>
-                    </ConfirmDialog>
-                </div>
+                <Button
+                    className="gap-1.5 self-start"
+                    disabled={advance.isPending}
+                    onClick={() => advance.mutate({ id: enrollment.id })}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                >
+                    <Check className="size-3.5" /> Mark day done
+                </Button>
             </CardContent>
         </Card>
     );
@@ -555,7 +547,6 @@ function EnrollmentCard({
     });
 
     const status = enrollment.status;
-    const variant = STATUS_VARIANT[status];
     const total = program?.lengthWeeks ?? 0;
     const pct = total > 0 ? (enrollment.currentWeek / total) * 100 : 0;
 
@@ -563,58 +554,42 @@ function EnrollmentCard({
         <Card className="py-4">
             <CardContent className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2">
-                    <Badge variant={variant}>{status}</Badge>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        W{enrollment.currentWeek} · D{enrollment.currentDay}
-                    </span>
+                    <Badge className="capitalize">{status}</Badge>
+                    <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                            W{enrollment.currentWeek} · D{enrollment.currentDay}
+                        </span>
+                        <RowActionsMenu
+                            actions={[
+                                ...openProgramActions(program),
+                                ...(status === USER_PROGRAM_STATUS.PAUSED
+                                    ? [
+                                          {
+                                              icon: Play,
+                                              isDisabled: resume.isPending,
+                                              kind: RowActionKind.Select,
+                                              label: 'Resume',
+                                              onSelect: () =>
+                                                  resume.mutate({
+                                                      id: enrollment.id,
+                                                      status: USER_PROGRAM_STATUS.ACTIVE,
+                                                  }),
+                                          } satisfies RowAction,
+                                      ]
+                                    : []),
+                                unenrollAction(program, () =>
+                                    unenroll.mutate({ id: enrollment.id }),
+                                ),
+                            ]}
+                            isPending={unenroll.isPending}
+                            label={programName(program)}
+                        />
+                    </div>
                 </div>
-                <h3 className="text-sm font-semibold">
-                    {program?.name ?? '-'}
-                </h3>
+                <PanelSubheading className="font-semibold">
+                    <ProgramTitle fallback="-" program={program} />
+                </PanelSubheading>
                 <Progress className="h-1.5" value={pct} />
-                <div className="flex flex-wrap gap-2">
-                    {status === 'paused' && (
-                        <Button
-                            className="gap-1.5"
-                            disabled={resume.isPending}
-                            onClick={() =>
-                                resume.mutate({
-                                    id: enrollment.id,
-                                    status: USER_PROGRAM_STATUS.ACTIVE,
-                                })
-                            }
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                        >
-                            <Play className="size-3.5" /> Resume
-                        </Button>
-                    )}
-                    {program && (
-                        <Button
-                            asChild
-                            className="gap-1.5"
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                        >
-                            <Link href={routes.lifting.program(program.slug)}>
-                                Open
-                            </Link>
-                        </Button>
-                    )}
-                    <Button
-                        aria-label="Unenroll"
-                        className="ml-auto text-destructive"
-                        disabled={unenroll.isPending}
-                        onClick={() => unenroll.mutate({ id: enrollment.id })}
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                    >
-                        <Trash2 className="size-3.5" />
-                    </Button>
-                </div>
             </CardContent>
         </Card>
     );
@@ -639,27 +614,25 @@ function OfficialProgramCard({
                     <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <LineChart className="size-4 text-muted-foreground" />
-                            <h3 className="font-semibold">{program.name}</h3>
+                            <PanelSubheading className="text-base font-semibold">
+                                {program.name}
+                            </PanelSubheading>
                         </div>
                         <ArrowRight className="size-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
                     </div>
                     <div className="flex flex-wrap gap-1">
-                        <Badge variant="outline">{program.category}</Badge>
-                        <Badge variant="secondary">
+                        <Badge>{program.category}</Badge>
+                        <Badge>
                             <Calendar className="mr-1 size-3" />
                             {program.daysPerWeek}× / wk
                         </Badge>
-                        <Badge variant="secondary">
-                            {program.lengthWeeks} weeks
-                        </Badge>
+                        <Badge>{program.lengthWeeks} weeks</Badge>
                         {enrolled && (
-                            <Badge variant="success">
+                            <Badge>
                                 <Trophy className="mr-1 size-3" /> Enrolled
                             </Badge>
                         )}
-                        {!enrolled && inLibrary && (
-                            <Badge variant="warning">In library</Badge>
-                        )}
+                        {!enrolled && inLibrary && <Badge>In library</Badge>}
                     </div>
                     {program.description && (
                         <p className="line-clamp-2 text-xs text-muted-foreground">
@@ -670,6 +643,20 @@ function OfficialProgramCard({
             </Card>
         </Link>
     );
+}
+
+function openProgramActions(
+    program: ProgramReference | undefined,
+): RowAction[] {
+    return program === undefined
+        ? []
+        : [
+              linkRowAction({
+                  href: routes.lifting.program(program.slug),
+                  icon: ExternalLink,
+                  label: 'Open',
+              }),
+          ];
 }
 
 function OwnedProgramCard({ program }: { program: OwnedProgram }) {
@@ -685,59 +672,76 @@ function OwnedProgramCard({ program }: { program: OwnedProgram }) {
         <Card className="py-4">
             <CardContent className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2">
-                    <Badge variant="secondary">Custom</Badge>
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {program.daysPerWeek}× · {program.lengthWeeks}w
-                    </span>
+                    <Badge>Custom</Badge>
+                    <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                            {program.daysPerWeek}× · {program.lengthWeeks}w
+                        </span>
+                        <RowActionsMenu
+                            actions={[
+                                ...openProgramActions(program),
+                                deleteRowAction({
+                                    description:
+                                        'This is a custom program. Deleting it removes the program and any enrollments.',
+                                    onDelete: () =>
+                                        remove.mutate({ id: program.id }),
+                                    title: `Delete ${program.name}?`,
+                                }),
+                            ]}
+                            isPending={remove.isPending}
+                            label={program.name}
+                        />
+                    </div>
                 </div>
-                <h3 className="text-sm font-semibold">{program.name}</h3>
+                <PanelSubheading className="font-semibold">
+                    <ProgramTitle fallback={program.name} program={program} />
+                </PanelSubheading>
                 <p className="line-clamp-2 text-xs text-muted-foreground">
                     {program.description ?? 'No description.'}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                    <Button
-                        asChild
-                        className="gap-1.5"
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                    >
-                        <Link href={routes.lifting.program(program.slug)}>
-                            <Pencil className="size-3.5" /> Open
-                        </Link>
-                    </Button>
-                    <ConfirmDialog
-                        confirmLabel="Delete"
-                        description="This is a custom program. Deleting it removes the program and any enrollments."
-                        onConfirm={() => remove.mutate({ id: program.id })}
-                        title={<>Delete {program.name}?</>}
-                    >
-                        <Button
-                            className="ml-auto gap-1.5 text-destructive"
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                        >
-                            <Trash2 className="size-3.5" /> Delete
-                        </Button>
-                    </ConfirmDialog>
-                </div>
             </CardContent>
         </Card>
     );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
-    return (
-        <Card className="gap-1 py-3">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <span className="font-mono text-lg leading-none font-bold text-foreground tabular-nums">
-                    {value}
-                </span>
-            </CardContent>
-        </Card>
+function programName(program: ProgramReference | undefined): string {
+    return program?.name ?? 'Program';
+}
+
+function ProgramTitle({
+    fallback,
+    program,
+}: {
+    fallback: string;
+    program: ProgramReference | undefined;
+}) {
+    return program === undefined ? (
+        fallback
+    ) : (
+        <Link
+            className="hover:underline"
+            href={routes.lifting.program(program.slug)}
+        >
+            {program.name}
+        </Link>
     );
+}
+
+function unenrollAction(
+    program: ProgramReference | undefined,
+    onSelect: () => void,
+): RowSelectAction {
+    return {
+        confirm: {
+            confirmLabel: 'Unenroll',
+            description:
+                'Your progress for this enrollment will be removed. You can re-enroll later.',
+            title: `Unenroll from ${program?.name ?? 'program'}?`,
+        },
+        icon: LogOut,
+        isDestructive: true,
+        kind: RowActionKind.Select,
+        label: 'Unenroll',
+        onSelect,
+    };
 }

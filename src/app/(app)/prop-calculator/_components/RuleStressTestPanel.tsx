@@ -1,19 +1,21 @@
 'use client';
 
-import { TriangleAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/card';
+import { MissingValue } from '~/components/MissingValue';
+import { ChartSkeleton } from '~/components/ui/chart';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { Skeleton } from '~/components/ui/skeleton';
+import { WarningNote } from '~/components/WarningNote';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type SimInputs,
     type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
-import { cn } from '~/lib/utilities';
 
 import RuleStressBarChartView from './charts/RuleStressBarChartView';
 import { ComputationId } from './ComputationId';
@@ -21,6 +23,7 @@ import { buildStressScenarios } from './ruleStressScenarios';
 import { formatSignedPercent } from './signedPercent';
 import { simInputsCacheKey } from './simInputsCacheKey';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
+import { useSectionComputing } from './ToolSection';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 export interface ScenarioRow {
@@ -34,6 +37,8 @@ interface RuleStressTestPanelProperties {
 }
 
 const MAX_TRIALS = 500;
+const ZERO_BASELINE_REASON =
+    'The baseline monthly net is $0, so a percent change has no base.';
 const DEBOUNCE_MS = 500;
 
 export default function RuleStressTestPanel({
@@ -61,6 +66,7 @@ export default function RuleStressTestPanel({
         simInputsSizingIssue(baseInputs),
     );
 
+    useSectionComputing(pending);
     const baseline = rows[0] ?? null;
 
     const chartRows = useMemo(
@@ -82,15 +88,15 @@ export default function RuleStressTestPanel({
                             {row.original.label}
                         </span>
                         {row.original.isNoOp && (
-                            <span className="flex items-center gap-1 text-[10px] text-warning">
-                                <TriangleAlert className="size-3" />
+                            <WarningNote className="text-xs">
                                 no DLL on this plan, so no effect
-                            </span>
+                            </WarningNote>
                         )}
                     </div>
                 ),
                 header: 'Scenario',
                 id: 'scenario',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.out.expectedMonthlyNet,
@@ -104,15 +110,11 @@ export default function RuleStressTestPanel({
                     r.out.expectedMonthlyNet -
                     (baseline?.out.expectedMonthlyNet ?? 0),
                 cell: ({ row }) => {
-                    if (!baseline) return NOT_APPLICABLE;
+                    if (!baseline) return <MissingValue />;
                     const delta =
                         row.original.out.expectedMonthlyNet -
                         baseline.out.expectedMonthlyNet;
-                    return (
-                        <span className={deltaClass(delta)}>
-                            {formatSignedCurrency(delta)}
-                        </span>
-                    );
+                    return formatSignedCurrency(delta);
                 },
                 header: 'Δ$ vs baseline',
                 id: 'deltaDollars',
@@ -121,17 +123,13 @@ export default function RuleStressTestPanel({
                 accessorFn: (r) => pctDelta(r.out.expectedMonthlyNet, baseline),
                 cell: ({ row }) => {
                     if (!baseline || baseline.out.expectedMonthlyNet === 0) {
-                        return NOT_APPLICABLE;
+                        return <MissingValue reason={ZERO_BASELINE_REASON} />;
                     }
                     const pct = pctDelta(
                         row.original.out.expectedMonthlyNet,
                         baseline,
                     );
-                    return (
-                        <span className={deltaClass(pct)}>
-                            {formatSignedPercent(pct)}
-                        </span>
-                    );
+                    return formatSignedPercent(pct);
                 },
                 header: 'Δ% vs baseline',
                 id: 'deltaPercent',
@@ -162,21 +160,22 @@ export default function RuleStressTestPanel({
     );
 
     return (
-        <Card
-            className={cn('app-prop-calculator__rule-stress-test', 'px-5 py-4')}
-        >
-            {pending && (
-                <p className="self-end text-xs text-muted-foreground">
-                    computing…
-                </p>
-            )}
-
+        <div className="app-prop-calculator__rule-stress-test flex flex-col gap-4">
             {rows.length === 0 ? (
                 error === null ? (
-                    <EmptyState
-                        description="Adjust your inputs to see how your edge holds up against tighter rules."
-                        title="No data yet"
-                    />
+                    pending ? (
+                        <div className="flex flex-col gap-4">
+                            <ChartSkeleton />
+                            <Skeleton className="h-40 w-full rounded-md" />
+                        </div>
+                    ) : (
+                        <EmptyState
+                            description="Adjust your inputs to see how your edge holds up against tighter rules."
+                            icon={ShieldAlert}
+                            size={EmptyStateSize.Compact}
+                            title="No data yet"
+                        />
+                    )
                 ) : (
                     <SimulationFailureNotice message={error} />
                 )
@@ -192,17 +191,12 @@ export default function RuleStressTestPanel({
                     />
                 </div>
             )}
-        </Card>
+        </div>
     );
 }
 
 function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
     return simInputsCacheKey(inputs);
-}
-
-function deltaClass(delta: number): string {
-    if (Math.abs(delta) < 1e-9) return 'text-muted-foreground';
-    return delta > 0 ? 'text-success' : 'text-destructive';
 }
 
 function formatSignedCurrency(n: number): string {

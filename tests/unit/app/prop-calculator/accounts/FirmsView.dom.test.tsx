@@ -20,6 +20,10 @@ import {
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
+import { dialogTitled } from '../../../components/formDialog';
+import { chooseRowAction } from '../../../components/rowActionsMenu';
+import { withInfoTexts } from '../infoPopover';
+
 interface FakeQuery {
     data: unknown;
     error: null | { message: string };
@@ -39,12 +43,21 @@ function firstModeledPlan(): {
     return { firm, plan };
 }
 
+function isScaleGateBusy(scope: HTMLElement): boolean {
+    const heading = [...scope.querySelectorAll('h2')].find(
+        (candidate) => candidate.textContent === 'Scale gate',
+    );
+    return (
+        heading?.closest('[data-slot="card"]')?.getAttribute('aria-busy') ===
+        'true'
+    );
+}
+
 const { firm: FIRST_FIRM, plan: FIRST_PLAN } = firstModeledPlan();
 
 const USER_ID = 'user-a';
 const TODAY = '2026-09-26';
 const ALPHA_ID = '2a4c6e8f-1b3d-4f5a-9c7e-0d2f4a6c8e1b';
-const FIRM_FORM_LABEL = `Edit status for ${FIRST_FIRM.displayName}`;
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
@@ -215,25 +228,20 @@ function failed(message: string): FakeQuery {
     };
 }
 
+function firmStatusForm(): HTMLElement {
+    return element(dialogTitled(FIRST_FIRM.displayName), 'form');
+}
+
 function firmStatusSelect(): HTMLSelectElement {
-    return element(
-        document.body,
-        `form[aria-label="${FIRM_FORM_LABEL}"] select`,
-    ) as HTMLSelectElement;
+    return element(firmStatusForm(), 'select') as HTMLSelectElement;
 }
 
 function loading(): FakeQuery {
     return { data: undefined, error: null, isError: false, isPending: true };
 }
 
-function openFirmForm(scope: ParentNode) {
-    const trigger = element(
-        scope,
-        `button[aria-label="Change the status of ${FIRST_FIRM.displayName}"]`,
-    );
-    act(() => {
-        trigger.click();
-    });
+function openFirmForm() {
+    chooseRowAction(FIRST_FIRM.displayName, 'Change status');
 }
 
 function paidPayoutRow(accountId: string, paidOn: string, id: string) {
@@ -251,10 +259,7 @@ function paidPayoutRow(accountId: string, paidOn: string, id: string) {
 }
 
 async function submitFirmForm() {
-    const form = element(
-        document.body,
-        `form[aria-label="${FIRM_FORM_LABEL}"]`,
-    );
+    const form = firmStatusForm();
     await act(async () => {
         form.dispatchEvent(
             new Event('submit', { bubbles: true, cancelable: true }),
@@ -328,7 +333,7 @@ describe('FirmsView', () => {
             answer([account(ALPHA_ID, 'Alpha')]),
         );
         render();
-        openFirmForm(container);
+        openFirmForm();
         chooseSelectValue(document.body, 'paused');
         await submitFirmForm();
         expect(harness.set).toHaveBeenCalledWith(
@@ -348,7 +353,7 @@ describe('FirmsView', () => {
             answer([account(ALPHA_ID, 'Alpha')]),
         );
         render();
-        openFirmForm(container);
+        openFirmForm();
         chooseSelectValue(document.body, 'paused');
         chooseSelectValue(document.body, 'sent-live');
         await submitFirmForm();
@@ -370,7 +375,12 @@ describe('FirmsView', () => {
         );
         harness.queries.set('firmEngagement.list', failed('status down'));
         render();
-        expect(container.textContent).toContain('status down');
+        expect(container.textContent).toContain(
+            'Your firm statuses could not be loaded',
+        );
+        expect(container.textContent).toContain(
+            'status down. Every firm counts as active until they load.',
+        );
         expect(container.textContent).toContain(FIRST_FIRM.displayName);
     });
 
@@ -381,11 +391,8 @@ describe('FirmsView', () => {
         );
         harness.queries.set('firmEngagement.list', failed('status down'));
         render();
-        openFirmForm(container);
-        const save = element(
-            document.body,
-            `form[aria-label="${FIRM_FORM_LABEL}"] button[type="submit"]`,
-        );
+        openFirmForm();
+        const save = element(firmStatusForm(), 'button[type="submit"]');
         expect((save as HTMLButtonElement).disabled).toBe(true);
         await submitFirmForm();
         expect(harness.set).not.toHaveBeenCalled();
@@ -400,11 +407,8 @@ describe('FirmsView', () => {
         render();
         expect(container.textContent).toContain(FIRST_FIRM.displayName);
         expect(container.textContent).toContain('still loading');
-        openFirmForm(container);
-        const save = element(
-            document.body,
-            `form[aria-label="${FIRM_FORM_LABEL}"] button[type="submit"]`,
-        );
+        openFirmForm();
+        const save = element(firmStatusForm(), 'button[type="submit"]');
         expect((save as HTMLButtonElement).disabled).toBe(true);
         await submitFirmForm();
         expect(harness.set).not.toHaveBeenCalled();
@@ -417,7 +421,7 @@ describe('FirmsView', () => {
         );
         harness.queries.set('firmEngagement.list', loading());
         render();
-        openFirmForm(container);
+        openFirmForm();
         expect(firmStatusSelect().value).toBe('active');
 
         harness.queries.set(
@@ -440,11 +444,8 @@ describe('FirmsView', () => {
         );
         harness.queries.set('firmEngagement.list', loading());
         render();
-        openFirmForm(container);
-        const form = element(
-            document.body,
-            `form[aria-label="${FIRM_FORM_LABEL}"]`,
-        );
+        openFirmForm();
+        const form = firmStatusForm();
 
         const statusSelect = element(form, 'select') as HTMLSelectElement;
         expect(statusSelect.disabled).toBe(true);
@@ -479,7 +480,9 @@ describe('FirmsView', () => {
     it('warns when the journal could not be loaded, without blocking the scale gate', () => {
         harness.queries.set('edge.summary', failed('journal down'));
         render();
-        expect(container.textContent).toContain('journal down');
+        expect(container.textContent).toContain(
+            'journal down. The scale gate treats your trade count as zero until it loads.',
+        );
         expect(container.textContent).toContain('Scale gate');
     });
 
@@ -515,8 +518,8 @@ describe('FirmsView', () => {
             answer([paidPayoutRow(firstId, '2026-02-01', 'p1')]),
         );
         render();
-        expect(container.textContent).toContain(
-            'n/a: 2 transfers against 1 paid payout',
+        expect(withInfoTexts(container)).toContain(
+            '2 transfers against 1 paid payout.',
         );
         expect(container.querySelector('.animate-pulse')).toBeNull();
     });
@@ -537,17 +540,17 @@ describe('FirmsView', () => {
         );
         render();
         const row = element(container, 'tbody tr');
-        expect(row.textContent).toContain('n/a: no paid payouts yet');
-        expect(row.textContent).toContain('n/a: no funded account-months yet');
+        expect(row.textContent).not.toContain('n/a');
+        const reasons = withInfoTexts(row);
+        expect(reasons).toContain('No paid payouts yet.');
+        expect(reasons).toContain('No funded account-months yet.');
     });
 
     it('shows a loading note instead of an unmet condition while the rulebook is still loading', () => {
         harness.queries.set('rulebook.get', loading());
         render();
         expect(container.textContent).toContain('Scale gate');
-        expect(container.textContent).toContain(
-            'Checking your thresholds and journal',
-        );
+        expect(isScaleGateBusy(container)).toBe(true);
         expect(container.textContent).not.toContain(
             'Sample thresholds not set',
         );
@@ -568,9 +571,7 @@ describe('FirmsView', () => {
         );
         harness.queries.set('edge.summary', loading());
         render();
-        expect(container.textContent).toContain(
-            'Checking your thresholds and journal',
-        );
+        expect(isScaleGateBusy(container)).toBe(true);
         expect(container.textContent).not.toContain(
             'Journal trades are below your threshold',
         );
@@ -580,9 +581,7 @@ describe('FirmsView', () => {
             answer({ summary: { sampleSize: 0 }, truncated: false }),
         );
         render();
-        expect(container.textContent).not.toContain(
-            'Checking your thresholds and journal',
-        );
+        expect(isScaleGateBusy(container)).toBe(false);
         expect(container.textContent).toContain(
             'Journal trades are below your threshold',
         );
@@ -590,13 +589,11 @@ describe('FirmsView', () => {
 
     it('shows no loading note once both the rulebook and the journal have answered', () => {
         render();
-        expect(container.textContent).not.toContain(
-            'Checking your thresholds and journal',
-        );
+        expect(isScaleGateBusy(container)).toBe(false);
         expect(container.textContent).toContain('Sample thresholds not set');
     });
 
-    it('imports the not-applicable text from the shared formatter instead of redeclaring it', () => {
+    it('shows missing values through the shared MissingValue instead of its own not-applicable text', () => {
         const source = readFileSync(
             path.join(
                 process.cwd(),
@@ -605,8 +602,9 @@ describe('FirmsView', () => {
             'utf8',
         );
         expect(source).not.toMatch(/const NOT_APPLICABLE\b/);
+        expect(source).not.toMatch(/'n\/a'/u);
         expect(source).toMatch(
-            /import \{[^}]*\bNOT_APPLICABLE\b[^}]*\} from '~\/lib\/format'/,
+            /import \{ MissingValue \} from '~\/components\/MissingValue'/,
         );
     });
 });

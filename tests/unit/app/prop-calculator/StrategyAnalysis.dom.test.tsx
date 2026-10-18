@@ -9,7 +9,7 @@ import {
 } from '~/app/(app)/prop-calculator/_components/kellySizing';
 import StrategyAnalysis from '~/app/(app)/prop-calculator/_components/StrategyAnalysis';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalculator';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     dollars,
     fraction,
@@ -22,6 +22,9 @@ import {
     fullKellyFraction,
     requiredR,
 } from '~/lib/prop-calculator/economics';
+
+import { missingValueText } from './missingValue';
+import { statStripValue } from './statStripValue';
 
 vi.mock('~/components/ui/info-popover', () => ({
     default: () => null,
@@ -67,7 +70,7 @@ describe('StrategyAnalysis edge leverage and net R to pass (F-V9, PT-61b)', () =
         expect(container.textContent).toContain(`${leverage.toFixed(2)}×`);
     });
 
-    it('titles its groups as h3, one level under the analysis page h2 it sits in', () => {
+    it('titles its groups as h3, one level under the analysis panel h2 it sits in, and their parts as h4', () => {
         const baseInputs = inputsOf();
         const result = simulate(baseInputs);
         act(() => {
@@ -78,10 +81,10 @@ describe('StrategyAnalysis edge leverage and net R to pass (F-V9, PT-61b)', () =
         const headings = [
             ...container.querySelectorAll('h1, h2, h3, h4, h5, h6'),
         ];
-        expect(headings.map((heading) => heading.tagName)).toContain('H3');
-        expect(headings.every((heading) => heading.tagName === 'H3')).toBe(
-            true,
-        );
+        const tags = headings.map((heading) => heading.tagName);
+        expect(tags).toContain('H3');
+        expect(tags[0]).toBe('H3');
+        expect(tags.every((tag) => tag === 'H3' || tag === 'H4')).toBe(true);
     });
 
     it('shows net R to pass from the required-R economics helper', () => {
@@ -103,7 +106,7 @@ describe('StrategyAnalysis edge leverage and net R to pass (F-V9, PT-61b)', () =
         );
     });
 
-    it('shows n/a for net R to pass on an instant-funded plan, which has no eval', () => {
+    it('shows a missing value, not n/a text, for net R to pass on an instant-funded plan, which has no eval', () => {
         const baseInputs = inputsOf();
         const instantPlan = baseInputs.plan.withOverrides({
             isInstantFunded: true,
@@ -115,11 +118,10 @@ describe('StrategyAnalysis edge leverage and net R to pass (F-V9, PT-61b)', () =
                 <StrategyAnalysis baseInputs={withInstant} result={result} />,
             );
         });
-        const netRLabel = [...container.querySelectorAll('span')].find(
-            (node) => node.textContent === 'Net R to pass',
+        expect(statStripValue(container, 'Net R to pass')?.textContent).toBe(
+            missingValueText(),
         );
-        const value = netRLabel?.nextElementSibling;
-        expect(value?.textContent).toBe(NOT_APPLICABLE);
+        expect(container.textContent).not.toContain('n/a');
     });
 });
 
@@ -195,11 +197,9 @@ describe('StrategyAnalysis Kelly as information only (PT-53 handoff, PT-86)', ()
     }
 
     function valueOf(label: string): string {
-        const labelNode = [...container.querySelectorAll('span')].find((node) =>
-            node.textContent.startsWith(label),
-        );
-        if (labelNode === undefined) throw new Error(`no label ${label}`);
-        return labelNode.nextElementSibling?.textContent ?? '';
+        const value = statStripValue(container, label);
+        if (value === undefined) throw new Error(`no label ${label}`);
+        return value.textContent;
     }
 
     it('never calls half Kelly recommended', () => {
@@ -259,7 +259,7 @@ describe('StrategyAnalysis Kelly as information only (PT-53 handoff, PT-86)', ()
         );
     });
     function kellyBlockText(): string {
-        const heading = [...container.querySelectorAll('p')].find(
+        const heading = [...container.querySelectorAll('h4')].find(
             (node) => node.textContent === 'Kelly (information only)',
         );
         return heading?.parentElement?.textContent ?? '';
@@ -291,12 +291,12 @@ describe('StrategyAnalysis Kelly as information only (PT-53 handoff, PT-86)', ()
         const baseInputs = inputsOf();
         renderAnalysis(baseInputs);
         const basis = `of the ${formatCurrency(baseInputs.plan.drawdown.amount)} eval drawdown`;
-        const indexLabel = [...container.querySelectorAll('span')].find(
+        const indexLabel = [...container.querySelectorAll('dt')].find(
             (node) => node.textContent === 'Kelly index',
         );
         const indexBlock = indexLabel?.parentElement?.textContent ?? '';
         expect(indexBlock).toContain(basis);
-        const riskLabel = [...container.querySelectorAll('span')].find(
+        const riskLabel = [...container.querySelectorAll('dt')].find(
             (node) => node.textContent === 'Average risk',
         );
         const riskBlock = riskLabel?.parentElement?.textContent ?? '';

@@ -8,12 +8,14 @@ import {
     type AccountReadIssue,
     AccountReadIssueKind,
     type AccountStage,
+    type AccountStateUnavailableReason,
     AccountStatus,
     AccountTracking,
     AlertSubjectKind,
     compareSnapshots,
     compareText,
     type CushionBoard,
+    type CushionBoardRow,
     describeAccountReadIssue,
     type ExternalFirmName,
     type FirmKey,
@@ -40,6 +42,12 @@ import {
     PayoutWaitBasis,
 } from '~/lib/prop-calculator/advisor';
 import { STORED_DATA_OWNER_REPAIR } from '~/lib/schemas/propAccountOutputs';
+
+import {
+    accountStateUnavailableText,
+    NO_DASHBOARD_FLOOR_REASON,
+} from './accountStateReasonText';
+import { sentenceOf } from './sentenceText';
 
 export enum AccountSortKey {
     Cushion = 'cushion',
@@ -99,6 +107,7 @@ export interface AccountListFilters {
     readonly copyGroupId: null | string;
     readonly firmKey: FirmKey | null;
     readonly includeArchived: boolean;
+    readonly search: string;
     readonly stage: AccountStage | null;
     readonly status: AccountStatus | null;
     readonly tag: null | string;
@@ -107,6 +116,7 @@ export interface AccountListFilters {
 export interface AccountListRow {
     readonly account: TrackedAccountRow<AccountListAccount>;
     readonly cushionCents: null | UsdCents;
+    readonly cushionMissingReason: null | string;
     readonly expectedValueDollars: null | number;
     readonly isLedgerOnly: boolean;
     readonly isReadOnly: boolean;
@@ -136,12 +146,18 @@ export interface AccountListSort {
 export type PlanLabelColumns = Pick<PropAccountRow, 'accountSize' | 'optIns'> &
     TrackedColumns & { readonly readIssues: readonly AccountReadIssue[] };
 
+interface CushionFigure {
+    readonly cents: null | UsdCents;
+    readonly missingReason: null | string;
+}
+
 export const ACCOUNT_LIST_INPUT = { includeArchived: true } as const;
 
 export const DEFAULT_ACCOUNT_LIST_FILTERS: AccountListFilters = {
     copyGroupId: null,
     firmKey: null,
     includeArchived: false,
+    search: '',
     stage: null,
     status: null,
     tag: null,
@@ -153,6 +169,9 @@ export const DEFAULT_ACCOUNT_LIST_SORT: AccountListSort = {
 };
 
 const NO_EXPECTED_VALUES: ReadonlyMap<string, null | number> = new Map();
+
+const ARCHIVED_CUSHION_REASON =
+    'An archived account is not reconstructed, so its cushion is not computed.';
 
 const READINESS_TIER_RANK: Readonly<Record<PayoutReadinessTier, number>> = {
     [PayoutReadinessTier.Blocked]: 2,
@@ -244,8 +263,11 @@ export function buildAccountListRows(
     boards: AccountListBoards | null = null,
     expectedValues: ReadonlyMap<string, null | number> = NO_EXPECTED_VALUES,
 ): readonly AccountListRow[] {
-    const cushions = new Map(
-        boards?.cushion.rows.map((row) => [row.accountId, row.cushionCents]),
+    const cushionRows = new Map(
+        boards?.cushion.rows.map((row) => [row.accountId, row]),
+    );
+    const cushionGaps = new Map(
+        boards?.cushion.unavailable.map((row) => [row.accountId, row.reason]),
     );
     const readiness = new Map(
         boards?.readiness.rows.map((row) => [row.accountId, row]),
@@ -262,12 +284,18 @@ export function buildAccountListRows(
         const plan = resolvePlanKey(account);
         const issues = readIssuesOf(account, plan);
         const latestSnapshot = latest.get(account.id) ?? null;
+        const cushion =
+            boards === null
+                ? snapshotCushionOf(latestSnapshot)
+                : boardCushionOf(
+                      stored,
+                      cushionRows.get(account.id),
+                      cushionGaps.get(account.id),
+                  );
         return {
             account,
-            cushionCents:
-                boards === null
-                    ? cushionOf(latestSnapshot)
-                    : (cushions.get(account.id) ?? null),
+            cushionCents: cushion.cents,
+            cushionMissingReason: cushion.missingReason,
             expectedValueDollars: expectedValues.get(account.id) ?? null,
             isLedgerOnly: account.tracking === AccountTracking.LedgerOnly,
             isReadOnly: issues.length > 0,
@@ -306,7 +334,20 @@ export function filterAccountRows(
             filters.copyGroupId === null ||
                 account.copyGroupId === filters.copyGroupId,
             filters.tag === null || account.tags.includes(filters.tag),
+            isSearchMatch(account.label, filters.search),
         ].every(Boolean),
+    );
+}
+
+export function hasActiveAccountFilters(filters: AccountListFilters): boolean {
+    return (
+        filters.firmKey !== null ||
+        filters.stage !== null ||
+        filters.status !== null ||
+        filters.copyGroupId !== null ||
+        filters.tag !== null ||
+        filters.includeArchived ||
+        filters.search.trim() !== ''
     );
 }
 
@@ -392,6 +433,33 @@ export function sortAccountRows(
     });
 }
 
+function boardCushionOf(
+    account: AccountListAccount,
+    row: CushionBoardRow | undefined,
+    gap: AccountStateUnavailableReason | undefined,
+): CushionFigure {
+    if (row !== undefined) {
+        return {
+            cents: row.cushionCents,
+            missingReason:
+                row.cushionCents === null ? NO_DASHBOARD_FLOOR_REASON : null,
+        };
+    }
+    if (gap !== undefined) {
+        return {
+            cents: null,
+            missingReason: sentenceOf(
+                accountStateUnavailableText(account, gap),
+            ),
+        };
+    }
+    return {
+        cents: null,
+        missingReason:
+            account.archivedAt === null ? null : ARCHIVED_CUSHION_REASON,
+    };
+}
+
 function compareKnownFirst(
     left: null | number,
     right: null | number,
@@ -409,11 +477,9 @@ function compareLabels(left: AccountListRow, right: AccountListRow): number {
     );
 }
 
-function cushionOf(snapshot: AccountListSnapshot | null): null | UsdCents {
-    const floor = snapshot?.dashboardFloorCents ?? null;
-    return snapshot === null || floor === null
-        ? null
-        : usdCents(snapshot.balanceCents - floor);
+function isSearchMatch(label: string, search: string): boolean {
+    const needle = search.trim().toLocaleLowerCase();
+    return needle === '' || label.toLocaleLowerCase().includes(needle);
 }
 
 function readinessRankOf(tier: null | PayoutReadinessTier): null | number {
@@ -447,6 +513,19 @@ function readOnlyExplanation(issue: AccountReadIssue): string {
             return unresolvedPlanExplanation(issue.reason);
         }
     }
+}
+
+function snapshotCushionOf(
+    snapshot: AccountListSnapshot | null,
+): CushionFigure {
+    if (snapshot === null) return { cents: null, missingReason: null };
+    const floor = snapshot.dashboardFloorCents;
+    return floor === null
+        ? { cents: null, missingReason: NO_DASHBOARD_FLOOR_REASON }
+        : {
+              cents: usdCents(snapshot.balanceCents - floor),
+              missingReason: null,
+          };
 }
 
 function unresolvedPlanExplanation(reason: UnresolvedPlanReason): string {

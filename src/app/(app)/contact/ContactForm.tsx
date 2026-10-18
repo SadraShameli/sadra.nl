@@ -81,7 +81,7 @@ export function ContactForm() {
                         </FieldLabel>
                         <Textarea
                             aria-invalid={fieldState.invalid}
-                            className="min-h-56"
+                            className="min-h-32 md:min-h-56"
                             id={`${formId}-message`}
                             {...field}
                         />

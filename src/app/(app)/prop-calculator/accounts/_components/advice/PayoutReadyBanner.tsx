@@ -1,6 +1,6 @@
 import { uncertainCurrencyText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
-import { Card } from '~/components/ui/card';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { formatCurrency } from '~/lib/format';
 
 import { PAYOUT_READY_LESSON_TEXT } from './accountActionModel';
@@ -22,8 +22,8 @@ export function PayoutReadyBanner({
     readonly stake: null | ValueSection<PayoutStakeView>;
 }) {
     return (
-        <Card className="gap-2 p-4">
-            <h3 className="text-base font-semibold">Request payout</h3>
+        <div className="flex flex-col gap-2 rounded-2xl border border-line p-4">
+            <PanelSubheading>Request payout</PanelSubheading>
             <p className="text-sm">
                 This account can withdraw now. The documented rungs below are
                 unchanged: being eligible to withdraw does not change today's
@@ -33,19 +33,14 @@ export function PayoutReadyBanner({
                 {PAYOUT_READY_LESSON_TEXT}
             </p>
             {flag !== null && (
-                <Alert variant="warning">
-                    <AlertTitle>
-                        Flag: risk above the documented rung
-                    </AlertTitle>
-                    <AlertDescription>
-                        The risk you entered or recorded is{' '}
-                        {formatCurrency(flag.excess, 2)} above the documented
-                        rung while this account can withdraw.
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    detail={`The risk you entered or recorded is ${formatCurrency(flag.excess, 2)} above the documented rung while this account can withdraw.`}
+                    title="Flag: risk above the documented rung"
+                    tone={StatusTone.Warn}
+                />
             )}
             {stake !== null && <StakeLines stake={stake} />}
-        </Card>
+        </div>
     );
 }
 

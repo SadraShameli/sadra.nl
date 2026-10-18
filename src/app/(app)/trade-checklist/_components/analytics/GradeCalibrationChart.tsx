@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartColumn } from 'lucide-react';
 import { useMemo } from 'react';
 import {
     Bar,
@@ -11,12 +12,14 @@ import {
 } from 'recharts';
 
 import {
+    CHART_BAR_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
     ChartContainer,
 } from '~/components/ui/chart';
+import { EmptyState } from '~/components/ui/empty-state';
 import {
     gradeCalibration,
     type LightAssessment,
@@ -32,21 +35,16 @@ export function GradeCalibrationChart({
     assessments: LightAssessment[];
 }) {
     const data = useMemo(
-        () =>
-            gradeCalibration(assessments)
-                .filter((d) => d.count > 0)
-                .map((d) => ({
-                    ...d,
-                    fill: d.avgR > 0 ? 'var(--success)' : 'var(--destructive)',
-                    fillOpacity: d.count < 3 ? 0.35 : 0.85,
-                })),
+        () => gradeCalibration(assessments).filter((d) => d.count > 0),
         [assessments],
     );
 
     return data.length === 0 ? (
-        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-            Record outcome R values to see if A grades actually outperform B.
-        </div>
+        <EmptyState
+            description="Record outcome R values to see if A grades actually outperform B."
+            icon={ChartColumn}
+            title="No outcomes yet"
+        />
     ) : (
         <ChartContainer
             className="app-trade-checklist__grade-calibration-chart"
@@ -66,7 +64,11 @@ export function GradeCalibrationChart({
                     stroke="var(--muted-foreground)"
                     y={0}
                 />
-                <Bar dataKey="avgR" isAnimationActive={false}>
+                <Bar
+                    {...CHART_BAR_PROPS}
+                    dataKey="avgR"
+                    fill="var(--color-avgR)"
+                >
                     <LabelList
                         dataKey="count"
                         fill="var(--muted-foreground)"

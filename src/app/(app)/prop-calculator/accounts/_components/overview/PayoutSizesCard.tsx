@@ -1,9 +1,15 @@
 'use client';
 
+import { HandCoins } from 'lucide-react';
 import { memo } from 'react';
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import { hasFigure } from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import {
+    CHART_BAR_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
     type ChartConfig,
@@ -18,6 +24,12 @@ import { formatCompactCurrency } from '~/lib/format';
 import { type HistogramBin } from '~/lib/prop-calculator/stats';
 
 import { type PayoutSizesCardModel } from './overviewModel';
+import {
+    infoLinesOf,
+    OverviewEmptyPanel,
+    OverviewPanel,
+} from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 const histogramConfig: ChartConfig = {
     count: { color: 'var(--chart-1)', label: 'Payouts' },
@@ -30,17 +42,27 @@ export const PayoutSizesCard = memo(function PayoutSizesCard({
 }) {
     if (model.count === 0) {
         return (
-            <p className="text-sm text-muted-foreground">No paid payout yet.</p>
+            <OverviewEmptyPanel
+                icon={HandCoins}
+                section={OverviewSectionId.PayoutSizes}
+                title="No paid payout yet"
+            />
         );
     }
     return (
-        <div className="flex flex-col gap-6">
-            <dl className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-                <Stat label="Mean" value={model.mean} />
-                <Stat label="Median" value={model.median} />
-                <Stat label="p10" value={model.p10} />
-                <Stat label="p90" value={model.p90} />
-            </dl>
+        <OverviewPanel
+            contentClassName="gap-6"
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.PayoutSizes}
+        >
+            <StatStrip
+                items={[
+                    { id: 'mean', label: 'Mean', value: model.mean },
+                    { id: 'median', label: 'Median', value: model.median },
+                    { id: 'p10', label: 'p10', value: model.p10 },
+                    { id: 'p90', label: 'p90', value: model.p90 },
+                ].filter((item) => hasFigure(item.value))}
+            />
             <div className="flex flex-col gap-2">
                 <PayoutHistogram bins={model.histogram} />
                 <p className="text-xs text-muted-foreground">
@@ -89,14 +111,7 @@ export const PayoutSizesCard = memo(function PayoutSizesCard({
                 }))}
                 title="By balance at payout"
             />
-            {model.disclosures.length > 0 && (
-                <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                    {model.disclosures.map((disclosure) => (
-                        <li key={disclosure}>{disclosure}</li>
-                    ))}
-                </ul>
-            )}
-        </div>
+        </OverviewPanel>
     );
 });
 
@@ -150,10 +165,10 @@ function PayoutHistogram({ bins }: { readonly bins: readonly HistogramBin[] }) {
                     }}
                 />
                 <Bar
+                    {...CHART_BAR_PROPS}
                     dataKey="count"
                     fill="var(--color-count)"
                     fillOpacity={0.75}
-                    isAnimationActive={false}
                 />
             </BarChart>
         </ChartContainer>
@@ -169,6 +184,7 @@ function payoutSizeColumns(
             cell: ({ row: { original: row } }) => row.label,
             header: columnLabel,
             id: PayoutSizeColumn.Label,
+            meta: { isRowHeader: true },
         },
         {
             cell: ({ row: { original: row } }) => row.count,
@@ -177,7 +193,7 @@ function payoutSizeColumns(
             meta: { align: DataTableAlign.End },
         },
         {
-            cell: ({ row: { original: row } }) => row.mean,
+            cell: ({ row }) => <FigureText text={row.original.mean} />,
             header: 'Mean payout',
             id: PayoutSizeColumn.Mean,
             meta: { align: DataTableAlign.End },
@@ -188,7 +204,9 @@ function payoutSizeColumns(
         : [
               ...columns,
               {
-                  cell: ({ row: { original: row } }) => row.median,
+                  cell: ({ row }) => (
+                      <FigureText text={row.original.median ?? ''} />
+                  ),
                   header: medianLabel,
                   id: PayoutSizeColumn.Median,
                   meta: { align: DataTableAlign.End },
@@ -210,7 +228,7 @@ function PayoutSizeTable({
     if (rows.length === 0) return null;
     return (
         <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-medium text-foreground">{title}</h3>
+            <PanelSubheading>{title}</PanelSubheading>
             <DataTable
                 columns={payoutSizeColumns(columnLabel, medianLabel)}
                 data={[...rows]}
@@ -218,23 +236,6 @@ function PayoutSizeTable({
                 pageSize={null}
                 rowId={(row) => row.key}
             />
-        </div>
-    );
-}
-
-function Stat({
-    label,
-    value,
-}: {
-    readonly label: string;
-    readonly value: string;
-}) {
-    return (
-        <div>
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="text-lg font-semibold text-foreground tabular-nums">
-                {value}
-            </dd>
         </div>
     );
 }

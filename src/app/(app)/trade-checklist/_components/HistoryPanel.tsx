@@ -1,11 +1,12 @@
 'use client';
 
-import { formatDistanceToNow } from 'date-fns';
 import { ClipboardList, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import type { TradeAssessmentRow } from '~/lib/trading/types';
 
+import { RelativeTime } from '~/components/RelativeTime';
+import { deleteRowAction, RowActionsMenu } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
@@ -23,7 +24,7 @@ import { ScrollArea } from '~/components/ui/scroll-area';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { cn, parseEnum } from '~/lib/utilities';
 
-import { GradeTile, OutcomeBadge } from './AssessmentBadges';
+import { assessmentLabel, GradeTile, OutcomeBadge } from './AssessmentBadges';
 
 const GRADE_ORDER: Partial<Record<string, number>> = {
     A: 1,
@@ -175,9 +176,7 @@ function HistoryRow({
                             <span className="text-muted-foreground">/100</span>
                         </ItemTitle>
                         <ItemDescription className="truncate">
-                            {formatDistanceToNow(new Date(row.createdAt), {
-                                addSuffix: true,
-                            })}
+                            <RelativeTime value={row.createdAt} />
                         </ItemDescription>
                     </ItemContent>
                     {row.outcome !== null && (
@@ -190,21 +189,17 @@ function HistoryRow({
                     )}
                 </Button>
             </Item>
-            <ConfirmDialog
-                confirmLabel="Delete"
-                description="This grade and outcome will be removed permanently."
-                onConfirm={() => onDelete(row.id)}
-                title="Delete assessment?"
-            >
-                <Button
-                    aria-label="Delete assessment"
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                >
-                    <Trash2 />
-                </Button>
-            </ConfirmDialog>
+            <RowActionsMenu
+                actions={[
+                    deleteRowAction({
+                        description:
+                            'This grade and outcome will be removed permanently.',
+                        onDelete: () => onDelete(row.id),
+                        title: 'Delete assessment?',
+                    }),
+                ]}
+                label={assessmentLabel(row)}
+            />
         </div>
     );
 }

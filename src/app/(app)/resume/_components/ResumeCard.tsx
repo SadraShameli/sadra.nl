@@ -6,6 +6,7 @@ import { useId, useState } from 'react';
 
 import type { ResumeVariantKey } from '~/lib/site/resume';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { Label } from '~/components/ui/label';
 import {
@@ -15,7 +16,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { Separator } from '~/components/ui/separator';
 import { routes, withQuery } from '~/lib/site/routes';
 
 type CoverOption = { key: string; label: string };
@@ -23,11 +23,11 @@ type CoverOption = { key: string; label: string };
 type Resume = {
     name: string;
     role: string;
-    title: string;
 };
 type VariantOption = { key: ResumeVariantKey; label: string };
 
 const COVER_NONE = 'none';
+const COVER_NONE_LABEL = 'None';
 
 export default function ResumeCard({
     coverOptions,
@@ -59,17 +59,8 @@ export default function ResumeCard({
     });
 
     return (
-        <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6">
-            <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-                {resume.title}
-            </p>
-            <p className="mt-1 text-base font-semibold text-foreground">
-                {resume.role}
-            </p>
-
-            <Separator className="my-5" />
-
-            <div className="flex flex-col gap-4">
+        <ToolPanel title={resume.role}>
+            <div className="grid gap-4 md:grid-cols-2">
                 <div className="flex flex-col gap-2">
                     <Label
                         className="text-xs text-muted-foreground"
@@ -79,12 +70,22 @@ export default function ResumeCard({
                     </Label>
                     <Select
                         onValueChange={(value) =>
-                            setVariantKey(value as ResumeVariantKey)
+                            setVariantKey(
+                                variantOptions.find(
+                                    (option) => option.key === value,
+                                )?.key ?? variantKey,
+                            )
                         }
                         value={variantKey}
                     >
                         <SelectTrigger id={variantSelectId}>
-                            <SelectValue />
+                            <SelectValue>
+                                {
+                                    variantOptions.find(
+                                        (option) => option.key === variantKey,
+                                    )?.label
+                                }
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {variantOptions.map((option) => (
@@ -106,10 +107,19 @@ export default function ResumeCard({
                         </Label>
                         <Select onValueChange={setCoverKey} value={coverKey}>
                             <SelectTrigger id={coverSelectId}>
-                                <SelectValue />
+                                <SelectValue>
+                                    {coverKey === COVER_NONE
+                                        ? COVER_NONE_LABEL
+                                        : coverOptions.find(
+                                              (option) =>
+                                                  option.key === coverKey,
+                                          )?.label}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={COVER_NONE}>None</SelectItem>
+                                <SelectItem value={COVER_NONE}>
+                                    {COVER_NONE_LABEL}
+                                </SelectItem>
                                 {coverOptions.map((option) => (
                                     <SelectItem
                                         key={option.key}
@@ -124,8 +134,13 @@ export default function ResumeCard({
                 )}
             </div>
 
-            <div className="mt-5 flex gap-2">
-                <Button asChild className="flex-1" size="lg" variant="default">
+            <div className="flex gap-2 md:justify-end">
+                <Button
+                    asChild
+                    className="flex-1 md:flex-none"
+                    size="lg"
+                    variant="default"
+                >
                     <Link
                         href={viewHref}
                         rel="noopener noreferrer"
@@ -135,13 +150,18 @@ export default function ResumeCard({
                         View
                     </Link>
                 </Button>
-                <Button asChild className="flex-1" size="lg" variant="outline">
+                <Button
+                    asChild
+                    className="flex-1 md:flex-none"
+                    size="lg"
+                    variant="outline"
+                >
                     <a download href={downloadHref}>
                         <Download />
                         Download
                     </a>
                 </Button>
             </div>
-        </div>
+        </ToolPanel>
     );
 }

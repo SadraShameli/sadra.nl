@@ -254,7 +254,8 @@ describe('FundedOptimizerView follows and names the shared objective (PT-83, F-V
 
     function shownLabels(): string[] {
         return [...container.querySelectorAll(':scope tbody tr')].map(
-            (row) => row.querySelector(':scope td')?.textContent ?? '',
+            (row) =>
+                row.querySelector(':scope th[scope="row"]')?.textContent ?? '',
         );
     }
 
@@ -285,7 +286,7 @@ describe('FundedOptimizerView follows and names the shared objective (PT-83, F-V
     it('sorts by monthly net and names it under MonthlyNet', () => {
         renderView(SizingObjective.MonthlyNet);
         expect(container.querySelector('h2')?.textContent).toBe(
-            'Funded optimizer, ranked by monthly net',
+            'Candidates, ranked by monthly net',
         );
         expect(shownLabels()).toStrictEqual(monthlyOrder);
     });
@@ -293,7 +294,7 @@ describe('FundedOptimizerView follows and names the shared objective (PT-83, F-V
     it('sorts by cycle net and names it under CycleCash', () => {
         renderView(SizingObjective.CycleCash);
         expect(container.querySelector('h2')?.textContent).toBe(
-            'Funded optimizer, ranked by cycle cash',
+            'Candidates, ranked by cycle cash',
         );
         expect(shownLabels()).toStrictEqual(cycleOrder);
     });
@@ -301,7 +302,7 @@ describe('FundedOptimizerView follows and names the shared objective (PT-83, F-V
     it('keeps monthly net under RuinFirst and shows the typed not-applicable note', () => {
         renderView(SizingObjective.RuinFirst);
         expect(container.querySelector('h2')?.textContent).toBe(
-            'Funded optimizer, ranked by monthly net',
+            'Candidates, ranked by monthly net',
         );
         expect(shownLabels()).toStrictEqual(monthlyOrder);
         expect(container.textContent).toContain(RUIN_FIRST_RISK_TABLE_NOTE);

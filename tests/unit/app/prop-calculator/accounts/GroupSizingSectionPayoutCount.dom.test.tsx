@@ -39,6 +39,7 @@ import {
 } from '~/lib/prop-calculator/advisor';
 
 import { fundedReconstructed } from '../../../lib/prop-accounts/reconstructionFixtures';
+import { withInfoTexts } from '../infoPopover';
 
 const GROUP = {
     id: '30000000-0000-4000-8000-000000000001',
@@ -182,7 +183,7 @@ describe('the copy-group card shows its firm payout limit check (PT-36n, F-145)'
     it('says the members filing together would reach the verified firm limit, with the source citation and the filing-together rule', () => {
         render(sectionOf([memberOf('a', 2, 4), memberOf('b', 2, 4)]));
 
-        const text = container.textContent;
+        const text = withInfoTexts(container);
         expect(text).toContain('a and b');
         expect(text).toContain('live-account transition');
         expect(text).toContain('3 of 4 payouts taken');
@@ -195,7 +196,7 @@ describe('the copy-group card shows its firm payout limit check (PT-36n, F-145)'
     it('says the firm payout limit was not checked when a member paid count is unknown', () => {
         render(sectionOf([memberOf('a', null, 4), memberOf('b', null, 4)]));
 
-        const text = container.textContent;
+        const text = withInfoTexts(container);
         expect(text).toContain(COPY_GROUP_PAYOUT_COUNT_NOT_CHECKED_TEXT);
         expect(text).not.toContain(COPY_GROUP_PAYOUT_COUNT_CONCURRENT_TEXT);
     });
@@ -203,7 +204,7 @@ describe('the copy-group card shows its firm payout limit check (PT-36n, F-145)'
     it('says nothing about the firm payout limit when the group stays under it', () => {
         render(sectionOf([memberOf('a', 2, 6), memberOf('b', 2, 6)]));
 
-        const text = container.textContent;
+        const text = withInfoTexts(container);
         expect(text).not.toContain(COPY_GROUP_PAYOUT_COUNT_CONCURRENT_TEXT);
         expect(text).not.toContain(COPY_GROUP_PAYOUT_COUNT_NOT_CHECKED_TEXT);
     });
@@ -211,7 +212,7 @@ describe('the copy-group card shows its firm payout limit check (PT-36n, F-145)'
     it('says nothing about the firm payout limit for a firm with no verified firm cap', () => {
         render(sectionOf([memberOf('a', 2, null), memberOf('b', 2, null)]));
 
-        const text = container.textContent;
+        const text = withInfoTexts(container);
         expect(text).not.toContain(COPY_GROUP_PAYOUT_COUNT_CONCURRENT_TEXT);
         expect(text).not.toContain(COPY_GROUP_PAYOUT_COUNT_NOT_CHECKED_TEXT);
     });

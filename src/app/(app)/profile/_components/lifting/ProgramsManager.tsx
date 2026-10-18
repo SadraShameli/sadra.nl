@@ -5,17 +5,20 @@ import Link from 'next/link';
 import { useMemo } from 'react';
 import { toast } from 'sonner';
 
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
+    ProfileCollectionEmpty,
     ProfileDateCell,
     ProfileDatePrecision,
-    ProfileTableEmpty,
-    RowActionLink,
-    RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import {
+    deleteRowAction,
+    linkRowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -23,9 +26,9 @@ import {
     type DataTableColumn,
     DataTableFilterFunction,
     type DataTableInstance,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -89,6 +92,7 @@ export function ProgramsManager() {
                     </Link>
                 ),
                 header: 'Name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: ProgramColumn.Category,
@@ -111,47 +115,50 @@ export function ProgramsManager() {
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Structure',
             },
-            profileActionsColumn<ProgramOwned>((program) => (
-                <>
-                    <RowActionLink
-                        href={routes.lifting.program(program.slug)}
-                        icon={ExternalLink}
-                        label="Open program"
-                    />
-                    <RowConfirmAction
-                        description="Your enrollments in this program will also be removed."
-                        label="Delete program"
-                        onConfirm={() =>
+            rowActionsColumn<ProgramOwned>({
+                actionsOf: (program) => [
+                    linkRowAction({
+                        href: routes.lifting.program(program.slug),
+                        icon: ExternalLink,
+                        label: 'Open',
+                    }),
+                    deleteRowAction({
+                        description:
+                            'Your enrollments in this program will also be removed.',
+                        onDelete: () =>
                             customProgramDeleteMutation.mutate({
                                 id: program.id,
-                            })
-                        }
-                        title={`Delete “${program.name}”?`}
-                    />
-                </>
-            )),
+                            }),
+                        title: `Delete “${program.name}”?`,
+                    }),
+                ],
+                isPendingOf: (program) =>
+                    customProgramDeleteMutation.isPending &&
+                    customProgramDeleteMutation.variables.id === program.id,
+                labelOf: (program) => program.name,
+            }),
         ],
         [customProgramDeleteMutation],
     );
 
-    const enrollmentColumns = useMemo<DataTableColumn<ProgramEnrollment>[]>(
-        () => [
+    const enrollmentColumns = useMemo<
+        DataTableColumn<ProgramEnrollment>[]
+    >(() => {
+        const programNameOf = (enrollment: ProgramEnrollment): string =>
+            programNameById.get(enrollment.programId) ?? 'Program';
+        return [
             {
                 accessorKey: 'programId',
                 cell: ({ row }) => (
-                    <PrimaryCell>
-                        {programNameById.get(row.original.programId) ??
-                            'Program'}
-                    </PrimaryCell>
+                    <PrimaryCell>{programNameOf(row.original)}</PrimaryCell>
                 ),
                 header: 'Program',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: ProgramColumn.Status,
                 cell: ({ row }) => (
-                    <Badge className="capitalize" variant="secondary">
-                        {row.original.status}
-                    </Badge>
+                    <Badge className="capitalize">{row.original.status}</Badge>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Status',
@@ -178,100 +185,122 @@ export function ProgramsManager() {
                 header: 'Started',
                 id: 'startDate',
             },
-            profileActionsColumn<ProgramEnrollment>((enrollment) => (
-                <RowConfirmAction
-                    confirmLabel="Unenroll"
-                    description="Removes your enrollment. Past workouts stay intact. You can re-enroll any time."
-                    icon={LogOut}
-                    label="Unenroll"
-                    onConfirm={() => unenroll.mutate({ id: enrollment.id })}
-                    title="Unenroll?"
-                />
-            )),
-        ],
-        [programNameById, unenroll],
-    );
-
-    const programsPageButton = (
-        <Button asChild size="sm">
-            <Link href={routes.lifting.programs}>
-                <ExternalLink className="size-4" />
-                Programs page
-            </Link>
-        </Button>
-    );
+            rowActionsColumn<ProgramEnrollment>({
+                actionsOf: (enrollment) => [
+                    {
+                        confirm: {
+                            confirmLabel: 'Unenroll',
+                            description:
+                                'Removes your enrollment. Past workouts stay intact. You can re-enroll any time.',
+                            title: 'Unenroll?',
+                        },
+                        icon: LogOut,
+                        isDestructive: true,
+                        kind: RowActionKind.Select,
+                        label: 'Unenroll',
+                        onSelect: () => unenroll.mutate({ id: enrollment.id }),
+                    },
+                ],
+                isPendingOf: (enrollment) =>
+                    unenroll.isPending &&
+                    unenroll.variables.id === enrollment.id,
+                labelOf: programNameOf,
+            }),
+        ];
+    }, [programNameById, unenroll]);
 
     return (
         <div className="flex flex-col gap-6">
-            <ProfilePanel
-                action={programsPageButton}
+            <ToolPanel
+                actions={
+                    <Button asChild size="sm">
+                        <Link href={routes.lifting.programs}>
+                            <ExternalLink className="size-4" />
+                            Programs page
+                        </Link>
+                    </Button>
+                }
                 description="Programs you created. Build and edit them on the programs page."
                 title="Custom programs"
             >
-                <DataTable
-                    columns={ownedColumns}
-                    data={ownedRows}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={programsPageButton}
-                            description="Build one on the programs page, or duplicate an official program to customize it."
-                            filtered={hasActiveTableFilter(table)}
-                            icon={LibraryBig}
-                            noun="custom programs"
-                        />
-                    )}
-                    filterPlaceholder="Search programs…"
-                    headerActions={(table) => (
-                        <>
-                            <DataTableFacetSelect
-                                column={table.getColumn(ProgramColumn.Category)}
-                                format={(value) => (
-                                    <span className="capitalize">{value}</span>
-                                )}
-                                label="Category"
-                                placeholder="All categories"
+                {!mine.isLoading && ownedRows.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Build one on the programs page, or duplicate an official program to customize it."
+                        icon={LibraryBig}
+                        noun="custom programs"
+                    />
+                ) : (
+                    <DataTable
+                        columns={ownedColumns}
+                        data={ownedRows}
+                        emptyState={
+                            <NoMatchesState
+                                icon={LibraryBig}
+                                noun="custom programs"
                             />
-                            <FrequencySelect table={table} />
-                        </>
-                    )}
-                    isLoading={mine.isLoading}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
-            </ProfilePanel>
+                        }
+                        filterPlaceholder="Search programs…"
+                        headerActions={(table) => (
+                            <>
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        ProgramColumn.Category,
+                                    )}
+                                    format={(value) => (
+                                        <span className="capitalize">
+                                            {value}
+                                        </span>
+                                    )}
+                                    label="Category"
+                                    placeholder="All categories"
+                                />
+                                <FrequencySelect table={table} />
+                            </>
+                        )}
+                        isLoading={mine.isLoading}
+                        rowId={(r) => r.id}
+                        showFilter
+                    />
+                )}
+            </ToolPanel>
 
-            <ProfilePanel
+            <ToolPanel
                 description="Programs you are currently following."
                 title="Enrollments"
             >
-                <DataTable
-                    columns={enrollmentColumns}
-                    data={enrollments}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={programsPageButton}
-                            description="Enroll in a program from the programs page."
-                            filtered={hasActiveTableFilter(table)}
-                            icon={LibraryBig}
-                            noun="enrollments"
-                        />
-                    )}
-                    filterPlaceholder="Search enrollments…"
-                    headerActions={(table) => (
-                        <DataTableFacetSelect
-                            column={table.getColumn(ProgramColumn.Status)}
-                            format={(value) => (
-                                <span className="capitalize">{value}</span>
-                            )}
-                            label="Status"
-                            placeholder="All statuses"
-                        />
-                    )}
-                    isLoading={mine.isLoading}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
-            </ProfilePanel>
+                {!mine.isLoading && enrollments.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Enroll in a program from the programs page."
+                        icon={LibraryBig}
+                        noun="enrollments"
+                    />
+                ) : (
+                    <DataTable
+                        columns={enrollmentColumns}
+                        data={enrollments}
+                        emptyState={
+                            <NoMatchesState
+                                icon={LibraryBig}
+                                noun="enrollments"
+                            />
+                        }
+                        filterPlaceholder="Search enrollments…"
+                        headerActions={(table) => (
+                            <DataTableFacetSelect
+                                column={table.getColumn(ProgramColumn.Status)}
+                                format={(value) => (
+                                    <span className="capitalize">{value}</span>
+                                )}
+                                label="Status"
+                                placeholder="All statuses"
+                            />
+                        )}
+                        isLoading={mine.isLoading}
+                        rowId={(r) => r.id}
+                        showFilter
+                    />
+                )}
+            </ToolPanel>
         </div>
     );
 }

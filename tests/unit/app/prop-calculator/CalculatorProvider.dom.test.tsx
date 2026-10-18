@@ -17,7 +17,10 @@ import { SimulatorView } from '~/app/(app)/prop-calculator/(tools)/simulator/Sim
 import { CalculatorProvider } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import { PropCalculatorSubnav } from '~/app/(app)/prop-calculator/_components/PropCalculatorSubnav';
-import { LINKED_TOOL_CATALOG } from '~/app/(app)/prop-calculator/_components/toolCatalog';
+import {
+    LINKED_TOOL_CATALOG,
+    toolsByGroup,
+} from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalculator';
 import { SIM_INPUTS_REFUSAL_PREFIX, simulate } from '~/lib/prop-calculator';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
@@ -292,6 +295,10 @@ describe('CalculatorProvider mount', () => {
         );
         expect(hrefs.length).toBeGreaterThan(0);
         expect(hrefs.filter((href) => !hasToolPage(href))).toEqual([]);
-        expect(hrefs).toEqual(LINKED_TOOL_CATALOG.map((entry) => entry.route));
+        expect(hrefs).toEqual(
+            toolsByGroup(LINKED_TOOL_CATALOG).map(
+                (group) => group.tools[0].route,
+            ),
+        );
     });
 });

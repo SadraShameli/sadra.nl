@@ -47,6 +47,7 @@ export interface LiveToolModeled {
 
 export interface LiveToolNotModeled {
     readonly message: string;
+    readonly reason: string;
     readonly status: LiveToolStatus.NotModeled;
 }
 
@@ -78,17 +79,17 @@ const LIVE_NOT_MODELED_REASON_TEXT: Readonly<
     Record<LiveNotModeledReason, string>
 > = {
     [LiveNotModeledReason.AlreadyLive]:
-        'this plan is itself a live account, so there is no separate live stage to simulate.',
+        'This plan is itself a live account, so there is no separate live stage to simulate.',
     [LiveNotModeledReason.FirmRunsNoLiveProgram]:
-        'this firm runs no live program for this plan.',
+        'This firm runs no live program for this plan.',
     [LiveNotModeledReason.LiveTermsUnpublished]:
-        'this firm has not published live-account terms for this plan.',
+        'This firm has not published live-account terms for this plan.',
     [LiveNotModeledReason.NoStatedLivePath]:
-        'this plan has no stated path to a live account.',
+        'This plan has no stated path to a live account.',
     [LiveNotModeledReason.SeparateLiveProgram]:
-        "this plan's live account runs on a separate program that this tool does not model.",
+        "This plan's live account runs on a separate program that this tool does not model.",
     [LiveNotModeledReason.TerminalStage]:
-        'this plan is a terminal stage, so there is no further live account.',
+        'This plan is a terminal stage, so there is no further live account.',
 };
 
 export function buildLiveToolModel(
@@ -108,8 +109,10 @@ export function buildLiveToolModel(
             );
         }
         case LiveApplicabilityKind.NotModeled: {
+            const reason = LIVE_NOT_MODELED_REASON_TEXT[applicability.reason];
             return {
-                message: `No live stage modeled: ${LIVE_NOT_MODELED_REASON_TEXT[applicability.reason]}`,
+                message: `No live stage modeled. ${reason}`,
+                reason,
                 status: LiveToolStatus.NotModeled,
             };
         }

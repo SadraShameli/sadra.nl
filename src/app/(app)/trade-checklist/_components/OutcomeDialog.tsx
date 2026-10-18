@@ -7,12 +7,9 @@ import { useId, useState, useTransition } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
-import type {
-    ExecutionDeviation,
-    Outcome,
-    TradeAssessmentRow,
-} from '~/lib/trading/types';
+import type { Outcome, TradeAssessmentRow } from '~/lib/trading/types';
 
+import { EXECUTION_DEVIATION_LABEL } from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
 import { SwitchCard } from '~/components/ToggleCard';
 import { Button } from '~/components/ui/button';
 import {
@@ -40,6 +37,7 @@ import { Textarea } from '~/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { executionDeviationSchema, outcomeSchema } from '~/lib/schemas/trading';
 import { recordAssessmentOutcome } from '~/lib/trading/actions';
+import { EXECUTION_DEVIATION_VALUES } from '~/lib/trading/types';
 import { cn } from '~/lib/utilities';
 
 import { ChoiceCards, type ChoiceOption } from './WizardFields';
@@ -51,17 +49,10 @@ const OUTCOMES: readonly ChoiceOption<Outcome>[] = [
     { label: 'No trade', value: 'no-trade' },
 ];
 
-const DEVIATIONS: { label: string; value: ExecutionDeviation }[] = [
-    { label: 'Sized down', value: 'sized-down' },
-    { label: 'Sized up', value: 'sized-up' },
-    { label: 'Moved stop early', value: 'moved-stop-early' },
-    { label: 'Moved stop to BE', value: 'moved-stop-to-be' },
-    { label: 'Exited before target', value: 'exited-before-target' },
-    { label: 'Exited past target', value: 'exited-past-target' },
-    { label: 'Entered late', value: 'entered-late' },
-    { label: 'Chased entry', value: 'chased-entry' },
-    { label: 'No fill', value: 'no-fill' },
-];
+const DEVIATIONS = EXECUTION_DEVIATION_VALUES.map((value) => ({
+    label: EXECUTION_DEVIATION_LABEL[value],
+    value,
+}));
 
 const outcomeFormSchema = z.object({
     actualRisk: z.string(),

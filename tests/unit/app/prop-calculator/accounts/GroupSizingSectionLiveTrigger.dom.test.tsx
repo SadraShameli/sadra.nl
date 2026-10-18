@@ -42,6 +42,8 @@ import {
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
+import { withInfoTexts } from '../infoPopover';
+
 const USER_ID = 'user-a';
 const TODAY = '2026-09-26';
 const GROUP = {
@@ -216,10 +218,10 @@ describe('the copy-group sizing view words a verified live trigger and a sub-con
     it('says in words that live triggers are not checked for a firm no source confirms', () => {
         render(null);
 
-        expect(container.textContent).toContain(
+        expect(withInfoTexts(container)).toContain(
             COPY_GROUP_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
         );
-        expect(container.textContent).not.toContain(
+        expect(withInfoTexts(container)).not.toContain(
             COPY_GROUP_LIVE_TRIGGERS_ENFORCED_TEXT,
         );
     });
@@ -228,12 +230,12 @@ describe('the copy-group sizing view words a verified live trigger and a sub-con
         render(verifiedSingleDay);
 
         expect(container.textContent).toContain(
-            `Documented size for every copy: ${formatCurrency(100, 2)}`,
+            `Documented size for every copy${formatCurrency(100, 2)}`,
         );
-        expect(container.textContent).toContain(
+        expect(withInfoTexts(container)).toContain(
             COPY_GROUP_LIVE_TRIGGERS_ENFORCED_TEXT,
         );
-        expect(container.textContent).not.toContain(
+        expect(withInfoTexts(container)).not.toContain(
             COPY_GROUP_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
         );
     });
@@ -252,9 +254,7 @@ describe('the copy-group sizing view words a verified live trigger and a sub-con
 
         setStop('5');
 
-        expect(container.textContent).toContain(
-            'Each copy places 2 contracts at this stop',
-        );
+        expect(container.textContent).toMatch(/Contracts per copy\s*2\b/u);
         expect(container.textContent).not.toContain('cannot be placed');
     });
 
@@ -275,6 +275,6 @@ describe('the copy-group sizing view words a verified live trigger and a sub-con
         render(null);
 
         expect(container.textContent).not.toContain('cannot be placed');
-        expect(container.textContent).not.toContain('Each copy places');
+        expect(container.textContent).not.toContain('Contracts per copy');
     });
 });

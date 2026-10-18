@@ -16,7 +16,7 @@ export interface GetReadingsRecord {
 }
 
 export interface ReadingRecord {
-    date: string;
+    at: number;
     value: number;
 }
 

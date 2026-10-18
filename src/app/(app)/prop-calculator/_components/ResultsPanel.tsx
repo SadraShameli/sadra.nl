@@ -1,13 +1,16 @@
 'use client';
 
 import { Pin, PinOff } from 'lucide-react';
+import { type ReactNode } from 'react';
 
-import Eyebrow from '~/components/Eyebrow';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip, type StatStripItem } from '~/components/StatStrip';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Card, CardContent } from '~/components/ui/card';
-import InfoPopover from '~/components/ui/info-popover';
 import { Toggle } from '~/components/ui/toggle';
 import {
     formatCompactCurrency,
+    formatCount,
     formatCurrency,
     formatDays,
     formatDelta,
@@ -15,23 +18,21 @@ import {
     formatOptionalPercent,
     formatPercent,
     formatStreak,
-    NOT_APPLICABLE,
 } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utilities';
 
 import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
 import AttemptEconomicsCard from './economics/AttemptEconomicsCard';
 import { attemptEconomicsCardModel } from './economics/attemptEconomicsModel';
 import { describeFirstPayoutGate } from './firstPayoutGate';
-import {
-    KPI_ACCENT_TEXT_CLASS,
-    KpiAccent,
-    probabilityAccent,
-    roiAccent,
-    signAccent,
-} from './kpiAccent';
 import { kpiDescriptions } from './kpiDescriptions';
+import {
+    NO_COST_ROI_REASON,
+    NO_PASS_DAYS_REASON,
+    NO_PASS_REASON,
+    NO_PAYOUT_REASON,
+} from './missingReasons';
+import { ValueOrMissing } from './ValueOrMissing';
 
 interface CostBreakdownBodyProperties {
     plan: Plan;
@@ -43,13 +44,13 @@ interface DeltaChip {
     text: string;
 }
 
-interface KpiProperties {
-    accent?: KpiAccent;
+interface KpiItemProperties {
     delta?: DeltaChip | null;
-    info: { body: React.ReactNode; title: string };
+    id: string;
+    info: ReactNode;
     label: string;
-    sub?: string;
-    value: string;
+    sub: string;
+    value: ReactNode;
 }
 
 interface ResultsPanelProperties {
@@ -122,34 +123,11 @@ export default function ResultsPanel({
               text: dDays.text,
           }
         : null;
-    const evalPassAccent = probabilityAccent(result.evalPassProbability);
-    const fundedSurvivalAccent = probabilityAccent(
-        result.fundedSurvivalProbability,
-    );
-    const netAccent = signAccent(result.expectedMonthlyNet);
-    const roiOnCostAccent = roiAccent(result.roiOnCost);
     const isShowCycleEconomics = result.expectedAttempts > 1.01;
 
     return (
-        <div
-            className={cn(
-                'app-prop-calculator__results',
-                'flex flex-col gap-4 transition-opacity',
-                isPending && 'opacity-60',
-            )}
-            data-state={isPending ? 'pending' : 'idle'}
-        >
-            <div className="flex items-center justify-between">
-                {pinned ? (
-                    <span className="text-xs text-muted-foreground">
-                        Pinned: {pinned.accountSize.toLocaleString()} ·
-                        comparing live vs pinned
-                    </span>
-                ) : (
-                    <span className="text-xs text-muted-foreground">
-                        Pin a scenario to compare deltas
-                    </span>
-                )}
+        <ToolPanel
+            actions={
                 <Toggle
                     className="h-7 gap-1.5 px-2 text-xs"
                     onPressedChange={(isPressed) =>
@@ -171,18 +149,28 @@ export default function ResultsPanel({
                         </>
                     )}
                 </Toggle>
-            </div>
-
+            }
+            className="app-prop-calculator__results"
+            data-state={isPending ? 'pending' : 'idle'}
+            description={
+                pinned
+                    ? `Pinned: ${formatCount(pinned.accountSize)} · comparing live vs pinned`
+                    : 'Pin a scenario to compare deltas'
+            }
+            isComputing={isPending}
+            title="Results"
+            titleAs="h3"
+        >
             <div>
-                <Eyebrow as="h3" className="mb-2">
+                <PanelSubheading as="h4" className="mb-2">
                     Outcome
-                </Eyebrow>
-                <div className="grid grid-cols-2 gap-3">
-                    <Kpi
-                        accent={evalPassAccent}
-                        delta={dEvalPass}
-                        info={{
-                            body: (
+                </PanelSubheading>
+                <StatStrip
+                    items={[
+                        kpiItem({
+                            delta: dEvalPass,
+                            id: 'eval-pass',
+                            info: (
                                 <>
                                     <p>{kpiDescriptions.evalPass}</p>
                                     <p className="mt-2 font-mono text-xs">
@@ -207,17 +195,14 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
-                            title: 'Eval pass',
-                        }}
-                        label="Eval pass"
-                        sub={`${formatPercent(result.bustProbability)} bust · ${formatPercent(result.timeoutProbability)} timeout`}
-                        value={formatPercent(result.evalPassProbability)}
-                    />
-                    <Kpi
-                        accent={fundedSurvivalAccent}
-                        delta={dFundedSurvival}
-                        info={{
-                            body: (
+                            label: 'Eval pass',
+                            sub: `${formatPercent(result.bustProbability)} bust · ${formatPercent(result.timeoutProbability)} timeout`,
+                            value: formatPercent(result.evalPassProbability),
+                        }),
+                        kpiItem({
+                            delta: dFundedSurvival,
+                            id: 'funded-survive',
+                            info: (
                                 <>
                                     <p>{kpiDescriptions.fundedSurvival}</p>
                                     <p className="mt-2 font-mono text-xs">
@@ -232,68 +217,87 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
-                            title: 'Funded survive',
-                        }}
-                        label="Funded survive"
-                        sub={`${formatPercent(result.fundedBustProbability)} busted after funding`}
-                        value={formatPercent(result.fundedSurvivalProbability)}
-                    />
-                    <Kpi
-                        delta={dDaysInverted}
-                        info={{
-                            body: (
+                            label: 'Funded survive',
+                            sub: `${formatPercent(result.fundedBustProbability)} busted after funding`,
+                            value: formatPercent(
+                                result.fundedSurvivalProbability,
+                            ),
+                        }),
+                        kpiItem({
+                            delta: dDaysInverted,
+                            id: 'avg-days-to-pass',
+                            info: (
                                 <>
                                     <p>{kpiDescriptions.avgDaysToPass}</p>
                                     <p className="mt-2 font-mono text-xs">
-                                        P25 {formatDays(result.daysToPassP25)} ·
-                                        P50 {formatDays(result.daysToPassP50)} ·
-                                        P75 {formatDays(result.daysToPassP75)}
+                                        P25{' '}
+                                        <ValueOrMissing
+                                            value={formatDays(
+                                                result.daysToPassP25,
+                                            )}
+                                        />{' '}
+                                        · P50{' '}
+                                        <ValueOrMissing
+                                            value={formatDays(
+                                                result.daysToPassP50,
+                                            )}
+                                        />{' '}
+                                        · P75{' '}
+                                        <ValueOrMissing
+                                            value={formatDays(
+                                                result.daysToPassP75,
+                                            )}
+                                        />
                                     </p>
                                 </>
                             ),
-                            title: 'Avg days to pass',
-                        }}
-                        label="Avg days to pass"
-                        sub={
-                            plan.minTradingDays === 0
-                                ? 'no minimum days'
-                                : `min ${plan.minTradingDays} required`
-                        }
-                        value={formatDays(result.expectedDaysToPass)}
-                    />
-                    <Kpi
-                        delta={dCostInverted}
-                        info={{
-                            body: (
+                            label: 'Avg days to pass',
+                            sub:
+                                plan.minTradingDays === 0
+                                    ? 'no minimum days'
+                                    : `min ${plan.minTradingDays} required`,
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_PASS_DAYS_REASON}
+                                    value={formatDays(
+                                        result.expectedDaysToPass,
+                                    )}
+                                />
+                            ),
+                        }),
+                        kpiItem({
+                            delta: dCostInverted,
+                            id: 'total-cost',
+                            info: (
                                 <CostBreakdownBody
                                     plan={plan}
                                     result={result}
                                 />
                             ),
-                            title: 'Total cost (avg)',
-                        }}
-                        label="Total cost (avg)"
-                        sub={`P90 budget ${formatCurrency(result.expectedSpendP90)}`}
-                        value={formatCurrency(result.expectedTotalCost)}
-                    />
-                    <Kpi
-                        info={{
-                            body: <p>{kpiDescriptions.firstPayout}</p>,
-                            title: 'First payout',
-                        }}
-                        label="First payout"
-                        sub={describeFirstPayoutGate(plan)}
-                        value={
-                            result.expectedFirstPayoutDay > 0
-                                ? `day ${result.expectedFirstPayoutDay.toFixed(0)}`
-                                : NOT_APPLICABLE
-                        }
-                    />
-                    <Kpi
-                        accent={netAccent}
-                        delta={dNet}
-                        info={{
-                            body: (
+                            label: 'Total cost (avg)',
+                            sub: `P90 budget ${formatCurrency(result.expectedSpendP90)}`,
+                            value: formatCurrency(result.expectedTotalCost),
+                        }),
+                        kpiItem({
+                            id: 'first-payout',
+                            info: <p>{kpiDescriptions.firstPayout}</p>,
+                            label: 'First payout',
+                            sub: describeFirstPayoutGate(plan),
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_PAYOUT_REASON}
+                                    value={
+                                        result.expectedFirstPayoutDay > 0
+                                            ? `day ${result.expectedFirstPayoutDay.toFixed(0)}`
+                                            : null
+                                    }
+                                />
+                            ),
+                        }),
+                        kpiItem({
+                            delta: dNet,
+                            id: 'monthly-net',
+                            info: (
                                 <>
                                     <p>{kpiDescriptions.monthlyNet}</p>
                                     <p className="mt-2 font-mono text-xs">
@@ -312,54 +316,58 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
-                            title: 'Monthly net (est)',
-                        }}
-                        label="Monthly net (est)"
-                        sub={`payout ${formatCurrency(result.expectedGrossPayout)} avg`}
-                        value={formatCurrency(result.expectedMonthlyNet)}
-                    />
-                    {attemptEconomics && (
-                        <Kpi
-                            accent={signAccent(
-                                attemptEconomics.economics
-                                    ?.expectedNetPerAttempt.value ?? null,
-                            )}
-                            info={{
-                                body: (
-                                    <>
-                                        <p>{kpiDescriptions.evPerAttempt}</p>
-                                        {attemptEconomics.formula && (
-                                            <p className="mt-2 font-mono text-xs">
-                                                {attemptEconomics.formula}
-                                            </p>
-                                        )}
-                                    </>
-                                ),
-                                title: 'EV per attempt',
-                            }}
-                            label="EV per attempt"
-                            sub="per attempt, ignores time; not the ranking objective"
-                            value={
-                                attemptEconomics.economics
-                                    ? formatCurrency(
-                                          attemptEconomics.economics
-                                              .expectedNetPerAttempt.value,
-                                      )
-                                    : NOT_APPLICABLE
-                            }
-                        />
-                    )}
-                </div>
+                            label: 'Monthly net (est)',
+                            sub: `payout ${formatCurrency(result.expectedGrossPayout)} avg`,
+                            value: formatCurrency(result.expectedMonthlyNet),
+                        }),
+                        ...(attemptEconomics
+                            ? [
+                                  kpiItem({
+                                      id: 'ev-per-attempt',
+                                      info: (
+                                          <>
+                                              <p>
+                                                  {kpiDescriptions.evPerAttempt}
+                                              </p>
+                                              {attemptEconomics.formula && (
+                                                  <p className="mt-2 font-mono text-xs">
+                                                      {attemptEconomics.formula}
+                                                  </p>
+                                              )}
+                                          </>
+                                      ),
+                                      label: 'EV per attempt',
+                                      sub: 'per attempt, ignores time; not the ranking objective',
+                                      value: (
+                                          <ValueOrMissing
+                                              value={
+                                                  attemptEconomics.economics
+                                                      ? formatCurrency(
+                                                            attemptEconomics
+                                                                .economics
+                                                                .expectedNetPerAttempt
+                                                                .value,
+                                                        )
+                                                      : null
+                                              }
+                                          />
+                                      ),
+                                  }),
+                              ]
+                            : []),
+                    ]}
+                />
             </div>
 
             <div>
-                <Eyebrow as="h3" className="mb-2">
+                <PanelSubheading as="h4" className="mb-2">
                     Trading edge
-                </Eyebrow>
-                <div className="grid grid-cols-2 gap-3">
-                    <Kpi
-                        info={{
-                            body: (
+                </PanelSubheading>
+                <StatStrip
+                    items={[
+                        kpiItem({
+                            id: 'max-losing-streak',
+                            info: (
                                 <>
                                     <p>{kpiDescriptions.maxLosingStreak}</p>
                                     <p className="mt-2 font-mono text-xs">
@@ -374,74 +382,64 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
-                            title: 'Max losing streak',
-                        }}
-                        label="Max losing streak"
-                        sub="P50 / P95"
-                        value={`${formatStreak(result.maxLosingStreakP50)} / ${formatStreak(result.maxLosingStreakP95)}`}
-                    />
-                    <Kpi
-                        accent={
-                            result.bustProbability > 0.4
-                                ? KpiAccent.Negative
-                                : KpiAccent.Neutral
-                        }
-                        info={{
-                            body: <p>{kpiDescriptions.bustBeforePassing}</p>,
-                            title: 'Bust before passing',
-                        }}
-                        label="Bust before passing"
-                        sub="same number as bust%"
-                        value={formatPercent(result.bustProbability)}
-                    />
-                    <Kpi
-                        accent={
-                            result.risk5LossesPercent > 0.5
-                                ? KpiAccent.Negative
-                                : KpiAccent.Neutral
-                        }
-                        info={{
-                            body: <p>{kpiDescriptions.risk5Losses}</p>,
-                            title: 'Risk of 5+ consecutive losses',
-                        }}
-                        label="Risk of 5+ losses"
-                        sub={
-                            result.risk10LossesPercent > 0.05
-                                ? `10+: ${formatPercent(result.risk10LossesPercent)}`
-                                : '10+: rare'
-                        }
-                        value={formatPercent(result.risk5LossesPercent)}
-                    />
-                    <Kpi
-                        accent={roiOnCostAccent}
-                        info={{
-                            body: <p>{kpiDescriptions.roiOnCost}</p>,
-                            title: 'ROI on cost',
-                        }}
-                        label="ROI on cost"
-                        sub={`net ${formatCurrency(result.expectedNet)} / cost`}
-                        value={formatOptionalPercent(result.roiOnCost.value)}
-                    />
-                    <Kpi
-                        info={{
-                            body: <p>{kpiDescriptions.tradesPerPass}</p>,
-                            title: 'Trades per pass',
-                        }}
-                        label="Trades per pass"
-                        sub="when you pass"
-                        value={
-                            result.tradesPerSuccessfulAttempt > 0
-                                ? String(
-                                      Math.round(
-                                          result.tradesPerSuccessfulAttempt,
-                                      ),
-                                  )
-                                : NOT_APPLICABLE
-                        }
-                    />
-                    <Kpi
-                        info={{
-                            body: (
+                            label: 'Max losing streak',
+                            sub: 'P50 / P95',
+                            value: `${formatStreak(result.maxLosingStreakP50)} / ${formatStreak(result.maxLosingStreakP95)}`,
+                        }),
+                        kpiItem({
+                            id: 'bust-before-passing',
+                            info: <p>{kpiDescriptions.bustBeforePassing}</p>,
+                            label: 'Bust before passing',
+                            sub: 'same number as bust%',
+                            value: formatPercent(result.bustProbability),
+                        }),
+                        kpiItem({
+                            id: 'risk-5-losses',
+                            info: <p>{kpiDescriptions.risk5Losses}</p>,
+                            label: 'Risk of 5+ losses',
+                            sub:
+                                result.risk10LossesPercent > 0.05
+                                    ? `10+: ${formatPercent(result.risk10LossesPercent)}`
+                                    : '10+: rare',
+                            value: formatPercent(result.risk5LossesPercent),
+                        }),
+                        kpiItem({
+                            id: 'roi-on-cost',
+                            info: <p>{kpiDescriptions.roiOnCost}</p>,
+                            label: 'ROI on cost',
+                            sub: `net ${formatCurrency(result.expectedNet)} / cost`,
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_COST_ROI_REASON}
+                                    value={formatOptionalPercent(
+                                        result.roiOnCost.value,
+                                    )}
+                                />
+                            ),
+                        }),
+                        kpiItem({
+                            id: 'trades-per-pass',
+                            info: <p>{kpiDescriptions.tradesPerPass}</p>,
+                            label: 'Trades per pass',
+                            sub: 'when you pass',
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_PASS_REASON}
+                                    value={
+                                        result.tradesPerSuccessfulAttempt > 0
+                                            ? String(
+                                                  Math.round(
+                                                      result.tradesPerSuccessfulAttempt,
+                                                  ),
+                                              )
+                                            : null
+                                    }
+                                />
+                            ),
+                        }),
+                        kpiItem({
+                            id: 'max-drawdown',
+                            info: (
                                 <>
                                     <p>{kpiDescriptions.maxDrawdown}</p>
                                     <p className="mt-2 font-mono text-xs">
@@ -456,13 +454,12 @@ export default function ResultsPanel({
                                     </p>
                                 </>
                             ),
-                            title: 'Max drawdown',
-                        }}
-                        label="Max drawdown"
-                        sub={`P50 ${formatCompactCurrency(result.maxDrawdownP50)}`}
-                        value={formatCompactCurrency(result.maxDrawdownP95)}
-                    />
-                </div>
+                            label: 'Max drawdown',
+                            sub: `P50 ${formatCompactCurrency(result.maxDrawdownP50)}`,
+                            value: formatCompactCurrency(result.maxDrawdownP95),
+                        }),
+                    ]}
+                />
             </div>
 
             {attemptEconomics && (
@@ -471,9 +468,9 @@ export default function ResultsPanel({
 
             {result.fundedPayoutCountDistribution.length > 0 && (
                 <div>
-                    <Eyebrow as="h3" className="mb-2">
+                    <PanelSubheading as="h4" className="mb-2">
                         Payouts per funded account
-                    </Eyebrow>
+                    </PanelSubheading>
                     <AccountsPassedDistributionChart
                         caption="# payouts per funded account"
                         distribution={result.fundedPayoutCountDistribution}
@@ -484,13 +481,14 @@ export default function ResultsPanel({
 
             {isShowCycleEconomics && (
                 <div>
-                    <Eyebrow as="h3" className="mb-2">
+                    <PanelSubheading as="h4" className="mb-2">
                         Cycle economics
-                    </Eyebrow>
-                    <div className="grid grid-cols-2 gap-3">
-                        <Kpi
-                            info={{
-                                body: (
+                    </PanelSubheading>
+                    <StatStrip
+                        items={[
+                            kpiItem({
+                                id: 'expected-attempts',
+                                info: (
                                     <>
                                         <p>
                                             {kpiDescriptions.expectedAttempts}
@@ -505,15 +503,13 @@ export default function ResultsPanel({
                                         </p>
                                     </>
                                 ),
-                                title: 'Expected attempts',
-                            }}
-                            label="Expected attempts"
-                            sub={`P90: ${result.expectedAttemptsP90.toFixed(0)}`}
-                            value={result.expectedAttempts.toFixed(2)}
-                        />
-                        <Kpi
-                            info={{
-                                body: (
+                                label: 'Expected attempts',
+                                sub: `P90: ${result.expectedAttemptsP90.toFixed(0)}`,
+                                value: result.expectedAttempts.toFixed(2),
+                            }),
+                            kpiItem({
+                                id: 'gross-spend',
+                                info: (
                                     <>
                                         <p>{kpiDescriptions.expectedSpend}</p>
                                         <p className="mt-2 font-mono text-xs">
@@ -528,25 +524,26 @@ export default function ResultsPanel({
                                         </p>
                                     </>
                                 ),
-                                title: 'Expected gross spend',
-                            }}
-                            label="Gross spend"
-                            sub={`P90 budget: ${formatCurrency(result.expectedSpendP90)}`}
-                            value={formatCurrency(result.expectedGrossSpend)}
-                        />
-                        <Kpi
-                            info={{
-                                body: <p>{kpiDescriptions.breakEven}</p>,
-                                title: 'Break-even funded P&L',
-                            }}
-                            label="Break-even"
-                            sub="funded P&L to recoup"
-                            value={formatCurrency(result.breakEvenFundedProfit)}
-                        />
-                    </div>
+                                label: 'Gross spend',
+                                sub: `P90 budget: ${formatCurrency(result.expectedSpendP90)}`,
+                                value: formatCurrency(
+                                    result.expectedGrossSpend,
+                                ),
+                            }),
+                            kpiItem({
+                                id: 'break-even',
+                                info: <p>{kpiDescriptions.breakEven}</p>,
+                                label: 'Break-even',
+                                sub: 'funded P&L to recoup',
+                                value: formatCurrency(
+                                    result.breakEvenFundedProfit,
+                                ),
+                            }),
+                        ]}
+                    />
                 </div>
             )}
-        </div>
+        </ToolPanel>
     );
 }
 
@@ -597,7 +594,7 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
         <div className="flex flex-col gap-1.5">
             <p>{kpiDescriptions.totalCost}</p>
             <Card className="mt-1 gap-1 py-2">
-                <CardContent className="flex flex-col gap-1 px-2 font-mono text-[11px] tabular-nums">
+                <CardContent className="flex flex-col gap-1 px-2 font-mono text-xs tabular-nums">
                     {rows.map((row) => (
                         <div
                             className="flex items-center justify-between gap-3"
@@ -619,9 +616,11 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
                                 Monthly subs per funded acct
                             </span>
                             <span className="text-foreground">
-                                {formatFiniteCurrency(
-                                    callback.subscriptionPerFundedAccount,
-                                )}
+                                <ValueOrMissing
+                                    value={formatFiniteCurrency(
+                                        callback.subscriptionPerFundedAccount,
+                                    )}
+                                />
                             </span>
                         </div>
                     )}
@@ -631,52 +630,35 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
     );
 }
 
-function Kpi({
-    accent = KpiAccent.Neutral,
+function deltaVerdictText({ positive }: DeltaChip): string {
+    if (positive === null) return '';
+    return positive ? ', better' : ', worse';
+}
+
+function kpiItem({
     delta,
+    id,
     info,
     label,
     sub,
     value,
-}: KpiProperties) {
-    const accentClass = KPI_ACCENT_TEXT_CLASS[accent];
-    const deltaClass =
-        delta?.positive === true
-            ? 'text-success'
-            : delta?.positive === false
-              ? 'text-destructive'
-              : 'text-muted-foreground';
-    return (
-        <Card className="gap-1 px-5 py-4">
-            <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <InfoPopover title={info.title}>{info.body}</InfoPopover>
-            </div>
-            <span
-                className={cn(
-                    'font-mono text-2xl font-semibold tabular-nums',
-                    accentClass,
+}: KpiItemProperties): StatStripItem {
+    return {
+        caption: (
+            <>
+                {sub}
+                {delta && (
+                    <span className="mt-0.5 block font-mono tabular-nums">
+                        {delta.text} vs pinned{deltaVerdictText(delta)}
+                    </span>
                 )}
-            >
-                {value}
-            </span>
-            {sub && (
-                <span className="text-xs text-muted-foreground">{sub}</span>
-            )}
-            {delta && (
-                <span
-                    className={cn(
-                        'mt-0.5 font-mono text-[11px] tabular-nums',
-                        deltaClass,
-                    )}
-                >
-                    {delta.text} vs pinned
-                </span>
-            )}
-        </Card>
-    );
+            </>
+        ),
+        id,
+        info,
+        label,
+        value,
+    };
 }
 
 function perTrialFeeValue(

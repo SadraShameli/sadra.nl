@@ -1,8 +1,14 @@
+import { Radar } from 'lucide-react';
 import { memo } from 'react';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { formatDisplayDate } from '~/lib/format';
 
 import { type LiveProximityCardModel } from './overviewModel';
+import { InfoStack, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum FirmWideTriggerColumn {
     Firm = 'firm',
@@ -35,26 +41,45 @@ export const LiveProximityCard = memo(function LiveProximityCard({
         model.singleDayFacts.length === 0 &&
         model.unlistedNote === null;
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info={
+                <InfoStack>
+                    <p>{model.disclosure}</p>
+                    {model.unmeasuredNote !== null && (
+                        <p>{model.unmeasuredNote}</p>
+                    )}
+                </InfoStack>
+            }
+            section={OverviewSectionId.LiveProximity}
+        >
             {isEmpty && (
-                <p className="text-sm text-muted-foreground">
-                    {model.openFundedAccounts === 0
-                        ? 'No open funded account to measure against a live trigger.'
-                        : 'None of your open funded accounts has a payout-count live trigger to count down.'}
-                </p>
+                <EmptyState
+                    icon={Radar}
+                    size={EmptyStateSize.Compact}
+                    title={
+                        model.openFundedAccounts === 0
+                            ? 'No open funded account to measure'
+                            : 'No live trigger to count down'
+                    }
+                />
             )}
             {model.firms.length > 0 && (
                 <DataTable
                     aria-label="Payouts toward a firm-wide live trigger"
                     columns={[
                         {
-                            cell: ({ row }) => <>{row.original.firm}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.firm} />
+                            ),
                             header: 'Firm',
                             id: FirmWideTriggerColumn.Firm,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.paidSinceLastLive}</>
+                                <FigureText
+                                    text={row.original.paidSinceLastLive}
+                                />
                             ),
                             header: 'Paid payouts since',
                             id: FirmWideTriggerColumn.PaidPayoutsSince,
@@ -62,25 +87,33 @@ export const LiveProximityCard = memo(function LiveProximityCard({
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.requestedSinceLastLive}</>
+                                <FigureText
+                                    text={row.original.requestedSinceLastLive}
+                                />
                             ),
                             header: 'Requested payouts',
                             id: FirmWideTriggerColumn.RequestedPayouts,
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.since}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.since} />
+                            ),
                             header: 'Since',
                             id: FirmWideTriggerColumn.Since,
                         },
                         {
-                            cell: ({ row }) => <>{row.original.trigger}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.trigger} />
+                            ),
                             header: 'Firm-wide trigger',
                             id: FirmWideTriggerColumn.FirmWideTrigger,
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.remaining}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.remaining} />
+                            ),
                             header: 'Payouts left',
                             id: FirmWideTriggerColumn.PayoutsLeft,
                             meta: { align: DataTableAlign.End },
@@ -106,37 +139,50 @@ export const LiveProximityCard = memo(function LiveProximityCard({
                     aria-label="Payouts toward a per-account live trigger"
                     columns={[
                         {
-                            cell: ({ row }) => <>{row.original.account}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.account} />
+                            ),
                             header: 'Account',
                             id: PerAccountTriggerColumn.Account,
+                            meta: { isRowHeader: true },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.plan}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.plan} />
+                            ),
                             header: 'Plan',
                             id: PerAccountTriggerColumn.Plan,
                         },
                         {
-                            cell: ({ row }) => <>{row.original.paidPayouts}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.paidPayouts} />
+                            ),
                             header: 'Paid payouts',
                             id: PerAccountTriggerColumn.PaidPayouts,
                             meta: { align: DataTableAlign.End },
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.requestedPayouts}</>
+                                <FigureText
+                                    text={row.original.requestedPayouts}
+                                />
                             ),
                             header: 'Requested payouts',
                             id: PerAccountTriggerColumn.RequestedPayouts,
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.trigger}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.trigger} />
+                            ),
                             header: 'Per-account trigger',
                             id: PerAccountTriggerColumn.PerAccountTrigger,
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.remaining}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.remaining} />
+                            ),
                             header: 'Payouts left',
                             id: PerAccountTriggerColumn.PayoutsLeft,
                             meta: { align: DataTableAlign.End },
@@ -168,24 +214,19 @@ export const LiveProximityCard = memo(function LiveProximityCard({
                             <blockquote className="mt-1 border-l-2 border-border pl-3 text-xs text-muted-foreground">
                                 {fact.quote}
                                 <span className="block">
-                                    {fact.source}, checked {fact.fetchedOn}
+                                    {fact.source}, checked{' '}
+                                    {formatDisplayDate(fact.fetchedOn)}
                                 </span>
                             </blockquote>
                         </li>
                     ))}
                 </ul>
             )}
-            <p className="text-xs text-muted-foreground">{model.disclosure}</p>
-            {model.unmeasuredNote !== null && (
-                <p className="text-xs text-muted-foreground">
-                    {model.unmeasuredNote}
-                </p>
-            )}
             {model.unlistedNote !== null && (
                 <p className="text-xs text-muted-foreground">
                     {model.unlistedNote}
                 </p>
             )}
-        </div>
+        </OverviewPanel>
     );
 });

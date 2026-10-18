@@ -1,8 +1,17 @@
+import { Receipt } from 'lucide-react';
 import { memo } from 'react';
 
+import {
+    figureColumns,
+    FigureText,
+} from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 import { type CostCardModel } from './overviewModel';
+import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 import { SampleBadge } from './SampleBadge';
 
 enum AttemptsByFirmColumn {
@@ -56,30 +65,38 @@ export const CostCard = memo(function CostCard({
     readonly model: CostCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-6">
+        <OverviewPanel
+            contentClassName="gap-6"
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.Costs}
+        >
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium text-foreground">
-                    Net spend by firm
-                </h3>
+                <PanelSubheading>Net spend by firm</PanelSubheading>
                 {model.byFirm.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        No fee recorded yet.
-                    </p>
+                    <EmptyState
+                        icon={Receipt}
+                        size={EmptyStateSize.Compact}
+                        title="No fee recorded yet"
+                    />
                 ) : (
                     <DataTable
-                        columns={[
-                            {
-                                cell: ({ row }) => <>{row.original.firm}</>,
-                                header: 'Firm',
-                                id: CostByFirmColumn.Firm,
-                            },
-                            {
-                                cell: ({ row }) => <>{row.original.amount}</>,
-                                header: 'Net spend',
-                                id: CostByFirmColumn.NetSpend,
-                                meta: { align: DataTableAlign.End },
-                            },
-                        ]}
+                        columns={figureColumns(
+                            [
+                                {
+                                    header: 'Firm',
+                                    id: CostByFirmColumn.Firm,
+                                    isRowHeader: true,
+                                    textOf: (row) => row.firm,
+                                },
+                                {
+                                    align: DataTableAlign.End,
+                                    header: 'Net spend',
+                                    id: CostByFirmColumn.NetSpend,
+                                    textOf: (row) => row.amount,
+                                },
+                            ],
+                            model.byFirm,
+                        )}
                         data={[...model.byFirm]}
                         isSortable={false}
                         pageSize={null}
@@ -89,23 +106,25 @@ export const CostCard = memo(function CostCard({
             </div>
             {model.byKind.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
-                        Net spend by fee kind
-                    </h3>
+                    <PanelSubheading>Net spend by fee kind</PanelSubheading>
                     <DataTable
-                        columns={[
-                            {
-                                cell: ({ row }) => <>{row.original.kind}</>,
-                                header: 'Fee kind',
-                                id: CostByFeeKindColumn.FeeKind,
-                            },
-                            {
-                                cell: ({ row }) => <>{row.original.amount}</>,
-                                header: 'Amount',
-                                id: CostByFeeKindColumn.Amount,
-                                meta: { align: DataTableAlign.End },
-                            },
-                        ]}
+                        columns={figureColumns(
+                            [
+                                {
+                                    header: 'Fee kind',
+                                    id: CostByFeeKindColumn.FeeKind,
+                                    isRowHeader: true,
+                                    textOf: (row) => row.kind,
+                                },
+                                {
+                                    align: DataTableAlign.End,
+                                    header: 'Amount',
+                                    id: CostByFeeKindColumn.Amount,
+                                    textOf: (row) => row.amount,
+                                },
+                            ],
+                            model.byKind,
+                        )}
                         data={[...model.byKind]}
                         isSortable={false}
                         pageSize={null}
@@ -114,24 +133,29 @@ export const CostCard = memo(function CostCard({
                 </div>
             )}
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-medium text-foreground">
-                    Cost per funded account
-                </h3>
+                <PanelSubheading>Cost per funded account</PanelSubheading>
                 {model.perPlan.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        No account with a modeled plan yet.
-                    </p>
+                    <EmptyState
+                        icon={Receipt}
+                        size={EmptyStateSize.Compact}
+                        title="No account with a modeled plan yet"
+                    />
                 ) : (
                     <DataTable
                         columns={[
                             {
-                                cell: ({ row }) => <>{row.original.plan}</>,
+                                cell: ({ row }) => (
+                                    <FigureText text={row.original.plan} />
+                                ),
                                 header: 'Plan',
                                 id: CostByPlanColumn.Plan,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.acquisitionSpend}</>
+                                    <FigureText
+                                        text={row.original.acquisitionSpend}
+                                    />
                                 ),
                                 header: 'Decided spend',
                                 id: CostByPlanColumn.DecidedSpend,
@@ -157,7 +181,9 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.costPerAttempt}</>
+                                    <FigureText
+                                        text={row.original.costPerAttempt}
+                                    />
                                 ),
                                 header: 'Cost per attempt',
                                 id: CostByPlanColumn.CostPerAttempt,
@@ -165,7 +191,9 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.impliedAttempts}</>
+                                    <FigureText
+                                        text={row.original.impliedAttempts}
+                                    />
                                 ),
                                 header: 'Implied attempts',
                                 id: CostByPlanColumn.ImpliedAttempts,
@@ -191,7 +219,9 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.costPerFunded}</>
+                                    <FigureText
+                                        text={row.original.costPerFunded}
+                                    />
                                 ),
                                 header: 'Realized cost per funded',
                                 id: CostByPlanColumn.RealizedCostPerFunded,
@@ -199,7 +229,9 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.pendingSpend}</>
+                                    <FigureText
+                                        text={row.original.pendingSpend}
+                                    />
                                 ),
                                 header: 'Pending spend',
                                 id: CostByPlanColumn.PendingSpend,
@@ -207,7 +239,9 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.pendingEvalAccounts}</>
+                                    <FigureText
+                                        text={row.original.pendingEvalAccounts}
+                                    />
                                 ),
                                 header: 'Open eval attempts',
                                 id: CostByPlanColumn.OpenEvalAttempts,
@@ -215,9 +249,10 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <span className="text-muted-foreground">
-                                        {row.original.modeled}
-                                    </span>
+                                    <FigureText
+                                        className="text-muted-foreground"
+                                        text={row.original.modeled}
+                                    />
                                 ),
                                 header: 'Modeled cost per funded',
                                 id: CostByPlanColumn.ModeledCostPerFunded,
@@ -225,7 +260,9 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.realizedMinusModeled}</>
+                                    <FigureText
+                                        text={row.original.realizedMinusModeled}
+                                    />
                                 ),
                                 header: 'Realized minus modeled',
                                 id: CostByPlanColumn.RealizedMinusModeled,
@@ -241,9 +278,9 @@ export const CostCard = memo(function CostCard({
             </div>
             {model.byAccountSize.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         Attempts and cost per attempt by account size
-                    </h3>
+                    </PanelSubheading>
                     <DataTable
                         columns={[
                             {
@@ -254,6 +291,7 @@ export const CostCard = memo(function CostCard({
                                 ),
                                 header: 'Account size',
                                 id: CostByAccountSizeColumn.AccountSize,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => (
@@ -275,14 +313,18 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.costPerAttempt}</>
+                                    <FigureText
+                                        text={row.original.costPerAttempt}
+                                    />
                                 ),
                                 header: 'Cost per attempt',
                                 id: CostByAccountSizeColumn.CostPerAttempt,
                                 meta: { align: DataTableAlign.End },
                             },
                             {
-                                cell: ({ row }) => <>{row.original.spend}</>,
+                                cell: ({ row }) => (
+                                    <FigureText text={row.original.spend} />
+                                ),
                                 header: 'Decided spend',
                                 id: CostByAccountSizeColumn.DecidedSpend,
                                 meta: { align: DataTableAlign.End },
@@ -297,15 +339,18 @@ export const CostCard = memo(function CostCard({
             )}
             {model.byFirmAttemptCost.length > 0 && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         Attempts and cost per attempt by firm
-                    </h3>
+                    </PanelSubheading>
                     <DataTable
                         columns={[
                             {
-                                cell: ({ row }) => <>{row.original.firm}</>,
+                                cell: ({ row }) => (
+                                    <FigureText text={row.original.firm} />
+                                ),
                                 header: 'Firm',
                                 id: AttemptsByFirmColumn.Firm,
+                                meta: { isRowHeader: true },
                             },
                             {
                                 cell: ({ row }) => (
@@ -327,7 +372,9 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.costPerAttempt}</>
+                                    <FigureText
+                                        text={row.original.costPerAttempt}
+                                    />
                                 ),
                                 header: 'Cost per attempt',
                                 id: AttemptsByFirmColumn.CostPerAttempt,
@@ -335,7 +382,9 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.impliedAttempts}</>
+                                    <FigureText
+                                        text={row.original.impliedAttempts}
+                                    />
                                 ),
                                 header: 'Implied attempts',
                                 id: AttemptsByFirmColumn.ImpliedAttempts,
@@ -343,7 +392,9 @@ export const CostCard = memo(function CostCard({
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.retryFeeAttempts}</>
+                                    <FigureText
+                                        text={row.original.retryFeeAttempts}
+                                    />
                                 ),
                                 header: 'Resets and rebuys',
                                 id: AttemptsByFirmColumn.ResetsAndRebuys,
@@ -360,34 +411,34 @@ export const CostCard = memo(function CostCard({
             {(model.discountsByFirm.length > 0 ||
                 model.discountsNote !== null) && (
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-sm font-medium text-foreground">
+                    <PanelSubheading>
                         Discounts captured by firm
-                    </h3>
+                    </PanelSubheading>
                     {model.discountsByFirm.length > 0 && (
                         <DataTable
-                            columns={[
-                                {
-                                    cell: ({ row }) => <>{row.original.firm}</>,
-                                    header: 'Firm',
-                                    id: FeeCheckColumn.Firm,
-                                },
-                                {
-                                    cell: ({ row }) => (
-                                        <>{row.original.discount}</>
-                                    ),
-                                    header: 'Discount vs list price',
-                                    id: FeeCheckColumn.DiscountVsListPrice,
-                                    meta: { align: DataTableAlign.End },
-                                },
-                                {
-                                    cell: ({ row }) => (
-                                        <>{row.original.feesChecked}</>
-                                    ),
-                                    header: 'Fees checked',
-                                    id: FeeCheckColumn.FeesChecked,
-                                    meta: { align: DataTableAlign.End },
-                                },
-                            ]}
+                            columns={figureColumns(
+                                [
+                                    {
+                                        header: 'Firm',
+                                        id: FeeCheckColumn.Firm,
+                                        isRowHeader: true,
+                                        textOf: (row) => row.firm,
+                                    },
+                                    {
+                                        align: DataTableAlign.End,
+                                        header: 'Discount vs list price',
+                                        id: FeeCheckColumn.DiscountVsListPrice,
+                                        textOf: (row) => row.discount,
+                                    },
+                                    {
+                                        align: DataTableAlign.End,
+                                        header: 'Fees checked',
+                                        id: FeeCheckColumn.FeesChecked,
+                                        textOf: (row) => row.feesChecked,
+                                    },
+                                ],
+                                model.discountsByFirm,
+                            )}
                             data={[...model.discountsByFirm]}
                             isSortable={false}
                             pageSize={null}
@@ -401,17 +452,6 @@ export const CostCard = memo(function CostCard({
                     )}
                 </div>
             )}
-            <Disclosures items={model.disclosures} />
-        </div>
+        </OverviewPanel>
     );
 });
-
-function Disclosures({ items }: { readonly items: readonly string[] }) {
-    return (
-        <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {items.map((item) => (
-                <li key={item}>{item}</li>
-            ))}
-        </ul>
-    );
-}

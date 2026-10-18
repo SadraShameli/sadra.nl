@@ -1,3 +1,6 @@
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import { DetailList, type DetailListItem } from '~/components/DetailList';
+
 import {
     type AccountFromStateModel,
     MilestoneValueViewKind,
@@ -8,93 +11,14 @@ export function AccountFromStateDetails({
 }: {
     readonly model: AccountFromStateModel;
 }) {
-    const { milestone, nextPayout, value } = model;
+    const { milestone } = model;
     return (
         <div className="flex flex-col gap-3">
-            <dl className="grid gap-x-6 gap-y-1 text-sm md:grid-cols-[auto_1fr]">
-                <dt className="text-muted-foreground">
-                    Value from this state, credit-free
-                </dt>
-                <dd className="tabular-nums">{value.creditFree}</dd>
-                <dt className="text-muted-foreground">
-                    Value from this state, with end-of-horizon credit
-                </dt>
-                <dd className="tabular-nums">{value.creditInclusive}</dd>
-                {milestone.value.kind === MilestoneValueViewKind.Value ? (
-                    <>
-                        <dt className="text-muted-foreground">
-                            {milestone.label}
-                        </dt>
-                        <dd className="tabular-nums">
-                            {milestone.value.creditFree} credit-free;{' '}
-                            {milestone.value.creditInclusive} with credit
-                        </dd>
-                        <dt className="text-muted-foreground">
-                            Credit-free gain from the milestone
-                        </dt>
-                        <dd className="tabular-nums">{milestone.value.gain}</dd>
-                    </>
-                ) : (
-                    <>
-                        <dt className="text-muted-foreground">
-                            {milestone.label}
-                        </dt>
-                        <dd className="text-warning">{milestone.value.text}</dd>
-                    </>
-                )}
-                {milestone.debited !== null && (
-                    <>
-                        <dt className="text-muted-foreground">
-                            Payout requested at the milestone
-                        </dt>
-                        <dd className="tabular-nums">{milestone.debited}</dd>
-                    </>
-                )}
-                {milestone.received !== null && (
-                    <>
-                        <dt className="text-muted-foreground">
-                            Cash you receive from that payout
-                        </dt>
-                        <dd className="tabular-nums">{milestone.received}</dd>
-                    </>
-                )}
-                {nextPayout !== null && (
-                    <>
-                        <dt className="text-muted-foreground">
-                            Expected time to the next payout
-                        </dt>
-                        <dd className="tabular-nums">
-                            {nextPayout.calendarDays}; {nextPayout.sessionDays}
-                        </dd>
-                        <dt className="text-muted-foreground">
-                            Chance the account is lost before the next payout
-                        </dt>
-                        <dd className="tabular-nums">
-                            {nextPayout.accountLostBeforePayout}
-                        </dd>
-                        <dt className="text-muted-foreground">
-                            Chance the next payout itself causes the breach
-                        </dt>
-                        <dd className="tabular-nums">
-                            {nextPayout.breachAtFirstPayout}
-                        </dd>
-                        <dt className="text-muted-foreground">
-                            Expected reset fees before the next payout
-                        </dt>
-                        <dd className="tabular-nums">{nextPayout.resetFee}</dd>
-                        <dt className="text-muted-foreground">
-                            Trials that reached a payout
-                        </dt>
-                        <dd className="tabular-nums">
-                            {nextPayout.payingTrials}
-                        </dd>
-                    </>
-                )}
-            </dl>
+            <DetailList items={detailItemsOf(model)} />
             {milestone.gates.length > 0 && (
                 <ul
                     aria-label="Gates not met at the milestone"
-                    className="flex list-disc flex-col gap-1 pl-5 text-xs text-warning"
+                    className="flex list-disc flex-col gap-1 pl-5 text-xs"
                 >
                     {milestone.gates.map((gate) => (
                         <li key={gate}>{gate}</li>
@@ -116,4 +40,93 @@ export function AccountFromStateDetails({
             </p>
         </div>
     );
+}
+
+function detailItemsOf(
+    model: AccountFromStateModel,
+): readonly DetailListItem[] {
+    const { milestone, nextPayout, value } = model;
+    return [
+        {
+            id: 'value-credit-free',
+            label: 'Value from this state, credit-free',
+            value: value.creditFree,
+        },
+        {
+            id: 'value-credit-inclusive',
+            label: 'Value from this state, with end-of-horizon credit',
+            value: value.creditInclusive,
+        },
+        ...(milestone.value.kind === MilestoneValueViewKind.Value
+            ? [
+                  {
+                      id: 'milestone-value',
+                      label: milestone.label,
+                      value: `${milestone.value.creditFree} credit-free; ${milestone.value.creditInclusive} with credit`,
+                  },
+                  {
+                      id: 'milestone-gain',
+                      label: 'Credit-free gain from the milestone',
+                      value: milestone.value.gain,
+                  },
+              ]
+            : [
+                  {
+                      id: 'milestone-value',
+                      label: milestone.label,
+                      value: milestone.value.text,
+                  },
+              ]),
+        ...(milestone.debited === null
+            ? []
+            : [
+                  {
+                      id: 'milestone-debited',
+                      label: 'Payout requested at the milestone',
+                      value: milestone.debited,
+                  },
+              ]),
+        ...(milestone.received === null
+            ? []
+            : [
+                  {
+                      id: 'milestone-received',
+                      label: 'Cash you receive from that payout',
+                      value: milestone.received,
+                  },
+              ]),
+        ...(nextPayout === null
+            ? []
+            : [
+                  {
+                      id: 'next-payout-time',
+                      label: 'Expected time to the next payout',
+                      value: `${nextPayout.calendarDays}; ${nextPayout.sessionDays}`,
+                  },
+                  {
+                      id: 'next-payout-account-lost',
+                      label: 'Chance the account is lost before the next payout',
+                      value: (
+                          <FigureText
+                              text={nextPayout.accountLostBeforePayout}
+                          />
+                      ),
+                  },
+                  {
+                      id: 'next-payout-breach',
+                      label: 'Chance the next payout itself causes the breach',
+                      value: nextPayout.breachAtFirstPayout,
+                  },
+                  {
+                      id: 'next-payout-reset-fee',
+                      label: 'Expected reset fees before the next payout',
+                      value: nextPayout.resetFee,
+                  },
+                  {
+                      id: 'next-payout-paying-trials',
+                      label: 'Trials that reached a payout',
+                      value: nextPayout.payingTrials,
+                  },
+              ]),
+    ];
 }

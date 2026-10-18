@@ -3,13 +3,11 @@
 import { Target } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 
-import { Card } from '~/components/ui/card';
+import { InfoNote } from '~/components/InfoNote';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
-import InfoPopover from '~/components/ui/info-popover';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     formatCurrency,
-    formatDays,
     formatOptionalPercent,
     formatPercent,
     formatStreak,
@@ -25,7 +23,6 @@ import {
     type BankrollRiskFigures,
     bankrollRiskFigures,
 } from '~/lib/prop-calculator/economics';
-import { cn } from '~/lib/utilities';
 
 import {
     AppliedEvalLadderNotice,
@@ -46,9 +43,12 @@ import {
 } from './objectiveRanking';
 import { riskPercentToDollars } from './riskConversion';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { passDaysColumn, roiColumn } from './simOutputColumns';
 import { partitionBySizing } from './simulationFailure';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
+import { useSectionComputing } from './ToolSection';
 import { useDebouncedComputation } from './useDebouncedSimulation';
+import { ValueOrMissing } from './ValueOrMissing';
 
 const RISK_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5] as const;
 const DEBOUNCE_MS = 500;
@@ -120,6 +120,7 @@ export default function OptimalRiskTable({
     );
 
     const cardReference = useRef<HTMLDivElement>(null);
+    useSectionComputing(pending);
 
     const starred = useMemo(
         () =>
@@ -150,12 +151,13 @@ export default function OptimalRiskTable({
                         </span>
                         {starred.has(row.original) &&
                             row.original.riskPct !== closestRiskPct && (
-                                <span className="ml-1 text-success">★</span>
+                                <span className="ml-1">★</span>
                             )}
                     </>
                 ),
                 header: 'Risk',
                 id: 'risk',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.out.evalPassProbability,
@@ -178,12 +180,7 @@ export default function OptimalRiskTable({
                 header: 'Bust%',
                 id: 'bust',
             },
-            {
-                accessorFn: (r) => r.out.daysToPassP50,
-                cell: ({ row }) => formatDays(row.original.out.daysToPassP50),
-                header: 'Days P50',
-                id: 'days',
-            },
+            passDaysColumn<Row>('Days P50'),
             {
                 accessorFn: (r) => r.out.expectedMonthlyNet,
                 cell: ({ row }) =>
@@ -198,14 +195,7 @@ export default function OptimalRiskTable({
                 id: 'cycleNet',
             },
             ...(bankroll === null ? [] : bankrollColumns()),
-            {
-                accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
-                cell: ({ row }) =>
-                    formatOptionalPercent(row.original.out.roiOnCost.value),
-                header: 'ROI',
-                id: 'roi',
-                sortUndefined: 'last',
-            },
+            roiColumn<Row>(),
             {
                 accessorFn: (r) => r.out.maxLosingStreakP95,
                 cell: ({ row }) =>
@@ -218,48 +208,39 @@ export default function OptimalRiskTable({
     );
 
     return (
-        <Card
-            className={cn(
-                'app-prop-calculator__optimal-risk',
-                'px-5 py-4 outline-none',
-            )}
+        <div
+            className="app-prop-calculator__optimal-risk flex flex-col gap-4 outline-none"
             ref={cardReference}
             tabIndex={-1}
         >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">
-                        Optimal risk sweep
-                    </h3>
-                    <InfoPopover title="Optimal risk sweep">
-                        {panelDescriptions.optimalRiskSweep}
-                    </InfoPopover>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                    {pending
-                        ? 'computing…'
-                        : `engine optimum for ${riskTableObjective(objectiveView.effective).label} at ${formatPercent(
-                              (bestRow?.riskPct ?? 0) / 100,
-                              2,
-                          )}`}
-                </span>
-            </div>
-            <p className="mt-2 text-xs font-medium text-foreground">
+            <InfoNote
+                info={
+                    <>
+                        <p>{panelDescriptions.optimalRiskSweep}</p>
+                        <p>{ENGINE_OPTIMUM_NOTE}</p>
+                        {bankroll !== null && (
+                            <p>
+                                Bankroll figures are priced at{' '}
+                                {formatCurrency(bankroll)}: attempts affordable
+                                are the bankroll over the cost per attempt, P(no
+                                payout) is across those attempts and P(batch
+                                &lt; 0) is the chance they end below zero.
+                            </p>
+                        )}
+                    </>
+                }
+                infoTitle="Optimal risk sweep"
+            >
                 {documentedSizingHeadline(rulebook, rulebookSource)}
-            </p>
-            <div className="mt-1 empty:hidden">
-                <RulebookSourceNotice source={rulebookSource} />
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-                {ENGINE_OPTIMUM_NOTE}
-            </p>
-            <CalculatorObjectiveChip className="mt-2" />
-            {bankroll !== null && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                    Bankroll figures are priced at {formatCurrency(bankroll)}:
-                    attempts affordable are the bankroll over the cost per
-                    attempt, P(no payout) is across those attempts and P(batch
-                    &lt; 0) is the chance they end below zero.
+            </InfoNote>
+            <RulebookSourceNotice source={rulebookSource} />
+            <CalculatorObjectiveChip />
+            {bestRow === null ? null : (
+                <p className="m-0 text-xs text-muted-foreground">
+                    {`engine optimum for ${riskTableObjective(objectiveView.effective).label} at ${formatPercent(
+                        bestRow.riskPct / 100,
+                        2,
+                    )}`}
                 </p>
             )}
             <AppliedEvalLadderNotice
@@ -280,18 +261,16 @@ export default function OptimalRiskTable({
                     <EmptyState
                         description="Adjust your inputs to see the optimal risk distribution."
                         icon={Target}
+                        size={EmptyStateSize.Compact}
                         title="No data yet"
                     />
                 }
+                isCurrentRow={(r) => r.riskPct === closestRiskPct}
+                isLoading={pending && rows.length === 0}
                 pageSize={null}
-                rowClassName={(r) =>
-                    r.riskPct === closestRiskPct
-                        ? 'bg-primary/10 font-semibold text-foreground'
-                        : undefined
-                }
                 rowId={(r) => String(r.riskPct)}
             />
-        </Card>
+        </div>
     );
 }
 
@@ -299,20 +278,26 @@ function bankrollColumns(): DataTableColumn<Row>[] {
     return [
         {
             accessorFn: (r) => r.bankroll?.noPayoutProbability ?? undefined,
-            cell: ({ row }) =>
-                formatOptionalPercent(
-                    row.original.bankroll?.noPayoutProbability ?? null,
-                ),
+            cell: ({ row }) => (
+                <ValueOrMissing
+                    value={formatOptionalPercent(
+                        row.original.bankroll?.noPayoutProbability ?? null,
+                    )}
+                />
+            ),
             header: 'P(no payout)',
             id: 'noPayout',
             sortUndefined: 'last',
         },
         {
             accessorFn: (r) => r.bankroll?.lossProbability ?? undefined,
-            cell: ({ row }) =>
-                formatOptionalPercent(
-                    row.original.bankroll?.lossProbability ?? null,
-                ),
+            cell: ({ row }) => (
+                <ValueOrMissing
+                    value={formatOptionalPercent(
+                        row.original.bankroll?.lossProbability ?? null,
+                    )}
+                />
+            ),
             header: 'P(batch < 0)',
             id: 'batchLoss',
             sortUndefined: 'last',

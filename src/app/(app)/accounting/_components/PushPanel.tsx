@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, Send, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Circle, Send, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ExternalId, RunId } from '~/lib/accounting/core/ids';
@@ -13,6 +13,7 @@ import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Progress } from '~/components/ui/progress';
 import { Spinner } from '~/components/ui/spinner';
+import { formatDisplayDate } from '~/lib/format';
 import { apiRoutes } from '~/lib/site/routes';
 import { api } from '~/trpc/react';
 
@@ -159,11 +160,9 @@ export function PushPanel({
                             {progress.current} / {progress.total}
                         </span>
                         <span>
-                            <span className="text-success">
-                                {postedCount} posted
-                            </span>
+                            <span>{postedCount} posted</span>
                             {failedCount > 0 && (
-                                <span className="ml-3 text-destructive">
+                                <span className="ml-3">
                                     {failedCount} failed
                                 </span>
                             )}
@@ -199,25 +198,31 @@ export function PushPanel({
                             >
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex min-w-0 items-center gap-2">
-                                        <RowIcon status={row.status} />
-                                        <span className="font-mono text-info">
+                                        <RowIcon
+                                            isPosting={isPending}
+                                            status={row.status}
+                                        />
+                                        <span className="font-mono">
                                             {b.txnId}
                                         </span>
                                         <span className="truncate text-muted-foreground">
-                                            {b.counterpartName} · {b.date}
+                                            {b.counterpartName} ·{' '}
+                                            {formatDisplayDate(b.date)}
                                         </span>
                                     </div>
                                     {row.status === 'posted' &&
                                         row.externalId !== undefined && (
-                                            <Badge variant="success">
-                                                #{row.externalId}
+                                            <Badge>
+                                                Posted #{row.externalId}
                                             </Badge>
                                         )}
                                 </div>
                                 {row.status === 'failed' && (
                                     <div className="pl-5">
-                                        <Badge variant="destructive">
-                                            {row.error ?? 'failed'}
+                                        <Badge>
+                                            {row.error === undefined
+                                                ? 'Failed'
+                                                : `Failed: ${row.error}`}
                                         </Badge>
                                     </div>
                                 )}
@@ -227,19 +232,27 @@ export function PushPanel({
                 </ul>
             </Card>
 
-            <div className="text-[10px] text-muted-foreground">
+            <div className="text-xs text-muted-foreground">
                 {bookings.length} total booking(s) in this run.
             </div>
         </div>
     );
 }
 
-function RowIcon({ status }: { status: PostRowStatus }) {
+function RowIcon({
+    isPosting,
+    status,
+}: {
+    isPosting: boolean;
+    status: PostRowStatus;
+}) {
     if (status === 'posted')
-        return <CheckCircle2 className="size-3.5 text-success" />;
-    return status === 'failed' ? (
-        <XCircle className="size-3.5 text-destructive" />
+        return <CheckCircle2 aria-hidden className="size-3.5 text-ink" />;
+    if (status === 'failed')
+        return <XCircle aria-hidden className="size-3.5 text-ink" />;
+    return isPosting ? (
+        <Spinner className="size-3.5 text-ink" />
     ) : (
-        <Spinner className="size-3.5 text-muted-foreground" />
+        <Circle aria-hidden className="size-3.5 text-ink" />
     );
 }

@@ -1,8 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil } from 'lucide-react';
-import { useEffect, useId } from 'react';
+import { ShieldCheck } from 'lucide-react';
+import { useId } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -11,8 +11,16 @@ import {
     useFollowToday,
     useTodayIsoDate,
 } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
-import { Button } from '~/components/ui/button';
+import { FormDialog } from '~/components/FormDialog';
+import { MissingValue } from '~/components/MissingValue';
+import {
+    deleteRowAction,
+    editRowAction,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { Dialog } from '~/components/ui/dialog';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     Field,
     FieldDescription,
@@ -29,7 +37,7 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
-import { NOT_APPLICABLE } from '~/lib/format';
+import { formatDisplayDate } from '~/lib/format';
 import {
     formatUsdCents,
     RuleViolationKind,
@@ -38,11 +46,11 @@ import {
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import {
+    AddRecordButton,
     type ListQuery,
     ListQueryStatus,
-    RemoveRecordDialog,
 } from './DetailParts';
-import { useRowEditing } from './useRowEditing';
+import { useRecordDialog } from './useRecordDialog';
 import {
     emptyViolationFormValues,
     NO_LINKED_DECISION,
@@ -52,7 +60,6 @@ import {
 } from './violationForm';
 
 enum ViolationsSectionColumn {
-    Actions = 'actions',
     Cost = 'cost',
     Date = 'date',
     Kind = 'kind',
@@ -89,20 +96,16 @@ export function ViolationForm({
     const update = api.propAccounts.violation.update.useMutation();
     const schema = violationFormSchema(accountId);
     const today = useTodayIsoDate();
-    const emptyValues = emptyViolationFormValues(today);
     const form = useForm<ViolationFormValues>({
         defaultValues:
             editing === null
-                ? (initial ?? emptyValues)
+                ? (initial ?? emptyViolationFormValues(today))
                 : violationEditFormValues(editing),
         resolver: zodResolver(schema, undefined, { raw: true }),
     });
     const formId = useId();
-    const { setFocus } = form;
-    const isEditing = editing !== null;
-    const isOpenedOnPurpose = isEditing || initial !== undefined;
     useFollowToday({
-        isEnabled: !isOpenedOnPurpose,
+        isEnabled: editing === null && initial === undefined,
         read: () => form.getValues('occurredOn'),
         today,
         write: (day) => {
@@ -110,10 +113,6 @@ export function ViolationForm({
         },
     });
     const kind = useWatch({ control: form.control, name: 'kind' });
-
-    useEffect(() => {
-        if (isOpenedOnPurpose) setFocus('kind');
-    }, [isOpenedOnPurpose, setFocus]);
 
     const save = async (values: ViolationFormValues) => {
         const parsed = schema.safeParse(values);
@@ -134,7 +133,6 @@ export function ViolationForm({
                 });
                 toast.success('Violation saved');
             }
-            form.reset(emptyValues);
             onDone();
         } catch (error) {
             onFailure(error);
@@ -144,13 +142,13 @@ export function ViolationForm({
     };
 
     return (
-        <form
-            aria-label={formLabelOf(editing, initial)}
-            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-            noValidate
-            onSubmit={(event) => {
-                void form.handleSubmit(save)(event);
-            }}
+        <FormDialog
+            form={form}
+            onCancel={onDone}
+            onSubmit={save}
+            pending={create.isPending || update.isPending}
+            submitLabel={editing === null ? 'Add violation' : 'Save violation'}
+            title={formTitleOf(editing, initial)}
         >
             <Controller
                 control={form.control}
@@ -174,7 +172,9 @@ export function ViolationForm({
                                 id={`${formId}-kind`}
                                 ref={field.ref}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {ruleViolationKindLabel(field.value)}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(RuleViolationKind).map(
@@ -254,18 +254,26 @@ export function ViolationForm({
                                 id={`${formId}-decisionId`}
                                 ref={field.ref}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {decisionOptionLabel(
+                                        field.value,
+                                        decisions,
+                                    )}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value={NO_LINKED_DECISION}>
-                                    No linked decision
+                                    {NO_LINKED_DECISION_LABEL}
                                 </SelectItem>
                                 {decisions.map((decision) => (
                                     <SelectItem
                                         key={decision.id}
                                         value={decision.id}
                                     >
-                                        {`Decision on ${decision.decidedOn}`}
+                                        {decisionOptionLabel(
+                                            decision.id,
+                                            decisions,
+                                        )}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -278,10 +286,7 @@ export function ViolationForm({
                 control={form.control}
                 name="note"
                 render={({ field, fieldState }) => (
-                    <Field
-                        className="md:col-span-2 lg:col-span-3"
-                        data-invalid={fieldState.invalid}
-                    >
+                    <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor={`${formId}-note`}>Note</FieldLabel>
                         <Textarea
                             aria-invalid={fieldState.invalid}
@@ -293,20 +298,7 @@ export function ViolationForm({
                     </Field>
                 )}
             />
-            <div className="flex flex-wrap items-center gap-2 md:col-span-2 lg:col-span-3">
-                <Button
-                    disabled={create.isPending || update.isPending}
-                    type="submit"
-                >
-                    {editing === null ? 'Add violation' : 'Save violation'}
-                </Button>
-                {isOpenedOnPurpose && (
-                    <Button onClick={onDone} type="button" variant="ghost">
-                        {isEditing ? 'Cancel edit' : 'Cancel'}
-                    </Button>
-                )}
-            </div>
-        </form>
+        </FormDialog>
     );
 }
 
@@ -321,8 +313,7 @@ export function ViolationsSection({
     readonly onFailure: (error: unknown) => void;
     readonly query: ListQuery<ViolationRow>;
 }) {
-    const { editing, startEditing, stopEditing } =
-        useRowEditing<ViolationRow>();
+    const dialog = useRecordDialog<ViolationRow>();
     const utilities = api.useUtils();
     const decisionsQuery = api.propAccounts.decision.listForAccount.useQuery({
         id: accountId,
@@ -343,9 +334,11 @@ export function ViolationsSection({
         <>
             <ListQueryStatus query={query} subject="rule violations" />
             {rows?.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                    No rule violations recorded yet.
-                </p>
+                <EmptyState
+                    icon={ShieldCheck}
+                    size={EmptyStateSize.Compact}
+                    title="No rule violations recorded yet"
+                />
             )}
             {rows !== undefined && rows.length > 0 && (
                 <DataTable
@@ -353,11 +346,12 @@ export function ViolationsSection({
                         {
                             cell: ({ row: { original: row } }) => (
                                 <div className="tabular-nums">
-                                    {row.occurredOn}
+                                    {formatDisplayDate(row.occurredOn)}
                                 </div>
                             ),
                             header: 'Date',
                             id: ViolationsSectionColumn.Date,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row: { original: row } }) => {
@@ -370,9 +364,11 @@ export function ViolationsSection({
                         {
                             cell: ({ row: { original: row } }) => (
                                 <>
-                                    {row.costCents === null
-                                        ? NOT_APPLICABLE
-                                        : formatUsdCents(row.costCents)}
+                                    {row.costCents === null ? (
+                                        <MissingValue reason="No cost was recorded for this violation." />
+                                    ) : (
+                                        formatUsdCents(row.costCents)
+                                    )}
                                 </>
                             ),
                             header: 'Cost',
@@ -390,7 +386,7 @@ export function ViolationsSection({
                                     <div className="tabular-nums">
                                         {linkedDecision === null
                                             ? ''
-                                            : `Decision on ${linkedDecision.decidedOn}`}
+                                            : `Decision on ${formatDisplayDate(linkedDecision.decidedOn)}`}
                                     </div>
                                 );
                             },
@@ -406,51 +402,30 @@ export function ViolationsSection({
                             header: 'Note',
                             id: ViolationsSectionColumn.Note,
                         },
-                        {
-                            cell: ({ row: { original: row } }) => {
-                                const label = ruleViolationKindLabel(row.kind);
-                                return (
-                                    <>
-                                        <div className="flex justify-end gap-1">
-                                            {canRecord && (
-                                                <Button
-                                                    aria-label={`Edit the ${label} violation of ${row.occurredOn}`}
-                                                    onClick={(event) => {
-                                                        startEditing(
-                                                            row,
-                                                            event.currentTarget,
-                                                        );
-                                                    }}
-                                                    size="icon"
-                                                    type="button"
-                                                    variant="ghost"
-                                                >
-                                                    <Pencil />
-                                                </Button>
-                                            )}
-                                            <RemoveRecordDialog
-                                                confirmText="Delete"
-                                                description="This permanently removes the violation from this account."
-                                                isPending={remove.isPending}
-                                                onConfirm={() => {
-                                                    remove.mutate({
-                                                        id: row.id,
-                                                    });
-                                                }}
-                                                title="Delete this violation?"
-                                                triggerLabel={`Delete the ${label} violation of ${row.occurredOn}`}
-                                            />
-                                        </div>
-                                    </>
-                                );
-                            },
-                            header: () => (
-                                <>
-                                    <span className="sr-only">Actions</span>
-                                </>
-                            ),
-                            id: ViolationsSectionColumn.Actions,
-                        },
+                        rowActionsColumn<ViolationRow>({
+                            actionsOf: (row) => [
+                                ...(canRecord
+                                    ? [
+                                          editRowAction(() => {
+                                              dialog.startEditing(row);
+                                          }),
+                                      ]
+                                    : []),
+                                deleteRowAction({
+                                    description:
+                                        'This permanently removes the violation from this account.',
+                                    onDelete: () => {
+                                        remove.mutate({ id: row.id });
+                                    },
+                                    title: 'Delete this violation?',
+                                }),
+                            ],
+                            isPendingOf: (row) =>
+                                remove.isPending &&
+                                remove.variables.id === row.id,
+                            labelOf: (row) =>
+                                `the ${ruleViolationKindLabel(row.kind)} violation of ${formatDisplayDate(row.occurredOn)}`,
+                        }),
                     ]}
                     data={[...rows]}
                     isSortable={false}
@@ -459,18 +434,27 @@ export function ViolationsSection({
                 />
             )}
             {canRecord && (
-                <ViolationForm
-                    accountId={accountId}
-                    decisions={decisions}
-                    editing={editing}
-                    key={editing?.id ?? 'new'}
-                    onDone={stopEditing}
-                    onFailure={onFailure}
+                <AddRecordButton
+                    label="Add violation"
+                    onAdd={dialog.startAdding}
                 />
             )}
+            <Dialog onOpenChange={dialog.onOpenChange} open={dialog.isOpen}>
+                {dialog.isOpen && (
+                    <ViolationForm
+                        accountId={accountId}
+                        decisions={decisions}
+                        editing={dialog.editing}
+                        onDone={dialog.close}
+                        onFailure={onFailure}
+                    />
+                )}
+            </Dialog>
         </>
     );
 }
+
+const NO_LINKED_DECISION_LABEL = 'No linked decision';
 
 const RULE_VIOLATION_KIND_DISCLAIMER: Partial<
     Record<RuleViolationKind, string>
@@ -479,7 +463,18 @@ const RULE_VIOLATION_KIND_DISCLAIMER: Partial<
         "the documented ladder's step up after a loss is not a violation",
 };
 
-function formLabelOf(
+function decisionOptionLabel(
+    decisionId: string,
+    decisions: readonly { readonly decidedOn: string; readonly id: string }[],
+): string | undefined {
+    if (decisionId === NO_LINKED_DECISION) return NO_LINKED_DECISION_LABEL;
+    const decision = decisions.find((candidate) => candidate.id === decisionId);
+    return decision === undefined
+        ? undefined
+        : `Decision on ${formatDisplayDate(decision.decidedOn)}`;
+}
+
+function formTitleOf(
     editing: null | ViolationRow,
     initial: undefined | ViolationFormValues,
 ): string {

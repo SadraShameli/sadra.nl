@@ -3,6 +3,8 @@
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_BAR_PROPS,
+    CHART_REFERENCE_LABEL_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_X_AXIS_PROPS,
     CHART_Y_AXIS_PROPS,
@@ -11,8 +13,6 @@ import {
     ChartSize,
 } from '~/components/ui/chart';
 
-import { type BarShapeProperties } from './charts/types';
-
 interface Properties {
     caption?: string;
     distribution: number[];
@@ -20,7 +20,7 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    p: { color: 'var(--info)', label: 'Probability' },
+    p: { color: 'var(--chart-1)', label: 'Probability' },
 };
 
 const DEFAULT_CAPTION = '# accounts passed';
@@ -63,42 +63,18 @@ export default function AccountsPassedDistributionChart({
                     <ReferenceLine
                         {...CHART_REFERENCE_LINE_PROPS}
                         label={{
-                            fill: 'var(--warning)',
+                            ...CHART_REFERENCE_LABEL_PROPS,
                             fontSize: 9,
                             value: `≥${halfK}`,
                         }}
-                        stroke="var(--warning)"
                         x={halfK}
                     />
                 )}
                 <Bar
+                    {...CHART_BAR_PROPS}
                     dataKey="p"
-                    isAnimationActive={false}
-                    shape={(properties: unknown) => {
-                        const {
-                            height = 0,
-                            index = 0,
-                            width = 0,
-                            x = 0,
-                            y = 0,
-                        } = properties as BarShapeProperties;
-                        const fill =
-                            index === 0
-                                ? 'var(--destructive)'
-                                : index === N
-                                  ? 'var(--success)'
-                                  : 'var(--info)';
-                        return (
-                            <rect
-                                fill={fill}
-                                fillOpacity={0.85}
-                                height={Math.max(0, height)}
-                                width={Math.max(0, width)}
-                                x={x}
-                                y={y}
-                            />
-                        );
-                    }}
+                    fill="var(--color-p)"
+                    fillOpacity={0.85}
                 />
             </BarChart>
         </ChartContainer>

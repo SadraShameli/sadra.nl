@@ -249,12 +249,12 @@ describe('copySplitRowViews', () => {
         ]);
     });
 
-    it('shows n/a for what the run cannot give: no pass, no fees, no stop', () => {
+    it('leaves what the run cannot give empty, not n/a text: no pass, no fees, no stop', () => {
         const single = views[1];
         expect(single?.label).toBe('1 account at $2,000');
-        expect(single?.daysToPass).toBe('n/a');
-        expect(single?.netPerFeeDollar).toBe('n/a');
-        expect(single?.contracts).toBe('n/a');
+        expect(single?.daysToPass).toBeNull();
+        expect(single?.netPerFeeDollar).toBeNull();
+        expect(single?.contracts).toBeNull();
         expect(single?.monthlyNet).toBe('$200');
     });
 });

@@ -1,16 +1,9 @@
 'use client';
 
-import {
-    ArrowDown,
-    ArrowUp,
-    Filter,
-    Landmark,
-    Pencil,
-    Plus,
-    Trash2,
-} from 'lucide-react';
+import { ArrowDown, ArrowUp, Filter, Landmark, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import type { MatchType } from '~/lib/accounting/core/rules/matcher';
@@ -19,6 +12,15 @@ import type {
     LedgerReference,
 } from '~/lib/accounting/core/types';
 
+import { FormDialog } from '~/components/FormDialog';
+import { InfoNote } from '~/components/InfoNote';
+import { TitledCardSkeleton } from '~/components/PageSkeleton';
+import {
+    deleteRowAction,
+    editRowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -30,14 +32,8 @@ import {
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { DateRangePicker } from '~/components/ui/date-picker';
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/dialog';
-import { EmptyState, EmptyStatePanel } from '~/components/ui/empty-state';
+import { Dialog } from '~/components/ui/dialog';
+import { EmptyState } from '~/components/ui/empty-state';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
@@ -47,16 +43,29 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
+import { CurrencyAmount } from '~/lib/accounting/core/money';
 import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
+import { CredentialRole } from '~/lib/accounting/credentials/index';
 import { api } from '~/trpc/react';
 
-import { DirectionBadge } from './DirectionBadge';
+import { dialogModeOf, dialogSubmitLabels } from './dialogSubmitLabels';
+import {
+    DIRECTION_OPTIONS,
+    DirectionBadge,
+    directionLabel,
+} from './DirectionBadge';
 import { LedgerCombobox } from './LedgerCombobox';
+import { NoConnectionPanel } from './NoConnectionState';
 import { useActiveCredentials } from './useActiveCredentials';
 import { type TaxCodeOption, useTaxCodes } from './useTaxCodes';
 
 const VAT_NONE = '__none__';
+const BANK_ACCOUNTS_TITLE = 'Bank accounts';
+const RULES_TITLE = 'Rules';
+const BACKTEST_LOOKBACK_DAYS = 90;
+const BACKTEST_CHECKING_LABEL = `Checking against the last ${String(BACKTEST_LOOKBACK_DAYS)} days`;
 const toastError = (error: { message: string }) => toast.error(error.message);
 
 export interface RuleFormDialogPrefill {
@@ -64,10 +73,28 @@ export interface RuleFormDialogPrefill {
     match: string;
 }
 
+interface BankAccountFormValues {
+    currency: string;
+    ledger: LedgerReference | null;
+}
+
 interface BankAccountView {
     currency: string;
     id: string;
     ledger: LedgerReference;
+}
+
+interface RuleFormValues {
+    currency: string;
+    dateRange: DateRange | undefined;
+    direction: BookingDirection;
+    display: string;
+    ledger: LedgerReference | null;
+    match: string;
+    matchType: MatchType;
+    maxAmount: string;
+    minAmount: string;
+    taxCode: string;
 }
 
 interface RuleView {
@@ -91,6 +118,9 @@ const MATCH_TYPE_LABEL: Record<MatchType, string> = {
     exact: 'Exact match',
     regex: 'Regex',
 };
+
+const parseCurrency = (currency: string) =>
+    currencyCodeSchema.safeParse(currency.trim().toUpperCase());
 
 const toIso = (d: Date): string => {
     const y = d.getFullYear();
@@ -129,37 +159,56 @@ export function RuleFormDialog({
         onSuccess: settled,
     });
 
-    const [match, setMatch] = useState(isEdit || isPrefill ? mode.match : '');
-    const [direction, setDirection] = useState<BookingDirection>(
-        isEdit || isPrefill ? mode.direction : 'OUT',
-    );
-    const [display, setDisplay] = useState(isEdit ? mode.display : '');
-    const [ledger, setLedger] = useState<LedgerReference | null>(
-        isEdit ? mode.ledger : null,
-    );
-    const [taxCode, setTaxCode] = useState<string>(
-        isEdit ? mode.taxCode : VAT_NONE,
-    );
-    const [matchType, setMatchType] = useState<MatchType>(
-        isEdit ? mode.matchType : 'contains',
-    );
-    const [minAmount, setMinAmount] = useState(
-        isEdit && mode.minAmount != null ? String(mode.minAmount) : '',
-    );
-    const [maxAmount, setMaxAmount] = useState(
-        isEdit && mode.maxAmount != null ? String(mode.maxAmount) : '',
-    );
-    const [currency, setCurrency] = useState(
-        isEdit && mode.currency ? mode.currency : '',
-    );
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(
-        isEdit && (mode.dateFrom ?? mode.dateTo)
-            ? {
-                  from: mode.dateFrom ? new Date(mode.dateFrom) : undefined,
-                  to: mode.dateTo ? new Date(mode.dateTo) : undefined,
-              }
-            : undefined,
-    );
+    const form = useForm<RuleFormValues>({
+        defaultValues: {
+            currency: isEdit && mode.currency ? mode.currency : '',
+            dateRange:
+                isEdit && (mode.dateFrom ?? mode.dateTo)
+                    ? {
+                          from: mode.dateFrom
+                              ? new Date(mode.dateFrom)
+                              : undefined,
+                          to: mode.dateTo ? new Date(mode.dateTo) : undefined,
+                      }
+                    : undefined,
+            direction: isEdit || isPrefill ? mode.direction : 'OUT',
+            display: isEdit ? mode.display : '',
+            ledger: isEdit ? mode.ledger : null,
+            match: isEdit || isPrefill ? mode.match : '',
+            matchType: isEdit ? mode.matchType : 'contains',
+            maxAmount:
+                isEdit && mode.maxAmount != null ? String(mode.maxAmount) : '',
+            minAmount:
+                isEdit && mode.minAmount != null ? String(mode.minAmount) : '',
+            taxCode: isEdit ? mode.taxCode : VAT_NONE,
+        },
+    });
+    const [
+        currency,
+        dateRange,
+        direction,
+        display,
+        ledger,
+        match,
+        matchType,
+        maxAmount,
+        minAmount,
+        taxCode,
+    ] = useWatch({
+        control: form.control,
+        name: [
+            'currency',
+            'dateRange',
+            'direction',
+            'display',
+            'ledger',
+            'match',
+            'matchType',
+            'maxAmount',
+            'minAmount',
+            'taxCode',
+        ],
+    });
 
     const canSave =
         match.trim().length > 0 &&
@@ -169,16 +218,16 @@ export function RuleFormDialog({
     const isPending = create.isPending || update.isPending;
 
     const candidate = useMemo(
-        () => ({
-            currency: currency.trim() ? currency.trim().toUpperCase() : null,
-            dateFrom: dateRange?.from ? toIso(dateRange.from) : null,
-            dateTo: dateRange?.to ? toIso(dateRange.to) : null,
-            direction,
-            match: match.trim(),
-            matchType,
-            maxAmount: maxAmount.trim() ? Number(maxAmount) : null,
-            minAmount: minAmount.trim() ? Number(minAmount) : null,
-        }),
+        () =>
+            ruleCriteria({
+                currency,
+                dateRange,
+                direction,
+                match,
+                matchType,
+                maxAmount,
+                minAmount,
+            }),
         [
             currency,
             dateRange,
@@ -197,7 +246,7 @@ export function RuleFormDialog({
 
     const today = new Date();
     const ninetyDaysAgo = new Date(today);
-    ninetyDaysAgo.setDate(today.getDate() - 90);
+    ninetyDaysAgo.setDate(today.getDate() - BACKTEST_LOOKBACK_DAYS);
     const backtestQ = api.accounting.rules.backtest.useQuery(
         {
             credentialId: sourceCredentialId ?? '',
@@ -213,132 +262,182 @@ export function RuleFormDialog({
         { enabled: !!sourceCredentialId && debounced.match.length > 0 },
     );
 
-    const submit = () => {
-        if (!ledger || taxCode === VAT_NONE) return;
-        const values = {
-            ...candidate,
-            display: display.trim(),
-            ledger,
-            taxCode,
+    const submit = (values: RuleFormValues) => {
+        if (!values.ledger || values.taxCode === VAT_NONE) return;
+        const rule = {
+            ...ruleCriteria(values),
+            display: values.display.trim(),
+            ledger: values.ledger,
+            taxCode: values.taxCode,
         };
-        if (isEdit) update.mutate({ id: mode.id, ...values });
-        else create.mutate({ credentialId, ...values });
+        if (isEdit) update.mutate({ id: mode.id, ...rule });
+        else create.mutate({ credentialId, ...rule });
     };
 
     return (
-        <Dialog
-            onOpenChange={(o) => {
-                if (!o) onClose();
-            }}
-            open
+        <FormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={submit}
+            pending={isPending}
+            submitDisabled={!canSave}
+            title={isEdit ? 'Edit rule' : 'New rule'}
+            {...dialogSubmitLabels(dialogModeOf(isEdit))}
         >
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>
-                        {isEdit ? 'Edit rule' : 'New rule'}
-                    </DialogTitle>
-                </DialogHeader>
-                <div className="flex flex-col gap-3">
+            <Controller
+                control={form.control}
+                name="match"
+                render={({ field }) => (
                     <Field label="Match (merchant contains)">
                         <Input
                             className="h-8 text-xs"
-                            onChange={(event) => setMatch(event.target.value)}
+                            onChange={field.onChange}
                             placeholder="e.g. amazon"
-                            value={match}
+                            ref={field.ref}
+                            value={field.value}
                         />
                     </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="matchType"
+                render={({ field }) => (
                     <Field label="Match type">
                         <MatchTypeSelect
-                            onChange={setMatchType}
-                            value={matchType}
+                            onChange={field.onChange}
+                            value={field.value}
                         />
                     </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="direction"
+                render={({ field }) => (
                     <Field label="Direction">
                         <DirectionSelect
-                            onChange={setDirection}
-                            value={direction}
+                            onChange={field.onChange}
+                            value={field.value}
                         />
                     </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="display"
+                render={({ field }) => (
                     <Field label="Counterpart name">
                         <Input
                             className="h-8 text-xs"
-                            onChange={(event) => setDisplay(event.target.value)}
+                            onChange={field.onChange}
                             placeholder="e.g. Amazon EU"
-                            value={display}
+                            ref={field.ref}
+                            value={field.value}
                         />
                     </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="ledger"
+                render={({ field }) => (
                     <Field label="Ledger">
                         <LedgerCombobox
-                            onChange={setLedger}
+                            onChange={field.onChange}
                             options={ledgerOptions}
-                            value={ledger}
+                            value={field.value}
                         />
                     </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="taxCode"
+                render={({ field }) => (
                     <Field label="VAT code">
                         <VatSelect
-                            onChange={(v) => setTaxCode(v)}
+                            onChange={field.onChange}
                             options={taxCodeOptions}
-                            value={taxCode === VAT_NONE ? '' : taxCode}
+                            value={field.value === VAT_NONE ? '' : field.value}
                         />
                     </Field>
-                    <div className="grid grid-cols-2 gap-3">
+                )}
+            />
+            <div className="grid grid-cols-2 gap-3">
+                <Controller
+                    control={form.control}
+                    name="minAmount"
+                    render={({ field }) => (
                         <Field label="Min amount (optional)">
                             <Input
                                 className="h-8 text-xs"
-                                onChange={(event) =>
-                                    setMinAmount(event.target.value)
-                                }
+                                onChange={field.onChange}
                                 placeholder="e.g. 10"
+                                ref={field.ref}
                                 type="number"
-                                value={minAmount}
+                                value={field.value}
                             />
                         </Field>
+                    )}
+                />
+                <Controller
+                    control={form.control}
+                    name="maxAmount"
+                    render={({ field }) => (
                         <Field label="Max amount (optional)">
                             <Input
                                 className="h-8 text-xs"
-                                onChange={(event) =>
-                                    setMaxAmount(event.target.value)
-                                }
+                                onChange={field.onChange}
                                 placeholder="e.g. 500"
+                                ref={field.ref}
                                 type="number"
-                                value={maxAmount}
+                                value={field.value}
                             />
                         </Field>
-                    </div>
+                    )}
+                />
+            </div>
+            <Controller
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
                     <Field label="Currency (optional)">
                         <Input
                             className="h-8 text-xs"
                             onChange={(event) =>
-                                setCurrency(event.target.value.toUpperCase())
+                                field.onChange(event.target.value.toUpperCase())
                             }
                             placeholder="e.g. EUR"
-                            value={currency}
+                            ref={field.ref}
+                            value={field.value}
                         />
                     </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="dateRange"
+                render={({ field }) => (
                     <Field label="Date range (optional)">
                         <DateRangePicker
                             className="h-8 w-full text-xs"
-                            onChange={setDateRange}
+                            onChange={field.onChange}
                             placeholder="Any date"
-                            value={dateRange}
+                            value={field.value}
                         />
                     </Field>
-                    {sourceCredentialId && match.trim().length > 0 && (
-                        <BacktestPreview query={backtestQ} />
-                    )}
-                </div>
-                <DialogFooter>
-                    <Button disabled={!canSave || isPending} onClick={submit}>
-                        {isEdit ? 'Save changes' : 'Create rule'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                )}
+            />
+            {sourceCredentialId && match.trim().length > 0 && (
+                <BacktestPreview query={backtestQ} />
+            )}
+        </FormDialog>
     );
 }
 
 export function RulesManager() {
-    const { accounting, source } = useActiveCredentials();
+    const { accounting, isLoading, source } = useActiveCredentials();
     const credentialId = accounting?.id ?? '';
 
     const ledgersQ = api.accounting.ledgers.list.useQuery(
@@ -356,7 +455,12 @@ export function RulesManager() {
 
     return (
         <div className="flex flex-col gap-6">
-            {credentialId ? (
+            {isLoading ? (
+                <>
+                    <TitledCardSkeleton title={BANK_ACCOUNTS_TITLE} />
+                    <TitledCardSkeleton title={RULES_TITLE} />
+                </>
+            ) : credentialId ? (
                 <>
                     <BankAccountsCard
                         credentialId={credentialId}
@@ -369,10 +473,7 @@ export function RulesManager() {
                     />
                 </>
             ) : (
-                <EmptyStatePanel
-                    description="Add an accounting credential in Connections to manage its bank accounts and booking rules."
-                    title="No accounting credential"
-                />
+                <NoConnectionPanel role={CredentialRole.Accounting} />
             )}
         </div>
     );
@@ -392,21 +493,30 @@ function BacktestPreview({
 }) {
     if (query.isFetching && !query.data) {
         return (
-            <p className="text-[10px] text-muted-foreground">
-                Checking against the last 90 days…
-            </p>
+            <Skeleton
+                aria-busy
+                aria-label={BACKTEST_CHECKING_LABEL}
+                className="h-12 w-full rounded-lg"
+                role="status"
+            />
         );
     }
     if (!query.data) return null;
     const totals = Object.entries(query.data.totalByCurrency)
-        .map(([code, amount]) => `${amount.toFixed(2)} ${code}`)
+        .map(([code, amount]) => {
+            const currency = currencyCodeSchema.safeParse(code);
+            return currency.success
+                ? CurrencyAmount.format({ amount, currency: currency.data })
+                : `${String(amount)} ${code}`;
+        })
         .join(', ');
     return (
-        <p className="text-[10px] text-muted-foreground">
+        <InfoNote>
             Would match <strong>{query.data.matchCount}</strong> of{' '}
-            {query.data.transactionCount} transaction(s) in the last 90 days
+            {query.data.transactionCount} transaction(s) in the last{' '}
+            {BACKTEST_LOOKBACK_DAYS} days
             {totals ? `, totaling ${totals}` : ''}.
-        </p>
+        </InfoNote>
     );
 }
 
@@ -434,23 +544,26 @@ function BankAccountFormDialog({
             onClose();
         },
     });
-    const [currency, setCurrency] = useState(isEdit ? mode.currency : '');
-    const [ledger, setLedger] = useState<LedgerReference | null>(
-        isEdit ? mode.ledger : null,
-    );
+    const form = useForm<BankAccountFormValues>({
+        defaultValues: {
+            currency: isEdit ? mode.currency : '',
+            ledger: isEdit ? mode.ledger : null,
+        },
+    });
+    const [currency, ledger] = useWatch({
+        control: form.control,
+        name: ['currency', 'ledger'],
+    });
 
-    const nextCurrency = currencyCodeSchema.safeParse(
-        currency.trim().toUpperCase(),
-    );
-    const canSave =
-        nextCurrency.success && ledger !== null && !upsert.isPending;
+    const canSave = parseCurrency(currency).success && ledger !== null;
 
-    const submit = () => {
-        if (!ledger || !nextCurrency.success) return;
+    const submit = (values: BankAccountFormValues) => {
+        const nextCurrency = parseCurrency(values.currency);
+        if (!values.ledger || !nextCurrency.success) return;
         upsert.mutate({
             credentialId,
             currency: nextCurrency.data,
-            ledger,
+            ledger: values.ledger,
             replacesId:
                 isEdit && mode.currency !== nextCurrency.data
                     ? mode.id
@@ -459,44 +572,46 @@ function BankAccountFormDialog({
     };
 
     return (
-        <Dialog
-            onOpenChange={(o) => {
-                if (!o) onClose();
-            }}
-            open
+        <FormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={submit}
+            pending={upsert.isPending}
+            submitDisabled={!canSave}
+            title={isEdit ? 'Edit bank account' : 'New bank account'}
+            {...dialogSubmitLabels(dialogModeOf(isEdit))}
         >
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>
-                        {isEdit ? 'Edit bank account' : 'New bank account'}
-                    </DialogTitle>
-                </DialogHeader>
-                <div className="flex flex-col gap-3">
+            <Controller
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
                     <Field label="Currency">
                         <Input
                             className="h-8 text-xs"
                             onChange={(event) =>
-                                setCurrency(event.target.value.toUpperCase())
+                                field.onChange(event.target.value.toUpperCase())
                             }
                             placeholder="EUR"
-                            value={currency}
+                            ref={field.ref}
+                            value={field.value}
                         />
                     </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="ledger"
+                render={({ field }) => (
                     <Field label="Ledger">
                         <LedgerCombobox
-                            onChange={setLedger}
+                            onChange={field.onChange}
                             options={ledgerOptions}
-                            value={ledger}
+                            value={field.value}
                         />
                     </Field>
-                </div>
-                <DialogFooter>
-                    <Button disabled={!canSave} onClick={submit}>
-                        {isEdit ? 'Save changes' : 'Create account'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                )}
+            />
+        </FormDialog>
     );
 }
 
@@ -536,11 +651,12 @@ function BankAccountsCard({
                 enableSorting: true,
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Currency',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.ledger.label,
                 cell: ({ row }) => (
-                    <span className="font-mono text-[10px] text-muted-foreground">
+                    <span className="font-mono text-xs text-muted-foreground">
                         {row.original.ledger.label}
                     </span>
                 ),
@@ -549,29 +665,20 @@ function BankAccountsCard({
                 header: 'Ledger',
                 id: 'ledger',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex items-center gap-1">
-                        <Button
-                            onClick={() => setForm(row.original)}
-                            size="icon"
-                            variant="ghost"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                            onClick={() => del.mutate({ id: row.original.id })}
-                            size="icon"
-                            variant="ghost"
-                        >
-                            <Trash2 className="size-3.5" />
-                        </Button>
-                    </div>
-                ),
-                enableSorting: false,
-                header: '',
-                id: 'actions',
-            },
+            rowActionsColumn<BankAccountView>({
+                actionsOf: (account) => [
+                    editRowAction(() => setForm(account)),
+                    deleteRowAction({
+                        description:
+                            'New runs skip transactions in this currency until it is mapped to a ledger again.',
+                        onDelete: () => del.mutate({ id: account.id }),
+                        title: `Delete the ${account.currency} bank account?`,
+                    }),
+                ],
+                isPendingOf: (account) =>
+                    del.isPending && del.variables.id === account.id,
+                labelOf: (account) => `${account.currency} bank account`,
+            }),
         ],
         [del],
     );
@@ -585,53 +692,59 @@ function BankAccountsCard({
             }
             contentClassName="gap-3"
             description="Map each bank account or currency to the ledger it books to."
-            title="Bank accounts"
+            title={BANK_ACCOUNTS_TITLE}
         >
-            <DataTable
-                columns={columns}
-                data={allAccounts}
-                emptyState={(table) => (
-                    <EmptyState
-                        description={
-                            hasActiveTableFilter(table)
-                                ? 'No bank accounts match the current filters.'
-                                : 'Map a Wise currency to a ledger to start importing.'
-                        }
-                        icon={Landmark}
-                        title={
-                            hasActiveTableFilter(table)
-                                ? 'No matches'
-                                : 'No bank accounts'
-                        }
-                    />
-                )}
-                filterPlaceholder="Search accounts…"
-                headerActions={(table) => (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <DataTableFacetSelect
-                            column={table.getColumn('currency')}
-                            placeholder="All currencies"
+            {!banksQ.isPending && allAccounts.length === 0 ? (
+                <EmptyState
+                    description="Map a bank currency to a ledger to start importing."
+                    icon={Landmark}
+                    title="No bank accounts"
+                />
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={allAccounts}
+                    emptyState={
+                        <EmptyState
+                            description="No bank accounts match these filters."
+                            icon={Landmark}
+                            title="No matches"
                         />
-                        <DataTableFacetSelect
-                            column={table.getColumn('ledger')}
-                            placeholder="All ledgers"
-                        />
-                    </div>
-                )}
-                initialSorting={[{ desc: false, id: 'currency' }]}
-                isLoading={banksQ.isPending}
-                pageSize={25}
-                rowId={(r) => r.id}
-                showFilter
-            />
-            {form !== null && (
-                <BankAccountFormDialog
-                    credentialId={credentialId}
-                    ledgerOptions={ledgerOptions}
-                    mode={form}
-                    onClose={() => setForm(null)}
+                    }
+                    filterPlaceholder="Search accounts…"
+                    headerActions={(table) => (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <DataTableFacetSelect
+                                column={table.getColumn('currency')}
+                                placeholder="All currencies"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('ledger')}
+                                placeholder="All ledgers"
+                            />
+                        </div>
+                    )}
+                    initialSorting={[{ desc: false, id: 'currency' }]}
+                    isLoading={banksQ.isPending}
+                    rowId={(r) => r.id}
+                    showFilter
                 />
             )}
+            <Dialog
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) setForm(null);
+                }}
+                open={form !== null}
+            >
+                {form !== null && (
+                    <BankAccountFormDialog
+                        credentialId={credentialId}
+                        ledgerOptions={ledgerOptions}
+                        mode={form}
+                        onClose={() => setForm(null)}
+                    />
+                )}
+            </Dialog>
         </ToolPanel>
     );
 }
@@ -645,15 +758,25 @@ function DirectionSelect({
 }) {
     return (
         <Select
-            onValueChange={(v) => onChange(v as BookingDirection)}
+            onValueChange={(v) =>
+                onChange(
+                    DIRECTION_OPTIONS.find((o) => o.value === v)?.value ??
+                        value,
+                )
+            }
             value={value}
         >
             <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue />
+                <SelectValue>
+                    {DIRECTION_OPTIONS.find((o) => o.value === value)?.label}
+                </SelectValue>
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="OUT">OUT</SelectItem>
-                <SelectItem value="IN">IN</SelectItem>
+                {DIRECTION_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                    </SelectItem>
+                ))}
             </SelectContent>
         </Select>
     );
@@ -684,9 +807,14 @@ function MatchTypeSelect({
     value: MatchType;
 }) {
     return (
-        <Select onValueChange={(v) => onChange(v as MatchType)} value={value}>
+        <Select
+            onValueChange={(v) =>
+                onChange(MATCH_TYPES.find((t) => t === v) ?? value)
+            }
+            value={value}
+        >
             <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue />
+                <SelectValue>{MATCH_TYPE_LABEL[value]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
                 {MATCH_TYPES.map((t) => (
@@ -697,6 +825,31 @@ function MatchTypeSelect({
             </SelectContent>
         </Select>
     );
+}
+
+function ruleCriteria(
+    values: Pick<
+        RuleFormValues,
+        | 'currency'
+        | 'dateRange'
+        | 'direction'
+        | 'match'
+        | 'matchType'
+        | 'maxAmount'
+        | 'minAmount'
+    >,
+) {
+    const currency = values.currency.trim();
+    return {
+        currency: currency ? currency.toUpperCase() : null,
+        dateFrom: values.dateRange?.from ? toIso(values.dateRange.from) : null,
+        dateTo: values.dateRange?.to ? toIso(values.dateRange.to) : null,
+        direction: values.direction,
+        match: values.match.trim(),
+        matchType: values.matchType,
+        maxAmount: values.maxAmount.trim() ? Number(values.maxAmount) : null,
+        minAmount: values.minAmount.trim() ? Number(values.minAmount) : null,
+    };
 }
 
 function RulesCard({
@@ -758,6 +911,7 @@ function RulesCard({
                 ),
                 enableSorting: true,
                 header: 'Match',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'direction',
@@ -776,7 +930,7 @@ function RulesCard({
             {
                 accessorFn: (r) => r.ledger.label,
                 cell: ({ row }) => (
-                    <span className="font-mono text-[10px] text-muted-foreground">
+                    <span className="font-mono text-xs text-muted-foreground">
                         {row.original.ledger.label}
                     </span>
                 ),
@@ -788,65 +942,47 @@ function RulesCard({
             {
                 accessorKey: 'taxCode',
                 cell: ({ row }) => (
-                    <Badge variant="outline">
-                        {labelOf(row.original.taxCode)}
-                    </Badge>
+                    <Badge>{labelOf(row.original.taxCode)}</Badge>
                 ),
                 enableSorting: true,
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'VAT',
             },
-            {
-                cell: ({ row, table }) => {
-                    const index = allRules.findIndex(
-                        (r) => r.id === row.original.id,
-                    );
+            rowActionsColumn<RuleView>({
+                actionsOf: (rule, table) => {
+                    const index = allRules.findIndex((r) => r.id === rule.id);
                     const isFiltered = hasActiveTableFilter(table);
-                    return (
-                        <div className="flex items-center gap-1">
-                            <Button
-                                disabled={isFiltered || index <= 0}
-                                onClick={() => move(row.original.id, 'up')}
-                                size="icon"
-                                variant="ghost"
-                            >
-                                <ArrowUp className="size-3.5" />
-                            </Button>
-                            <Button
-                                disabled={
-                                    isFiltered ||
-                                    index === -1 ||
-                                    index >= allRules.length - 1
-                                }
-                                onClick={() => move(row.original.id, 'down')}
-                                size="icon"
-                                variant="ghost"
-                            >
-                                <ArrowDown className="size-3.5" />
-                            </Button>
-                            <Button
-                                onClick={() => setForm(row.original)}
-                                size="icon"
-                                variant="ghost"
-                            >
-                                <Pencil className="size-3.5" />
-                            </Button>
-                            <Button
-                                onClick={() =>
-                                    del.mutate({ id: row.original.id })
-                                }
-                                size="icon"
-                                variant="ghost"
-                            >
-                                <Trash2 className="size-3.5" />
-                            </Button>
-                        </div>
-                    );
+                    return [
+                        {
+                            icon: ArrowUp,
+                            isDisabled: isFiltered || index <= 0,
+                            kind: RowActionKind.Select,
+                            label: 'Move up',
+                            onSelect: () => move(rule.id, 'up'),
+                        },
+                        {
+                            icon: ArrowDown,
+                            isDisabled:
+                                isFiltered ||
+                                index === -1 ||
+                                index >= allRules.length - 1,
+                            kind: RowActionKind.Select,
+                            label: 'Move down',
+                            onSelect: () => move(rule.id, 'down'),
+                        },
+                        editRowAction(() => setForm(rule)),
+                        deleteRowAction({
+                            description:
+                                'New runs list the transactions it matched as unknown until another rule covers them.',
+                            onDelete: () => del.mutate({ id: rule.id }),
+                            title: `Delete the rule for “${rule.match}”?`,
+                        }),
+                    ];
                 },
-                enableSorting: false,
-                header: '',
-                id: 'actions',
-            },
+                isPendingOf: (rule) =>
+                    del.isPending && del.variables.id === rule.id,
+                labelOf: (rule) => rule.match,
+            }),
         ],
         [allRules, del, labelOf, move],
     );
@@ -860,58 +996,65 @@ function RulesCard({
             }
             contentClassName="gap-3"
             description="Match a counterpart to a ledger, a direction and a VAT code."
-            title="Rules"
+            title={RULES_TITLE}
         >
-            <DataTable
-                columns={columns}
-                data={allRules}
-                emptyState={(table) => (
-                    <EmptyState
-                        description={
-                            hasActiveTableFilter(table)
-                                ? 'No rules match the current filters.'
-                                : 'Add a rule to classify transactions.'
-                        }
-                        icon={Filter}
-                        title={
-                            hasActiveTableFilter(table)
-                                ? 'No matches'
-                                : 'No rules yet'
-                        }
-                    />
-                )}
-                filterPlaceholder="Search rules…"
-                headerActions={(table) => (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <DataTableFacetSelect
-                            column={table.getColumn('direction')}
-                            placeholder="All directions"
+            {!rulesQ.isPending && allRules.length === 0 ? (
+                <EmptyState
+                    description="Rules decide how each transaction is booked."
+                    icon={Filter}
+                    title="No rules yet"
+                />
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={allRules}
+                    emptyState={
+                        <EmptyState
+                            description="No rules match these filters."
+                            icon={Filter}
+                            title="No matches"
                         />
-                        <DataTableFacetSelect
-                            column={table.getColumn('ledger')}
-                            placeholder="All ledgers"
-                        />
-                        <DataTableFacetSelect
-                            column={table.getColumn('taxCode')}
-                            format={labelOf}
-                            placeholder="All VAT codes"
-                        />
-                    </div>
-                )}
-                isLoading={rulesQ.isPending}
-                pageSize={25}
-                rowId={(r) => r.id}
-                showFilter
-            />
-            {form !== null && (
-                <RuleFormDialog
-                    credentialId={credentialId}
-                    ledgerOptions={ledgerOptions}
-                    mode={form}
-                    onClose={() => setForm(null)}
-                    sourceCredentialId={sourceCredentialId}
+                    }
+                    filterPlaceholder="Search rules…"
+                    headerActions={(table) => (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <DataTableFacetSelect
+                                column={table.getColumn('direction')}
+                                format={directionLabel}
+                                placeholder="All directions"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('ledger')}
+                                placeholder="All ledgers"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('taxCode')}
+                                format={labelOf}
+                                placeholder="All VAT codes"
+                            />
+                        </div>
+                    )}
+                    isLoading={rulesQ.isPending}
+                    rowId={(r) => r.id}
+                    showFilter
                 />
             )}
+            <Dialog
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) setForm(null);
+                }}
+                open={form !== null}
+            >
+                {form !== null && (
+                    <RuleFormDialog
+                        credentialId={credentialId}
+                        ledgerOptions={ledgerOptions}
+                        mode={form}
+                        onClose={() => setForm(null)}
+                        sourceCredentialId={sourceCredentialId}
+                    />
+                )}
+            </Dialog>
         </ToolPanel>
     );
 }
@@ -928,7 +1071,9 @@ function VatSelect({
     return (
         <Select onValueChange={onChange} value={value}>
             <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue placeholder="VAT code" />
+                <SelectValue placeholder="VAT code">
+                    {options.find((o) => o.code === value)?.label}
+                </SelectValue>
             </SelectTrigger>
             <SelectContent>
                 {options.map((o) => (

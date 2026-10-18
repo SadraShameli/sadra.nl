@@ -1,16 +1,23 @@
 'use client';
 
 import { type SortingState } from '@tanstack/react-table';
-import { format } from 'date-fns';
 import { ChevronRight, History } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { Badge, type BadgeProperties } from '~/components/ui/badge';
-import { Card, CardContent } from '~/components/ui/card';
-import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { MissingValue } from '~/components/MissingValue';
+import { linkRowAction, rowActionsColumn } from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Button } from '~/components/ui/button';
+import {
+    DATA_TABLE_PAGE_SIZE,
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
+import { Skeleton } from '~/components/ui/skeleton';
 import { Eur } from '~/lib/accounting/core/money';
 import {
     CredentialRegistry,
@@ -21,22 +28,16 @@ import {
     RUN_STATUSES,
     type RunStatus,
 } from '~/lib/accounting/runs/types';
+import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
+import { RunStatusBadge, runStatusLabel } from './RunStatusBadge';
+
 const ALL = '__all__';
 const DEFAULT_SORTING: SortingState = [{ desc: true, id: 'createdAt' }];
-const PAGE_SIZE = 20;
 
-type RunRow = RouterOutputs['accounting']['runs']['list'][number];
-
-const STATUS_VARIANT: Record<RunStatus, BadgeProperties['variant']> = {
-    failed: 'destructive',
-    partial: 'warning',
-    planned: 'outline',
-    posted: 'success',
-    posting: 'warning',
-};
+type RunRow = RouterOutputs['accounting']['runs']['list']['items'][number];
 
 export function RunsBrowser() {
     const [offset, setOffset] = useState(0);
@@ -49,7 +50,7 @@ export function RunsBrowser() {
     const sort = sorting[0];
     const runsQ = api.accounting.runs.list.useQuery({
         accountingCredentialId: targetFilter === ALL ? undefined : targetFilter,
-        limit: PAGE_SIZE,
+        limit: DATA_TABLE_PAGE_SIZE,
         offset,
         sortBy: RUN_SORT_KEYS.find((k) => k === sort?.id),
         sortDir: sort?.desc === false ? 'asc' : 'desc',
@@ -84,7 +85,10 @@ export function RunsBrowser() {
         [credentialsQ.data],
     );
 
-    const rows = runsQ.data ?? [];
+    const rows = useMemo(() => runsQ.data?.items ?? [], [runsQ.data]);
+    const isCollectionEmpty =
+        !runsQ.isPending && !hasFilters && offset === 0 && rows.length === 0;
+    const isTargetPending = credentialsQ.isPending;
 
     const columns = useMemo<DataTableColumn<RunRow>[]>(
         () => [
@@ -96,16 +100,17 @@ export function RunsBrowser() {
                         href={routes.accounting.run(row.original.id)}
                         prefetch
                     >
-                        {format(row.original.createdAt, 'PPp')}
+                        {formatDisplayDateTime(row.original.createdAt)}
                     </Link>
                 ),
                 header: 'Created',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'startDate',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs text-muted-foreground">
-                        since {row.original.startDate}
+                        since {formatDisplayDate(row.original.startDate)}
                     </span>
                 ),
                 header: 'Start date',
@@ -113,23 +118,29 @@ export function RunsBrowser() {
             {
                 accessorKey: 'status',
                 cell: ({ row }) => (
-                    <Badge variant={STATUS_VARIANT[row.original.status]}>
-                        {row.original.status}
-                    </Badge>
+                    <RunStatusBadge status={row.original.status} />
                 ),
                 header: 'Status',
             },
             {
-                accessorKey: 'accountingCredentialId',
+                accessorFn: (r) =>
+                    r.accountingCredentialId
+                        ? (labelByCredentialId.get(r.accountingCredentialId) ??
+                          r.accountingCredentialId)
+                        : '',
                 cell: ({ row }) => {
                     const id = row.original.accountingCredentialId;
-                    return (
+                    if (id === null) return <MissingValue />;
+                    return isTargetPending ? (
+                        <Skeleton className="h-4 w-24" />
+                    ) : (
                         <span className="text-xs text-muted-foreground">
-                            {id ? (labelByCredentialId.get(id) ?? id) : '-'}
+                            {labelByCredentialId.get(id) ?? id}
                         </span>
                     );
                 },
                 header: 'Target',
+                id: 'accountingCredentialId',
             },
             {
                 accessorFn: (r) => r.summary.bookingsCount,
@@ -140,6 +151,7 @@ export function RunsBrowser() {
                 ),
                 header: 'Bookings',
                 id: 'bookingsCount',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorFn: (r) => r.summary.totalEur,
@@ -150,125 +162,127 @@ export function RunsBrowser() {
                 ),
                 header: 'Total',
                 id: 'totalEur',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorFn: (r) => r.summary.unknownsCount,
                 cell: ({ row }) => (
-                    <span
-                        className={
-                            row.original.summary.unknownsCount > 0
-                                ? 'font-mono text-xs text-warning'
-                                : 'font-mono text-xs text-muted-foreground'
-                        }
-                    >
+                    <span className="font-mono text-xs">
                         {row.original.summary.unknownsCount}
                     </span>
                 ),
                 header: 'Unknowns',
                 id: 'unknownsCount',
+                meta: { align: DataTableAlign.End },
             },
-            {
-                cell: ({ row }) => (
-                    <Link href={routes.accounting.run(row.original.id)}>
-                        <ChevronRight className="size-4 text-muted-foreground" />
-                    </Link>
-                ),
-                header: '',
-                id: 'open',
-            },
+            rowActionsColumn<RunRow>({
+                actionsOf: (run) => [
+                    linkRowAction({
+                        href: routes.accounting.run(run.id),
+                        icon: ChevronRight,
+                        label: 'Open',
+                    }),
+                ],
+                labelOf: (run) =>
+                    `run created ${formatDisplayDateTime(run.createdAt)}`,
+            }),
         ],
-        [labelByCredentialId],
+        [isTargetPending, labelByCredentialId],
     );
 
     return (
-        <Card>
-            <CardContent>
-                {runsQ.error ? (
-                    <EmptyState
-                        description={runsQ.error.message}
-                        title="Could not fetch runs"
-                    />
-                ) : (
-                    <div className="flex flex-col gap-3">
-                        <DataTable
-                            columns={columns}
-                            data={rows}
-                            emptyState={
-                                <EmptyState
-                                    description={
-                                        hasFilters
-                                            ? 'No runs match the current filters.'
-                                            : 'Plan a run from the dashboard to see it appear here.'
-                                    }
-                                    icon={History}
-                                    title={
-                                        hasFilters
-                                            ? 'No matches'
-                                            : 'No runs yet'
-                                    }
-                                />
-                            }
-                            hasExternalFilters={hasFilters}
-                            headerActions={
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <FilterSelect
-                                        label="Status"
-                                        onValueChange={(v) => {
-                                            setStatusFilter(
-                                                RUN_STATUSES.find(
-                                                    (s) => s === v,
-                                                ) ?? ALL,
-                                            );
-                                            setOffset(0);
-                                        }}
-                                        options={RUN_STATUSES.map((s) => ({
-                                            label: s,
-                                            value: s,
-                                        }))}
-                                        placeholder="All statuses"
-                                        value={
-                                            statusFilter === ALL
-                                                ? undefined
-                                                : statusFilter
-                                        }
-                                    />
-                                    <FilterSelect
-                                        label="Target"
-                                        onValueChange={(v) => {
-                                            setTargetFilter(v ?? ALL);
-                                            setOffset(0);
-                                        }}
-                                        options={targets.map((c) => ({
-                                            label: c.label,
-                                            value: c.id,
-                                        }))}
-                                        placeholder="All targets"
-                                        value={
-                                            targetFilter === ALL
-                                                ? undefined
-                                                : targetFilter
-                                        }
-                                    />
-                                </div>
-                            }
-                            initialSorting={DEFAULT_SORTING}
-                            isLoading={runsQ.isPending}
-                            onResetFilters={reset}
-                            onSortingChange={sortBy}
-                            pageSize={null}
-                            rowId={(r) => r.id}
-                            serverPagination={{
-                                hasNextPage: rows.length === PAGE_SIZE,
-                                isPending: runsQ.isPending,
-                                onPageIndexChange: (pageIndex) =>
-                                    setOffset(pageIndex * PAGE_SIZE),
-                                pageIndex: offset / PAGE_SIZE,
-                                pageSize: PAGE_SIZE,
-                            }}
+        <ToolPanel title="Runs">
+            {runsQ.error ? (
+                <EmptyState
+                    description={runsQ.error.message}
+                    title="Could not fetch runs"
+                />
+            ) : isCollectionEmpty ? (
+                <EmptyState
+                    action={
+                        <Button asChild variant="outline">
+                            <Link href={routes.accounting.index}>
+                                Start a run
+                            </Link>
+                        </Button>
+                    }
+                    description="Each import run is listed here with what it previewed and posted."
+                    icon={History}
+                    title="No runs yet"
+                />
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={rows}
+                    emptyState={
+                        <EmptyState
+                            description="No runs match these filters."
+                            icon={History}
+                            title="No matches"
                         />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                    }
+                    filterPlaceholder="Search runs…"
+                    hasExternalFilters={hasFilters}
+                    headerActions={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <FilterSelect
+                                label="Status"
+                                onValueChange={(v) => {
+                                    setStatusFilter(
+                                        RUN_STATUSES.find((s) => s === v) ??
+                                            ALL,
+                                    );
+                                    setOffset(0);
+                                }}
+                                options={RUN_STATUSES.map((s) => ({
+                                    label: runStatusLabel(s),
+                                    value: s,
+                                }))}
+                                placeholder="All statuses"
+                                value={
+                                    statusFilter === ALL
+                                        ? undefined
+                                        : statusFilter
+                                }
+                            />
+                            <FilterSelect
+                                label="Target"
+                                onValueChange={(v) => {
+                                    setTargetFilter(v ?? ALL);
+                                    setOffset(0);
+                                }}
+                                options={targets.map((c) => ({
+                                    label: c.label,
+                                    value: c.id,
+                                }))}
+                                placeholder="All targets"
+                                value={
+                                    targetFilter === ALL
+                                        ? undefined
+                                        : targetFilter
+                                }
+                            />
+                        </div>
+                    }
+                    initialSorting={DEFAULT_SORTING}
+                    isLoading={runsQ.isPending}
+                    onResetFilters={reset}
+                    onSortingChange={sortBy}
+                    rowId={(r) => r.id}
+                    serverPagination={{
+                        hasNextPage:
+                            offset + rows.length <
+                            (runsQ.data?.totalCount ?? 0),
+                        isPending: runsQ.isPending,
+                        onPageIndexChange: (pageIndex) =>
+                            setOffset(pageIndex * DATA_TABLE_PAGE_SIZE),
+                        pageIndex: offset / DATA_TABLE_PAGE_SIZE,
+                        pageSize: DATA_TABLE_PAGE_SIZE,
+                        totalCount: runsQ.data?.totalCount,
+                    }}
+                    showFilter
+                />
+            )}
+        </ToolPanel>
     );
 }

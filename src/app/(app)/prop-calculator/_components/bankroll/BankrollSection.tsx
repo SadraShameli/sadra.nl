@@ -1,27 +1,39 @@
 import { type ReactNode } from 'react';
 
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
+import { InputsBesideResults } from '~/components/InputsBesideResults';
+import { ToolPanel } from '~/components/ToolPanel';
+import { FieldGroup } from '~/components/ui/field';
 
 interface BankrollSectionProperties {
-    children: ReactNode;
-    description: ReactNode;
-    headingId: string;
-    title: string;
+    readonly headingId: string;
+    readonly info: ReactNode;
+    readonly inputs: ReactNode;
+    readonly isComputing?: boolean;
+    readonly results: ReactNode;
+    readonly title: string;
 }
 
 export function BankrollSection({
-    children,
-    description,
     headingId,
+    info,
+    inputs,
+    isComputing = false,
+    results,
     title,
 }: BankrollSectionProperties) {
     return (
-        <section aria-labelledby={headingId} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-                <ToolSectionHeading id={headingId}>{title}</ToolSectionHeading>
-                <p className="text-sm text-muted-foreground">{description}</p>
-            </div>
-            {children}
+        <section aria-labelledby={headingId}>
+            <ToolPanel
+                info={info}
+                isComputing={isComputing}
+                title={title}
+                titleId={headingId}
+            >
+                <InputsBesideResults
+                    inputs={<FieldGroup className="gap-4">{inputs}</FieldGroup>}
+                    results={results}
+                />
+            </ToolPanel>
         </section>
     );
 }

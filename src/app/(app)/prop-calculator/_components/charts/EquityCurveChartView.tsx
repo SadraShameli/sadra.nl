@@ -3,6 +3,7 @@
 import { Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
+    CHART_REFERENCE_LABEL_PROPS,
     CHART_REFERENCE_LINE_PROPS,
     CHART_STROKE_WIDTH,
     CHART_X_AXIS_PROPS,
@@ -15,6 +16,7 @@ import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { median } from '~/lib/prop-calculator/stats';
 
+import { ChartEmptyState } from './ChartEmptyState';
 import { type SampledPathChartRow } from './types';
 
 interface Properties {
@@ -28,11 +30,7 @@ const chartConfig: ChartConfig = {
 
 export default function EquityCurveChartView({ result }: Properties) {
     if (result.sampleEquityCurves.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                No simulation data yet.
-            </div>
-        );
+        return <ChartEmptyState title="No simulation data yet" />;
     }
 
     const data = buildChartData(result.sampleEquityCurves);
@@ -68,23 +66,19 @@ export default function EquityCurveChartView({ result }: Properties) {
                 <ReferenceLine
                     {...CHART_REFERENCE_LINE_PROPS}
                     label={{
-                        fill: 'var(--success)',
-                        fontSize: 11,
+                        ...CHART_REFERENCE_LABEL_PROPS,
                         position: 'right',
                         value: 'Target',
                     }}
-                    stroke="var(--success)"
                     y={targetLine}
                 />
                 <ReferenceLine
                     {...CHART_REFERENCE_LINE_PROPS}
                     label={{
-                        fill: 'var(--destructive)',
-                        fontSize: 11,
+                        ...CHART_REFERENCE_LABEL_PROPS,
                         position: 'right',
                         value: 'Drawdown',
                     }}
-                    stroke="var(--destructive)"
                     y={drawdownLine}
                 />
                 {Array.from({ length: pathCount }, (_, index) => (

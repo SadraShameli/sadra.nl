@@ -1,11 +1,13 @@
-import { Fragment } from 'react';
-
+import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import { NO_EVAL_PHASE_REASON } from '~/app/(app)/prop-calculator/_components/missingReasons';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
+import { DetailList } from '~/components/DetailList';
+import { type PageTab, UrlPageTabs } from '~/components/PageTabs';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import {
     ALL_FIRMS,
     type FirmId,
@@ -19,35 +21,39 @@ import {
     PLAN_RULE_SEGMENT_LABEL,
 } from '~/lib/prop-calculator/describe';
 
+export enum RulesUrlParameter {
+    Firm = 'rfirm',
+}
+
+const DEFAULT_RULES_FIRM_ID = defaultCalculatorState().firm.id;
+
 export function RulesView() {
+    const tabs: PageTab<FirmId>[] = ALL_FIRMS.map((firm) => ({
+        content: <FirmRules firm={firm} />,
+        label: firm.displayName,
+        value: firm.id,
+    }));
     return (
         <>
             <ToolPageHeading toolId={ToolId.Rules} />
-            <nav
-                aria-label="Jump to a firm"
-                className="app-prop-calculator__rules-nav mb-8 flex flex-wrap gap-2"
-            >
-                {ALL_FIRMS.map((firm) => (
-                    <Button asChild key={firm.id} size="sm" variant="outline">
-                        <a href={`#${firmRulesSectionId(firm)}`}>
-                            {firm.displayName}
-                        </a>
-                    </Button>
-                ))}
-            </nav>
-            <div className="app-prop-calculator__rules mb-10 flex flex-col gap-10">
-                {ALL_FIRMS.map((firm) => (
-                    <FirmRules firm={firm} key={firm.id} />
-                ))}
-            </div>
+            <UrlPageTabs
+                className="app-prop-calculator__rules mb-10"
+                defaultValue={DEFAULT_RULES_FIRM_ID}
+                searchParameter={RulesUrlParameter.Firm}
+                tabs={tabs}
+            />
         </>
     );
 }
 
 function FirmRules({ firm }: { firm: TradingFirm }) {
     return (
-        <ToolSection id={firmRulesSectionId(firm)} title={firm.displayName}>
-            <div className="grid gap-4 lg:grid-cols-2">
+        <ToolSection
+            id={firmRulesSectionId(firm)}
+            srOnlyHeading
+            title={firm.displayName}
+        >
+            <div className="grid gap-4 lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
                 {firm.plans.map((plan) => (
                     <PlanRules key={serializePlanId(plan.id)} plan={plan} />
                 ))}
@@ -63,39 +69,38 @@ function firmRulesSectionId(firm: TradingFirm): `rules-${FirmId}` {
 function PlanRules({ plan }: { plan: Plan }) {
     return (
         <article>
-            <Card className="h-full gap-4">
-                <CardHeader>
-                    <CardTitle
-                        as="h3"
-                        className="flex flex-wrap items-center gap-2"
-                    >
+            <ToolPanel
+                className="h-full gap-4"
+                title={
+                    <span className="flex flex-wrap items-center gap-2">
                         {plan.label}
                         {!plan.isPurchasable && (
-                            <Badge asChild variant="secondary">
+                            <Badge asChild>
                                 <span>
                                     {PLAN_AVAILABILITY_LABEL[plan.availability]}
                                 </span>
                             </Badge>
                         )}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <dl className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-                        {describePlanRules(plan)
-                            .flat()
-                            .map((segment) => (
-                                <Fragment key={segment.kind}>
-                                    <dt className="text-muted-foreground">
-                                        {PLAN_RULE_SEGMENT_LABEL[segment.kind]}
-                                    </dt>
-                                    <dd className="tabular-nums">
-                                        {segment.value}
-                                    </dd>
-                                </Fragment>
-                            ))}
-                    </dl>
-                </CardContent>
-            </Card>
+                    </span>
+                }
+                titleAs="h3"
+            >
+                <DetailList
+                    className="tabular-nums"
+                    items={describePlanRules(plan)
+                        .flat()
+                        .map((segment) => ({
+                            id: segment.kind,
+                            label: PLAN_RULE_SEGMENT_LABEL[segment.kind],
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_EVAL_PHASE_REASON}
+                                    value={segment.value}
+                                />
+                            ),
+                        }))}
+                />
+            </ToolPanel>
         </article>
     );
 }

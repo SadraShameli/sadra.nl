@@ -23,6 +23,9 @@ import {
 import { MffuVariant } from '~/lib/prop-calculator/core';
 import { LiveTransferContinuationKind } from '~/lib/prop-calculator/simulator';
 
+import { infoContentOrNull } from './infoPopover';
+import { missingValueText } from './missingValue';
+
 const toolsWorkerBox = vi.hoisted(() => ({
     instances: [] as {
         runSpy: ReturnType<typeof vi.fn<(request: unknown) => void>>;
@@ -170,6 +173,10 @@ describe('FundedValueCard live-transfer hazard lines (PT-73f)', () => {
         vi.unstubAllGlobals();
     });
 
+    function fundedValueInfo(): HTMLElement | null {
+        return infoContentOrNull(container, 'Funded value');
+    }
+
     function succeedWith(
         liveTransfer?: LiveTransferHazardAssumption,
         cumulativePayoutTrigger?: CumulativePayoutTriggerAssumption,
@@ -202,7 +209,7 @@ describe('FundedValueCard live-transfer hazard lines (PT-73f)', () => {
     it('prints the hazard, the share sent live and the continuation notes when the estimate priced a hazard', () => {
         succeedWith(LIVE_TRANSFER);
 
-        const list = container.querySelector(NOTE_LIST);
+        const list = fundedValueInfo()?.querySelector(NOTE_LIST) ?? null;
         expect(list).not.toBeNull();
         const text = list?.textContent ?? '';
         expect(text).toContain(
@@ -218,23 +225,26 @@ describe('FundedValueCard live-transfer hazard lines (PT-73f)', () => {
         expect(container.textContent).toContain(
             'Mean payouts per funded account',
         );
-        expect(container.querySelector(NOTE_LIST)).toBeNull();
+        expect(fundedValueInfo()?.querySelector(NOTE_LIST) ?? null).toBeNull();
         expect(container.textContent).not.toContain('Live transfer');
     });
 
     it('prints the priced cumulative trigger line when the estimate priced one, with no hazard entered', () => {
         succeedWith(undefined, PRICED_TRIGGER);
 
-        const list = container.querySelector(TRIGGER_LIST);
+        const info = fundedValueInfo();
+        const list = info?.querySelector(TRIGGER_LIST) ?? null;
         expect(list).not.toBeNull();
         expect(list?.textContent).toContain(assumptionText(PRICED_TRIGGER));
-        expect(container.querySelector(NOTE_LIST)).toBeNull();
+        expect(info?.querySelector(NOTE_LIST) ?? null).toBeNull();
     });
 
     it('prints no trigger line when the estimate priced none', () => {
         succeedWith(LIVE_TRANSFER);
 
-        expect(container.querySelector(TRIGGER_LIST)).toBeNull();
+        expect(
+            fundedValueInfo()?.querySelector(TRIGGER_LIST) ?? null,
+        ).toBeNull();
     });
 });
 
@@ -310,7 +320,7 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
         expect(text).toContain('Mean payouts per funded account');
     });
 
-    it('asks for a sample size under the dollar range until one exists', () => {
+    it('hides the dollar range tile, rather than a headline n/a, until a sample size exists', () => {
         succeedWith(
             {
                 ...fundedValueResult(),
@@ -322,7 +332,8 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
 
         const text = container.textContent;
         expect(text).toContain('$4,500 ± $300');
-        expect(text).toContain('enter a sample size');
+        expect(text).not.toContain('Range n accounts could show ($)');
+        expect(text).not.toContain('n/a');
     });
 
     it('says why there is no dollar range when n is set but the run gave no standard error', () => {
@@ -338,5 +349,7 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
         const text = container.textContent;
         expect(text).toContain('$4,500');
         expect(text).toContain('too few funded trials for a standard error');
+        expect(text).toContain(missingValueText());
+        expect(text).not.toContain('n/a');
     });
 });

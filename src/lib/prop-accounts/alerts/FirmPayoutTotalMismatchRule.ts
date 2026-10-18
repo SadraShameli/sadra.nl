@@ -1,3 +1,4 @@
+import { formatDisplayDate } from '~/lib/format';
 import {
     CentsDisplay,
     firmKeyId,
@@ -40,8 +41,8 @@ export class FirmPayoutTotalMismatchRule extends AlertRule {
                 disclosures: [],
                 kind: this.kind,
                 message: isOutOfTolerance
-                    ? `The statement from ${entry.asOf} reports ${formatUsdCents(entry.reportedPayoutCents, CentsDisplay.Always)}, the ledger's paid payouts through that date sum to ${formatUsdCents(entry.ledgerPaidCents, CentsDisplay.Always)}${grossNote}${decrease}`
-                    : `The statement from ${entry.asOf} reports ${formatUsdCents(entry.reportedPayoutCents, CentsDisplay.Always)}${decrease}`,
+                    ? `The statement from ${formatDisplayDate(entry.asOf)} reports ${formatUsdCents(entry.reportedPayoutCents, CentsDisplay.Always)}, the ledger's paid payouts through that date sum to ${formatUsdCents(entry.ledgerPaidCents, CentsDisplay.Always)}${grossNote}${decrease}`
+                    : `The statement from ${formatDisplayDate(entry.asOf)} reports ${formatUsdCents(entry.reportedPayoutCents, CentsDisplay.Always)}${decrease}`,
                 severity: AlertSeverity.Warning,
                 subject: {
                     accountIds,

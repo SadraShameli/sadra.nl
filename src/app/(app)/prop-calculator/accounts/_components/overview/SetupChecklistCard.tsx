@@ -1,17 +1,27 @@
-import { CircleAlert, CircleCheck, CircleDashed } from 'lucide-react';
+import { CircleAlert, CircleCheck, CircleDashed, CircleX } from 'lucide-react';
 import Link from 'next/link';
 import { memo } from 'react';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Progress } from '~/components/ui/progress';
-import { SetupStepStatus } from '~/lib/prop-accounts';
-import { cn } from '~/lib/utilities';
+import { Skeleton } from '~/components/ui/skeleton';
 
-import { type SetupChecklistCardModel } from './overviewModel';
+import { type SetupChecklistCardModel, SetupRowStatus } from './overviewModel';
+import { OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 import { SetupAccountsTable } from './SetupAccountsTable';
 
 type SetupStepModel = SetupChecklistCardModel['steps'][number];
+
+const COUNTING_TEXT = 'Counting the steps done';
+
+const OPEN_STATUSES: ReadonlySet<SetupRowStatus> = new Set([
+    SetupRowStatus.Failed,
+    SetupRowStatus.Missing,
+    SetupRowStatus.NotChecked,
+]);
 
 export const SetupChecklistCard = memo(function SetupChecklistCard({
     model,
@@ -19,10 +29,10 @@ export const SetupChecklistCard = memo(function SetupChecklistCard({
     readonly model: SetupChecklistCardModel;
 }) {
     return (
-        <div className="flex flex-col gap-4">
+        <OverviewPanel section={OverviewSectionId.Setup}>
             <SetupProgress model={model} />
             <SetupStepList steps={model.steps} />
-        </div>
+        </OverviewPanel>
     );
 });
 
@@ -37,12 +47,9 @@ export function SetupChecklistCompact({
             className="flex flex-col gap-3"
         >
             <div className="flex items-baseline justify-between gap-3">
-                <h3
-                    className="text-sm font-medium text-foreground"
-                    id="setup-checklist-compact"
-                >
+                <PanelSubheading id="setup-checklist-compact">
                     Finish the setup
-                </h3>
+                </PanelSubheading>
                 <SetupCount model={model} />
             </div>
             <SetupBar model={model} />
@@ -72,6 +79,17 @@ function SetupCount({ model }: { readonly model: SetupChecklistCardModel }) {
 }
 
 function SetupProgress({ model }: { readonly model: SetupChecklistCardModel }) {
+    if (model.isCounting) {
+        return (
+            <div aria-busy="true" className="flex flex-col gap-2">
+                <span className="sr-only" role="status">
+                    {COUNTING_TEXT}
+                </span>
+                <Skeleton aria-hidden className="h-4 w-28" />
+                <Skeleton aria-hidden className="h-1.5 w-full" />
+            </div>
+        );
+    }
     return (
         <div className="flex flex-col gap-2">
             <SetupCount model={model} />
@@ -81,22 +99,13 @@ function SetupProgress({ model }: { readonly model: SetupChecklistCardModel }) {
 }
 
 function SetupStepItem({ step }: { readonly step: SetupStepModel }) {
-    const isOpen =
-        step.status === SetupStepStatus.Missing ||
-        step.status === SetupStepStatus.NotChecked;
+    const isOpen = OPEN_STATUSES.has(step.status);
     return (
         <li className="flex flex-col gap-3 p-3">
             <div className="flex items-start gap-3">
                 <StepIcon status={step.status} />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <p
-                        className={cn(
-                            'text-sm font-medium',
-                            step.status === SetupStepStatus.Done
-                                ? 'text-muted-foreground'
-                                : 'text-foreground',
-                        )}
-                    >
+                    <p className="text-sm font-medium text-foreground">
                         <span className="sr-only">{step.statusLabel}: </span>
                         {step.label}
                     </p>
@@ -105,7 +114,7 @@ function SetupStepItem({ step }: { readonly step: SetupStepModel }) {
                             {step.detail}
                         </p>
                     )}
-                    {step.status === SetupStepStatus.NotApplicable && (
+                    {step.status === SetupRowStatus.NotApplicable && (
                         <p className="text-xs text-muted-foreground">
                             {step.statusLabel}
                         </p>
@@ -117,7 +126,7 @@ function SetupStepItem({ step }: { readonly step: SetupStepModel }) {
                         className="shrink-0"
                         size="sm"
                         variant={
-                            step.status === SetupStepStatus.Missing
+                            step.status === SetupRowStatus.Missing
                                 ? 'outline'
                                 : 'ghost'
                         }
@@ -136,7 +145,6 @@ function SetupStepItem({ step }: { readonly step: SetupStepModel }) {
                             <Badge
                                 asChild
                                 className="font-medium hover:bg-accent"
-                                variant="outline"
                             >
                                 <Link href={item.href}>{item.label}</Link>
                             </Badge>
@@ -162,33 +170,21 @@ function SetupStepList({
     );
 }
 
-function StepIcon({ status }: { readonly status: SetupStepStatus }) {
+function StepIcon({ status }: { readonly status: SetupRowStatus }) {
     const className = 'mt-0.5 size-4 shrink-0';
     switch (status) {
-        case SetupStepStatus.Done: {
-            return (
-                <CircleCheck
-                    aria-hidden
-                    className={cn(className, 'text-success')}
-                />
-            );
+        case SetupRowStatus.Done: {
+            return <CircleCheck aria-hidden className={className} />;
         }
-        case SetupStepStatus.Missing: {
-            return (
-                <CircleAlert
-                    aria-hidden
-                    className={cn(className, 'text-warning')}
-                />
-            );
+        case SetupRowStatus.Failed: {
+            return <CircleX aria-hidden className={className} />;
         }
-        case SetupStepStatus.NotApplicable:
-        case SetupStepStatus.NotChecked: {
-            return (
-                <CircleDashed
-                    aria-hidden
-                    className={cn(className, 'text-muted-foreground')}
-                />
-            );
+        case SetupRowStatus.Missing: {
+            return <CircleAlert aria-hidden className={className} />;
+        }
+        case SetupRowStatus.NotApplicable:
+        case SetupRowStatus.NotChecked: {
+            return <CircleDashed aria-hidden className={className} />;
         }
     }
 }

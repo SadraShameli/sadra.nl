@@ -1,3 +1,4 @@
+import { formatDisplayDate } from '~/lib/format';
 import {
     BustCause,
     bustCauseLabel,
@@ -64,7 +65,7 @@ export function bustDiagnosisOf(input: BustDiagnosisInput): BustDiagnosis {
     }
     for (const violation of input.violations) {
         evidence.push({
-            detail: `A ${ruleViolationKindLabel(violation.kind)} violation was recorded on ${violation.occurredOn}, inside the attempt window`,
+            detail: `A ${ruleViolationKindLabel(violation.kind)} violation was recorded on ${formatDisplayDate(violation.occurredOn)}, inside the attempt window`,
             kind: BustEvidenceKind.Violation,
         });
     }

@@ -1,19 +1,25 @@
 'use client';
 
+import { ChartColumn, ClipboardCheck } from 'lucide-react';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Button } from '~/components/ui/button';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
 import { ComponentCorrelationChart } from './analytics/ComponentCorrelationChart';
 import { CumulativeRChart } from './analytics/CumulativeRChart';
 import { ExecutionImpactPanel } from './analytics/ExecutionImpactPanel';
 import { GradeCalibrationChart } from './analytics/GradeCalibrationChart';
-import { KpiTiles } from './analytics/KpiTiles';
-import { OutcomeDonut } from './analytics/OutcomeDonut';
+import { KpiStrip } from './analytics/KpiStrip';
+import { OutcomeDistribution } from './analytics/OutcomeDistribution';
 import { PerWindowChart } from './analytics/PerWindowChart';
 import { WinRateByGradeChart } from './analytics/WinRateByGradeChart';
 
@@ -37,14 +43,19 @@ export function AnalyticsDashboard({
     }, [assessments, planFilter]);
 
     return assessments.length === 0 ? (
-        <Card>
-            <CardContent className="py-12 text-center">
-                <p className="text-sm text-muted-foreground">
-                    No graded assessments yet. Run the checklist and record
-                    outcomes to see analytics here.
-                </p>
-            </CardContent>
-        </Card>
+        <EmptyStatePanel
+            action={
+                <Button asChild>
+                    <Link href={routes.tradeChecklist.index}>
+                        <ClipboardCheck data-icon="inline-start" />
+                        Run the checklist
+                    </Link>
+                </Button>
+            }
+            description="Grade setups and record outcomes to see analytics here."
+            icon={ChartColumn}
+            title="No assessments yet"
+        />
     ) : (
         <div
             className={cn(
@@ -53,7 +64,7 @@ export function AnalyticsDashboard({
             )}
         >
             {plans.length > 1 && (
-                <div className="flex flex-wrap items-center gap-2">
+                <FilterToolbar label="Analytics filters">
                     <FilterSelect
                         label="Plan"
                         onValueChange={(v) => setPlanFilter(v ?? ALL_PLANS)}
@@ -66,89 +77,43 @@ export function AnalyticsDashboard({
                             planFilter === ALL_PLANS ? undefined : planFilter
                         }
                     />
-                </div>
+                </FilterToolbar>
             )}
 
-            <KpiTiles assessments={filtered} />
+            <KpiStrip assessments={filtered} />
 
             <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">
-                            Cumulative R over time
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <CumulativeRChart assessments={filtered} />
-                    </CardContent>
-                </Card>
+                <ToolPanel title="Cumulative R over time">
+                    <CumulativeRChart assessments={filtered} />
+                </ToolPanel>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">
-                            Outcome distribution
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <OutcomeDonut assessments={filtered} />
-                    </CardContent>
-                </Card>
+                <ToolPanel title="Outcome distribution">
+                    <OutcomeDistribution assessments={filtered} />
+                </ToolPanel>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">
-                        Win rate by grade
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <WinRateByGradeChart assessments={filtered} />
-                </CardContent>
-            </Card>
+            <ToolPanel title="Win rate by grade">
+                <WinRateByGradeChart assessments={filtered} />
+            </ToolPanel>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">
-                        Grade calibration (avg outcome R per grade)
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <GradeCalibrationChart assessments={filtered} />
-                </CardContent>
-            </Card>
+            <ToolPanel title="Grade calibration (avg outcome R per grade)">
+                <GradeCalibrationChart assessments={filtered} />
+            </ToolPanel>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">
-                        Performance by macro window
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <PerWindowChart assessments={filtered} />
-                </CardContent>
-            </Card>
+            <ToolPanel title="Performance by macro window">
+                <PerWindowChart assessments={filtered} />
+            </ToolPanel>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">
-                        Component score correlation
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <ComponentCorrelationChart assessments={filtered} />
-                </CardContent>
-            </Card>
+            <ToolPanel
+                info="Bucketed by % of component max earned. Higher buckets should produce higher avg R if the section has edge."
+                title="Component score correlation"
+            >
+                <ComponentCorrelationChart assessments={filtered} />
+            </ToolPanel>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">
-                        Execution impact
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <ExecutionImpactPanel assessments={filtered} />
-                </CardContent>
-            </Card>
+            <ToolPanel title="Execution impact">
+                <ExecutionImpactPanel assessments={filtered} />
+            </ToolPanel>
         </div>
     );
 }

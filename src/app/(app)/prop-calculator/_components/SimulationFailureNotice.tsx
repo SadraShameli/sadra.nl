@@ -11,7 +11,7 @@ export function SimulationFailureNotice({
     return (
         <Alert
             className="app-prop-calculator__simulation-failure"
-            variant="warning"
+            variant="destructive"
         >
             <AlertDescription>{message}</AlertDescription>
         </Alert>

@@ -6,7 +6,10 @@ import {
     cumulativeRSeries,
     drawdownStats,
     equityCurveFromR,
+    expectancyR,
     type LightAssessment,
+    outcomeTally,
+    winRateByGrade,
 } from '~/lib/trading/analytics';
 
 function assessment(
@@ -178,5 +181,70 @@ describe('componentScoreCorrelation', () => {
         const buckets = componentScoreCorrelation([row], 'mental');
         expect(buckets[4]?.count).toBe(1);
         expect(buckets[4]?.avgR).toBe(2);
+    });
+});
+
+describe('outcomeTally', () => {
+    it('counts a win recorded without an R value as an outcome, as the grade and streak figures do', () => {
+        const rows = [assessment(0, null)];
+        const tally = outcomeTally(rows);
+        expect(tally.outcomes).toBe(1);
+        expect(tally.withR).toBe(0);
+        expect(tally.winRate).toBe(1);
+        expect(tally.outcomes).toBe(
+            winRateByGrade(rows).reduce((sum, grade) => sum + grade.count, 0),
+        );
+        expect(computeStreaks(rows).currentWin).toBe(tally.wins);
+    });
+
+    it('leaves no-trade and unrecorded rows out and averages R over the outcomes with R', () => {
+        const tally = outcomeTally([
+            assessment(0, 2),
+            assessment(1, null, 'loss'),
+            assessment(2, -1, 'loss'),
+            assessment(3, null, 'no-trade'),
+            assessment(4, null, null),
+        ]);
+        expect(tally).toEqual({
+            avgR: 0.5,
+            outcomes: 3,
+            sumR: 1,
+            winRate: 1 / 3,
+            winRateWithR: 0.5,
+            wins: 1,
+            winsWithR: 1,
+            withR: 2,
+        });
+    });
+
+    it('reports zeros when nothing has an outcome', () => {
+        expect(outcomeTally([assessment(0, null, null)])).toEqual({
+            avgR: 0,
+            outcomes: 0,
+            sumR: 0,
+            winRate: 0,
+            winRateWithR: 0,
+            wins: 0,
+            winsWithR: 0,
+            withR: 0,
+        });
+    });
+
+    it('keeps the win rate over outcomes with R as its own field, the one expectancyR reports', () => {
+        const rows = [
+            assessment(0, 2),
+            assessment(1, null),
+            assessment(2, -1, 'loss'),
+            assessment(3, -1, 'loss'),
+        ];
+        const tally = outcomeTally(rows);
+        expect(tally.winRate).toBe(0.5);
+        expect(tally.winsWithR).toBe(1);
+        expect(tally.winRateWithR).toBe(1 / 3);
+        expect(expectancyR(rows)).toEqual({
+            avgR: tally.avgR,
+            sample: tally.withR,
+            winRate: tally.winRateWithR,
+        });
     });
 });

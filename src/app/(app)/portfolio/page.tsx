@@ -6,7 +6,12 @@ import PortfolioSection from '~/app/(app)/_components/Portfolio/PortfolioSection
 import RootResumeLink from '~/app/(app)/_components/Portfolio/RootResumeLink';
 import { SectionTone } from '~/app/(app)/_components/SectionShell';
 import { PageTransition } from '~/components/PageTransition';
-import { portfolioContent, siteContent } from '~/lib/site/content';
+import {
+    portfolioContent,
+    siteContent,
+    siteToolTitle,
+    ToolTicker,
+} from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
 
 export const metadata: Metadata = {
@@ -18,7 +23,7 @@ export const metadata: Metadata = {
         type: 'profile',
         url: routes.portfolio,
     },
-    title: portfolioContent.metaTitle,
+    title: siteToolTitle(ToolTicker.Portfolio),
 };
 
 export const ensureStatic = 'prefetch';

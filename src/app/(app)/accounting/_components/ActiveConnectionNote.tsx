@@ -1,27 +1,34 @@
-import { FILTER_CONTROL_CLASS } from '~/components/ui/filter-control';
-import { CredentialRegistry } from '~/lib/accounting/credentials/index';
-import { cn } from '~/lib/utilities';
+import {
+    CredentialRegistry,
+    CredentialRole,
+} from '~/lib/accounting/credentials/index';
+
+const ROLE_LABEL: Readonly<Record<CredentialRole, string>> = {
+    [CredentialRole.Accounting]: 'Accounting',
+    [CredentialRole.Transactions]: 'Source',
+};
+
+const ROLE_NOUN: Readonly<Record<CredentialRole, string>> = {
+    [CredentialRole.Accounting]: 'accounting credential',
+    [CredentialRole.Transactions]: 'transaction source',
+};
 
 export function ActiveConnectionNote({
     credential,
-    roleNoun,
+    role,
 }: {
     credential: undefined | { kind: string; label: string };
-    roleNoun: string;
+    role: CredentialRole;
 }) {
     const descriptor = credential
         ? CredentialRegistry.instance.get(credential.kind)
         : undefined;
     return credential ? (
-        <span
-            className={cn(
-                FILTER_CONTROL_CLASS,
-                'inline-flex shrink-0 items-center border border-line px-4 whitespace-nowrap text-ink-muted dark:border-line',
-            )}
-        >
-            {descriptor?.label ?? credential.kind} · {credential.label}
+        <span className="whitespace-nowrap">
+            {ROLE_LABEL[role]}: {descriptor?.label ?? credential.kind} ·{' '}
+            {credential.label}
         </span>
     ) : (
-        <span className="text-xs text-ink-muted">No {roleNoun} set.</span>
+        <span>No {ROLE_NOUN[role]} set.</span>
     );
 }

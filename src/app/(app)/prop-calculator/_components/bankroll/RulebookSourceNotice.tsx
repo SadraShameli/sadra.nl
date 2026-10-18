@@ -1,3 +1,4 @@
+import { InfoNote } from '~/components/InfoNote';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 
 import { type RulebookSource, rulebookSourceNotice } from './rulebookSource';
@@ -11,9 +12,11 @@ export function RulebookSourceNotice({
 }: RulebookSourceNoticeProperties) {
     const notice = rulebookSourceNotice(source);
     if (notice === null) return null;
-    return (
-        <Alert role={notice.isFailure ? 'alert' : 'status'} variant="warning">
+    return notice.isFailure ? (
+        <Alert variant="destructive">
             <AlertDescription>{notice.text}</AlertDescription>
         </Alert>
+    ) : (
+        <InfoNote role="status">{notice.text}</InfoNote>
     );
 }

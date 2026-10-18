@@ -193,3 +193,16 @@ describe('the retire model carries a typed not-comparable field beside the verdi
         expect(retireModelOf(figures).isComparable).toBe(true);
     });
 });
+
+describe('the retire model states the remaining days as a whole count', () => {
+    it('writes a short window as is', () => {
+        expect(retireModelOf(RETIRE_RESULT).remainingDays).toBe('200 days');
+    });
+
+    it('groups a long window in thousands', () => {
+        expect(
+            retireModelOf({ ...RETIRE_RESULT, remainingDays: 1200 })
+                .remainingDays,
+        ).toBe('1,200 days');
+    });
+});

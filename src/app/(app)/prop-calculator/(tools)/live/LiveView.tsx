@@ -1,5 +1,7 @@
 'use client';
 
+import { Radio } from 'lucide-react';
+
 import { EvalLadderScope } from '~/app/(app)/prop-calculator/_components/AppliedEvalLadderNotice';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
@@ -10,19 +12,22 @@ import {
     liveToolModelCacheKey,
     LiveToolStatus,
 } from '~/app/(app)/prop-calculator/_components/live/liveToolModel';
-import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useDebouncedComputation } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
-import { Alert, AlertDescription } from '~/components/ui/alert';
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
+import { StatStrip } from '~/components/StatStrip';
+import { ToolPanel } from '~/components/ToolPanel';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import { type LiveOutputs, simulateLiveAccount } from '~/lib/prop-calculator';
 
 const LIVE_DEBOUNCE_MS = 550;
 const RESULT_HEADING_ID = 'live-result-heading';
+const NO_LIVE_BUST_REASON = 'No simulated live account busted.';
+const NO_LIVE_WITHDRAWAL_REASON = 'No simulated live account withdrew.';
 
 export function LiveView() {
     const { state } = useCalculatorInputs();
@@ -63,30 +68,35 @@ export function LiveView() {
             <ToolPageHeading toolId={ToolId.Live} />
             <div className="app-prop-calculator__live mb-10 flex flex-col gap-6">
                 <InputsSummary evalLadderScope={EvalLadderScope.NotUsedHere} />
-                <section
-                    aria-labelledby={RESULT_HEADING_ID}
-                    className="flex flex-col gap-4"
-                >
-                    <ToolSectionHeading id={RESULT_HEADING_ID}>
-                        Live stage results
-                    </ToolSectionHeading>
-                    {model.status === LiveToolStatus.Modeled &&
-                        model.note !== null && (
-                            <p className="text-xs text-muted-foreground">
-                                {model.note}
-                            </p>
+                <section aria-labelledby={RESULT_HEADING_ID}>
+                    <ToolPanel
+                        description={
+                            model.status === LiveToolStatus.Modeled &&
+                            model.note !== null
+                                ? model.note
+                                : undefined
+                        }
+                        isComputing={
+                            model.status === LiveToolStatus.Modeled && pending
+                        }
+                        title="Live stage results"
+                        titleId={RESULT_HEADING_ID}
+                    >
+                        {model.status === LiveToolStatus.NotModeled ? (
+                            <EmptyState
+                                description={model.reason}
+                                icon={Radio}
+                                size={EmptyStateSize.Compact}
+                                title="No live stage modeled"
+                            />
+                        ) : (
+                            <LiveComputationResult
+                                error={error}
+                                pending={pending}
+                                result={result}
+                            />
                         )}
-                    {model.status === LiveToolStatus.NotModeled ? (
-                        <Alert>
-                            <AlertDescription>{model.message}</AlertDescription>
-                        </Alert>
-                    ) : (
-                        <LiveComputationResult
-                            error={error}
-                            pending={pending}
-                            result={result}
-                        />
-                    )}
+                    </ToolPanel>
                 </section>
             </div>
         </>
@@ -103,51 +113,75 @@ function LiveComputationResult({
     result: LiveOutputs | null;
 }) {
     if (error !== null) return <SimulationFailureNotice message={error} />;
-    return result === null || pending ? (
-        <PanelSkeleton />
-    ) : (
-        <LiveResultSummary out={result} />
+    return (
+        <LiveResultSummary out={result === null || pending ? null : result} />
     );
 }
 
-function LiveResultSummary({ out }: { out: LiveOutputs }) {
+function LiveResultSummary({ out }: { out: LiveOutputs | null }) {
     return (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
-            <LiveStat
-                label="Bust probability"
-                value={formatPercent(out.liveBustProbability)}
-            />
-            <LiveStat
-                label="Closed for inactivity"
-                value={formatPercent(out.liveInactivityClosureProbability)}
-            />
-            <LiveStat
-                label="Median days to bust"
-                value={formatDays(out.medianDaysToBust)}
-            />
-            <LiveStat
-                label="Median days to first withdrawal"
-                value={formatDays(out.medianDaysToFirstWithdrawal)}
-            />
-            <LiveStat
-                label="Withdrawals by the horizon (median)"
-                value={formatCurrency(out.cumulativeWithdrawalsP50)}
-            />
-            <LiveStat
-                label="Expected withdrawals per year"
-                value={formatCurrency(out.expectedAnnualWithdrawalRate)}
-            />
-        </dl>
-    );
-}
-
-function LiveStat({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="flex flex-col">
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="font-medium text-foreground tabular-nums">
-                {value}
-            </dd>
-        </div>
+        <StatStrip
+            isLoading={out === null}
+            items={[
+                {
+                    id: 'bust-probability',
+                    label: 'Bust probability',
+                    value:
+                        out === null
+                            ? null
+                            : formatPercent(out.liveBustProbability),
+                },
+                {
+                    id: 'inactivity-closure',
+                    label: 'Closed for inactivity',
+                    value:
+                        out === null
+                            ? null
+                            : formatPercent(
+                                  out.liveInactivityClosureProbability,
+                              ),
+                },
+                {
+                    id: 'median-days-to-bust',
+                    label: 'Median days to bust',
+                    value:
+                        out === null ? null : (
+                            <ValueOrMissing
+                                reason={NO_LIVE_BUST_REASON}
+                                value={formatDays(out.medianDaysToBust)}
+                            />
+                        ),
+                },
+                {
+                    id: 'median-days-to-first-withdrawal',
+                    label: 'Median days to first withdrawal',
+                    value:
+                        out === null ? null : (
+                            <ValueOrMissing
+                                reason={NO_LIVE_WITHDRAWAL_REASON}
+                                value={formatDays(
+                                    out.medianDaysToFirstWithdrawal,
+                                )}
+                            />
+                        ),
+                },
+                {
+                    id: 'withdrawals-by-horizon',
+                    label: 'Withdrawals by the horizon (median)',
+                    value:
+                        out === null
+                            ? null
+                            : formatCurrency(out.cumulativeWithdrawalsP50),
+                },
+                {
+                    id: 'expected-annual-withdrawals',
+                    label: 'Expected withdrawals per year',
+                    value:
+                        out === null
+                            ? null
+                            : formatCurrency(out.expectedAnnualWithdrawalRate),
+                },
+            ]}
+        />
     );
 }

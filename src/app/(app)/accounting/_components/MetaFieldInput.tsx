@@ -4,9 +4,9 @@ import { useId } from 'react';
 
 import type { CredentialMetaField } from '~/lib/accounting/credentials/index';
 
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import { SwitchCard } from '~/components/ToggleCard';
 import { Input } from '~/components/ui/input';
-import { Label } from '~/components/ui/label';
 import { MetaFieldType } from '~/lib/accounting/credentials/index';
 
 import { CounterpartNameSelect } from './CounterpartNameSelect';
@@ -77,7 +77,11 @@ export function MetaFieldInput({
 
     return (
         <div className="flex flex-col gap-2">
-            <Label htmlFor={fieldId}>{field.label}</Label>
+            <LabelWithInfo
+                htmlFor={fieldId}
+                info={field.description}
+                label={field.label}
+            />
             <Input
                 id={fieldId}
                 onChange={(event) => {
@@ -99,11 +103,6 @@ export function MetaFieldInput({
                 type={field.type === MetaFieldType.Number ? 'number' : 'text'}
                 value={stringValue}
             />
-            {field.description && (
-                <p className="text-xs text-muted-foreground">
-                    {field.description}
-                </p>
-            )}
         </div>
     );
 }

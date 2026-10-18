@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 
-import { formatGateCurrency } from '~/lib/format';
+import { formatDisplayDate, formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     type Dollars,
     dollars,
@@ -487,7 +487,7 @@ export function reconstructPayoutPlannerAccount(
 }
 
 export function simStayCeilingText(ceiling: SimStayCeiling): string {
-    return `This planner's simulations send an account live once the payouts it receives, counted after the profit split, reach ${money(ceiling.cumulativePayoutLimit)} (${ceiling.sourceUrl}, fetched ${ceiling.fetchedOn}), and the payout that reaches it is still paid, so a withdrawal size it favors can cross it. The size you type here is not checked against this trigger. Keep your total paid below it to stay simulated. The firm may count gross payouts rather than what you receive after the split and fees, which would put the ceiling lower in what you receive. This tool cannot subtract your past payouts, so compare the trigger with your own payout history.`;
+    return `This planner's simulations send an account live once the payouts it receives, counted after the profit split, reach ${money(ceiling.cumulativePayoutLimit)} (${ceiling.sourceUrl}, fetched ${formatDisplayDate(ceiling.fetchedOn)}), and the payout that reaches it is still paid, so a withdrawal size it favors can cross it. The size you type here is not checked against this trigger. Keep your total paid below it to stay simulated. The firm may count gross payouts rather than what you receive after the split and fees, which would put the ceiling lower in what you receive. This tool cannot subtract your past payouts, so compare the trigger with your own payout history.`;
 }
 
 function countText(count: number, noun: string): string {
@@ -495,7 +495,7 @@ function countText(count: number, noun: string): string {
 }
 
 function money(amount: number): string {
-    return formatGateCurrency(amount);
+    return formatWholeOrCentsCurrency(amount);
 }
 
 function payoutPlannerSnapshotOf(

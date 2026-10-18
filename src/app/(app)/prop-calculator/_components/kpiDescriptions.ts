@@ -1,5 +1,7 @@
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator';
 
+import { PTDD_BENCH_SCALE } from './ptddBench';
+
 export const kpiDescriptions = {
     avgDaysToPass:
         "Mean trading days needed to reach the target across passing trials. Doesn't include eval failures.",
@@ -43,7 +45,7 @@ export const kpiDescriptions = {
     risk5Losses:
         'Share of trials where your strategy produced at least one streak of 5 losing trades in a row. High % means streaks will happen, so make sure your account size can survive them.',
     roiOnCost:
-        'Net profit divided by total fees paid, expressed as a percentage. = (avg net ÷ avg total cost) × 100. The dollar return on your fee outlay. Shows n/a when the total cost is $0, since a return on no outlay has no ratio.',
+        'Net profit divided by total fees paid, expressed as a percentage. = (avg net ÷ avg total cost) × 100. The dollar return on your fee outlay. Shows a dash when the total cost is $0, since a return on no outlay has no ratio.',
     totalCost:
         'All-in fees paid per evaluation cycle, averaged across every trial, whether it passed, busted or timed out. When multi-attempt is on, includes a retry fee for each failed attempt, bust or timeout, that is followed by another attempt: a re-buy on plans where every retry is a re-buy, otherwise the cheaper of a reset and a re-buy.',
     tradesPerPass:
@@ -61,10 +63,10 @@ export const panelDescriptions = {
     'days-to-pass-hist':
         'Distribution of trading days needed to reach the profit target. Concentration near the median = consistent timing. A long right tail = some trials grind for many days before passing.',
     drawdown:
-        "Each line shows how far below its rolling peak a trial fell at every step. The bold line is the median drawdown. The red dashed line marks the firm's bust limit. Useful for seeing how close paths typically come to busting.",
+        "Each line shows how far below its rolling peak a trial fell at every step. The bold line is the median drawdown. The dashed line labelled Bust limit marks the firm's bust limit. Useful for seeing how close paths typically come to busting.",
     drawdownDuration:
         'Analyses the 50 sampled equity paths to measure how long drawdown episodes last and how quickly they recover. Time underwater is the share of trading days spent below a prior peak. V-shape episodes recover in under 40% of their total duration: the faster that number, the less psychological and capital drag the strategy produces. Recovery tax shows the extra return required to get back to breakeven after typical drawdowns.',
-    equity: 'Each faint line is one Monte Carlo trial. The bold line is the day-by-day median across all sampled paths. The green dashed line marks the profit target; the red dashed line marks the drawdown threshold. Use it to see typical paths AND outliers in one view.',
+    equity: 'Each faint line is one Monte Carlo trial. The bold line is the day-by-day median across all sampled paths. The dashed line labelled Target marks the profit target and the one labelled Drawdown marks the drawdown threshold. Use it to see typical paths AND outliers in one view.',
     'final-balance-hist':
         'Distribution of final account balances across all trials. A bimodal shape (two humps) means many trials either bust or pass cleanly. Reference lines show starting balance and target.',
     firmComparison:
@@ -73,8 +75,7 @@ export const panelDescriptions = {
         'Runs the simulator at 10 different risk-per-trade levels (0.25% to 5%) holding all your other inputs constant. The current risk row is highlighted, and the engine optimum for the active objective is marked with a star: the highest monthly net, or the highest cycle net under the cycle cash objective.',
     'pass-rate':
         'Cumulative share of trials that have hit the profit target by each day. Steepens early when most passes happen quickly; flattens late when the eval is dragging on. The asymptote = total eval pass probability.',
-    planComparison:
-        'Compares every plan offered by the selected firm at your current trading inputs. PT:DD is the profit-target-to-drawdown ratio: a lower value means you need less profit relative to your downside risk to pass the evaluation. Green ≤ 1.0×, amber 1.5–2.0×, red > 2.0×. Exp. spend is the total expected outlay across all eval attempts (including resets) until you get funded. P(no payout) = share of trials that reached funded and took no payout within the funded horizon. Use the table to find the account size with the most favourable challenge structure for your edge.',
+    planComparison: `Compares every plan offered by the selected firm at your current trading inputs. PT:DD is the profit-target-to-drawdown ratio: a lower value means you need less profit relative to your downside risk to pass the evaluation. Each ratio carries a grade: ${PTDD_BENCH_SCALE}. Exp. spend is the total expected outlay across all eval attempts (including resets) until you get funded. P(no payout) = share of trials that reached funded and took no payout within the funded horizon. Use the table to find the account size with the most favourable challenge structure for your edge.`,
     portfolio:
         "Build a basket of accounts across any mix of firms and plans. Each row simulates your current trading inputs against that firm's rules. Combined totals show your aggregate expected monthly income, total eval spend, and portfolio ROI: the same view as copy-trading but across different firms.",
     resilience:
@@ -90,7 +91,7 @@ export const panelDescriptions = {
     sensitivityNet:
         "Expected monthly net dollars across the same winrate × reward-to-risk grid. Pairs with the eval pass heatmap to spot the band that's both safe AND profitable.",
     sensitivityPass:
-        'Eval pass probability across a 7×7 grid of winrate × reward-to-risk values. Green = robust, red = unlikely. Your current cell is outlined. Use it to see how forgiving your edge is to estimation error.',
+        'Eval pass probability across a 7×7 grid of winrate × reward-to-risk values. Camel = robust, dark = unlikely. Your current cell is outlined. Use it to see how forgiving your edge is to estimation error.',
     strategyAnalysis:
         'Three quantitative views of your strategy in one place. Edge: how much you make per trade and how confident the simulation is that the edge is statistically real. Risk-adjusted returns: hedge-fund-grade ratios that compare profit to volatility (Sharpe), drawdown (Calmar), and downside (Omega). Returns breakdown: the same expected return decomposed across timeframes plus per-pass trade activity.',
     strategyDNA:

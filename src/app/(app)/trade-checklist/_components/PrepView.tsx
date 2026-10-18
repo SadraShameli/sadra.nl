@@ -5,7 +5,8 @@ import { useMemo, useState } from 'react';
 import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
 import type { PrepChecks } from '~/lib/trading/types';
 
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ToolPanel } from '~/components/ToolPanel';
+import { formatDisplayDate } from '~/lib/format';
 import { cn } from '~/lib/utilities';
 
 import { PrepChecklist } from './prep/PrepChecklist';
@@ -50,39 +51,33 @@ export function PrepView({ activePlanId, history, today }: PrepViewProperties) {
                 'flex flex-col gap-6',
             )}
         >
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">
-                        {isToday ? "Today's prep" : `Prep for ${selectedDate}`}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <PrepChecklist
-                        date={selectedDate}
-                        existing={selectedRow}
-                        initialChecks={initialChecks}
-                        initialNotes={initialNotes}
-                        isToday={isToday}
-                        key={selectedDate}
-                        planId={activePlanId}
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel
+                title={
+                    isToday
+                        ? "Today's prep"
+                        : `Prep for ${formatDisplayDate(selectedDate)}`
+                }
+            >
+                <PrepChecklist
+                    date={selectedDate}
+                    existing={selectedRow}
+                    initialChecks={initialChecks}
+                    initialNotes={initialNotes}
+                    isToday={isToday}
+                    key={selectedDate}
+                    planId={activePlanId}
+                />
+            </ToolPanel>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Last 30 days</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <PrepHistoryStrip
-                        history={history}
-                        onSelect={setSelectedDate}
-                        selectedDate={selectedDate}
-                        today={today}
-                        todayRow={todayRow}
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel title="Last 30 days">
+                <PrepHistoryStrip
+                    history={history}
+                    onSelect={setSelectedDate}
+                    selectedDate={selectedDate}
+                    today={today}
+                    todayRow={todayRow}
+                />
+            </ToolPanel>
         </div>
     );
 }

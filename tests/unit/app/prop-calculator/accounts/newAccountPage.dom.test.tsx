@@ -30,6 +30,7 @@ vi.mock('next/navigation', () => ({
     redirect: (href: string) => {
         throw new Error(`unexpected redirect to ${href}`);
     },
+    usePathname: () => '/prop-calculator/accounts/new',
 }));
 
 vi.mock('~/trpc/server', () => ({

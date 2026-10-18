@@ -1,48 +1,36 @@
 'use client';
 
-import { Tag } from 'lucide-react';
-import { useMemo } from 'react';
-import { z } from 'zod';
+import { LayoutGrid, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
+import { MissingValue } from '~/components/MissingValue';
+import {
+    editRowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { StatStrip, type StatStripItem } from '~/components/StatStrip';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { Field, FieldGroup, FieldLabel } from '~/components/ui/field';
-import InfoPopover from '~/components/ui/info-popover';
-import { Input } from '~/components/ui/input';
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from '~/components/ui/popover';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/select';
+import { Dialog } from '~/components/ui/dialog';
+import { EmptyState } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
-import { TableCell, TableRow } from '~/components/ui/table';
-import { Toggle } from '~/components/ui/toggle';
 import {
     formatCompactCurrency,
     formatCurrency,
     formatDays,
     formatOptionalPercent,
     formatPercent,
-    NOT_APPLICABLE,
 } from '~/lib/format';
 import {
-    ALL_INSTRUMENTS,
     annualisedRoiOnCost,
-    InstrumentSymbol,
-    parseFirmId,
+    type InstrumentSymbol,
     type Plan,
     type PlanOptIns,
     type Roi,
     ROI_BASIS_LABEL,
-    serializePlanId,
+    RoiBasis,
     type SimInputs,
     type SimOutputs,
     simulate,
@@ -53,25 +41,26 @@ import { cn } from '~/lib/utilities';
 
 import { ComputationId } from './ComputationId';
 import { toCouponDiscounts } from './couponDiscounts';
-import {
-    describeActivationFee,
-    describeEvalFee,
-    describeMonthlySubscriptionFee,
-    purchaseCouponDiscounts,
-} from './feePreview';
-import { KPI_ACCENT_TEXT_CLASS, KpiAccent, roiAccent } from './kpiAccent';
 import { panelDescriptions } from './kpiDescriptions';
-import { PercentInput } from './PercentInput';
 import { portfolioCacheKey } from './portfolioCacheKey';
-import { describeResetFee, hasResetOption } from './retryDescription';
+import {
+    hasCouponDiscount,
+    PortfolioEntryDialog,
+} from './PortfolioEntryDialog';
 import { partitionBySizing, type SizingRefusal } from './simulationFailure';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { type PortfolioEntry } from './types';
 import { useDebouncedComputation } from './useDebouncedSimulation';
+import { ValueOrMissing } from './ValueOrMissing';
 
 export interface SimmedEntry {
     entry: PortfolioEntry;
     out: SimOutputs;
+}
+
+interface PortfolioEntryEdit {
+    entry: PortfolioEntry;
+    isNew: boolean;
 }
 
 interface PortfolioPanelProperties {
@@ -87,13 +76,22 @@ interface PortfolioPanelProperties {
 interface PortfolioTableRow {
     entry: PortfolioEntry;
     firm: TradingFirm;
+    isAwaitingResult: boolean;
     plan: Plan;
     sim: SimmedEntry | undefined;
+}
+
+interface SimulatableEntry {
+    entry: PortfolioEntry;
+    plan: Plan;
 }
 
 const DEBOUNCE_MS = 600;
 const MAX_TRIALS = 500;
 const EMPTY_SIMMED: SimmedEntry[] = [];
+const NO_AWAITED_IDS: ReadonlySet<string> = new Set();
+const NOT_SIMULATED_REASON =
+    'This row was not simulated; the notice above the totals says why.';
 
 export default function PortfolioPanel({
     baseInputs,
@@ -109,6 +107,7 @@ export default function PortfolioPanel({
         ...baseInputs,
         ...entryPositionSizing(baseInputs, entry),
     }));
+    const simulatable = simulatableEntries(firms, sizing.accepted);
     const computation = useDebouncedComputation(
         ComputationId.Planner,
         key,
@@ -116,10 +115,7 @@ export default function PortfolioPanel({
         () => {
             const trials = Math.min(MAX_TRIALS, baseInputs.trials);
             const results: SimmedEntry[] = [];
-            for (const entry of sizing.accepted) {
-                const firm = firms.find((f) => f.id === entry.firmId);
-                const plan = firm?.findPlan(entry.planId);
-                if (!plan) continue;
+            for (const { entry, plan } of simulatable) {
                 const out = simulate({
                     ...baseInputs,
                     copyAccounts: entry.count,
@@ -136,6 +132,10 @@ export default function PortfolioPanel({
     );
     const isPending = portfolio.length > 0 && computation.pending;
     const simmed = portfolio.length === 0 ? EMPTY_SIMMED : computation.result;
+    const awaitedIds =
+        computation.error === null
+            ? new Set(simulatable.map(({ entry }) => entry.id))
+            : NO_AWAITED_IDS;
 
     const totals = useMemo(() => {
         if (simmed.length === 0) return null;
@@ -159,33 +159,15 @@ export default function PortfolioPanel({
         return { monthlyNet, roi, totalAccounts, totalCost, totalFunding };
     }, [simmed]);
 
-    function addEntry() {
-        onPortfolioChange([
-            ...portfolio,
-            {
-                activationDiscountPercent: 0,
-                count: 1,
-                evalDiscountPercent: 0,
-                firmId: currentFirm.id,
-                id: crypto.randomUUID(),
-                instrument: null,
-                linkActivationDiscount: false,
-                monthlySubscriptionDiscountPercent: 0,
-                planId: currentPlan.id,
-                resetDiscountPercent: 0,
-                stopPoints: null,
-            },
-        ]);
-    }
+    const [editing, setEditing] = useState<null | PortfolioEntryEdit>(null);
 
-    function updateEntry(
-        id: string,
-        patch: Partial<Omit<PortfolioEntry, 'id'>>,
-    ) {
+    function saveEntry({ entry, isNew }: PortfolioEntryEdit) {
         onPortfolioChange(
-            portfolio.map((entry) =>
-                entry.id === id ? { ...entry, ...patch } : entry,
-            ),
+            isNew
+                ? [...portfolio, entry]
+                : portfolio.map((current) =>
+                      current.id === entry.id ? entry : current,
+                  ),
         );
     }
 
@@ -194,22 +176,9 @@ export default function PortfolioPanel({
     }
 
     return (
-        <Card className={cn('app-prop-calculator__portfolio', 'px-5 py-4')}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">
-                        Multi-firm planner
-                    </h3>
-                    <InfoPopover title="Multi-firm planner">
-                        {panelDescriptions.portfolio}
-                    </InfoPopover>
-                </div>
-                <div className="flex items-center gap-3">
-                    {isPending && (
-                        <span className="text-xs text-muted-foreground">
-                            computing…
-                        </span>
-                    )}
+        <ToolPanel
+            actions={
+                <>
                     {portfolio.length > 0 && (
                         <Button
                             className="h-7 px-2.5 text-xs text-muted-foreground"
@@ -223,21 +192,44 @@ export default function PortfolioPanel({
                     )}
                     <Button
                         className="h-7 px-2.5 text-xs"
-                        onClick={addEntry}
+                        onClick={() =>
+                            setEditing({
+                                entry: {
+                                    activationDiscountPercent: 0,
+                                    count: 1,
+                                    evalDiscountPercent: 0,
+                                    firmId: currentFirm.id,
+                                    id: crypto.randomUUID(),
+                                    instrument: null,
+                                    linkActivationDiscount: false,
+                                    monthlySubscriptionDiscountPercent: 0,
+                                    planId: currentPlan.id,
+                                    resetDiscountPercent: 0,
+                                    stopPoints: null,
+                                },
+                                isNew: true,
+                            })
+                        }
                         size="sm"
                         type="button"
                         variant="outline"
                     >
                         + Add firm
                     </Button>
-                </div>
-            </div>
-
+                </>
+            }
+            className="app-prop-calculator__portfolio"
+            info={panelDescriptions.portfolio}
+            isComputing={isPending}
+            title="Basket"
+            titleAs="h3"
+        >
             {portfolio.length === 0 ? (
-                <p className="py-4 text-center text-xs text-muted-foreground">
-                    Add firms to build a cross-firm portfolio and see combined
-                    expected monthly income.
-                </p>
+                <EmptyState
+                    description="Add firms to build a cross-firm portfolio and see combined expected monthly income."
+                    icon={LayoutGrid}
+                    title="No firms in the planner yet"
+                />
             ) : (
                 <div className="flex flex-col gap-4">
                     {sizing.refused.map((refusal) => (
@@ -247,336 +239,182 @@ export default function PortfolioPanel({
                         />
                     ))}
                     <SimulationFailureNotice message={computation.error} />
-                    {totals && (
-                        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-                            <SummaryCard
-                                accent={
-                                    totals.monthlyNet > 0
-                                        ? KpiAccent.Positive
-                                        : KpiAccent.Negative
-                                }
-                                info={{
-                                    body: "Expected $ profit per month across all portfolio accounts after fees. Each row's expected monthly net × its account count, summed. Averaged over pass and bust outcomes.",
-                                    title: 'Combined monthly net',
-                                }}
-                                label="Combined monthly net"
-                                value={formatCurrency(totals.monthlyNet)}
-                            />
-                            <SummaryCard
-                                info={{
-                                    body: 'Combined account capital across all portfolio rows. = sum of (account size × account count) for each row. Represents your total notional exposure across firms.',
-                                    title: 'Total funding',
-                                }}
-                                label="Total funding"
-                                value={formatCompactCurrency(
-                                    totals.totalFunding,
-                                )}
-                            />
-                            <SummaryCard
-                                info={{
-                                    body: "Average all-in evaluation fees you'll pay per cycle across all accounts (eval, activation, monthly subs, and resets), weighted by account count. This is your expected outlay before any payout.",
-                                    title: 'Total eval cost',
-                                }}
-                                label="Total eval cost"
-                                value={formatCurrency(totals.totalCost)}
-                            />
-                            <SummaryCard
-                                info={{
-                                    body: "Sum of account counts across the simulated portfolio rows, the same rows as the net and cost totals: a row that is not simulated is not counted. Each row's count represents how many parallel funded accounts of that firm/plan you are running.",
-                                    title: 'Total accounts',
-                                }}
-                                label="Total accounts"
-                                value={String(totals.totalAccounts)}
-                            />
-                            <PortfolioRoiCard roi={totals.roi} />
-                        </div>
+                    {totals === null && !isPending ? null : (
+                        <StatStrip
+                            isLoading={totals === null}
+                            items={[
+                                {
+                                    id: 'combined-monthly-net',
+                                    info: (
+                                        <p>
+                                            Expected $ profit per month across
+                                            all portfolio accounts after fees.
+                                            Each row&apos;s expected monthly net
+                                            × its account count, summed.
+                                            Averaged over pass and bust
+                                            outcomes.
+                                        </p>
+                                    ),
+                                    label: 'Combined monthly net',
+                                    value:
+                                        totals === null
+                                            ? null
+                                            : formatCurrency(totals.monthlyNet),
+                                },
+                                {
+                                    id: 'total-funding',
+                                    info: (
+                                        <p>
+                                            Combined account capital across all
+                                            portfolio rows. = sum of (account
+                                            size × account count) for each row.
+                                            Represents your total notional
+                                            exposure across firms.
+                                        </p>
+                                    ),
+                                    label: 'Total funding',
+                                    value:
+                                        totals === null
+                                            ? null
+                                            : formatCompactCurrency(
+                                                  totals.totalFunding,
+                                              ),
+                                },
+                                {
+                                    id: 'total-eval-cost',
+                                    info: (
+                                        <p>
+                                            Average all-in evaluation fees
+                                            you&apos;ll pay per cycle across all
+                                            accounts (eval, activation, monthly
+                                            subs, and resets), weighted by
+                                            account count. This is your expected
+                                            outlay before any payout.
+                                        </p>
+                                    ),
+                                    label: 'Total eval cost',
+                                    value:
+                                        totals === null
+                                            ? null
+                                            : formatCurrency(totals.totalCost),
+                                },
+                                {
+                                    id: 'total-accounts',
+                                    info: (
+                                        <p>
+                                            Sum of account counts across the
+                                            simulated portfolio rows, the same
+                                            rows as the net and cost totals: a
+                                            row that is not simulated is not
+                                            counted. Each row&apos;s count
+                                            represents how many parallel funded
+                                            accounts of that firm/plan you are
+                                            running.
+                                        </p>
+                                    ),
+                                    label: 'Total accounts',
+                                    value:
+                                        totals === null
+                                            ? null
+                                            : String(totals.totalAccounts),
+                                },
+                                portfolioRoiItem(totals?.roi ?? null),
+                            ]}
+                        />
                     )}
                     <PortfolioTable
+                        awaitedIds={awaitedIds}
                         firms={firms}
                         globalInstrument={baseInputs.instrument ?? null}
                         globalStopPoints={baseInputs.stopPoints ?? null}
+                        onEdit={(entry) => setEditing({ entry, isNew: false })}
                         onRemove={removeEntry}
-                        onUpdate={updateEntry}
                         pending={isPending}
                         portfolio={portfolio}
                         simmed={simmed}
-                        totals={totals}
                     />
                 </div>
             )}
-        </Card>
+            <Dialog
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) setEditing(null);
+                }}
+                open={editing !== null}
+            >
+                {editing !== null && (
+                    <PortfolioEntryDialog
+                        firms={firms}
+                        globalStopPoints={baseInputs.stopPoints ?? null}
+                        initial={editing.entry}
+                        key={editing.entry.id}
+                        onCancel={() => setEditing(null)}
+                        onSubmit={(entry) => {
+                            saveEntry({ entry, isNew: editing.isNew });
+                            setEditing(null);
+                        }}
+                        submitLabel={editing.isNew ? 'Add' : 'Save'}
+                        title={
+                            editing.isNew ? 'Add firm' : 'Edit portfolio row'
+                        }
+                    />
+                )}
+            </Dialog>
+        </ToolPanel>
     );
 }
 
-export function PortfolioRoiCard({ roi }: { roi: Roi }) {
-    return (
-        <SummaryCard
-            accent={roiAccent(roi)}
-            info={{
-                body: 'Annualised net profit divided by total eval cost, expressed as a percentage. = (combined monthly net × 12) ÷ total eval cost. Above 0 % means the portfolio is expected to be net profitable over the year, after fees. Shows n/a when the total eval cost is $0, since a return on no outlay has no ratio.',
-                title: ROI_BASIS_LABEL[roi.basis],
-            }}
-            label={ROI_BASIS_LABEL[roi.basis]}
-            sub="monthly net × 12 ÷ total eval cost"
-            value={formatOptionalPercent(roi.value)}
-        />
-    );
-}
-
-function AccountsCell({
-    onUpdate,
-    row,
-}: {
-    onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
-    row: PortfolioTableRow;
-}) {
-    const maxAccounts = row.firm.maxFundedAccounts(row.plan);
-    const isAtMin = row.entry.count <= 1;
-    const isAtMax = row.entry.count >= maxAccounts;
-    function adjustCount(delta: number) {
-        onUpdate(row.entry.id, {
-            count: Math.max(1, Math.min(maxAccounts, row.entry.count + delta)),
-        });
-    }
-    return (
-        <div className="flex items-center gap-1">
-            <Button
-                aria-label="Decrease accounts"
-                className="size-5 p-0 text-muted-foreground"
-                disabled={isAtMin}
-                onClick={() => adjustCount(-1)}
-                size="sm"
-                type="button"
-                variant="ghost"
-            >
-                −
-            </Button>
-            <span className="min-w-12 text-center font-medium tabular-nums">
-                {row.entry.count}
-                <span className="text-muted-foreground">
-                    {' / '}
-                    {maxAccounts}
-                </span>
-            </span>
-            <Button
-                aria-label="Increase accounts"
-                className="size-5 p-0 text-muted-foreground"
-                disabled={isAtMax}
-                onClick={() => adjustCount(1)}
-                size="sm"
-                title={
-                    isAtMax
-                        ? `${row.firm.displayName} caps at ${maxAccounts}`
-                        : undefined
-                }
-                type="button"
-                variant="ghost"
-            >
-                +
-            </Button>
-        </div>
-    );
+export function portfolioRoiItem(roi: null | Roi): StatStripItem {
+    return {
+        caption: 'monthly net × 12 ÷ total eval cost',
+        id: 'portfolio-roi',
+        info: (
+            <p>
+                Annualised net profit divided by total eval cost, expressed as a
+                percentage. = (combined monthly net × 12) ÷ total eval cost.
+                Above 0 % means the portfolio is expected to be net profitable
+                over the year, after fees. Shows a dash when the total eval cost
+                is $0, since a return on no outlay has no ratio.
+            </p>
+        ),
+        isLoading: roi === null,
+        label: ROI_BASIS_LABEL[roi?.basis ?? RoiBasis.AnnualisedOnCost],
+        value:
+            roi === null ? null : (
+                <ValueOrMissing value={formatOptionalPercent(roi.value)} />
+            ),
+    };
 }
 
 function ComputedCell({
     children,
     className,
-    pending,
-    sim,
+    row: { isAwaitingResult, sim },
 }: {
     children: (out: SimOutputs) => React.ReactNode;
     className?: string;
-    pending: boolean;
-    sim: SimmedEntry | undefined;
+    row: PortfolioTableRow;
 }) {
     if (!sim) {
-        return pending ? (
+        return isAwaitingResult ? (
             <Skeleton className="h-4 w-12" />
         ) : (
-            <span className="text-muted-foreground">{NOT_APPLICABLE}</span>
+            <MissingValue reason={NOT_SIMULATED_REASON} />
         );
     }
     return <span className={className}>{children(sim.out)}</span>;
 }
 
-function CouponCell({
-    onUpdate,
-    row,
-}: {
-    onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
-    row: PortfolioTableRow;
-}) {
-    const { entry, plan } = row;
-    const effectiveActDiscount = entry.linkActivationDiscount
-        ? entry.evalDiscountPercent
-        : entry.activationDiscountPercent;
-    const hasCoupon =
-        entry.evalDiscountPercent > 0 ||
-        effectiveActDiscount > 0 ||
-        entry.monthlySubscriptionDiscountPercent > 0 ||
-        entry.resetDiscountPercent > 0;
-    const purchaseDiscounts = purchaseCouponDiscounts(plan, entry, entry.count);
-    return (
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button
-                    className="h-6 gap-1 px-2 text-[11px]"
-                    size="sm"
-                    variant={hasCoupon ? 'secondary' : 'outline'}
-                >
-                    <Tag className="size-3" />
-                    {hasCoupon ? 'Applied' : 'Coupon'}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-80">
-                <FieldGroup className="gap-4">
-                    <p className="text-sm font-semibold">Coupon discounts</p>
-                    <Field data-disabled={plan.fees.oneTimeEval === 0}>
-                        <div className="flex items-center justify-between">
-                            <FieldLabel htmlFor={`eval-discount-${entry.id}`}>
-                                Eval fee discount
-                            </FieldLabel>
-                            {plan.fees.oneTimeEval > 0 && (
-                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                    {describeEvalFee(
-                                        plan.fees,
-                                        purchaseDiscounts,
-                                    )}
-                                </span>
-                            )}
-                        </div>
-                        <PercentInput
-                            id={`eval-discount-${entry.id}`}
-                            isDisabled={plan.fees.oneTimeEval === 0}
-                            onChange={(evalDiscountPercent) =>
-                                onUpdate(entry.id, { evalDiscountPercent })
-                            }
-                            value={entry.evalDiscountPercent}
-                        />
-                    </Field>
-                    <Field
-                        data-disabled={
-                            plan.fees.activation === 0 ||
-                            entry.linkActivationDiscount
-                        }
-                    >
-                        <div className="flex items-center justify-between">
-                            <FieldLabel
-                                htmlFor={`activation-discount-${entry.id}`}
-                            >
-                                Activation fee discount
-                            </FieldLabel>
-                            {plan.fees.activation > 0 && (
-                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                    {describeActivationFee(
-                                        plan.fees,
-                                        purchaseDiscounts,
-                                    )}
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex items-stretch gap-2">
-                            <PercentInput
-                                id={`activation-discount-${entry.id}`}
-                                isDisabled={
-                                    plan.fees.activation === 0 ||
-                                    entry.linkActivationDiscount
-                                }
-                                onChange={(activationDiscountPercent) =>
-                                    onUpdate(entry.id, {
-                                        activationDiscountPercent,
-                                    })
-                                }
-                                value={
-                                    entry.linkActivationDiscount
-                                        ? entry.evalDiscountPercent
-                                        : entry.activationDiscountPercent
-                                }
-                            />
-                            <Toggle
-                                className="whitespace-nowrap"
-                                disabled={plan.fees.activation === 0}
-                                onPressedChange={(isLinked: boolean) =>
-                                    onUpdate(entry.id, {
-                                        linkActivationDiscount: isLinked,
-                                    })
-                                }
-                                pressed={entry.linkActivationDiscount}
-                                size="sm"
-                                variant="outline"
-                            >
-                                Match eval
-                            </Toggle>
-                        </div>
-                    </Field>
-                    <Field data-disabled={plan.fees.monthlySubscription === 0}>
-                        <div className="flex items-center justify-between">
-                            <FieldLabel
-                                htmlFor={`monthly-subscription-discount-${entry.id}`}
-                            >
-                                Monthly subscription discount
-                            </FieldLabel>
-                            {plan.fees.monthlySubscription > 0 && (
-                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                    {describeMonthlySubscriptionFee(
-                                        plan.fees,
-                                        purchaseDiscounts,
-                                    )}
-                                </span>
-                            )}
-                        </div>
-                        <PercentInput
-                            id={`monthly-subscription-discount-${entry.id}`}
-                            isDisabled={plan.fees.monthlySubscription === 0}
-                            onChange={(monthlySubscriptionDiscountPercent) =>
-                                onUpdate(entry.id, {
-                                    monthlySubscriptionDiscountPercent,
-                                })
-                            }
-                            value={entry.monthlySubscriptionDiscountPercent}
-                        />
-                    </Field>
-                    <Field data-disabled={!hasResetOption(plan.fees)}>
-                        <div className="flex items-center justify-between">
-                            <FieldLabel htmlFor={`reset-discount-${entry.id}`}>
-                                Reset fee discount
-                            </FieldLabel>
-                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {describeResetFee(plan.fees, purchaseDiscounts)}
-                            </span>
-                        </div>
-                        <PercentInput
-                            id={`reset-discount-${entry.id}`}
-                            isDisabled={!hasResetOption(plan.fees)}
-                            onChange={(resetDiscountPercent) =>
-                                onUpdate(entry.id, { resetDiscountPercent })
-                            }
-                            value={entry.resetDiscountPercent}
-                        />
-                    </Field>
-                    {hasCoupon && (
-                        <Button
-                            className="w-fit px-0"
-                            onClick={() =>
-                                onUpdate(entry.id, {
-                                    activationDiscountPercent: 0,
-                                    evalDiscountPercent: 0,
-                                    linkActivationDiscount: false,
-                                    monthlySubscriptionDiscountPercent: 0,
-                                    resetDiscountPercent: 0,
-                                })
-                            }
-                            size="sm"
-                            type="button"
-                            variant="link"
-                        >
-                            Reset discounts
-                        </Button>
-                    )}
-                </FieldGroup>
-            </PopoverContent>
-        </Popover>
-    );
+function describePositionSizing(
+    entry: PortfolioEntry,
+    globalInstrument: InstrumentSymbol | null,
+    globalStopPoints: null | number,
+): string {
+    const instrument = entry.instrument ?? globalInstrument;
+    if (instrument === null) return 'Not enforced';
+    const stopPoints = entry.stopPoints ?? globalStopPoints;
+    const stop = stopPoints === null ? '' : ` @ ${stopPoints}pt`;
+    const scope = entry.instrument === null ? ' (global)' : '';
+    return `${instrument}${stop}${scope}`;
 }
 
 function describeRefusedEntry(
@@ -601,114 +439,26 @@ function entryPositionSizing(
     };
 }
 
-function FirmCell({
-    firm,
-    firms,
-    onUpdate,
-    row,
-}: {
-    firm: TradingFirm;
-    firms: readonly TradingFirm[];
-    onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
-    row: PortfolioTableRow;
-}) {
-    function handleFirmChange(rawFirmId: string) {
-        const firmId = parseFirmId(rawFirmId);
-        const newFirm = firms.find((f) => f.id === firmId);
-        const firstPlan = newFirm?.plans[0];
-        if (!newFirm || !firmId || !firstPlan) return;
-        onUpdate(row.entry.id, {
-            count: Math.min(
-                row.entry.count,
-                newFirm.maxFundedAccounts(firstPlan),
-            ),
-            firmId,
-            planId: firstPlan.id,
-        });
-    }
-    return (
-        <Select onValueChange={handleFirmChange} value={firm.id}>
-            <SelectTrigger className="h-7 w-44 text-xs">
-                <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-                {firms.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                        {f.displayName}
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
-    );
-}
-
-function PlanCell({
-    firm,
-    onUpdate,
-    plan,
-    row,
-}: {
-    firm: TradingFirm;
-    onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
-    plan: Plan;
-    row: PortfolioTableRow;
-}) {
-    function handlePlanChange(serialized: string) {
-        const found = firm.findPlanBySerial(serialized);
-        if (!found) return;
-        onUpdate(row.entry.id, {
-            count: Math.min(row.entry.count, firm.maxFundedAccounts(found)),
-            planId: found.id,
-        });
-    }
-    return (
-        <Select
-            onValueChange={handlePlanChange}
-            value={serializePlanId(plan.id)}
-        >
-            <SelectTrigger className="h-7 w-44 text-xs">
-                <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-                {firm.plans.map((p) => (
-                    <SelectItem
-                        key={serializePlanId(p.id)}
-                        value={serializePlanId(p.id)}
-                    >
-                        {p.label}
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
-    );
-}
-
 function PortfolioTable({
+    awaitedIds,
     firms,
     globalInstrument,
     globalStopPoints,
+    onEdit,
     onRemove,
-    onUpdate,
     pending,
     portfolio,
     simmed,
-    totals,
 }: {
+    awaitedIds: ReadonlySet<string>;
     firms: readonly TradingFirm[];
     globalInstrument: InstrumentSymbol | null;
     globalStopPoints: null | number;
+    onEdit: (entry: PortfolioEntry) => void;
     onRemove: (id: string) => void;
-    onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
     pending: boolean;
     portfolio: PortfolioEntry[];
     simmed: SimmedEntry[];
-    totals: null | {
-        monthlyNet: number;
-        roi: Roi;
-        totalAccounts: number;
-        totalCost: number;
-        totalFunding: number;
-    };
 }) {
     const rows: PortfolioTableRow[] = useMemo(
         () =>
@@ -720,68 +470,66 @@ function PortfolioTable({
                     const plan = firm.findPlan(entry.planId) ?? firm.plans[0];
                     if (!plan) return null;
                     const sim = simmed.find((s) => s.entry.id === entry.id);
-                    return { entry, firm, plan, sim };
+                    return {
+                        entry,
+                        firm,
+                        isAwaitingResult: awaitedIds.has(entry.id),
+                        plan,
+                        sim,
+                    };
                 })
                 .filter((r): r is PortfolioTableRow => r !== null),
-        [portfolio, firms, simmed],
+        [awaitedIds, portfolio, firms, simmed],
     );
 
     const columns = useMemo<DataTableColumn<PortfolioTableRow>[]>(
         () => [
             {
-                cell: ({ row }) => (
-                    <FirmCell
-                        firm={row.original.firm}
-                        firms={firms}
-                        onUpdate={onUpdate}
-                        row={row.original}
-                    />
-                ),
+                cell: ({ row }) => row.original.firm.displayName,
                 header: 'Firm',
                 id: 'firm',
+                meta: { isRowHeader: true },
             },
             {
-                cell: ({ row }) => (
-                    <PlanCell
-                        firm={row.original.firm}
-                        onUpdate={onUpdate}
-                        plan={row.original.plan}
-                        row={row.original}
-                    />
-                ),
+                cell: ({ row }) => row.original.plan.label,
                 header: 'Plan',
                 id: 'plan',
             },
             {
                 cell: ({ row }) => (
-                    <AccountsCell onUpdate={onUpdate} row={row.original} />
+                    <span className="font-medium tabular-nums">
+                        {row.original.entry.count}
+                        <span className="text-muted-foreground">
+                            {' / '}
+                            {row.original.firm.maxFundedAccounts(
+                                row.original.plan,
+                            )}
+                        </span>
+                    </span>
                 ),
                 header: 'Accounts',
                 id: 'accounts',
             },
             {
-                cell: ({ row }) => (
-                    <CouponCell onUpdate={onUpdate} row={row.original} />
-                ),
+                cell: ({ row }) =>
+                    hasCouponDiscount(row.original.entry) ? 'Applied' : 'None',
                 header: 'Coupon',
                 id: 'coupon',
             },
             {
-                cell: ({ row }) => (
-                    <PositionSizingCell
-                        globalInstrument={globalInstrument}
-                        globalStopPoints={globalStopPoints}
-                        onUpdate={onUpdate}
-                        row={row.original}
-                    />
-                ),
+                cell: ({ row }) =>
+                    describePositionSizing(
+                        row.original.entry,
+                        globalInstrument,
+                        globalStopPoints,
+                    ),
                 header: 'Sizing',
                 id: 'sizing',
             },
             {
                 accessorFn: (r) => r.sim?.out.evalPassProbability ?? -1,
                 cell: ({ row }) => (
-                    <ComputedCell pending={pending} sim={row.original.sim}>
+                    <ComputedCell row={row.original}>
                         {(out) => formatPercent(out.evalPassProbability)}
                     </ComputedCell>
                 ),
@@ -791,7 +539,7 @@ function PortfolioTable({
             {
                 accessorFn: (r) => r.sim?.out.fundedSurvivalProbability ?? -1,
                 cell: ({ row }) => (
-                    <ComputedCell pending={pending} sim={row.original.sim}>
+                    <ComputedCell row={row.original}>
                         {(out) => formatPercent(out.fundedSurvivalProbability)}
                     </ComputedCell>
                 ),
@@ -801,8 +549,12 @@ function PortfolioTable({
             {
                 accessorFn: (r) => r.sim?.out.daysToPassP50 ?? Infinity,
                 cell: ({ row }) => (
-                    <ComputedCell pending={pending} sim={row.original.sim}>
-                        {(out) => formatDays(out.daysToPassP50)}
+                    <ComputedCell row={row.original}>
+                        {(out) => (
+                            <ValueOrMissing
+                                value={formatDays(out.daysToPassP50)}
+                            />
+                        )}
                     </ComputedCell>
                 ),
                 header: 'Days P50',
@@ -814,17 +566,7 @@ function PortfolioTable({
                         ? r.sim.out.expectedMonthlyNet / r.entry.count
                         : -Infinity,
                 cell: ({ row }) => (
-                    <ComputedCell
-                        className={
-                            row.original.sim
-                                ? row.original.sim.out.expectedMonthlyNet >= 0
-                                    ? 'text-success'
-                                    : 'text-destructive'
-                                : undefined
-                        }
-                        pending={pending}
-                        sim={row.original.sim}
-                    >
+                    <ComputedCell row={row.original}>
                         {(out) =>
                             formatCurrency(
                                 out.expectedMonthlyNet /
@@ -841,8 +583,7 @@ function PortfolioTable({
                 cell: ({ row }) => (
                     <ComputedCell
                         className="font-semibold text-foreground"
-                        pending={pending}
-                        sim={row.original.sim}
+                        row={row.original}
                     >
                         {(out) => formatCurrency(out.expectedMonthlyNet)}
                     </ComputedCell>
@@ -858,8 +599,7 @@ function PortfolioTable({
                 cell: ({ row }) => (
                     <ComputedCell
                         className="text-muted-foreground"
-                        pending={pending}
-                        sim={row.original.sim}
+                        row={row.original}
                     >
                         {(out) =>
                             formatCurrency(
@@ -872,56 +612,40 @@ function PortfolioTable({
                 header: 'Cost/acct',
                 id: 'cost',
             },
-            {
-                cell: ({ row }) => (
-                    <Button
-                        aria-label="Remove"
-                        className="size-6 p-0 text-muted-foreground"
-                        onClick={() => onRemove(row.original.entry.id)}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                    >
-                        ×
-                    </Button>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'remove',
-            },
+            rowActionsColumn<PortfolioTableRow>({
+                actionsOf: ({ entry, firm, plan }) => [
+                    editRowAction(() =>
+                        onEdit({
+                            ...entry,
+                            firmId: firm.id,
+                            planId: plan.id,
+                        }),
+                    ),
+                    {
+                        confirm: {
+                            confirmLabel: 'Remove',
+                            description:
+                                'The row leaves the planner and its totals.',
+                            title: `Remove ${firm.displayName} ${plan.label}?`,
+                        },
+                        icon: Trash2,
+                        isDestructive: true,
+                        kind: RowActionKind.Select,
+                        label: 'Remove',
+                        onSelect: () => onRemove(entry.id),
+                    },
+                ],
+                labelOf: ({ firm, plan }) =>
+                    `${firm.displayName} ${plan.label}`,
+            }),
         ],
-        [
-            firms,
-            globalInstrument,
-            globalStopPoints,
-            onRemove,
-            onUpdate,
-            pending,
-        ],
+        [globalInstrument, globalStopPoints, onEdit, onRemove],
     );
 
     return (
         <DataTable
             columns={columns}
             data={rows}
-            footer={
-                totals && simmed.length > 1 ? (
-                    <TableRow className="font-semibold text-foreground">
-                        <TableCell
-                            className="text-muted-foreground"
-                            colSpan={8}
-                        >
-                            Total ({totals.totalAccounts} accounts)
-                        </TableCell>
-                        <TableCell>
-                            {formatCurrency(totals.monthlyNet)}
-                        </TableCell>
-                        <TableCell>
-                            {formatCurrency(totals.totalCost)}
-                        </TableCell>
-                        <TableCell />
-                    </TableRow>
-                ) : undefined
-            }
             isLoading={pending && simmed.length === 0}
             pageSize={null}
             rowId={(r) => r.entry.id}
@@ -933,155 +657,16 @@ function PortfolioTable({
     );
 }
 
-function PositionSizingCell({
-    globalInstrument,
-    globalStopPoints,
-    onUpdate,
-    row,
-}: {
-    globalInstrument: InstrumentSymbol | null;
-    globalStopPoints: null | number;
-    onUpdate: (id: string, patch: Partial<Omit<PortfolioEntry, 'id'>>) => void;
-    row: PortfolioTableRow;
-}) {
-    const { entry } = row;
-    const hasOverride = entry.instrument !== null;
-    const effectiveInstrument = entry.instrument ?? globalInstrument;
-    const effectiveStopPoints = entry.stopPoints ?? globalStopPoints;
-    return (
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button
-                    className="h-6 gap-1 px-2 text-[11px]"
-                    size="sm"
-                    variant={hasOverride ? 'secondary' : 'outline'}
-                >
-                    {effectiveInstrument === null
-                        ? 'Not enforced'
-                        : `${effectiveInstrument}${
-                              effectiveStopPoints === null
-                                  ? ''
-                                  : ` @ ${effectiveStopPoints}pt`
-                          }${hasOverride ? '' : ' (global)'}`}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64">
-                <FieldGroup className="gap-4">
-                    <p className="text-sm font-semibold">
-                        Contract-limit sizing
-                    </p>
-                    <Field>
-                        <FieldLabel htmlFor={`sizing-instrument-${entry.id}`}>
-                            Instrument
-                        </FieldLabel>
-                        <Select
-                            onValueChange={(v) =>
-                                onUpdate(entry.id, {
-                                    instrument:
-                                        v === 'global'
-                                            ? null
-                                            : z.enum(InstrumentSymbol).parse(v),
-                                })
-                            }
-                            value={entry.instrument ?? 'global'}
-                        >
-                            <SelectTrigger id={`sizing-instrument-${entry.id}`}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="global">
-                                    Use global setting
-                                </SelectItem>
-                                {ALL_INSTRUMENTS.map((spec) => (
-                                    <SelectItem
-                                        key={spec.symbol}
-                                        value={spec.symbol}
-                                    >
-                                        {spec.symbol}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </Field>
-                    {hasOverride && (
-                        <Field>
-                            <FieldLabel htmlFor={`sizing-stop-${entry.id}`}>
-                                Stop distance (points)
-                            </FieldLabel>
-                            <Input
-                                id={`sizing-stop-${entry.id}`}
-                                min={0.25}
-                                onChange={(event) => {
-                                    const n = Number(event.target.value);
-                                    if (Number.isFinite(n) && n > 0)
-                                        onUpdate(entry.id, {
-                                            stopPoints: n,
-                                        });
-                                }}
-                                step={0.25}
-                                type="number"
-                                value={entry.stopPoints ?? ''}
-                            />
-                        </Field>
-                    )}
-                    {hasOverride && (
-                        <Button
-                            className="w-fit px-0"
-                            onClick={() =>
-                                onUpdate(entry.id, {
-                                    instrument: null,
-                                    stopPoints: null,
-                                })
-                            }
-                            size="sm"
-                            type="button"
-                            variant="link"
-                        >
-                            Use global setting
-                        </Button>
-                    )}
-                </FieldGroup>
-            </PopoverContent>
-        </Popover>
-    );
-}
-
-function SummaryCard({
-    accent = KpiAccent.Neutral,
-    info,
-    label,
-    sub,
-    value,
-}: {
-    accent?: KpiAccent;
-    info?: { body: string; title: string };
-    label: string;
-    sub?: string;
-    value: string;
-}) {
-    return (
-        <Card className="gap-1 py-2">
-            <CardContent className="px-3">
-                <div className="flex items-center gap-1">
-                    <p className="text-[10px] text-muted-foreground">{label}</p>
-                    {info && (
-                        <InfoPopover title={info.title}>
-                            <p>{info.body}</p>
-                        </InfoPopover>
-                    )}
-                </div>
-                <p
-                    className={cn(
-                        'font-mono text-sm font-semibold',
-                        KPI_ACCENT_TEXT_CLASS[accent],
-                    )}
-                >
-                    {value}
-                </p>
-                {sub !== undefined && (
-                    <p className="text-[10px] text-muted-foreground">{sub}</p>
-                )}
-            </CardContent>
-        </Card>
-    );
+function simulatableEntries(
+    firms: readonly TradingFirm[],
+    accepted: readonly PortfolioEntry[],
+): SimulatableEntry[] {
+    const simulatable: SimulatableEntry[] = [];
+    for (const entry of accepted) {
+        const plan = firms
+            .find((f) => f.id === entry.firmId)
+            ?.findPlan(entry.planId);
+        if (plan !== undefined) simulatable.push({ entry, plan });
+    }
+    return simulatable;
 }

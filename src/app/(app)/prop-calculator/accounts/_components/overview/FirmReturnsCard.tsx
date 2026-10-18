@@ -1,7 +1,9 @@
 'use client';
 
+import { Building2 } from 'lucide-react';
 import { memo } from 'react';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import {
     DataTable,
     DataTableAlign,
@@ -11,6 +13,8 @@ import { NOT_APPLICABLE } from '~/lib/format';
 import { compareText } from '~/lib/prop-accounts';
 
 import { type FirmReturnsCardModel } from './overviewModel';
+import { OverviewEmptyPanel, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 import { SampleBadge } from './SampleBadge';
 
 enum FirmReturnsColumn {
@@ -64,7 +68,7 @@ function numericColumn(
 ): DataTableColumn<FirmReturnRow> {
     return {
         accessorFn: (row) => numericValue(row, key),
-        cell: ({ row: { original: row } }) => row[key],
+        cell: ({ row: { original: row } }) => <FigureText text={row[key]} />,
         header,
         id,
         meta: { align: DataTableAlign.End },
@@ -76,6 +80,7 @@ const FIRM_RETURNS_COLUMNS: DataTableColumn<FirmReturnRow>[] = [
         accessorFn: (row) => row.firm,
         header: 'Firm',
         id: FirmReturnsColumn.Firm,
+        meta: { isRowHeader: true },
         sortFn: (a, b) => compareText(a.original.firm, b.original.firm),
     },
     numericColumn(FirmReturnsColumn.Spend, 'Spend', 'spend'),
@@ -103,7 +108,7 @@ const FIRM_RETURNS_COLUMNS: DataTableColumn<FirmReturnRow>[] = [
     },
     {
         cell: ({ row: { original: row } }) => (
-            <span className="tabular-nums">{row.firstPayoutOn}</span>
+            <FigureText className="tabular-nums" text={row.firstPayoutOn} />
         ),
         enableSorting: false,
         header: 'First payout',
@@ -111,7 +116,7 @@ const FIRM_RETURNS_COLUMNS: DataTableColumn<FirmReturnRow>[] = [
     },
     {
         cell: ({ row: { original: row } }) => (
-            <span className="tabular-nums">{row.lastPayoutOn}</span>
+            <FigureText className="tabular-nums" text={row.lastPayoutOn} />
         ),
         enableSorting: false,
         header: 'Last payout',
@@ -134,14 +139,16 @@ export const FirmReturnsCard = memo(function FirmReturnsCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No firm with a fee or payout recorded yet.
-            </p>
+            <OverviewEmptyPanel
+                icon={Building2}
+                section={OverviewSectionId.FirmReturns}
+                title="No firm with a fee or payout recorded yet"
+            />
         );
     }
     const noted = model.rows.filter((row) => row.coverageNote !== null);
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel section={OverviewSectionId.FirmReturns}>
             <DataTable
                 columns={FIRM_RETURNS_COLUMNS}
                 data={[...model.rows]}
@@ -161,7 +168,7 @@ export const FirmReturnsCard = memo(function FirmReturnsCard({
                     ))}
                 </ul>
             )}
-        </div>
+        </OverviewPanel>
     );
 });
 

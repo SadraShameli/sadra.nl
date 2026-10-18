@@ -5,6 +5,7 @@ import {
     CalculatorActionType,
     calculatorReducer,
     defaultCalculatorState,
+    nextLabScenario,
 } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import {
     type CalculatorState,
@@ -92,7 +93,10 @@ describe('CalculatorState carries the shared lab link outcome (PT-53f)', () => {
     it.each<[string, (state: CalculatorState) => CalculatorAction]>([
         [
             'adds a scenario',
-            () => ({ type: CalculatorActionType.AddLabScenario }),
+            (state) => ({
+                scenario: nextLabScenario(state.labScenarios),
+                type: CalculatorActionType.AddLabScenario,
+            }),
         ],
         [
             'updates a scenario',
@@ -137,6 +141,7 @@ describe('CalculatorState carries the shared lab link outcome (PT-53f)', () => {
             ),
         };
         const next = calculatorReducer(full, {
+            scenario: nextLabScenario(full.labScenarios),
             type: CalculatorActionType.AddLabScenario,
         });
         expect(next.labScenarios).toHaveLength(MAX_LAB_SCENARIOS);

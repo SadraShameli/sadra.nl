@@ -205,7 +205,7 @@ describe('adviceViewModel (PT-34, F-125 to F-128)', () => {
 
         expect(view.kind).toBe(AdviceDisplayKind.Ready);
         expect(view.headline).toContain('your documented rule');
-        expect(view.headline).toContain('2026-09-26');
+        expect(view.headline).toContain('26 Sep 2026');
     });
 
     it('shows a stale message and withholds amounts when advice is stale', () => {

@@ -6,32 +6,29 @@ import { useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
-import {
-    ProfileIdSelectField,
-    ProfileNumberField,
-    ProfileNumberStep,
-} from '~/app/(app)/profile/_components/ProfileFormFields';
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
+import { idSelectKey } from '~/app/(app)/profile/_components/idSelectKey';
 import {
     formatProfileDate,
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
+    ProfileCollectionEmpty,
     ProfileDateCell,
     ProfileDatePrecision,
-    ProfileTableEmpty,
-    RowConfirmAction,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { FormDialog } from '~/components/FormDialog';
+import {
+    FormNumberField,
+    FormSelectField,
+    type FormSelectOption,
+} from '~/components/FormFields';
+import { deleteRowAction, rowActionsColumn } from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { Checkbox } from '~/components/ui/checkbox';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import {
-    DataTable,
-    type DataTableColumn,
-    hasActiveTableFilter,
-} from '~/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Dialog, DialogTrigger } from '~/components/ui/dialog';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import {
     type ReadingCreateAdminInput,
     readingCreateAdminSchema,
@@ -108,6 +105,8 @@ export function ReadingsPanel() {
                 ? `${String(reading.value)} ${unit}`
                 : String(reading.value);
         };
+        const describeReading = (reading: ReadingRow): string =>
+            `${valueWithUnit(reading)} at ${formatProfileDate(reading.created_at, ProfileDatePrecision.Minute)}`;
         return [
             {
                 cell: ({ row }) => (
@@ -139,6 +138,7 @@ export function ReadingsPanel() {
                     <PrimaryCell>{valueWithUnit(row.original)}</PrimaryCell>
                 ),
                 header: 'Value',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (row) =>
@@ -169,14 +169,18 @@ export function ReadingsPanel() {
                 ),
                 header: 'Recorded',
             },
-            profileActionsColumn<ReadingRow>((reading) => (
-                <RowConfirmAction
-                    description={`${valueWithUnit(reading)} at ${formatProfileDate(reading.created_at, ProfileDatePrecision.Minute)}.`}
-                    label="Delete reading"
-                    onConfirm={() => del.mutate({ id: reading.id })}
-                    title="Delete reading?"
-                />
-            )),
+            rowActionsColumn<ReadingRow>({
+                actionsOf: (reading) => [
+                    deleteRowAction({
+                        description: `${describeReading(reading)}.`,
+                        onDelete: () => del.mutate({ id: reading.id }),
+                        title: 'Delete reading?',
+                    }),
+                ],
+                isPendingOf: (reading) =>
+                    del.isPending && del.variables.id === reading.id,
+                labelOf: describeReading,
+            }),
         ];
     }, [del, deviceMap, sensorMap]);
 
@@ -191,8 +195,8 @@ export function ReadingsPanel() {
 
     return (
         <Dialog onOpenChange={setNewOpen} open={newOpen}>
-            <ProfilePanel
-                action={
+            <ToolPanel
+                actions={
                     <>
                         {selected.length > 0 && (
                             <ConfirmDialog
@@ -219,43 +223,42 @@ export function ReadingsPanel() {
                 description="Raw sensor values, newest first. Select rows to delete them in bulk."
                 title="Readings"
             >
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={newButton}
-                            description="Readings appear here as devices report them."
-                            filtered={
-                                scope.isActive || hasActiveTableFilter(table)
-                            }
-                            icon={Activity}
-                            noun="readings"
-                        />
-                    )}
-                    filterPlaceholder="Search readings…"
-                    hasExternalFilters={scope.isActive}
-                    headerActions={
-                        <SensorHubScopeFilters
-                            controller={scope}
-                            devices={devices.data ?? []}
-                            locations={locations.data ?? []}
-                            sensors={sensors.data ?? []}
-                        />
-                    }
-                    isLoading={readings.isLoading}
-                    onResetFilters={scope.reset}
-                    onRowSelectionChange={setSelected}
-                    pageSize={25}
-                    rowId={(r) => String(r.id)}
-                    rowSelection
-                    showFilter
-                />
-            </ProfilePanel>
+                {!readings.isLoading && !scope.isActive && rows.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Readings appear here as devices report them."
+                        icon={Activity}
+                        noun="readings"
+                    />
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={
+                            <NoMatchesState icon={Activity} noun="readings" />
+                        }
+                        filterPlaceholder="Search readings…"
+                        hasExternalFilters={scope.isActive}
+                        headerActions={
+                            <SensorHubScopeFilters
+                                controller={scope}
+                                devices={devices.data ?? []}
+                                locations={locations.data ?? []}
+                                sensors={sensors.data ?? []}
+                            />
+                        }
+                        isLoading={readings.isLoading}
+                        onResetFilters={scope.reset}
+                        onRowSelectionChange={setSelected}
+                        rowId={(r) => String(r.id)}
+                        rowSelection
+                        showFilter
+                    />
+                )}
+            </ToolPanel>
             <NewReadingDialog
                 devices={(devices.data ?? []).map((d) => ({
-                    id: d.id,
                     label: d.name,
+                    value: d.id,
                 }))}
                 onClose={() => setNewOpen(false)}
                 onSubmit={(v) =>
@@ -281,7 +284,7 @@ function NewReadingDialog({
     pending,
     sensors,
 }: {
-    devices: { id: number; label: string }[];
+    devices: FormSelectOption<number>[];
     onClose: () => void;
     onSubmit: (v: ReadingCreateAdminInput) => void;
     pending: boolean;
@@ -294,7 +297,7 @@ function NewReadingDialog({
     const sensorId = useWatch({ control: form.control, name: 'sensorId' });
     const selectedUnit = sensors.find((s) => s.id === sensorId)?.unit;
     return (
-        <ProfileFormDialog
+        <FormDialog
             form={form}
             onCancel={onClose}
             onSubmit={onSubmit}
@@ -302,29 +305,30 @@ function NewReadingDialog({
             submitLabel="Create"
             title="New reading"
         >
-            <ProfileIdSelectField
+            <FormSelectField
                 control={form.control}
+                keyOf={idSelectKey}
                 label="Device"
                 name="deviceId"
                 options={devices}
                 placeholder="Pick a device"
             />
-            <ProfileIdSelectField
+            <FormSelectField
                 control={form.control}
+                keyOf={idSelectKey}
                 label="Sensor"
                 name="sensorId"
                 options={sensors.map((s) => ({
-                    id: s.id,
                     label: s.unit ? `${s.name} (${s.unit})` : s.name,
+                    value: s.id,
                 }))}
                 placeholder="Pick a sensor"
             />
-            <ProfileNumberField
+            <FormNumberField
                 control={form.control}
                 label={selectedUnit ? `Value (${selectedUnit})` : 'Value'}
                 name="value"
-                step={ProfileNumberStep.Any}
             />
-        </ProfileFormDialog>
+        </FormDialog>
     );
 }

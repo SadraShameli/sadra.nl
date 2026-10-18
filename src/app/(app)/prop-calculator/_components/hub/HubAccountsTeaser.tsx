@@ -4,7 +4,7 @@ import { ArrowRight, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
 
-import StatCard from '~/app/(app)/prop-calculator/_components/StatCard';
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
 import {
     ACCOUNT_LIST_INPUT,
     type AccountListAccount,
@@ -18,17 +18,13 @@ import {
     type SetupChecklistCardModel,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SetupChecklistCompact } from '~/app/(app)/prop-calculator/accounts/_components/overview/SetupChecklistCard';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
+import { StatStrip } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
-import {
-    Card,
-    CardAction,
-    CardContent,
-    CardHeader,
-} from '~/components/ui/card';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useSession } from '~/lib/auth/client';
-import { NOT_APPLICABLE } from '~/lib/format';
 import {
     formatUsdCents,
     isActiveAccount,
@@ -51,6 +47,9 @@ interface HubAccountsInputs {
     readonly portfolio: HubPortfolio | null;
 }
 
+const TEASER_TITLE = 'My accounts';
+const TEASER_HEADING_ID = 'hub-accounts-teaser';
+
 interface HubAccountsSummary {
     readonly activeAccounts: number;
     readonly alertCount: null | number;
@@ -67,10 +66,10 @@ export function HubAccountsTeaser() {
     if (session.error !== null) {
         return (
             <TeaserFrame>
-                <p className="text-sm text-muted-foreground">
-                    Could not check whether you are signed in, so your account
-                    totals are not shown.
-                </p>
+                <StatusRow
+                    title="Could not check whether you are signed in, so your account totals are not shown."
+                    tone={StatusTone.Warn}
+                />
                 <Button
                     className="self-start"
                     onClick={() => void session.refetch()}
@@ -197,10 +196,12 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
     if (failed?.error) {
         return (
             <TeaserFrame>
-                <p className="text-sm text-muted-foreground">
-                    Your account totals could not be loaded:{' '}
-                    {failed.error.message}
-                </p>
+                <Alert variant="destructive">
+                    <AlertDescription>
+                        Your account totals could not be loaded:{' '}
+                        {failed.error.message}
+                    </AlertDescription>
+                </Alert>
             </TeaserFrame>
         );
     }
@@ -217,41 +218,50 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
                 </Button>
             }
         >
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-                <StatCard label="Spend" value={formatUsdCents(summary.spend)} />
-                <StatCard
-                    label="Payouts received"
-                    value={formatUsdCents(summary.payouts)}
-                />
-                <StatCard
-                    label="Net"
-                    value={formatUsdCents(summary.net)}
-                    valueClassName={
-                        summary.net < 0 ? 'text-destructive' : 'text-success'
-                    }
-                />
-                <StatCard
-                    label="Active accounts"
-                    value={String(summary.activeAccounts)}
-                />
-                <StatCard
-                    label="Alerts"
-                    value={
-                        summary.alertCount === null
-                            ? NOT_APPLICABLE
-                            : String(summary.alertCount)
-                    }
-                    valueClassName={
-                        summary.alertCount !== null && summary.alertCount > 0
-                            ? 'text-warning'
-                            : undefined
-                    }
-                />
-            </div>
+            <StatStrip
+                items={[
+                    {
+                        id: 'spend',
+                        label: 'Spend',
+                        value: formatUsdCents(summary.spend),
+                    },
+                    {
+                        id: 'payouts-received',
+                        label: 'Payouts received',
+                        value: formatUsdCents(summary.payouts),
+                    },
+                    {
+                        id: 'net',
+                        label: 'Net',
+                        value: formatUsdCents(summary.net),
+                    },
+                    {
+                        id: 'active-accounts',
+                        label: 'Active accounts',
+                        value: String(summary.activeAccounts),
+                    },
+                    {
+                        id: 'alerts',
+                        label: 'Alerts',
+                        value: (
+                            <ValueOrMissing
+                                value={
+                                    summary.alertCount === null
+                                        ? null
+                                        : String(summary.alertCount)
+                                }
+                            />
+                        ),
+                    },
+                ]}
+            />
             {alertFailure !== null && (
-                <p className="text-sm text-muted-foreground">
-                    The alert count could not be checked: {alertFailure.message}
-                </p>
+                <Alert variant="destructive">
+                    <AlertDescription>
+                        The alert count could not be checked:{' '}
+                        {alertFailure.message}
+                    </AlertDescription>
+                </Alert>
             )}
             <GrossOnlyPayoutsNote count={summary.grossOnlyPayouts} />
             {summary.setup !== null && !summary.setup.isComplete && (
@@ -289,22 +299,21 @@ function TeaserFrame({
     readonly children: ReactNode;
 }) {
     return (
-        <section aria-labelledby="hub-accounts-teaser" className="mt-10">
-            <Card className={cn('app-prop-calculator__accounts-teaser')}>
-                <CardHeader>
-                    <ToolSectionHeading
-                        className="flex items-center gap-2"
-                        id="hub-accounts-teaser"
-                    >
+        <section aria-labelledby={TEASER_HEADING_ID} className="mt-10">
+            <ToolPanel
+                actions={action}
+                className={cn('app-prop-calculator__accounts-teaser')}
+                contentClassName="gap-6"
+                title={
+                    <span className="flex items-center gap-2">
                         <Wallet aria-hidden className="size-4 text-primary" />
-                        My accounts
-                    </ToolSectionHeading>
-                    {action !== undefined && <CardAction>{action}</CardAction>}
-                </CardHeader>
-                <CardContent className="flex flex-col gap-6">
-                    {children}
-                </CardContent>
-            </Card>
+                        {TEASER_TITLE}
+                    </span>
+                }
+                titleId={TEASER_HEADING_ID}
+            >
+                {children}
+            </ToolPanel>
         </section>
     );
 }

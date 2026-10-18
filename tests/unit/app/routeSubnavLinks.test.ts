@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    activeSubnavGroup,
     activeSubnavHref,
     isSubnavItemActive,
+    subnavGroup,
     subnavHref,
     subnavItemKey,
     subnavLinkAttributes,
@@ -321,5 +323,31 @@ describe('subnavHref', () => {
         expect(current.map((item) => item.href)).toEqual([
             '/prop-calculator/analysis',
         ]);
+    });
+});
+
+describe('a nav item that groups several pages', () => {
+    const progress = subnavGroup('Progress', [
+        { href: '/lifting/analytics', label: 'Analytics' },
+        { href: '/lifting/body', label: 'Body' },
+    ]);
+    const items = [{ href: '/lifting', label: 'Today' }, progress];
+
+    it('links to its first page', () => {
+        expect(progress.href).toBe('/lifting/analytics');
+    });
+
+    it('is the active nav item on every page it groups and on no other', () => {
+        expect(activeSubnavHref('/lifting/body', items)).toBe(
+            '/lifting/analytics',
+        );
+        expect(isSubnavItemActive('/lifting/analytics', progress)).toBe(true);
+        expect(isSubnavItemActive('/lifting', progress)).toBe(false);
+        expect(isSubnavItemActive('/lifting/body/extra', progress)).toBe(false);
+    });
+
+    it('finds the group of the current page, and none for a page outside every group', () => {
+        expect(activeSubnavGroup('/lifting/body', items)).toBe(progress);
+        expect(activeSubnavGroup('/lifting', items)).toBeUndefined();
     });
 });

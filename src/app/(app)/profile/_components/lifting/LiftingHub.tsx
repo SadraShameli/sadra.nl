@@ -1,10 +1,7 @@
 'use client';
 
 import { LiftingSettingsForm } from '~/app/(app)/profile/_components/LiftingSettingsForm';
-import {
-    type ProfileSubTab,
-    ProfileSubTabs,
-} from '~/app/(app)/profile/_components/ProfileSubTabs';
+import { type PageTab, PageTabs } from '~/components/PageTabs';
 import { type RouterOutputs } from '~/trpc/react';
 
 import { ExercisesManager } from './ExercisesManager';
@@ -23,7 +20,7 @@ const LiftingTab = {
 type LiftingTab = (typeof LiftingTab)[keyof typeof LiftingTab];
 
 export function LiftingHub({ initialSettings }: { initialSettings: Settings }) {
-    const tabs: readonly ProfileSubTab<LiftingTab>[] = [
+    const tabs: readonly PageTab<LiftingTab>[] = [
         {
             content: <LiftingSettingsForm initial={initialSettings} />,
             label: 'Settings',
@@ -45,5 +42,5 @@ export function LiftingHub({ initialSettings }: { initialSettings: Settings }) {
             value: LiftingTab.Workouts,
         },
     ];
-    return <ProfileSubTabs defaultValue={LiftingTab.Settings} tabs={tabs} />;
+    return <PageTabs defaultValue={LiftingTab.Settings} tabs={tabs} />;
 }

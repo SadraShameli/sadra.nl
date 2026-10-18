@@ -10,6 +10,10 @@ import {
     accountFromStateViewOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/accountFromStateModel';
 import { type SlotEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { Skeleton } from '~/components/ui/skeleton';
 import {
     type AccountSnapshotInput,
@@ -47,10 +51,10 @@ export function NextPayoutSection({
 }) {
     if (rulebook === undefined) {
         return rulebookError === null ? (
-            <p className="text-sm text-muted-foreground">
+            <InfoNote>
                 Your rulebook has not loaded, so the figures from this state
                 cannot be computed yet.
-            </p>
+            </InfoNote>
         ) : (
             <SimulationFailureNotice
                 message={`Your rulebook could not be loaded, so the figures from this state cannot be computed: ${rulebookError}`}
@@ -59,9 +63,7 @@ export function NextPayoutSection({
     }
     if (input.stage === SizingStage.Live) {
         return (
-            <p className="text-sm text-muted-foreground">
-                A live account has no from-state value model.
-            </p>
+            <InfoNote>A live account has no from-state value model.</InfoNote>
         );
     }
     switch (detail.kind) {
@@ -86,9 +88,7 @@ export function NextPayoutSection({
             );
         }
         case FromStateDetailKind.Unavailable: {
-            return (
-                <p className="text-sm text-muted-foreground">{detail.reason}</p>
-            );
+            return <InfoNote>{detail.reason}</InfoNote>;
         }
     }
 }
@@ -97,45 +97,51 @@ function ChainPosition({ view }: { readonly view: ChainPositionView }) {
     switch (view.kind) {
         case ChainPositionViewKind.Pending: {
             return (
-                <p className="text-xs text-muted-foreground" role="status">
+                <InfoNote role="status">
                     Placing the account in the value chain of its plan...
-                </p>
+                </InfoNote>
             );
         }
         case ChainPositionViewKind.Ready: {
             const { above, below, eligibleAssumptions, unavailable } =
                 view.model;
             return (
-                <div className="flex flex-col gap-1">
-                    <h4 className="text-sm font-medium">
+                <div className="flex flex-col gap-2">
+                    <PanelSubheading
+                        as="h4"
+                        info={
+                            eligibleAssumptions === null ? undefined : (
+                                <>
+                                    <p className="font-medium text-ink">
+                                        {eligibleAssumptions.heading}
+                                    </p>
+                                    <ul
+                                        aria-label={eligibleAssumptions.heading}
+                                        className="list-disc pl-4"
+                                    >
+                                        {eligibleAssumptions.lines.map(
+                                            (line) => (
+                                                <li key={line}>{line}</li>
+                                            ),
+                                        )}
+                                    </ul>
+                                </>
+                            )
+                        }
+                    >
                         Position in the value chain of the plan
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
+                    </PanelSubheading>
+                    <p className="m-0 text-sm text-ink">
                         Credit-free, this account is worth more than{' '}
                         {listText(above)} and no more than {listText(below)}.
                     </p>
-                    {eligibleAssumptions === null ? null : (
-                        <div className="flex flex-col gap-1">
-                            <h5 className="text-xs font-semibold text-foreground">
-                                {eligibleAssumptions.heading}
-                            </h5>
-                            <ul
-                                aria-label={eligibleAssumptions.heading}
-                                className="list-disc pl-4 text-xs text-muted-foreground"
-                            >
-                                {eligibleAssumptions.lines.map((line) => (
-                                    <li key={line}>{line}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                    {unavailable.length > 0 && (
-                        <ul className="flex list-disc flex-col gap-1 pl-5 text-xs text-warning">
-                            {unavailable.map((line) => (
-                                <li key={line}>Not available: {line}</li>
-                            ))}
-                        </ul>
-                    )}
+                    {unavailable.map((line) => (
+                        <StatusRow
+                            key={line}
+                            title={`Not available: ${line}`}
+                            tone={StatusTone.Neutral}
+                        />
+                    ))}
                 </div>
             );
         }
@@ -193,14 +199,17 @@ function ReadyNextPayout({
     return (
         <div className="flex flex-col gap-4">
             <FromStateBlock view={view} />
-            <p className="text-xs text-muted-foreground">
-                {FROM_STATE_PERSONAL_RULES_NOTE}
-            </p>
+            <InfoNote
+                info={FROM_STATE_PERSONAL_RULES_NOTE}
+                infoTitle="Personal rules"
+            >
+                Simulated with your personal rules.
+            </InfoNote>
             {pathLines !== null && (
                 <div className="flex flex-col gap-1">
-                    <h4 className="text-sm font-medium">
+                    <PanelSubheading as="h4">
                         Path to the next payout
-                    </h4>
+                    </PanelSubheading>
                     <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
                         {pathLines.map((line) => (
                             <li key={line}>{line}</li>
@@ -228,60 +237,69 @@ function RetireInformation({ view }: { readonly view: RetireView }) {
         }
         case RetireViewKind.Pending: {
             return (
-                <p className="text-xs text-muted-foreground" role="status">
+                <InfoNote role="status">
                     Comparing with a fresh account of the same plan...
-                </p>
+                </InfoNote>
             );
         }
         case RetireViewKind.Ready: {
             const { model } = view;
             return (
-                <div className="flex flex-col gap-1">
-                    <h4 className="text-sm font-medium">
-                        Keep or start a fresh account
-                    </h4>
-                    <p className="text-sm">{model.verdict}</p>
-                    <dl className="grid gap-x-6 gap-y-1 text-sm md:grid-cols-[auto_1fr]">
-                        <dt className="text-muted-foreground">
-                            Keeping this account
-                        </dt>
-                        <dd className="tabular-nums">{model.keepRate}</dd>
-                        {model.isComparable && (
+                <div className="flex flex-col gap-2">
+                    <PanelSubheading
+                        as="h4"
+                        info={
                             <>
-                                <dt className="text-muted-foreground">
-                                    A fresh account, after its cost
-                                </dt>
-                                <dd className="tabular-nums">
-                                    {model.switchRate}
-                                </dd>
+                                <p>
+                                    Compared with {model.basis}. {model.note}
+                                </p>
+                                {model.liveTransferNotes.length > 0 && (
+                                    <ul
+                                        aria-label="Live-transfer and payout-trigger assumptions behind the retire comparison"
+                                        className="flex flex-col gap-1"
+                                    >
+                                        {model.liveTransferNotes.map((line) => (
+                                            <li key={line}>{line}</li>
+                                        ))}
+                                    </ul>
+                                )}
                             </>
-                        )}
-                        <dt className="text-muted-foreground">
-                            Cost of switching
-                        </dt>
-                        <dd className="tabular-nums">{model.switchCost}</dd>
-                        <dt className="text-muted-foreground">
-                            Days left to earn
-                        </dt>
-                        <dd className="tabular-nums">{model.remainingDays}</dd>
-                    </dl>
+                        }
+                    >
+                        Keep or start a fresh account
+                    </PanelSubheading>
+                    <p className="m-0 text-sm text-ink">{model.verdict}</p>
+                    <StatStrip
+                        items={[
+                            {
+                                id: 'keep',
+                                label: 'Keeping this account',
+                                value: model.keepRate,
+                            },
+                            ...(model.isComparable
+                                ? [
+                                      {
+                                          id: 'switch',
+                                          label: 'A fresh account, after its cost',
+                                          value: model.switchRate,
+                                      },
+                                  ]
+                                : []),
+                            {
+                                id: 'switch-cost',
+                                label: 'Cost of switching',
+                                value: model.switchCost,
+                            },
+                            {
+                                id: 'remaining-days',
+                                label: 'Days left to earn',
+                                value: model.remainingDays,
+                            },
+                        ]}
+                        label="Keep or start a fresh account"
+                    />
                     {model.reason !== null && (
-                        <p className="text-sm text-muted-foreground">
-                            {model.reason}
-                        </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                        Compared with {model.basis}. {model.note}
-                    </p>
-                    {model.liveTransferNotes.length > 0 && (
-                        <ul
-                            aria-label="Live-transfer and payout-trigger assumptions behind the retire comparison"
-                            className="flex flex-col gap-1 text-xs text-muted-foreground"
-                        >
-                            {model.liveTransferNotes.map((line) => (
-                                <li key={line}>{line}</li>
-                            ))}
-                        </ul>
+                        <InfoNote>{model.reason}</InfoNote>
                     )}
                 </div>
             );

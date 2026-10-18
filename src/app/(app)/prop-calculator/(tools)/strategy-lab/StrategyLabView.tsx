@@ -30,7 +30,7 @@ export function StrategyLabView() {
                 <ToolSection
                     id={LegacySection.StrategyLab}
                     srOnlyHeading
-                    title="Strategy lab"
+                    title="Strategy comparison"
                 >
                     <StrategyLabPanel
                         activationDiscountPercent={

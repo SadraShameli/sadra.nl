@@ -38,7 +38,7 @@ export function SensorHubSection() {
                     frameClassName="rounded-xl"
                 >
                     <AutoplayVideo
-                        className="size-full object-cover"
+                        className="size-full bg-media-black object-cover"
                         video={video}
                     />
                     <Chip className="absolute top-5 left-5">{videoChip}</Chip>
@@ -46,9 +46,7 @@ export function SensorHubSection() {
 
                 <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-8">
                     <SectionHeading heading={heading} />
-                    <p className="m-0 text-[19px] leading-[1.6] font-light text-pretty text-ink-soft">
-                        {body}
-                    </p>
+                    <p className="m-0 type-body text-ink-soft">{body}</p>
                     <ul className="m-0 flex list-none flex-col border-t border-line p-0">
                         {metrics.map((entry) => {
                             const Icon = METRIC_ICON[entry.metric];
@@ -62,10 +60,10 @@ export function SensorHubSection() {
                                         className="size-5 text-camel"
                                         strokeWidth={1.5}
                                     />
-                                    <span className="flex-1 font-serif text-[22px] font-medium">
+                                    <span className="flex-1 type-display-item">
                                         {entry.label}
                                     </span>
-                                    <span className="font-mono text-[13px] text-ink-muted">
+                                    <span className="font-mono text-xs text-ink-muted">
                                         {entry.unit}
                                     </span>
                                 </li>

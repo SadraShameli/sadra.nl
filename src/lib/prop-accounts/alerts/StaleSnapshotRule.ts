@@ -1,3 +1,4 @@
+import { formatDisplayDate } from '~/lib/format';
 import { AccountStage, accountStageLabel } from '~/lib/prop-accounts/core';
 
 import { type AccountAlert } from './AccountAlert';
@@ -46,7 +47,7 @@ export class StaleSnapshotRule extends AccountAlertRule {
                     ? this.alertFor(
                           monitored,
                           AlertSeverity.Warning,
-                          `Snapshot from ${snapshot.asOf} predates the last trading session ${session.date}; enter today's balance before sizing this ${accountStageLabel(stage)} account`,
+                          `Snapshot from ${formatDisplayDate(snapshot.asOf)} predates the last trading session ${formatDisplayDate(session.date)}; enter today's balance before sizing this ${accountStageLabel(stage)} account`,
                           [session.disclosure],
                       )
                     : null;
@@ -66,7 +67,7 @@ export class StaleSnapshotRule extends AccountAlertRule {
                     ? this.alertFor(
                           monitored,
                           AlertSeverity.Warning,
-                          `Funded snapshot from ${snapshot.asOf} is ${age} days old (stale after ${staleDays} days); enter this week's balance`,
+                          `Funded snapshot from ${formatDisplayDate(snapshot.asOf)} is ${age} days old (stale after ${staleDays} days); enter this week's balance`,
                       )
                     : null;
             }

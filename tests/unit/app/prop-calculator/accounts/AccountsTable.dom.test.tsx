@@ -8,6 +8,7 @@ import type { AccountValues } from '~/app/(app)/prop-calculator/accounts/_compon
 
 import {
     AccountStage,
+    AccountStateUnavailableKind,
     AccountStatus,
     AccountTracking,
     PayoutReadinessRowKind,
@@ -18,11 +19,21 @@ import {
     LiveTriggerCoverage,
     PayoutBlockReasonKind,
     PayoutWaitBasis,
+    ReconstructionErrorReason,
 } from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
 
+import {
+    chooseRowAction,
+    confirmRowAction,
+    openRowActions,
+    rowActionItem,
+    rowActionLabels,
+} from '../../../components/rowActionsMenu';
+import { withInfoTexts } from '../infoPopover';
 import { ariaLabelledSelect } from '../labelledControl';
 import { AccountsTable } from './AccountsTableWithData';
+import { warningNotes } from './warningNotes';
 
 interface FakeQuery {
     data: unknown;
@@ -41,15 +52,25 @@ const harness = vi.hoisted(() => {
         notice: null,
     };
     const queries = new Map<string, FakeQuery>();
+    const mutates = new Map<string, ReturnType<typeof vi.fn>>();
     const pending: FakeQuery = {
         data: undefined,
         error: null,
         isError: false,
         isPending: true,
     };
+    function mutateOf(name: string) {
+        const existing = mutates.get(name);
+        if (existing !== undefined) return existing;
+        const created = vi.fn();
+        mutates.set(name, created);
+        return created;
+    }
     return {
-        mutation: () => ({
-            useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+        mutateOf,
+        mutates,
+        mutation: (name: string) => ({
+            useMutation: () => ({ isPending: false, mutate: mutateOf(name) }),
         }),
         queries,
         query: (name: string) => ({
@@ -77,10 +98,10 @@ vi.mock('~/trpc/react', () => ({
     api: {
         propAccounts: {
             account: {
-                archive: harness.mutation(),
+                archive: harness.mutation('account.archive'),
                 list: harness.query('account.list'),
-                remove: harness.mutation(),
-                unarchive: harness.mutation(),
+                remove: harness.mutation('account.remove'),
+                unarchive: harness.mutation('account.unarchive'),
             },
             copyGroup: { list: harness.query('copyGroup.list') },
             externalFirm: { list: harness.query('externalFirm.list') },
@@ -254,6 +275,7 @@ describe('AccountsTable', () => {
     beforeEach(() => {
         vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
         harness.queries.clear();
+        harness.mutates.clear();
         harness.values = { boards: null, columns: new Map(), notice: null };
         harness.queries.set('copyGroup.list', answer([]));
         harness.queries.set('snapshot.latestTwoForAll', answer([]));
@@ -287,6 +309,152 @@ describe('AccountsTable', () => {
         }
     });
 
+    it('explains a missing cushion with the reason the cushion board gives, not a missing dashboard floor', () => {
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
+        harness.queries.set(
+            'snapshot.latestTwoForAll',
+            answer([snapshotOf(ALPHA_ID, 5_200_000)]),
+        );
+        harness.values = {
+            boards: {
+                cushion: {
+                    rows: [],
+                    unavailable: [
+                        {
+                            accountId: ALPHA_ID,
+                            reason: {
+                                kind: AccountStateUnavailableKind.ReconstructionError,
+                                reason: ReconstructionErrorReason.EodPeakRequired,
+                            },
+                        },
+                    ],
+                },
+                readiness: { notApplicable: [], rows: [] },
+            },
+            columns: new Map(),
+            notice: null,
+        };
+        render();
+        const alpha = withInfoTexts(rowOf(container, 'Alpha'));
+        expect(alpha).toContain(
+            'Its EOD-trailing drawdown needs the highest EOD balance on the snapshot.',
+        );
+        expect(alpha).not.toContain(
+            'no drawdown floor from the firm dashboard',
+        );
+    });
+
+    describe('the row actions menu', () => {
+        it('opens and edits the account through links, then offers archive and delete', () => {
+            harness.queries.set(
+                'account.list',
+                answer([account(ALPHA_ID, 'Alpha')]),
+            );
+            render();
+            openRowActions('Alpha');
+            expect(rowActionLabels()).toEqual([
+                'Open',
+                'Edit',
+                'Archive',
+                'Delete',
+            ]);
+            expect(rowActionItem('Open').getAttribute('href')).toBe(
+                routes.propCalculator.accounts.detail(ALPHA_ID),
+            );
+            expect(rowActionItem('Edit').getAttribute('href')).toBe(
+                routes.propCalculator.accounts.edit(ALPHA_ID),
+            );
+            expect(rowActionItem('Edit').getAttribute('aria-disabled')).toBe(
+                null,
+            );
+        });
+
+        it('disables Edit for a read-only account and still offers Open', () => {
+            harness.queries.set(
+                'account.list',
+                answer([account(ALPHA_ID, 'Alpha', 'no-such-plan')]),
+            );
+            render();
+            openRowActions('Alpha');
+            expect(rowActionItem('Edit').getAttribute('aria-disabled')).toBe(
+                'true',
+            );
+            expect(rowActionItem('Open').getAttribute('aria-disabled')).toBe(
+                null,
+            );
+        });
+
+        it('archives an account only after it is confirmed', () => {
+            harness.queries.set(
+                'account.list',
+                answer([account(ALPHA_ID, 'Alpha')]),
+            );
+            render();
+            chooseRowAction('Alpha', 'Archive');
+            expect(harness.mutateOf('account.archive')).not.toHaveBeenCalled();
+            expect(
+                document.querySelector('[role="alertdialog"]')?.textContent,
+            ).toContain('Archive “Alpha”?');
+            confirmRowAction('Archive');
+            expect(harness.mutateOf('account.archive')).toHaveBeenCalledWith(
+                { id: ALPHA_ID },
+                expect.any(Object),
+            );
+        });
+
+        it('restores an archived account at once', () => {
+            harness.queries.set(
+                'account.list',
+                answer([
+                    {
+                        ...account(ALPHA_ID, 'Alpha'),
+                        archivedAt: new Date('2026-09-10T00:00:00Z'),
+                    },
+                ]),
+            );
+            render();
+            act(() => {
+                archivedToggle(container).click();
+            });
+            openRowActions('Alpha');
+            expect(rowActionLabels()).toEqual([
+                'Open',
+                'Edit',
+                'Restore',
+                'Delete',
+            ]);
+            act(() => {
+                rowActionItem('Restore').click();
+            });
+            expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+            expect(harness.mutateOf('account.unarchive')).toHaveBeenCalledWith(
+                { id: ALPHA_ID },
+                expect.any(Object),
+            );
+        });
+
+        it('deletes an account only after it is confirmed', () => {
+            harness.queries.set(
+                'account.list',
+                answer([account(ALPHA_ID, 'Alpha')]),
+            );
+            render();
+            chooseRowAction('Alpha', 'Delete');
+            expect(harness.mutateOf('account.remove')).not.toHaveBeenCalled();
+            expect(
+                document.querySelector('[role="alertdialog"]')?.textContent,
+            ).toContain('Delete “Alpha”?');
+            confirmRowAction('Delete');
+            expect(harness.mutateOf('account.remove')).toHaveBeenCalledWith(
+                { id: ALPHA_ID },
+                expect.any(Object),
+            );
+        });
+    });
+
     it('keeps the read-only marker on the row without repeating the overview unresolvable plan alert as a banner', () => {
         harness.queries.set(
             'account.list',
@@ -296,6 +464,25 @@ describe('AccountsTable', () => {
         expect(container.textContent).toContain('Read-only.');
         expect(container.textContent).not.toContain('Read-only account: Alpha');
         expect(container.querySelectorAll('[role="alert"]')).toHaveLength(0);
+    });
+
+    it('starts the read-only note on its own line with its info button beside the sentence, not inside it', () => {
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha', 'no-such-plan')]),
+        );
+        render();
+        const [note] = warningNotes(container);
+        if (note === undefined) throw new Error('no read-only note');
+        expect(note.textContent).toContain('Read-only.');
+        expect(note.querySelector('button')).toBeNull();
+        const line = note.parentElement;
+        expect(line?.tagName).toBe('DIV');
+        expect(
+            line?.querySelector(
+                ':scope > button[aria-label="About Read-only account: Alpha"]',
+            ),
+        ).not.toBeNull();
     });
 
     it('keeps the table and shows the error beside it when a refetch of the accounts fails', () => {
@@ -311,7 +498,35 @@ describe('AccountsTable', () => {
         expect(container.textContent).toContain(
             'The accounts could not be refreshed',
         );
-        expect(container.textContent).toContain('Failed to fetch');
+        expect(container.textContent).toContain(
+            'Failed to fetch. The table shows the last loaded accounts.',
+        );
+    });
+
+    it('ends the firm list failure with a full stop before saying how accounts at your own firms show', () => {
+        harness.queries.set(
+            'account.list',
+            answer([account(ALPHA_ID, 'Alpha')]),
+        );
+        harness.queries.set('externalFirm.list', {
+            data: undefined,
+            error: new Error('UNAUTHORIZED'),
+            isError: true,
+            isPending: false,
+        });
+        render();
+        const alert = [...container.querySelectorAll('[role="alert"]')].find(
+            (candidate) =>
+                candidate.textContent.includes(
+                    'Your firms could not be loaded',
+                ),
+        );
+        expect(
+            alert?.querySelector('[data-slot="alert-description"]')
+                ?.textContent,
+        ).toBe(
+            'UNAUTHORIZED. Accounts at a firm you added show it as an unlisted firm until your firms load.',
+        );
     });
 
     it('shows only the error when the accounts never loaded', () => {
@@ -323,7 +538,7 @@ describe('AccountsTable', () => {
         });
         render();
         expect(container.querySelector('table')).toBeNull();
-        expect(container.textContent).toContain(
+        expect(container.querySelector('h2')?.textContent).toBe(
             'The accounts could not be loaded',
         );
     });

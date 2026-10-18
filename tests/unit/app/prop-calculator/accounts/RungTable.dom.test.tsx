@@ -63,7 +63,7 @@ describe('the shared rung table (PT-101)', () => {
             'Documented ladder for Main copy',
         );
         expect(
-            [...container.querySelectorAll('th')].map(
+            [...container.querySelectorAll(':scope thead th')].map(
                 (cell) => cell.textContent,
             ),
         ).toEqual([
@@ -75,7 +75,9 @@ describe('the shared rung table (PT-101)', () => {
         ]);
         expect(
             [...container.querySelectorAll(':scope tbody tr')].map((row) =>
-                [...row.querySelectorAll('td')].map((cell) => cell.textContent),
+                [...row.querySelectorAll('th, td')].map(
+                    (cell) => cell.textContent,
+                ),
             ),
         ).toEqual([
             [

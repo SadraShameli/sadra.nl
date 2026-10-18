@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
-import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { OverviewSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { Button } from '~/components/ui/button';
 import { requireSessionUser } from '~/lib/auth/guards';
@@ -46,7 +46,7 @@ export default function PropAccountsPage() {
                     description="Spend, payouts received and net across every account you hold, with alerts and each account's stage and latest balance."
                     title="Prop accounts"
                 />
-                <Suspense fallback={<AccountsDataSkeleton />}>
+                <Suspense fallback={<OverviewSkeleton />}>
                     <PropAccountsContent />
                 </Suspense>
             </main>

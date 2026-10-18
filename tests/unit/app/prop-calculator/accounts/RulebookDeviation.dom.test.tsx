@@ -132,7 +132,7 @@ describe('the rulebook deviation card and import preview (F-144)', () => {
                 candidate.children.length === 0 &&
                 candidate.textContent.trim() === 'Deviations from the skill',
         );
-        const card = title?.parentElement?.parentElement;
+        const card = title?.closest('[data-slot="card"]');
         if (!(card instanceof HTMLElement)) {
             throw new TypeError('no deviation card');
         }

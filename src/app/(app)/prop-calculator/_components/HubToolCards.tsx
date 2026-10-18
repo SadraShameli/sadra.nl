@@ -5,53 +5,20 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { subnavHref } from '~/app/(app)/_components/routeSubnavLinks';
+import { ToolPanel } from '~/components/ToolPanel';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
-import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '~/components/ui/card';
 import { cn } from '~/lib/utilities';
 
 import { readLastToolQuery } from './lastToolQuery';
 import {
     LINKED_TOOL_CATALOG,
-    pageStateBlobsOf,
     type ToolCatalogEntry,
-    ToolGroup,
+    toolsByGroup,
 } from './toolCatalog';
-import { withPageStateBlobsOnly } from './urlState';
-
-export interface HubToolGroup {
-    group: ToolGroup;
-    label: string;
-    tools: readonly ToolCatalogEntry[];
-}
-
-const HUB_GROUP_LABELS: Readonly<Record<ToolGroup, string>> = {
-    [ToolGroup.Analyse]: 'Analyse',
-    [ToolGroup.Compare]: 'Compare',
-    [ToolGroup.Labs]: 'Labs',
-    [ToolGroup.Plan]: 'Plan',
-    [ToolGroup.Simulate]: 'Simulate',
-    [ToolGroup.Size]: 'Size',
-};
-
-const HUB_GROUP_ORDER: readonly ToolGroup[] = [
-    ToolGroup.Simulate,
-    ToolGroup.Analyse,
-    ToolGroup.Size,
-    ToolGroup.Compare,
-    ToolGroup.Plan,
-    ToolGroup.Labs,
-];
+import { toolNavPage } from './toolNavItems';
 
 export function hubCardHref(entry: ToolCatalogEntry, query = ''): Route {
-    return subnavHref(
-        { carriesQuery: entry.usesCalculatorInputs, href: entry.route },
-        withPageStateBlobsOnly(query, pageStateBlobsOf(entry.id)),
-    );
+    return subnavHref(toolNavPage(entry, query), '');
 }
 
 export function HubToolCards() {
@@ -61,20 +28,20 @@ export function HubToolCards() {
         setLastQuery(readLastToolQuery());
     }, []);
 
-    const groups = hubToolGroups(LINKED_TOOL_CATALOG);
+    const groups = toolsByGroup(LINKED_TOOL_CATALOG);
 
     return (
-        <div className="flex flex-col gap-10">
+        <div className="gap-x-6 md:columns-2">
             {groups.map(({ group, label, tools }) => (
                 <section
                     aria-labelledby={`hub-group-${group}`}
-                    className="flex flex-col gap-4"
+                    className="mb-10 flex break-inside-avoid flex-col gap-4"
                     key={group}
                 >
                     <ToolSectionHeading id={`hub-group-${group}`}>
                         {label}
                     </ToolSectionHeading>
-                    <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <ul className="flex flex-col gap-4">
                         {tools.map((entry) => {
                             const Icon = entry.icon;
                             return (
@@ -90,23 +57,23 @@ export function HubToolCards() {
                                         )}
                                         prefetch={false}
                                     >
-                                        <Card className="h-full transition-colors group-hover:border-primary/60">
-                                            <CardHeader>
-                                                <CardTitle
-                                                    as="h3"
-                                                    className="flex items-center gap-2"
-                                                >
+                                        <ToolPanel
+                                            className="h-full gap-3 transition-colors group-hover:border-primary/60"
+                                            title={
+                                                <span className="flex items-center gap-2">
                                                     <Icon
                                                         aria-hidden
                                                         className="size-4 text-primary"
                                                     />
                                                     {entry.label}
-                                                </CardTitle>
-                                                <CardDescription>
-                                                    {entry.blurb}
-                                                </CardDescription>
-                                            </CardHeader>
-                                        </Card>
+                                                </span>
+                                            }
+                                            titleAs="h3"
+                                        >
+                                            <p className="m-0 text-sm text-ink-muted">
+                                                {entry.blurb}
+                                            </p>
+                                        </ToolPanel>
                                     </Link>
                                 </li>
                             );
@@ -116,14 +83,4 @@ export function HubToolCards() {
             ))}
         </div>
     );
-}
-
-export function hubToolGroups(
-    catalog: readonly ToolCatalogEntry[],
-): readonly HubToolGroup[] {
-    return HUB_GROUP_ORDER.map((group) => ({
-        group,
-        label: HUB_GROUP_LABELS[group],
-        tools: catalog.filter((entry) => entry.group === group),
-    })).filter((entry) => entry.tools.length > 0);
 }

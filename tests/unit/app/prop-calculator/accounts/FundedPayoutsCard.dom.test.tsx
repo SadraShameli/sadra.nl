@@ -16,6 +16,9 @@ vi.mock('recharts', async (importOriginal) => {
 import { FundedPayoutsCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/FundedPayoutsCard';
 import { type FundedPayoutsCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
+import { infoText } from '../infoPopover';
+import { inlineWarningNotes, warningNotes } from './warningNotes';
+
 type Row = FundedPayoutsCardModel['rows'][number];
 
 function model(rows: readonly Row[]): FundedPayoutsCardModel {
@@ -37,6 +40,7 @@ function row(overrides: Partial<Row> = {}): Row {
         modeledCounts: ['60.0%', '20.0%', '10.0%'],
         modeledFundedValue: '$900.00',
         modeledProbabilities: [0.6, 0.2, 0.1, 0.05, 0.03, 0.02, 0, 0, 0, 0, 0],
+        modeledUnavailableReason: null,
         openAccounts: '1',
         plan: 'Alpha Prop $50K',
         realizedFundedValue: '$100.00, n = 4',
@@ -85,7 +89,7 @@ describe('FundedPayoutsCard', () => {
     it('draws only the modeled distribution while no funded account is fully observed, and says so', () => {
         render(model([row({ realizedProbabilities: [] })]));
         expect(container.textContent).toContain(
-            'No fully observed funded account yet, so there is no realized distribution.',
+            'Realized distribution: no fully observed funded account yet.',
         );
         expect(
             container.querySelectorAll(
@@ -94,16 +98,56 @@ describe('FundedPayoutsCard', () => {
         ).toHaveLength(1);
     });
 
-    it('draws only the realized distribution while the engine has not answered', () => {
-        render(model([row({ modeledProbabilities: null })]));
-        expect(container.textContent).toContain(
-            'The modeled distribution is pending the engine cards.',
+    it('draws the realized distribution beside a placeholder while the engine has not answered', () => {
+        render(
+            model([
+                row({
+                    modeledFundedValue: 'Pending',
+                    modeledProbabilities: null,
+                }),
+            ]),
         );
         expect(
             container.querySelectorAll(
                 '.app-prop-calculator__accounts-passed-chart',
             ),
         ).toHaveLength(1);
+        expect(
+            container.querySelector('[data-slot="skeleton"]'),
+        ).not.toBeNull();
+    });
+
+    it('draws only the realized distribution and says the engine has none when it answered without one', () => {
+        render(model([row({ modeledProbabilities: null })]));
+        expect(container.textContent).toContain(
+            'Modeled distribution: the engine has none for this plan.',
+        );
+        expect(
+            container.querySelectorAll(
+                '.app-prop-calculator__accounts-passed-chart',
+            ),
+        ).toHaveLength(1);
+    });
+
+    it('says the modeled distribution could not be computed, with the reason, when the engine failed or refused the plan', () => {
+        render(
+            model([
+                row({
+                    modeledCounts: null,
+                    modeledFundedValue: 'Not available',
+                    modeledProbabilities: null,
+                    modeledUnavailableReason:
+                        'Web workers are not available in this browser.',
+                }),
+            ]),
+        );
+        expect(container.textContent).not.toContain(
+            'the engine has none for this plan',
+        );
+        expect(container.textContent).toContain('Modeled distribution:');
+        expect(infoText(container, 'Not available')).toContain(
+            'Web workers are not available in this browser.',
+        );
     });
 
     it('keeps the counts table with the too young column and the disclosures', () => {
@@ -113,6 +157,41 @@ describe('FundedPayoutsCard', () => {
         );
         expect(headers).toContain('Too young');
         expect(headers).toContain('10+');
-        expect(container.textContent).toContain('listed open');
+        expect(infoText(container, 'Payouts per funded account')).toContain(
+            'listed open',
+        );
+    });
+
+    it('starts the funded value flag on its own line under the modeled figure', () => {
+        render(
+            model([
+                row({
+                    fundedValueFlag:
+                        'The modeled value is above the realized value by more than its spread.',
+                }),
+            ]),
+        );
+        const table = container.querySelector('table');
+        if (table === null) throw new Error('no funded payouts table');
+        expect(warningNotes(table)).toHaveLength(1);
+        expect(inlineWarningNotes(table)).toEqual([]);
+    });
+
+    it('tells the modeled share row apart by its label, never by a muted tint', () => {
+        render(model([row()]));
+        const rows = [...container.querySelectorAll(':scope tbody tr')];
+        const modeled = rows.find((line) =>
+            line.textContent.includes('(modeled share)'),
+        );
+        if (modeled === undefined) throw new Error('no modeled share row');
+        const tinted = rows.flatMap((line) => [
+            line,
+            ...line.querySelectorAll('*'),
+        ]);
+        expect(
+            tinted.filter((node) =>
+                node.classList.contains('text-muted-foreground'),
+            ),
+        ).toEqual([]);
     });
 });

@@ -9,6 +9,8 @@ import { z } from 'zod';
 
 import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
 
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { SwitchCard } from '~/components/ToggleCard';
 import { Button } from '~/components/ui/button';
 import { Field, FieldLabel } from '~/components/ui/field';
@@ -131,9 +133,7 @@ export function PrepChecklist({
         >
             <div>
                 <div className="flex items-baseline justify-between">
-                    <span className="text-xs tracking-wider text-muted-foreground uppercase">
-                        Discipline score
-                    </span>
+                    <PanelSubheading>Discipline score</PanelSubheading>
                     <span className="font-mono text-sm">
                         {completed} / {PREP_CHECK_KEYS.length} ·{' '}
                         {score.toFixed(0)}%
@@ -208,11 +208,7 @@ export function PrepChecklist({
                 </div>
             )}
 
-            {!isToday && (
-                <p className="text-xs text-muted-foreground">
-                    Read-only view of a past day.
-                </p>
-            )}
+            {!isToday && <InfoNote>Read-only view of a past day.</InfoNote>}
         </form>
     );
 }

@@ -1,17 +1,19 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format, subDays } from 'date-fns';
-import { LineChart, Plus, Ruler, Trash2 } from 'lucide-react';
+import { subDays } from 'date-fns';
+import { LineChart, Plus, Ruler } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { MissingValue } from '~/components/MissingValue';
+import { deleteRowAction, rowActionsColumn } from '~/components/RowActionsMenu';
+import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
 import AreaChartNew from '~/components/ui/chart/area-chart-new';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     type DataTableColumn,
@@ -21,7 +23,7 @@ import {
 import { DataTableDateRange } from '~/components/ui/data-table-date-range';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { DatePicker } from '~/components/ui/date-picker';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, NoMatchesState } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -34,6 +36,7 @@ import {
 import { Skeleton } from '~/components/ui/skeleton';
 import { Textarea } from '~/components/ui/textarea';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
+import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import { MeasurementUnitConversion } from '~/lib/lifting/format';
 import {
     type CreateMeasurementInput,
@@ -103,7 +106,7 @@ export function BodyView() {
                 unitWeight={unitWeight}
             />
 
-            <BodyStatsCards stats={stats} />
+            <BodyStatStrip isLoading={measurements.isLoading} stats={stats} />
 
             <MeasurementTrendChart
                 unitLength={unitLength}
@@ -111,43 +114,51 @@ export function BodyView() {
             />
 
             <ToolPanel contentClassName="flex flex-col gap-4" title="History">
-                <MeasurementsHistoryTable
-                    headerActions={(table) => (
-                        <>
-                            <DataTableFacetSelect
-                                column={table.getColumn('kind')}
-                                format={(k) => (
-                                    <span className="capitalize">
-                                        {k.replaceAll('_', ' ')}
-                                    </span>
-                                )}
-                                label="Kind"
-                                placeholder="All kinds"
-                            />
-                            <DataTableFacetSelect
-                                column={table.getColumn('unit')}
-                                label="Unit"
-                                placeholder="All units"
-                            />
-                            <DataTableDateRange
-                                column={table.getColumn('takenAt')}
-                                label="Logged date"
-                                maxDate={new Date()}
-                                placeholder="Any time"
-                            />
-                        </>
-                    )}
-                    isLoading={measurements.isLoading}
-                    onDelete={(id) => remove.mutate({ id })}
-                    rows={rows}
-                />
+                {!measurements.isLoading && rows.length === 0 ? (
+                    <EmptyState
+                        description="Log your first measurement above to start your history."
+                        icon={Ruler}
+                        title="No measurements yet"
+                    />
+                ) : (
+                    <MeasurementsHistoryTable
+                        headerActions={(table) => (
+                            <>
+                                <DataTableFacetSelect
+                                    column={table.getColumn('kind')}
+                                    format={(k) => (
+                                        <span className="capitalize">
+                                            {measurementKindName(k)}
+                                        </span>
+                                    )}
+                                    label="Kind"
+                                    placeholder="All kinds"
+                                />
+                                <DataTableFacetSelect
+                                    column={table.getColumn('unit')}
+                                    label="Unit"
+                                    placeholder="All units"
+                                />
+                                <DataTableDateRange
+                                    column={table.getColumn('takenAt')}
+                                    label="Logged date"
+                                    maxDate={new Date()}
+                                    placeholder="Any time"
+                                />
+                            </>
+                        )}
+                        isLoading={measurements.isLoading}
+                        onDelete={(id) => remove.mutate({ id })}
+                        rows={rows}
+                    />
+                )}
             </ToolPanel>
         </div>
     );
 }
 
 const TREND_CHART_CONFIG = {
-    value: { color: 'var(--muted-foreground)', label: 'Value' },
+    value: { color: 'var(--chart-1)', label: 'Value' },
 } as const;
 
 function AddMeasurementCard({
@@ -196,7 +207,7 @@ function AddMeasurementCard({
     return (
         <ToolPanel title="Add measurement">
             <form className="flex flex-col gap-3" onSubmit={onSubmit}>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
                     <Controller
                         control={form.control}
                         name="kind"
@@ -216,13 +227,19 @@ function AddMeasurementCard({
                                         aria-invalid={fieldState.invalid}
                                         id={`${formId}-kind`}
                                     >
-                                        <SelectValue />
+                                        <SelectValue>
+                                            <span className="capitalize">
+                                                {measurementKindName(
+                                                    field.value,
+                                                )}
+                                            </span>
+                                        </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {MEASUREMENT_KIND_VALUES.map((k) => (
                                             <SelectItem key={k} value={k}>
                                                 <span className="capitalize">
-                                                    {k.replaceAll('_', ' ')}
+                                                    {measurementKindName(k)}
                                                 </span>
                                             </SelectItem>
                                         ))}
@@ -281,7 +298,7 @@ function AddMeasurementCard({
                                         aria-invalid={fieldState.invalid}
                                         id={`${formId}-unit`}
                                     >
-                                        <SelectValue />
+                                        <SelectValue>{field.value}</SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {MEASUREMENT_UNIT_VALUES.map((u) => (
@@ -343,67 +360,71 @@ function AddMeasurementCard({
                         </Field>
                     )}
                 />
-                <Button
-                    className="gap-2 self-start"
-                    disabled={pending}
-                    type="submit"
-                >
-                    <Plus className="size-4" />
-                    {pending ? 'Saving…' : 'Add'}
-                </Button>
+                <div className="flex justify-end">
+                    <Button className="gap-2" disabled={pending} type="submit">
+                        <Plus className="size-4" />
+                        {pending ? 'Saving…' : 'Add measurement'}
+                    </Button>
+                </div>
             </form>
         </ToolPanel>
     );
 }
 
-function BodyStatsCards({ stats }: { stats: Stats }) {
+function BodyStatStrip({
+    isLoading,
+    stats,
+}: {
+    isLoading: boolean;
+    stats: Stats;
+}) {
     const deltaLabel =
-        stats.weightDelta30d === null
-            ? '-'
-            : `${stats.weightDelta30d >= 0 ? '+' : ''}${stats.weightDelta30d.toFixed(1)}`;
-    const deltaClass =
-        stats.weightDelta30d === null
-            ? 'text-muted-foreground'
-            : stats.weightDelta30d > 0
-              ? 'text-warning'
-              : 'text-success';
-
+        stats.weightDelta30d === null ? (
+            <MissingValue reason="Needs a weight logged at least 30 days before the latest one." />
+        ) : (
+            `${stats.weightDelta30d >= 0 ? '+' : ''}${stats.weightDelta30d.toFixed(1)}`
+        );
     return (
-        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatCard label="Entries" value={stats.total.toString()} />
-            <StatCard
-                label="Latest weight"
-                sub={
-                    stats.weight
-                        ? format(new Date(stats.weight.takenAt), 'MMM d')
-                        : 'no entries'
-                }
-                value={
-                    stats.weight
-                        ? `${stats.weight.valueNumeric} ${stats.weight.unit}`
-                        : '-'
-                }
-            />
-            <StatCard
-                label="Latest bodyfat"
-                sub={
-                    stats.bodyfat
-                        ? format(new Date(stats.bodyfat.takenAt), 'MMM d')
-                        : 'no entries'
-                }
-                value={
-                    stats.bodyfat
-                        ? `${stats.bodyfat.valueNumeric} ${stats.bodyfat.unit}`
-                        : '-'
-                }
-            />
-            <StatCard
-                label="Weight 30-day"
-                sub="vs 30 days ago"
-                value={deltaLabel}
-                valueClass={deltaClass}
-            />
-        </section>
+        <StatStrip
+            isLoading={isLoading}
+            items={[
+                {
+                    id: 'entries',
+                    label: 'Entries',
+                    value: stats.total.toString(),
+                },
+                {
+                    caption: stats.weight
+                        ? formatDisplayDate(stats.weight.takenAt)
+                        : undefined,
+                    id: 'latest-weight',
+                    label: 'Latest weight',
+                    value: stats.weight ? (
+                        `${stats.weight.valueNumeric} ${stats.weight.unit}`
+                    ) : (
+                        <MissingValue />
+                    ),
+                },
+                {
+                    caption: stats.bodyfat
+                        ? formatDisplayDate(stats.bodyfat.takenAt)
+                        : undefined,
+                    id: 'latest-bodyfat',
+                    label: 'Latest bodyfat',
+                    value: stats.bodyfat ? (
+                        `${stats.bodyfat.valueNumeric} ${stats.bodyfat.unit}`
+                    ) : (
+                        <MissingValue />
+                    ),
+                },
+                {
+                    caption: 'vs 30 days ago',
+                    id: 'weight-30-day',
+                    label: 'Weight 30-day',
+                    value: deltaLabel,
+                },
+            ]}
+        />
     );
 }
 
@@ -414,6 +435,14 @@ function defaultUnitFor(
 ): MeasurementUnit {
     if (kind === 'bodyfat') return '%';
     return TAPE_KINDS.has(kind) ? unitLength : unitWeight;
+}
+
+function measurementKindName(kind: string): string {
+    return kind.replaceAll('_', ' ');
+}
+
+function measurementLabel(measurement: MeasurementRow): string {
+    return `${measurementKindName(measurement.kind)} ${measurement.valueNumeric} ${measurement.unit}`;
 }
 
 function MeasurementsHistoryTable({
@@ -433,12 +462,13 @@ function MeasurementsHistoryTable({
                 accessorFn: (r) => r.kind,
                 cell: ({ row }) => (
                     <span className="capitalize">
-                        {row.original.kind.replaceAll('_', ' ')}
+                        {measurementKindName(row.original.kind)}
                     </span>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Kind',
                 id: 'kind',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.valueNumeric,
@@ -460,7 +490,7 @@ function MeasurementsHistoryTable({
                 accessorFn: (r) => new Date(r.takenAt).getTime(),
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {format(new Date(row.original.takenAt), 'MMM d HH:mm')}
+                        {formatDisplayDateTime(row.original.takenAt)}
                     </span>
                 ),
                 filterFn: DataTableFilterFunction.InNumberRange,
@@ -475,39 +505,21 @@ function MeasurementsHistoryTable({
                             {row.original.notes}
                         </span>
                     ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
+                        <MissingValue />
                     ),
                 header: 'Notes',
                 id: 'notes',
             },
-            {
-                cell: ({ row }) => (
-                    <ConfirmDialog
-                        confirmLabel="Delete"
-                        description={
-                            <>
-                                {row.original.kind.replaceAll('_', ' ')}{' '}
-                                {row.original.valueNumeric} {row.original.unit}{' '}
-                                will be removed from your history.
-                            </>
-                        }
-                        onConfirm={() => onDelete(row.original.id)}
-                        title="Delete measurement?"
-                        tooltip="Delete measurement"
-                    >
-                        <Button
-                            aria-label="Delete measurement"
-                            className="size-8 p-0"
-                            type="button"
-                            variant="ghost"
-                        >
-                            <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                    </ConfirmDialog>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            rowActionsColumn<MeasurementRow>({
+                actionsOf: (measurement) => [
+                    deleteRowAction({
+                        description: `${measurementLabel(measurement)} will be removed from your history.`,
+                        onDelete: () => onDelete(measurement.id),
+                        title: 'Delete measurement?',
+                    }),
+                ],
+                labelOf: measurementLabel,
+            }),
         ],
         [onDelete],
     );
@@ -516,17 +528,10 @@ function MeasurementsHistoryTable({
         <DataTable<MeasurementRow>
             columns={columns}
             data={rows}
-            emptyState={
-                <EmptyState
-                    description="Log your first measurement or widen the filters."
-                    icon={Ruler}
-                    title="Nothing logged"
-                />
-            }
+            emptyState={<NoMatchesState icon={Ruler} noun="measurements" />}
             headerActions={headerActions}
             initialColumnVisibility={{ unit: false }}
             isLoading={isLoading}
-            pageSize={25}
             rowId={(r) => r.id}
             showFilter
         />
@@ -556,7 +561,7 @@ function MeasurementTrendChart({
                     MeasurementUnitConversion.canDisplay(r.unit, displayUnit),
                 )
                 .map((r) => ({
-                    date: format(new Date(r.takenAt), 'MMM d'),
+                    date: formatDisplayDate(r.takenAt),
                     value: MeasurementUnitConversion.toDisplay(
                         r.valueNumeric,
                         r.unit,
@@ -567,8 +572,8 @@ function MeasurementTrendChart({
     );
 
     return (
-        <ToolPanel
-            actions={
+        <ToolPanel title="Trend">
+            <FilterToolbar label="Trend filters">
                 <ToolbarSelect
                     label="Trend measurement"
                     onValueChange={(v) => {
@@ -580,16 +585,14 @@ function MeasurementTrendChart({
                     options={MEASUREMENT_KIND_VALUES.map((k) => ({
                         label: (
                             <span className="capitalize">
-                                {k.replaceAll('_', ' ')}
+                                {measurementKindName(k)}
                             </span>
                         ),
                         value: k,
                     }))}
                     value={chartKind}
                 />
-            }
-            title="Trend"
-        >
+            </FilterToolbar>
             {trendData.isLoading ? (
                 <Skeleton className="h-48 w-full rounded-md" />
             ) : chartPoints.length === 0 ? (
@@ -613,38 +616,6 @@ function MeasurementTrendChart({
                 </div>
             )}
         </ToolPanel>
-    );
-}
-
-function StatCard({
-    label,
-    sub,
-    value,
-    valueClass = 'text-foreground',
-}: {
-    label: string;
-    sub?: string;
-    value: string;
-    valueClass?: string;
-}) {
-    return (
-        <Card className="gap-1 py-3">
-            <CardContent className="flex flex-col gap-1 px-3">
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <span
-                    className={`font-mono text-lg leading-none font-bold tabular-nums ${valueClass}`}
-                >
-                    {value}
-                </span>
-                {sub && (
-                    <span className="text-[10px] text-muted-foreground">
-                        {sub}
-                    </span>
-                )}
-            </CardContent>
-        </Card>
     );
 }
 

@@ -1,15 +1,28 @@
 'use client';
 
+import { ChartNoAxesColumn } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/card';
+import {
+    recoveryTimeBench,
+    underwaterBench,
+    vShapeBench,
+} from '~/app/(app)/prop-calculator/_components/drawdownBench';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatDays, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { mean } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
-import StatCard from './StatCard';
+import { benchCaption } from './benchCaption';
+import { CaptionedFigure } from './CaptionedFigure';
+import { recoveryTaxBench } from './recoveryTaxBench';
+import { ValueOrMissing } from './ValueOrMissing';
+
+const NEAR_AVERAGE_DEPTH_TEXT = 'near your average depth';
 
 interface DdEpisode {
     depthPct: number;
@@ -63,6 +76,7 @@ export default function DrawdownDurationPanel({
             avgRecovery: mean(recoveryTimes),
             avgUnderwaterPct: mean(underwaterPcts),
             maxDuration: durations.length > 0 ? Math.max(...durations) : 0,
+            recoveredEpisodes: totalWithEpisodes,
             sampleSize: curves.length,
             totalEpisodes: allEpisodes.length,
             vShapePct:
@@ -70,76 +84,91 @@ export default function DrawdownDurationPanel({
         };
     }, [result]);
 
-    if (!m) return null;
+    if (!m) {
+        return (
+            <EmptyState
+                description="The run kept no sample equity curves, so there are no drawdowns to measure."
+                icon={ChartNoAxesColumn}
+                size={EmptyStateSize.Compact}
+                title="No equity curves"
+            />
+        );
+    }
 
-    const underwaterClass =
-        m.avgUnderwaterPct < 0.2
-            ? 'text-success'
-            : m.avgUnderwaterPct < 0.4
-              ? 'text-warning'
-              : 'text-destructive';
-
-    const recoveryClass =
-        m.avgRecovery < 3
-            ? 'text-success'
-            : m.avgRecovery < 10
-              ? 'text-warning'
-              : 'text-destructive';
-
-    const vShapeClass =
-        m.vShapePct > 0.6
-            ? 'text-success'
-            : m.vShapePct > 0.3
-              ? 'text-warning'
-              : 'text-destructive';
+    const hasRecoveries = m.recoveredEpisodes > 0;
 
     return (
-        <Card className={cn('app-prop-calculator__drawdown-duration', 'p-5')}>
-            <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-                    <StatCard
-                        label="Time underwater"
-                        sub="avg % of days below peak"
-                        value={formatPercent(m.avgUnderwaterPct)}
-                        valueClassName={underwaterClass}
-                    />
-                    <StatCard
-                        label="DD episodes / path"
-                        sub={`${m.totalEpisodes} total across ${m.sampleSize} paths`}
-                        value={m.avgEpisodesPerPath.toFixed(1)}
-                    />
-                    <StatCard
-                        label="Avg DD duration"
-                        sub={`max ${formatDays(m.maxDuration)}`}
-                        value={formatDays(m.avgDuration)}
-                    />
-                    <StatCard
-                        label="Avg DD depth"
-                        sub="mean peak-to-trough"
-                        value={formatPercent(m.avgDepth)}
-                    />
-                    <StatCard
-                        label="Avg recovery time"
-                        sub="from trough to new peak"
-                        value={formatDays(m.avgRecovery)}
-                        valueClassName={recoveryClass}
-                    />
-                    <StatCard
-                        label="V-shape episodes"
-                        sub="fast recovery (&lt; 40% of dur.)"
-                        value={formatPercent(m.vShapePct)}
-                        valueClassName={vShapeClass}
-                    />
-                </div>
+        <div className="app-prop-calculator__drawdown-duration flex flex-col gap-5">
+            <StatStrip
+                items={[
+                    {
+                        caption: benchCaption(
+                            'avg % of days below peak',
+                            underwaterBench(m.avgUnderwaterPct),
+                        ),
+                        id: 'time-underwater',
+                        label: 'Time underwater',
+                        value: formatPercent(m.avgUnderwaterPct),
+                    },
+                    {
+                        caption: `${m.totalEpisodes} total across ${m.sampleSize} paths`,
+                        id: 'episodes-per-path',
+                        label: 'DD episodes / path',
+                        value: m.avgEpisodesPerPath.toFixed(1),
+                    },
+                    {
+                        caption: (
+                            <>
+                                max{' '}
+                                <ValueOrMissing
+                                    value={formatDays(m.maxDuration)}
+                                />
+                            </>
+                        ),
+                        id: 'avg-duration',
+                        label: 'Avg DD duration',
+                        value: (
+                            <ValueOrMissing value={formatDays(m.avgDuration)} />
+                        ),
+                    },
+                    {
+                        caption: 'mean peak-to-trough',
+                        id: 'avg-depth',
+                        label: 'Avg DD depth',
+                        value: formatPercent(m.avgDepth),
+                    },
+                    {
+                        caption: benchCaption(
+                            'from trough to new peak',
+                            hasRecoveries
+                                ? recoveryTimeBench(m.avgRecovery)
+                                : null,
+                        ),
+                        id: 'avg-recovery',
+                        label: 'Avg recovery time',
+                        value: (
+                            <ValueOrMissing value={formatDays(m.avgRecovery)} />
+                        ),
+                    },
+                    {
+                        caption: benchCaption(
+                            'fast recovery (< 40% of dur.)',
+                            hasRecoveries ? vShapeBench(m.vShapePct) : null,
+                        ),
+                        id: 'v-shape',
+                        label: 'V-shape episodes',
+                        value: formatPercent(m.vShapePct),
+                    },
+                ]}
+            />
 
-                <div>
-                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                        Recovery tax (loss needs more gain to break even)
-                    </p>
-                    <RecoveryTaxTable avgDepth={m.avgDepth} />
-                </div>
+            <div className="flex flex-col gap-2">
+                <PanelSubheading>
+                    Recovery tax (loss needs more gain to break even)
+                </PanelSubheading>
+                <RecoveryTaxTable avgDepth={m.avgDepth} />
             </div>
-        </Card>
+        </div>
     );
 }
 
@@ -213,39 +242,27 @@ function RecoveryTaxTable({ avgDepth }: { avgDepth: number }) {
         () => [
             {
                 accessorFn: (r) => r.ddPct,
-                cell: ({ row }) => `−${row.original.ddPct}%`,
+                cell: ({ row }) => (
+                    <CaptionedFigure
+                        caption={
+                            row.original.near ? NEAR_AVERAGE_DEPTH_TEXT : null
+                        }
+                        figure={`−${row.original.ddPct}%`}
+                    />
+                ),
                 header: 'Drawdown',
                 id: 'dd',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (r) => r.recovery,
                 cell: ({ row }) => (
-                    <span className="text-muted-foreground">
-                        needs +{(row.original.recovery * 100).toFixed(1)}%
-                    </span>
+                    <CaptionedFigure
+                        caption={recoveryTaxBench(row.original.recovery)}
+                        figure={`${(row.original.recovery * 100).toFixed(1)}% gain required`}
+                    />
                 ),
-                header: 'Recovery needed',
-                id: 'recovery',
-            },
-            {
-                accessorFn: (r) => r.recovery,
-                cell: ({ row }) => {
-                    const r = row.original.recovery;
-                    return (
-                        <span
-                            className={
-                                r < 0.12
-                                    ? 'text-success'
-                                    : r < 0.25
-                                      ? 'text-warning'
-                                      : 'text-destructive'
-                            }
-                        >
-                            {(r * 100).toFixed(1)}% gain required
-                        </span>
-                    );
-                },
-                header: 'Gain-to-break-even',
+                header: 'Gain to break even',
                 id: 'gain',
             },
         ],
@@ -256,9 +273,6 @@ function RecoveryTaxTable({ avgDepth }: { avgDepth: number }) {
             columns={columns}
             data={rows}
             pageSize={null}
-            rowClassName={(r) =>
-                r.near ? 'bg-muted/30 font-semibold' : undefined
-            }
             rowId={(r) => String(r.ddPct)}
             tableClassName={cn(
                 'app-prop-calculator__recovery-tax-table',

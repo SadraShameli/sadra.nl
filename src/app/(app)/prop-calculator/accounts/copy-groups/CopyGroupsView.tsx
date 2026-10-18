@@ -1,6 +1,6 @@
 'use client';
 
-import { Layers, Pencil, Trash2, TriangleAlert, UserMinus } from 'lucide-react';
+import { Layers, Pencil, Trash2, UserMinus } from 'lucide-react';
 import Link from 'next/link';
 import { useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -21,12 +21,16 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { InfoNote } from '~/components/InfoNote';
+import { CardSkeleton } from '~/components/PageSkeleton';
+import { RowActionKind, RowActionsMenu } from '~/components/RowActionsMenu';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card } from '~/components/ui/card';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -36,14 +40,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { Skeleton } from '~/components/ui/skeleton';
 import { formatConjunctionList } from '~/lib/format';
 import {
     PropMutationRejection,
     propRejectionOf,
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 import { copyGroupSizingSectionsOf } from './copyGroupSizingModel';
@@ -154,26 +156,32 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
             <div className="flex flex-col gap-8">
                 <CreateGroupForm />
                 {groupsQuery.isError && groups === undefined && (
-                    <LoadError
+                    <QueryErrorNotice
                         message={groupsQuery.error.message}
                         title="Your copy groups could not be loaded"
                     />
                 )}
                 {accountsQuery.isError && accounts === undefined && (
-                    <LoadError
+                    <QueryErrorNotice
                         message={accountsQuery.error.message}
                         title="Your accounts could not be loaded"
                     />
                 )}
                 {(groupsQuery.isPending || accountsQuery.isPending) && (
-                    <div aria-busy="true" aria-label="Loading your copy groups">
-                        <Skeleton className="h-64 w-full" />
+                    <div
+                        aria-busy="true"
+                        aria-label="Loading your copy groups"
+                        className="flex flex-col gap-6"
+                        role="status"
+                    >
+                        <CardSkeleton rows={3} />
+                        <CardSkeleton rows={2} />
                     </div>
                 )}
                 {overview !== null && (
                     <>
                         {overview.groups.length === 0 ? (
-                            <EmptyState
+                            <EmptyStatePanel
                                 description="Create a group above, then add the accounts your copier trades together."
                                 icon={Layers}
                                 title="No copy groups yet"
@@ -197,6 +205,20 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
             </div>
         </>
     );
+}
+
+function candidateLabelOf(
+    candidate:
+        | undefined
+        | {
+              readonly firmName: string;
+              readonly label: string;
+              readonly stageLabel: string;
+          },
+): string | undefined {
+    return candidate === undefined
+        ? undefined
+        : `${candidate.label} (${candidate.stageLabel}, ${candidate.firmName})`;
 }
 
 function conflictExplanation(
@@ -411,29 +433,9 @@ function GroupSection({
 
     return (
         <section aria-labelledby={headingId}>
-            <Card className="gap-4 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h2
-                            className="text-xl font-semibold outline-none"
-                            id={headingId}
-                            ref={groupHeadingReference}
-                            tabIndex={-1}
-                        >
-                            {group.name}
-                        </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            {row.stageSummary}
-                            {row.firmNames.length > 0 &&
-                                `. Firms: ${row.firmNames.join(', ')}`}
-                        </p>
-                        {group.notes !== null && group.notes !== '' && (
-                            <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">
-                                {group.notes}
-                            </p>
-                        )}
-                    </div>
-                    <div className="flex gap-1">
+            <ToolPanel
+                actions={
+                    <>
                         <Button
                             aria-expanded={isRenaming}
                             aria-label={`Rename ${group.name}`}
@@ -447,8 +449,25 @@ function GroupSection({
                             <Pencil />
                         </Button>
                         <DeleteGroupDialog onDeleted={onDeleted} row={row} />
-                    </div>
-                </div>
+                    </>
+                }
+                contentClassName="gap-4"
+                description={
+                    <>
+                        {row.stageSummary}
+                        {row.firmNames.length > 0 &&
+                            `. Firms: ${row.firmNames.join(', ')}`}
+                    </>
+                }
+                title={group.name}
+                titleId={headingId}
+                titleReference={groupHeadingReference}
+            >
+                {group.notes !== null && group.notes !== '' && (
+                    <p className="text-sm whitespace-pre-line text-muted-foreground">
+                        {group.notes}
+                    </p>
+                )}
                 {isRenaming && (
                     <RenameGroupForm
                         onClose={() => {
@@ -459,27 +478,22 @@ function GroupSection({
                     />
                 )}
                 {row.isMixedStage && (
-                    <Alert variant="warning">
-                        <TriangleAlert />
-                        <AlertTitle>Mixed stages</AlertTitle>
-                        <AlertDescription>
-                            {row.stageSummary}. {mixedStageAdvice(row)}
-                        </AlertDescription>
-                    </Alert>
+                    <StatusRow
+                        detail={`${row.stageSummary}. ${mixedStageAdvice(row)}`}
+                        title="Mixed stages"
+                        tone={StatusTone.Warn}
+                    />
                 )}
                 {rejection !== null && (
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>
-                            {rejection.accountLabel} cannot join {group.name}
-                        </AlertTitle>
-                        <AlertDescription>
-                            {rejection.explanation !== null && (
-                                <p>{rejection.explanation}</p>
-                            )}
-                            <p>{rejection.message}</p>
-                        </AlertDescription>
-                    </Alert>
+                    <QueryErrorNotice
+                        consequence={
+                            rejection.explanation === null
+                                ? undefined
+                                : rejection.message
+                        }
+                        message={rejection.explanation ?? rejection.message}
+                        title={`${rejection.accountLabel} cannot join ${group.name}`}
+                    />
                 )}
                 <MemberList
                     groupName={group.name}
@@ -492,11 +506,12 @@ function GroupSection({
                 )}
                 {row.otherMembers.length > 0 && (
                     <div className="flex flex-col gap-2">
-                        <p className="text-sm text-muted-foreground">
-                            Inactive or archived members. They get no group
-                            sizing, but they still count when a new
-                            member&apos;s stage is checked.
-                        </p>
+                        <InfoNote
+                            info="They get no group sizing, but they still count when a new member's stage is checked."
+                            infoTitle="Inactive or archived members"
+                        >
+                            Inactive or archived members.
+                        </InfoNote>
                         <MemberList
                             groupName={group.name}
                             isPending={assign.isPending}
@@ -538,7 +553,14 @@ function GroupSection({
                                     aria-invalid={chooseError !== null}
                                     id={selectId}
                                 >
-                                    <SelectValue placeholder="Choose an account" />
+                                    <SelectValue placeholder="Choose an account">
+                                        {candidateLabelOf(
+                                            candidates.find(
+                                                (candidate) =>
+                                                    candidate.id === chosenId,
+                                            ),
+                                        )}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {candidates.map((candidate) => (
@@ -546,9 +568,7 @@ function GroupSection({
                                             key={candidate.id}
                                             value={candidate.id}
                                         >
-                                            {candidate.label} (
-                                            {candidate.stageLabel},{' '}
-                                            {candidate.firmName})
+                                            {candidateLabelOf(candidate)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -572,24 +592,8 @@ function GroupSection({
                         )}
                     </form>
                 )}
-            </Card>
+            </ToolPanel>
         </section>
-    );
-}
-
-function LoadError({
-    message,
-    title,
-}: {
-    readonly message: string;
-    readonly title: string;
-}) {
-    return (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>{title}</AlertTitle>
-            <AlertDescription>{message}</AlertDescription>
-        </Alert>
     );
 }
 
@@ -606,32 +610,30 @@ function MemberList({
 }) {
     if (members.length === 0) return null;
     return (
-        <Card className="gap-0 py-0">
-            <ul className="flex flex-col divide-y">
-                {members.map((member) => (
-                    <li
-                        className={cn(
-                            'flex flex-wrap items-center justify-between gap-2 px-3 py-2',
-                            member.isArchived && 'opacity-60',
-                        )}
-                        key={member.id}
-                    >
-                        <MemberSummary member={member} />
-                        <Button
-                            aria-label={`Remove ${member.label} from ${groupName}`}
-                            disabled={isPending}
-                            onClick={() => {
-                                onRemove(member);
-                            }}
-                            size="icon"
-                            variant="ghost"
-                        >
-                            <UserMinus />
-                        </Button>
-                    </li>
-                ))}
-            </ul>
-        </Card>
+        <ul className="flex flex-col divide-y rounded-lg border">
+            {members.map((member) => (
+                <li
+                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2"
+                    key={member.id}
+                >
+                    <MemberSummary member={member} />
+                    <RowActionsMenu
+                        actions={[
+                            {
+                                icon: UserMinus,
+                                kind: RowActionKind.Select,
+                                label: `Remove from ${groupName}`,
+                                onSelect: () => {
+                                    onRemove(member);
+                                },
+                            },
+                        ]}
+                        isPending={isPending}
+                        label={member.label}
+                    />
+                </li>
+            ))}
+        </ul>
     );
 }
 
@@ -644,11 +646,11 @@ function MemberSummary({ member }: { readonly member: CopyGroupMember }) {
             >
                 {member.label}
             </Link>
-            <Badge variant="secondary">{member.stageLabel}</Badge>
+            <Badge>{member.stageLabel}</Badge>
             <span className="text-xs text-muted-foreground">
                 {member.firmName}
             </span>
-            {member.isArchived && <Badge variant="outline">Archived</Badge>}
+            {member.isArchived && <Badge>Archived</Badge>}
         </div>
     );
 }
@@ -748,25 +750,22 @@ function UnassignedSection({
 }) {
     const headingId = useId();
     return (
-        <section aria-labelledby={headingId} className="flex flex-col gap-3">
-            <h2 className="text-xl font-semibold" id={headingId}>
-                Accounts not in a group
-            </h2>
-            {members.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    Every active account is in a group.
-                </p>
-            ) : (
-                <Card className="gap-0 py-0">
-                    <ul className="flex flex-col divide-y">
+        <section aria-labelledby={headingId}>
+            <ToolPanel title="Accounts not in a group" titleId={headingId}>
+                {members.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                        Every active account is in a group.
+                    </p>
+                ) : (
+                    <ul className="flex flex-col divide-y rounded-lg border">
                         {members.map((member) => (
                             <li className="px-3 py-2" key={member.id}>
                                 <MemberSummary member={member} />
                             </li>
                         ))}
                     </ul>
-                </Card>
-            )}
+                )}
+            </ToolPanel>
         </section>
     );
 }

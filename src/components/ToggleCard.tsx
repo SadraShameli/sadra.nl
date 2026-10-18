@@ -94,7 +94,7 @@ function ToggleCard({
     return (
         <FieldLabel
             className={cn(
-                'rounded-2xl border-line transition-colors select-none *:data-[slot=field]:px-4 *:data-[slot=field]:py-3',
+                'border-line transition-colors select-none *:data-[slot=field]:px-4 *:data-[slot=field]:py-3',
                 disabled
                     ? 'cursor-not-allowed'
                     : 'cursor-pointer hover:border-ink-muted/40',
@@ -112,9 +112,7 @@ function ToggleCard({
                         </FieldDescription>
                     )}
                 </FieldContent>
-                {isChecked && flag !== undefined && (
-                    <Badge variant="outline">{flag}</Badge>
-                )}
+                {isChecked && flag !== undefined && <Badge>{flag}</Badge>}
             </Field>
         </FieldLabel>
     );

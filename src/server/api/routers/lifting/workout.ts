@@ -2,6 +2,8 @@ import 'server-only';
 import { TRPCError } from '@trpc/server';
 import { and, desc, eq, gte, inArray, isNull, lt, max, sql } from 'drizzle-orm';
 
+import type { RoutineBlock } from '~/lib/lifting/types';
+
 import { rangeEnd } from '~/lib/lifting/date-range';
 import {
     exerciseToWorkoutInputSchema,
@@ -24,7 +26,13 @@ import {
 } from '~/server/helpers/pg-errors';
 
 import { PrSyncService } from './pr-sync';
-import { assertExerciseVisible } from './visibility';
+import { assertExerciseVisible, exerciseVisibleTo } from './visibility';
+
+interface RoutineExercise {
+    readonly id: string;
+    readonly isCustom: boolean;
+    readonly slug: string;
+}
 
 export const liftingWorkoutRouter = createTRPCRouter({
     addExercise: protectedProcedure
@@ -396,24 +404,19 @@ export const liftingWorkoutRouter = createTRPCRouter({
                             : await ctx.db
                                   .select({
                                       id: liftingExercise.id,
+                                      isCustom: liftingExercise.isCustom,
                                       slug: liftingExercise.slug,
                                   })
                                   .from(liftingExercise)
                                   .where(
                                       and(
-                                          isNull(liftingExercise.ownerId),
+                                          exerciseVisibleTo(ctx.userId),
                                           inArray(liftingExercise.slug, slugs),
                                       ),
                                   );
-                    const bySlug = new Map(
-                        exercises.map((exercise) => [
-                            exercise.slug,
-                            exercise.id,
-                        ]),
-                    );
                     const wexRows = routine.blocks
                         .map((block, index) => {
-                            const exId = bySlug.get(block.exerciseSlug);
+                            const exId = routineExerciseId(block, exercises);
                             return exId
                                 ? {
                                       exerciseId: exId,
@@ -451,3 +454,15 @@ export const liftingWorkoutRouter = createTRPCRouter({
             return { ok: true };
         }),
 });
+
+function routineExerciseId(
+    block: RoutineBlock,
+    exercises: readonly RoutineExercise[],
+): string | undefined {
+    const isCustom = block.isCustom === true;
+    return exercises.find(
+        (exercise) =>
+            exercise.slug === block.exerciseSlug &&
+            exercise.isCustom === isCustom,
+    )?.id;
+}

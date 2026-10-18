@@ -12,6 +12,8 @@ import { PR_KIND_VALUES } from '~/lib/lifting/types';
 
 import type { PrFiltersControls } from './usePrFilters';
 
+import { PR_KIND_LABEL } from './prKindLabel';
+
 export type PrFiltersToolbarProperties = {
     filters: PrFiltersControls;
 };
@@ -24,11 +26,7 @@ export function PrFiltersToolbar({ filters }: PrFiltersToolbarProperties) {
                 label="PR kind"
                 onValueChange={(v) => filters.setKind(PrFilters.kindFor(v))}
                 options={PR_KIND_VALUES.map((k) => ({
-                    label: (
-                        <span className="capitalize">
-                            {k.replaceAll('_', ' ')}
-                        </span>
-                    ),
+                    label: PR_KIND_LABEL[k],
                     value: k,
                 }))}
                 placeholder="All kinds"

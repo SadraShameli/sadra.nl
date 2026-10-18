@@ -1,3 +1,4 @@
+import { formatDisplayDate } from '~/lib/format';
 import {
     CentsDisplay,
     formatUsdCents,
@@ -33,7 +34,7 @@ export class PayoutDollarMismatchRule extends AccountAlertRule {
             : this.alertFor(
                   monitored,
                   AlertSeverity.Warning,
-                  `Snapshot from ${snapshot.asOf} records ${formatUsdCents(snapshot.cumulativePayoutCents, CentsDisplay.Always)} received in payouts, the ledger's paid payouts on or before that date sum to ${formatUsdCents(ledger.cents, CentsDisplay.Always)} (${ledger.grossCounted} counted at gross)`,
+                  `Snapshot from ${formatDisplayDate(snapshot.asOf)} records ${formatUsdCents(snapshot.cumulativePayoutCents, CentsDisplay.Always)} received in payouts, the ledger's paid payouts on or before that date sum to ${formatUsdCents(ledger.cents, CentsDisplay.Always)} (${ledger.grossCounted} counted at gross)`,
                   grossDisclosureOf(ledger.grossCounted),
               );
     }

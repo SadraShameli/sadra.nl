@@ -225,13 +225,13 @@ export function GarageIllustration({ label }: { readonly label: string }) {
                 <path
                     d="M452 176 L462 189.5"
                     filter="url(#garage-glow)"
-                    stroke="var(--danger)"
+                    stroke="var(--ink)"
                     strokeLinecap="round"
                     strokeWidth="4"
                 />
                 <path
                     d="M452 176 L462 189.5"
-                    stroke="var(--danger)"
+                    stroke="var(--ink)"
                     strokeLinecap="round"
                     strokeWidth="1.6"
                 />
@@ -262,7 +262,7 @@ export function GarageIllustration({ label }: { readonly label: string }) {
                         <path
                             d="M-15 -14 A20.5 20.5 0 0 1 9 -18.5"
                             fill="none"
-                            stroke="var(--danger)"
+                            stroke="var(--ink)"
                             strokeLinecap="round"
                             strokeWidth="3"
                         />

@@ -307,6 +307,7 @@ export type UpdateUserProgramInput = z.infer<
 
 export const routineBlockSchema = z.object({
     exerciseSlug: exerciseSlugSchema,
+    isCustom: z.boolean().optional(),
     notes: z.string().max(256).optional(),
     restSeconds: z.number().int().min(0).max(3600).optional(),
     sets: z.number().int().min(1).max(20),

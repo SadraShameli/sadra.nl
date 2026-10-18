@@ -1,8 +1,9 @@
 'use client';
 
-import { Pencil, Plus } from 'lucide-react';
-import { type ReactNode, useId, useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 
 import type {
     Booking,
@@ -13,30 +14,29 @@ import type {
     UnknownMerchant,
 } from '~/lib/accounting/core/types';
 
+import { DetailList } from '~/components/DetailList';
+import { FormDialog } from '~/components/FormDialog';
+import {
+    editRowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { StatStrip } from '~/components/StatStrip';
 import { SwitchCard } from '~/components/ToggleCard';
 import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
 import {
     DataTable,
+    DataTableAlign,
     type DataTableColumn,
+    dataTableExpanderColumn,
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/dialog';
+import { Dialog } from '~/components/ui/dialog';
 import { EmptyState } from '~/components/ui/empty-state';
 import { Field, FieldLabel } from '~/components/ui/field';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
-import {
-    FilterSelect,
-    type FilterSelectOption,
-} from '~/components/ui/filter-select';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -46,20 +46,25 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Eur } from '~/lib/accounting/core/money';
-import { cn } from '~/lib/utilities';
+import { formatDisplayDate } from '~/lib/format';
 
-import { DirectionBadge } from './DirectionBadge';
+import { ConversionNotes } from './ConversionNotes';
+import { DialogMode, dialogSubmitLabels } from './dialogSubmitLabels';
+import { DIRECTION_OPTIONS, DirectionBadge } from './DirectionBadge';
 import { LedgerCombobox } from './LedgerCombobox';
 import { RuleFormDialog, type RuleFormDialogPrefill } from './RulesManager';
 import { type TaxCodeOption, useTaxCodes } from './useTaxCodes';
 
 const ALL = '__all__';
-type DirectionFilter = BookingDirection | typeof ALL;
+interface BookingEditValues {
+    counterpartLedger: LedgerReference;
+    counterpartName: string;
+    direction: BookingDirection;
+    isRefund: boolean;
+    taxCode: string;
+}
 
-const DIRECTION_OPTIONS: readonly FilterSelectOption[] = [
-    { label: 'Incoming', value: 'IN' },
-    { label: 'Outgoing', value: 'OUT' },
-];
+type DirectionFilter = BookingDirection | typeof ALL;
 
 interface PerCounterpartRow {
     count: number;
@@ -118,10 +123,14 @@ export function BookingsTable({
     const columns = useMemo<DataTableColumn<Booking>[]>(
         () => [
             {
+                ...dataTableExpanderColumn<Booking>(),
+                meta: { label: 'Details' },
+            },
+            {
                 accessorKey: 'date',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs">
-                        {row.original.date}
+                        {formatDisplayDate(row.original.date)}
                     </span>
                 ),
                 header: 'Date',
@@ -142,11 +151,12 @@ export function BookingsTable({
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Counterpart',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'counterpartLedger',
                 cell: ({ row }) => (
-                    <span className="font-mono text-[10px] text-muted-foreground">
+                    <span className="font-mono text-xs text-muted-foreground">
                         {row.original.counterpartLedger.label}
                     </span>
                 ),
@@ -160,58 +170,31 @@ export function BookingsTable({
             {
                 accessorKey: 'amountEur',
                 cell: ({ row }) => (
-                    <span
-                        className={
-                            row.original.direction === 'IN'
-                                ? 'font-mono text-xs text-success'
-                                : 'font-mono text-xs text-destructive'
-                        }
-                    >
+                    <span className="font-mono text-xs">
                         {Eur.format(row.original.amountEur)}
                     </span>
                 ),
-                header: 'EUR',
+                header: 'Amount',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorKey: 'taxCode',
                 cell: ({ row }) => (
-                    <Badge variant="outline">
-                        {labelOf(row.original.taxCode)}
-                    </Badge>
+                    <Badge>{labelOf(row.original.taxCode)}</Badge>
                 ),
                 header: 'VAT',
             },
             {
-                accessorKey: 'notes',
-                cell: ({ row }) => (
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                        {row.original.notes.join(' + ')}
-                    </span>
-                ),
-                header: 'Conversion',
-            },
-            {
                 accessorKey: 'txnId',
-                cell: ({ row }) => (
-                    <span className="font-mono text-[10px] text-info">
-                        {row.original.txnId}
-                    </span>
-                ),
                 header: 'Reference',
             },
-            {
-                cell: ({ row }) => (
-                    <Button
-                        onClick={() => setEditing(row.original)}
-                        size="icon"
-                        variant="ghost"
-                    >
-                        <Pencil className="size-3.5" />
-                    </Button>
-                ),
-                header: '',
-                id: 'actions',
-            },
+            rowActionsColumn<Booking>({
+                actionsOf: (booking) => [
+                    editRowAction(() => setEditing(booking)),
+                ],
+                labelOf: (booking) =>
+                    `${booking.counterpartName} booking ${booking.txnId}`,
+            }),
         ],
         [labelOf],
     );
@@ -233,6 +216,7 @@ export function BookingsTable({
                     />
                 }
                 filterPlaceholder="Filter bookings…"
+                getRowCanExpand={() => true}
                 hasExternalFilters={hasFilters}
                 headerActions={(table) => (
                     <>
@@ -273,22 +257,34 @@ export function BookingsTable({
                         />
                     </>
                 )}
-                initialColumnVisibility={{ sourceCurrency: false }}
+                initialColumnVisibility={{
+                    sourceCurrency: false,
+                    txnId: false,
+                }}
                 onResetFilters={reset}
-                pageSize={20}
+                renderExpanded={(row) => (
+                    <BookingDetail booking={row.original} />
+                )}
                 rowId={(r) => r.txnId}
                 showFilter
             />
-            {editing && (
-                <BookingEditDialog
-                    booking={editing}
-                    ledgerOptions={ledgerOptions}
-                    onClose={() => setEditing(null)}
-                    onSave={(patch) => onEdit(editing.txnId, patch)}
-                    rules={rules}
-                    taxCodeOptions={taxCodeOptions}
-                />
-            )}
+            <Dialog
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) setEditing(null);
+                }}
+                open={editing !== null}
+            >
+                {editing && (
+                    <BookingEditDialog
+                        booking={editing}
+                        ledgerOptions={ledgerOptions}
+                        onClose={() => setEditing(null)}
+                        onSave={(patch) => onEdit(editing.txnId, patch)}
+                        rules={rules}
+                        taxCodeOptions={taxCodeOptions}
+                    />
+                )}
+            </Dialog>
         </>
     );
 }
@@ -321,6 +317,7 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                     </span>
                 ),
                 header: 'Raw name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'matchedDisplay',
@@ -340,15 +337,17 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                     </span>
                 ),
                 header: 'Txns',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorKey: 'totalEur',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-success">
+                    <span className="font-mono text-xs">
                         {Eur.format(row.original.totalEur)}
                     </span>
                 ),
-                header: 'EUR',
+                header: 'Total',
+                meta: { align: DataTableAlign.End },
             },
         ],
         [],
@@ -385,7 +384,6 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                 </>
             )}
             onResetFilters={() => setDirection(ALL)}
-            pageSize={20}
             rowId={(r) => `${r.direction}|${r.matchedDisplay}|${r.rawName}`}
             showFilter
         />
@@ -437,7 +435,11 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
                 ),
                 header: 'Dir',
             },
-            { accessorKey: 'name', header: 'Counterpart' },
+            {
+                accessorKey: 'name',
+                header: 'Counterpart',
+                meta: { isRowHeader: true },
+            },
             {
                 accessorKey: 'count',
                 cell: ({ row }) => (
@@ -446,15 +448,17 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
                     </span>
                 ),
                 header: 'Txns',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorKey: 'total',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-success">
+                    <span className="font-mono text-xs">
                         {Eur.format(row.original.total)}
                     </span>
                 ),
-                header: 'EUR',
+                header: 'Total',
+                meta: { align: DataTableAlign.End },
             },
         ],
         [],
@@ -481,57 +485,9 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
                 <DirectionSelect onChange={setDirection} value={direction} />
             }
             onResetFilters={() => setDirection(ALL)}
-            pageSize={20}
             rowId={(r) => `${r.direction}|${r.name}`}
             showFilter
         />
-    );
-}
-
-export function Tile({
-    label,
-    tone,
-    value,
-}: {
-    label: string;
-    tone: 'default' | 'in' | 'out' | 'warn';
-    value: string;
-}) {
-    return (
-        <div className="flex min-w-0 flex-col gap-3 bg-card p-5">
-            <span className="type-micro text-ink-muted">{label}</span>
-            <span
-                className={cn(
-                    'type-display-item wrap-break-word tabular-nums',
-                    tone === 'in' && 'text-success',
-                    tone === 'out' && 'text-destructive',
-                    tone === 'warn' && 'text-warning',
-                    tone === 'default' && 'text-ink',
-                )}
-            >
-                {value}
-            </span>
-        </div>
-    );
-}
-
-export function TileGrid({
-    children,
-    className,
-}: {
-    children: ReactNode;
-    className?: string;
-}) {
-    return (
-        <div
-            className={cn(
-                'app-accounting__tiles',
-                'grid gap-px overflow-hidden rounded-xl border border-line bg-line-faint',
-                className,
-            )}
-        >
-            {children}
-        </div>
     );
 }
 
@@ -555,25 +511,35 @@ export function TotalPanel({ result }: { result: ConversionResult }) {
     }, [result]);
 
     return (
-        <TileGrid className="grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-            <Tile
-                label="Bookings"
-                tone="default"
-                value={totals.bookings.toString()}
-            />
-            <Tile label="IN" tone="in" value={Eur.format(totals.inEur)} />
-            <Tile label="OUT" tone="out" value={Eur.format(totals.outEur)} />
-            <Tile
-                label="Unknown txns"
-                tone={totals.unknownCount > 0 ? 'warn' : 'default'}
-                value={`${totals.unknownCount} / ${totals.unknownNames} names`}
-            />
-            <Tile
-                label="Skipped currency"
-                tone={totals.skipped > 0 ? 'warn' : 'default'}
-                value={totals.skipped.toString()}
-            />
-        </TileGrid>
+        <StatStrip
+            items={[
+                {
+                    id: 'bookings',
+                    label: 'Bookings',
+                    value: totals.bookings.toString(),
+                },
+                {
+                    id: 'in',
+                    label: 'In',
+                    value: Eur.format(totals.inEur),
+                },
+                {
+                    id: 'out',
+                    label: 'Out',
+                    value: Eur.format(totals.outEur),
+                },
+                {
+                    id: 'unknown',
+                    label: 'Unknown txns',
+                    value: `${totals.unknownCount} / ${totals.unknownNames} names`,
+                },
+                {
+                    id: 'skipped',
+                    label: 'Skipped currency',
+                    value: totals.skipped.toString(),
+                },
+            ]}
+        />
     );
 }
 
@@ -623,11 +589,12 @@ export function UnknownsTable({
             {
                 accessorKey: 'rawName',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-warning">
+                    <span className="font-mono text-xs">
                         {row.original.rawName}
                     </span>
                 ),
                 header: 'Raw name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: 'count',
@@ -637,12 +604,13 @@ export function UnknownsTable({
                     </span>
                 ),
                 header: 'Txns',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorKey: 'firstSeen',
                 cell: ({ row }) => (
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                        {row.original.firstSeen}
+                    <span className="font-mono text-xs text-muted-foreground">
+                        {formatDisplayDate(row.original.firstSeen)}
                     </span>
                 ),
                 header: 'First seen',
@@ -650,33 +618,30 @@ export function UnknownsTable({
             {
                 accessorKey: 'lastSeen',
                 cell: ({ row }) => (
-                    <span className="font-mono text-[10px] text-muted-foreground">
-                        {row.original.lastSeen}
+                    <span className="font-mono text-xs text-muted-foreground">
+                        {formatDisplayDate(row.original.lastSeen)}
                     </span>
                 ),
                 header: 'Last seen',
             },
             ...(canCreateRule
-                ? ([
-                      {
-                          cell: ({ row }) => (
-                              <Button
-                                  onClick={() =>
+                ? [
+                      rowActionsColumn<UnknownMerchant>({
+                          actionsOf: (unknown) => [
+                              {
+                                  icon: Plus,
+                                  kind: RowActionKind.Select,
+                                  label: 'Create rule',
+                                  onSelect: () =>
                                       setRuleDialog({
-                                          direction: row.original.direction,
-                                          match: row.original.rawName,
-                                      })
-                                  }
-                                  size="icon"
-                                  variant="ghost"
-                              >
-                                  <Plus className="size-3.5" />
-                              </Button>
-                          ),
-                          header: '',
-                          id: 'actions',
-                      },
-                  ] as DataTableColumn<UnknownMerchant>[])
+                                          direction: unknown.direction,
+                                          match: unknown.rawName,
+                                      }),
+                              },
+                          ],
+                          labelOf: (unknown) => unknown.rawName,
+                      }),
+                  ]
                 : []),
         ],
         [canCreateRule],
@@ -716,19 +681,50 @@ export function UnknownsTable({
                     </>
                 }
                 onResetFilters={reset}
-                pageSize={20}
                 rowId={(r) => `${r.direction}|${r.rawName}`}
                 showFilter
             />
-            {ruleDialog !== null && credentialId && ledgerOptions && (
-                <RuleFormDialog
-                    credentialId={credentialId}
-                    ledgerOptions={ledgerOptions}
-                    mode={ruleDialog}
-                    onClose={() => setRuleDialog(null)}
-                />
-            )}
+            <Dialog
+                onOpenChange={(isOpen) => {
+                    if (!isOpen) setRuleDialog(null);
+                }}
+                open={ruleDialog !== null}
+            >
+                {ruleDialog !== null && credentialId && ledgerOptions && (
+                    <RuleFormDialog
+                        credentialId={credentialId}
+                        ledgerOptions={ledgerOptions}
+                        mode={ruleDialog}
+                        onClose={() => setRuleDialog(null)}
+                    />
+                )}
+            </Dialog>
         </>
+    );
+}
+
+function BookingDetail({ booking }: { readonly booking: Booking }) {
+    return (
+        <DetailList
+            className="bg-surface-sunken px-4 py-3 text-xs"
+            items={[
+                {
+                    id: 'conversion',
+                    label: 'Conversion',
+                    value: <ConversionNotes notes={booking.notes} />,
+                },
+                {
+                    id: 'reference',
+                    label: 'Reference',
+                    value: (
+                        <span className="font-mono text-muted-foreground">
+                            {booking.txnId}
+                        </span>
+                    ),
+                },
+            ]}
+            label={`Details of the ${booking.counterpartName} booking`}
+        />
     );
 }
 
@@ -766,17 +762,16 @@ function BookingEditDialog({
         [rules, booking.counterpartName],
     );
 
-    const [direction, setDirection] = useState<BookingDirection>(
-        booking.direction,
-    );
-    const [counterpartName, setCounterpartName] = useState(
-        booking.counterpartName,
-    );
-    const [counterpartLedger, setCounterpartLedger] = useState<LedgerReference>(
-        booking.counterpartLedger,
-    );
-    const [taxCode, setTaxCode] = useState<string>(booking.taxCode);
-    const [isRefund, setIsRefund] = useState(() => booking.isRefund === true);
+    const form = useForm<BookingEditValues>({
+        defaultValues: {
+            counterpartLedger: booking.counterpartLedger,
+            counterpartName: booking.counterpartName,
+            direction: booking.direction,
+            isRefund: booking.isRefund === true,
+            taxCode: booking.taxCode,
+        },
+    });
+    const direction = useWatch({ control: form.control, name: 'direction' });
     const fieldId = useId();
     const directionId = `${fieldId}-direction`;
     const refundId = `${fieldId}-refund`;
@@ -784,68 +779,85 @@ function BookingEditDialog({
     const taxCodeId = `${fieldId}-tax-code`;
 
     const toggleRefund = (isChecked: boolean) => {
-        setIsRefund(isChecked);
+        form.setValue('isRefund', isChecked);
         if (isChecked && purchaseRule) {
-            setCounterpartLedger(purchaseRule.ledger);
-            setTaxCode(purchaseRule.taxCode);
+            form.setValue('counterpartLedger', purchaseRule.ledger);
+            form.setValue('taxCode', purchaseRule.taxCode);
         } else if (!isChecked) {
-            setCounterpartLedger(
+            form.setValue(
+                'counterpartLedger',
                 payoutRule?.ledger ?? booking.counterpartLedger,
             );
-            setTaxCode(payoutRule?.taxCode ?? booking.taxCode);
+            form.setValue('taxCode', payoutRule?.taxCode ?? booking.taxCode);
         }
     };
 
-    const save = () => {
+    const save = (values: BookingEditValues) => {
         onSave({
-            counterpartLedger,
-            counterpartName,
-            direction,
-            isRefund,
-            taxCode,
+            counterpartLedger: values.counterpartLedger,
+            counterpartName: values.counterpartName,
+            direction: values.direction,
+            isRefund: values.isRefund,
+            taxCode: values.taxCode,
         });
         onClose();
     };
 
     return (
-        <Dialog
-            onOpenChange={(o) => {
-                if (!o) onClose();
-            }}
-            open
+        <FormDialog
+            description={`${formatDisplayDate(booking.date)} · ${Eur.format(booking.amountEur)} · ${booking.txnId}`}
+            form={form}
+            onCancel={onClose}
+            onSubmit={save}
+            pending={false}
+            title="Edit booking"
+            {...dialogSubmitLabels(DialogMode.Edit)}
         >
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Edit booking</DialogTitle>
-                    <DialogDescription className="font-mono text-xs">
-                        {booking.date} · {Eur.format(booking.amountEur)} ·{' '}
-                        {booking.txnId}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="flex flex-col gap-3">
+            <Controller
+                control={form.control}
+                name="direction"
+                render={({ field }) => (
                     <Field>
                         <FieldLabel htmlFor={directionId}>Direction</FieldLabel>
                         <Select
                             onValueChange={(v) =>
-                                setDirection(v as BookingDirection)
+                                field.onChange(
+                                    DIRECTION_OPTIONS.find((o) => o.value === v)
+                                        ?.value ?? field.value,
+                                )
                             }
-                            value={direction}
+                            value={field.value}
                         >
                             <SelectTrigger
                                 className="h-8 w-full text-xs"
                                 id={directionId}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {
+                                        DIRECTION_OPTIONS.find(
+                                            (o) => o.value === field.value,
+                                        )?.label
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="IN">IN</SelectItem>
-                                <SelectItem value="OUT">OUT</SelectItem>
+                                {DIRECTION_OPTIONS.map((o) => (
+                                    <SelectItem key={o.value} value={o.value}>
+                                        {o.label}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </Field>
-                    {direction === 'IN' && (
+                )}
+            />
+            {direction === 'IN' && (
+                <Controller
+                    control={form.control}
+                    name="isRefund"
+                    render={({ field }) => (
                         <SwitchCard
-                            checked={isRefund}
+                            checked={field.value}
                             description={
                                 purchaseRule
                                     ? `Reverse the purchase → ${purchaseRule.ledger.label}`
@@ -857,6 +869,12 @@ function BookingEditDialog({
                             onCheckedChange={toggleRefund}
                         />
                     )}
+                />
+            )}
+            <Controller
+                control={form.control}
+                name="counterpartName"
+                render={({ field }) => (
                     <Field>
                         <FieldLabel htmlFor={counterpartId}>
                             Counterpart
@@ -864,28 +882,48 @@ function BookingEditDialog({
                         <Input
                             className="h-8 text-xs"
                             id={counterpartId}
-                            onChange={(event) =>
-                                setCounterpartName(event.target.value)
-                            }
-                            value={counterpartName}
+                            onChange={field.onChange}
+                            ref={field.ref}
+                            value={field.value}
                         />
                     </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="counterpartLedger"
+                render={({ field }) => (
                     <Field>
                         <FieldLabel>Ledger</FieldLabel>
                         <LedgerCombobox
-                            onChange={setCounterpartLedger}
+                            onChange={field.onChange}
                             options={ledgerOptions}
-                            value={counterpartLedger}
+                            value={field.value}
                         />
                     </Field>
+                )}
+            />
+            <Controller
+                control={form.control}
+                name="taxCode"
+                render={({ field }) => (
                     <Field>
                         <FieldLabel htmlFor={taxCodeId}>VAT</FieldLabel>
-                        <Select onValueChange={setTaxCode} value={taxCode}>
+                        <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                        >
                             <SelectTrigger
                                 className="h-8 w-full text-xs"
                                 id={taxCodeId}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {
+                                        taxCodeOptions.find(
+                                            (o) => o.code === field.value,
+                                        )?.label
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {taxCodeOptions.map((o) => (
@@ -896,12 +934,9 @@ function BookingEditDialog({
                             </SelectContent>
                         </Select>
                     </Field>
-                </div>
-                <DialogFooter>
-                    <Button onClick={save}>Save changes</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                )}
+            />
+        </FormDialog>
     );
 }
 

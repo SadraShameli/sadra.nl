@@ -29,7 +29,7 @@ export function PlannerView() {
                 <ToolSection
                     id={LegacySection.Portfolio}
                     srOnlyHeading
-                    title="Multi-firm planner"
+                    title="Planner"
                 >
                     <PortfolioPanel
                         baseInputs={simInputs}

@@ -1,5 +1,10 @@
 import { act } from 'react';
 
+interface FieldValidation {
+    readonly hasError: boolean;
+    readonly isInvalid: boolean;
+}
+
 export function ariaLabelledSelect(
     scope: ParentNode,
     labelText: string,
@@ -11,6 +16,16 @@ export function ariaLabelledSelect(
         throw new TypeError(`no select labelled ${labelText}`);
     }
     return trigger;
+}
+
+export function fieldValidation(control: HTMLElement): FieldValidation {
+    const error = control
+        .closest('[data-slot="field"]')
+        ?.querySelector('[data-slot="field-error"]');
+    return {
+        hasError: (error?.textContent ?? '') !== '',
+        isInvalid: control.getAttribute('aria-invalid') === 'true',
+    };
 }
 
 export function labelledControl<T extends HTMLElement>(

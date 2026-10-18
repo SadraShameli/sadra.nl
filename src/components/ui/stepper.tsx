@@ -81,7 +81,7 @@ export function Stepper({
                 className={cn(
                     'flex',
                     orientation === 'horizontal'
-                        ? 'flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2'
+                        ? 'flex-col gap-1 md:flex-row md:items-center md:gap-2'
                         : 'flex-col gap-1',
                     className,
                 )}
@@ -122,7 +122,7 @@ export function StepperIndicator({
             className={cn(
                 'inline-flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors',
                 state === 'completed' &&
-                    'border-success/40 bg-success/15 text-success',
+                    'border-line-strong bg-background text-ink',
                 state === 'active' &&
                     'border-primary bg-primary text-primary-foreground',
                 state === 'inactive' &&
@@ -162,7 +162,7 @@ export function StepperItem({
     return (
         <StepperItemContext.Provider value={itemContext}>
             <li
-                className={cn('flex items-center gap-2', className)}
+                className={cn('flex shrink-0 items-center gap-2', className)}
                 data-slot="stepper-item"
                 data-state={state}
             >
@@ -180,7 +180,7 @@ export function StepperSeparator({ className }: StepperSeparatorProperties) {
             className={cn(
                 'shrink-0 bg-line',
                 orientation === 'horizontal'
-                    ? 'ml-3.5 h-4 w-px sm:ml-0 sm:h-px sm:w-8'
+                    ? 'ml-3.5 h-4 w-px md:ml-0 md:h-px md:w-auto md:min-w-3 md:flex-1'
                     : 'ml-3.5 h-4 w-px',
                 className,
             )}

@@ -29,7 +29,7 @@ export function LadderLabView() {
                 <ToolSection
                     id={LegacySection.LadderLabSection}
                     srOnlyHeading
-                    title="Ladder lab"
+                    title="Ladder search"
                 >
                     <LadderLabPanel
                         activePolicy={state.evalDayPolicy}

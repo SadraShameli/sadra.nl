@@ -1,3 +1,4 @@
+import { formatDisplayDate } from '~/lib/format';
 import { AccountStage, PlanKeyResolutionKind } from '~/lib/prop-accounts/core';
 import { isoDaysBetween } from '~/lib/prop-calculator';
 
@@ -86,8 +87,8 @@ function calendarWindowProgress(
         disclosures: [],
         messageFor: (severity) =>
             severity === AlertSeverity.Critical
-                ? `Eval access window reached: ${elapsed} of ${windowDays} calendar days used since the purchase on ${purchasedOn}`
-                : `${remaining} eval access days left of ${windowDays} calendar days since the purchase on ${purchasedOn}`,
+                ? `Eval access window reached: ${elapsed} of ${windowDays} calendar days used since the purchase on ${formatDisplayDate(purchasedOn)}`
+                : `${remaining} eval access days left of ${windowDays} calendar days since the purchase on ${formatDisplayDate(purchasedOn)}`,
         remaining,
     };
 }
@@ -105,7 +106,7 @@ function tradingDayProgress(
     const traded = monitored.latestSnapshot?.tradingDays ?? null;
     const used = Math.max(sessions, traded ?? 0);
     const tradedText = traded === null ? 'none recorded' : String(traded);
-    const basis = `${sessions} sessions since the purchase on ${purchasedOn}, traded days ${tradedText}`;
+    const basis = `${sessions} sessions since the purchase on ${formatDisplayDate(purchasedOn)}, traded days ${tradedText}`;
     const remaining = maxDays - used;
     return {
         disclosures: [TradingSessionCalendar.disclosure],

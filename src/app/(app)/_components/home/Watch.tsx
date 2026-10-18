@@ -56,7 +56,7 @@ export function Watch() {
                         <span
                             aria-hidden
                             className={cn(
-                                'absolute font-serif text-[22px] leading-none font-medium text-ink',
+                                'absolute type-display-item leading-none text-ink',
                                 numeral.className,
                             )}
                             key={numeral.label}
@@ -66,22 +66,20 @@ export function Watch() {
                     ))}
 
                     <div className="absolute inset-x-0 top-[29%] flex flex-col items-center gap-1">
-                        <span className="font-serif text-[15px] text-camel italic">
+                        <span className="font-serif text-sm text-camel italic">
                             New York
                         </span>
-                        <span className="font-mono text-[8px] tracking-[0.3em] text-ink-muted">
+                        <span className="type-micro tracking-[0.3em] text-ink-muted">
                             AUTOMATIC
                         </span>
                     </div>
 
                     <div className="absolute bottom-[25%] left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-line-strong bg-scrim px-2.5 py-1.25">
                         <span
-                            className={cn(
-                                'size-1.5 rounded-full',
-                                isOpen ? 'bg-signal-open' : 'bg-signal-closed',
-                            )}
+                            aria-hidden
+                            className="size-1.5 rounded-full bg-camel"
                         />
-                        <span className="font-mono text-[9px] tracking-[0.2em] text-ink">
+                        <span className="type-micro text-ink">
                             NYSE {bell?.status ?? MarketStatus.Closed}
                         </span>
                     </div>
@@ -124,10 +122,10 @@ export function Watch() {
                 <span className="type-micro tracking-[0.24em] text-ink-muted">
                     {isOpen ? 'Closing bell in' : 'Opening bell in'}
                 </span>
-                <span className="font-serif text-[44px] leading-none font-medium tracking-[0.01em] text-ink tabular-nums">
+                <span className="type-display-figure tracking-[0.01em] text-ink tabular-nums">
                     {bell?.countdown ?? EMPTY_CLOCK}
                 </span>
-                <span className="font-mono text-[10px] tracking-[0.16em] text-ink-muted">
+                <span className="type-micro tracking-[0.16em] text-ink-muted">
                     {bell?.wallClock ?? EMPTY_CLOCK} ET · REGULAR HOURS
                 </span>
             </figcaption>

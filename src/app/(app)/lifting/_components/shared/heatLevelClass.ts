@@ -1,7 +1,10 @@
-export const HEAT_LEVEL_CLASS = [
-    'bg-muted/40',
-    'bg-success/25',
-    'bg-success/50',
-    'bg-success/75',
-    'bg-success',
-] as const;
+import { HeatScale } from '~/components/ui/heat-scale';
+
+const HEAT_LEVEL_COUNT = 5;
+
+const HEAT_LEVEL_SCALE = HeatScale.between(0, HEAT_LEVEL_COUNT - 1);
+
+export const HEAT_LEVEL_CLASS: readonly string[] = Array.from(
+    { length: HEAT_LEVEL_COUNT },
+    (_, level) => HEAT_LEVEL_SCALE.tileClassName(level),
+);

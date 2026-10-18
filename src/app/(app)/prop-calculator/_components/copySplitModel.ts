@@ -3,7 +3,7 @@ import {
     type CopySplitToolsRequest,
     ToolsRequestKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     SIZING_OBJECTIVE_LABEL,
     type SizingObjective,
@@ -40,18 +40,18 @@ export interface CopySplitParsedInputs {
 }
 
 export interface CopySplitRowView {
-    readonly contracts: string;
-    readonly cycleNet: string;
-    readonly daysToPass: string;
+    readonly contracts: null | string;
+    readonly cycleNet: null | string;
+    readonly daysToPass: null | string;
     readonly isRefused: boolean;
     readonly isWithinNoise: boolean;
     readonly label: string;
-    readonly monthlyNet: string;
-    readonly netPerFeeDollar: string;
-    readonly passRate: string;
+    readonly monthlyNet: null | string;
+    readonly netPerFeeDollar: null | string;
+    readonly passRate: null | string;
     readonly refusal: null | string;
     readonly splitCount: number;
-    readonly totalFees: string;
+    readonly totalFees: null | string;
 }
 
 interface UncertainText {
@@ -179,36 +179,35 @@ function rowView(row: CopySplitRow, isWithinNoise: boolean): CopySplitRowView {
     const label = rowLabel(row.splitCount, row.riskPerAccount);
     if (row.kind === CopySplitRowKind.Refused) {
         return {
-            contracts: NOT_APPLICABLE,
-            cycleNet: NOT_APPLICABLE,
-            daysToPass: NOT_APPLICABLE,
+            contracts: null,
+            cycleNet: null,
+            daysToPass: null,
             isRefused: true,
             isWithinNoise: false,
             label,
-            monthlyNet: NOT_APPLICABLE,
-            netPerFeeDollar: NOT_APPLICABLE,
-            passRate: NOT_APPLICABLE,
+            monthlyNet: null,
+            netPerFeeDollar: null,
+            passRate: null,
             refusal: row.reason,
             splitCount: row.splitCount,
-            totalFees: NOT_APPLICABLE,
+            totalFees: null,
         };
     }
     const { placement } = row;
     return {
         contracts:
             placement === null
-                ? NOT_APPLICABLE
+                ? null
                 : `${placement.contracts} ${placement.contracts === 1 ? 'contract' : 'contracts'} at the eval limit, ${formatCurrency(placement.placedRiskPerAccount)} placed per account, ${formatCurrency(placement.placedRiskPerAccount * row.splitCount)} for the group`,
         cycleNet: formatUncertain(row.cycleNet),
-        daysToPass:
-            row.passRate > 0 ? row.daysToPassP50.toFixed(0) : NOT_APPLICABLE,
+        daysToPass: row.passRate > 0 ? row.daysToPassP50.toFixed(0) : null,
         isRefused: false,
         isWithinNoise,
         label,
         monthlyNet: formatUncertain(row.totalMonthlyNet),
         netPerFeeDollar:
             row.netPerFeeDollar === null
-                ? NOT_APPLICABLE
+                ? null
                 : row.netPerFeeDollar.toFixed(2),
         passRate: formatPercent(row.passRate),
         refusal: null,

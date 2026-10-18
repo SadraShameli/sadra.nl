@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AttemptThroughputCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/AttemptThroughputCard';
 import { type AttemptThroughputCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
+import { infoText } from '../infoPopover';
+
 const MODEL: AttemptThroughputCardModel = {
     countingNote:
         'Attempt throughput counts started attempts; cost per attempt counts decided attempts only.',
@@ -78,8 +80,8 @@ describe('AttemptThroughputCard', () => {
         ]);
         expect(tableUnder('Attempts per month by firm')).toEqual([
             ['Month', 'Alpha Prop', 'Beta Prop'],
-            ['2026-05', '2', '0'],
-            ['2026-06', '0', '1'],
+            ['May 2026', '2', '0'],
+            ['Jun 2026', '0', '1'],
         ]);
     });
 
@@ -87,6 +89,8 @@ describe('AttemptThroughputCard', () => {
         act(() => {
             root.render(<AttemptThroughputCard model={MODEL} />);
         });
-        expect(container.textContent).toContain(MODEL.countingNote);
+        expect(infoText(container, 'Attempt throughput')).toContain(
+            MODEL.countingNote,
+        );
     });
 });

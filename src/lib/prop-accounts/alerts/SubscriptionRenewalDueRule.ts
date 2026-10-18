@@ -1,4 +1,4 @@
-import { formatCurrency } from '~/lib/format';
+import { formatCurrency, formatDisplayDate } from '~/lib/format';
 import { AccountStage, PlanKeyResolutionKind } from '~/lib/prop-accounts/core';
 
 import { type AccountAlert, AlertDisclosure } from './AccountAlert';
@@ -51,7 +51,7 @@ export class SubscriptionRenewalDueRule extends AccountAlertRule {
         return this.alertFor(
             monitored,
             AlertSeverity.Info,
-            `Monthly subscription of ${formatCurrency(fee, CENT_DIGITS)} (plan list price) renews ${when} (${renewsOn}), assuming a ${SUBSCRIPTION_CYCLE_DAYS}-day cycle from the purchase on ${purchasedOn}`,
+            `Monthly subscription of ${formatCurrency(fee, CENT_DIGITS)} (plan list price) renews ${when} (${formatDisplayDate(renewsOn)}), assuming a ${SUBSCRIPTION_CYCLE_DAYS}-day cycle from the purchase on ${formatDisplayDate(purchasedOn)}`,
             [AlertDisclosure.ThirtyDayBillingCycle],
         );
     }

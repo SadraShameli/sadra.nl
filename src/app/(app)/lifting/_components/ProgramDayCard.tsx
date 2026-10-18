@@ -2,8 +2,9 @@ import { Moon } from 'lucide-react';
 
 import type { ProgramBlock, ProgramDay } from '~/lib/lifting/types';
 
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 interface BlockRow {
     readonly detail: null | string;
@@ -19,47 +20,47 @@ export function ProgramDayCard({
     readonly dayNumber: number;
 }) {
     const rows = day.blocks.flatMap(blockRows);
+    const dayLabel = `Day ${String(dayNumber)}`;
     return (
-        <Card className="gap-4 py-5">
-            <CardHeader className="px-5">
-                <p className="text-xs font-medium text-muted-foreground tabular-nums">
-                    Day {dayNumber}
-                </p>
-                <CardTitle className="flex items-center gap-2 text-base">
-                    {day.name || `Day ${String(dayNumber)}`}
-                    {day.isDeload && <Badge variant="secondary">Deload</Badge>}
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="px-5">
-                {rows.length === 0 ? (
-                    <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Moon aria-hidden className="size-4" />
-                        Rest day
-                    </p>
-                ) : (
-                    <ul className="divide-y divide-border/60">
-                        {rows.map((row, index) => (
-                            <li
-                                className="flex items-baseline justify-between gap-4 py-2 first:pt-0 last:pb-0"
-                                key={`${String(index)}-${row.name}`}
-                            >
-                                <span className="min-w-0 text-sm text-foreground">
-                                    {row.name}
-                                    {row.detail !== null && (
-                                        <span className="block text-xs text-muted-foreground">
-                                            {row.detail}
-                                        </span>
-                                    )}
-                                </span>
-                                <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
-                                    {row.scheme}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </CardContent>
-        </Card>
+        <ToolPanel
+            className="gap-4 py-5"
+            description={dayLabel}
+            title={
+                <span className="flex items-center gap-2">
+                    {day.name || dayLabel}
+                    {day.isDeload && <Badge>Deload</Badge>}
+                </span>
+            }
+        >
+            {rows.length === 0 ? (
+                <EmptyState
+                    icon={Moon}
+                    size={EmptyStateSize.Compact}
+                    title="Rest day"
+                />
+            ) : (
+                <ul className="divide-y divide-border/60">
+                    {rows.map((row, index) => (
+                        <li
+                            className="flex items-baseline justify-between gap-4 py-2 first:pt-0 last:pb-0"
+                            key={`${String(index)}-${row.name}`}
+                        >
+                            <span className="min-w-0 text-sm text-foreground">
+                                {row.name}
+                                {row.detail !== null && (
+                                    <span className="block text-xs text-muted-foreground">
+                                        {row.detail}
+                                    </span>
+                                )}
+                            </span>
+                            <span className="shrink-0 text-sm text-muted-foreground tabular-nums">
+                                {row.scheme}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </ToolPanel>
     );
 }
 

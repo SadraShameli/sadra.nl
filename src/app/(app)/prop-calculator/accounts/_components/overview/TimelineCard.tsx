@@ -1,8 +1,13 @@
+import { History } from 'lucide-react';
 import { memo } from 'react';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { formatDisplayDate } from '~/lib/format';
 
 import { type TimelineCardModel } from './overviewModel';
+import { OverviewEmptyPanel, OverviewPanel } from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum TimelineCardColumn {
     Account = 'account',
@@ -18,36 +23,48 @@ export const TimelineCard = memo(function TimelineCard({
 }) {
     if (model.entries.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No fee, payout or event recorded yet.
-            </p>
+            <OverviewEmptyPanel
+                icon={History}
+                section={OverviewSectionId.Timeline}
+                title="No fee, payout or event recorded yet"
+            />
         );
     }
     return (
-        <div className="flex flex-col gap-3">
+        <OverviewPanel
+            info="Cash you received shows as positive and cash you spent as negative. A payout that is not paid moved no cash."
+            section={OverviewSectionId.Timeline}
+        >
             <DataTable
                 columns={[
                     {
                         cell: ({ row }) => (
                             <span className="tabular-nums">
-                                {row.original.on}
+                                {formatDisplayDate(row.original.on)}
                             </span>
                         ),
                         header: 'Date',
                         id: TimelineCardColumn.Date,
+                        meta: { isRowHeader: true },
                     },
                     {
-                        cell: ({ row }) => <>{row.original.account}</>,
+                        cell: ({ row }) => (
+                            <FigureText text={row.original.account} />
+                        ),
                         header: 'Account',
                         id: TimelineCardColumn.Account,
                     },
                     {
-                        cell: ({ row }) => <>{row.original.description}</>,
+                        cell: ({ row }) => (
+                            <FigureText text={row.original.description} />
+                        ),
                         header: 'Entry',
                         id: TimelineCardColumn.Entry,
                     },
                     {
-                        cell: ({ row }) => <>{row.original.amount}</>,
+                        cell: ({ row }) => (
+                            <FigureText text={row.original.amount ?? ''} />
+                        ),
                         header: 'Cash',
                         id: TimelineCardColumn.Cash,
                         meta: { align: DataTableAlign.End },
@@ -58,10 +75,6 @@ export const TimelineCard = memo(function TimelineCard({
                 pageSize={null}
                 rowId={(row) => row.key}
             />
-            <p className="text-xs text-muted-foreground">
-                Cash you received shows as positive and cash you spent as
-                negative. A payout that is not paid moved no cash.
-            </p>
             {model.hiddenEntries > 0 && (
                 <p className="text-xs text-muted-foreground">
                     Showing the newest {model.entries.length} entries;{' '}
@@ -70,6 +83,6 @@ export const TimelineCard = memo(function TimelineCard({
                     shown here.
                 </p>
             )}
-        </div>
+        </OverviewPanel>
     );
 });

@@ -1,7 +1,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useId, useRef, useState } from 'react';
 import { type Control, Controller, useForm, useWatch } from 'react-hook-form';
@@ -9,13 +8,15 @@ import { toast } from 'sonner';
 
 import { STICKY_ACTION_BAR_PROPS } from '~/app/(app)/_components/ScrollToTop';
 import { DAY_STOP_KIND_LABELS } from '~/app/(app)/prop-calculator/_components/describeDayStopRule';
-import { AccountsCardHeading } from '~/app/(app)/prop-calculator/accounts/_components/AccountsCardHeading';
+import { RulebookSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
 import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { SwitchCard } from '~/components/ToggleCard';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent, CardHeader } from '~/components/ui/card';
+import { Card } from '~/components/ui/card';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     Field,
@@ -23,6 +24,7 @@ import {
     FieldError,
     FieldLabel,
 } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -31,7 +33,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { Skeleton } from '~/components/ui/skeleton';
+import { WarningNote } from '~/components/WarningNote';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatPercent } from '~/lib/format';
 import { formatUsdCents, usdCents } from '~/lib/prop-accounts';
@@ -56,7 +58,6 @@ import {
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
 import { profileTabs, routes, withQuery } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import {
@@ -147,40 +148,13 @@ const WEEKDAY_ORDER: readonly ReviewWeekday[] = [
     ReviewWeekday.Sunday,
 ];
 
-const OUTCOME_BADGE: Readonly<
-    Record<
-        TradingPlanImportOutcome,
-        {
-            readonly label: string;
-            readonly variant:
-                'default' | 'destructive' | 'outline' | 'secondary';
-        }
-    >
-> = {
-    [TradingPlanImportOutcome.Applied]: {
-        label: 'will change',
-        variant: 'default',
-    },
-    [TradingPlanImportOutcome.IgnoredZero]: {
-        label: 'ignored',
-        variant: 'outline',
-    },
-    [TradingPlanImportOutcome.NotStored]: {
-        label: 'not stored',
-        variant: 'outline',
-    },
-    [TradingPlanImportOutcome.Rejected]: {
-        label: 'rejected',
-        variant: 'destructive',
-    },
-    [TradingPlanImportOutcome.Scaled]: {
-        label: 'will change',
-        variant: 'default',
-    },
-    [TradingPlanImportOutcome.Unchanged]: {
-        label: 'same',
-        variant: 'secondary',
-    },
+const OUTCOME_LABEL: Readonly<Record<TradingPlanImportOutcome, string>> = {
+    [TradingPlanImportOutcome.Applied]: 'will change',
+    [TradingPlanImportOutcome.IgnoredZero]: 'ignored',
+    [TradingPlanImportOutcome.NotStored]: 'not stored',
+    [TradingPlanImportOutcome.Rejected]: 'rejected',
+    [TradingPlanImportOutcome.Scaled]: 'will change',
+    [TradingPlanImportOutcome.Unchanged]: 'same',
 };
 
 export function RulebookView({
@@ -207,13 +181,7 @@ export function RulebookView({
         return <OverwriteRulebook tradingPlan={tradingPlan} />;
     }
     if (rulebookQuery.isPending) {
-        return (
-            <Skeleton
-                aria-label="Loading your rulebook"
-                className="h-96 w-full"
-                role="status"
-            />
-        );
+        return <RulebookSkeleton />;
     }
     if (!isInvalidStoredRecord(rulebookQuery.error, PropRecord.Rulebook)) {
         return <RulebookLoadError message={rulebookQuery.error.message} />;
@@ -287,50 +255,46 @@ function BankrollCard({ control }: { control: Control<RulebookFormValues> }) {
 function DeviationCard({ parsed }: { parsed: null | RulebookParameters }) {
     const deviation = parsed === null ? null : rulebookDeviation(parsed);
     return (
-        <Card>
-            <CardHeader>
-                <AccountsCardHeading>
-                    Deviations from the skill
-                </AccountsCardHeading>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 text-sm">
-                {deviation === null && (
-                    <p className="text-muted-foreground">
-                        Fix the highlighted fields to see how this rulebook
-                        differs from the skill.
-                    </p>
-                )}
-                {deviation?.length === 0 && (
-                    <p>
-                        <Badge variant="success">Matches the skill</Badge>{' '}
-                        Headline label preview: &ldquo;
-                        {documentedRuleLabel(deviation)}&rdquo;.
-                    </p>
-                )}
-                {deviation !== null && deviation.length > 0 && (
-                    <>
-                        <p>
-                            Headline label preview: &ldquo;
-                            {documentedRuleLabel(deviation)}&rdquo;.
-                        </p>
-                        <ul className="flex flex-wrap gap-2">
-                            {deviation.map((source) => (
-                                <li key={source}>
-                                    <Badge variant="warning">
-                                        {RULE_SOURCE_LABEL[source]}
-                                    </Badge>
-                                </li>
-                            ))}
-                        </ul>
-                    </>
-                )}
-                <p className="text-xs text-muted-foreground">
+        <ToolPanel
+            contentClassName="gap-3 text-sm"
+            info={
+                <p>
                     Eval risk is not a rulebook value:{' '}
                     {RULE_SOURCE_LABEL[RuleSource.HardRule3]} sizes evals to the
                     maximum allowed by the constraints.
                 </p>
-            </CardContent>
-        </Card>
+            }
+            title="Deviations from the skill"
+        >
+            {deviation === null && (
+                <p className="text-muted-foreground">
+                    Fix the highlighted fields to see how this rulebook differs
+                    from the skill.
+                </p>
+            )}
+            {deviation?.length === 0 && (
+                <p>
+                    <Badge>Matches the skill</Badge> Headline label preview:
+                    &ldquo;
+                    {documentedRuleLabel(deviation)}&rdquo;.
+                </p>
+            )}
+            {deviation !== null && deviation.length > 0 && (
+                <>
+                    <p>
+                        Headline label preview: &ldquo;
+                        {documentedRuleLabel(deviation)}&rdquo;.
+                    </p>
+                    <ul className="flex flex-wrap gap-2">
+                        {deviation.map((source) => (
+                            <li key={source}>
+                                <Badge>{RULE_SOURCE_LABEL[source]}</Badge>
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
+        </ToolPanel>
     );
 }
 
@@ -343,8 +307,18 @@ function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
                 name="display.riskUnit"
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor={`${formId}-display.riskUnit`}>
+                        <FieldLabel
+                            className="flex items-center gap-2"
+                            htmlFor={`${formId}-display.riskUnit`}
+                        >
                             Show risk as
+                            <InfoPopover title="Show risk as">
+                                Your setting, not a skill rule, default{' '}
+                                {RISK_UNIT_LABEL[
+                                    DEFAULT_RULEBOOK.display.riskUnit
+                                ].toLowerCase()}
+                                .
+                            </InfoPopover>
                         </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
@@ -354,7 +328,9 @@ function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-display.riskUnit`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {RISK_UNIT_LABEL[field.value]}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(RiskDisplayUnit).map((unit) => (
@@ -365,12 +341,7 @@ function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
                             </SelectContent>
                         </Select>
                         <FieldDescription>
-                            The unit risk is shown in across the tools. Your
-                            setting, not a skill rule, default{' '}
-                            {RISK_UNIT_LABEL[
-                                DEFAULT_RULEBOOK.display.riskUnit
-                            ].toLowerCase()}
-                            .
+                            The unit risk is shown in across the tools.
                         </FieldDescription>
                         <FieldError errors={[fieldState.error]} />
                     </Field>
@@ -392,14 +363,44 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
         name: 'eval.ladderFractionSource',
     });
     return (
-        <SectionCard title="Eval sizing">
+        <SectionCard
+            info={
+                <p>
+                    Eval risk is not stored:{' '}
+                    {RULE_SOURCE_LABEL[RuleSource.HardRule3]} sizes evals to the
+                    maximum allowed by the constraints, paired with a daily
+                    profit cap.
+                </p>
+            }
+            title="Eval sizing"
+        >
             <Controller
                 control={control}
                 name="eval.mode"
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor={`${formId}-eval.mode`}>
+                        <FieldLabel
+                            className="flex items-center gap-2"
+                            htmlFor={`${formId}-eval.mode`}
+                        >
                             Eval mode
+                            <InfoPopover title="Eval mode">
+                                Source:{' '}
+                                {ruleSourceListText(
+                                    mode === EvalSizingMode.Ladder
+                                        ? [
+                                              LADDER_SOURCE_OPTIONS[
+                                                  ladderSource
+                                              ].source,
+                                          ]
+                                        : EVAL_MODE_OPTIONS[mode].sources,
+                                )}
+                                . Default{' '}
+                                {EVAL_MODE_OPTIONS[
+                                    DEFAULT_RULEBOOK.eval.mode
+                                ].label.toLowerCase()}
+                                .
+                            </InfoPopover>
                         </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
@@ -409,7 +410,9 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-eval.mode`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {EVAL_MODE_OPTIONS[field.value].label}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(EvalSizingMode).map((option) => (
@@ -419,22 +422,6 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <FieldDescription>
-                            Source:{' '}
-                            {ruleSourceListText(
-                                mode === EvalSizingMode.Ladder
-                                    ? [
-                                          LADDER_SOURCE_OPTIONS[ladderSource]
-                                              .source,
-                                      ]
-                                    : EVAL_MODE_OPTIONS[mode].sources,
-                            )}
-                            . Default{' '}
-                            {EVAL_MODE_OPTIONS[
-                                DEFAULT_RULEBOOK.eval.mode
-                            ].label.toLowerCase()}
-                            .
-                        </FieldDescription>
                         <FieldError errors={[fieldState.error]} />
                     </Field>
                 )}
@@ -445,9 +432,20 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
                         <FieldLabel
+                            className="flex items-center gap-2"
                             htmlFor={`${formId}-eval.ladderFractionSource`}
                         >
                             Ladder fractions
+                            <InfoPopover title="Ladder fractions">
+                                Source:{' '}
+                                {
+                                    RULE_SOURCE_LABEL[
+                                        LADDER_SOURCE_OPTIONS[field.value]
+                                            .source
+                                    ]
+                                }
+                                .
+                            </InfoPopover>
                         </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
@@ -457,7 +455,9 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-eval.ladderFractionSource`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {LADDER_SOURCE_OPTIONS[field.value].label}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(LadderFractionSource).map(
@@ -472,15 +472,7 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 )}
                             </SelectContent>
                         </Select>
-                        <FieldDescription>
-                            Ladder mode only. Source:{' '}
-                            {
-                                RULE_SOURCE_LABEL[
-                                    LADDER_SOURCE_OPTIONS[field.value].source
-                                ]
-                            }
-                            .
-                        </FieldDescription>
+                        <FieldDescription>Ladder mode only.</FieldDescription>
                         <FieldError errors={[fieldState.error]} />
                     </Field>
                 )}
@@ -496,12 +488,6 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
             <TextField control={control} name="eval.mffSearchFractions" />
             <TextField control={control} name="eval.maxRiskDailyCapMultiple" />
             <TextField control={control} name="eval.roundingStepCents" />
-            <p className="text-xs text-muted-foreground md:col-span-2">
-                Eval risk is not stored:{' '}
-                {RULE_SOURCE_LABEL[RuleSource.HardRule3]} sizes evals to the
-                maximum allowed by the constraints, paired with a daily profit
-                cap.
-            </p>
         </SectionCard>
     );
 }
@@ -520,8 +506,20 @@ function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
                 name="funded.stopRule.kind"
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor={`${formId}-funded.stopRule.kind`}>
+                        <FieldLabel
+                            className="flex items-center gap-2"
+                            htmlFor={`${formId}-funded.stopRule.kind`}
+                        >
                             Funded day stop
+                            <InfoPopover title="Funded day stop">
+                                Source:{' '}
+                                {RULE_SOURCE_LABEL[RuleSource.HisNumbers]},
+                                default{' '}
+                                {DAY_STOP_KIND_LABELS[
+                                    DEFAULT_RULEBOOK.funded.stopRule.kind
+                                ].toLowerCase()}
+                                .
+                            </InfoPopover>
                         </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
@@ -531,7 +529,9 @@ function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-funded.stopRule.kind`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {DAY_STOP_KIND_LABELS[field.value]}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(DayStopRuleKind).map((kind) => (
@@ -541,14 +541,6 @@ function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <FieldDescription>
-                            Source: {RULE_SOURCE_LABEL[RuleSource.HisNumbers]},
-                            default{' '}
-                            {DAY_STOP_KIND_LABELS[
-                                DEFAULT_RULEBOOK.funded.stopRule.kind
-                            ].toLowerCase()}
-                            .
-                        </FieldDescription>
                         <FieldError errors={[fieldState.error]} />
                     </Field>
                 )}
@@ -593,7 +585,7 @@ function HazardField({
                 }
                 return unavailableText === undefined ? null : (
                     <p className="text-xs text-muted-foreground">
-                        n/a: {unavailableText}
+                        Not measured: {unavailableText}
                     </p>
                 );
             }}
@@ -621,103 +613,96 @@ function ImportCard({
         toggleRef.current?.focus();
     };
     return (
-        <Card>
-            <CardHeader>
-                <AccountsCardHeading>
-                    Import from your trade checklist
-                </AccountsCardHeading>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 text-sm">
-                {tradingPlan.kind === TradingPlanSourceKind.Missing && (
-                    <p className="text-muted-foreground">
-                        You have no trading plan yet.{' '}
-                        <Link
-                            className="underline"
-                            href={withQuery(routes.profile, {
-                                tab: profileTabs.tradingPlan,
-                            })}
-                        >
-                            Create one on your profile
-                        </Link>{' '}
-                        to import its risk settings.
+        <ToolPanel
+            contentClassName="gap-3 text-sm"
+            info={
+                tradingPlan.kind === TradingPlanSourceKind.Ready ? (
+                    <p>
+                        Maps the funded risk and the max trades per window of
+                        &ldquo;{tradingPlan.name}&rdquo; onto this rulebook. The
+                        funded take profit scales with the risk, so the funded
+                        reward multiple stays the same. Nothing is saved until
+                        you save.
                     </p>
-                )}
-                {tradingPlan.kind === TradingPlanSourceKind.Unreadable && (
-                    <Alert variant="destructive">
-                        <TriangleAlert />
-                        <AlertTitle>
-                            &ldquo;{tradingPlan.name}&rdquo; could not be read
-                        </AlertTitle>
-                        <AlertDescription>
-                            Its saved settings do not pass validation, so
-                            nothing is imported. Open and save it on your
-                            profile first.
-                        </AlertDescription>
-                    </Alert>
-                )}
-                {tradingPlan.kind === TradingPlanSourceKind.Ready && (
-                    <>
-                        <p className="text-muted-foreground">
-                            Maps the funded risk and the max trades per window
-                            of &ldquo;{tradingPlan.name}&rdquo; onto this
-                            rulebook. The funded take profit scales with the
-                            risk, so the funded reward multiple stays the same.
-                            Nothing is saved until you save.
-                        </p>
-                        <div>
-                            <Button
-                                aria-controls={previewId}
-                                aria-describedby={
-                                    parsed === null ? hintId : undefined
-                                }
-                                aria-disabled={isToggleUnavailable || undefined}
-                                aria-expanded={isPreviewOpen}
-                                className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
-                                onClick={() => {
-                                    if (isToggleUnavailable) return;
-                                    setIsPreviewOpen(!isPreviewOpen);
-                                }}
-                                ref={toggleRef}
-                                type="button"
-                                variant="outline"
-                            >
-                                {isPreviewOpen
-                                    ? 'Hide import preview'
-                                    : 'Preview import'}
-                            </Button>
-                            {parsed === null && (
-                                <p
-                                    className="mt-2 text-xs text-muted-foreground"
-                                    id={hintId}
-                                >
-                                    {FIX_FIELDS_MESSAGE}.
-                                </p>
-                            )}
-                        </div>
-                        <div
-                            aria-label="Import preview"
-                            aria-live="polite"
-                            id={previewId}
-                            role="region"
+                ) : undefined
+            }
+            title="Import from your trade checklist"
+        >
+            {tradingPlan.kind === TradingPlanSourceKind.Missing && (
+                <p className="text-muted-foreground">
+                    You have no trading plan yet.{' '}
+                    <Link
+                        className="underline"
+                        href={withQuery(routes.profile, {
+                            tab: profileTabs.tradingPlan,
+                        })}
+                    >
+                        Create one on your profile
+                    </Link>{' '}
+                    to import its risk settings.
+                </p>
+            )}
+            {tradingPlan.kind === TradingPlanSourceKind.Unreadable && (
+                <QueryErrorNotice
+                    message="Its saved settings do not pass validation, so nothing is imported. Open and save it on your profile first."
+                    title={`“${tradingPlan.name}” could not be read`}
+                />
+            )}
+            {tradingPlan.kind === TradingPlanSourceKind.Ready && (
+                <>
+                    <div>
+                        <Button
+                            aria-controls={previewId}
+                            aria-describedby={
+                                parsed === null ? hintId : undefined
+                            }
+                            aria-disabled={isToggleUnavailable || undefined}
+                            aria-expanded={isPreviewOpen}
+                            className="aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                            onClick={() => {
+                                if (isToggleUnavailable) return;
+                                setIsPreviewOpen(!isPreviewOpen);
+                            }}
+                            ref={toggleRef}
+                            type="button"
+                            variant="outline"
                         >
-                            {isPreviewOpen && parsed !== null && (
-                                <ImportPreview
-                                    imported={rulebookFromTradingPlan(
-                                        parsed,
-                                        tradingPlan.risk,
-                                    )}
-                                    onApply={(imported) => {
-                                        onApply(imported);
-                                        closePreview();
-                                    }}
-                                    onCancel={closePreview}
-                                />
-                            )}
-                        </div>
-                    </>
-                )}
-            </CardContent>
-        </Card>
+                            {isPreviewOpen
+                                ? 'Hide import preview'
+                                : 'Preview import'}
+                        </Button>
+                        {parsed === null && (
+                            <p
+                                className="mt-2 text-xs text-muted-foreground"
+                                id={hintId}
+                            >
+                                {FIX_FIELDS_MESSAGE}.
+                            </p>
+                        )}
+                    </div>
+                    <div
+                        aria-label="Import preview"
+                        aria-live="polite"
+                        id={previewId}
+                        role="region"
+                    >
+                        {isPreviewOpen && parsed !== null && (
+                            <ImportPreview
+                                imported={rulebookFromTradingPlan(
+                                    parsed,
+                                    tradingPlan.risk,
+                                )}
+                                onApply={(imported) => {
+                                    onApply(imported);
+                                    closePreview();
+                                }}
+                                onCancel={closePreview}
+                            />
+                        )}
+                    </div>
+                </>
+            )}
+        </ToolPanel>
     );
 }
 
@@ -736,9 +721,7 @@ function ImportPreview({
             <ul className="flex flex-col gap-2">
                 {imported.changes.map((change) => (
                     <li className="flex items-start gap-2" key={change.field}>
-                        <Badge variant={OUTCOME_BADGE[change.outcome].variant}>
-                            {OUTCOME_BADGE[change.outcome].label}
-                        </Badge>
+                        <Badge>{OUTCOME_LABEL[change.outcome]}</Badge>
                         <span>{describeTradingPlanImportChange(change)}</span>
                     </li>
                 ))}
@@ -821,37 +804,32 @@ function LiveTransferCard({
 }) {
     const { failed, measured, pending, unavailable } = useMeasuredHazards();
     return (
-        <SectionCard title="Live transfer (your assumption, not a firm rule)">
-            <p className="text-xs text-muted-foreground md:col-span-2">
-                Your estimate of the chance, per paid payout, that a firm moves
-                a funded account to live. No firm publishes this number. A rate
-                entered for a firm is applied to every simulation built from
-                your rulebook for that firm&apos;s accounts: the advisor&apos;s
-                account value runs, the payout planner and its withdrawal-size
-                table, the overview projections and next-payout figures, retire
-                comparisons, risk candidates and copy-group runs. Only the
-                advisor&apos;s run note states it beside its figures; the other
-                surfaces apply it without repeating it. A firm with no rate is
-                priced with none. The portfolio timeline does not price
-                transfers, and the calculator takes its own single hazard in its
-                advanced settings.
-            </p>
-            {pending && (
-                <p
-                    className="text-xs text-muted-foreground md:col-span-2"
-                    role="status"
-                >
-                    Loading your measured rates from your ledger.
+        <SectionCard
+            info={
+                <p>
+                    Your estimate of the chance, per paid payout, that a firm
+                    moves a funded account to live. No firm publishes this
+                    number. A rate entered for a firm is applied to every
+                    simulation built from your rulebook for that firm&apos;s
+                    accounts: the advisor&apos;s account value runs, the payout
+                    planner and its withdrawal-size table, the overview
+                    projections and next-payout figures, retire comparisons,
+                    risk candidates and copy-group runs. Only the advisor&apos;s
+                    run note states it beside its figures; the other surfaces
+                    apply it without repeating it. A firm with no rate is priced
+                    with none. The portfolio timeline does not price transfers,
+                    and the calculator takes its own single hazard in its
+                    advanced settings.
                 </p>
-            )}
+            }
+            isComputing={pending}
+            title="Live transfer (your assumption, not a firm rule)"
+        >
             {failed && (
-                <p
-                    className="text-xs text-destructive md:col-span-2"
-                    role="status"
-                >
-                    Measured rates unavailable: your ledger could not be loaded,
-                    so no measured rate is suggested.
-                </p>
+                <QueryErrorNotice
+                    className="md:col-span-2"
+                    message="Measured rates unavailable: your ledger could not be loaded, so no measured rate is suggested."
+                />
             )}
             {Object.values(FirmId).map((firmId) => (
                 <HazardField
@@ -910,14 +888,11 @@ function OverwriteRulebook({
 }) {
     return (
         <div className="flex flex-col gap-6">
-            <Alert variant="warning">
-                <TriangleAlert />
-                <AlertTitle>Starting from the skill defaults</AlertTitle>
-                <AlertDescription>
-                    Your stored rulebook could not be read. Saving replaces your
-                    stored rulebook with this one.
-                </AlertDescription>
-            </Alert>
+            <StatusRow
+                detail="Your stored rulebook could not be read. Saving replaces your stored rulebook with this one."
+                title="Starting from the skill defaults"
+                tone={StatusTone.Warn}
+            />
             <RulebookForm stored={DEFAULT_RULEBOOK} tradingPlan={tradingPlan} />
         </div>
     );
@@ -953,23 +928,12 @@ function PayoutCard({ control }: { control: Control<RulebookFormValues> }) {
                 )}
             />
             {isBelowHardRule2Allowed && (
-                <Alert className="md:col-span-2" variant="warning">
-                    <TriangleAlert />
-                    <AlertTitle>
-                        This breaks {RULE_SOURCE_LABEL[RuleSource.HardRule2]}
-                    </AlertTitle>
-                    <AlertDescription>
-                        Never withdraw below{' '}
-                        {formatUsdCents(
-                            usdCents(HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS),
-                        )}{' '}
-                        of remaining cushion: that is{' '}
-                        {RULE_SOURCE_LABEL[RuleSource.HardRule2]}. With the
-                        override on, a lower retained cushion is saved and
-                        listed as a deviation from{' '}
-                        {RULE_SOURCE_LABEL[RuleSource.HardRule2]}.
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    className="md:col-span-2"
+                    detail={`Never withdraw below ${formatUsdCents(usdCents(HARD_RULE_2_MIN_RETAINED_CUSHION_CENTS))} of remaining cushion: that is ${RULE_SOURCE_LABEL[RuleSource.HardRule2]}. With the override on, a lower retained cushion is saved and listed as a deviation from ${RULE_SOURCE_LABEL[RuleSource.HardRule2]}.`}
+                    title={`This breaks ${RULE_SOURCE_LABEL[RuleSource.HardRule2]}`}
+                    tone={StatusTone.Warn}
+                />
             )}
         </SectionCard>
     );
@@ -1024,8 +988,22 @@ function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
                 name="review.weekday"
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor={`${formId}-review.weekday`}>
+                        <FieldLabel
+                            className="flex items-center gap-2"
+                            htmlFor={`${formId}-review.weekday`}
+                        >
                             Weekly review day
+                            <InfoPopover title="Weekly review day">
+                                Source:{' '}
+                                {
+                                    RULE_SOURCE_LABEL[
+                                        RuleSource.ReassessmentCadence
+                                    ]
+                                }
+                                , default{' '}
+                                {WEEKDAY_LABEL[DEFAULT_RULEBOOK.review.weekday]}
+                                .
+                            </InfoPopover>
                         </FieldLabel>
                         <Select
                             onValueChange={field.onChange}
@@ -1035,7 +1013,9 @@ function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-review.weekday`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {WEEKDAY_LABEL[field.value]}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {WEEKDAY_ORDER.map((weekday) => (
@@ -1045,12 +1025,6 @@ function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
                                 ))}
                             </SelectContent>
                         </Select>
-                        <FieldDescription>
-                            Source:{' '}
-                            {RULE_SOURCE_LABEL[RuleSource.ReassessmentCadence]},
-                            default{' '}
-                            {WEEKDAY_LABEL[DEFAULT_RULEBOOK.review.weekday]}.
-                        </FieldDescription>
                         <FieldError errors={[fieldState.error]} />
                     </Field>
                 )}
@@ -1184,9 +1158,7 @@ function RulebookForm({
             <LiveTransferCard control={form.control} />
 
             {form.formState.errors.root?.message !== undefined && (
-                <p className="text-sm text-destructive" role="alert">
-                    {form.formState.errors.root.message}
-                </p>
+                <FieldError>{form.formState.errors.root.message}</FieldError>
             )}
 
             <div
@@ -1207,7 +1179,7 @@ function RulebookForm({
                     Discard changes
                 </Button>
                 {form.formState.isDirty && (
-                    <p className="text-sm text-warning" role="status">
+                    <p className="text-sm" role="status">
                         Unsaved changes
                     </p>
                 )}
@@ -1224,13 +1196,12 @@ function RulebookForm({
     );
 }
 
-function RulebookLoadError({ message }: { message: string }) {
+function RulebookLoadError({ message }: { readonly message: string }) {
     return (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>The rulebook could not be loaded</AlertTitle>
-            <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <QueryErrorNotice
+            message={message}
+            title="The rulebook could not be loaded"
+        />
     );
 }
 
@@ -1248,20 +1219,24 @@ function SamplesCard({ control }: { control: Control<RulebookFormValues> }) {
 
 function SectionCard({
     children,
+    info,
+    isComputing = false,
     title,
 }: {
     children: ReactNode;
+    info?: ReactNode;
+    isComputing?: boolean;
     title: string;
 }) {
     return (
-        <Card>
-            <CardHeader>
-                <AccountsCardHeading>{title}</AccountsCardHeading>
-            </CardHeader>
-            <CardContent className={cn('grid gap-4 md:grid-cols-2')}>
-                {children}
-            </CardContent>
-        </Card>
+        <ToolPanel
+            contentClassName="grid gap-4 md:grid-cols-2"
+            info={info}
+            isComputing={isComputing}
+            title={title}
+        >
+            {children}
+        </ToolPanel>
     );
 }
 
@@ -1310,9 +1285,10 @@ function SpecField({
                             {spec.label}
                             {spec.kind === FieldKind.Money && ' ($)'}
                             {spec.kind === FieldKind.Percent && ' (%)'}
-                            {isCustom && (
-                                <Badge variant="warning">custom</Badge>
-                            )}
+                            {isCustom && <Badge>custom</Badge>}
+                            <InfoPopover title={spec.label}>
+                                {settingNote(spec)}
+                            </InfoPopover>
                         </FieldLabel>
                         <Input
                             aria-invalid={fieldState.invalid}
@@ -1324,9 +1300,7 @@ function SpecField({
                             }
                             {...field}
                         />
-                        <FieldDescription>
-                            {spec.hint} {settingNote(spec)}
-                        </FieldDescription>
+                        <FieldDescription>{spec.hint}</FieldDescription>
                         {renderFooter?.(field.onChange)}
                         <FieldError errors={[fieldState.error]} />
                     </Field>
@@ -1363,9 +1337,11 @@ function StrategyCard({ control }: { control: Control<RulebookFormValues> }) {
             <TextField control={control} name="strategy.winrate" />
             <TextField control={control} name="strategy.rr" />
             <TextField control={control} name="strategy.tradesPerDayMax" />
-            <p className="text-xs text-warning" role="status">
-                {note ?? ''}
-            </p>
+            <div role="status">
+                {note !== null && (
+                    <WarningNote className="text-xs">{note}</WarningNote>
+                )}
+            </div>
         </SectionCard>
     );
 }

@@ -14,9 +14,12 @@ import {
     AccountCreator,
     AccountEditor,
 } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
+import { accountStatusLabel } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
 import {
+    AccountReadIssueKind,
     AccountStage,
+    accountStageLabel,
     AccountStatus,
     AccountTracking,
     DashboardBalanceConvention,
@@ -35,7 +38,14 @@ import {
     type TradingFirm,
 } from '~/lib/prop-calculator';
 
+import { typeInto } from '../../../components/formDialog';
+import {
+    closeRowActions,
+    openRowActions,
+    rowActionItem,
+} from '../../../components/rowActionsMenu';
 import { AccountsTable } from './AccountsTableWithData';
+import { detailListEntries } from './detailListEntries';
 
 interface FakeQuery {
     data: unknown;
@@ -235,16 +245,6 @@ async function submitForm(scope: ParentNode) {
             new Event('submit', { bubbles: true, cancelable: true }),
         );
         await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-}
-
-function typeInto(input: HTMLInputElement, value: string) {
-    act(() => {
-        Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            'value',
-        )?.set?.call(input, value);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 }
 
@@ -501,7 +501,9 @@ describe('the account form in ledger-only mode', () => {
         expect(container.textContent).toContain(
             'Your firms could not be loaded',
         );
-        expect(container.textContent).toContain('Failed to fetch');
+        expect(container.textContent).toContain(
+            'Failed to fetch. You can still add an account at a listed firm; a firm you added will not show in the picker until this loads.',
+        );
         expect(container.querySelector('form')).not.toBeNull();
     });
 });
@@ -555,6 +557,36 @@ describe('a stored ledger-only account', () => {
         );
     });
 
+    it('keeps an account with a read issue read-only and lists each stored fact beside its label', () => {
+        harness.queries.set(
+            'propAccounts.account.get',
+            query(
+                storedLedgerOnly({
+                    liveStartBalanceCents: 15_250_000,
+                    readIssues: [
+                        { kind: AccountReadIssueKind.CorruptPersonalRules },
+                    ],
+                }),
+            ),
+        );
+        harness.queries.set('propAccounts.account.list', query([]));
+        harness.queries.set('propAccounts.copyGroup.list', query([]));
+        act(() => {
+            root.render(<AccountEditor id={LEDGER_ID} />);
+        });
+        expect(container.textContent).toContain('This account is read-only');
+        expect(container.querySelector('form')).toBeNull();
+        expect(detailListEntries(container)).toStrictEqual([
+            ['Label', 'Big one'],
+            ['Firm', FIFTY_K.firm.displayName],
+            ['Plan', 'Rapid 150K'],
+            ['Stage', accountStageLabel(AccountStage.Funded)],
+            ['Status', accountStatusLabel(AccountStatus.Active)],
+            ['Purchased on', '3 Aug 2026'],
+            ['Live start balance', '$152,500'],
+        ]);
+    });
+
     it('warns instead of silently falling back to an unlisted firm when the firm list fails to load', () => {
         harness.queries.set(
             'propAccounts.account.get',
@@ -601,7 +633,11 @@ describe('a stored ledger-only account', () => {
         expect(rows).toHaveLength(2);
         for (const row of rows) {
             expect(row.textContent).toContain('Ledger only');
-            expect(row.querySelector('a[aria-label^="Edit"]')).not.toBeNull();
+            openRowActions(row.querySelector('a')?.textContent ?? '');
+            const edit = rowActionItem('Edit');
+            expect(edit.tagName).toBe('A');
+            expect(edit.getAttribute('aria-disabled')).toBeNull();
+            closeRowActions();
         }
         const text = container.textContent;
         expect(text).toContain(FIFTY_K.firm.displayName);

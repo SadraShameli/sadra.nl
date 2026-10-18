@@ -1,13 +1,15 @@
 'use client';
 
-import { matchQuery } from '@tanstack/react-query';
-import { getQueryKey } from '@trpc/react-query';
 import { Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
 
 import { Button } from '~/components/ui/button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import { api } from '~/trpc/react';
+
+import {
+    ACCOUNT_DELETE_DESCRIPTION,
+    accountDeleteTitle,
+    useAccountRemoval,
+} from './useAccountLifecycle';
 
 interface DeleteAccountDialogProperties {
     accountId: string;
@@ -20,40 +22,20 @@ export function DeleteAccountDialog({
     label,
     onDeleted,
 }: DeleteAccountDialogProperties) {
-    const utilities = api.useUtils();
-    const remove = api.propAccounts.account.remove.useMutation({
-        onError: (error) => {
-            toast.error(error.message);
-        },
-        onSuccess: async () => {
-            toast.success(`${label} deleted`);
-            const deletedAccount = {
-                queryKey: getQueryKey(
-                    api.propAccounts.account.get,
-                    { id: accountId },
-                    'query',
-                ),
-            };
-            await utilities.propAccounts.account.get.cancel({ id: accountId });
-            await utilities.propAccounts.invalidate(undefined, {
-                predicate: (query) => !matchQuery(deletedAccount, query),
-            });
-            onDeleted?.();
-        },
-    });
+    const removal = useAccountRemoval(onDeleted);
 
     return (
         <ConfirmDialog
             confirmLabel="Delete"
-            description="This permanently removes the account with its balances, payouts, fees, events and sizing decisions. Archive it instead to keep its history in your totals."
+            description={ACCOUNT_DELETE_DESCRIPTION}
             onConfirm={() => {
-                remove.mutate({ id: accountId });
+                removal.remove({ id: accountId, label });
             }}
-            title={<>Delete &ldquo;{label}&rdquo;?</>}
+            title={accountDeleteTitle(label)}
         >
             <Button
                 aria-label={`Delete ${label}`}
-                disabled={remove.isPending}
+                disabled={removal.isPendingFor(accountId)}
                 size="icon"
                 variant="ghost"
             >

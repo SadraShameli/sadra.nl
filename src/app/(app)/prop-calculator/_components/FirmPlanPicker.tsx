@@ -50,7 +50,7 @@ export default function FirmPlanPicker({
                     value={firm.id}
                 >
                     <SelectTrigger id="firm-select">
-                        <SelectValue />
+                        <SelectValue>{firm.displayName}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         {firms.map((f) => (

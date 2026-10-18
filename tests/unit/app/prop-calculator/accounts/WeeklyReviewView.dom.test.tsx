@@ -23,6 +23,9 @@ import {
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
+import { dialogTitled, findDialogTitled } from '../../../components/formDialog';
+import { infoText } from '../infoPopover';
+
 const FOLLOWED_ID = 'a1111111-1111-4111-8111-111111111111';
 const MISSED_ID = 'a2222222-2222-4222-8222-222222222222';
 const LEDGER_ID = 'a3333333-3333-4333-8333-333333333333';
@@ -301,7 +304,7 @@ describe('WeeklyReviewView adherence and violations', () => {
             ],
         });
         render();
-        expect(container.textContent).toContain(
+        expect(infoText(container, 'Adherence')).toContain(
             'Based on each account latest decision, whatever its date.',
         );
         expect(container.textContent).toContain('Adherence: 100%');
@@ -322,10 +325,10 @@ describe('WeeklyReviewView adherence and violations', () => {
         seed();
         render();
         expect(container.textContent).toContain(
-            'Last decision on 2026-09-14: followed',
+            'Last decision on 14 Sep 2026: followed',
         );
         expect(container.textContent).toContain(
-            'Last decision on 2026-09-14: not followed',
+            'Last decision on 14 Sep 2026: not followed',
         );
     });
 
@@ -344,7 +347,7 @@ describe('WeeklyReviewView adherence and violations', () => {
         expect(container.textContent).toContain(
             'Took an unplanned trade to win back a loss',
         );
-        expect(container.textContent).toContain('2026-09-18');
+        expect(container.textContent).toContain('18 Sep 2026');
         expect(container.textContent).not.toContain(
             'Moved or ignored the stop loss',
         );
@@ -366,13 +369,15 @@ describe('WeeklyReviewView adherence and violations', () => {
         await act(async () => {
             buttonLabelled(container, 'Log violation for Eval missed').click();
         });
-        expect(container.textContent).toContain('Decision on 2026-09-14');
+        const dialog = dialogTitled('Log a violation');
+        expect(dialog.textContent).toContain('Decision on 14 Sep 2026');
         await act(async () => {
-            const button = buttonLabelled(container, 'Add violation');
+            const button = buttonLabelled(dialog, 'Add violation');
             button.focus();
             button.click();
         });
         await flush();
+        expect(findDialogTitled('Log a violation')).toBeNull();
         expect(harness.mutateAsyncOf('violation.create')).toHaveBeenCalledWith({
             accountId: MISSED_ID,
             costCents: null,
@@ -468,7 +473,7 @@ describe('WeeklyReviewView adherence and violations', () => {
     it('states the followed rule: within one rounding step of the accepted risk', () => {
         seed();
         render();
-        expect(container.textContent).toMatch(
+        expect(infoText(container, 'Adherence')).toMatch(
             /Followed means the actual risk is within \$50(?:\.00)? of the accepted risk/,
         );
     });
@@ -485,7 +490,7 @@ describe('WeeklyReviewView adherence and violations', () => {
         });
         render();
         expect(container.textContent).toContain(
-            'Last decision on 2026-09-14: not followed',
+            'Last decision on 14 Sep 2026: not followed',
         );
         expect(container.textContent).toContain(
             'traded below the accepted risk',
@@ -502,13 +507,11 @@ describe('WeeklyReviewView adherence and violations', () => {
         await act(async () => {
             buttonLabelled(container, 'Log violation for Eval missed').click();
         });
-        const form = container.querySelector(
-            'form[aria-label="Log a violation"]',
-        );
+        const form = dialogTitled('Log a violation').querySelector('form');
         expect(form?.textContent).toContain(
             'Leave blank when the dollar cost is not known',
         );
-        expect(form?.textContent).toContain('Decision on 2026-09-14');
+        expect(form?.textContent).toContain('Decision on 14 Sep 2026');
         expect(form?.textContent).toContain('Linked decision');
     });
 
@@ -516,7 +519,7 @@ describe('WeeklyReviewView adherence and violations', () => {
         seed();
         render();
         expect(container.textContent).toContain(
-            'No violations recorded from 2026-09-15 to 2026-09-21.',
+            'No violations recorded from 15 Sep 2026 to 21 Sep 2026.',
         );
     });
 
@@ -545,11 +548,9 @@ describe('WeeklyReviewView adherence and violations', () => {
         await act(async () => {
             buttonLabelled(container, 'Log violation for Eval missed').click();
         });
-        const form = container.querySelector(
-            'form[aria-label="Log a violation"]',
-        );
+        const form = dialogTitled('Log a violation').querySelector('form');
         const trigger = [...(form?.querySelectorAll('button') ?? [])].find(
-            (button) => button.textContent.includes('Decision on 2026-09-14'),
+            (button) => button.textContent.includes('Decision on 14 Sep 2026'),
         );
         expect(trigger).toBeDefined();
         expect(trigger?.hasAttribute('disabled')).toBe(true);
@@ -562,9 +563,10 @@ describe('WeeklyReviewView adherence and violations', () => {
             buttonLabelled(container, 'Log violation for Eval missed').click();
         });
         const active = document.activeElement;
-        expect(active?.closest('form')?.getAttribute('aria-label')).toBe(
-            'Log a violation',
-        );
+        expect(
+            active?.closest('[role="dialog"]') ===
+                dialogTitled('Log a violation'),
+        ).toBe(true);
         expect(active?.getAttribute('role')).toBe('combobox');
     });
 
@@ -575,8 +577,9 @@ describe('WeeklyReviewView adherence and violations', () => {
             buttonLabelled(container, 'Log violation for Eval missed').click();
         });
         await act(async () => {
-            buttonLabelled(container, 'Cancel').click();
+            buttonLabelled(dialogTitled('Log a violation'), 'Cancel').click();
         });
+        expect(findDialogTitled('Log a violation')).toBeNull();
         expect(document.activeElement).toBe(
             buttonLabelled(container, 'Log violation for Eval missed'),
         );
@@ -589,7 +592,10 @@ describe('WeeklyReviewView adherence and violations', () => {
             buttonLabelled(container, 'Log violation for Eval missed').click();
         });
         await act(async () => {
-            buttonLabelled(container, 'Add violation').click();
+            buttonLabelled(
+                dialogTitled('Log a violation'),
+                'Add violation',
+            ).click();
         });
         await flush();
         harness.queries.set(
@@ -625,7 +631,7 @@ describe('WeeklyReviewView adherence and violations', () => {
         expect(container.textContent).toContain('Adherence: 50%');
         expect(container.textContent).toContain('Could not refresh');
         expect(
-            container.querySelector('form[aria-label="Log a violation"]'),
+            dialogTitled('Log a violation').querySelector('form'),
         ).not.toBeNull();
     });
 
@@ -708,13 +714,13 @@ describe('WeeklyReviewView across midnight', () => {
             root.render(<WeeklyReviewView />);
         });
         expect(container.textContent).toContain(
-            'No violations recorded from 2026-09-15 to 2026-09-21.',
+            'No violations recorded from 15 Sep 2026 to 21 Sep 2026.',
         );
         act(() => {
             vi.advanceTimersByTime(120_000);
         });
         expect(container.textContent).toContain(
-            'No violations recorded from 2026-09-15 to 2026-09-22.',
+            'No violations recorded from 15 Sep 2026 to 22 Sep 2026.',
         );
     });
 

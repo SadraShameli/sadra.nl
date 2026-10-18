@@ -1,33 +1,37 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Copy, Cpu, Key, Pencil, Plus, ShieldOff, Sliders } from 'lucide-react';
+import { Copy, Cpu, Key, Plus, Radio, ShieldOff, Sliders } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
-import {
-    ProfileIdSelectField,
-    ProfileNumberField,
-    ProfileTextField,
-} from '~/app/(app)/profile/_components/ProfileFormFields';
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
+import { idSelectKey } from '~/app/(app)/profile/_components/idSelectKey';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
-    ProfileTableEmpty,
-    RowActionButton,
-    RowConfirmAction,
+    ProfileCollectionEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { FormDialog } from '~/components/FormDialog';
+import {
+    FormNumberField,
+    FormSelectField,
+    FormTextField,
+} from '~/components/FormFields';
+import {
+    deleteRowAction,
+    editRowAction,
+    type RowAction,
+    RowActionKind,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
 import { CheckboxCard } from '~/components/ToggleCard';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import {
@@ -39,6 +43,12 @@ import {
     DialogTrigger,
 } from '~/components/ui/dialog';
 import {
+    EmptyState,
+    EmptyStateSize,
+    NoMatchesState,
+} from '~/components/ui/empty-state';
+import { Skeleton } from '~/components/ui/skeleton';
+import {
     type DeviceCreateInput,
     deviceCreateSchema,
 } from '~/lib/schemas/sensor-hub';
@@ -47,6 +57,8 @@ import { api, type RouterOutputs } from '~/trpc/react';
 type DeviceRow = RouterOutputs['device']['listAdmin'][number];
 
 type LocationOption = { id: number; name: string };
+
+const SENSOR_SKELETON_CARDS = 4;
 
 const DeviceColumn = {
     Location: 'location',
@@ -119,6 +131,7 @@ export function DevicesPanel() {
                     </div>
                 ),
                 header: 'Device',
+                meta: { isRowHeader: true },
             },
             {
                 accessorFn: (row) =>
@@ -148,14 +161,10 @@ export function DevicesPanel() {
                 cell: ({ row }) => {
                     const d = row.original;
                     if (d.token_revoked_at) {
-                        return (
-                            <MutedCell className="text-destructive">
-                                revoked
-                            </MutedCell>
-                        );
+                        return <MutedCell>revoked</MutedCell>;
                     }
                     return d.has_token && d.token_created_at ? (
-                        <MutedCell className="text-success">issued</MutedCell>
+                        <MutedCell>issued</MutedCell>
                     ) : (
                         <MutedCell>none</MutedCell>
                     );
@@ -163,17 +172,25 @@ export function DevicesPanel() {
                 header: 'Token',
                 id: 'token',
             },
-            profileActionsColumn<DeviceRow>((device) => (
-                <>
-                    <RowActionButton
-                        disabled={
-                            issue.isPending && issue.variables.id === device.id
-                        }
-                        icon={Key}
-                        label={
-                            device.has_token ? 'Rotate token' : 'Issue token'
-                        }
-                        onClick={() =>
+            rowActionsColumn<DeviceRow>({
+                actionsOf: (device) => [
+                    {
+                        confirm: device.has_token
+                            ? {
+                                  confirmLabel: 'Rotate token',
+                                  description:
+                                      'The current token stops working as soon as the new one is issued.',
+                                  title: `Rotate the token for “${device.name}”?`,
+                              }
+                            : undefined,
+                        icon: Key,
+                        isDisabled:
+                            issue.isPending && issue.variables.id === device.id,
+                        kind: RowActionKind.Select,
+                        label: device.has_token
+                            ? 'Rotate token'
+                            : 'Issue token',
+                        onSelect: () =>
                             issue.mutate(
                                 { id: device.id },
                                 {
@@ -183,35 +200,45 @@ export function DevicesPanel() {
                                             token,
                                         }),
                                 },
-                            )
-                        }
-                    />
-                    {device.has_token && !device.token_revoked_at && (
-                        <RowActionButton
-                            disabled={revoke.isPending}
-                            icon={ShieldOff}
-                            label="Revoke token"
-                            onClick={() => revoke.mutate({ id: device.id })}
-                        />
-                    )}
-                    <RowActionButton
-                        icon={Sliders}
-                        label="Manage sensors"
-                        onClick={() => setManagingSensorsFor(device.id)}
-                    />
-                    <RowActionButton
-                        icon={Pencil}
-                        label="Edit device"
-                        onClick={() => setEditing(device)}
-                    />
-                    <RowConfirmAction
-                        description="Fails if readings or recordings reference this device."
-                        label="Delete device"
-                        onConfirm={() => del.mutate({ id: device.id })}
-                        title={`Delete device “${device.name}”?`}
-                    />
-                </>
-            )),
+                            ),
+                    },
+                    ...(device.has_token && !device.token_revoked_at
+                        ? [
+                              {
+                                  confirm: {
+                                      confirmLabel: 'Revoke token',
+                                      description:
+                                          'The device can no longer report until you issue a new token.',
+                                      title: `Revoke the token for “${device.name}”?`,
+                                  },
+                                  icon: ShieldOff,
+                                  isDestructive: true,
+                                  isDisabled: revoke.isPending,
+                                  kind: RowActionKind.Select,
+                                  label: 'Revoke token',
+                                  onSelect: () =>
+                                      revoke.mutate({ id: device.id }),
+                              } satisfies RowAction,
+                          ]
+                        : []),
+                    {
+                        icon: Sliders,
+                        kind: RowActionKind.Select,
+                        label: 'Manage sensors',
+                        onSelect: () => setManagingSensorsFor(device.id),
+                    },
+                    editRowAction(() => setEditing(device)),
+                    deleteRowAction({
+                        description:
+                            'Fails if readings or recordings reference this device.',
+                        onDelete: () => del.mutate({ id: device.id }),
+                        title: `Delete device “${device.name}”?`,
+                    }),
+                ],
+                isPendingOf: (device) =>
+                    del.isPending && del.variables.id === device.id,
+                labelOf: (device) => device.name,
+            }),
         ],
         [del, issue, locMap, revoke],
     );
@@ -228,36 +255,40 @@ export function DevicesPanel() {
     return (
         <>
             <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                <ProfilePanel
-                    action={newButton}
+                <ToolPanel
+                    actions={newButton}
                     description="Sensor boards, their tokens and the sensors they carry."
                     title="Devices"
                 >
-                    <DataTable
-                        columns={columns}
-                        data={allRows}
-                        emptyState={(table) => (
-                            <ProfileTableEmpty
-                                action={newButton}
-                                description="Register a sensor device to start collecting readings."
-                                filtered={hasActiveTableFilter(table)}
-                                icon={Cpu}
-                                noun="devices"
-                            />
-                        )}
-                        filterPlaceholder="Search devices…"
-                        headerActions={(table) => (
-                            <DataTableFacetSelect
-                                column={table.getColumn(DeviceColumn.Location)}
-                                label="Location"
-                                placeholder="All locations"
-                            />
-                        )}
-                        isLoading={devices.isLoading}
-                        rowId={(r) => String(r.id)}
-                        showFilter
-                    />
-                </ProfilePanel>
+                    {!devices.isLoading && allRows.length === 0 ? (
+                        <ProfileCollectionEmpty
+                            description="Register a sensor device to start collecting readings."
+                            icon={Cpu}
+                            noun="devices"
+                        />
+                    ) : (
+                        <DataTable
+                            columns={columns}
+                            data={allRows}
+                            emptyState={
+                                <NoMatchesState icon={Cpu} noun="devices" />
+                            }
+                            filterPlaceholder="Search devices…"
+                            headerActions={(table) => (
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        DeviceColumn.Location,
+                                    )}
+                                    label="Location"
+                                    placeholder="All locations"
+                                />
+                            )}
+                            isLoading={devices.isLoading}
+                            rowId={(r) => String(r.id)}
+                            showFilter
+                        />
+                    )}
+                </ToolPanel>
                 <DeviceDialog
                     initial={null}
                     locations={locOptions}
@@ -349,7 +380,7 @@ function DeviceDialog({
         resolver: zodResolver(deviceCreateSchema),
     });
     return (
-        <ProfileFormDialog
+        <FormDialog
             form={form}
             onCancel={onClose}
             onSubmit={onSubmit}
@@ -357,34 +388,38 @@ function DeviceDialog({
             submitLabel={initial ? 'Save' : 'Create'}
             title={initial ? 'Edit device' : 'New device'}
         >
-            <ProfileTextField control={form.control} label="Name" name="name" />
+            <FormTextField control={form.control} label="Name" name="name" />
             {initial === null && (
-                <ProfileNumberField
+                <FormNumberField
                     control={form.control}
+                    isInteger
                     label="Public device ID"
                     name="device_id"
                 />
             )}
-            <ProfileIdSelectField
+            <FormSelectField
                 control={form.control}
+                keyOf={idSelectKey}
                 label="Location"
                 name="location_id"
-                options={locations.map((l) => ({ id: l.id, label: l.name }))}
+                options={locations.map((l) => ({ label: l.name, value: l.id }))}
                 placeholder="Pick a location"
             />
             <div className="grid grid-cols-2 gap-3">
-                <ProfileNumberField
+                <FormNumberField
                     control={form.control}
+                    isInteger
                     label="Loudness threshold"
                     name="loudness_threshold"
                 />
-                <ProfileNumberField
+                <FormNumberField
                     control={form.control}
+                    isInteger
                     label="Interval (s)"
                     name="register_interval"
                 />
             </div>
-        </ProfileFormDialog>
+        </FormDialog>
     );
 }
 
@@ -488,7 +523,7 @@ function ManageSensorsDialog({
                     Sensors for {device?.name ?? `device #${deviceId}`}
                 </DialogTitle>
             </DialogHeader>
-            <div className="grid max-h-80 gap-2 overflow-y-auto py-2 sm:grid-cols-2">
+            <div className="grid max-h-80 gap-2 overflow-y-auto py-2 md:grid-cols-2">
                 {(allSensors.data ?? []).map((s) => (
                     <CheckboxCard
                         checked={selected.has(s.id)}
@@ -499,10 +534,24 @@ function ManageSensorsDialog({
                         onCheckedChange={() => toggle(s.id)}
                     />
                 ))}
-                {(allSensors.data ?? []).length === 0 && (
-                    <p className="py-2 text-center text-sm text-muted-foreground">
-                        No sensors defined. Create one in the Sensors tab.
-                    </p>
+                {allSensors.isLoading &&
+                    Array.from(
+                        { length: SENSOR_SKELETON_CARDS },
+                        (_, index) => (
+                            <Skeleton
+                                className="h-14 w-full rounded-2xl"
+                                key={index}
+                            />
+                        ),
+                    )}
+                {allSensors.data?.length === 0 && (
+                    <EmptyState
+                        className="md:col-span-2"
+                        description="Create one in the Sensors tab."
+                        icon={Radio}
+                        size={EmptyStateSize.Compact}
+                        title="No sensors yet"
+                    />
                 )}
             </div>
             <DialogFooter>

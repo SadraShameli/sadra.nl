@@ -1,3 +1,5 @@
+import { formatISO } from 'date-fns';
+
 const DAY_MS = 86_400_000;
 
 export function endOfDayExclusive(date: Date): Date {
@@ -11,6 +13,10 @@ export function isMidnight(date: Date): boolean {
         date.getUTCSeconds() === 0 &&
         date.getUTCMilliseconds() === 0
     );
+}
+
+export function localIsoDate(date: Date): string {
+    return formatISO(date, { representation: 'date' });
 }
 
 export function rangeEnd(to: Date): Date {

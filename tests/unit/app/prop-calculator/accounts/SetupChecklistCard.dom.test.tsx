@@ -5,17 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     type SetupChecklistCardModel,
     setupChecklistCardOf,
+    SetupRowStatus,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import {
     SetupChecklistCard,
     SetupChecklistCompact,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/SetupChecklistCard';
 import { BankrollTransferKind, FeeKind } from '~/lib/prop-accounts/core';
-import {
-    setupChecklistOf,
-    SetupStep,
-    SetupStepStatus,
-} from '~/lib/prop-accounts/metrics';
+import { setupChecklistOf, SetupStep } from '~/lib/prop-accounts/metrics';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
 import {
@@ -33,12 +30,15 @@ function hrefsOf(container: HTMLElement): readonly string[] {
 }
 
 function modelOf(options: {
+    readonly expectedValueFailure?: string;
     readonly hub: boolean;
     readonly withCosts: boolean;
 }): SetupChecklistCardModel {
     const held = account(EVAL_PLAN, { label: 'Eval one' });
+    const expectedValueFailure = options.expectedValueFailure ?? null;
     const checklist = setupChecklistOf({
-        expectedValuePlanSerials: options.hub ? null : new Set(),
+        expectedValuePlanSerials:
+            expectedValueFailure !== null || options.hub ? null : new Set(),
         ledger: ledger({
             accounts: [held],
             fees: options.withCosts
@@ -51,7 +51,10 @@ function modelOf(options: {
         rulebook: DEFAULT_RULEBOOK,
         staleSnapshotNotes: new Map(),
     });
-    const card = setupChecklistCardOf(checklist);
+    const card = setupChecklistCardOf(checklist, {
+        expectedValueFailure,
+        isCounting: false,
+    });
     return options.hub ? { ...card, totalSteps: card.totalSteps - 1 } : card;
 }
 
@@ -87,8 +90,8 @@ describe('SetupChecklistCard', () => {
             const anchors = [...container.querySelectorAll('a')];
             const openSteps = model.steps.filter(
                 (candidate) =>
-                    candidate.status === SetupStepStatus.Missing ||
-                    candidate.status === SetupStepStatus.NotChecked,
+                    candidate.status === SetupRowStatus.Missing ||
+                    candidate.status === SetupRowStatus.NotChecked,
             );
             expect(openSteps.length).toBeGreaterThan(0);
             for (const step of openSteps) {
@@ -153,7 +156,7 @@ describe('SetupChecklistCard', () => {
             render(<SetupChecklistCard model={model} />);
             const hrefs = hrefsOf(container);
             for (const step of model.steps) {
-                if (step.status === SetupStepStatus.Missing) {
+                if (step.status === SetupRowStatus.Missing) {
                     expect(hrefs).toContain(step.href);
                 }
                 for (const item of [...step.items, ...step.accounts]) {
@@ -163,6 +166,29 @@ describe('SetupChecklistCard', () => {
             expect(container.textContent).toContain(
                 `${String(model.doneCount)} of ${String(model.totalSteps)} steps done`,
             );
+        });
+
+        it('shows a failed engine with its reason instead of waiting forever, keeps the link to the expected net and counts only the steps done', () => {
+            const failure = 'Web workers are not available in this browser.';
+            const model = modelOf({
+                expectedValueFailure: failure,
+                hub: false,
+                withCosts: true,
+            });
+            const evStep = model.steps.find(
+                (step) => step.key === SetupStep.ExpectedValueComputed,
+            );
+            expect(evStep?.status).toBe(SetupRowStatus.Failed);
+            render(<SetupChecklistCard model={model} />);
+            expect(container.textContent).toContain(
+                'The engine failed: Expected value computed',
+            );
+            expect(container.textContent).toContain(failure);
+            expect(container.textContent).not.toContain(
+                'Waiting for the engine',
+            );
+            expect(hrefsOf(container)).toContain(evStep?.href);
+            expect(container.textContent).toContain('4 of 5 steps done');
         });
     });
 });

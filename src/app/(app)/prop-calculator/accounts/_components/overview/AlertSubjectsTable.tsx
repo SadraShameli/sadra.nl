@@ -6,7 +6,7 @@ import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 
 import { type OverviewAlert } from './overviewModel';
 
-const ALERT_SUBJECTS_PAGE_SIZE = 5;
+const ALERT_SUBJECTS_SEARCH_MIN = 5;
 
 enum AlertSubjectColumn {
     Detail = 'detail',
@@ -19,6 +19,7 @@ const ALERT_SUBJECT_COLUMNS: DataTableColumn<OverviewAlert>[] = [
         cell: ({ row }) => <AlertSubjectLabel alert={row.original} />,
         header: 'Account',
         id: AlertSubjectColumn.Subject,
+        meta: { isRowHeader: true },
     },
     {
         accessorFn: (row) => row.message,
@@ -60,9 +61,8 @@ export function AlertSubjectsTable({
             data={[...alerts]}
             filterPlaceholder="Search accounts"
             initialSorting={[{ desc: false, id: AlertSubjectColumn.Subject }]}
-            pageSize={ALERT_SUBJECTS_PAGE_SIZE}
             rowId={(row) => row.key}
-            showFilter={alerts.length > ALERT_SUBJECTS_PAGE_SIZE}
+            showFilter={alerts.length > ALERT_SUBJECTS_SEARCH_MIN}
         />
     );
 }

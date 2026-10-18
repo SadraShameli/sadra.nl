@@ -42,7 +42,7 @@ export default function PortfolioEntry({
                         </span>
                     )
                 ) : null}
-                {isCurrent ? <Badge variant="success">Current</Badge> : null}
+                {isCurrent ? <Badge>Current</Badge> : null}
             </div>
 
             <div className="flex min-w-0 flex-col gap-5">
@@ -74,13 +74,13 @@ export default function PortfolioEntry({
                 </div>
 
                 {entry.summary ? (
-                    <p className="m-0 max-w-prose text-[15px]/relaxed text-ink-soft">
+                    <p className="m-0 max-w-prose type-small text-ink-soft">
                         {parse(entry.summary)}
                     </p>
                 ) : null}
 
                 {entry.highlights?.length ? (
-                    <ul className="m-0 flex max-w-prose list-none flex-col gap-2.5 p-0 text-[15px]/relaxed text-ink-soft">
+                    <ul className="m-0 flex max-w-prose list-none flex-col gap-2.5 p-0 type-small text-ink-soft">
                         {entry.highlights.map((highlight) => (
                             <li className="flex gap-3" key={highlight}>
                                 <span
@@ -97,7 +97,7 @@ export default function PortfolioEntry({
                     <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
                         {entry.skills.map((skill) => (
                             <li key={skill}>
-                                <Badge variant="outline">{skill}</Badge>
+                                <Badge>{skill}</Badge>
                             </li>
                         ))}
                     </ul>

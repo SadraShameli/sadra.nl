@@ -14,10 +14,10 @@ const BIN_COUNT = 20;
 export default function DaysToPassHistogramView({ result }: Properties) {
     return (
         <HistogramChartView
-            barColor="var(--success)"
+            barColor="var(--chart-1)"
             barLabel="Passing trials"
             binCount={wholeDayBinCount(result.daysToPassValues)}
-            emptyMessage="No passing trials yet."
+            emptyMessage="No passing trials yet"
             size={ChartSize.Tall}
             values={result.daysToPassValues}
             wrapperClassName="app-prop-calculator__days-to-pass-histogram"

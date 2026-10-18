@@ -74,7 +74,7 @@ describe('FirmReturnsCard', () => {
         });
         const firmNames = [
             ...container.querySelectorAll(':scope tbody tr'),
-        ].map((tableRow) => tableRow.querySelector(':scope td')?.textContent);
+        ].map((tableRow) => tableRow.querySelector(':scope th')?.textContent);
         expect(firmNames).toEqual([
             'Winner firm',
             'Real zero firm',

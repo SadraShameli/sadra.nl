@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Info, TriangleAlert } from 'lucide-react';
+import { History } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -16,9 +16,12 @@ import {
     type AccountListAccount,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { accountEventKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { InfoNote } from '~/components/InfoNote';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard } from '~/components/ToggleCard';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     Field,
     FieldDescription,
@@ -34,6 +37,7 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
+import { formatDisplayDate } from '~/lib/format';
 import {
     AccountEventKind,
     type AccountLifecycleState,
@@ -120,9 +124,11 @@ export function EventsSection({
         <>
             <ListQueryStatus query={query} subject="account events" />
             {rows?.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                    No lifecycle events recorded yet.
-                </p>
+                <EmptyState
+                    icon={History}
+                    size={EmptyStateSize.Compact}
+                    title="No lifecycle events recorded yet"
+                />
             )}
             {rows !== undefined && rows.length > 0 && (
                 <ol className="flex flex-col gap-2 text-sm">
@@ -130,7 +136,7 @@ export function EventsSection({
                         <li className="flex flex-col" key={row.id}>
                             <span>
                                 <span className="tabular-nums">
-                                    {row.occurredOn}
+                                    {formatDisplayDate(row.occurredOn)}
                                 </span>{' '}
                                 <span className="font-medium">
                                     {accountEventKindLabel(row.kind)}
@@ -166,9 +172,10 @@ export function EventsSection({
                 </p>
             )}
             {plan !== null && options.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                    No lifecycle event applies to this account now.
-                </p>
+                <EmptyState
+                    size={EmptyStateSize.Compact}
+                    title="No lifecycle event applies to this account now"
+                />
             )}
             {options.length > 0 && (
                 <EventForm
@@ -351,7 +358,14 @@ function EventForm({
                                 id={`${formId}-kind`}
                                 ref={field.ref}
                             >
-                                <SelectValue placeholder="Choose an event" />
+                                <SelectValue placeholder="Choose an event">
+                                    {
+                                        options.find(
+                                            (option) =>
+                                                option.kind === field.value,
+                                        )?.label
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {options.map((option) => (
@@ -397,7 +411,9 @@ function EventForm({
                                     id={`${formId}-bustCause`}
                                     ref={field.ref}
                                 >
-                                    <SelectValue />
+                                    <SelectValue>
+                                        {bustCauseLabel(field.value)}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {Object.values(BustCause).map((cause) => (
@@ -454,49 +470,42 @@ function EventForm({
                 )}
             />
             {shown !== null && (
-                <Alert className="md:col-span-2">
-                    <Info />
-                    <AlertTitle>{shown.title}</AlertTitle>
-                    <AlertDescription>
-                        {shown.lines.map((line) => (
-                            <p key={line}>{line}</p>
-                        ))}
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    className="md:col-span-2"
+                    detail={<LineSpans lines={shown.lines} />}
+                    title={shown.title}
+                    tone={
+                        shown.requiresConfirmation
+                            ? StatusTone.Warn
+                            : StatusTone.Neutral
+                    }
+                />
             )}
             {isAwaitingAccounts && (
-                <Alert className="md:col-span-2">
-                    <Info />
-                    <AlertTitle>Loading your other accounts</AlertTitle>
-                    <AlertDescription>
-                        What the firm&apos;s rules do to your other accounts
-                        when this one goes live is shown once they are loaded;
-                        recording waits until then.
-                    </AlertDescription>
-                </Alert>
+                <InfoNote className="md:col-span-2">
+                    Loading your other accounts. What the firm&apos;s rules do
+                    to your other accounts when this one goes live is shown once
+                    they are loaded; recording waits until then.
+                </InfoNote>
             )}
             {isMovedLive && accountsFailed && (
-                <Alert className="md:col-span-2" variant="warning">
-                    <TriangleAlert />
-                    <AlertTitle>Other accounts not loaded</AlertTitle>
-                    <AlertDescription>
-                        Your other accounts could not be loaded, so what the
-                        firm&apos;s rules do to them is not shown. Recording
-                        this event is refused if the firm&apos;s policy suspends
-                        another of your accounts; reload to see which.
-                    </AlertDescription>
-                </Alert>
+                <QueryErrorNotice
+                    className="md:col-span-2"
+                    message="Your other accounts could not be loaded, so what the firm's rules do to them is not shown. Recording this event is refused if the firm's policy suspends another of your accounts; reload to see which."
+                    title="Other accounts not loaded"
+                />
             )}
             {exclusivity !== null && (
-                <Alert className="md:col-span-2">
-                    <Info />
-                    <AlertTitle>{exclusivity.title}</AlertTitle>
-                    <AlertDescription>
-                        {exclusivity.lines.map((line) => (
-                            <p key={line}>{line}</p>
-                        ))}
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    className="md:col-span-2"
+                    detail={<LineSpans lines={exclusivity.lines} />}
+                    title={exclusivity.title}
+                    tone={
+                        exclusivity.effects.length === 0
+                            ? StatusTone.Neutral
+                            : StatusTone.Warn
+                    }
+                />
             )}
             {exclusivity !== null &&
                 exclusivity.confirmedAccountIds.length > 0 && (
@@ -584,6 +593,14 @@ function firmColumnsOf(
         : null;
 }
 
+function LineSpans({ lines }: { readonly lines: readonly string[] }) {
+    return lines.map((line) => (
+        <span className="block" key={line}>
+            {line}
+        </span>
+    ));
+}
+
 function MovedLiveSuggestion({
     externalFirms,
     firmColumns,
@@ -609,16 +626,9 @@ function MovedLiveSuggestion({
     });
 
     return (
-        <Alert className="mt-4">
-            <Info />
-            <AlertTitle>Mark {firmLabel} as sent live?</AlertTitle>
-            <AlertDescription>
-                <p>
-                    This account just moved live at {firmLabel}. Recording the
-                    firm as &quot;Retired: sent live&quot; flags any other
-                    account you still simulate there.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
+        <StatusRow
+            actions={
+                <>
                     <Button
                         disabled={engagementMutation.isPending}
                         onClick={() => {
@@ -644,9 +654,13 @@ function MovedLiveSuggestion({
                     >
                         Not now
                     </Button>
-                </div>
-            </AlertDescription>
-        </Alert>
+                </>
+            }
+            className="mt-4"
+            detail={`This account just moved live at ${firmLabel}. Recording the firm as "Retired: sent live" flags any other account you still simulate there.`}
+            title={`Mark ${firmLabel} as sent live?`}
+            tone={StatusTone.Neutral}
+        />
     );
 }
 

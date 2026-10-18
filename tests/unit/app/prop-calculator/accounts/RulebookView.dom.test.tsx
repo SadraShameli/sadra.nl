@@ -21,6 +21,9 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import { DEFAULT_PLAN } from '~/lib/trading/defaults';
 
+import { typeInto } from '../../../components/formDialog';
+import { infoText } from '../infoPopover';
+
 interface FakeRulebookQuery {
     data: unknown;
     error: Error | null;
@@ -157,17 +160,22 @@ function invalidStoredRulebookError(): Error {
     });
 }
 
+function isLiveTransferCardBusy(scope: HTMLElement): boolean {
+    const heading = [...scope.querySelectorAll('h2')].find(
+        (candidate) =>
+            candidate.textContent ===
+            'Live transfer (your assumption, not a firm rule)',
+    );
+    return (
+        heading?.closest('[data-slot="card"]')?.getAttribute('aria-busy') ===
+        'true'
+    );
+}
+
 function requireButton(scope: ParentNode, name: string): HTMLButtonElement {
     const button = buttonIn(scope, name);
     if (button === undefined) throw new Error(`no ${name} button`);
     return button;
-}
-
-function typeInto(input: HTMLInputElement, text: string) {
-    act(() => {
-        Reflect.set(HTMLInputElement.prototype, 'value', text, input);
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
 }
 
 describe('RulebookView import preview', () => {
@@ -671,7 +679,9 @@ describe('RulebookView v2 sections', () => {
 
     it('renders a fieldset for every v2 section', () => {
         const titles = [
-            ...container.querySelectorAll('[data-slot="card-title"]'),
+            ...container.querySelectorAll(
+                ':scope [data-slot="card-header"] h2',
+            ),
         ].map((title) => title.textContent);
         expect(titles).toEqual(
             expect.arrayContaining([
@@ -702,7 +712,7 @@ describe('RulebookView v2 sections', () => {
         expect(note?.textContent).toContain('1:2.00');
     });
 
-    it('adds the full-Kelly growth and the one-month multiple at the strategy trades per day to the note (F-V22, PT-86)', () => {
+    it('adds the full-Kelly growth and a capped one-month multiple at the strategy trades per day to the note (F-V22, PT-86)', () => {
         typeInto(inputLabelled('Win rate'), '90');
         const growth =
             kellyGrowthPerTrade(fraction(0.9), DEFAULT_RULEBOOK.strategy.rr)
@@ -720,8 +730,10 @@ describe('RulebookView v2 sections', () => {
         expect(text).toContain(
             `${String(DEFAULT_RULEBOOK.strategy.tradesPerDayMax)} trades per day`,
         );
-        expect(text).toContain(
-            `compounds to ${multiple.toLocaleString('en-US', { maximumFractionDigits: 2 })}x`,
+        expect(multiple).toBeGreaterThan(1000);
+        expect(text).toContain('compounds to more than 1,000x');
+        expect(text).not.toContain(
+            multiple.toLocaleString('en-US', { maximumFractionDigits: 2 }),
         );
         expect(text).toContain(
             'information, not sizing; Kelly is not prop-firm sizing',
@@ -756,7 +768,7 @@ describe('RulebookView v2 sections', () => {
         expect(itemOf('Eval attempts before').textContent).toContain(
             "50 (the video author's choice, not a default)",
         );
-        expect(itemOf('Loss-risk threshold').textContent).toContain(
+        expect(infoText(container, 'Loss-risk threshold')).toContain(
             'Empty means not set.',
         );
     });
@@ -766,12 +778,14 @@ describe('RulebookView v2 sections', () => {
         expect(inputLabelled('Typical edge up to').value).toBe('0.3');
         expect(inputLabelled('Strong edge up to').value).toBe('0.35');
         expect(itemOf('Show risk as').textContent).toContain('Account dollars');
-        expect(inputLabelled('Highlight a next payout within').value).toBe('7');
+        expect(inputLabelled('Mark a next payout as soon within').value).toBe(
+            '7',
+        );
         expect(inputLabelled('My Funded Futures').value).toBe('');
     });
 
-    it('saves the next payout highlight window the user sets, in whole days', async () => {
-        typeInto(inputLabelled('Highlight a next payout within'), '10');
+    it('saves the window that marks a next payout as soon, in whole days', async () => {
+        typeInto(inputLabelled('Mark a next payout as soon within'), '10');
         await save();
 
         expect(harness.upsert).toHaveBeenCalledWith({
@@ -947,7 +961,11 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         expect(item.textContent).toContain(
             'Measured: 0.0% per paid payout (0 sent live in 12 paid payouts)',
         );
-        expect(item.querySelector('button')).toBeNull();
+        expect(
+            [...item.querySelectorAll('button')].filter((button) =>
+                button.textContent.startsWith('Use'),
+            ),
+        ).toEqual([]);
     });
 
     it('says the measurement is history, not a firm rule', () => {
@@ -989,7 +1007,10 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
 
     it('says a hazard entered for a firm is applied to every simulation built from the rulebook for that firm', () => {
         render();
-        const text = container.textContent;
+        const text = infoText(
+            container,
+            'Live transfer (your assumption, not a firm rule)',
+        );
         expect(text).toContain(
             "applied to every simulation built from your rulebook for that firm's accounts",
         );
@@ -1009,7 +1030,12 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
 
     it('says only the advisor run note states the hazard beside its figures, so the other surfaces do not hide it', () => {
         render();
-        expect(container.textContent).toContain(
+        expect(
+            infoText(
+                container,
+                'Live transfer (your assumption, not a firm rule)',
+            ),
+        ).toContain(
             "Only the advisor's run note states it beside its figures; the other surfaces apply it without repeating it",
         );
     });
@@ -1022,10 +1048,10 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         );
     });
 
-    it('says the measured rates are loading while the ledger is read', () => {
+    it('marks the live transfer card as computing while the ledger is read', () => {
         harness.measuredStatus = { failed: false, pending: true };
         render();
-        expect(container.textContent).toContain('Loading your measured rates');
+        expect(isLiveTransferCardBusy(container)).toBe(true);
         expect(container.textContent).not.toContain(
             'Measured rates unavailable',
         );
@@ -1040,17 +1066,17 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         };
         render();
         expect(hazardItem('My Funded Futures').textContent).toContain(
-            'n/a: 2 transfers against 1 paid payout',
+            'Not measured: 2 transfers against 1 paid payout',
         );
-        expect(hazardItem('Apex').textContent).not.toContain('n/a:');
+        expect(hazardItem('Apex').textContent).not.toContain('Not measured:');
         expect(container.textContent).not.toContain(
             'Measured rates unavailable',
         );
     });
 
-    it('shows no n/a line when every rate was measured', () => {
+    it('shows no not-measured line when every rate was measured', () => {
         render();
-        expect(container.textContent).not.toContain('n/a:');
+        expect(container.textContent).not.toContain('Not measured:');
     });
 
     it('discloses how many measured transfers are accounts recorded straight at Live', () => {
@@ -1085,9 +1111,7 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
 
     it('shows neither notice when the rates were read', () => {
         render();
-        expect(container.textContent).not.toContain(
-            'Loading your measured rates',
-        );
+        expect(isLiveTransferCardBusy(container)).toBe(false);
         expect(container.textContent).not.toContain(
             'Measured rates unavailable',
         );

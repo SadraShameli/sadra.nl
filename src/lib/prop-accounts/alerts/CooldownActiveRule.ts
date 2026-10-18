@@ -1,3 +1,4 @@
+import { formatDisplayDate } from '~/lib/format';
 import {
     findStoredFirm,
     liveBustCooldownStateOf,
@@ -50,7 +51,7 @@ export class CooldownActiveRule extends AccountAlertRule {
             return this.alertFor(
                 monitored,
                 AlertSeverity.Warning,
-                `in the verified cooldown after the live bust on ${state.bustedOn} (${state.daysSinceBust} days elapsed)`,
+                `in the verified cooldown after the live bust on ${formatDisplayDate(state.bustedOn)} (${state.daysSinceBust} days elapsed)`,
             );
         }
         const window = cooldownWindowDaysOf(policy.cooldown);
@@ -59,7 +60,7 @@ export class CooldownActiveRule extends AccountAlertRule {
             ? this.alertFor(
                   monitored,
                   AlertSeverity.Info,
-                  `cooldown over: the verified cooldown after the live bust on ${state.bustedOn} has ended`,
+                  `cooldown over: the verified cooldown after the live bust on ${formatDisplayDate(state.bustedOn)} has ended`,
               )
             : null;
     }

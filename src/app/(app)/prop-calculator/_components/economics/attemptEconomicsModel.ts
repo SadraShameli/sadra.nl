@@ -1,5 +1,5 @@
 import { kpiDescriptions } from '~/app/(app)/prop-calculator/_components/kpiDescriptions';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     attemptEconomicsOfRun,
     ECONOMICS_REASON_TEXT,
@@ -30,7 +30,7 @@ export type AttemptEconomicsCardModel =
 export interface AttemptEconomicsDecompositionRow {
     infoText?: string;
     label: string;
-    valueText: string;
+    valueText: null | string;
 }
 
 export type AttemptEconomicsRunOutputs = RunAttemptOutputs & {
@@ -108,14 +108,14 @@ export function attemptEconomicsCardModel(
                 label: 'Payouts per paid funded',
                 valueText:
                     payoutsPerPaidFunded === null
-                        ? NOT_APPLICABLE
+                        ? null
                         : `${payoutsPerPaidFunded.toFixed(2)} ${fundedTrials}`,
             },
             {
                 label: 'Average payout',
                 valueText:
                     averagePayout === null
-                        ? NOT_APPLICABLE
+                        ? null
                         : `${formatCurrency(averagePayout)} ${fundedTrials}`,
             },
             {
@@ -132,14 +132,14 @@ export function attemptEconomicsCardModel(
                 label: `Breakeven pass rate${liveTransferSuffix}`,
                 valueText:
                     breakevenPassRate.value === null
-                        ? NOT_APPLICABLE
+                        ? null
                         : `${formatPercent(breakevenPassRate.value)} ${allTrials}`,
             },
             {
                 label: `Funded value / attempt cost${liveTransferSuffix}`,
                 valueText:
                     fundedValueToAttemptCost.value === null
-                        ? NOT_APPLICABLE
+                        ? null
                         : `${fundedValueToAttemptCost.value.ratioText}, net ${fundedValueToAttemptCost.value.netText} ${allTrials}`,
             },
         ],

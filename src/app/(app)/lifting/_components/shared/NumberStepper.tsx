@@ -93,7 +93,7 @@ export function NumberStepper({
     return (
         <div className={cn('flex flex-col gap-1', className)}>
             {label && (
-                <span className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                <span className="type-micro text-muted-foreground">
                     {label}
                 </span>
             )}

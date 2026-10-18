@@ -1,7 +1,7 @@
 import { type Metadata } from 'next';
 
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { CapsulePage } from '~/components/CapsulePage';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { Card } from '~/components/ui/card';
 
@@ -18,7 +18,7 @@ export default function ContactPage() {
     return (
         <PageTransition>
             <CapsulePage>
-                <ToolPageHeader
+                <PageHeader
                     eyebrow="Contact"
                     lead="Drop a line for collaborations, questions or just a hello."
                     title="Get in touch"

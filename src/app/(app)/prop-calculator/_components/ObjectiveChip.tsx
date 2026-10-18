@@ -3,7 +3,9 @@
 import { useId } from 'react';
 import { z } from 'zod';
 
-import { Field, FieldDescription, FieldLabel } from '~/components/ui/field';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { Field, FieldLabel } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
 import {
     Select,
     SelectContent,
@@ -34,33 +36,25 @@ const objectiveSchema = z.enum(SizingObjective);
 
 const OBJECTIVE_SELECT_LABEL = 'Ranking objective';
 
-interface ObjectiveChipProperties {
-    choiceNotes?: readonly string[];
+interface ObjectiveChipProperties extends ObjectiveNotesProperties {
     className?: string;
+    objective: SizingObjective;
+    onChange: (objective: SizingObjective) => void;
+}
+
+interface ObjectiveNotesProperties {
+    choiceNotes?: readonly string[];
     note?: null | string;
+}
+
+interface ObjectiveSelectProperties {
     objective: SizingObjective;
     onChange: (objective: SizingObjective) => void;
 }
 
 export function CalculatorObjectiveChip({ className }: { className?: string }) {
-    const { state } = useCalculatorInputs();
-    const { dispatch } = useCalculatorActions();
-    const choice = useObjectiveChoice();
-    const view = riskTableObjective(state.objective);
-    return (
-        <ObjectiveChip
-            choiceNotes={objectiveChoiceNotes(choice, state.objective)}
-            className={className}
-            note={view.note}
-            objective={state.objective}
-            onChange={(objective) =>
-                dispatch({
-                    objective,
-                    type: CalculatorActionType.SetObjective,
-                })
-            }
-        />
-    );
+    const chip = useCalculatorObjectiveChip();
+    return <ObjectiveChip className={className} {...chip} />;
 }
 
 export function ObjectiveChip({
@@ -70,54 +64,16 @@ export function ObjectiveChip({
     objective,
     onChange,
 }: ObjectiveChipProperties) {
-    const selectId = useId();
     return (
-        <Field
+        <div
             className={cn(
-                'app-prop-calculator__objective-chip gap-1',
+                'app-prop-calculator__objective-chip flex flex-col gap-2',
                 className,
             )}
         >
-            <div className="flex flex-wrap items-center gap-2">
-                <FieldLabel htmlFor={selectId}>
-                    {OBJECTIVE_SELECT_LABEL}
-                </FieldLabel>
-                <Select
-                    onValueChange={(value) => {
-                        const chosen = objectiveSchema.safeParse(value);
-                        if (chosen.success) onChange(chosen.data);
-                    }}
-                    value={objective}
-                >
-                    <SelectTrigger className="w-auto" id={selectId}>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {OBJECTIVE_OPTIONS.map((option) => (
-                            <SelectItem
-                                key={option.objective}
-                                value={option.objective}
-                            >
-                                {option.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-            <FieldDescription>
-                {sizingObjectiveText(objective)}
-            </FieldDescription>
-            {note !== null && (
-                <FieldDescription className="text-warning">
-                    {note}
-                </FieldDescription>
-            )}
-            {choiceNotes.map((choiceNote) => (
-                <FieldDescription className="text-warning" key={choiceNote}>
-                    {choiceNote}
-                </FieldDescription>
-            ))}
-        </Field>
+            <ObjectiveSelect objective={objective} onChange={onChange} />
+            <ObjectiveNotes choiceNotes={choiceNotes} note={note} />
+        </div>
     );
 }
 
@@ -141,6 +97,89 @@ export function objectiveChoiceNotes(
         notes.push(objectiveQueryFailureNote(choice.queryFailure));
     }
     return notes;
+}
+
+export function ObjectiveNotes({
+    choiceNotes = [],
+    note = null,
+}: ObjectiveNotesProperties) {
+    return (
+        <>
+            {note === null ? null : (
+                <StatusRow title={note} tone={StatusTone.Warn} />
+            )}
+            {choiceNotes.map((choiceNote) => (
+                <StatusRow
+                    key={choiceNote}
+                    title={choiceNote}
+                    tone={StatusTone.Warn}
+                />
+            ))}
+        </>
+    );
+}
+
+export function ObjectiveSelect({
+    objective,
+    onChange,
+}: ObjectiveSelectProperties) {
+    const selectId = useId();
+    return (
+        <Field
+            className="app-prop-calculator__objective-select w-auto max-w-full min-w-0 gap-2"
+            orientation="horizontal"
+        >
+            <FieldLabel htmlFor={selectId}>{OBJECTIVE_SELECT_LABEL}</FieldLabel>
+            <Select
+                onValueChange={(value) => {
+                    const chosen = objectiveSchema.safeParse(value);
+                    if (chosen.success) onChange(chosen.data);
+                }}
+                value={objective}
+            >
+                <SelectTrigger className="w-auto min-w-0" id={selectId}>
+                    <SelectValue>
+                        {
+                            OBJECTIVE_OPTIONS.find(
+                                (option) => option.objective === objective,
+                            )?.label
+                        }
+                    </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                    {OBJECTIVE_OPTIONS.map((option) => (
+                        <SelectItem
+                            key={option.objective}
+                            value={option.objective}
+                        >
+                            {option.label}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <InfoPopover title={OBJECTIVE_SELECT_LABEL}>
+                {sizingObjectiveText(objective)}
+            </InfoPopover>
+        </Field>
+    );
+}
+
+export function useCalculatorObjectiveChip(): ObjectiveSelectProperties &
+    Required<ObjectiveNotesProperties> {
+    const { state } = useCalculatorInputs();
+    const { dispatch } = useCalculatorActions();
+    const choice = useObjectiveChoice();
+    const view = riskTableObjective(state.objective);
+    return {
+        choiceNotes: objectiveChoiceNotes(choice, state.objective),
+        note: view.note,
+        objective: state.objective,
+        onChange: (objective) =>
+            dispatch({
+                objective,
+                type: CalculatorActionType.SetObjective,
+            }),
+    };
 }
 
 function automaticScope(

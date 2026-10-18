@@ -20,6 +20,8 @@ import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalcu
 import { formatPercent } from '~/lib/format';
 import { type SimOutputs, simulate } from '~/lib/prop-calculator';
 
+import { statStripValue } from './statStripValue';
+
 vi.mock('~/components/ui/info-popover', () => ({
     default: ({ children, title }: { children: ReactNode; title: string }) => (
         <div data-info-title={title}>{children}</div>
@@ -63,14 +65,9 @@ describe('the simulator results (PT-93, F-V9, F-V13): "Bust before passing" nami
     });
 
     it('renders the KPI label "Bust before passing" with the bust probability as its value', () => {
-        const label = [...container.querySelectorAll('.uppercase')].find(
-            (node) => node.textContent === 'Bust before passing',
-        );
-        if (!label) throw new Error('Bust before passing label missing');
-        const card = label.closest('[data-slot="card"]');
-        expect(card?.textContent).toContain(
-            formatPercent(result.bustProbability),
-        );
+        expect(
+            statStripValue(container, 'Bust before passing')?.textContent,
+        ).toBe(formatPercent(result.bustProbability));
     });
 
     it('titles the KPI info with the same name and the shared description', () => {

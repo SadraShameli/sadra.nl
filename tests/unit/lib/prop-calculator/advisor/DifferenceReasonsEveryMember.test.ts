@@ -236,7 +236,7 @@ const SENTINELS: Readonly<
     ],
     [DifferenceReason.StaleAdvice]: [
         { kind: DifferenceReason.StaleAdvice, snapshotDate: '2026-09-21' },
-        '20260921',
+        '212026',
     ],
     [DifferenceReason.Suspended]: [{ kind: DifferenceReason.Suspended }, ''],
     [DifferenceReason.WholeContractPlacement]: [

@@ -1,24 +1,11 @@
 'use client';
 
-import { type RowData } from '@tanstack/react-table';
-import { format } from 'date-fns';
-import { type LucideIcon, Trash2 } from 'lucide-react';
-import { type Route } from 'next';
-import Link from 'next/link';
+import { type LucideIcon } from 'lucide-react';
 import { type ReactNode } from 'react';
 
-import { Button } from '~/components/ui/button';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import {
-    DataTableAlign,
-    type DataTableColumn,
-} from '~/components/ui/data-table';
+import { MissingValue } from '~/components/MissingValue';
 import { EmptyState } from '~/components/ui/empty-state';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '~/components/ui/tooltip';
+import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import { cn } from '~/lib/utilities';
 
 export const ProfileDatePrecision = {
@@ -29,23 +16,16 @@ export const ProfileDatePrecision = {
 export type ProfileDatePrecision =
     (typeof ProfileDatePrecision)[keyof typeof ProfileDatePrecision];
 
-const DATE_PATTERN: Record<ProfileDatePrecision, string> = {
-    [ProfileDatePrecision.Day]: 'MMM d, y',
-    [ProfileDatePrecision.Minute]: 'MMM d, y, HH:mm',
-};
-
-const NO_VALUE = '-';
-
-type RowActionIdentity = {
-    icon: LucideIcon;
-    label: string;
+const DATE_FORMATTER: Record<ProfileDatePrecision, (value: Date) => string> = {
+    [ProfileDatePrecision.Day]: formatDisplayDate,
+    [ProfileDatePrecision.Minute]: formatDisplayDateTime,
 };
 
 export function formatProfileDate(
     value: Date,
     precision: ProfileDatePrecision,
 ): string {
-    return format(value, DATE_PATTERN[precision]);
+    return DATE_FORMATTER[precision](value);
 }
 
 export function MutedCell({
@@ -75,20 +55,22 @@ export function PrimaryCell({ children }: { children: ReactNode }) {
     );
 }
 
-export function profileActionsColumn<TData extends RowData>(
-    render: (row: TData) => ReactNode,
-): DataTableColumn<TData> {
-    return {
-        cell: ({ row }) => (
-            <div className="flex items-center justify-end gap-1">
-                {render(row.original)}
-            </div>
-        ),
-        enableSorting: false,
-        header: () => <span className="sr-only">Actions</span>,
-        id: 'actions',
-        meta: { align: DataTableAlign.End },
-    };
+export function ProfileCollectionEmpty({
+    description,
+    icon,
+    noun,
+}: {
+    description: string;
+    icon: LucideIcon;
+    noun: string;
+}) {
+    return (
+        <EmptyState
+            description={description}
+            icon={icon}
+            title={`No ${noun} yet`}
+        />
+    );
 }
 
 export function ProfileDateCell({
@@ -98,120 +80,9 @@ export function ProfileDateCell({
     precision: ProfileDatePrecision;
     value: Date | null;
 }) {
-    return (
-        <MutedCell>
-            {value === null ? NO_VALUE : formatProfileDate(value, precision)}
-        </MutedCell>
-    );
-}
-
-export function ProfileTableEmpty({
-    action,
-    description,
-    filtered,
-    icon,
-    noun,
-}: {
-    action?: ReactNode;
-    description: string;
-    filtered: boolean;
-    icon: LucideIcon;
-    noun: string;
-}) {
-    return filtered ? (
-        <EmptyState
-            description="Try a different search or clear the filters."
-            icon={icon}
-            title={`No matching ${noun}`}
-        />
+    return value === null ? (
+        <MissingValue />
     ) : (
-        <EmptyState
-            action={action}
-            description={description}
-            icon={icon}
-            title={`No ${noun} yet`}
-        />
-    );
-}
-
-export function RowActionButton({
-    disabled,
-    icon: Icon,
-    label,
-    onClick,
-}: RowActionIdentity & { disabled?: boolean; onClick: () => void }) {
-    return (
-        <Button
-            aria-label={label}
-            disabled={disabled}
-            onClick={onClick}
-            size="icon-sm"
-            title={label}
-            type="button"
-            variant="ghost"
-        >
-            <Icon className="size-4" />
-        </Button>
-    );
-}
-
-export function RowActionLink<T extends string>({
-    download,
-    href,
-    icon: Icon,
-    label,
-}: RowActionIdentity & { download?: string; href: Route<T> }) {
-    return (
-        <Tooltip>
-            <TooltipTrigger asChild>
-                <Button asChild size="icon-sm" variant="ghost">
-                    {download === undefined ? (
-                        <Link aria-label={label} href={href}>
-                            <Icon className="size-4" />
-                        </Link>
-                    ) : (
-                        <a aria-label={label} download={download} href={href}>
-                            <Icon className="size-4" />
-                        </a>
-                    )}
-                </Button>
-            </TooltipTrigger>
-            <TooltipContent>{label}</TooltipContent>
-        </Tooltip>
-    );
-}
-
-export function RowConfirmAction({
-    confirmLabel = 'Delete',
-    description,
-    icon: Icon = Trash2,
-    label,
-    onConfirm,
-    title,
-}: {
-    confirmLabel?: string;
-    description: ReactNode;
-    icon?: LucideIcon;
-    label: string;
-    onConfirm: () => void;
-    title: ReactNode;
-}) {
-    return (
-        <ConfirmDialog
-            confirmLabel={confirmLabel}
-            description={description}
-            onConfirm={onConfirm}
-            title={title}
-        >
-            <Button
-                aria-label={label}
-                size="icon-sm"
-                title={label}
-                type="button"
-                variant="ghost"
-            >
-                <Icon className="size-4" />
-            </Button>
-        </ConfirmDialog>
+        <MutedCell>{formatProfileDate(value, precision)}</MutedCell>
     );
 }

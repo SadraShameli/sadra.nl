@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { formatDisplayDate } from '~/lib/format';
 import {
     AlertKind,
     AlertSeverity,
@@ -40,7 +41,7 @@ describe('WeeklyReviewDueRule', () => {
             accountIds: [pending.id],
             kind: AlertSubjectKind.Portfolio,
         });
-        expect(alerts[0]?.message).toContain(MONDAY);
+        expect(alerts[0]?.message).toContain(formatDisplayDate(MONDAY));
         expect(alerts[0]?.message).toContain('1 of 2');
     });
 

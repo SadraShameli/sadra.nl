@@ -41,6 +41,8 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import { LiveTransferContinuationKind } from '~/lib/prop-calculator/simulator';
 
+import { infoContent } from '../infoPopover';
+
 vi.mock('next/navigation', () => ({
     usePathname: () => '/prop-calculator/accounts/x',
     useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -167,16 +169,15 @@ describe('NextPayoutSection renders the retire hazard lines as a list (PT-73g st
             replacementLiveTransfer: FRESH_HAZARD,
         });
 
-        const items = [
-            ...container.querySelectorAll(`${RETIRE_LIST} > li`),
-        ].map((item) => item.textContent);
+        const retire = infoContent(container, 'Keep or start a fresh account');
+        const items = [...retire.querySelectorAll(`${RETIRE_LIST} > li`)].map(
+            (item) => item.textContent,
+        );
         expect(items).toStrictEqual([
             `Keeping this account. ${assumptionText(KEEP_HAZARD)}`,
             `A fresh account. ${assumptionText(FRESH_HAZARD)}`,
         ]);
-        expect(container.textContent.toLowerCase()).toContain(
-            'information only',
-        );
+        expect(retire.textContent.toLowerCase()).toContain('information only');
     });
 
     it('prints no list when no hazard was priced', () => {
@@ -185,7 +186,12 @@ describe('NextPayoutSection renders the retire hazard lines as a list (PT-73g st
         expect(container.textContent).toContain(
             'Keep or start a fresh account',
         );
-        expect(container.querySelector(RETIRE_LIST)).toBeNull();
+        expect(
+            infoContent(
+                container,
+                'Keep or start a fresh account',
+            ).querySelector(RETIRE_LIST),
+        ).toBeNull();
     });
 
     describe('the not-comparable field decides what the retire view shows (PT-73g)', () => {

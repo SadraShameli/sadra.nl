@@ -1,16 +1,16 @@
 'use client';
 
-import { TriangleAlert } from 'lucide-react';
-
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import {
     Field,
     FieldDescription,
     FieldError,
     FieldLabel,
 } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
 import { Input } from '~/components/ui/input';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
+import { WarningNote } from '~/components/WarningNote';
 import {
     AccountTracking,
     type SnapshotField,
@@ -19,7 +19,12 @@ import {
     SnapshotInputKind,
 } from '~/lib/prop-accounts';
 
-import { FieldRequirementMark } from './FieldRequirementMark';
+import { QueryErrorNotice } from './QueryErrorNotice';
+import {
+    MONEY_UNIT,
+    OPTIONAL_REQUIREMENT,
+    RequirementLabel,
+} from './RequirementLabel';
 import {
     LEDGER_ONLY_SNAPSHOT_NOTICE,
     ledgerOnlySnapshotRules,
@@ -27,10 +32,16 @@ import {
     type SnapshotFormValues,
 } from './snapshotFieldRules';
 
+export enum SnapshotHintDisplay {
+    Inline = 'inline',
+    Popover = 'popover',
+}
+
 interface SnapshotFieldsEntry {
     readonly fieldWarnings: readonly SnapshotFieldIssue[];
     readonly formIssues: readonly string[];
     readonly formWarnings: readonly string[];
+    readonly hintDisplay?: SnapshotHintDisplay;
     readonly idPrefix?: string;
     readonly isReadOnly?: boolean;
     readonly issues: readonly SnapshotFieldIssue[];
@@ -53,7 +64,7 @@ type SnapshotFieldsProperties = SnapshotFieldsEntry &
 const REQUIREMENT_NOTE: Readonly<Record<SnapshotFieldRequirement, string>> = {
     [SnapshotFieldRequirement.Hidden]: '',
     [SnapshotFieldRequirement.OneOf]: 'this or the alternative',
-    [SnapshotFieldRequirement.Optional]: 'optional',
+    [SnapshotFieldRequirement.Optional]: OPTIONAL_REQUIREMENT,
     [SnapshotFieldRequirement.Required]: 'required',
 };
 
@@ -62,6 +73,7 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
         fieldWarnings,
         formIssues,
         formWarnings,
+        hintDisplay = SnapshotHintDisplay.Inline,
         idPrefix,
         isReadOnly = false,
         issues,
@@ -88,39 +100,26 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                 </p>
             )}
             {formIssues.length > 0 && (
-                <Alert
+                <QueryErrorNotice
                     className="md:col-span-2 lg:col-span-3"
-                    variant="destructive"
-                >
-                    <TriangleAlert />
-                    <AlertTitle>
-                        This snapshot does not fit the account
-                    </AlertTitle>
-                    <AlertDescription>
-                        <ul className="flex flex-col gap-1">
-                            {formIssues.map((message) => (
-                                <li key={message}>{message}</li>
-                            ))}
-                        </ul>
-                    </AlertDescription>
-                </Alert>
+                    items={formIssues.map((message) => ({
+                        key: message,
+                        text: message,
+                    }))}
+                    title="This snapshot does not fit the account"
+                />
             )}
             {formWarnings.length > 0 && (
-                <Alert
+                <StatusRow
                     className="md:col-span-2 lg:col-span-3"
-                    role="status"
-                    variant="warning"
-                >
-                    <TriangleAlert />
-                    <AlertTitle>Check this snapshot before saving</AlertTitle>
-                    <AlertDescription>
-                        <ul className="flex flex-col gap-1">
-                            {formWarnings.map((message) => (
-                                <li key={message}>{message}</li>
-                            ))}
-                        </ul>
-                    </AlertDescription>
-                </Alert>
+                    detail={formWarnings.map((message) => (
+                        <span className="block" key={message}>
+                            {message}
+                        </span>
+                    ))}
+                    title="Check this snapshot before saving"
+                    tone={StatusTone.Warn}
+                />
             )}
             {visible.map((rule) => {
                 const id = `${idRoot}-${rule.field}`;
@@ -129,8 +128,16 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                 const hintId = `${id}-hint`;
                 const errorId = `${id}-error`;
                 const warningId = `${id}-warning`;
+                const inlineHint =
+                    hintDisplay === SnapshotHintDisplay.Inline
+                        ? rule.hint
+                        : null;
+                const popoverHint =
+                    hintDisplay === SnapshotHintDisplay.Popover
+                        ? rule.hint
+                        : null;
                 const describedBy = [
-                    rule.hint === null ? null : hintId,
+                    inlineHint === null ? null : hintId,
                     issue === undefined ? null : errorId,
                     warning === undefined ? null : warningId,
                 ]
@@ -138,16 +145,26 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                     .join(' ');
                 return (
                     <Field data-invalid={issue !== undefined} key={rule.field}>
-                        <FieldLabel
-                            className="items-baseline gap-1"
-                            htmlFor={id}
-                        >
-                            {rule.label}
-                            {rule.input === SnapshotInputKind.Money && ' ($)'}
-                            <FieldRequirementMark
-                                text={REQUIREMENT_NOTE[rule.requirement]}
-                            />
-                        </FieldLabel>
+                        <div className="flex items-center gap-1.5">
+                            <FieldLabel htmlFor={id}>
+                                <RequirementLabel
+                                    label={rule.label}
+                                    requirement={
+                                        REQUIREMENT_NOTE[rule.requirement]
+                                    }
+                                    unit={
+                                        rule.input === SnapshotInputKind.Money
+                                            ? MONEY_UNIT
+                                            : undefined
+                                    }
+                                />
+                            </FieldLabel>
+                            {popoverHint !== null && (
+                                <InfoPopover title={rule.label}>
+                                    {popoverHint}
+                                </InfoPopover>
+                            )}
+                        </div>
                         {rule.input === SnapshotInputKind.Date ? (
                             <IsoDatePicker
                                 aria-describedby={
@@ -178,21 +195,21 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                                 value={values[rule.field]}
                             />
                         )}
-                        {rule.hint !== null && (
+                        {inlineHint !== null && (
                             <FieldDescription id={hintId}>
-                                {rule.hint}
+                                {inlineHint}
                             </FieldDescription>
                         )}
                         {issue !== undefined && (
                             <FieldError id={errorId}>{issue}</FieldError>
                         )}
                         {warning !== undefined && (
-                            <FieldDescription
-                                className="text-warning"
+                            <WarningNote
+                                className="text-sm/normal"
                                 id={warningId}
                             >
                                 {warning}
-                            </FieldDescription>
+                            </WarningNote>
                         )}
                     </Field>
                 );

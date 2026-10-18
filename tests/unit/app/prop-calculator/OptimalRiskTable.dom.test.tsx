@@ -34,6 +34,7 @@ import {
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 
+import { infoText } from './infoPopover';
 import { chosenObjective, pickObjective } from './objectiveSelect';
 
 interface TableHarness {
@@ -246,7 +247,11 @@ describe('OptimalRiskTable objective ranking (PT-63, F-V15)', () => {
     function starredRiskTexts(): string[] {
         return bodyRows()
             .filter((row) => row.textContent.includes('★'))
-            .map((row) => row.querySelector(':scope td')?.textContent ?? '');
+            .map(
+                (row) =>
+                    row.querySelector(':scope th[scope="row"]')?.textContent ??
+                    '',
+            );
     }
 
     beforeEach(() => {
@@ -360,7 +365,7 @@ describe('OptimalRiskTable objective ranking (PT-63, F-V15)', () => {
             }),
         ];
         render(SizingObjective.MonthlyNet, dollars(5000));
-        expect(container.textContent).toContain(
+        expect(infoText(container, 'Optimal risk sweep')).toContain(
             'Bankroll figures are priced at $5,000',
         );
     });
@@ -397,7 +402,7 @@ describe('OptimalRiskTable objective ranking (PT-63, F-V15)', () => {
 
     it('states the sweep assumptions: no day cap, one risk for both phases, objectives leave documented sizing alone', () => {
         render(SizingObjective.MonthlyNet);
-        const text = container.textContent;
+        const text = infoText(container, 'Optimal risk sweep');
         expect(text).toContain('not the documented sizing');
         expect(text).toContain('no daily profit cap in the eval');
         expect(text).toContain(

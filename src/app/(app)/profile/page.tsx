@@ -2,11 +2,13 @@ import { and, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
 import { type ReactNode, Suspense } from 'react';
 
-import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
+import { FlashToast } from '~/components/FlashToast';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
-import { AutoDismissAlert } from '~/components/ui/auto-dismiss-alert';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Card } from '~/components/ui/card';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { isAdminOrAbove, isRoot, resolveRole } from '~/lib/auth/roles';
 import { profileSearchSchema } from '~/lib/schemas/url';
@@ -120,62 +122,39 @@ async function ProfileContent({
 
     const accountTab: ReactNode = (
         <>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Profile</CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    {error && PW_MESSAGES[error] && (
-                        <Alert variant="destructive">
-                            <AlertDescription>
-                                {PW_MESSAGES[error]}
-                            </AlertDescription>
-                        </Alert>
-                    )}
-                    {success !== undefined && SUCCESS_MESSAGES[success] && (
-                        <AutoDismissAlert variant="success">
-                            <AlertDescription>
-                                {SUCCESS_MESSAGES[success]}
-                            </AlertDescription>
-                        </AutoDismissAlert>
-                    )}
-                    <AccountDetailsForm
-                        currentName={name}
-                        email={email}
-                        hasPassword={hasPassword}
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel contentClassName="gap-4" title="Profile">
+                {error && PW_MESSAGES[error] && (
+                    <Alert variant="destructive">
+                        <AlertDescription>
+                            {PW_MESSAGES[error]}
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {success !== undefined && SUCCESS_MESSAGES[success] && (
+                    <FlashToast message={SUCCESS_MESSAGES[success]} />
+                )}
+                <AccountDetailsForm
+                    currentName={name}
+                    email={email}
+                    hasPassword={hasPassword}
+                />
+            </ToolPanel>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Active sessions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <SessionsList />
-                </CardContent>
-            </Card>
+            <ToolPanel title="Active sessions">
+                <SessionsList />
+            </ToolPanel>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-destructive">
-                        Danger zone
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-destructive">
-                                Delete account
-                            </p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                                Permanently remove your account and all data.
-                            </p>
-                        </div>
-                        <DeleteAccountDialog />
+            <ToolPanel title="Danger zone">
+                <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <PanelSubheading>Delete account</PanelSubheading>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                            Permanently remove your account and all data.
+                        </p>
                     </div>
-                </CardContent>
-            </Card>
+                    <DeleteAccountDialog />
+                </div>
+            </ToolPanel>
         </>
     );
 
@@ -188,14 +167,9 @@ async function ProfileContent({
             if (isUserIsRoot) {
                 const heroShowcase = await api.site.heroShowcase();
                 content = (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Homepage figures</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <HeroShowcaseForm initial={heroShowcase} />
-                        </CardContent>
-                    </Card>
+                    <ToolPanel title="Homepage figures">
+                        <HeroShowcaseForm initial={heroShowcase} />
+                    </ToolPanel>
                 );
             }
             break;
@@ -236,7 +210,10 @@ async function ProfileContent({
             <Card className="min-w-0 p-0">
                 <PageTransition transitionKey={activeTab}>
                     <section className="flex min-w-0 flex-col gap-6 p-4 md:p-8">
-                        <ToolPageTitle>{TAB_TITLES[activeTab]}</ToolPageTitle>
+                        <PageHeader
+                            className="mb-0"
+                            title={TAB_TITLES[activeTab]}
+                        />
                         <div className="flex min-w-0 flex-col gap-6">
                             {content}
                         </div>

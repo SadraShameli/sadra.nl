@@ -18,7 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { GripVertical, Plus, Save, Trash2 } from 'lucide-react';
+import { GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useTransition } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -30,13 +30,19 @@ import type {
     TradingPlanRow,
 } from '~/lib/trading/types';
 
-import Eyebrow from '~/components/Eyebrow';
+import { ProfileFormFooter } from '~/app/(app)/profile/_components/ProfileFormFooter';
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import { useBlockNavigationWhile } from '~/components/NavigationBlocker';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
-import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Input } from '~/components/ui/input';
+import {
+    Input,
+    NUMBER_FIELD_ROW_CLASS,
+    NUMBER_INPUT_CLASS,
+} from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Slider } from '~/components/ui/slider';
 import { TimeInput } from '~/components/ui/time-input';
@@ -95,6 +101,9 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
         updateConfig('windows', arrayMove(config.windows, oldIndex, newIndex));
     };
 
+    const isGroupComplete = (items: readonly ConfluenceKey[]) =>
+        items.every((item) => config.setup.allowedConfluences.includes(item));
+
     const weightsSum = Object.values(config.weights).reduce((a, b) => a + b, 0);
     const isWeightsValid = Math.abs(weightsSum - 100) < 0.01;
 
@@ -133,10 +142,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
             <section
                 className={cn('app-profile__plan-name', 'flex flex-col gap-3')}
             >
-                <Label
-                    className="text-xs font-medium tracking-wider text-muted-foreground uppercase"
-                    htmlFor="planName"
-                >
+                <Label className="text-sm" htmlFor="planName">
                     Plan name
                 </Label>
                 <Input
@@ -152,7 +158,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     'flex flex-col gap-3',
                 )}
             >
-                <Eyebrow as="h3">Macro time windows</Eyebrow>
+                <PanelSubheading>Macro time windows</PanelSubheading>
                 <DndContext
                     collisionDetection={closestCenter}
                     id="windows-dnd"
@@ -221,14 +227,14 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
             <section
                 className={cn('app-profile__plan-risk', 'flex flex-col gap-3')}
             >
-                <Eyebrow as="h3">Risk</Eyebrow>
-                <div className="grid gap-3 md:grid-cols-3">
+                <PanelSubheading>Risk</PanelSubheading>
+                <div className={NUMBER_FIELD_ROW_CLASS}>
                     <div>
                         <Label className="text-sm" htmlFor="fundedR">
                             Funded risk ($)
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="fundedR"
                             onChange={(event) =>
                                 updateConfig('risk', {
@@ -245,7 +251,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             Eval risk ($)
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="evalR"
                             onChange={(event) =>
                                 updateConfig('risk', {
@@ -262,7 +268,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             Max trades / window
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="maxT"
                             onChange={(event) =>
                                 updateConfig('risk', {
@@ -282,14 +288,14 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
             <section
                 className={cn('app-profile__plan-setup', 'flex flex-col gap-3')}
             >
-                <Eyebrow as="h3">Setup requirements</Eyebrow>
-                <div className="grid gap-3 md:grid-cols-2">
+                <PanelSubheading>Setup requirements</PanelSubheading>
+                <div className={NUMBER_FIELD_ROW_CLASS}>
                     <div>
                         <Label className="text-sm" htmlFor="minRR">
                             Minimum R:R
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="minRR"
                             onChange={(event) =>
                                 updateConfig('setup', {
@@ -307,7 +313,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             Required PD arrays at SL
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="pdC"
                             onChange={(event) =>
                                 updateConfig('setup', {
@@ -327,51 +333,36 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     {CONFLUENCE_GROUPS.map((group) => (
                         <div className="flex flex-col gap-2" key={group.label}>
                             <div className="flex items-center justify-between gap-2">
-                                <Eyebrow as="p">{group.label}</Eyebrow>
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        onClick={() =>
-                                            updateConfig('setup', {
-                                                ...config.setup,
-                                                allowedConfluences:
-                                                    config.setup.allowedConfluences.filter(
-                                                        (x: ConfluenceKey) =>
-                                                            !group.items.includes(
-                                                                x,
-                                                            ),
-                                                    ),
-                                            })
-                                        }
-                                        size="sm"
-                                        type="button"
-                                        variant="outline"
-                                    >
-                                        Clear
-                                    </Button>
-                                    <Button
-                                        onClick={() => {
-                                            const rest =
-                                                config.setup.allowedConfluences.filter(
-                                                    (x: ConfluenceKey) =>
-                                                        !group.items.includes(
-                                                            x,
-                                                        ),
-                                                );
-                                            updateConfig('setup', {
-                                                ...config.setup,
-                                                allowedConfluences: [
-                                                    ...rest,
-                                                    ...group.items,
-                                                ],
-                                            });
-                                        }}
-                                        size="sm"
-                                        type="button"
-                                        variant="outline"
-                                    >
-                                        All
-                                    </Button>
-                                </div>
+                                <PanelSubheading as="h4">
+                                    {group.label}
+                                </PanelSubheading>
+                                <Button
+                                    onClick={() => {
+                                        const outsideGroup =
+                                            config.setup.allowedConfluences.filter(
+                                                (x: ConfluenceKey) =>
+                                                    !group.items.includes(x),
+                                            );
+                                        updateConfig('setup', {
+                                            ...config.setup,
+                                            allowedConfluences: isGroupComplete(
+                                                group.items,
+                                            )
+                                                ? outsideGroup
+                                                : [
+                                                      ...outsideGroup,
+                                                      ...group.items,
+                                                  ],
+                                        });
+                                    }}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost"
+                                >
+                                    {isGroupComplete(group.items)
+                                        ? 'Clear all'
+                                        : 'Select all'}
+                                </Button>
                             </div>
                             <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                                 {group.items.map((c) => {
@@ -419,19 +410,17 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 )}
             >
                 <div className="flex items-center justify-between">
-                    <Eyebrow as="h3">Scoring weights</Eyebrow>
-                    <Badge variant={isWeightsValid ? 'default' : 'destructive'}>
-                        Total {weightsSum.toFixed(0)} / 100
-                    </Badge>
+                    <PanelSubheading>Scoring weights</PanelSubheading>
+                    <Badge>Total {weightsSum.toFixed(0)} / 100</Badge>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                     {WEIGHT_CATEGORIES.map(({ hint, key, label }) => (
                         <div
                             className="flex flex-col gap-2 rounded-lg border border-border/60 p-3"
                             key={key}
                         >
                             <div className="flex items-center justify-between">
-                                <Label className="text-sm">{label}</Label>
+                                <LabelWithInfo info={hint} label={label} />
                                 <span className="font-mono text-sm text-foreground">
                                     {config.weights[key]}
                                 </span>
@@ -448,19 +437,12 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                 step={1}
                                 value={[config.weights[key]]}
                             />
-                            <p className="text-xs text-muted-foreground">
-                                {hint}
-                            </p>
                         </div>
                     ))}
                 </div>
                 {!isWeightsValid && (
-                    <Alert variant="warning">
-                        <AlertDescription className="flex items-center justify-between gap-3">
-                            <span>
-                                Weights must sum to 100. Currently{' '}
-                                {weightsSum.toFixed(0)}.
-                            </span>
+                    <StatusRow
+                        actions={
                             <Button
                                 onClick={normalizeWeights}
                                 size="sm"
@@ -469,8 +451,10 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             >
                                 Normalize
                             </Button>
-                        </AlertDescription>
-                    </Alert>
+                        }
+                        title={`Weights must sum to 100. Currently ${weightsSum.toFixed(0)}.`}
+                        tone={StatusTone.Warn}
+                    />
                 )}
             </section>
 
@@ -480,7 +464,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     'flex flex-col gap-3',
                 )}
             >
-                <Eyebrow as="h3">Knockout rules</Eyebrow>
+                <PanelSubheading>Knockout rules</PanelSubheading>
                 <div className="grid gap-2 md:grid-cols-2">
                     {KNOCKOUT_RULES.map((rule) => (
                         <SwitchCard
@@ -499,15 +483,13 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 </div>
             </section>
 
-            <div className="flex justify-end gap-2">
-                <Button
-                    disabled={pending || !isWeightsValid || !name.trim()}
-                    type="submit"
-                >
-                    <Save className="mr-1 size-4" />
-                    {pending ? 'Saving…' : 'Save changes'}
-                </Button>
-            </div>
+            <ProfileFormFooter
+                isDirty={form.formState.isDirty}
+                isPending={pending}
+                isSaveDisabled={!isWeightsValid || !name.trim()}
+                isSticky
+                onCancel={() => form.reset()}
+            />
         </form>
     );
 }

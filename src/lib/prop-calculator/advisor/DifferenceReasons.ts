@@ -1,4 +1,4 @@
-import { formatCurrency, formatPercent } from '~/lib/format';
+import { formatCurrency, formatDisplayDate, formatPercent } from '~/lib/format';
 import {
     type ConductPattern,
     PolicyVerification,
@@ -218,7 +218,7 @@ export function differenceReasonText(detail: DifferenceReasonDetail): string {
             return `Retained cushion is the larger of the rulebook's ${formatCurrency(detail.rulebookCushion, 2)} and D4's ${formatCurrency(detail.d4Cushion, 2)}.`;
         }
         case DifferenceReason.StaleAdvice: {
-            return `This advice is from the ${detail.snapshotDate} snapshot and is stale; rung amounts are withheld.`;
+            return `This advice is from the ${formatDisplayDate(detail.snapshotDate)} snapshot and is stale; rung amounts are withheld.`;
         }
         case DifferenceReason.Suspended: {
             return 'This account is suspended, so no sizing, daily plan or payout advice is given.';

@@ -1,15 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
-import {
-    AlertCircle,
-    CheckCircle2,
-    KeyRound,
-    Pencil,
-    Star,
-    Trash2,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, KeyRound, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -17,11 +9,19 @@ import { toast } from 'sonner';
 import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { CredentialKind } from '~/lib/accounting/credentials/registry';
 
+import { FormDialog } from '~/components/FormDialog';
+import { TitledCardSkeleton } from '~/components/PageSkeleton';
+import {
+    deleteRowAction,
+    editRowAction,
+    type RowAction,
+    RowActionKind,
+    RowActionsMenu,
+} from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     Dialog,
     DialogContent,
@@ -30,13 +30,13 @@ import {
     DialogTitle,
 } from '~/components/ui/dialog';
 import { EmptyStatePanel } from '~/components/ui/empty-state';
-import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import {
     CredentialRegistry,
     CredentialRole,
     MetaFieldType,
 } from '~/lib/accounting/credentials/index';
+import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import {
     type CredentialUpdateInput,
     credentialUpdateSchema,
@@ -45,6 +45,7 @@ import { api } from '~/trpc/react';
 
 import { CredentialBadge } from './CredentialBadge';
 import { CredentialFormFields } from './CredentialFormFields';
+import { DialogMode, dialogSubmitLabels } from './dialogSubmitLabels';
 import { useRefreshCredentials } from './useRefreshCredentials';
 
 type StoredCredential = {
@@ -102,6 +103,25 @@ export function ConnectionsManager() {
         return byRole;
     }, [credentialsQ.data]);
 
+    const activate = (cred: StoredCredential) => {
+        activationMutation.mutate(
+            { id: cred.id },
+            { onSuccess: () => toast.success(`${cred.label} is now active`) },
+        );
+    };
+
+    const runTest = async (cred: StoredCredential) => {
+        const result = await testMut.mutateAsync({ id: cred.id });
+        if (result.ok) {
+            toast.success(
+                `${cred.label}: OK · ${result.detail} · ${result.latencyMs}ms`,
+            );
+            await utilities.accounting.credentials.list.invalidate();
+        } else {
+            toast.error(`${cred.label}: ${result.detail}`);
+        }
+    };
+
     const renderCard = (
         cred: StoredCredential,
         isActive: boolean,
@@ -115,134 +135,94 @@ export function ConnectionsManager() {
         const isActivating =
             activationMutation.isPending &&
             activationMutation.variables.id === cred.id;
+        const actions: RowAction[] = [
+            ...(canSetActive && !isActive
+                ? [
+                      {
+                          icon: Star,
+                          isDisabled: isActivating,
+                          kind: RowActionKind.Select,
+                          label: 'Set active',
+                          onSelect: () => activate(cred),
+                      } satisfies RowAction,
+                  ]
+                : []),
+            ...(descriptor?.requiresSecret === false
+                ? []
+                : [
+                      {
+                          icon: CheckCircle2,
+                          isDisabled: isTesting,
+                          kind: RowActionKind.Select,
+                          label: 'Test',
+                          onSelect: () => void runTest(cred),
+                      } satisfies RowAction,
+                  ]),
+            editRowAction(() => setEditing(cred), !descriptor),
+            deleteRowAction({
+                description:
+                    'Its booking rules and bank account mappings are deleted with it. Past runs keep their history.',
+                onDelete: () =>
+                    deletionMutation.mutate(
+                        { id: cred.id },
+                        {
+                            onSuccess: () =>
+                                toast.success('Credential deleted'),
+                        },
+                    ),
+                title: `Delete "${cred.label}"?`,
+            }),
+        ];
         return (
             <li
-                className="flex flex-wrap items-center justify-between gap-4 border-b border-line-faint py-4 first:pt-0 last:border-b-0 last:pb-0"
+                className="flex items-start justify-between gap-4 border-b border-line-faint py-4 first:pt-0 last:border-b-0 last:pb-0"
                 key={cred.id}
             >
                 <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[15px] font-medium text-ink">
+                        <span className="type-small font-medium text-ink">
                             {cred.label}
                         </span>
                         <CredentialBadge kind={cred.kind} />
-                        {isActive && <Badge variant="success">Active</Badge>}
+                        {isActive && <Badge>Active</Badge>}
                         <MetaSummaryBadges
                             descriptor={descriptor}
                             meta={cred.meta}
                         />
+                        {(isTesting || isActivating || isDeleting) && (
+                            <Spinner className="size-3" />
+                        )}
                     </div>
                     <div className="text-xs text-ink-muted">
-                        Added {format(new Date(cred.createdAt), 'd MMM yyyy')}
+                        Added {formatDisplayDate(cred.createdAt)}
                         {cred.lastUsedAt &&
-                            ` · last used ${format(new Date(cred.lastUsedAt), 'd MMM yyyy HH:mm')}`}
+                            ` · last used ${formatDisplayDateTime(cred.lastUsedAt)}`}
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {canSetActive && !isActive && (
-                        <Button
-                            disabled={isActivating}
-                            onClick={async () => {
-                                await activationMutation.mutateAsync({
-                                    id: cred.id,
-                                });
-                                toast.success(`${cred.label} is now active`);
-                            }}
-                            size="sm"
-                            variant="outline"
-                        >
-                            {isActivating ? (
-                                <Spinner className="size-3" />
-                            ) : (
-                                <Star className="size-3" />
-                            )}
-                            Set active
-                        </Button>
-                    )}
-                    {descriptor?.requiresSecret !== false && (
-                        <Button
-                            disabled={isTesting}
-                            onClick={async () => {
-                                const result = await testMut.mutateAsync({
-                                    id: cred.id,
-                                });
-                                if (result.ok) {
-                                    toast.success(
-                                        `${cred.label}: OK · ${result.detail} · ${result.latencyMs}ms`,
-                                    );
-                                    await utilities.accounting.credentials.list.invalidate();
-                                } else {
-                                    toast.error(
-                                        `${cred.label}: ${result.detail}`,
-                                    );
-                                }
-                            }}
-                            size="sm"
-                            variant="outline"
-                        >
-                            {isTesting ? (
-                                <Spinner className="size-3" />
-                            ) : (
-                                <CheckCircle2 className="size-3" />
-                            )}
-                            Test
-                        </Button>
-                    )}
-                    <Button
-                        disabled={!descriptor}
-                        onClick={() => setEditing(cred)}
-                        size="sm"
-                        variant="outline"
-                    >
-                        <Pencil className="size-3" />
-                        Edit
-                    </Button>
-                    <ConfirmDialog
-                        confirmLabel="Delete"
-                        description="Its booking rules and bank account mappings are deleted with it. Past runs keep their history."
-                        onConfirm={() =>
-                            deletionMutation.mutate(
-                                { id: cred.id },
-                                {
-                                    onSuccess: () =>
-                                        toast.success('Credential deleted'),
-                                },
-                            )
-                        }
-                        title={`Delete "${cred.label}"?`}
-                    >
-                        <Button
-                            aria-label={`Delete ${cred.label}`}
-                            disabled={isDeleting}
-                            size="icon-sm"
-                            variant="ghost"
-                        >
-                            {isDeleting ? (
-                                <Spinner className="size-3" />
-                            ) : (
-                                <Trash2 className="size-3" />
-                            )}
-                        </Button>
-                    </ConfirmDialog>
-                </div>
+                <RowActionsMenu
+                    actions={actions}
+                    isPending={isDeleting}
+                    label={cred.label}
+                />
             </li>
         );
     };
 
     return (
         <div className="flex flex-col gap-6">
-            {credentialsQ.isPending && (
-                <div className="flex flex-col gap-3">
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                </div>
-            )}
+            {credentialsQ.isPending &&
+                ROLE_ORDER.map((role) => (
+                    <TitledCardSkeleton
+                        key={role}
+                        title={ROLE_SECTION_LABEL[role]}
+                    />
+                ))}
 
             {credentialsQ.data?.length === 0 && (
                 <EmptyStatePanel
-                    description="Add a credential to start importing"
+                    description="Add a bank, card or accounting connection to start importing."
                     icon={KeyRound}
-                    title="No credentials yet"
+                    title="No connections yet"
                 />
             )}
 
@@ -295,15 +275,13 @@ function EditCredentialDialog({
             }}
             open={credential !== null}
         >
-            <DialogContent>
-                {credential && (
-                    <EditCredentialForm
-                        credential={credential}
-                        onClose={onClose}
-                        onSaved={onSaved}
-                    />
-                )}
-            </DialogContent>
+            {credential && (
+                <EditCredentialForm
+                    credential={credential}
+                    onClose={onClose}
+                    onSaved={onSaved}
+                />
+            )}
         </Dialog>
     );
 }
@@ -333,7 +311,7 @@ function EditCredentialFields({
     const secret = useWatch({ control: form.control, name: 'secret' }) ?? '';
     const meta = useWatch({ control: form.control, name: 'meta' }) ?? {};
 
-    const onSubmit = form.handleSubmit(async (values) => {
+    const save = async (values: CredentialUpdateInput) => {
         const trimmedSecret = values.secret?.trim();
         try {
             await updateMut.mutateAsync({
@@ -355,66 +333,53 @@ function EditCredentialFields({
                     : 'Could not save credential',
             );
         }
-    });
+    };
 
     return (
-        <>
-            <DialogHeader>
-                <DialogTitle>Edit credential</DialogTitle>
-            </DialogHeader>
-            <form className="flex flex-col gap-4" onSubmit={onSubmit}>
-                <CredentialFormFields
-                    credentialId={credential.id}
-                    descriptor={descriptor}
-                    label={label}
-                    meta={meta}
-                    onLabelChange={(v) =>
-                        form.setValue('label', v, {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                        })
-                    }
-                    onMetaChange={(v) =>
-                        form.setValue('meta', v, {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                        })
-                    }
-                    onSecretChange={(v) =>
-                        form.setValue('secret', v, {
-                            shouldDirty: true,
-                            shouldValidate: true,
-                        })
-                    }
-                    secret={secret}
-                    secretRequired={false}
-                />
+        <FormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={save}
+            pending={updateMut.isPending}
+            title="Edit credential"
+            {...dialogSubmitLabels(DialogMode.Edit)}
+        >
+            <CredentialFormFields
+                credentialId={credential.id}
+                descriptor={descriptor}
+                label={label}
+                meta={meta}
+                onLabelChange={(v) =>
+                    form.setValue('label', v, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                    })
+                }
+                onMetaChange={(v) =>
+                    form.setValue('meta', v, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                    })
+                }
+                onSecretChange={(v) =>
+                    form.setValue('secret', v, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                    })
+                }
+                secret={secret}
+                secretRequired={false}
+            />
 
-                {updateMut.error && (
-                    <Alert variant="destructive">
-                        <AlertCircle className="size-4" />
-                        <AlertDescription>
-                            {updateMut.error.message}
-                        </AlertDescription>
-                    </Alert>
-                )}
-
-                <DialogFooter>
-                    <Button
-                        disabled={updateMut.isPending}
-                        onClick={onClose}
-                        type="button"
-                        variant="ghost"
-                    >
-                        Cancel
-                    </Button>
-                    <Button disabled={updateMut.isPending} type="submit">
-                        {updateMut.isPending && <Spinner className="size-3" />}
-                        Save changes
-                    </Button>
-                </DialogFooter>
-            </form>
-        </>
+            {updateMut.error && (
+                <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                        {updateMut.error.message}
+                    </AlertDescription>
+                </Alert>
+            )}
+        </FormDialog>
     );
 }
 
@@ -430,20 +395,23 @@ function EditCredentialForm({
     const descriptor = CredentialRegistry.instance.get(credential.kind);
     if (descriptor === undefined) {
         return (
-            <>
+            <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Edit credential</DialogTitle>
                 </DialogHeader>
-                <p className="text-sm text-destructive">
-                    Unknown credential kind &quot;{credential.kind}&quot;: no
-                    descriptor registered.
-                </p>
+                <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>
+                        Unknown credential kind &quot;{credential.kind}&quot;:
+                        no descriptor registered.
+                    </AlertDescription>
+                </Alert>
                 <DialogFooter>
                     <Button onClick={onClose} variant="ghost">
                         Close
                     </Button>
                 </DialogFooter>
-            </>
+            </DialogContent>
         );
     }
 
@@ -494,9 +462,7 @@ function MetaSummaryBadges({
     return badges.length === 0 ? null : (
         <>
             {badges.map((b) => (
-                <Badge key={b.key} variant="outline">
-                    {b.text}
-                </Badge>
+                <Badge key={b.key}>{b.text}</Badge>
             ))}
         </>
     );

@@ -18,7 +18,7 @@ import {
     siblingInstrumentSeverityText,
     siblingInstrumentText,
 } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
-import { formatGateCurrency } from '~/lib/format';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
     ALL_INSTRUMENTS,
@@ -70,7 +70,7 @@ interface GridCell {
 }
 
 function amountPattern(amount: number): RegExp {
-    const text = formatGateCurrency(amount)
+    const text = formatWholeOrCentsCurrency(amount)
         .replaceAll('$', String.raw`\$`)
         .replaceAll('.', String.raw`\.`);
     return new RegExp(`${text}${String.raw`(?![\d,]|\.\d)`}`);
@@ -535,7 +535,7 @@ describe('positionSizeFor: the phase and tier contract cap', () => {
         expect(notes).not.toMatch(/at least/);
         expect(notes).toContain(formatPoints(result.minStopAtCap ?? 0));
         expect(notes).toContain('7.75 points');
-        expect(notes).toContain(formatGateCurrency(tickRisk));
+        expect(notes).toContain(formatWholeOrCentsCurrency(tickRisk));
         expect(notes).toMatch(/wider stop/);
         expect(
             result.notes.filter((note) => note.includes('7.75 points')),
@@ -563,7 +563,7 @@ describe('positionSizeFor: the phase and tier contract cap', () => {
                     `${formatPoints(stop.tickPoints)} points`,
                 );
                 expect(notes).toContain(
-                    formatGateCurrency(stop.riskAtTickStop),
+                    formatWholeOrCentsCurrency(stop.riskAtTickStop),
                 );
             }
         },
@@ -727,7 +727,7 @@ describe('positionSizeStatusText: one live summary sentence', () => {
         const cap = DEFAULT_EVAL_NQ_CAP ?? 0;
         const values = input({ risk: cap * 155 + 1, stopPoints: 5 });
         expect(positionSizeStatusText(values, positionSizeFor(values))).toBe(
-            `${cap} NQ, held to the eval contract limit; the stop for the exact risk is 7.75 points, risking ${formatGateCurrency(cap * 155)}.`,
+            `${cap} NQ, held to the eval contract limit; the stop for the exact risk is 7.75 points, risking ${formatWholeOrCentsCurrency(cap * 155)}.`,
         );
     });
 
@@ -770,7 +770,7 @@ describe('positionSizeFor: fee-equivalent risk and the eval bust line (F-V16)', 
         const text = positionSizeFor(values).atRiskIfBustedText;
         expect(text).not.toBeNull();
         expect(text).toContain('At risk if busted');
-        expect(text).toContain(formatGateCurrency(dollars(fee)));
+        expect(text).toContain(formatWholeOrCentsCurrency(dollars(fee)));
         expect(text).toContain('fresh eval');
         expect(text).not.toContain(EM_DASH);
     });
@@ -823,7 +823,7 @@ describe('positionSizeFor: fee-equivalent risk and the eval bust line (F-V16)', 
         const fee = planRetryFee(DEFAULT_PLAN.fees);
         const dollarsValues = input({ retryFee: dollars(fee), risk: 450 });
         expect(positionSizeFor(dollarsValues).riskDisplay.text).toBe(
-            formatGateCurrency(dollars(450)),
+            formatWholeOrCentsCurrency(dollars(450)),
         );
         const feeValues = input({
             retryFee: dollars(fee),

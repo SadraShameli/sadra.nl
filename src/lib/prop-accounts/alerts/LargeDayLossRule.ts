@@ -1,4 +1,4 @@
-import { formatPercent } from '~/lib/format';
+import { formatDisplayDate, formatPercent } from '~/lib/format';
 import { compareText, formatUsdCents } from '~/lib/prop-accounts/core';
 import {
     AccountStateKind,
@@ -63,7 +63,7 @@ export class LargeDayLossRule extends AlertRule {
                   this.alertOf(
                       worst,
                       AlertSeverity.Info,
-                      `On ${worst.date} your accounts lost ${formatUsdCents(worst.lossCents)}, ${dayLossBreakdownText(worst)}, but there is no available bankroll to compare it with your ${formatPercent(fraction)} limit; record a deposit so the limit can be checked${notesOf(worst)}`,
+                      `On ${formatDisplayDate(worst.date)} your accounts lost ${formatUsdCents(worst.lossCents)}, ${dayLossBreakdownText(worst)}, but there is no available bankroll to compare it with your ${formatPercent(fraction)} limit; record a deposit so the limit can be checked${notesOf(worst)}`,
                   ),
               ];
     }
@@ -97,7 +97,7 @@ export class LargeDayLossRule extends AlertRule {
             this.alertOf(
                 worst,
                 AlertSeverity.Warning,
-                `On ${worst.date} your accounts lost ${formatUsdCents(worst.lossCents)}, ${dayLossBreakdownText(worst)}, ${formatPercent(worst.share ?? 0)} of your available bankroll, above your ${formatPercent(fraction)} limit${repeated}${notesOf(worst)}`,
+                `On ${formatDisplayDate(worst.date)} your accounts lost ${formatUsdCents(worst.lossCents)}, ${dayLossBreakdownText(worst)}, ${formatPercent(worst.share ?? 0)} of your available bankroll, above your ${formatPercent(fraction)} limit${repeated}${notesOf(worst)}`,
             ),
         ];
     }

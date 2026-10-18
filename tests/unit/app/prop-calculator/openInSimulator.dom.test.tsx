@@ -50,7 +50,8 @@ enum ComparisonTable {
 }
 
 const ORIGIN = 'http://localhost';
-const OPEN_LABEL = /^Open (.+) in the simulator$/;
+const ACTIONS_LABEL = /^Actions for (.+)$/;
+const OPEN_ITEM = 'Open in the simulator';
 
 const navigation = await vi.hoisted(async () => {
     const { createContext } = await import('react');
@@ -114,6 +115,12 @@ const observed: {
     state: null,
 };
 
+function actionTriggers(): HTMLButtonElement[] {
+    return [...document.querySelectorAll('button')].filter((button) =>
+        ACTIONS_LABEL.test(button.getAttribute('aria-label') ?? ''),
+    );
+}
+
 function CompareProbe({ table }: { table: ComparisonTable }) {
     const { firms, planOptIns, simInputs, state } = useCalculatorInputs();
     useEffect(() => {
@@ -163,10 +170,20 @@ function Location({ children, start }: { children: ReactNode; start: string }) {
     );
 }
 
-function openButtons(): HTMLButtonElement[] {
-    return [...document.querySelectorAll('button')].filter((button) =>
-        OPEN_LABEL.test(button.getAttribute('aria-label') ?? ''),
-    );
+function openItemOf(trigger: HTMLButtonElement): HTMLElement {
+    act(() => {
+        trigger.focus();
+        trigger.dispatchEvent(
+            new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
+        );
+    });
+    const item = [
+        ...document.body.querySelectorAll<HTMLElement>(
+            ':scope [role="menuitem"]',
+        ),
+    ].find((candidate) => candidate.textContent === OPEN_ITEM);
+    if (item === undefined) throw new Error(`no ${OPEN_ITEM} item`);
+    return item;
 }
 
 function pathnameOf(url: string | URL = ''): string {
@@ -252,9 +269,9 @@ describe('Open in the simulator from a comparison table', () => {
             (table === ComparisonTable.Plan
                 ? [current.plan]
                 : current.firm.plans
-            ).map((plan) => `Open ${plan.label} in the simulator`),
+            ).map((plan) => `Actions for ${plan.label}`),
         );
-        const candidate = openButtons().find(
+        const candidate = actionTriggers().find(
             (button) =>
                 !currentLabels.has(button.getAttribute('aria-label') ?? ''),
         );
@@ -268,13 +285,14 @@ describe('Open in the simulator from a comparison table', () => {
             await renderCompare(table);
             const before = observed.state;
             if (before === null) throw new Error('provider state not observed');
-            const button = pickRow(table, before);
-            const label = OPEN_LABEL.exec(
-                button.getAttribute('aria-label') ?? '',
+            const trigger = pickRow(table, before);
+            const label = ACTIONS_LABEL.exec(
+                trigger.getAttribute('aria-label') ?? '',
             )?.[1];
+            const item = openItemOf(trigger);
 
             await act(async () => {
-                button.click();
+                item.click();
                 await vi.advanceTimersByTimeAsync(0);
             });
 

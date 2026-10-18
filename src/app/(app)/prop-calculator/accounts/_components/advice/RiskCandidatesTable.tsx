@@ -4,7 +4,7 @@ import {
     DataTableAlign,
     type DataTableColumn,
 } from '~/components/ui/data-table';
-import { formatGateCurrency } from '~/lib/format';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 
 import {
     CANDIDATE_VALUE_BASIS_TEXT,
@@ -88,7 +88,7 @@ function riskCandidateColumns(
             ),
             header: 'Risk',
             id: RiskCandidateColumn.Risk,
-            meta: { align: DataTableAlign.End },
+            meta: { align: DataTableAlign.End, isRowHeader: true },
         },
         {
             cell: ({ row: { original: row } }) => row.contractsText ?? '',
@@ -105,7 +105,7 @@ function riskCandidateColumns(
         },
         {
             cell: ({ row: { original: row } }) =>
-                formatGateCurrency(row.netOfDurationCharge),
+                formatWholeOrCentsCurrency(row.netOfDurationCharge),
             header: 'Net of duration charge',
             id: RiskCandidateColumn.NetOfDurationCharge,
             meta: { align: DataTableAlign.End },

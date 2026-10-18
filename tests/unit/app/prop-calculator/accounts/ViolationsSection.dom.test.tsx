@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ViolationsSection } from '~/app/(app)/prop-calculator/accounts/_components/detail/ViolationsSection';
+import { formatDisplayDate } from '~/lib/format';
 import {
     RuleViolationKind,
     usdCents,
@@ -10,6 +11,17 @@ import {
 } from '~/lib/prop-accounts';
 import { type RouterOutputs } from '~/trpc/react';
 
+import {
+    dialogTitled,
+    findDialogTitled,
+    typeInto,
+} from '../../../components/formDialog';
+import {
+    chooseRowAction,
+    confirmRowAction,
+    openRowActions,
+    rowActionLabels,
+} from '../../../components/rowActionsMenu';
 import { pickOption } from './pickOption';
 
 type ViolationRow = RouterOutputs['propAccounts']['violation']['list'][number];
@@ -17,6 +29,8 @@ type ViolationRow = RouterOutputs['propAccounts']['violation']['list'][number];
 const ACCOUNT_ID = 'a1111111-1111-4111-8111-111111111111';
 const DECISION_ID = 'd2222222-2222-4222-8222-222222222222';
 const VIOLATION_ID = 'e3333333-3333-4333-8333-333333333333';
+const VIOLATION_ROW_LABEL =
+    'the Position above the documented size violation of 12 Sep 2026';
 
 interface FakeQuery {
     data: unknown;
@@ -166,20 +180,6 @@ async function submit(scope: ParentNode, label: string) {
     await flush();
 }
 
-function typeInto(input: HTMLElement, text: string) {
-    act(() => {
-        Reflect.set(
-            input instanceof HTMLTextAreaElement
-                ? HTMLTextAreaElement.prototype
-                : HTMLInputElement.prototype,
-            'value',
-            text,
-            input,
-        );
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-}
-
 function violation(): ViolationRow {
     return {
         accountId: ACCOUNT_ID,
@@ -235,13 +235,13 @@ describe('ViolationsSection', () => {
     it('says no violations are recorded yet when the list is empty', () => {
         render([]);
         expect(container.textContent).toContain(
-            'No rule violations recorded yet.',
+            'No rule violations recorded yet',
         );
     });
 
     it('lists a violation with its date, kind label, cost and note', () => {
         render([violation()]);
-        expect(container.textContent).toContain('2026-09-12');
+        expect(container.textContent).toContain('12 Sep 2026');
         expect(container.textContent).toContain(
             'Position above the documented size',
         );
@@ -249,34 +249,45 @@ describe('ViolationsSection', () => {
         expect(container.textContent).toContain('sized up after a loss');
     });
 
+    function openAddDialog(): HTMLElement {
+        act(() => {
+            buttonLabelled(container, 'Add violation').click();
+        });
+        return dialogTitled('Add a violation');
+    }
+
     it('shows the ForcedRecovery disclaimer that a documented step-up after a loss is not a violation', async () => {
         render([]);
+        const dialog = openAddDialog();
         await pickOption(
-            inputLabelled(container, 'Kind'),
+            inputLabelled(dialog, 'Kind'),
             'Risk above the documented rung to recover a loss',
         );
-        expect(container.textContent).toContain(
+        expect(dialog.textContent).toContain(
             "the documented ladder's step up after a loss is not a violation",
         );
     });
 
     it('shows only the plain kind label for a kind with no disclaimer', async () => {
         render([]);
+        const dialog = openAddDialog();
         await pickOption(
-            inputLabelled(container, 'Kind'),
+            inputLabelled(dialog, 'Kind'),
             'Position above the documented size',
         );
-        expect(container.textContent).not.toContain('is not a violation');
+        expect(dialog.textContent).not.toContain('is not a violation');
     });
 
-    it('creates a violation with a blank cost and no linked decision as null', async () => {
+    it('creates a violation with a blank cost and no linked decision as null, then closes the dialog', async () => {
         render([]);
+        const dialog = openAddDialog();
         await pickOption(
-            inputLabelled(container, 'Kind'),
+            inputLabelled(dialog, 'Kind'),
             'Took an unplanned trade to win back a loss',
         );
-        typeInto(inputLabelled(container, 'Date'), '2026-09-15');
-        await submit(container, 'Add violation');
+        typeInto(inputLabelled(dialog, 'Date'), '2026-09-15');
+        await submit(dialog, 'Add violation');
+        expect(findDialogTitled('Add a violation')).toBeNull();
         expect(harness.mutateAsyncOf('violation.create')).toHaveBeenCalledWith({
             accountId: ACCOUNT_ID,
             costCents: null,
@@ -289,30 +300,27 @@ describe('ViolationsSection', () => {
 
     it('lists only this account decisions in the linked-decision select', async () => {
         render([]);
+        const dialog = openAddDialog();
         await pickOption(
-            inputLabelled(container, 'Linked decision'),
-            `Decision on ${decision().decidedOn}`,
+            inputLabelled(dialog, 'Linked decision'),
+            `Decision on ${formatDisplayDate(decision().decidedOn)}`,
         );
-        typeInto(inputLabelled(container, 'Date'), '2026-09-15');
-        await submit(container, 'Add violation');
+        typeInto(inputLabelled(dialog, 'Date'), '2026-09-15');
+        await submit(dialog, 'Add violation');
         expect(harness.mutateAsyncOf('violation.create')).toHaveBeenCalledWith(
             expect.objectContaining({ decisionId: DECISION_ID }),
         );
     });
 
-    it('starts editing a violation, prefills the form and saves through violation.update', async () => {
+    it('starts editing a violation from its row menu, prefills the dialog and saves through violation.update', async () => {
         render([violation()]);
-        await act(async () => {
-            buttonLabelled(
-                container,
-                'Edit the Position above the documented size violation of 2026-09-12',
-            ).click();
-        });
-        expect(
-            (inputLabelled(container, 'Cost') as HTMLInputElement).value,
-        ).toBe('50');
-        typeInto(inputLabelled(container, 'Note'), 'edited note');
-        await submit(container, 'Save violation');
+        chooseRowAction(VIOLATION_ROW_LABEL, 'Edit');
+        const dialog = dialogTitled('Edit violation');
+        expect((inputLabelled(dialog, 'Cost') as HTMLInputElement).value).toBe(
+            '50',
+        );
+        typeInto(inputLabelled(dialog, 'Note'), 'edited note');
+        await submit(dialog, 'Save violation');
         expect(harness.mutateAsyncOf('violation.update')).toHaveBeenCalledWith({
             costCents: 5000,
             decisionId: null,
@@ -323,17 +331,11 @@ describe('ViolationsSection', () => {
         });
     });
 
-    it('removes a violation once the delete dialog is confirmed', () => {
+    it('removes a violation from its row menu only once the delete dialog is confirmed', () => {
         render([violation()]);
-        act(() => {
-            buttonLabelled(
-                container,
-                'Delete the Position above the documented size violation of 2026-09-12',
-            ).click();
-        });
-        act(() => {
-            buttonLabelled(document, 'Delete').click();
-        });
+        chooseRowAction(VIOLATION_ROW_LABEL, 'Delete');
+        expect(harness.mutateOf('violation.remove')).not.toHaveBeenCalled();
+        confirmRowAction('Delete');
         expect(harness.mutateOf('violation.remove')).toHaveBeenCalledWith({
             id: VIOLATION_ID,
         });
@@ -341,6 +343,13 @@ describe('ViolationsSection', () => {
 
     it('hides the form when recording is not allowed', () => {
         render([], false);
-        expect(container.querySelector('form')).toBeNull();
+        expect(container.textContent).not.toContain('Add violation');
+        expect(document.querySelector('form')).toBeNull();
+    });
+
+    it('offers only Delete in the row menu when recording is not allowed', () => {
+        render([violation()], false);
+        openRowActions(VIOLATION_ROW_LABEL);
+        expect(rowActionLabels()).toEqual(['Delete']);
     });
 });

@@ -22,7 +22,7 @@ import Footer from './(app)/_components/Footer';
 import { MAIN_CONTENT_ID } from './(app)/_components/mainContent';
 import Navbar from './(app)/_components/Navbar';
 import {
-    RootAccountingGroup,
+    RootAccountingProduct,
     RootResumeGroup,
 } from './(app)/_components/navigation/RootNavigationGroups';
 import { NavMenuId } from './(app)/_components/navigation/siteNavigation';
@@ -92,7 +92,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                                 ),
                                 [NavMenuId.Tools]: (
                                     <Suspense fallback={null}>
-                                        <RootAccountingGroup />
+                                        <RootAccountingProduct />
                                     </Suspense>
                                 ),
                             }}
@@ -105,7 +105,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                         </div>
                         <Footer />
                     </TRPCReactProvider>
-                    <Toaster position="bottom-center" richColors />
+                    <Toaster position="bottom-center" />
                 </ThemeProvider>
                 <Analytics />
                 <SpeedInsights />

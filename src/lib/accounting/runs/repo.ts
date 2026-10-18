@@ -1,6 +1,7 @@
 import {
     and,
     asc,
+    count,
     desc,
     eq,
     ne,
@@ -60,6 +61,18 @@ export interface CreateRunInput {
     userId: string;
 }
 
+export interface RunListFilter {
+    accountingCredentialId?: CredentialId;
+    status?: RunStatus;
+}
+
+export interface RunListOptions extends RunListFilter {
+    limit?: number;
+    offset?: number;
+    sortBy?: RunSortKey;
+    sortDir?: SortDirection;
+}
+
 export class AccountingRunRepo {
     async create(input: CreateRunInput): Promise<RunId> {
         const [row] = await db
@@ -113,35 +126,23 @@ export class AccountingRunRepo {
         return row ? toAccountingRun(row) : null;
     }
 
+    async count(userId: UserId, filter: RunListFilter = {}): Promise<number> {
+        const [row] = await db
+            .select({ total: count() })
+            .from(accountingRun)
+            .where(runListCondition(userId, filter));
+        return row?.total ?? 0;
+    }
+
     async list(
         userId: UserId,
-        options: {
-            accountingCredentialId?: CredentialId;
-            limit?: number;
-            offset?: number;
-            sortBy?: RunSortKey;
-            sortDir?: SortDirection;
-            status?: RunStatus;
-        } = {},
+        options: RunListOptions = {},
     ): Promise<AccountingRun[]> {
         const orderBy = options.sortDir === 'asc' ? asc : desc;
         const rows = await db
             .select()
             .from(accountingRun)
-            .where(
-                and(
-                    eq(accountingRun.userId, userId),
-                    options.accountingCredentialId === undefined
-                        ? undefined
-                        : eq(
-                              accountingRun.accountingCredentialId,
-                              options.accountingCredentialId,
-                          ),
-                    options.status === undefined
-                        ? undefined
-                        : eq(accountingRun.status, options.status),
-                ),
-            )
+            .where(runListCondition(userId, options))
             .orderBy(
                 orderBy(RUN_SORT_EXPRESSIONS[options.sortBy ?? 'createdAt']),
             )
@@ -239,6 +240,21 @@ export class AccountingRunRepo {
             `Cannot edit booking "${txnId}" on a run with status "${run.status}"`,
         );
     }
+}
+
+function runListCondition(userId: UserId, filter: RunListFilter) {
+    return and(
+        eq(accountingRun.userId, userId),
+        filter.accountingCredentialId === undefined
+            ? undefined
+            : eq(
+                  accountingRun.accountingCredentialId,
+                  filter.accountingCredentialId,
+              ),
+        filter.status === undefined
+            ? undefined
+            : eq(accountingRun.status, filter.status),
+    );
 }
 
 export const accountingRunRepo = new AccountingRunRepo();

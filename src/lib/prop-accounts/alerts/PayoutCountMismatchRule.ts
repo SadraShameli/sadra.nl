@@ -1,3 +1,5 @@
+import { formatDisplayDate } from '~/lib/format';
+
 import { type AccountAlert } from './AccountAlert';
 import { type MonitoredAccount, paidPayoutsThrough } from './AlertContext';
 import { AlertKind } from './AlertKind';
@@ -18,7 +20,7 @@ export class PayoutCountMismatchRule extends AccountAlertRule {
             : this.alertFor(
                   monitored,
                   AlertSeverity.Warning,
-                  `Snapshot from ${snapshot.asOf} says ${snapshot.payoutsTaken} payouts taken, the ledger has ${paidCount} paid payouts on or before that date`,
+                  `Snapshot from ${formatDisplayDate(snapshot.asOf)} says ${snapshot.payoutsTaken} payouts taken, the ledger has ${paidCount} paid payouts on or before that date`,
               );
     }
 }

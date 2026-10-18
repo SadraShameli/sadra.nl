@@ -15,7 +15,7 @@ export function LinkParameterNotice() {
         if (outcome.status !== LabLinkStatus.Rejected) return null;
         const label = LINK_PARAMETER_LABELS[parameter];
         return (
-            <Alert className="mb-4" key={parameter} variant="warning">
+            <Alert className="mb-4" key={parameter} variant="destructive">
                 <AlertDescription className="text-xs">
                     {`The ${label} in this link or saved scenario was refused (${outcome.issue}), so the ${label} shown did not come from it.`}
                 </AlertDescription>

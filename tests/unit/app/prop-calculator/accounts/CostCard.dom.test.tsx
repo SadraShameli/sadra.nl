@@ -6,6 +6,8 @@ import { CostCard } from '~/app/(app)/prop-calculator/accounts/_components/overv
 import { type CostCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SampleLevel } from '~/lib/prop-accounts';
 
+import { infoText } from '../infoPopover';
+
 function model(overrides: Partial<CostCardModel> = {}): CostCardModel {
     return {
         byAccountSize: [],
@@ -178,7 +180,7 @@ describe('CostCard', () => {
                 ],
             }),
         );
-        expect(container.textContent).toContain(
+        expect(infoText(container, 'Costs')).toContain(
             'Attempt throughput counts started attempts; cost per attempt counts decided attempts only.',
         );
     });

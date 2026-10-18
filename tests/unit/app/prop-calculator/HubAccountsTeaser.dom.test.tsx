@@ -45,6 +45,8 @@ import {
     purchased,
     transfer,
 } from '../../lib/prop-accounts/metrics/ledgerFixtures';
+import { missingValueText } from './missingValue';
+import { statStripValue } from './statStripValue';
 
 interface FakeQuery {
     data: unknown;
@@ -234,12 +236,7 @@ function answer(data: unknown): FakeQuery {
 }
 
 function statValue(label: string): null | string {
-    const card = [...document.querySelectorAll('div')].find(
-        (element) =>
-            element.firstElementChild?.textContent === label &&
-            element.children.length >= 2,
-    );
-    return card?.children[1]?.textContent ?? null;
+    return statStripValue(document, label)?.textContent ?? null;
 }
 
 describe('HubAccountsTeaser', () => {
@@ -622,7 +619,7 @@ describe('HubAccountsTeaser', () => {
             const open = anchors.find(
                 (anchor) => anchor.textContent === 'Open your accounts',
             );
-            expect(open?.closest('[data-slot="card-action"]')).not.toBeNull();
+            expect(open?.closest('[data-slot="card-header"]')).not.toBeNull();
         });
 
         it('shows no setup checklist until the events are loaded, and still shows the totals', () => {
@@ -666,7 +663,7 @@ describe('HubAccountsTeaser', () => {
             });
             render();
             expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
-            expect(statValue('Alerts')).toBe('n/a');
+            expect(statValue('Alerts')).toBe(missingValueText());
             expect(container.textContent).toContain(
                 'The alert count could not be checked: transfers down',
             );
@@ -688,7 +685,7 @@ describe('HubAccountsTeaser', () => {
             render();
             expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
             expect(statValue('Net')).toBe(formatUsdCents(usdCents(120_000)));
-            expect(statValue('Alerts')).toBe('n/a');
+            expect(statValue('Alerts')).toBe(missingValueText());
             expect(container.textContent).toContain(
                 'The alert count could not be checked: Your stored rulebook is not valid: x',
             );
@@ -705,7 +702,7 @@ describe('HubAccountsTeaser', () => {
             });
             render();
             expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
-            expect(statValue('Alerts')).toBe('n/a');
+            expect(statValue('Alerts')).toBe(missingValueText());
             expect(container.textContent).toContain(
                 'The alert count could not be checked: Your events could not be loaded: x',
             );

@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleCheck, FileUp, TriangleAlert } from 'lucide-react';
+import { CircleCheck, FileUp } from 'lucide-react';
 import {
     type ReactNode,
     useDeferredValue,
@@ -17,21 +17,28 @@ import {
     accountPlanOptions,
     planTagLabel,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
-import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from '~/components/ui/accordion';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+    ErrorNoticeTitle,
+    QueryErrorNotice,
+} from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { messageWithConsequence } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
+import { DetailList, DetailListLayout } from '~/components/DetailList';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Card, CardContent } from '~/components/ui/card';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '~/components/ui/dialog';
 import { Field, FieldDescription, FieldLabel } from '~/components/ui/field';
 import { FilePicker } from '~/components/ui/file-picker';
 import InfoPopover from '~/components/ui/info-popover';
+import { ScrollArea } from '~/components/ui/scroll-area';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Textarea } from '~/components/ui/textarea';
@@ -64,17 +71,11 @@ import {
 } from '~/lib/prop-accounts/csv';
 import { ALL_FIRMS, FirmId } from '~/lib/prop-calculator';
 import { MAX_IMPORT_ROWS } from '~/lib/schemas/propAccounts';
-import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
 enum ImportKind {
     Accounts = 'accounts',
     Snapshots = 'snapshots',
-}
-
-enum ImportReference {
-    Columns = 'columns',
-    PlanSerials = 'plan-serials',
 }
 
 enum ImportViewColumn {
@@ -215,14 +216,11 @@ export function ImportView() {
 
     if (accountsQuery.data === undefined) {
         return accountsQuery.isError ? (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>The accounts could not be loaded</AlertTitle>
-                <AlertDescription>
-                    {accountsQuery.error.message} Import needs them to check
-                    labels, so it is paused.
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                consequence="Import needs them to check labels, so it is paused."
+                message={accountsQuery.error.message}
+                title={ErrorNoticeTitle.Accounts}
+            />
         ) : (
             <Skeleton
                 aria-label="Loading your accounts"
@@ -238,18 +236,14 @@ export function ImportView() {
             defaultValue={ImportKind.Accounts}
         >
             {accountsQuery.isError && (
-                <Alert variant="warning">
-                    <TriangleAlert />
-                    <AlertTitle>
-                        The account list could not be refreshed
-                    </AlertTitle>
-                    <AlertDescription>
-                        {accountsQuery.error.message} Labels are checked against
-                        the list loaded earlier, which may be out of date.
-                        Reload the page before importing if you changed an
-                        account since then.
-                    </AlertDescription>
-                </Alert>
+                <StatusRow
+                    detail={messageWithConsequence(
+                        accountsQuery.error.message,
+                        'Labels are checked against the list loaded earlier, which may be out of date. Reload the page before importing if you changed an account since then.',
+                    )}
+                    title="The account list could not be refreshed"
+                    tone={StatusTone.Warn}
+                />
             )}
             <TabsList className="self-start">
                 <TabsTrigger value={ImportKind.Accounts}>Accounts</TabsTrigger>
@@ -336,14 +330,11 @@ function AccountImportTab({
         );
     }
     return externalFirmsQuery.isError ? (
-        <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertTitle>Your firms could not be loaded</AlertTitle>
-            <AlertDescription>
-                {externalFirmsQuery.error.message} Account import needs them to
-                check firm names, so it is paused.
-            </AlertDescription>
-        </Alert>
+        <QueryErrorNotice
+            consequence="Account import needs them to check firm names, so it is paused."
+            message={externalFirmsQuery.error.message}
+            title={ErrorNoticeTitle.Firms}
+        />
     ) : (
         <Skeleton
             aria-label="Loading your firms"
@@ -363,28 +354,23 @@ function ColumnReference<Column extends string>({
     required: readonly Column[];
 }) {
     return (
-        <AccordionItem value={ImportReference.Columns}>
-            <AccordionTrigger>Columns and formats</AccordionTrigger>
-            <AccordionContent>
-                <dl className="grid gap-x-6 gap-y-2 md:grid-cols-[max-content_1fr]">
-                    {columns.map((column) => (
-                        <div className="contents" key={column}>
-                            <dt className="font-mono text-xs">
-                                {column}
-                                {required.includes(column) && (
-                                    <Badge className="ml-2" variant="secondary">
-                                        required
-                                    </Badge>
-                                )}
-                            </dt>
-                            <dd className="text-muted-foreground">
-                                {describeColumn(column)}
-                            </dd>
-                        </div>
-                    ))}
-                </dl>
-            </AccordionContent>
-        </AccordionItem>
+        <DetailList
+            className="max-h-96 overflow-y-auto"
+            items={columns.map((column) => ({
+                id: column,
+                label: column,
+                value: (
+                    <>
+                        {required.includes(column) && (
+                            <Badge className="mr-2">required</Badge>
+                        )}
+                        {describeColumn(column)}
+                    </>
+                ),
+            }))}
+            label="Columns and formats"
+            layout={DetailListLayout.Stacked}
+        />
     );
 }
 
@@ -440,125 +426,117 @@ function CsvImportPanel<Column extends string, Value>({
     return (
         <section
             aria-labelledby={`${baseId}-heading`}
-            className={cn(
-                `app-prop-accounts__import-${kind}`,
-                'flex flex-col gap-4',
-            )}
+            className={`app-prop-accounts__import-${kind}`}
         >
-            <ToolSectionHeading id={`${baseId}-heading`}>
-                Import {noun.plural}
-            </ToolSectionHeading>
-            <Card className="py-0">
-                <CardContent>
-                    <Accordion type="multiple">
-                        <ColumnReference
-                            columns={columns}
-                            describeColumn={describeColumn}
-                            required={required}
-                        />
-                        {reference}
-                    </Accordion>
-                </CardContent>
-            </Card>
-            <Field>
-                <FieldLabel htmlFor={textId}>CSV text</FieldLabel>
-                <Textarea
-                    aria-describedby={`${textId}-hint`}
-                    className="min-h-48 font-mono text-xs"
-                    disabled={isCommitting}
-                    id={textId}
-                    onChange={(event) => {
-                        setFileError(null);
-                        onTextChange(event.target.value);
-                    }}
-                    placeholder={columns.join(',')}
-                    spellCheck={false}
-                    value={text}
-                />
-                <FieldDescription id={`${textId}-hint`}>
-                    Comma or tab separated, with the header row first. At most{' '}
-                    {MAX_IMPORT_ROWS} rows and 256 KB. Row numbers below count
-                    the header as row 1.
-                </FieldDescription>
-            </Field>
-            <div className="flex flex-wrap items-center gap-3">
-                <FieldLabel className="sr-only" htmlFor={fileId}>
-                    Upload a CSV file of {noun.plural}
-                </FieldLabel>
-                <FilePicker
-                    accept=".csv,.tsv,.txt,text/csv,text/plain"
-                    buttonLabel="Choose CSV"
-                    disabled={isCommitting}
-                    fileName={text === '' ? null : 'File loaded'}
-                    id={fileId}
-                    onFile={(file) => {
-                        void readFile(file);
-                    }}
-                />
-                {text !== '' && (
-                    <Button
+            <ToolPanel
+                actions={reference}
+                contentClassName="gap-4"
+                info={
+                    <ColumnReference
+                        columns={columns}
+                        describeColumn={describeColumn}
+                        required={required}
+                    />
+                }
+                title={`Import ${noun.plural}`}
+                titleId={`${baseId}-heading`}
+            >
+                <Field>
+                    <FieldLabel htmlFor={textId}>CSV text</FieldLabel>
+                    <Textarea
+                        aria-describedby={`${textId}-hint`}
+                        className="min-h-48 font-mono text-xs"
                         disabled={isCommitting}
-                        onClick={() => {
+                        id={textId}
+                        onChange={(event) => {
                             setFileError(null);
-                            onTextChange('');
+                            onTextChange(event.target.value);
+                        }}
+                        placeholder={`Paste the ${noun.plural} CSV here, header row first`}
+                        spellCheck={false}
+                        value={text}
+                    />
+                    <FieldDescription id={`${textId}-hint`}>
+                        Comma or tab separated, with the header row first. At
+                        most {MAX_IMPORT_ROWS} rows and 256 KB. Row numbers
+                        below count the header as row 1.
+                    </FieldDescription>
+                </Field>
+                <div className="flex flex-wrap items-center gap-3">
+                    <FieldLabel className="sr-only" htmlFor={fileId}>
+                        Upload a CSV file of {noun.plural}
+                    </FieldLabel>
+                    <FilePicker
+                        accept=".csv,.tsv,.txt,text/csv,text/plain"
+                        buttonLabel="Choose CSV"
+                        disabled={isCommitting}
+                        fileName={text === '' ? null : 'File loaded'}
+                        id={fileId}
+                        onFile={(file) => {
+                            void readFile(file);
+                        }}
+                    />
+                    {text !== '' && (
+                        <Button
+                            disabled={isCommitting}
+                            onClick={() => {
+                                setFileError(null);
+                                onTextChange('');
+                            }}
+                            type="button"
+                            variant="outline"
+                        >
+                            Clear
+                        </Button>
+                    )}
+                </div>
+                {fileError !== null && (
+                    <QueryErrorNotice
+                        message={fileError}
+                        title="The file was not loaded"
+                    />
+                )}
+                {preview !== null && preview.kind === CsvTableKind.Failed && (
+                    <QueryErrorNotice
+                        message={describeCsvFailure(preview.failure)}
+                        title="This CSV cannot be imported"
+                    />
+                )}
+                {preview !== null && preview.kind === CsvTableKind.Parsed && (
+                    <PreviewTable
+                        issueCount={issues.length}
+                        preview={preview}
+                        shownColumns={shownColumns}
+                        warnings={warnings}
+                    />
+                )}
+                {commitError !== null && (
+                    <QueryErrorNotice
+                        message={commitError}
+                        title="Nothing was imported"
+                    />
+                )}
+                <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                        disabled={!canCommit}
+                        onClick={() => {
+                            if (payload !== null) onCommit(payload);
                         }}
                         type="button"
-                        variant="outline"
                     >
-                        Clear
+                        <FileUp />
+                        {payload === null
+                            ? `Import ${noun.plural}`
+                            : `Import ${countOf(payload.length, noun)}`}
                     </Button>
-                )}
-            </div>
-            {fileError !== null && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>The file was not loaded</AlertTitle>
-                    <AlertDescription>{fileError}</AlertDescription>
-                </Alert>
-            )}
-            {preview !== null && preview.kind === CsvTableKind.Failed && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>This CSV cannot be imported</AlertTitle>
-                    <AlertDescription>
-                        {describeCsvFailure(preview.failure)}
-                    </AlertDescription>
-                </Alert>
-            )}
-            {preview !== null && preview.kind === CsvTableKind.Parsed && (
-                <PreviewTable
-                    issueCount={issues.length}
-                    preview={preview}
-                    shownColumns={shownColumns}
-                    warnings={warnings}
-                />
-            )}
-            {commitError !== null && (
-                <Alert variant="destructive">
-                    <TriangleAlert />
-                    <AlertTitle>Nothing was imported</AlertTitle>
-                    <AlertDescription>{commitError}</AlertDescription>
-                </Alert>
-            )}
-            <div className="flex flex-wrap items-center gap-3">
-                <Button
-                    disabled={!canCommit}
-                    onClick={() => {
-                        if (payload !== null) onCommit(payload);
-                    }}
-                    type="button"
-                >
-                    <FileUp />
-                    {payload === null
-                        ? `Import ${noun.plural}`
-                        : `Import ${countOf(payload.length, noun)}`}
-                </Button>
-                {preview !== null && payload === null && (
-                    <p className="text-sm text-muted-foreground">
-                        Fix every issue first; an import saves all rows or none.
-                    </p>
-                )}
-            </div>
+                    {preview !== null && payload === null && (
+                        <p className="text-sm text-muted-foreground">
+                            Fix every issue first; an import saves all rows or
+                            none.
+                        </p>
+                    )}
+                </div>
+            </ToolPanel>
         </section>
     );
 }
@@ -572,73 +550,81 @@ function describeIssue(issue: CsvIssue): string {
 function PlanReference() {
     const rows = useMemo(() => planReferenceRows(), []);
     return (
-        <AccordionItem value={ImportReference.PlanSerials}>
-            <AccordionTrigger>
-                Plan serials for the plan column
-            </AccordionTrigger>
-            <AccordionContent>
-                <DataTable
-                    columns={[
-                        {
-                            cell: ({ row }) => (
-                                <span className="font-mono text-xs">
-                                    {row.original.firmId}
-                                </span>
-                            ),
-                            header: 'firm',
-                            id: ImportViewColumn.Firm,
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <span className="font-mono text-xs">
-                                    {row.original.planSerial}
-                                </span>
-                            ),
-                            header: 'plan',
-                            id: ImportViewColumn.PlanSerial,
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <span className="tabular-nums">
-                                    {row.original.size}
-                                </span>
-                            ),
-                            header: 'accountSize',
-                            id: ImportViewColumn.AccountSize,
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <>
-                                    {row.original.label}
-                                    {row.original.tags !== '' && (
-                                        <span className="ml-2 text-xs text-muted-foreground">
-                                            ({row.original.tags})
-                                        </span>
-                                    )}
-                                </>
-                            ),
-                            header: 'Plan',
-                            id: ImportViewColumn.Plan,
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <span className="text-muted-foreground">
-                                    {row.original.optIns === ''
-                                        ? 'None'
-                                        : row.original.optIns}
-                                </span>
-                            ),
-                            header: 'Offered opt-ins',
-                            id: ImportViewColumn.OfferedOptIns,
-                        },
-                    ]}
-                    data={[...rows]}
-                    isSortable={false}
-                    pageSize={null}
-                    rowId={(row) => row.planSerial}
-                />
-            </AccordionContent>
-        </AccordionItem>
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button size="sm" type="button" variant="outline">
+                    Plan serials
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Plan serials for the plan column</DialogTitle>
+                </DialogHeader>
+                <ScrollArea className="h-[60vh]">
+                    <DataTable
+                        columns={[
+                            {
+                                cell: ({ row }) => (
+                                    <span className="font-mono text-xs">
+                                        {row.original.firmId}
+                                    </span>
+                                ),
+                                header: 'firm',
+                                id: ImportViewColumn.Firm,
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <span className="font-mono text-xs">
+                                        {row.original.planSerial}
+                                    </span>
+                                ),
+                                header: 'plan',
+                                id: ImportViewColumn.PlanSerial,
+                                meta: { isRowHeader: true },
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <span className="tabular-nums">
+                                        {row.original.size}
+                                    </span>
+                                ),
+                                header: 'accountSize',
+                                id: ImportViewColumn.AccountSize,
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <>
+                                        {row.original.label}
+                                        {row.original.tags !== '' && (
+                                            <span className="ml-2 text-xs text-muted-foreground">
+                                                ({row.original.tags})
+                                            </span>
+                                        )}
+                                    </>
+                                ),
+                                header: 'Plan',
+                                id: ImportViewColumn.Plan,
+                            },
+                            {
+                                cell: ({ row }) => (
+                                    <span className="text-muted-foreground">
+                                        {row.original.optIns === ''
+                                            ? 'None'
+                                            : row.original.optIns}
+                                    </span>
+                                ),
+                                header: 'Offered opt-ins',
+                                id: ImportViewColumn.OfferedOptIns,
+                            },
+                        ]}
+                        data={[...rows]}
+                        isSortable={false}
+                        pageSize={null}
+                        rowId={(row) => row.planSerial}
+                    />
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -681,20 +667,10 @@ function PreviewTable<Column extends string, Value>({
     type PreviewRow = (typeof preview.rows)[number];
     return (
         <div className="flex flex-col gap-3">
-            <p
-                aria-live="polite"
-                className={cn(
-                    'text-sm',
-                    issueCount === 0 ? 'text-success' : 'text-warning',
-                )}
-            >
-                {preview.rows.length} rows read;{' '}
-                {rowsWithIssues === 0
-                    ? 'every row is ready to import.'
-                    : `${rowsWithIssues} with ${issueCount === 1 ? 'an issue' : `${issueCount} issues`} in total.`}
-                {warningsByRow.size > 0 &&
-                    ` ${warningsByRow.size} ready ${warningsByRow.size === 1 ? 'row has a warning' : 'rows have warnings'} worth checking before you import.`}
-            </p>
+            <StatusRow
+                title={`${String(preview.rows.length)} rows read; ${rowsWithIssues === 0 ? 'every row is ready to import.' : `${String(rowsWithIssues)} with ${issueCount === 1 ? 'an issue' : `${String(issueCount)} issues`} in total.`}${warningsByRow.size > 0 ? ` ${String(warningsByRow.size)} ready ${warningsByRow.size === 1 ? 'row has a warning' : 'rows have warnings'} worth checking before you import.` : ''}`}
+                tone={issueCount === 0 ? StatusTone.Pass : StatusTone.Warn}
+            />
             <DataTable
                 columns={[
                     {
@@ -705,6 +681,7 @@ function PreviewTable<Column extends string, Value>({
                         ),
                         header: 'Row',
                         id: PreviewColumn.Row,
+                        meta: { isRowHeader: true },
                     },
                     ...shownColumns.map(
                         (column): DataTableColumn<PreviewRow> => ({
@@ -713,11 +690,7 @@ function PreviewTable<Column extends string, Value>({
                                     {row.cells.get(column) ?? ''}
                                 </div>
                             ),
-                            header: () => (
-                                <span className="font-mono normal-case">
-                                    {column}
-                                </span>
-                            ),
+                            header: column,
                             id: column,
                         }),
                     ),
@@ -725,8 +698,11 @@ function PreviewTable<Column extends string, Value>({
                         cell: ({ row: { original: row } }) =>
                             row.issues.length === 0 ? (
                                 <div className="flex flex-col gap-1">
-                                    <span className="flex items-center gap-1 text-success">
-                                        <CircleCheck className="size-4" />
+                                    <span className="flex items-center gap-1">
+                                        <CircleCheck
+                                            aria-hidden
+                                            className="size-4"
+                                        />
                                         Ready
                                     </span>
                                     <RowWarnings
@@ -737,7 +713,7 @@ function PreviewTable<Column extends string, Value>({
                                     />
                                 </div>
                             ) : (
-                                <ul className="flex flex-col gap-1 text-warning">
+                                <ul className="flex flex-col gap-1">
                                     {row.issues.map((issue, index) => (
                                         <li key={index}>
                                             {describeIssue(issue)}
@@ -761,7 +737,7 @@ function PreviewTable<Column extends string, Value>({
 function RowWarnings({ warnings }: { warnings: readonly CsvIssue[] }) {
     if (warnings.length === 0) return null;
     return (
-        <ul className="flex flex-col gap-1 text-warning">
+        <ul className="flex flex-col gap-1">
             {warnings.map((warning, index) => (
                 <li key={index}>Check {describeIssue(warning)}</li>
             ))}
@@ -803,17 +779,11 @@ function SnapshotImport({
 
     if (stored === undefined) {
         return storedQuery.isError ? (
-            <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertTitle>
-                    The stored snapshots could not be loaded
-                </AlertTitle>
-                <AlertDescription>
-                    {storedQuery.error.message} Snapshot import needs them to
-                    avoid saving a second snapshot for the same account and
-                    date, so it is paused.
-                </AlertDescription>
-            </Alert>
+            <QueryErrorNotice
+                consequence="Snapshot import needs them to avoid saving a second snapshot for the same account and date, so it is paused."
+                message={storedQuery.error.message}
+                title="The stored snapshots could not be loaded"
+            />
         ) : (
             <Skeleton
                 aria-label="Loading your latest snapshots"

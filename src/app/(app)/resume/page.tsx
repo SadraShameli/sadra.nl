@@ -1,7 +1,7 @@
-import { type Instant } from 'next';
+import { type Instant, type Metadata } from 'next';
 
-import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
 import { CapsulePage } from '~/components/CapsulePage';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { requireRootUser } from '~/lib/auth/guards';
 import { siteContent } from '~/lib/site/content';
@@ -13,13 +13,18 @@ import {
 
 import ResumeCard from './_components/ResumeCard';
 
+const RESUME_PAGE_TITLE = 'Resume';
+
 export const instant: Instant = false;
+
+export const metadata: Metadata = {
+    title: RESUME_PAGE_TITLE,
+};
 
 const resumes = [
     {
         name: 'sadra',
         role: 'Full-stack developer & trader',
-        title: 'Sadra Shameli',
     },
 ];
 
@@ -38,10 +43,10 @@ export default async function ResumePage() {
     return (
         <PageTransition>
             <CapsulePage>
-                <ToolPageHeader
+                <PageHeader
                     eyebrow={siteContent.manifest.name}
                     lead="Formatted as a PDF, view inline or download."
-                    title="Resume"
+                    title={RESUME_PAGE_TITLE}
                 />
 
                 <div className="flex flex-col gap-4">

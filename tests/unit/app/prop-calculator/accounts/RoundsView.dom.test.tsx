@@ -30,6 +30,9 @@ import {
 } from '~/lib/prop-calculator';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
+import { typeInto } from '../../../components/formDialog';
+import { infoText } from '../infoPopover';
+
 interface FakeQuery {
     data: unknown;
     error: null | { message: string };
@@ -315,16 +318,6 @@ async function submitForm(scope: ParentNode) {
     });
 }
 
-function typeInto(target: HTMLInputElement, value: string) {
-    act(() => {
-        Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            'value',
-        )?.set?.call(target, value);
-        target.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-}
-
 describe('RoundsView', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -515,7 +508,9 @@ describe('RoundsView', () => {
     it('warns when the external firms could not be loaded, without blocking the rest of the page', () => {
         harness.queries.set('externalFirm.list', failed('firms down'));
         render();
-        expect(container.textContent).toContain('firms down');
+        expect(container.textContent).toContain(
+            'firms down. External firms show as an unlisted firm until they load.',
+        );
         expect(container.textContent).toContain('Your rounds');
         expect(container.textContent).toContain('No rounds yet');
     });
@@ -523,7 +518,9 @@ describe('RoundsView', () => {
     it('warns when the rulebook could not be loaded, without blocking the rest of the page', () => {
         harness.queries.set('rulebook.get', failed('rulebook down'));
         render();
-        expect(container.textContent).toContain('rulebook down');
+        expect(container.textContent).toContain(
+            'rulebook down. This page uses the default thresholds instead of yours until it loads.',
+        );
         expect(container.textContent).toContain('Your rounds');
         expect(container.textContent).toContain('No rounds yet');
     });
@@ -552,7 +549,9 @@ describe('RoundsView', () => {
         );
         harness.queries.set('bankroll.summary', failed('bankroll down'));
         render();
-        expect(container.textContent).toContain('bankroll down');
+        expect(container.textContent).toContain(
+            'bankroll down. Option B on the "Next round" card is capped at option A\'s budget until it loads.',
+        );
         expect(container.textContent).toContain('Your rounds');
     });
 
@@ -949,14 +948,14 @@ describe('RoundsView', () => {
         );
         expect(headers).toContain('Closed');
         const cells = Array.from(
-            table.querySelectorAll(':scope tbody tr td'),
+            table.querySelectorAll(':scope tbody tr > :is(th, td)'),
             (cell) => cell.textContent,
         );
         expect(cells.slice(0, 3)).toEqual([FIRST_FIRM.displayName, '2', '1']);
         expect(cells).toContain('2.00x');
         expect(cells).not.toContain('0.00x');
         expect(table.textContent).toContain('n = 1)');
-        expect(container.textContent).toContain(
+        expect(infoText(container, 'Rounds by firm')).toContain(
             'Multiples and share positive use closed rounds only',
         );
     });

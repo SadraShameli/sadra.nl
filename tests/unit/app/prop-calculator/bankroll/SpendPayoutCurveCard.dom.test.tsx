@@ -295,8 +295,9 @@ describe('SpendPayoutCurveCard (F-V14, PT-82 step 2)', () => {
         expect(rows[1]?.textContent).not.toContain('SE');
         expect(rows[2]?.textContent).toContain('$50');
         expect(rows[2]?.textContent).toContain(
-            'n/a: an input is missing, negative or out of range',
+            'an input is missing, negative or out of range',
         );
+        expect(rows[2]?.textContent).not.toContain('n/a');
     });
 
     it('shows the worker failure reason once budgets are typed', () => {

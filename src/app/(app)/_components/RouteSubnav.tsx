@@ -13,11 +13,14 @@ import {
     subnavLinkAttributes,
 } from '~/app/(app)/_components/routeSubnavLinks';
 import { useSlidingIndicator } from '~/app/(app)/_components/useSlidingIndicator';
+import {
+    scrollStripFadeClass,
+    useScrollStrip,
+} from '~/components/useScrollStrip';
 import { cn } from '~/lib/utilities';
 
 const SUBNAV_SLOT_SELECTOR = '#navbar-subnav-slot';
-const CENTERING_DIVISOR = 2;
-const FULLY_VISIBLE_RATIO = 0.99;
+const ACTIVE_ITEM_SELECTOR = '[aria-current="page"]';
 
 export interface RouteSubnavItem extends SubnavLink {
     label: string;
@@ -33,11 +36,6 @@ interface RouteSubnavProperties {
     className?: string;
     items: readonly RouteSubnavItem[];
     query?: string;
-}
-
-interface ScrollEdges {
-    readonly hasMoreLeft: boolean;
-    readonly hasMoreRight: boolean;
 }
 
 export function RouteSubnav(properties: RouteSubnavProperties) {
@@ -59,66 +57,13 @@ function RouteSubnavBar({
     const indicatorReference = useRef<HTMLSpanElement>(null);
     const itemReferences = useRef(new Map<string, HTMLAnchorElement>());
     const [clicked, setClicked] = useState<ClickedItem | null>(null);
-    const [edges, setEdges] = useState<ScrollEdges>({
-        hasMoreLeft: false,
-        hasMoreRight: false,
-    });
     const activeHref = activeSubnavHref(pathname, items);
     const highlightedHref =
         clicked?.fromPathname === pathname ? clicked.href : activeHref;
-
-    const firstItem = items.at(0);
-    const firstKey =
-        firstItem === undefined ? undefined : subnavItemKey(firstItem);
-    const lastItem = items.at(-1);
-    const lastKey =
-        lastItem === undefined ? undefined : subnavItemKey(lastItem);
-
-    useEffect(() => {
-        const list = listReference.current;
-        const first =
-            firstKey === undefined
-                ? undefined
-                : itemReferences.current.get(firstKey);
-        const last =
-            lastKey === undefined
-                ? undefined
-                : itemReferences.current.get(lastKey);
-        if (list === null || first === undefined || last === undefined) {
-            return;
-        }
-        const observer = new IntersectionObserver(
-            (entries) => {
-                for (const entry of entries) {
-                    const isClipped =
-                        entry.intersectionRatio < FULLY_VISIBLE_RATIO;
-                    setEdges((current) =>
-                        entry.target === first
-                            ? { ...current, hasMoreLeft: isClipped }
-                            : { ...current, hasMoreRight: isClipped },
-                    );
-                }
-            },
-            { root: list, threshold: [FULLY_VISIBLE_RATIO] },
-        );
-        observer.observe(first);
-        observer.observe(last);
-        return () => observer.disconnect();
-    }, [firstKey, lastKey]);
-
-    useEffect(() => {
-        const list = listReference.current;
-        const active =
-            activeHref === undefined
-                ? undefined
-                : itemReferences.current.get(activeHref);
-        if (list === null || active === undefined) return;
-        list.scrollTo({
-            left:
-                active.offsetLeft -
-                (list.clientWidth - active.offsetWidth) / CENTERING_DIVISOR,
-        });
-    }, [activeHref]);
+    const edges = useScrollStrip(listReference, {
+        activeKey: activeHref,
+        activeSelector: ACTIVE_ITEM_SELECTOR,
+    });
 
     useSlidingIndicator(indicatorReference, itemReferences, highlightedHref);
 
@@ -134,8 +79,7 @@ function RouteSubnavBar({
                 <div
                     className={cn(
                         'relative flex scrollbar-none items-center gap-0.5 overflow-x-auto',
-                        edges.hasMoreLeft && 'mask-l-from-90% mask-l-to-100%',
-                        edges.hasMoreRight && 'mask-r-from-90% mask-r-to-100%',
+                        scrollStripFadeClass(edges),
                     )}
                     ref={listReference}
                 >

@@ -43,6 +43,8 @@ import {
     CopySplitRowKind,
 } from '~/lib/prop-calculator/advisor/policy';
 
+import { hasComputingIndicator } from './computingIndicator';
+import { infoText, withInfoTexts } from './infoPopover';
 import { hasObjectiveSelect } from './objectiveSelect';
 
 interface SectionHarness {
@@ -494,7 +496,7 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
     it('shows the basis lines, the funded risk used and the correlation of the copies', () => {
         harness.result = succeeded();
         render();
-        const text = container.textContent;
+        const text = withInfoTexts(container);
         expect(text).toContain('funded risk $250 per account');
         expect(text).toContain('identical trades');
     });
@@ -511,19 +513,41 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
             row.textContent.startsWith('2 accounts at $1,000'),
         );
         expect(two?.textContent).not.toContain('within noise');
-        expect(container.textContent).toContain('combined standard errors');
+        expect(withInfoTexts(container)).toContain('combined standard errors');
     });
 
     it('says it is computing while the worker runs, in a status region', () => {
         harness.phase = ToolsWorkerPhase.Running;
         render();
-        const status = container.querySelector('[role="status"]');
-        expect(status?.textContent).toContain('Computing');
+        expect(hasComputingIndicator(container)).toBe(true);
     });
 
     it('shows no computing status when idle', () => {
         render();
         expect(container.querySelector('[role="status"]')).toBeNull();
+    });
+
+    it('drops the Contracts column when no split places contracts, instead of a column of n/a', () => {
+        harness.result = succeeded();
+        render();
+        const headers = [...container.querySelectorAll(':scope thead th')].map(
+            (header) => header.textContent.trim(),
+        );
+        expect(headers).not.toContain('Contracts');
+        expect(headers).toContain('Noise');
+        expect(container.textContent).not.toContain('n/a');
+    });
+
+    it('holds skeleton rows under the computing indicator while the first run is in flight', () => {
+        harness.phase = ToolsWorkerPhase.Running;
+        render();
+        expect(
+            container.querySelector('[aria-busy="true"]')?.textContent,
+        ).toContain('Computing');
+        expect(
+            container.querySelectorAll(':scope tbody [data-slot="skeleton"]')
+                .length,
+        ).toBeGreaterThan(0);
     });
 
     it('hides a stale result and header while the inputs are invalid', () => {
@@ -569,8 +593,28 @@ describe('CopySplitSection (PT-63, F-V24, VD-24)', () => {
         harness.result = succeeded({});
         render();
         expect(hasObjectiveSelect(container)).toBe(false);
-        expect(container.textContent).toContain(
+        expect(withInfoTexts(container)).toContain(
             'ranking objective chosen at the top of this page',
+        );
+    });
+
+    it('stacks its three fields on phone, with short labels and the detail behind info buttons', () => {
+        render();
+        const labels = [...container.querySelectorAll('label')].map(
+            (label) => label.textContent,
+        );
+        expect(labels).toEqual(['Total risk ($)', 'Splits', 'Funded risk ($)']);
+        const grid = labelledInput('Total risk')?.closest('.grid');
+        expect(labelledInput('Splits')?.closest('.grid')).toBe(grid);
+        expect(labelledInput('Funded risk')?.closest('.grid')).toBe(grid);
+        expect(grid?.classList.contains('sm:grid-cols-3')).toBe(false);
+        expect(grid?.classList.contains('md:grid-cols-3')).toBe(true);
+        expect(infoText(container, 'Splits')).toContain('1, 2, 5, 10');
+        expect(infoText(container, 'Total risk ($)')).toContain(
+            'across the whole group',
+        );
+        expect(infoText(container, 'Funded risk ($)')).toContain(
+            'not divided by the split',
         );
     });
 

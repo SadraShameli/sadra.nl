@@ -1,8 +1,22 @@
+import { ShieldAlert } from 'lucide-react';
 import { memo } from 'react';
 
+import { EnterBalancesButton } from '~/app/(app)/prop-calculator/accounts/_components/EnterBalancesButton';
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { NOT_APPLICABLE } from '~/lib/format';
 
-import { type ExposureCardModel } from './overviewModel';
+import {
+    type ExposureCardModel,
+    isAwaitingOnlySnapshots,
+} from './overviewModel';
+import {
+    infoLinesOf,
+    OverviewEmptyPanel,
+    OverviewPanel,
+} from './OverviewPanel';
+import { OverviewSectionId } from './overviewSections';
 
 enum AccountExposureColumn {
     Account = 'account',
@@ -21,60 +35,105 @@ enum CopyGroupExposureColumn {
     ShareOfCushionAtRisk = 'share-of-cushion-at-risk',
 }
 
+type ExposureAccountRow = ExposureCardModel['accounts'][number];
+
+interface ExposureDisplayRow extends ExposureAccountRow {
+    readonly reason: null | string;
+}
+
 export const ExposureCard = memo(function ExposureCard({
     model,
 }: {
     readonly model: ExposureCardModel;
 }) {
+    if (
+        model.accounts.length === 0 &&
+        model.groups.length === 0 &&
+        isAwaitingOnlySnapshots(model.unavailable)
+    ) {
+        return (
+            <OverviewEmptyPanel
+                action={<EnterBalancesButton />}
+                description="Exposure compares each account's risk with its cushion."
+                icon={ShieldAlert}
+                section={OverviewSectionId.Exposure}
+                title="Enter balances to see your exposure"
+            />
+        );
+    }
+    const accountRows: readonly ExposureDisplayRow[] = [
+        ...model.accounts.map((row) => ({ ...row, reason: null })),
+        ...model.unavailable.map((row) => ({
+            account: row.account,
+            basis: NOT_APPLICABLE,
+            cushion: NOT_APPLICABLE,
+            firstTradeRisk: NOT_APPLICABLE,
+            key: row.key,
+            maxDailyLoss: NOT_APPLICABLE,
+            reason: sentenceOf(row.reason),
+            shareOfCushionAtRisk: NOT_APPLICABLE,
+        })),
+    ];
     return (
-        <div className="flex flex-col gap-3">
-            {model.accounts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No active account has a usable balance snapshot yet.
-                </p>
-            ) : (
+        <OverviewPanel
+            info={infoLinesOf(model.disclosures)}
+            section={OverviewSectionId.Exposure}
+        >
+            {accountRows.length > 0 && (
                 <DataTable
                     columns={[
                         {
                             cell: ({ row }) => <>{row.original.account}</>,
                             header: 'Account',
                             id: AccountExposureColumn.Account,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.firstTradeRisk}</>
+                                <FigureText
+                                    reason={row.original.reason ?? undefined}
+                                    text={row.original.firstTradeRisk}
+                                />
                             ),
                             header: 'First-trade risk',
                             id: AccountExposureColumn.FirstTradeRisk,
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.maxDailyLoss}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.maxDailyLoss} />
+                            ),
                             header: 'Maximum daily loss',
                             id: AccountExposureColumn.MaximumDailyLoss,
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.cushion}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.cushion} />
+                            ),
                             header: 'Cushion',
                             id: AccountExposureColumn.Cushion,
                             meta: { align: DataTableAlign.End },
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.shareOfCushionAtRisk}</>
+                                <FigureText
+                                    text={row.original.shareOfCushionAtRisk}
+                                />
                             ),
                             header: 'Share of cushion at risk',
                             id: AccountExposureColumn.ShareOfCushionAtRisk,
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.basis}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.basis} />
+                            ),
                             header: 'Basis',
                             id: AccountExposureColumn.Basis,
                         },
                     ]}
-                    data={[...model.accounts]}
+                    data={[...accountRows]}
                     isSortable={false}
                     pageSize={null}
                     rowId={(row) => row.key}
@@ -95,6 +154,7 @@ export const ExposureCard = memo(function ExposureCard({
                             ),
                             header: 'Copy group',
                             id: CopyGroupExposureColumn.CopyGroup,
+                            meta: { isRowHeader: true },
                         },
                         {
                             cell: ({ row }) => <>{row.original.accounts}</>,
@@ -128,23 +188,6 @@ export const ExposureCard = memo(function ExposureCard({
                     rowId={(row) => row.key}
                 />
             )}
-            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-                {model.disclosures.map((disclosure) => (
-                    <li key={disclosure}>{disclosure}</li>
-                ))}
-            </ul>
-            {model.unavailable.length > 0 && (
-                <ul
-                    aria-label="Accounts without an exposure"
-                    className="flex list-disc flex-col gap-1 pl-5 text-xs text-muted-foreground"
-                >
-                    {model.unavailable.map((row) => (
-                        <li key={row.key}>
-                            {row.account}: {row.reason}
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
+        </OverviewPanel>
     );
 });

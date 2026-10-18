@@ -106,4 +106,28 @@ describe('ResiliencePanel', () => {
         expect(result.tradesPerSuccessfulAttempt).toBe(0);
         expect(rowOf(container, 5)).not.toContain('0.0%');
     });
+
+    it('titles each phone card with its streak and labels every other figure', () => {
+        render({
+            fundedHorizonDays: 30,
+            maxEvalDays: 5,
+            plan: rapidEodPlan(),
+            riskPerTrade: 400,
+            rrRatio: 2,
+            seed: 1,
+            tradesPerDay: 1,
+            trials: 50,
+            winrate: 0.5,
+        });
+        const row =
+            container.querySelector<HTMLTableRowElement>(':scope tbody tr');
+        expect(
+            row?.querySelector(':scope > th[scope="row"]')?.textContent,
+        ).toMatch(/^\d+ in a row/);
+        expect(
+            [...(row?.querySelectorAll<HTMLElement>(':scope > td') ?? [])].map(
+                (cell) => cell.dataset.label,
+            ),
+        ).toEqual(['P(occurs in eval)', 'Damage', 'Survive?']);
+    });
 });

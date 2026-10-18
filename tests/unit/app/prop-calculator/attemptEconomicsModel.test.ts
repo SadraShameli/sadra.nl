@@ -5,7 +5,6 @@ import {
     type AttemptEconomicsRunOutputs,
 } from '~/app/(app)/prop-calculator/_components/economics/attemptEconomicsModel';
 import { kpiDescriptions } from '~/app/(app)/prop-calculator/_components/kpiDescriptions';
-import { NOT_APPLICABLE } from '~/lib/format';
 import { EconomicsReason } from '~/lib/prop-calculator/economics';
 
 const FUNDED_TRIALS = 90;
@@ -136,7 +135,7 @@ describe('attemptEconomicsCardModel (F-V9, PT-61)', () => {
         expect(row?.infoText).toBe(kpiDescriptions.breakevenPassRate);
     });
 
-    it('shows n/a for the breakeven and the ratio rows when the funded value is zero or the attempt costs nothing', () => {
+    it('leaves the breakeven and the ratio rows empty, not n/a text, when the funded value is zero or the attempt costs nothing', () => {
         const free = attemptEconomicsCardModel(
             sentinelOutputs({ costPerAttempt: 0 }),
             63,
@@ -146,7 +145,7 @@ describe('attemptEconomicsCardModel (F-V9, PT-61)', () => {
             free.decomposition.find(
                 (row) => row.label === 'Funded value / attempt cost',
             )?.valueText,
-        ).toBe(NOT_APPLICABLE);
+        ).toBeNull();
         const worthless = attemptEconomicsCardModel(
             sentinelOutputs({ expectedPayoutPerFundedAccount: 0 }),
             63,
@@ -156,7 +155,7 @@ describe('attemptEconomicsCardModel (F-V9, PT-61)', () => {
             worthless.decomposition.find(
                 (row) => row.label === 'Breakeven pass rate',
             )?.valueText,
-        ).toBe(NOT_APPLICABLE);
+        ).toBeNull();
     });
 
     it('fills the formula text from typed numeric fields only (PD-32 style sentinels)', () => {
@@ -255,7 +254,7 @@ describe('attemptEconomicsCardModel (F-V9, PT-61)', () => {
         );
     });
 
-    it('shows n/a for payouts per paid funded when P(payout | funded) is zero', () => {
+    it('leaves payouts per paid funded empty, not n/a text, when P(payout | funded) is zero', () => {
         const model = attemptEconomicsCardModel(
             sentinelOutputs({
                 anyPayoutGivenFundedProbability: 0,
@@ -273,10 +272,10 @@ describe('attemptEconomicsCardModel (F-V9, PT-61)', () => {
         const row = model.decomposition.find(
             (candidate) => candidate.label === 'Payouts per paid funded',
         );
-        expect(row?.valueText).toBe(NOT_APPLICABLE);
+        expect(row?.valueText).toBeNull();
     });
 
-    it('shows n/a for average payout when payouts per funded account is zero', () => {
+    it('leaves average payout empty, not n/a text, when payouts per funded account is zero', () => {
         const model = attemptEconomicsCardModel(
             sentinelOutputs({
                 estimates: {
@@ -291,7 +290,7 @@ describe('attemptEconomicsCardModel (F-V9, PT-61)', () => {
         const row = model.decomposition.find(
             (candidate) => candidate.label === 'Average payout',
         );
-        expect(row?.valueText).toBe(NOT_APPLICABLE);
+        expect(row?.valueText).toBeNull();
     });
 
     it('carries a reason instead of a value on invalid input', () => {

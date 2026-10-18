@@ -1,32 +1,34 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Dumbbell, Pencil, Plus } from 'lucide-react';
+import { Dumbbell, Plus } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
-import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
-import { ProfileTextField } from '~/app/(app)/profile/_components/ProfileFormFields';
-import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
     MutedCell,
     PrimaryCell,
-    profileActionsColumn,
-    ProfileTableEmpty,
-    RowActionButton,
-    RowConfirmAction,
+    ProfileCollectionEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { FormDialog } from '~/components/FormDialog';
+import { FormTextField } from '~/components/FormFields';
+import {
+    deleteRowAction,
+    editRowAction,
+    rowActionsColumn,
+} from '~/components/RowActionsMenu';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { Dialog } from '~/components/ui/dialog';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import {
     Select,
@@ -121,6 +123,7 @@ export function ExercisesManager() {
                     <PrimaryCell>{row.original.name}</PrimaryCell>
                 ),
                 header: 'Name',
+                meta: { isRowHeader: true },
             },
             {
                 accessorKey: ExerciseColumn.Muscle,
@@ -142,21 +145,20 @@ export function ExercisesManager() {
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Equipment',
             },
-            profileActionsColumn<ExerciseRow>((exercise) => (
-                <>
-                    <RowActionButton
-                        icon={Pencil}
-                        label="Edit exercise"
-                        onClick={() => setEditing(exercise)}
-                    />
-                    <RowConfirmAction
-                        description="Workouts referencing this exercise keep their logged sets, but the exercise can't be selected anymore."
-                        label="Delete exercise"
-                        onConfirm={() => remove.mutate({ id: exercise.id })}
-                        title={`Delete “${exercise.name}”?`}
-                    />
-                </>
-            )),
+            rowActionsColumn<ExerciseRow>({
+                actionsOf: (exercise) => [
+                    editRowAction(() => setEditing(exercise)),
+                    deleteRowAction({
+                        description:
+                            "Workouts referencing this exercise keep their logged sets, but the exercise can't be selected anymore.",
+                        onDelete: () => remove.mutate({ id: exercise.id }),
+                        title: `Delete “${exercise.name}”?`,
+                    }),
+                ],
+                isPendingOf: (exercise) =>
+                    remove.isPending && remove.variables.id === exercise.id,
+                labelOf: (exercise) => exercise.name,
+            }),
         ],
         [remove],
     );
@@ -170,47 +172,54 @@ export function ExercisesManager() {
 
     return (
         <>
-            <ProfilePanel
-                action={newButton}
+            <ToolPanel
+                actions={newButton}
                 description="Your own exercises. Built-in exercises are managed centrally."
                 title="Exercises"
             >
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={newButton}
-                            description="Add an exercise the built-in library is missing."
-                            filtered={hasActiveTableFilter(table)}
-                            icon={Dumbbell}
-                            noun="custom exercises"
-                        />
-                    )}
-                    filterPlaceholder="Search exercises…"
-                    headerActions={(table) => (
-                        <>
-                            <DataTableFacetSelect
-                                column={table.getColumn(ExerciseColumn.Muscle)}
-                                format={capitalized}
-                                label="Muscle"
-                                placeholder="All muscles"
+                {!query.isLoading && rows.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Add an exercise the built-in library is missing."
+                        icon={Dumbbell}
+                        noun="custom exercises"
+                    />
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={
+                            <NoMatchesState
+                                icon={Dumbbell}
+                                noun="custom exercises"
                             />
-                            <DataTableFacetSelect
-                                column={table.getColumn(
-                                    ExerciseColumn.Equipment,
-                                )}
-                                format={capitalized}
-                                label="Equipment"
-                                placeholder="All equipment"
-                            />
-                        </>
-                    )}
-                    isLoading={query.isLoading}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
-            </ProfilePanel>
+                        }
+                        filterPlaceholder="Search exercises…"
+                        headerActions={(table) => (
+                            <>
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        ExerciseColumn.Muscle,
+                                    )}
+                                    format={capitalized}
+                                    label="Muscle"
+                                    placeholder="All muscles"
+                                />
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        ExerciseColumn.Equipment,
+                                    )}
+                                    format={capitalized}
+                                    label="Equipment"
+                                    placeholder="All equipment"
+                                />
+                            </>
+                        )}
+                        isLoading={query.isLoading}
+                        rowId={(r) => r.id}
+                        showFilter
+                    />
+                )}
+            </ToolPanel>
 
             <ExerciseDialog
                 onClose={() => setIsCreateOpen(false)}
@@ -284,7 +293,13 @@ function EnumSelect({
                             aria-invalid={fieldState.invalid}
                             id={`${formId}-${field.name}`}
                         >
-                            <SelectValue />
+                            <SelectValue>
+                                {values.includes(field.value) ? (
+                                    <span className="capitalize">
+                                        {field.value}
+                                    </span>
+                                ) : undefined}
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {values.map((v) => (
@@ -329,7 +344,7 @@ function ExerciseDialog({
             }}
             open={open}
         >
-            <ProfileFormDialog
+            <FormDialog
                 form={form}
                 onCancel={onClose}
                 onSubmit={onSubmit}
@@ -337,12 +352,12 @@ function ExerciseDialog({
                 submitLabel={submitLabel}
                 title={title}
             >
-                <ProfileTextField
+                <FormTextField
                     control={form.control}
                     label="Name"
                     name="name"
                 />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <EnumSelect
                         control={form.control}
                         label="Primary muscle"
@@ -368,7 +383,7 @@ function ExerciseDialog({
                         values={MECHANIC_VALUES}
                     />
                 </div>
-            </ProfileFormDialog>
+            </FormDialog>
         </Dialog>
     );
 }

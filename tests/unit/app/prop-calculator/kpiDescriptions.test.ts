@@ -7,6 +7,7 @@ import {
     kpiDescriptions,
     panelDescriptions,
 } from '~/app/(app)/prop-calculator/_components/kpiDescriptions';
+import { PtddBench } from '~/app/(app)/prop-calculator/_components/ptddBench';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalculator';
 import {
     ALL_FIRMS,
@@ -275,6 +276,17 @@ describe('P(no payout) is documented on both comparison panels (PT-61d, F-V25)',
             expect(panelDescriptions[key]).toContain(definition);
         },
     );
+});
+
+describe('the plan comparison tooltip explains the PT:DD grades the table prints, not colours (wave 7 review)', () => {
+    it('names every grade and no colour', () => {
+        for (const bench of Object.values(PtddBench)) {
+            expect(panelDescriptions.planComparison).toContain(bench);
+        }
+        expect(panelDescriptions.planComparison).not.toMatch(
+            /\b(?:green|amber|red)\b/i,
+        );
+    });
 });
 
 describe('the cost and cash-flow tooltips name no re-buy firm by hand (N-84, WP52b)', () => {

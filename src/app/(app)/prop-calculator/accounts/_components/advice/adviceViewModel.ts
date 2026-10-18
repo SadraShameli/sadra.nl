@@ -2,8 +2,11 @@ import { describeUnscorableLadderRun } from '~/app/(app)/prop-calculator/_compon
 import { payoutBlockReasonText } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
 import {
     formatConjunctionList,
+    formatCount,
     formatCurrency,
+    formatDisplayDate,
     formatPercent,
+    formatWholeOrCentsCurrency,
 } from '~/lib/format';
 import {
     type Dollars,
@@ -400,7 +403,7 @@ export function adviceViewModel(
     advice: Advice,
     limits: PersonalLimits,
 ): AdviceViewModel {
-    const headline = `${advice.headline}, as of ${advice.provenance.snapshotDate}`;
+    const headline = `${advice.headline}, as of ${formatDisplayDate(advice.provenance.snapshotDate)}`;
     const { action } = accountActionFor(advice);
     if (advice.staleness.kind === AdviceStalenessKind.Stale) {
         return {
@@ -489,7 +492,7 @@ export function ledgerRecordedLadderRowOf(
         source: AdviceSource.LedgerRecordedLadder,
         standardError: null,
         status: OptimumRowStatus.Ready,
-        text: `Ledger-recorded ladder ${ladderText(row.ladder)}. Pass rate ${formatPercent(row.passRate)}, ${row.daysToFunded.toFixed(1)} days to funded, cost per funded ${wholeOrCents(row.costPerFundedAccount)}. From ${row.provenance.file}, section ${row.provenance.section}, row ${row.provenance.row}.${staleNote}`,
+        text: `Ledger-recorded ladder ${ladderText(row.ladder)}. Pass rate ${formatPercent(row.passRate)}, ${row.daysToFunded.toFixed(1)} days to funded, cost per funded ${formatWholeOrCentsCurrency(row.costPerFundedAccount)}. From ${row.provenance.file}, section ${row.provenance.section}, row ${row.provenance.row}.${staleNote}`,
         value: row.daysToFunded,
     };
 }
@@ -512,8 +515,8 @@ export function provenanceTextOf(
             ADVICE_SOURCE_LABEL[provenance.source],
             START_BASIS_LABEL[provenance.startBasis],
             sizingObjectiveText(provenance.objective),
-            `computed ${provenance.computedAt}`,
-            `snapshot ${provenance.snapshotDate}`,
+            `computed ${formatDisplayDate(provenance.computedAt)}`,
+            `snapshot ${formatDisplayDate(provenance.snapshotDate)}`,
             simulationTextOf(provenance),
             ...(provenance.solverVersion === null
                 ? []
@@ -525,7 +528,7 @@ export function provenanceTextOf(
                   ]),
             provenance.firmDataDate === null
                 ? 'firm data unverified'
-                : `firm data verified ${provenance.firmDataDate}`,
+                : `firm data verified ${formatDisplayDate(provenance.firmDataDate)}`,
         ],
     };
 }
@@ -581,7 +584,7 @@ function contractsAtStopText(
     if (contracts === 0) {
         return `, which is below one ${symbol} contract at your ${stop}`;
     }
-    return `, which is ${String(contracts)} ${symbol} contract${contracts === 1 ? '' : 's'} (${wholeOrCents(contracts * oneContractRisk(resolved))}) at your ${stop}`;
+    return `, which is ${String(contracts)} ${symbol} contract${contracts === 1 ? '' : 's'} (${formatWholeOrCentsCurrency(contracts * oneContractRisk(resolved))}) at your ${stop}`;
 }
 
 function dailyPlanCardViewOf(card: DailyPlanCard): DailyPlanCardViewModel {
@@ -696,7 +699,9 @@ function dpNotValidatedReasonOf(record: DpAdviceRecordInput): string {
 }
 
 function dpProvenanceTextOf(record: DpAdviceRecordInput): string {
-    const solvedOn = record.solvedAt.toISOString().slice(0, 10);
+    const solvedOn = formatDisplayDate(
+        record.solvedAt.toISOString().slice(0, 10),
+    );
     const solved =
         record.runtimeMs > 0
             ? `Solved ${solvedOn} in ${(record.runtimeMs / MS_PER_SECOND).toFixed(1)}s`
@@ -852,7 +857,7 @@ function fundedWinnerSentence(
 ): string {
     if (context.cushion === null) return '';
     const risk = fundedWinnerRiskAt(optimum.policy, context.cushion);
-    return ` Winner ${optimum.label} = ${wholeOrCents(risk)} at your cushion of ${wholeOrCents(context.cushion)}${contractsAtStopText(risk, context.placement)}.`;
+    return ` Winner ${optimum.label} = ${formatWholeOrCentsCurrency(risk)} at your cushion of ${formatWholeOrCentsCurrency(context.cushion)}${contractsAtStopText(risk, context.placement)}.`;
 }
 
 function ladderOptimumRowOf(result: LadderEngineOptimumResult): OptimumRowView {
@@ -871,7 +876,7 @@ function ladderOptimumRowOf(result: LadderEngineOptimumResult): OptimumRowView {
 }
 
 function ladderText(ladder: readonly number[]): string {
-    return ladder.map((rung) => wholeOrCents(rung)).join(', ');
+    return ladder.map((rung) => formatWholeOrCentsCurrency(rung)).join(', ');
 }
 
 function ledgerRowsOf(
@@ -1360,14 +1365,10 @@ function scoredLadderRowOf(
 
 function simulationTextOf(provenance: ProvenanceView): string {
     if (provenance.trials === null) return 'no simulation run';
-    const trials = `simulated, ${provenance.trials.toLocaleString('en-US')} trials`;
+    const trials = `simulated, ${formatCount(provenance.trials)} trials`;
     return provenance.seed === null
         ? trials
         : `${trials}, seed ${String(provenance.seed)}`;
-}
-
-function wholeOrCents(amount: number): string {
-    return formatCurrency(amount, Number.isSafeInteger(amount) ? 0 : 2);
 }
 
 function windowRuleTextOf(maxTradesPerWindow: number): string {

@@ -3,6 +3,7 @@
 import * as React from 'react';
 import * as RechartsPrimitive from 'recharts';
 
+import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utilities';
 
 const THEMES = { dark: '.dark', light: '' } as const;
@@ -46,6 +47,16 @@ const CHART_SIZE_CLASS: Readonly<Record<ChartSize, string>> = {
     [ChartSize.Tall]: 'h-80 lg:h-96',
 };
 
+export function ChartSkeleton({
+    size = ChartSize.Standard,
+}: {
+    readonly size?: ChartSize;
+}) {
+    return (
+        <Skeleton className={cn('w-full rounded-md', CHART_SIZE_CLASS[size])} />
+    );
+}
+
 export const CHART_X_AXIS_PROPS = {
     axisLine: false,
     tickLine: false,
@@ -63,9 +74,20 @@ export const CHART_REFERENCE_LINE_PROPS = {
     strokeDasharray: '4 4',
 } as const;
 
+export const CHART_REFERENCE_LABEL_PROPS = {
+    fill: 'var(--muted-foreground)',
+    fontSize: 11,
+} as const;
+
 export const CHART_STROKE_WIDTH = 1.6;
 
-export const CHART_BAR_RADIUS: [number, number, number, number] = [3, 3, 0, 0];
+const CHART_BAR_RADIUS: [number, number, number, number] = [3, 3, 0, 0];
+
+export const CHART_BAR_PROPS = {
+    isAnimationActive: false,
+    maxBarSize: 48,
+    radius: CHART_BAR_RADIUS,
+} as const;
 
 const ChartContainer = React.forwardRef<
     HTMLDivElement,

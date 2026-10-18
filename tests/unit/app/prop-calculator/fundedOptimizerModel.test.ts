@@ -371,19 +371,19 @@ describe('fundedOptimizerRanking makes the shared objective the sort (PT-83, F-V
     it('maps MonthlyNet to the monthly sort and names it in the heading', () => {
         const ranking = fundedOptimizerRanking(SizingObjective.MonthlyNet);
         expect(ranking.sort).toBe(FundedSortKey.Monthly);
-        expect(ranking.heading).toBe('Funded optimizer, ranked by monthly net');
+        expect(ranking.heading).toBe('Candidates, ranked by monthly net');
     });
 
     it('maps CycleCash to the cycle sort and names it in the heading', () => {
         const ranking = fundedOptimizerRanking(SizingObjective.CycleCash);
         expect(ranking.sort).toBe(FundedSortKey.Cycle);
-        expect(ranking.heading).toBe('Funded optimizer, ranked by cycle cash');
+        expect(ranking.heading).toBe('Candidates, ranked by cycle cash');
     });
 
     it('keeps RuinFirst on the monthly sort and names monthly net, never ruin first (Hard Rule 3)', () => {
         const ranking = fundedOptimizerRanking(SizingObjective.RuinFirst);
         expect(ranking.sort).toBe(FundedSortKey.Monthly);
-        expect(ranking.heading).toBe('Funded optimizer, ranked by monthly net');
+        expect(ranking.heading).toBe('Candidates, ranked by monthly net');
     });
 
     it('sorts the swept rows by cycle net under CycleCash and by monthly net under MonthlyNet', () => {

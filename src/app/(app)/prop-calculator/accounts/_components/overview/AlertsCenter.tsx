@@ -1,12 +1,19 @@
-import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
+import { BellOff, CircleAlert, Info, TriangleAlert } from 'lucide-react';
 
+import { PanelSubheading } from '~/components/PanelSubheading';
 import { Badge } from '~/components/ui/badge';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { AlertSeverity } from '~/lib/prop-accounts';
-import { cn } from '~/lib/utilities';
 
 import { type AlertGroup, groupAlertsByKind } from './AlertGroups';
 import { AlertSubjectLabel, AlertSubjectsTable } from './AlertSubjectsTable';
 import { type OverviewAlert } from './overviewModel';
+
+const SEVERITY_WORD: Readonly<Record<AlertSeverity, string>> = {
+    [AlertSeverity.Critical]: 'critical',
+    [AlertSeverity.Info]: 'info',
+    [AlertSeverity.Warning]: 'warning',
+};
 
 export function AlertsCenter({
     alerts,
@@ -15,9 +22,11 @@ export function AlertsCenter({
 }) {
     if (alerts.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No alerts right now.
-            </p>
+            <EmptyState
+                icon={BellOff}
+                size={EmptyStateSize.Compact}
+                title="No alerts right now"
+            />
         );
     }
     return (
@@ -37,14 +46,12 @@ function AlertGroupItem({ group }: { readonly group: AlertGroup }) {
         <section className="flex flex-col gap-3 p-3">
             <header className="flex items-center gap-3">
                 <AlertIcon severity={group.severity} />
-                <h3 className="min-w-0 flex-1 text-sm font-medium">
+                <PanelSubheading className="min-w-0 flex-1">
                     {group.kindLabel}
-                </h3>
-                <Badge
-                    className="tabular-nums"
-                    variant={severityBadgeVariant(group.severity)}
-                >
-                    {String(group.alerts.length)}
+                </PanelSubheading>
+                <Badge className="tabular-nums">
+                    {String(group.alerts.length)}{' '}
+                    {SEVERITY_WORD[group.severity]}
                 </Badge>
             </header>
             {single !== undefined && group.alerts.length === 1 ? (
@@ -70,7 +77,7 @@ function AlertGroupItem({ group }: { readonly group: AlertGroup }) {
 }
 
 function AlertIcon({ severity }: { readonly severity: AlertSeverity }) {
-    const className = cn('size-4 shrink-0', severityTextClass(severity));
+    const className = 'size-4 shrink-0';
     switch (severity) {
         case AlertSeverity.Critical: {
             return <CircleAlert aria-hidden className={className} />;
@@ -80,36 +87,6 @@ function AlertIcon({ severity }: { readonly severity: AlertSeverity }) {
         }
         case AlertSeverity.Warning: {
             return <TriangleAlert aria-hidden className={className} />;
-        }
-    }
-}
-
-function severityBadgeVariant(
-    severity: AlertSeverity,
-): 'destructive' | 'outline' | 'warning' {
-    switch (severity) {
-        case AlertSeverity.Critical: {
-            return 'destructive';
-        }
-        case AlertSeverity.Info: {
-            return 'outline';
-        }
-        case AlertSeverity.Warning: {
-            return 'warning';
-        }
-    }
-}
-
-function severityTextClass(severity: AlertSeverity): string {
-    switch (severity) {
-        case AlertSeverity.Critical: {
-            return 'text-destructive';
-        }
-        case AlertSeverity.Info: {
-            return 'text-muted-foreground';
-        }
-        case AlertSeverity.Warning: {
-            return 'text-warning';
         }
     }
 }

@@ -4,7 +4,6 @@ import {
     CredentialKind,
     CredentialRegistry,
     CredentialRole,
-    CredentialTone,
     MetaFieldType,
 } from '~/lib/accounting/credentials/registry';
 
@@ -28,7 +27,6 @@ CredentialRegistry.instance.register({
     metaSchema,
     requiresSecret: false,
     role: CredentialRole.Transactions,
-    tone: CredentialTone.Violet,
     transactionSourceId: 'plane-csv',
     transactionSourceKind: 'file',
 });

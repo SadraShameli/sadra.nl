@@ -29,6 +29,10 @@ import {
 } from '~/lib/prop-calculator/advisor';
 import * as advisorValue from '~/lib/prop-calculator/advisor/value';
 
+import { dialogTitled, findDialogTitled } from '../../../components/formDialog';
+import { chooseRowAction } from '../../../components/rowActionsMenu';
+import { withInfoTexts } from '../infoPopover';
+
 const USER_ID = 'user-a';
 const ACCOUNT_ID = 'account-a';
 
@@ -874,7 +878,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         expect(call.acceptedRungsCents.every((cents) => cents > 0)).toBe(true);
     });
 
-    it('calls decision.recordActual when "Record actual" is used', () => {
+    it('calls decision.recordActual when the actual risk is recorded from the row menu', async () => {
         answerEverything({
             'decision.listForAccount': answer([
                 {
@@ -902,7 +906,11 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
         };
         render();
 
-        const input = container.querySelector('input[type="number"]');
+        chooseRowAction('the decision of 26 Sep 2026', 'Record actual risk');
+        const dialog = dialogTitled(
+            'Actual risk for the decision of 26 Sep 2026',
+        );
+        const input = dialog.querySelector('input[type="number"]');
         if (input === null) throw new Error('no actual risk input');
         act(() => {
             Object.getOwnPropertyDescriptor(
@@ -911,14 +919,20 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             )?.set?.call(input, '450');
             input.dispatchEvent(new Event('input', { bubbles: true }));
         });
-        const button = [...container.querySelectorAll('button')].find(
+        const button = [...dialog.querySelectorAll('button')].find(
             (candidate) => candidate.textContent === 'Record actual',
         );
         if (button === undefined) throw new Error('no Record actual button');
-        act(() => {
+        await act(async () => {
             button.click();
+            await new Promise((resolve) => {
+                setTimeout(resolve, 0);
+            });
         });
 
+        expect(
+            findDialogTitled('Actual risk for the decision of 26 Sep 2026'),
+        ).toBeNull();
         const call = harness.mutateOf('decision.recordActual').mock
             .calls[0]?.[0] as { actualRiskCents: number; id: string };
         expect(call).toBeDefined();
@@ -1645,9 +1659,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             readyWith(valuesFor(risk));
 
-            const text = sectionOf(
-                'What the next trade does to value',
-            ).textContent;
+            const text = withInfoTexts(
+                sectionOf('What the next trade does to value'),
+            );
             expect(text).toContain(
                 'Assumption: valued at the next session start, as if you stop after this trade.',
             );
@@ -1664,7 +1678,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             });
 
             expect(
-                sectionOf('What the next trade does to value').textContent,
+                withInfoTexts(sectionOf('What the next trade does to value')),
             ).toContain(
                 "the rest of today's rungs are not in the after-loss value",
             );
@@ -1699,9 +1713,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
 
             readyWith(valuesFor(risk));
 
-            const text = sectionOf(
-                'What the next trade does to value',
-            ).textContent;
+            const text = withInfoTexts(
+                sectionOf('What the next trade does to value'),
+            );
             expect(text).toContain('Value runs: 1000 trials, seed 42');
             expect(text).toContain('rebuy lag assumed zero (optimistic)');
         });
@@ -2155,7 +2169,7 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             readyWith(valuesFor(risk));
 
             expect(
-                sectionOf('What the next trade does to value').textContent,
+                withInfoTexts(sectionOf('What the next trade does to value')),
             ).toContain('max risk per trade $150.00');
         });
 
@@ -2354,9 +2368,9 @@ describe('AdvicePanel (PT-34, F-131, F-132)', () => {
             accountWith({ maxRiskPerTradeCents: 15_000 });
             readyWith(valuesFor(risk));
 
-            expect(sectionOf('One-step risk candidates').textContent).toContain(
-                'max risk per trade $150.00',
-            );
+            expect(
+                withInfoTexts(sectionOf('One-step risk candidates')),
+            ).toContain('max risk per trade $150.00');
         });
     });
 

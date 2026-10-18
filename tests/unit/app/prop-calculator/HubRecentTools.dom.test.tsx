@@ -1,5 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -65,13 +66,35 @@ describe('recently used tools on the hub', () => {
         vi.unstubAllGlobals();
     });
 
-    it('keeps its row before any tool visit, with a note instead of links, so nothing below it moves', () => {
+    it('keeps its row before any tool visit, with a compact empty state instead of a plain note or links', () => {
         renderHub();
         expect(container.textContent).toContain('Recently used');
-        expect(container.textContent).toContain(
-            'The tools you open show up here.',
-        );
+        const empty = container.querySelector('[data-slot="empty"]');
+        expect(empty?.textContent).toContain('No tools opened yet');
         expect(container.querySelectorAll('a')).toHaveLength(0);
+    });
+
+    it('gives the loading row, the empty state and the tool list one row height, so nothing below it moves once it mounts', () => {
+        const placeholderHeight = rowHeightClasses(serverPlaceholder());
+        expect(placeholderHeight).toEqual(['min-h-9']);
+        renderHub();
+        const empty = container.querySelector('[data-slot="empty"]');
+        expect(rowHeightClasses(empty)).toEqual(placeholderHeight);
+        expect(empty?.querySelector('[data-slot="empty-media"]')).toBeNull();
+        expect(
+            empty?.querySelector('[data-slot="empty-description"]'),
+        ).toBeNull();
+        expect(
+            [...(empty?.classList ?? [])].filter(
+                (name) =>
+                    /^(?:md:)?p[bty]?-/.test(name) && !name.endsWith('-0'),
+            ),
+        ).toEqual([]);
+        visit(routes.propCalculator.simulator);
+        renderHub();
+        expect(rowHeightClasses(container.querySelector('ul'))).toEqual(
+            placeholderHeight,
+        );
     });
 
     it('records each tool route the recorder sees, most recent first', () => {
@@ -108,3 +131,15 @@ describe('recently used tools on the hub', () => {
         );
     });
 });
+
+function rowHeightClasses(element: Element | null | undefined): string[] {
+    return [...(element?.classList ?? [])].filter((name) =>
+        /^(?:min-)?h-/.test(name),
+    );
+}
+
+function serverPlaceholder(): Element | null {
+    const template = document.createElement('template');
+    template.innerHTML = renderToStaticMarkup(<HubRecentTools />);
+    return template.content.querySelector('[aria-hidden="true"]');
+}

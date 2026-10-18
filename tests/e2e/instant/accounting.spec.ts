@@ -9,9 +9,9 @@ test('accounting dashboard shell commits under instant()', async ({
 }) => {
     if (baseURL === undefined) throw new TypeError('baseURL is not set');
     await signInAsRoot(page, baseURL);
-    const runControls = page
+    const newRunPanel = page
         .locator('#main-content')
-        .getByText('Run controls', { exact: true });
+        .getByRole('heading', { exact: true, name: 'New run' });
 
     await instant(
         page,
@@ -21,17 +21,17 @@ test('accounting dashboard shell commits under instant()', async ({
                 page.getByRole('heading', {
                     exact: true,
                     level: 1,
-                    name: 'Accounting Importer',
+                    name: 'Import',
                 }),
             ).toBeVisible();
             await expect(
-                page.getByRole('link', { exact: true, name: 'Connections' }),
+                page.getByRole('link', { exact: true, name: 'Runs' }),
             ).toBeVisible();
-            await expect(runControls).toHaveCount(0);
+            await expect(newRunPanel).toHaveCount(0);
         },
         { baseURL },
     );
 
     await page.reload();
-    await expect(runControls).toBeVisible();
+    await expect(newRunPanel).toBeVisible();
 });

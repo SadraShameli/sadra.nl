@@ -130,7 +130,7 @@ describe('the provenance line reads in words (PT-108 step 5, F-125, F-126)', () 
         render(PROVENANCE);
 
         expect(container.textContent).toContain(
-            'firm data verified 2026-10-02',
+            'firm data verified 2 Oct 2026',
         );
     });
 

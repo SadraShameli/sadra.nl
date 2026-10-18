@@ -95,7 +95,6 @@ export {
     type EdgePlausibilityNoteInputs,
     edgePlausibilityNoteText,
     PLAUSIBILITY_LEVEL_TEXT,
-    QV20_EXPECTANCY_DISCLOSURE,
 } from './EdgePlausibilityText';
 export {
     evalPace,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { type ReactNode, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useWorkerTask } from '~/app/(app)/prop-calculator/_components/useWorkerTask';
 import {
@@ -15,8 +15,14 @@ import {
     CopyGroupWorkerOutcomeKind,
     type CopyGroupWorkerRequest,
 } from '~/app/(app)/prop-calculator/_workers/copyGroupWorkerMessages';
+import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
+import { ComputingIndicator } from '~/components/ComputingIndicator';
+import { InfoNote } from '~/components/InfoNote';
+import { PanelSubheading } from '~/components/PanelSubheading';
+import { StatStrip } from '~/components/StatStrip';
 import { Button } from '~/components/ui/button';
-import { formatCurrency } from '~/lib/format';
+import { Skeleton } from '~/components/ui/skeleton';
+import { formatCount, formatCurrency } from '~/lib/format';
 import { assumptionText } from '~/lib/prop-calculator/advisor';
 import { CopyGroupSimulationRejectionKind } from '~/lib/prop-calculator/simulator';
 
@@ -34,6 +40,8 @@ type ReadyPlan = Extract<
 
 const HEADING = 'Correlated bust risk and payouts';
 
+const SIMULATION_FAILED_TITLE = 'The simulation could not run';
+
 export function CopyGroupSimulationCard({
     plan,
 }: {
@@ -46,19 +54,23 @@ export function CopyGroupSimulationCard({
         case CopyGroupSimulationPlanKind.Unavailable: {
             return (
                 <CardFrame>
-                    <p className="text-muted-foreground">
-                        Not simulated: {plan.reason}
-                    </p>
+                    <InfoNote>Not simulated: {plan.reason}</InfoNote>
                 </CardFrame>
             );
         }
     }
 }
 
-function CardFrame({ children }: { readonly children: React.ReactNode }) {
+function CardFrame({
+    children,
+    info,
+}: {
+    readonly children: ReactNode;
+    readonly info?: ReactNode;
+}) {
     return (
-        <div className="flex flex-col gap-2 border-t pt-3 text-sm">
-            <h3 className="font-semibold">{HEADING}</h3>
+        <div className="flex flex-col gap-3 border-t pt-4 text-sm">
+            <PanelSubheading info={info}>{HEADING}</PanelSubheading>
             {children}
         </div>
     );
@@ -88,41 +100,39 @@ function Outcome({
     switch (outcome.kind) {
         case CopyGroupWorkerOutcomeKind.Failed: {
             return (
-                <p className="text-destructive" role="alert">
-                    The simulation could not run: {outcome.reason}
-                </p>
+                <QueryErrorNotice
+                    message={outcome.reason}
+                    title={SIMULATION_FAILED_TITLE}
+                />
             );
         }
         case CopyGroupWorkerOutcomeKind.Rejected: {
             const { rejection } = outcome;
             return (
-                <p className="text-destructive" role="alert">
-                    Not simulated:{' '}
-                    {rejection.kind ===
-                    CopyGroupSimulationRejectionKind.MemberRefused
-                        ? `${labelOf(plan.members, rejection.memberId)}: ${rejection.message}`
-                        : rejection.message}
-                </p>
+                <QueryErrorNotice
+                    message={
+                        rejection.kind ===
+                        CopyGroupSimulationRejectionKind.MemberRefused
+                            ? `${labelOf(plan.members, rejection.memberId)}: ${rejection.message}`
+                            : rejection.message
+                    }
+                    title="Not simulated"
+                />
             );
         }
         case CopyGroupWorkerOutcomeKind.Simulated: {
             return (
-                <dl className="flex flex-col gap-3">
-                    {copyGroupFigureRowsOf(
+                <StatStrip
+                    items={copyGroupFigureRowsOf(
                         outcome.result,
                         plan.horizonDays,
-                    ).map((row) => (
-                        <div key={row.key}>
-                            <dt className="text-muted-foreground">
-                                {row.label}
-                            </dt>
-                            <dd className="font-medium">{row.value}</dd>
-                            <dd className="text-xs text-muted-foreground">
-                                {row.note}
-                            </dd>
-                        </div>
-                    ))}
-                </dl>
+                    ).map((row) => ({
+                        id: row.key,
+                        info: row.note,
+                        label: row.label,
+                        value: row.value,
+                    }))}
+                />
             );
         }
     }
@@ -153,33 +163,34 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
     const hasRun = ranKey !== null;
 
     return (
-        <CardFrame>
-            <p className="text-muted-foreground">
-                Every copy trades {formatCurrency(plan.groupRisk, 2)} per trade,
-                placed within its own plan&apos;s rules, over a{' '}
-                {plan.horizonDays}-day funded horizon and{' '}
-                {plan.request.trials.toLocaleString('en-US')} trials. The
-                accounts take the same trades, the same wins and losses on each
-                one, so accounts on different plans bust together when one loss
-                reaches their different cushions.
-            </p>
-            {plan.leftOutLabels.length > 0 && (
-                <p className="text-muted-foreground">
-                    Left out of the simulation because they could not be sized:{' '}
-                    {plan.leftOutLabels.join(', ')}.
-                </p>
-            )}
-            {unpricedTriggerNote !== null && (
-                <p className="text-muted-foreground">{unpricedTriggerNote}</p>
-            )}
-            {plan.assumptions.length > 0 && (
-                <ul className="list-disc pl-5 text-muted-foreground">
+        <CardFrame
+            info={
+                <>
+                    <p>
+                        Every copy trades {formatCurrency(plan.groupRisk, 2)}{' '}
+                        per trade, placed within its own plan&apos;s rules, over
+                        a {plan.horizonDays}-day funded horizon and{' '}
+                        {formatCount(plan.request.trials)} trials. The accounts
+                        take the same trades, the same wins and losses on each
+                        one, so accounts on different plans bust together when
+                        one loss reaches their different cushions.
+                    </p>
+                    {unpricedTriggerNote !== null && (
+                        <p>{unpricedTriggerNote}</p>
+                    )}
                     {plan.assumptions.map((assumption) => (
-                        <li key={assumptionText(assumption)}>
+                        <p key={assumptionText(assumption)}>
                             {assumptionText(assumption)}
-                        </li>
+                        </p>
                     ))}
-                </ul>
+                </>
+            }
+        >
+            {plan.leftOutLabels.length > 0 && (
+                <InfoNote>
+                    Left out because they could not be sized:{' '}
+                    {plan.leftOutLabels.join(', ')}.
+                </InfoNote>
             )}
             <div>
                 <Button
@@ -193,11 +204,7 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
                     size="sm"
                     variant="outline"
                 >
-                    {isRunning
-                        ? 'Simulating...'
-                        : hasRun
-                          ? 'Run again'
-                          : 'Simulate group'}
+                    {hasRun ? 'Run again' : 'Simulate group'}
                 </Button>
             </div>
             <div role="status">
@@ -208,9 +215,10 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
                     </p>
                 )}
                 {isRunning && (
-                    <p aria-busy="true" className="text-muted-foreground">
-                        Simulating {plan.request.members.length} accounts...
-                    </p>
+                    <div aria-busy="true" className="flex flex-col gap-2">
+                        <ComputingIndicator />
+                        <Skeleton className="h-24 w-full" />
+                    </div>
                 )}
                 {state.phase === WorkerTaskPhase.Done &&
                     state.result.kind ===
@@ -219,9 +227,10 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
                     )}
             </div>
             {state.phase === WorkerTaskPhase.Failed && (
-                <p className="text-destructive" role="alert">
-                    The simulation could not run: {state.reason}
-                </p>
+                <QueryErrorNotice
+                    message={state.reason}
+                    title={SIMULATION_FAILED_TITLE}
+                />
             )}
             {state.phase === WorkerTaskPhase.Done &&
                 state.result.kind !== CopyGroupWorkerOutcomeKind.Simulated && (

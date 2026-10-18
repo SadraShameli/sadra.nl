@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AttemptEconomicsCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/AttemptEconomicsCard';
 import { type AttemptEconomicsCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
+import { infoText } from '../infoPopover';
+
 type Row = AttemptEconomicsCardModel['rows'][number];
 
 function row(overrides: Partial<Row> = {}): Row {
@@ -75,7 +77,7 @@ describe('AttemptEconomicsCard', () => {
 
     it('prints the filled formula under each plan and the sample size of every factor', () => {
         render([row()]);
-        expect(container.textContent).toContain(
+        expect(infoText(container, 'Your attempt economics')).toContain(
             'Alpha Prop $50K: Pass rate 25.0% x funded value $500.00 - attempt cost $150.00 = -$25.00 per attempt',
         );
         expect(container.textContent).toContain('1.00, n = 2');
@@ -85,6 +87,8 @@ describe('AttemptEconomicsCard', () => {
 
     it('prints n/a for a plan with no fully observed funded cohort', () => {
         render([row({ formula: 'n/a', fundedValueToAttemptCost: 'n/a' })]);
-        expect(container.textContent).not.toContain('Alpha Prop $50K: n/a');
+        expect(infoText(container, 'Your attempt economics')).not.toContain(
+            'Alpha Prop $50K: n/a',
+        );
     });
 });

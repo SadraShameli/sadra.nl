@@ -8,13 +8,16 @@ import { type DateRange } from 'react-day-picker';
 
 import type { location } from '~/server/db/schemas/iot';
 
+import { StatStrip, StatStripSize } from '~/components/StatStrip';
 import AreaChartNew from '~/components/ui/chart/area-chart-new';
+import { timeAxisOf } from '~/components/ui/chart/time-axis';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
+import { formatNumber } from '~/lib/format';
 import {
     finestGranularityForRange,
     type Granularity,
@@ -25,7 +28,11 @@ import {
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
-import { DEFAULT_GRANULARITY, GRANULARITIES } from './helpers';
+import {
+    DEFAULT_GRANULARITY,
+    GRANULARITIES,
+    SENSOR_READING_FRACTION_DIGITS,
+} from './helpers';
 import { ReadingBodySkeleton } from './ReadingSkeleton';
 
 export default function ReadingSection() {
@@ -219,23 +226,44 @@ export default function ReadingSection() {
                             key={reading.sensor.name}
                             value={reading.sensor.name}
                         >
-                            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] border-b border-line-faint">
-                                <StatTile
-                                    label="Latest"
-                                    unit={reading.sensor.unit}
-                                    value={reading.latestReading.value}
-                                />
-                                <StatTile
-                                    label={`${reading.period_label} high`}
-                                    unit={reading.sensor.unit}
-                                    value={reading.highest}
-                                />
-                                <StatTile
-                                    label={`${reading.period_label} low`}
-                                    unit={reading.sensor.unit}
-                                    value={reading.lowest}
-                                />
-                            </div>
+                            <StatStrip
+                                className="m-6 mb-0"
+                                items={[
+                                    {
+                                        id: 'latest',
+                                        label: 'Latest',
+                                        value: (
+                                            <ReadingFigure
+                                                unit={reading.sensor.unit}
+                                                value={
+                                                    reading.latestReading.value
+                                                }
+                                            />
+                                        ),
+                                    },
+                                    {
+                                        id: 'high',
+                                        label: `${reading.period_label} high`,
+                                        value: (
+                                            <ReadingFigure
+                                                unit={reading.sensor.unit}
+                                                value={reading.highest}
+                                            />
+                                        ),
+                                    },
+                                    {
+                                        id: 'low',
+                                        label: `${reading.period_label} low`,
+                                        value: (
+                                            <ReadingFigure
+                                                unit={reading.sensor.unit}
+                                                value={reading.lowest}
+                                            />
+                                        ),
+                                    },
+                                ]}
+                                size={StatStripSize.Large}
+                            />
 
                             <AreaChartNew
                                 area={{
@@ -258,10 +286,16 @@ export default function ReadingSection() {
                                     labelKey: 'location',
                                     nameKey: 'sensor',
                                     valueFormatter: (value) =>
-                                        `${value.toLocaleString()} ${reading.sensor.unit}`,
+                                        `${formatNumber(value, SENSOR_READING_FRACTION_DIGITS)} ${reading.sensor.unit}`,
                                 }}
                                 xAxis={{
-                                    dataKey: 'date',
+                                    dataKey: 'at',
+                                    time:
+                                        timeAxisOf(
+                                            reading.readings.map(
+                                                (point) => point.at,
+                                            ),
+                                        ) ?? undefined,
                                 }}
                                 yAxis={{
                                     tickFormatter: (value: number) =>
@@ -293,22 +327,17 @@ export default function ReadingSection() {
     );
 }
 
-function StatTile({
-    label,
+function ReadingFigure({
     unit,
     value,
 }: {
-    readonly label: string;
     readonly unit: string;
     readonly value: number;
 }) {
     return (
-        <div className="flex flex-col gap-3.5 border-r border-line-faint p-7 last:border-r-0">
-            <span className="type-micro text-ink-muted">{label}</span>
-            <span className="type-display-stat text-ink">
-                {value}
-                <span className="text-2xl text-ink-muted italic"> {unit}</span>
-            </span>
-        </div>
+        <>
+            {value}
+            <span className="text-2xl text-ink-muted italic"> {unit}</span>
+        </>
     );
 }

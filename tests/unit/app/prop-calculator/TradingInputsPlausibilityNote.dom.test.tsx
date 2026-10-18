@@ -2,14 +2,15 @@ import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import TradingInputs, {
     PLAUSIBILITY_NOTE_ID,
 } from '~/app/(app)/prop-calculator/_components/TradingInputs';
 
+import { tradingInputsProperties } from './tradingInputsFixture';
+
 const PLAUSIBILITY_WINRATE = 0.7;
 const PLAUSIBILITY_RR = 1;
-const INITIAL_TRADES_PER_DAY = 4;
+const INITIAL_TRADES_PER_DAY = 3;
 
 interface HarnessProperties {
     onTradesPerDayChange?: (n: number) => void;
@@ -33,75 +34,19 @@ function Harness({
     onTradesPerDayChange = vi.fn(),
     tradesPerDayRef,
 }: HarnessProperties) {
-    const state = defaultCalculatorState();
-    const noop = vi.fn();
     const [tradesPerDay, setTradesPerDay] = useState(INITIAL_TRADES_PER_DAY);
     tradesPerDayRef.current = setTradesPerDay;
     return (
         <TradingInputs
-            activationDiscountPercent={state.activationDiscountPercent}
-            commissionPerRoundTrip={state.commissionPerRoundTrip}
-            copyAccounts={state.copyAccounts}
-            dayStop={state.dayStop}
-            evalDiscountPercent={state.evalDiscountPercent}
-            firmDisplayName={state.firm.displayName}
-            idleDayProbability={state.idleDayProbability}
-            instrument={state.instrument}
-            linkActivationDiscount={state.linkActivationDiscount}
-            liveTransferHazard={state.liveTransferHazard}
-            maxAttempts={state.maxAttempts}
-            maxCopyAccounts={state.firm.maxFundedAccounts(state.plan)}
-            maxEvalDays={state.maxEvalDays}
-            monthlySubscriptionDiscountPercent={
-                state.monthlySubscriptionDiscountPercent
-            }
-            onActivationDiscountPercentChange={noop}
-            onCommissionPerRoundTripChange={noop}
-            onCopyAccountsChange={noop}
-            onDayStopChange={noop}
-            onEvalDiscountPercentChange={noop}
-            onIdleDayProbabilityChange={noop}
-            onInstrumentChange={noop}
-            onLinkActivationDiscountChange={noop}
-            onLiveTransferHazardChange={noop}
-            onMaxAttemptsChange={noop}
-            onMaxEvalDaysChange={noop}
-            onMonthlySubscriptionDiscountPercentChange={noop}
-            onPayoutRequestSizeChange={noop}
-            onResetCoupon={noop}
-            onResetDiscountPercentChange={noop}
-            onRetainedCushionChange={noop}
-            onRiskDollarsChange={noop}
-            onRiskPercentChange={noop}
-            onRrRatioChange={noop}
-            onRungSizingChange={noop}
-            onSeedChange={noop}
-            onSizingModeChange={noop}
-            onStopPointsChange={noop}
-            onTakesFundedResetChange={noop}
-            onTakesOneTimeEarlyWithdrawalChange={noop}
-            onTradesPerDayChange={(n) => {
-                setTradesPerDay(n);
-                onTradesPerDayChange(n);
-            }}
-            onTrialsChange={noop}
-            onWinrateChange={noop}
-            payoutRequestSize={state.payoutRequestSize}
-            plan={state.plan}
-            resetDiscountPercent={state.resetDiscountPercent}
-            retainedCushion={state.retainedCushion}
-            riskDollars={state.riskDollars}
-            riskPercent={state.riskPercent}
-            rrRatio={PLAUSIBILITY_RR}
-            rungSizing={state.rungSizing}
-            seed={state.seed}
-            sizingMode={state.sizingMode}
-            stopPoints={state.stopPoints}
-            takesFundedReset={state.takesFundedReset}
-            takesOneTimeEarlyWithdrawal={state.takesOneTimeEarlyWithdrawal}
-            tradesPerDay={tradesPerDay}
-            trials={state.trials}
-            winrate={PLAUSIBILITY_WINRATE}
+            {...tradingInputsProperties({
+                onTradesPerDayChange: (n) => {
+                    setTradesPerDay(n);
+                    onTradesPerDayChange(n);
+                },
+                rrRatio: PLAUSIBILITY_RR,
+                tradesPerDay,
+                winrate: PLAUSIBILITY_WINRATE,
+            })}
         />
     );
 }
@@ -238,6 +183,18 @@ describe('TradingInputs plausibility note live region (F-V22, PT-86b)', () => {
         blur('compounding-start');
         expect(note().textContent).not.toBe(before);
         expect(note().textContent).toContain('$5,000');
+    });
+
+    it('says more than 1,000x and drops the amount once the pace compounds past the cap', () => {
+        renderInputs();
+        type('compounding-start', '5000');
+        blur('compounding-start');
+        expect(note().textContent).toContain('$5,000');
+        act(() => {
+            tradesPerDayRef.current?.(4);
+        });
+        expect(note().textContent).toContain('compounds to more than 1,000x');
+        expect(note().textContent).not.toContain('$5,000');
     });
 
     it('commits the compounding start into the note on Enter', () => {

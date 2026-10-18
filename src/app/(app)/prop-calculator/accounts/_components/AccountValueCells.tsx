@@ -12,7 +12,12 @@ import {
     type NextPayoutView,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountValueColumns';
 import { DisclosureTrigger } from '~/app/(app)/prop-calculator/accounts/_components/DisclosureTrigger';
+import { ComputingFigure } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
+import { MissingValue } from '~/components/MissingValue';
+import { Badge } from '~/components/ui/badge';
 import { Collapsible, CollapsibleContent } from '~/components/ui/collapsible';
+import InfoPopover from '~/components/ui/info-popover';
 import { AccountAction } from '~/lib/prop-calculator/advisor';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -20,28 +25,25 @@ import { cn } from '~/lib/utilities';
 const MUTED_NEXT_PAYOUT_KINDS: ReadonlySet<NextPayoutKind> = new Set([
     NextPayoutKind.NoPayout,
     NextPayoutKind.NotFunded,
-    NextPayoutKind.NotValued,
-    NextPayoutKind.Pending,
 ]);
 
-export function ExpectedPayoutsFigure({
+const EV_PER_ATTEMPT_LABEL = 'EV per attempt:';
+
+const NEXT_PAYOUT_SOON_LABEL = 'Soon';
+
+const NEXT_ACTION_REASON_TITLE = 'Why this action';
+
+export function ExpectedPayoutsValue({
     expectedPayouts,
 }: {
     readonly expectedPayouts: ExpectedPayoutsView;
 }) {
     switch (expectedPayouts.kind) {
         case ExpectedPayoutsKind.NotValued: {
-            return (
-                <>
-                    <div className="text-muted-foreground">Not valued</div>
-                    <p className="text-xs text-muted-foreground">
-                        {expectedPayouts.reason}
-                    </p>
-                </>
-            );
+            return <MissingValue reason={sentenceOf(expectedPayouts.reason)} />;
         }
         case ExpectedPayoutsKind.Pending: {
-            return <span className="text-muted-foreground">Computing</span>;
+            return <ComputingFigure />;
         }
         case ExpectedPayoutsKind.Ready: {
             return <div className="font-medium">{expectedPayouts.text}</div>;
@@ -55,23 +57,35 @@ export function NextActionFigure({
     readonly action: NextActionView;
 }) {
     return (
-        <>
-            <div className="font-medium" data-action={action.action}>
-                {action.action === AccountAction.EnterSnapshot ? (
-                    <Link
-                        className="underline underline-offset-4"
-                        href={routes.propCalculator.accounts.review}
-                    >
-                        {action.text}
-                    </Link>
-                ) : (
-                    action.text
-                )}
-            </div>
+        <span className="inline-flex items-center gap-1.5">
+            <NextActionValue action={action} />
             {action.reason !== null && (
-                <p className="text-xs text-muted-foreground">{action.reason}</p>
+                <InfoPopover title={NEXT_ACTION_REASON_TITLE}>
+                    {sentenceOf(action.reason)}
+                </InfoPopover>
             )}
-        </>
+        </span>
+    );
+}
+
+export function NextActionValue({
+    action,
+}: {
+    readonly action: NextActionView;
+}) {
+    return (
+        <div className="font-medium" data-action={action.action}>
+            {action.action === AccountAction.EnterSnapshot ? (
+                <Link
+                    className="underline underline-offset-4"
+                    href={routes.propCalculator.accounts.review}
+                >
+                    {action.text}
+                </Link>
+            ) : (
+                action.text
+            )}
+        </div>
     );
 }
 
@@ -82,19 +96,11 @@ export function NextPayoutFigure({
     readonly isNoteCollapsed?: boolean;
     readonly nextPayout: NextPayoutView;
 }) {
-    const isMuted = MUTED_NEXT_PAYOUT_KINDS.has(nextPayout.kind);
-    const isNoteFolded = isNoteCollapsed && !isMuted;
+    const isNoteFolded =
+        isNoteCollapsed && !MUTED_NEXT_PAYOUT_KINDS.has(nextPayout.kind);
     return (
         <>
-            <span
-                className={cn(
-                    isMuted && 'text-muted-foreground',
-                    nextPayout.isSoon && 'font-medium text-success',
-                )}
-                data-soon={nextPayout.isSoon ? 'true' : undefined}
-            >
-                {nextPayout.text}
-            </span>
+            <NextPayoutValue nextPayout={nextPayout} />
             {nextPayout.note !== null &&
                 (isNoteFolded ? (
                     <Collapsible className="flex flex-col text-xs text-muted-foreground">
@@ -111,6 +117,45 @@ export function NextPayoutFigure({
                     </p>
                 ))}
         </>
+    );
+}
+
+export function NextPayoutValue({
+    nextPayout,
+}: {
+    readonly nextPayout: NextPayoutView;
+}) {
+    switch (nextPayout.kind) {
+        case NextPayoutKind.InDays:
+        case NextPayoutKind.NoPayout:
+        case NextPayoutKind.NotFunded:
+        case NextPayoutKind.Now: {
+            break;
+        }
+        case NextPayoutKind.NotValued: {
+            return <MissingValue reason={sentenceOf(nextPayout.text)} />;
+        }
+        case NextPayoutKind.Pending: {
+            return <ComputingFigure />;
+        }
+    }
+    if (nextPayout.isSoon) {
+        return (
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+                <span data-soon="true">{nextPayout.text}</span>
+                <Badge>{NEXT_PAYOUT_SOON_LABEL}</Badge>
+            </span>
+        );
+    }
+    return (
+        <span
+            className={cn(
+                MUTED_NEXT_PAYOUT_KINDS.has(nextPayout.kind) &&
+                    'text-muted-foreground',
+            )}
+        >
+            {nextPayout.text}
+        </span>
     );
 }
 
@@ -148,9 +193,9 @@ function EvPerAttemptLines({
     switch (evPerAttempt.kind) {
         case EvPerAttemptKind.Pending: {
             return (
-                <p className="mt-1 text-xs text-muted-foreground">
-                    EV per attempt: computing
-                </p>
+                <div className="mt-1 text-xs text-muted-foreground">
+                    {EV_PER_ATTEMPT_LABEL} <ComputingFigure />
+                </div>
             );
         }
         case EvPerAttemptKind.Ready: {
@@ -164,7 +209,8 @@ function EvPerAttemptLines({
         case EvPerAttemptKind.Unavailable: {
             return (
                 <p className="mt-1 text-xs text-muted-foreground">
-                    EV per attempt is not available: {evPerAttempt.reason}
+                    {EV_PER_ATTEMPT_LABEL}{' '}
+                    <MissingValue reason={sentenceOf(evPerAttempt.reason)} />
                 </p>
             );
         }

@@ -2,6 +2,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { cacheLife } from 'next/cache';
 import Link from 'next/link';
 
+import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { SocialIcon } from '~/components/ui/social-icon';
 import { homepageContent, siteContent, siteTools } from '~/lib/site/content';
 import {
@@ -12,10 +13,13 @@ import {
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
+import { FooterSwitch } from './FooterSwitch';
+import { FooterVariant } from './footerVariant';
 import { EmphasisTitle } from './home/EmphasisTitle';
 import { Marquee } from './home/Marquee';
 import { NumberedEyebrow } from './home/NumberedEyebrow';
 import { Watch } from './home/Watch';
+import { SocialLinkButtons } from './SocialLinkButtons';
 
 const FINE_PRINT = [
     { href: routes.legal.privacy, label: 'Privacy' },
@@ -26,8 +30,86 @@ const FINE_PRINT = [
 const INDEX_LINK_CLASS =
     'flex items-baseline gap-3 text-ink-soft transition-[color,padding] duration-250 hover:pl-2 hover:text-camel focus-camel motion-reduce:transition-none';
 
+const PHONE_FULL_WIDTH_COLUMN_CLASS = 'col-span-2 md:col-span-1';
+
+enum FooterNavLabel {
+    Elsewhere = 'Elsewhere',
+    FinePrint = 'Fine print',
+    Index = 'Index',
+    Tools = 'Tools',
+}
+
+interface FooterYearProperties {
+    readonly year: number;
+}
+
 export default async function Footer() {
-    const { manifest, socialLinks } = siteContent;
+    const year = await currentYear();
+
+    return (
+        <FooterSwitch
+            variants={{
+                [FooterVariant.Compact]: <CompactFooter year={year} />,
+                [FooterVariant.Full]: <FullFooter year={year} />,
+            }}
+        />
+    );
+}
+
+function CompactFooter({ year }: FooterYearProperties) {
+    return (
+        <footer className="app-shell__footer">
+            <div className="mx-auto max-w-site px-6">
+                <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2 border-t border-line-faint py-4 type-micro text-ink-muted">
+                    <Copyright year={year} />
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                        <nav
+                            aria-label={FooterNavLabel.FinePrint}
+                            className="flex flex-wrap items-center gap-x-6"
+                        >
+                            {FINE_PRINT.map((link) => (
+                                <Link
+                                    className="inline-flex h-11 items-center focus-camel transition-colors hover:text-camel motion-reduce:transition-none"
+                                    href={link.href}
+                                    key={link.href}
+                                >
+                                    {link.label}
+                                </Link>
+                            ))}
+                        </nav>
+                        <nav
+                            aria-label={FooterNavLabel.Elsewhere}
+                            className="flex gap-1"
+                        >
+                            <SocialLinkButtons />
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    );
+}
+
+function Copyright({ year }: FooterYearProperties) {
+    return (
+        <span>
+            © {year} {siteContent.manifest.name}
+        </span>
+    );
+}
+
+async function currentYear(): Promise<number> {
+    'use cache';
+    cacheLife('days');
+    return new Date().getFullYear();
+}
+
+function FooterHeading({ children }: { readonly children: string }) {
+    return <span className="mb-2 type-micro text-ink-muted">{children}</span>;
+}
+
+function FullFooter({ year }: FooterYearProperties) {
+    const { socialLinks } = siteContent;
     const {
         body,
         contactLabel,
@@ -40,7 +122,6 @@ export default async function Footer() {
     const instagram = socialLinks.find(
         (profile) => profile.platform === 'instagram',
     );
-    const year = await currentYear();
 
     return (
         <footer
@@ -56,10 +137,10 @@ export default async function Footer() {
                         number={FOOTER_SECTION_NUMBER}
                         ruleClassName="max-w-40"
                     />
-                    <h2 className="m-0 type-display-closing text-ink">
+                    <ToolSectionHeading className="type-display-closing">
                         <EmphasisTitle heading={heading} />
-                    </h2>
-                    <p className="m-0 max-w-115 text-[19px] leading-[1.6] font-light text-pretty text-ink-muted">
+                    </ToolSectionHeading>
+                    <p className="m-0 max-w-115 type-body text-ink-muted">
                         {body}
                     </p>
                     <div className="flex flex-wrap gap-3">
@@ -90,9 +171,15 @@ export default async function Footer() {
             </div>
 
             <div className="mx-auto max-w-site px-6">
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] gap-12 border-t border-line py-16">
-                    <nav aria-label="Index" className="flex flex-col gap-3">
-                        <FooterHeading>Index</FooterHeading>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-12 border-t border-line py-16 md:gap-x-12 lg:grid-cols-4">
+                    <nav
+                        aria-label={FooterNavLabel.Index}
+                        className={cn(
+                            PHONE_FULL_WIDTH_COLUMN_CLASS,
+                            'flex flex-col gap-3',
+                        )}
+                    >
+                        <FooterHeading>{FooterNavLabel.Index}</FooterHeading>
                         {HOME_SECTIONS.map((section) => (
                             <Link
                                 className={cn(
@@ -107,7 +194,13 @@ export default async function Footer() {
                         ))}
                     </nav>
 
-                    <nav aria-label="Tools" className="flex flex-col gap-3">
+                    <nav
+                        aria-label={FooterNavLabel.Tools}
+                        className={cn(
+                            PHONE_FULL_WIDTH_COLUMN_CLASS,
+                            'flex flex-col gap-3',
+                        )}
+                    >
                         <FooterHeading>The desk</FooterHeading>
                         {siteTools.map((tool) => (
                             <Link
@@ -123,8 +216,13 @@ export default async function Footer() {
                         ))}
                     </nav>
 
-                    <nav aria-label="Elsewhere" className="flex flex-col gap-3">
-                        <FooterHeading>Elsewhere</FooterHeading>
+                    <nav
+                        aria-label={FooterNavLabel.Elsewhere}
+                        className="flex flex-col gap-3"
+                    >
+                        <FooterHeading>
+                            {FooterNavLabel.Elsewhere}
+                        </FooterHeading>
                         {socialLinks.map((profile) => (
                             <Link
                                 className={cn(
@@ -143,10 +241,12 @@ export default async function Footer() {
 
                     <div className="flex flex-col gap-8">
                         <nav
-                            aria-label="Fine print"
+                            aria-label={FooterNavLabel.FinePrint}
                             className="flex flex-col gap-3"
                         >
-                            <FooterHeading>Fine print</FooterHeading>
+                            <FooterHeading>
+                                {FooterNavLabel.FinePrint}
+                            </FooterHeading>
                             {FINE_PRINT.map((link) => (
                                 <Link
                                     className={cn(
@@ -164,9 +264,7 @@ export default async function Footer() {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line-faint pt-6 pb-10 type-micro text-ink-muted">
-                    <span>
-                        © {year} {manifest.name}
-                    </span>
+                    <Copyright year={year} />
                     <span>{madeBy}</span>
                 </div>
             </div>
@@ -174,14 +272,4 @@ export default async function Footer() {
             <Marquee words={marquee} />
         </footer>
     );
-}
-
-async function currentYear(): Promise<number> {
-    'use cache';
-    cacheLife('days');
-    return new Date().getFullYear();
-}
-
-function FooterHeading({ children }: { readonly children: string }) {
-    return <span className="mb-2 type-micro text-ink-muted">{children}</span>;
 }

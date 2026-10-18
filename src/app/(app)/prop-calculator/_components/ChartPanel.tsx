@@ -1,9 +1,8 @@
 'use client';
 
-import { Card } from '~/components/ui/card';
-import InfoPopover from '~/components/ui/info-popover';
+import { FilterToolbar } from '~/components/FilterToolbar';
+import { ToolPanel } from '~/components/ToolPanel';
 import { type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utilities';
 
 import DaysToPassHistogramView from './charts/DaysToPassHistogramView';
 import DrawdownCurveChartView from './charts/DrawdownCurveChartView';
@@ -59,26 +58,19 @@ export default function ChartPanel({
     totalTrials,
 }: ChartPanelProperties) {
     return (
-        <Card className={cn('app-prop-calculator__chart-panel', 'p-6')}>
-            <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">
-                        {TITLES[chartType]}
-                    </h3>
-                    <InfoPopover title={TITLES[chartType]}>
-                        {DESCRIPTIONS[chartType]}
-                    </InfoPopover>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                    <span className="text-xs text-muted-foreground">
-                        {SUBTITLES[chartType](result)}
-                    </span>
-                    <ChartTypeSelector
-                        onChange={onChartTypeChange}
-                        value={chartType}
-                    />
-                </div>
-            </div>
+        <ToolPanel
+            className="app-prop-calculator__chart-panel"
+            description={SUBTITLES[chartType](result)}
+            info={DESCRIPTIONS[chartType]}
+            title={TITLES[chartType]}
+            titleAs="h3"
+        >
+            <FilterToolbar label="Chart options">
+                <ChartTypeSelector
+                    onChange={onChartTypeChange}
+                    value={chartType}
+                />
+            </FilterToolbar>
 
             {chartType === ChartType.Equity && (
                 <EquityCurveChartView result={result} />
@@ -99,6 +91,6 @@ export default function ChartPanel({
             {chartType === ChartType.DaysToPassHistogram && (
                 <DaysToPassHistogramView result={result} />
             )}
-        </Card>
+        </ToolPanel>
     );
 }

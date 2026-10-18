@@ -2,18 +2,13 @@ import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import {
-    hubCardHref,
-    hubToolGroups,
-} from '~/app/(app)/prop-calculator/_components/HubToolCards';
+import { hubCardHref } from '~/app/(app)/prop-calculator/_components/HubToolCards';
 import {
     PanelSkeleton,
     PanelSkeletonSize,
 } from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
 import {
-    TOOL_CATALOG,
     toolCatalogEntry,
-    ToolGroup,
     ToolId,
 } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import {
@@ -76,7 +71,7 @@ const RUNG_SIZING_LABEL_MODULE = path.join(
     'rungSizingLabels.ts',
 );
 const LADDER_LAB_PANEL_PATH = path.join(COMPONENTS_ROOT, 'LadderLabPanel.tsx');
-const LADDER_LAB_POPOVER_OPENER = '<InfoPopover title="Ladder lab">';
+const LADDER_LAB_POPOVER_OPENER = 'function LadderLabInfo() {';
 const DAY_STOP_LABELS = [
     'Stop after K losses',
     'Stop after $ target',
@@ -274,7 +269,7 @@ const PINNED_PANEL_PROPS: Readonly<Record<string, readonly string[]>> = {
     ],
     DrawdownDurationPanel: ['result={result}'],
     FirmComparisonTable: [
-        'activeFirmId={state.firm.id}bankrollCents={bankrollCents}baseInputs={simInputs}firms={firms}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}targetAccountSize={state.plan.accountSize}',
+        'activeFirmId={state.firm.id}bankrollCents={bankrollCents}baseInputs={simInputs}firms={firms}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}screenHourFilters={screenHourFilters}targetAccountSize={state.plan.accountSize}',
     ],
     LadderLabPanel: [
         'activePolicy={state.evalDayPolicy}baseInputs={simInputs}onApply={setEvalDayPolicy}',
@@ -284,10 +279,10 @@ const PINNED_PANEL_PROPS: Readonly<Record<string, readonly string[]>> = {
     ],
     PercentileBar: [
         'description={kpiDescriptions.finalBalance}formatValue={formatCompactCurrency}label="Finalbalancedistribution"p5={result.finalBalanceP5}p25={result.finalBalanceP25}p50={result.finalBalanceP50}p75={result.finalBalanceP75}p95={result.finalBalanceP95}referenceLine={{label:\'Startingbalance\',value:state.plan.accountSize}}',
-        'description={kpiDescriptions.daysToPass}formatValue={formatDays}label="Daystopassdistribution"p5={result.daysToPassP5}p25={result.daysToPassP25}p50={result.daysToPassP50}p75={result.daysToPassP75}p95={result.daysToPassP95}',
+        'description={kpiDescriptions.daysToPass}emptyState={result.daysToPassValues.length===0?(<EmptyStatedescription={NO_PASS_DAYS_REASON}icon={CalendarClock}size={EmptyStateSize.Compact}title="Nopassestochart"/>):undefined}formatValue={formatDays}label="Daystopassdistribution"p5={result.daysToPassP5}p25={result.daysToPassP25}p50={result.daysToPassP50}p75={result.daysToPassP75}p95={result.daysToPassP95}',
     ],
     PlanComparisonTable: [
-        'activePlan={state.plan}bankrollCents={bankrollCents}baseInputs={simInputs}firm={state.firm}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}',
+        'activePlan={state.plan}bankrollCents={bankrollCents}baseInputs={simInputs}firm={state.firm}isBankrollPending={isBankrollPending}objective={state.objective}planOptIns={planOptIns}screenHourFilters={screenHourFilters}',
     ],
     PortfolioPanel: [
         'baseInputs={simInputs}currentFirm={state.firm}currentPlan={state.plan}firms={firms}onPortfolioChange={setPortfolio}planOptIns={planOptIns}portfolio={state.portfolio}',
@@ -466,7 +461,7 @@ function pageSpec(toolId: ToolId): ToolPageSpec {
 function popoverBody(): string {
     const source = sourceText(LADDER_LAB_PANEL_PATH);
     const start = source.indexOf(LADDER_LAB_POPOVER_OPENER);
-    const end = source.indexOf('</InfoPopover>', start);
+    const end = source.indexOf('\n}\n', start);
     return source.slice(start, end).replaceAll(/\s+/g, ' ');
 }
 
@@ -588,8 +583,8 @@ function viewPath(spec: ToolPageSpec): string {
     );
 }
 
-const SECTION_HEADING_TAG = /<(?:h2|ToolSectionHeading)[\s>]/;
-const PAGE_HEADING_TAG = /<(?:h1|ToolPageHeader)[\s>]/;
+const SECTION_HEADING_TAG = /<(?:h2|ToolSectionHeading|ToolPanel)[\s>]/;
+const PAGE_HEADING_TAG = /<(?:h1|PageHeader)[\s>]/;
 
 function tagCount(source: string, tag: RegExp): number {
     return source.match(new RegExp(tag.source, 'g'))?.length ?? 0;
@@ -1205,53 +1200,6 @@ describe('the hub page (F-8)', () => {
 
     it('renders an <h2> per tool group', () => {
         expect(sourceText(HUB_CARDS_PATH)).toMatch(SECTION_HEADING_TAG);
-    });
-});
-
-describe('hubToolGroups', () => {
-    it('orders the groups as the hub screen lists them, each labelled', () => {
-        const groups = hubToolGroups(TOOL_CATALOG);
-        expect(groups.map((entry) => entry.group)).toEqual([
-            ToolGroup.Simulate,
-            ToolGroup.Analyse,
-            ToolGroup.Size,
-            ToolGroup.Compare,
-            ToolGroup.Plan,
-            ToolGroup.Labs,
-        ]);
-        expect(groups.map((entry) => entry.label)).toEqual([
-            'Simulate',
-            'Analyse',
-            'Size',
-            'Compare',
-            'Plan',
-            'Labs',
-        ]);
-    });
-
-    it('shows every catalog tool once, under its own group, in catalog order', () => {
-        const groups = hubToolGroups(TOOL_CATALOG);
-        const shown = groups.flatMap((entry) => entry.tools);
-        expect(shown.map((tool) => tool.id).toSorted(byText)).toEqual(
-            TOOL_CATALOG.map((tool) => tool.id).toSorted(byText),
-        );
-        for (const entry of groups) {
-            expect(entry.tools.length).toBeGreaterThan(0);
-            expect(
-                entry.tools.every((tool) => tool.group === entry.group),
-            ).toBe(true);
-            expect(entry.tools).toEqual(
-                TOOL_CATALOG.filter((tool) => tool.group === entry.group),
-            );
-        }
-    });
-
-    it('drops a group with no tools', () => {
-        expect(
-            hubToolGroups(
-                TOOL_CATALOG.filter((tool) => tool.group !== ToolGroup.Labs),
-            ).map((entry) => entry.group),
-        ).not.toContain(ToolGroup.Labs);
     });
 });
 

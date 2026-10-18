@@ -1,3 +1,4 @@
+import { formatDisplayDate } from '~/lib/format';
 import { type PayoutGate, type PolicyQuote } from '~/lib/prop-calculator/core';
 
 export enum LiveTriggerScope {
@@ -73,5 +74,5 @@ function liveTriggerScopeText(scope: LiveTriggerScope): string {
 }
 
 function policyCitationText(source: PolicyCitation): string {
-    return `source: ${source.url}, fetched ${source.fetchedOn}: "${source.quote}"`;
+    return `source: ${source.url}, fetched ${formatDisplayDate(source.fetchedOn)}: "${source.quote}"`;
 }

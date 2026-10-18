@@ -5,9 +5,9 @@ export function Marquee({ words }: { readonly words: readonly string[] }) {
     return (
         <div
             aria-hidden
-            className="relative h-[0.86em] overflow-hidden border-t border-line-faint text-[clamp(88px,15vw,240px)]"
+            className="relative overflow-hidden border-t border-line-faint text-[clamp(88px,15vw,240px)]"
         >
-            <div className="flex w-max animate-marquee pt-[0.08em] font-serif leading-none font-medium tracking-[-0.03em] whitespace-nowrap italic">
+            <div className="flex w-max animate-marquee pt-[0.06em] pb-[0.24em] font-serif leading-none font-medium tracking-[-0.03em] whitespace-nowrap italic">
                 {loop.map((word, index) => (
                     <span
                         className="flex items-center gap-[0.3em] pr-[0.3em]"
@@ -20,7 +20,7 @@ export function Marquee({ words }: { readonly words: readonly string[] }) {
                         >
                             {word}
                         </span>
-                        <span className="text-[0.32em] text-camel not-italic">
+                        <span className="type-display-page text-camel not-italic">
                             ✦
                         </span>
                     </span>

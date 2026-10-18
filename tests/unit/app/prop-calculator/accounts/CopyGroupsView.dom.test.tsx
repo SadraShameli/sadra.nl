@@ -20,7 +20,7 @@ import {
     GroupSizingSection,
     GroupSizingViewKind,
 } from '~/app/(app)/prop-calculator/accounts/copy-groups/GroupSizingSection';
-import { formatCurrency, formatPercent } from '~/lib/format';
+import { formatCurrency, formatDisplayDate, formatPercent } from '~/lib/format';
 import {
     AccountStage,
     AccountStatus,
@@ -53,6 +53,8 @@ import {
 } from '~/lib/schemas/propAccountOutputs';
 import { MAX_ACCOUNT_LABEL_LENGTH } from '~/lib/schemas/propAccounts';
 
+import { chooseRowAction } from '../../../components/rowActionsMenu';
+import { withInfoTexts } from '../infoPopover';
 import { pickOption } from './pickOption';
 
 const ACCOUNT_SELECT_LABEL = 'Account to add to Main copy';
@@ -363,6 +365,12 @@ function labelledControl(label: string): Element | null {
         : document.querySelector(`#${CSS.escape(labelElement.htmlFor)}`);
 }
 
+function mixedStageWarning(): Element | undefined {
+    return [
+        ...groupSection('Main copy').querySelectorAll('[role="status"]'),
+    ].find((status) => status.textContent.includes('Mixed stages'));
+}
+
 function rejection(overrides: Partial<PropRejection>): PropRejection {
     return {
         lifecycleRejection: null,
@@ -574,9 +582,7 @@ describe('CopyGroupsView', () => {
             ],
         );
         render();
-        const warning =
-            groupSection('Main copy').querySelector('[role="alert"]')
-                ?.textContent ?? '';
+        const warning = mixedStageWarning()?.textContent ?? '';
         expect(warning).toContain('Evaluation: eval-a, eval-b');
         expect(warning).toContain('Funded: funded-a');
         expect(warning).toContain('off the copier now');
@@ -596,9 +602,7 @@ describe('CopyGroupsView', () => {
             ],
         );
         render();
-        const warning =
-            groupSection('Main copy').querySelector('[role="alert"]')
-                ?.textContent ?? '';
+        const warning = mixedStageWarning()?.textContent ?? '';
         expect(warning).toContain('Funded: funded-a');
         expect(warning).toContain('Live: live-a');
         expect(warning).toContain('off the copier now');
@@ -634,9 +638,7 @@ describe('CopyGroupsView', () => {
                 ),
             );
             render();
-            const warning =
-                groupSection('Main copy').querySelector('[role="alert"]')
-                    ?.textContent ?? '';
+            const warning = mixedStageWarning()?.textContent ?? '';
             expect(warning).toContain(
                 `Do not copy one size across stages: each stage has its own sizing rule, so one size copied across ${name} accounts is wrong for at least one of them.`,
             );
@@ -658,8 +660,7 @@ describe('CopyGroupsView', () => {
             ],
         );
         render();
-        const warning =
-            groupSection('Main copy').querySelector('[role="alert"]');
+        const warning = mixedStageWarning();
         expect(warning?.textContent).toContain('1 Evaluation, 1 Funded');
         expect(warning?.textContent).toContain('one stage');
     });
@@ -917,7 +918,7 @@ describe('CopyGroupsView', () => {
         await chooseAccount('funded-b');
         click(button('Add to Main copy'));
         await flush();
-        click(button('Remove funded-a from Main copy'));
+        chooseRowAction('funded-a', 'Remove from Main copy');
         await flush();
         expect(callsTo('copyGroup.assign')).toEqual([
             { accountId: 'funded-b', copyGroupId: MAIN.id },
@@ -935,7 +936,7 @@ describe('CopyGroupsView', () => {
             ],
         );
         render();
-        click(button('Remove funded-a from Main copy'));
+        chooseRowAction('funded-a', 'Remove from Main copy');
         await flush();
         answerWith(
             [MAIN],
@@ -945,7 +946,7 @@ describe('CopyGroupsView', () => {
             ],
         );
         render();
-        expect(document.activeElement).toBe(groupHeading());
+        expect(groupHeading()).toBe(document.activeElement);
     });
 
     it('moves focus to the group heading after the last unassigned account is added', async () => {
@@ -957,7 +958,7 @@ describe('CopyGroupsView', () => {
         answerWith([MAIN], [account('funded-b', { copyGroupId: MAIN.id })]);
         render();
         expect(() => accountSelectTrigger()).toThrow();
-        expect(document.activeElement).toBe(groupHeading());
+        expect(groupHeading()).toBe(document.activeElement);
     });
 
     it('names the inactive or archived member of another stage when the server refuses an account', async () => {
@@ -1156,7 +1157,7 @@ describe('CopyGroupsView', () => {
             const text = groupSection('Main copy').textContent;
             expect(text).toContain(formatCurrency(groupRisk, 2));
             expect(text).toContain(TIGHT_ID);
-            expect(text).toContain('Combined exposure');
+            expect(text).toContain('Worst-case daily loss');
             if (section.exposure === null) {
                 return;
             }
@@ -1187,7 +1188,7 @@ describe('CopyGroupsView', () => {
                     ':scope tbody tr',
                 ),
             ].map((tableRow) =>
-                [...tableRow.querySelectorAll('td')].map(
+                [...tableRow.querySelectorAll('th, td')].map(
                     (cell) => cell.textContent,
                 ),
             );
@@ -1203,14 +1204,14 @@ describe('CopyGroupsView', () => {
             const accounts = [loose(), tight(), unresolvable()];
             answerWithSizing(accounts);
             render();
-            const text = groupSection('Main copy').textContent;
+            const text = withInfoTexts(groupSection('Main copy'));
             expect(text).toContain(`1 member not included: ${UNRESOLVABLE_ID}`);
         });
 
         it('says nothing about left-out members when the whole group is in the exposure', () => {
             answerWithSizing([loose(), tight()]);
             render();
-            expect(groupSection('Main copy').textContent).not.toContain(
+            expect(withInfoTexts(groupSection('Main copy'))).not.toContain(
                 'not included',
             );
         });
@@ -1252,7 +1253,7 @@ describe('CopyGroupsView', () => {
             render();
             const text = groupSection('Main copy').textContent;
             expect(text).toContain(
-                `Combined exposure: worst-case daily loss of ${formatCurrency(baseline.maxDailyLoss, 2)}`,
+                `Worst-case daily loss${formatCurrency(baseline.maxDailyLoss, 2)}`,
             );
         });
 
@@ -1317,8 +1318,8 @@ describe('CopyGroupsView', () => {
                 throw new Error('expected the group to be sized');
             }
             render();
-            const text = groupSection('Main copy').textContent;
-            expect(text).toContain(TODAY);
+            const text = withInfoTexts(groupSection('Main copy'));
+            expect(text).toContain(formatDisplayDate(TODAY));
             const cappedBy = section.result.sizing.rungs[0]?.cappedBy ?? [];
             for (const constraint of cappedBy) {
                 expect(text).toContain(SIZING_CONSTRAINT_TEXT[constraint]);
@@ -1345,7 +1346,7 @@ describe('CopyGroupsView', () => {
             expect(group.textContent).toContain(
                 'Correlated bust risk and payouts',
             );
-            expect(group.textContent).toContain(
+            expect(withInfoTexts(group)).toContain(
                 `Every copy trades ${formatCurrency(groupRisk, 2)} per trade`,
             );
             expect(StubWorker.instances).toHaveLength(0);
@@ -1492,7 +1493,7 @@ describe('CopyGroupsView', () => {
             expect(text).toContain("No rung fits the group's room today");
             expect(text).not.toContain('Documented size for every copy');
             expect(container.querySelector('table')).toBeNull();
-            expect(text).toContain('Combined exposure');
+            expect(text).toContain('Worst-case daily loss');
             expect(
                 container.querySelector(`#copy-group-stop-${MAIN.id}`),
             ).not.toBeNull();
@@ -1518,7 +1519,7 @@ describe('CopyGroupsView', () => {
         it('says the combined exposure is an upper bound on what the group sizing allows', () => {
             answerWithSizing([loose(), tight()]);
             render();
-            expect(groupSection('Main copy').textContent).toContain(
+            expect(withInfoTexts(groupSection('Main copy'))).toContain(
                 'an upper bound on the group worst case',
             );
         });
@@ -1546,7 +1547,7 @@ describe('CopyGroupsView', () => {
                 const group = groupSection('Main copy');
                 const text = group.textContent;
                 expect(text).toContain(
-                    `The balance for ${TIGHT_ID} is from ${STALE_DAY}`,
+                    `The balance for ${TIGHT_ID} is from ${formatDisplayDate(STALE_DAY)}`,
                 );
                 expect(text).toContain("Enter today's balance");
                 expect(group.querySelector('table')).toBeNull();
@@ -1590,7 +1591,7 @@ describe('CopyGroupsView', () => {
 
                 const text = groupSection('Main copy').textContent;
                 expect(text).toContain(
-                    `The balance for ${TIGHT_ID} is from ${TODAY}`,
+                    `The balance for ${TIGHT_ID} is from ${formatDisplayDate(TODAY)}`,
                 );
                 expect(text).not.toContain('Documented size');
                 expect(text).not.toContain('Combined exposure');
@@ -1659,7 +1660,7 @@ describe('CopyGroupsView', () => {
                     const group = groupSection('Main copy');
                     const text = group.textContent;
                     expect(text).toContain(
-                        `The balance for eval-old is from ${TWO_SESSIONS_OLD}`,
+                        `The balance for eval-old is from ${formatDisplayDate(TWO_SESSIONS_OLD)}`,
                     );
                     expect(text).not.toContain('eval-fresh is from');
                     expect(text).not.toContain('Documented size');

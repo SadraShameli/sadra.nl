@@ -12,6 +12,14 @@ import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 import { OBJECTIVE_URL_PARAMETER } from '~/lib/schemas/url';
 
+import {
+    chooseRowAction,
+    confirmRowAction,
+    openRowActions,
+    rowActionItem,
+    rowActionLabels,
+} from '../../components/rowActionsMenu';
+
 interface FakeSession {
     data: null | { user: { id: string } };
     error: Error | null;
@@ -122,7 +130,7 @@ vi.mock('~/trpc/react', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-const LOADING_TEXT = 'Loading saved scenarios...';
+const LOADING_TEXT = 'Loading saved scenarios';
 const LOCAL_HEADING = 'Saved';
 const ACCOUNT_HEADING = 'Saved to your account';
 
@@ -177,7 +185,7 @@ async function saveNamed(name: string) {
 }
 
 function sectionHeadings(): string[] {
-    return [...document.body.querySelectorAll('span')]
+    return [...document.body.querySelectorAll('h3')]
         .map((span) => span.textContent)
         .filter((text) => text === LOCAL_HEADING || text === ACCOUNT_HEADING);
 }
@@ -255,7 +263,10 @@ describe('SavedScenarios session stores', () => {
     it('shows the browser panel to an anonymous visitor', async () => {
         await openPanel();
         expect(sectionHeadings()).toEqual([LOCAL_HEADING]);
-        expect(panelText()).toContain('No saved scenarios yet.');
+        expect(panelText()).toContain('No saved scenarios yet');
+        expect(
+            document.body.querySelector('[data-slot="empty"]')?.textContent,
+        ).toBe('No saved scenarios yet');
     });
 
     it('keeps the browser panel and its typed name through an anonymous session refetch', async () => {
@@ -335,6 +346,12 @@ describe('SavedScenarios session stores', () => {
         };
         await openPanel();
         expect(panelText()).toContain(LOADING_TEXT);
+        expect(panelText()).not.toContain('...');
+        expect(
+            document.body.querySelector(
+                ':scope [aria-busy="true"] [data-slot="skeleton"]',
+            ),
+        ).not.toBeNull();
         expect(sectionHeadings()).toEqual([]);
     });
 
@@ -459,6 +476,82 @@ describe('SavedScenarios session stores', () => {
         expect(document.body.querySelector('[role="alertdialog"]')).toBeNull();
         expect(scenarioApi.removeAll).not.toHaveBeenCalled();
         expect(scenarioApi.remove).not.toHaveBeenCalled();
+    });
+
+    it('deletes an account scenario from its row menu only after the delete is confirmed', async () => {
+        scenarioApi.listRows = [
+            {
+                id: 'scenario-1',
+                name: 'Apex',
+                query: 'firm=apex',
+                updatedAt: new Date('2026-09-20T00:00:00Z'),
+                userId: 'user-1',
+            },
+        ];
+        harness.store.session = {
+            ...harness.store.session,
+            data: { user: { id: 'user-1' } },
+        };
+        await openPanel();
+        openRowActions('Apex');
+        expect(rowActionLabels()).toEqual([
+            'Replace with current config',
+            'Delete',
+        ]);
+        act(() => {
+            rowActionItem('Delete').click();
+        });
+        expect(scenarioApi.remove).not.toHaveBeenCalled();
+        expect(dialogOf().textContent).toContain('Delete “Apex”?');
+        confirmRowAction('Delete');
+        await flush();
+        expect(scenarioApi.remove).toHaveBeenCalledExactlyOnceWith({
+            id: 'scenario-1',
+        });
+    });
+
+    it('replaces an account scenario with the current config only after confirming', async () => {
+        scenarioApi.listRows = [
+            {
+                id: 'scenario-1',
+                name: 'Apex',
+                query: 'firm=apex',
+                updatedAt: new Date('2026-09-20T00:00:00Z'),
+                userId: 'user-1',
+            },
+        ];
+        harness.store.session = {
+            ...harness.store.session,
+            data: { user: { id: 'user-1' } },
+        };
+        await openPanel();
+        chooseRowAction('Apex', 'Replace with current config');
+        expect(scenarioApi.save).not.toHaveBeenCalled();
+        confirmRowAction('Replace');
+        await flush();
+        expect(scenarioApi.save).toHaveBeenCalledTimes(1);
+        const [saved] = scenarioApi.save.mock.calls[0] as unknown as [
+            { name: string },
+        ];
+        expect(saved.name).toBe('Apex');
+    });
+
+    it('deletes a browser scenario from its row menu after confirming', async () => {
+        await openPanel();
+        await saveNamed('Local one');
+        chooseRowAction('Local one', 'Delete');
+        expect(window.localStorage.getItem('propCalc.scenarios.v1')).toContain(
+            'Local one',
+        );
+        confirmRowAction('Delete');
+        await flush();
+        expect(
+            window.localStorage.getItem('propCalc.scenarios.v1'),
+        ).not.toContain('Local one');
+        expect(panelText()).toContain('No saved scenarios yet');
+        expect(
+            document.body.querySelector('[data-slot="empty"]')?.textContent,
+        ).toBe('No saved scenarios yet');
     });
 
     it('saves a deliberately chosen MonthlyNet in the browser store, so loading it later keeps the choice (PT-63d, F-V15)', async () => {

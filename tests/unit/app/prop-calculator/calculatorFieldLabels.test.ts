@@ -46,7 +46,7 @@ describe('calculator field labels (PT-67b step 5)', () => {
             'utf8',
         );
         expect(
-            /htmlFor="rebuy-lag-days"\s*>\s*\{CALCULATOR_FIELD_LABELS\.rebuyLagDays\}\s*<\/FieldLabel>/.test(
+            /<LabelWithInfo\s+htmlFor="rebuy-lag-days"[^>]*\slabel=\{\s*CALCULATOR_FIELD_LABELS\.rebuyLagDays\s*\}/.test(
                 form,
             ),
         ).toBe(true);
@@ -65,7 +65,7 @@ describe('calculator field labels (PT-67b step 5)', () => {
             /import \{ CALCULATOR_FIELD_LABELS \} from '(~\/app\/\(app\)\/prop-calculator\/_components|\.)\/calculatorFieldLabels';/,
         );
         expect(
-            /htmlFor="funded-horizon-days"\s*>\s*\{CALCULATOR_FIELD_LABELS\.fundedHorizonDays\}\s*<\/FieldLabel>/.test(
+            /<LabelWithInfo\s+htmlFor="funded-horizon-days"[^>]*\slabel=\{\s*CALCULATOR_FIELD_LABELS\.fundedHorizonDays\s*\}/.test(
                 form,
             ),
         ).toBe(true);

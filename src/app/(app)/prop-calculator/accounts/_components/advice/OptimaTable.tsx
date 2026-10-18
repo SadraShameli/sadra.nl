@@ -2,7 +2,8 @@ import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_componen
 import { Badge } from '~/components/ui/badge';
 import { Card } from '~/components/ui/card';
 import { DataTable } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { cn } from '~/lib/utilities';
 
 import {
     type DpAdviceRecordInput,
@@ -66,9 +67,10 @@ export function OptimaTable({
 }) {
     if (rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No engine optima were requested for this stage.
-            </p>
+            <EmptyState
+                size={EmptyStateSize.Compact}
+                title="No engine optima requested for this stage"
+            />
         );
     }
     return (
@@ -78,6 +80,7 @@ export function OptimaTable({
                     cell: ({ row: { original: row } }) => <>{row.label}</>,
                     header: 'Source',
                     id: OptimaTableColumn.Source,
+                    meta: { isRowHeader: true },
                 },
                 {
                     cell: ({ row: { original: row } }) => (
@@ -112,14 +115,14 @@ function DpAdviceRowCard({ row }: { readonly row: DpAdviceRowView }) {
         <li>
             <Card className="gap-1 p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={row.isValidated ? 'success' : 'warning'}>
+                    <Badge>
                         {row.isValidated ? 'Validated' : 'Not validated'}
                     </Badge>
-                    {row.isStale && <Badge variant="destructive">Stale</Badge>}
+                    {row.isStale && <Badge>Stale</Badge>}
                 </div>
                 <p>{row.validationText}</p>
                 <p>{row.eligibilityText}</p>
-                <TextList className="text-destructive" texts={row.staleTexts} />
+                <TextList texts={row.staleTexts} />
                 <DpSamples row={row} />
                 <TextList
                     className="text-xs text-muted-foreground"
@@ -180,12 +183,12 @@ function TextList({
     className,
     texts,
 }: {
-    readonly className: string;
+    readonly className?: string;
     readonly texts: readonly string[];
 }) {
     if (texts.length === 0) return null;
     return (
-        <ul className={`flex list-none flex-col gap-0.5 ${className}`}>
+        <ul className={cn('flex list-none flex-col gap-0.5', className)}>
             {texts.map((text) => (
                 <li key={text}>{text}</li>
             ))}

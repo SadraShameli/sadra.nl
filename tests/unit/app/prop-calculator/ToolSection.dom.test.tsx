@@ -3,9 +3,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
-import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
+import {
+    ToolSection,
+    useSectionComputing,
+} from '~/app/(app)/prop-calculator/_components/ToolSection';
 import { FirmId } from '~/lib/prop-calculator';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+
+import { hasComputingIndicator } from './computingIndicator';
 
 describe('ToolSection', () => {
     let container: HTMLDivElement;
@@ -101,6 +106,39 @@ describe('ToolSection', () => {
         expect(section.querySelectorAll('h2, h3')).toHaveLength(1);
     });
 
+    it('renders a panel section with its title as the panel h2, the only heading, labelling the section', () => {
+        act(() => {
+            root.render(
+                <ToolSection
+                    description="One short line"
+                    id={LegacySection.TailRisk}
+                    info="What tail risk means"
+                    isPanel
+                    title="Tail risk"
+                >
+                    <p>body</p>
+                </ToolSection>,
+            );
+        });
+        const section = renderedSection();
+        const headings = [...section.querySelectorAll('h1, h2, h3, h4')];
+        expect(headings.map((heading) => heading.tagName)).toEqual(['H2']);
+        const [heading] = headings;
+        expect(heading?.textContent).toBe('Tail risk');
+        expect(heading?.id).toBe(`${LegacySection.TailRisk}-heading`);
+        expect(section.getAttribute('aria-labelledby')).toBe(heading?.id);
+        expect(section.id).toBe(LegacySection.TailRisk);
+        expect(section.querySelector('[data-slot="card"]')).not.toBeNull();
+        expect(
+            section.querySelector(':scope [data-slot="card"] p:not([class])')
+                ?.textContent,
+        ).toBe('body');
+        expect(section.textContent).toContain('One short line');
+        expect(
+            section.querySelector('button')?.getAttribute('aria-label'),
+        ).toBe('About Tail risk');
+    });
+
     it('appends a caller className to the section classes', () => {
         act(() => {
             root.render(
@@ -119,4 +157,57 @@ describe('ToolSection', () => {
             section.classList.contains('app-prop-calculator__section-charts'),
         ).toBe(true);
     });
+
+    it.each([true, false])(
+        'shows the panel computing indicator exactly while its content reports computing (%s)',
+        (isComputing) => {
+            act(() => {
+                root.render(
+                    <ToolSection
+                        id={LegacySection.FirmComparison}
+                        isPanel
+                        title="Firm comparison"
+                    >
+                        <ComputingProbe isComputing={isComputing} />
+                    </ToolSection>,
+                );
+            });
+            const section = renderedSection();
+            expect(hasComputingIndicator(section)).toBe(isComputing);
+            expect(section.querySelector('[aria-busy="true"]') !== null).toBe(
+                isComputing,
+            );
+        },
+    );
+
+    it('clears the computing indicator when the reporting content unmounts', () => {
+        act(() => {
+            root.render(
+                <ToolSection
+                    id={LegacySection.FirmComparison}
+                    isPanel
+                    title="Firm comparison"
+                >
+                    <ComputingProbe isComputing />
+                </ToolSection>,
+            );
+        });
+        act(() => {
+            root.render(
+                <ToolSection
+                    id={LegacySection.FirmComparison}
+                    isPanel
+                    title="Firm comparison"
+                >
+                    <p>done</p>
+                </ToolSection>,
+            );
+        });
+        expect(hasComputingIndicator(renderedSection())).toBe(false);
+    });
 });
+
+function ComputingProbe({ isComputing }: { readonly isComputing: boolean }) {
+    useSectionComputing(isComputing);
+    return <p>probe</p>;
+}

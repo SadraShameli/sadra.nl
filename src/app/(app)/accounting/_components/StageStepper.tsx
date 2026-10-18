@@ -35,10 +35,7 @@ export function StageStepper({ stages, state }: Properties) {
     const value = activeIndex === -1 ? finishedCount : activeIndex + 1;
 
     return (
-        <Stepper
-            className={cn('app-accounting__stage-stepper')}
-            value={value || 1}
-        >
+        <Stepper className={cn('app-accounting__stage-stepper')} value={value}>
             {stages.map((stage, index) => {
                 const s = state[stage.id];
                 const isLast = index === stages.length - 1;

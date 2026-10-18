@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FunnelCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/FunnelCard';
 import { type FunnelCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
+import { infoText } from '../infoPopover';
+
 type FunnelRow = FunnelCardModel['rows'][number];
 
 function model(overrides: Partial<FunnelCardModel> = {}): FunnelCardModel {
@@ -105,7 +107,7 @@ describe('FunnelCard', () => {
         });
         expect(container.textContent).toContain('3');
         expect(container.textContent).toContain('2');
-        expect(container.textContent).toContain(
+        expect(infoText(container, 'Stage funnel')).toContain(
             'A bust counts as structural only when a rule violation is recorded against that account.',
         );
     });
@@ -255,7 +257,7 @@ describe('FunnelCard', () => {
             ...(title?.parentElement?.querySelectorAll(':scope tbody tr') ??
                 []),
         ].map((tableRow) =>
-            [...tableRow.querySelectorAll('td')].map(
+            [...tableRow.querySelectorAll('th, td')].map(
                 (cell) => cell.textContent,
             ),
         );

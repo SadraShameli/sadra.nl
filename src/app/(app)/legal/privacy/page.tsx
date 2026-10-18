@@ -1,7 +1,10 @@
 import { type Metadata } from 'next';
 import Link from 'next/link';
 
+import { LegalSection } from '~/app/(app)/legal/_components/LegalSection';
+import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
+import { formatDisplayDate } from '~/lib/format';
 import { routes } from '~/lib/site/routes';
 
 export const metadata: Metadata = {
@@ -14,64 +17,72 @@ export default function PrivacyPage() {
     return (
         <PageTransition>
             <article>
-                <h1>Privacy policy</h1>
-                <p className="text-xs text-muted-foreground">
-                    Last updated: {updated}
-                </p>
+                <PageHeader
+                    className="not-prose"
+                    lead={`Last updated: ${formatDisplayDate(updated)}`}
+                    title="Privacy policy"
+                />
 
-                <h2>What we collect</h2>
-                <ul>
-                    <li>
-                        <strong>Account data:</strong> email address, display
-                        name, and a hashed password if you sign up with
-                        credentials.
-                    </li>
-                    <li>
-                        <strong>Session data:</strong> an opaque session token,
-                        your IP address and user-agent, used to keep you signed
-                        in and to let you see and revoke your active sessions.
-                    </li>
-                    <li>
-                        <strong>Trading journal:</strong> the trade plans,
-                        assessments and pre-market checklists you create.
-                    </li>
-                    <li>
-                        <strong>Sensor Hub:</strong> IoT devices linked to your
-                        account submit sensor readings and audio recordings.
-                    </li>
-                    <li>
-                        <strong>Analytics:</strong> aggregated, anonymous
-                        page-view and performance metrics via Vercel Analytics
-                        and Speed Insights.
-                    </li>
-                </ul>
+                <LegalSection title="What we collect">
+                    <ul>
+                        <li>
+                            <strong>Account data:</strong> email address,
+                            display name, and a hashed password if you sign up
+                            with credentials.
+                        </li>
+                        <li>
+                            <strong>Session data:</strong> an opaque session
+                            token, your IP address and user-agent, used to keep
+                            you signed in and to let you see and revoke your
+                            active sessions.
+                        </li>
+                        <li>
+                            <strong>Trading journal:</strong> the trade plans,
+                            assessments and pre-market checklists you create.
+                        </li>
+                        <li>
+                            <strong>Sensor Hub:</strong> IoT devices linked to
+                            your account submit sensor readings and audio
+                            recordings.
+                        </li>
+                        <li>
+                            <strong>Analytics:</strong> aggregated, anonymous
+                            page-view and performance metrics via Vercel
+                            Analytics and Speed Insights.
+                        </li>
+                    </ul>
+                </LegalSection>
 
-                <h2>What we don&apos;t collect</h2>
-                <p>
-                    No cross-site advertising trackers. No fingerprinting. No
-                    sale of personal data.
-                </p>
+                <LegalSection title="What we don't collect">
+                    <p>
+                        No cross-site advertising trackers. No fingerprinting.
+                        No sale of personal data.
+                    </p>
+                </LegalSection>
 
-                <h2>Your rights (GDPR)</h2>
-                <p>
-                    You can request a copy of your data or its deletion at any
-                    time by emailing the address on the contact page. Account
-                    deletion is also available from your profile page; that
-                    action is permanent and removes your sessions, plans and
-                    trade assessments.
-                </p>
+                <LegalSection title="Your rights (GDPR)">
+                    <p>
+                        You can request a copy of your data or its deletion at
+                        any time by emailing the address on the contact page.
+                        Account deletion is also available from your profile
+                        page; that action is permanent and removes your
+                        sessions, plans and trade assessments.
+                    </p>
+                </LegalSection>
 
-                <h2>Data location</h2>
-                <p>
-                    The application is hosted on Vercel. The database is
-                    provisioned on Aiven, hosted in the EU.
-                </p>
+                <LegalSection title="Data location">
+                    <p>
+                        The application is hosted on Vercel. The database is
+                        provisioned on Aiven, hosted in the EU.
+                    </p>
+                </LegalSection>
 
-                <h2>Contact</h2>
-                <p>
-                    Questions about this policy: reach out via the{' '}
-                    <Link href={routes.contact}>contact page</Link>.
-                </p>
+                <LegalSection title="Contact">
+                    <p>
+                        Questions about this policy: reach out via the{' '}
+                        <Link href={routes.contact}>contact page</Link>.
+                    </p>
+                </LegalSection>
             </article>
         </PageTransition>
     );

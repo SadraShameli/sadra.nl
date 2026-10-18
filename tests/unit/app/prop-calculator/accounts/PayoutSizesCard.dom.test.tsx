@@ -100,14 +100,19 @@ describe('PayoutSizesCard', () => {
             ...(title?.parentElement?.querySelectorAll(':scope tbody tr') ??
                 []),
         ].map((tableRow) =>
-            [...tableRow.querySelectorAll('td')].map(
+            [...tableRow.querySelectorAll('th, td')].map(
                 (cell) => cell.textContent,
             ),
         );
         expect(rows).toEqual([
             ['Low balance at payout', '1', '$100.00, n = 1', '$100.00'],
             ['Above the retained cushion', '1', '$800.00, n = 1', '$800.00'],
-            ['No snapshot on or before the payout', '0', 'n/a', 'n/a'],
+            [
+                'No snapshot on or before the payout',
+                '0',
+                '–Not available',
+                '–Not available',
+            ],
         ]);
     });
 
@@ -121,6 +126,6 @@ describe('PayoutSizesCard', () => {
 
     it('says no paid payout yet when there is none', () => {
         render(model({ count: 0, histogram: [] }));
-        expect(container.textContent).toContain('No paid payout yet.');
+        expect(container.textContent).toContain('No paid payout yet');
     });
 });

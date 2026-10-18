@@ -12,6 +12,7 @@ import { TRADE_CHECKLIST_NAV } from '~/app/(app)/trade-checklist/_components/tra
 import {
     portfolioContent,
     portfolioSectionHref,
+    siteTool,
     siteToolTitle,
     ToolTicker,
 } from '~/lib/site/content';
@@ -22,11 +23,25 @@ import {
 } from '~/lib/site/homeSections';
 import { routes, sameOriginRoute } from '~/lib/site/routes';
 
+export enum NavItemKind {
+    Groups = 'groups',
+    HomeSection = 'home-section',
+    Products = 'products',
+}
+
 export enum NavMenuId {
     About = 'about',
     Portfolio = 'portfolio',
     SensorHub = 'sensor-hub',
     Tools = 'tools',
+}
+
+export enum NavProductId {
+    Accounting = 'accounting',
+    Lifting = 'lifting',
+    PropAccounts = 'prop-accounts',
+    PropCalculator = 'prop-calculator',
+    TradeChecklist = 'trade-checklist',
 }
 
 export interface NavGroup {
@@ -35,17 +50,43 @@ export interface NavGroup {
     readonly links: readonly NavLink[];
 }
 
-export interface NavMenu {
-    readonly groups: readonly NavGroup[];
-    readonly id: NavMenuId;
+export interface NavHomeSectionLink extends NavItemBase {
+    readonly kind: NavItemKind.HomeSection;
+    readonly section: HomeSectionId;
+}
+
+export type NavItem = NavHomeSectionLink | NavMenu;
+
+export interface NavLink {
+    readonly href: NavHref;
     readonly label: string;
+}
+
+export type NavMenu = NavGroupsMenu | NavProductsMenu;
+
+export interface NavProduct {
+    readonly description: string;
+    readonly href: NavHref;
+    readonly id: NavProductId;
+    readonly label: string;
+    readonly links: readonly NavLink[];
+}
+
+interface NavGroupsMenu extends NavItemBase {
+    readonly groups: readonly NavGroup[];
+    readonly kind: NavItemKind.Groups;
 }
 
 type NavHref = Route | UrlObject;
 
-interface NavLink {
-    readonly href: NavHref;
+interface NavItemBase {
+    readonly id: NavMenuId;
     readonly label: string;
+}
+
+interface NavProductsMenu extends NavItemBase {
+    readonly kind: NavItemKind.Products;
+    readonly products: readonly NavProduct[];
 }
 
 interface PathLink {
@@ -53,12 +94,7 @@ interface PathLink {
     readonly label: string;
 }
 
-function homeSectionLinks(ids: readonly HomeSectionId[]): NavLink[] {
-    return ids.map((id) => ({
-        href: homeSectionHref(id),
-        label: homeSection(id).indexLabel,
-    }));
-}
+const ALL_TOOLS_LABEL = 'All tools';
 
 function pathLinks(items: readonly PathLink[]): NavLink[] {
     return items.map((item) => ({
@@ -67,51 +103,73 @@ function pathLinks(items: readonly PathLink[]): NavLink[] {
     }));
 }
 
-export const NAV_MENUS: readonly NavMenu[] = [
+function siteToolProduct(
+    ticker: ToolTicker,
+    id: NavProductId,
+    links: readonly NavLink[],
+): NavProduct {
+    const tool = siteTool(ticker);
+    return {
+        description: tool.description,
+        href: sameOriginRoute(tool.href, ''),
+        id,
+        label: tool.shortTitle,
+        links,
+    };
+}
+
+const TOOLS_NAV_PRODUCTS: readonly NavProduct[] = [
+    siteToolProduct(ToolTicker.PropCalculator, NavProductId.PropCalculator, [
+        ...pathLinks(
+            LINKED_TOOL_CATALOG.filter((entry) => entry.featured).map(
+                (entry) => ({ href: entry.route, label: entry.label }),
+            ),
+        ),
+        ...pathLinks([
+            { href: routes.propCalculator.index, label: ALL_TOOLS_LABEL },
+        ]),
+    ]),
     {
-        groups: [
-            {
-                href: sameOriginRoute(routes.propCalculator.index, ''),
-                label: siteToolTitle(ToolTicker.PropCalculator),
-                links: pathLinks(
-                    LINKED_TOOL_CATALOG.map((entry) => ({
-                        href: entry.route,
-                        label: entry.label,
-                    })),
-                ),
-            },
-            {
-                href: sameOriginRoute(routes.propCalculator.accounts.index, ''),
-                label: 'Prop accounts',
-                links: pathLinks(ACCOUNTS_NAV_ITEMS),
-            },
-            {
-                href: sameOriginRoute(routes.tradeChecklist.index, ''),
-                label: siteToolTitle(ToolTicker.Checklist),
-                links: pathLinks(TRADE_CHECKLIST_NAV),
-            },
-            {
-                href: sameOriginRoute(routes.lifting.index, ''),
-                label: siteToolTitle(ToolTicker.Lifting),
-                links: pathLinks(LIFTING_NAV),
-            },
-        ],
+        description:
+            'Every prop account with its stage, its spend and the payouts received.',
+        href: sameOriginRoute(routes.propCalculator.accounts.index, ''),
+        id: NavProductId.PropAccounts,
+        label: 'Prop accounts',
+        links: pathLinks(ACCOUNTS_NAV_ITEMS),
+    },
+    siteToolProduct(
+        ToolTicker.Checklist,
+        NavProductId.TradeChecklist,
+        pathLinks(TRADE_CHECKLIST_NAV),
+    ),
+    siteToolProduct(
+        ToolTicker.Lifting,
+        NavProductId.Lifting,
+        pathLinks(LIFTING_NAV),
+    ),
+];
+
+export const ACCOUNTING_NAV_PRODUCT: NavProduct = {
+    description:
+        'Bank and card transactions, previewed and posted to the books.',
+    href: sameOriginRoute(routes.accounting.index, ''),
+    id: NavProductId.Accounting,
+    label: ACCOUNTING_EYEBROW,
+    links: pathLinks(ACCOUNTING_NAV),
+};
+
+export const NAV_ITEMS: readonly NavItem[] = [
+    {
         id: NavMenuId.Tools,
+        kind: NavItemKind.Products,
         label: 'Tools',
+        products: TOOLS_NAV_PRODUCTS,
     },
     {
-        groups: [
-            {
-                href: homeSectionHref(HomeSectionId.SensorHub),
-                label: homeSection(HomeSectionId.SensorHub).indexLabel,
-                links: homeSectionLinks([
-                    HomeSectionId.Readings,
-                    HomeSectionId.Recordings,
-                ]),
-            },
-        ],
         id: NavMenuId.SensorHub,
-        label: 'Sensor Hub',
+        kind: NavItemKind.HomeSection,
+        label: homeSection(HomeSectionId.SensorHub).indexLabel,
+        section: HomeSectionId.SensorHub,
     },
     {
         groups: [
@@ -125,6 +183,7 @@ export const NAV_MENUS: readonly NavMenu[] = [
             },
         ],
         id: NavMenuId.Portfolio,
+        kind: NavItemKind.Groups,
         label: 'Portfolio',
     },
     {
@@ -145,15 +204,10 @@ export const NAV_MENUS: readonly NavMenu[] = [
             },
         ],
         id: NavMenuId.About,
+        kind: NavItemKind.Groups,
         label: 'About',
     },
 ];
-
-export const ACCOUNTING_NAV_GROUP: NavGroup = {
-    href: sameOriginRoute(routes.accounting.index, ''),
-    label: ACCOUNTING_EYEBROW,
-    links: pathLinks(ACCOUNTING_NAV),
-};
 
 export const RESUME_NAV_GROUP: NavGroup = {
     href: sameOriginRoute(routes.resume.index, ''),

@@ -19,21 +19,18 @@ import type { TradingPlanRow } from '~/lib/schemas/tradingRows';
 import type { ConfluenceKey } from '~/lib/trading/types';
 
 import Eyebrow from '~/components/Eyebrow';
+import { StatStrip } from '~/components/StatStrip';
+import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
-import {
-    Field,
-    FieldDescription,
-    FieldGroup,
-    FieldLabel,
-} from '~/components/ui/field';
+import { Field, FieldGroup, FieldLabel } from '~/components/ui/field';
 import { Progress } from '~/components/ui/progress';
 import { Slider } from '~/components/ui/slider';
 import { Textarea } from '~/components/ui/textarea';
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 import { answersSchema } from '~/lib/schemas/trading';
 import { CONFLUENCE_GROUPS } from '~/lib/trading/defaults';
 import { findCurrentWindow, scoreAssessment } from '~/lib/trading/scoring';
@@ -44,8 +41,6 @@ import {
     type ChoiceOption,
     MultiChoiceCards,
     NumberCard,
-    StatusRow,
-    StatusTone,
     WIZARD_CARD_CLASS,
 } from './WizardFields';
 
@@ -75,6 +70,12 @@ const SETUP_TYPE_OPTIONS: readonly ChoiceOption<
         label: 'Continuation',
         value: 'continuation',
     },
+];
+
+const BIAS_OPTIONS: readonly ChoiceOption<FormValues['bias']['weekly']>[] = [
+    { label: 'Bull', value: 'bullish' },
+    { label: 'Bear', value: 'bearish' },
+    { label: 'Unclear', value: 'unclear' },
 ];
 
 const stepIds = [
@@ -207,7 +208,7 @@ export function WizardStepper({
                             <Eyebrow as="p">
                                 Step {stepIndex + 1} of {stepIds.length}
                             </Eyebrow>
-                            <Badge className="font-mono" variant="secondary">
+                            <Badge className="font-mono">
                                 {Math.round(progress)}%
                             </Badge>
                         </div>
@@ -266,7 +267,6 @@ export function WizardStepper({
                             <Button
                                 className={cn(
                                     'app-trade-checklist__wizard-submit',
-                                    'bg-success text-success-foreground hover:bg-success/90',
                                 )}
                                 onClick={submit}
                                 type="button"
@@ -297,27 +297,15 @@ function BiasRow({
     const { control, setValue } = useFormContext<FormValues>();
     const value = useWatch({ control, name: name });
     return (
-        <Field className={cn(WIZARD_CARD_CLASS, 'gap-2 px-3')}>
-            <FieldLabel>{label}</FieldLabel>
-            <ToggleGroup
-                aria-label={`${label} bias`}
-                className="grid w-full grid-cols-3"
-                onValueChange={(v) =>
-                    v &&
-                    setValue(name, v as 'bearish' | 'bullish' | 'unclear', {
-                        shouldValidate: true,
-                    })
-                }
-                size="sm"
-                type="single"
-                value={value}
-                variant="outline"
-            >
-                <ToggleGroupItem value="bullish">Bull</ToggleGroupItem>
-                <ToggleGroupItem value="bearish">Bear</ToggleGroupItem>
-                <ToggleGroupItem value="unclear">Unclear</ToggleGroupItem>
-            </ToggleGroup>
-        </Field>
+        <ChoiceCards
+            className="grid-cols-3"
+            legend={`${label} bias`}
+            onValueChange={(direction) =>
+                setValue(name, direction, { shouldValidate: true })
+            }
+            options={BIAS_OPTIONS}
+            value={value}
+        />
     );
 }
 
@@ -331,8 +319,8 @@ function BiasStep() {
         weekly === 'unclear' && daily === 'unclear' && fourHour === 'unclear';
 
     return (
-        <div className="flex flex-col gap-2">
-            <div className="grid gap-2 md:grid-cols-2">
+        <div className="flex flex-col gap-5">
+            <div className="grid gap-x-4 gap-y-5 md:grid-cols-2">
                 <BiasRow label="Weekly" name="bias.weekly" />
                 <BiasRow label="Daily" name="bias.daily" />
                 <BiasRow label="4H" name="bias.fourHour" />
@@ -436,9 +424,10 @@ function ContextStep({ plan }: { plan: TradingPlanRow }) {
                     value={windowId}
                 />
                 {!windowId && (
-                    <FieldDescription className="text-destructive">
-                        Outside macro window: knockout active.
-                    </FieldDescription>
+                    <StatusRow
+                        title="Outside macro window: knockout active."
+                        tone={StatusTone.Fail}
+                    />
                 )}
             </div>
 
@@ -554,6 +543,7 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
                 const outsideGroup = confluences.filter((c) =>
                     items.every((item) => item !== c),
                 );
+                const isGroupComplete = groupSelected.length === items.length;
                 const setGroup = (selected: ConfluenceKey[]) =>
                     setValue(
                         'entry.confluences',
@@ -563,29 +553,19 @@ function EntryStep({ plan }: { plan: TradingPlanRow }) {
                 return (
                     <MultiChoiceCards
                         actions={
-                            <div className="flex items-center gap-2">
-                                <Badge variant="secondary">
-                                    {groupSelected.length}/{items.length}
-                                </Badge>
-                                <Button
-                                    onClick={() => setGroup([])}
-                                    size="sm"
-                                    type="button"
-                                    variant="outline"
-                                >
-                                    Clear
-                                </Button>
-                                <Button
-                                    onClick={() => setGroup(items)}
-                                    size="sm"
-                                    type="button"
-                                    variant="outline"
-                                >
-                                    All
-                                </Button>
-                            </div>
+                            <Button
+                                onClick={() =>
+                                    setGroup(isGroupComplete ? [] : items)
+                                }
+                                size="sm"
+                                type="button"
+                                variant="ghost"
+                            >
+                                {isGroupComplete ? 'Clear all' : 'Select all'}
+                            </Button>
                         }
                         className="md:grid-cols-3"
+                        description={group.hint}
                         key={group.label}
                         legend={group.label}
                         onValueChange={setGroup}
@@ -709,22 +689,16 @@ function RrStep({ plan }: { plan: TradingPlanRow }) {
 
     return (
         <FieldGroup className="gap-6">
-            <div
-                className={cn(
-                    WIZARD_CARD_CLASS,
-                    'flex items-center justify-between gap-4',
-                )}
-            >
-                <div className="flex flex-col gap-0.5">
-                    <Eyebrow as="p">Risk this trade</Eyebrow>
-                    <p className="m-0 text-xs text-muted-foreground">
-                        {accountType === 'funded' ? 'Funded' : 'Eval'} account
-                    </p>
-                </div>
-                <p className="m-0 font-mono text-2xl text-foreground tabular-nums">
-                    ${dollars.toLocaleString()}
-                </p>
-            </div>
+            <StatStrip
+                items={[
+                    {
+                        caption: `${accountType === 'funded' ? 'Funded' : 'Eval'} account`,
+                        id: 'risk-this-trade',
+                        label: 'Risk this trade',
+                        value: formatWholeOrCentsCurrency(dollars),
+                    },
+                ]}
+            />
             <div className="grid gap-2 md:grid-cols-2">
                 <NumberCard
                     description={`Plan minimum: ${plan.config.setup.minRR}R`}
