@@ -6,6 +6,7 @@ import { PanelSubheading } from '~/components/PanelSubheading';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Progress } from '~/components/ui/progress';
+import { Skeleton } from '~/components/ui/skeleton';
 import { SetupStepStatus } from '~/lib/prop-accounts';
 import { cn } from '~/lib/utilities';
 
@@ -15,6 +16,8 @@ import { OverviewSectionId } from './overviewSections';
 import { SetupAccountsTable } from './SetupAccountsTable';
 
 type SetupStepModel = SetupChecklistCardModel['steps'][number];
+
+const COUNTING_TEXT = 'Counting the steps done';
 
 export const SetupChecklistCard = memo(function SetupChecklistCard({
     model,
@@ -72,6 +75,17 @@ function SetupCount({ model }: { readonly model: SetupChecklistCardModel }) {
 }
 
 function SetupProgress({ model }: { readonly model: SetupChecklistCardModel }) {
+    if (model.isCounting) {
+        return (
+            <div aria-busy="true" className="flex flex-col gap-2">
+                <span className="sr-only" role="status">
+                    {COUNTING_TEXT}
+                </span>
+                <Skeleton aria-hidden className="h-4 w-28" />
+                <Skeleton aria-hidden className="h-1.5 w-full" />
+            </div>
+        );
+    }
     return (
         <div className="flex flex-col gap-2">
             <SetupCount model={model} />

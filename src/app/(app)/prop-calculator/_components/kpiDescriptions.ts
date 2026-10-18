@@ -43,7 +43,7 @@ export const kpiDescriptions = {
     risk5Losses:
         'Share of trials where your strategy produced at least one streak of 5 losing trades in a row. High % means streaks will happen, so make sure your account size can survive them.',
     roiOnCost:
-        'Net profit divided by total fees paid, expressed as a percentage. = (avg net ÷ avg total cost) × 100. The dollar return on your fee outlay. Shows n/a when the total cost is $0, since a return on no outlay has no ratio.',
+        'Net profit divided by total fees paid, expressed as a percentage. = (avg net ÷ avg total cost) × 100. The dollar return on your fee outlay. Shows a dash when the total cost is $0, since a return on no outlay has no ratio.',
     totalCost:
         'All-in fees paid per evaluation cycle, averaged across every trial, whether it passed, busted or timed out. When multi-attempt is on, includes a retry fee for each failed attempt, bust or timeout, that is followed by another attempt: a re-buy on plans where every retry is a re-buy, otherwise the cheaper of a reset and a re-buy.',
     tradesPerPass:

@@ -4,6 +4,7 @@ import type { ProgramBlock, ProgramDay } from '~/lib/lifting/types';
 
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 interface BlockRow {
     readonly detail: null | string;
@@ -32,10 +33,11 @@ export function ProgramDayCard({
             }
         >
             {rows.length === 0 ? (
-                <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Moon aria-hidden className="size-4" />
-                    Rest day
-                </p>
+                <EmptyState
+                    icon={Moon}
+                    size={EmptyStateSize.Compact}
+                    title="Rest day"
+                />
             ) : (
                 <ul className="divide-y divide-border/60">
                     {rows.map((row, index) => (

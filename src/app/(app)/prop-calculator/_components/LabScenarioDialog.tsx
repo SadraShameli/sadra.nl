@@ -118,7 +118,7 @@ export function LabScenarioDialog({
                 label={LAB_EDITOR_FIELD_LABEL[LabEditorField.Label]}
                 name="label"
             />
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
                 <FormNumberField
                     control={form.control}
                     label={LAB_EDITOR_FIELD_LABEL[LabEditorField.RiskPerTrade]}

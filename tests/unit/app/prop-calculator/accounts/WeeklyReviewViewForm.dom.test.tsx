@@ -515,6 +515,28 @@ describe('WeeklyReviewView form', () => {
         ).not.toBeNull();
     });
 
+    it('names only the enter-a-snapshot remedy when no row has a snapshot to record as unchanged', () => {
+        harness.queries.set('snapshot.latestForAll', answer([]));
+        act(() => {
+            root.render(<WeeklyReviewView />);
+        });
+        expect(container.textContent).toContain(
+            '2 accounts not updated: they are left out of the snapshots and decisions of this review unless you enter a snapshot.',
+        );
+        expect(container.textContent).not.toContain('Record as unchanged');
+    });
+
+    it('tells an empty submission to enter a snapshot when no row can be recorded as unchanged', async () => {
+        harness.queries.set('snapshot.latestForAll', answer([]));
+        act(() => {
+            root.render(<WeeklyReviewView />);
+        });
+        await submit();
+        expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
+            'Nothing to record this week: enter a snapshot for an account',
+        );
+    });
+
     it('drops an accept tick when the row stops being ready and does not bring it back at a different size', async () => {
         const headline = () =>
             /Risk per trade under your documented rule: \$[\d,]+/.exec(

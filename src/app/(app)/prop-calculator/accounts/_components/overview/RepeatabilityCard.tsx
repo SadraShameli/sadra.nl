@@ -1,11 +1,14 @@
+import { CalendarRange } from 'lucide-react';
 import { memo } from 'react';
 
+import { hasFigure } from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip } from '~/components/StatStrip';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type RepeatabilityCardModel } from './overviewModel';
-import { InfoStack, OverviewPanel } from './OverviewPanel';
+import { InfoStack, OverviewEmptyPanel, OverviewPanel } from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 
 type RepeatabilityStatsRow = NonNullable<RepeatabilityCardModel['overall']>;
@@ -17,11 +20,11 @@ export const RepeatabilityCard = memo(function RepeatabilityCard({
 }) {
     if (model.overall === null && model.perSlot === null) {
         return (
-            <OverviewPanel section={OverviewSectionId.Repeatability}>
-                <p className="text-sm text-muted-foreground">
-                    No complete month yet.
-                </p>
-            </OverviewPanel>
+            <OverviewEmptyPanel
+                icon={CalendarRange}
+                section={OverviewSectionId.Repeatability}
+                title="No complete month yet"
+            />
         );
     }
     return (
@@ -61,9 +64,11 @@ function RepeatabilityGroup({
         <div className="flex flex-col gap-2">
             <PanelSubheading>{label}</PanelSubheading>
             {stats === null ? (
-                <p className="text-sm text-muted-foreground">
-                    No complete month yet.
-                </p>
+                <EmptyState
+                    icon={CalendarRange}
+                    size={EmptyStateSize.Compact}
+                    title="No complete month yet"
+                />
             ) : (
                 <StatStrip
                     items={[
@@ -98,7 +103,7 @@ function RepeatabilityGroup({
                             label: 'Share at or above target (payouts per month)',
                             value: stats.shareAtOrAboveTarget ?? NOT_APPLICABLE,
                         },
-                    ]}
+                    ].filter((item) => hasFigure(item.value))}
                 />
             )}
         </div>

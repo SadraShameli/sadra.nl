@@ -22,6 +22,7 @@ import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 
 import { dialogTitled } from '../../../components/formDialog';
 import { chooseRowAction } from '../../../components/rowActionsMenu';
+import { withInfoTexts } from '../infoPopover';
 
 interface FakeQuery {
     data: unknown;
@@ -40,6 +41,16 @@ function firstModeledPlan(): {
         throw new Error('no modeled plan for the firms view test');
     }
     return { firm, plan };
+}
+
+function isScaleGateBusy(scope: HTMLElement): boolean {
+    const heading = [...scope.querySelectorAll('h2')].find(
+        (candidate) => candidate.textContent === 'Scale gate',
+    );
+    return (
+        heading?.closest('[data-slot="card"]')?.getAttribute('aria-busy') ===
+        'true'
+    );
 }
 
 const { firm: FIRST_FIRM, plan: FIRST_PLAN } = firstModeledPlan();
@@ -500,8 +511,8 @@ describe('FirmsView', () => {
             answer([paidPayoutRow(firstId, '2026-02-01', 'p1')]),
         );
         render();
-        expect(container.textContent).toContain(
-            'n/a: 2 transfers against 1 paid payout',
+        expect(withInfoTexts(container)).toContain(
+            '2 transfers against 1 paid payout.',
         );
         expect(container.querySelector('.animate-pulse')).toBeNull();
     });
@@ -522,17 +533,17 @@ describe('FirmsView', () => {
         );
         render();
         const row = element(container, 'tbody tr');
-        expect(row.textContent).toContain('n/a: no paid payouts yet');
-        expect(row.textContent).toContain('n/a: no funded account-months yet');
+        expect(row.textContent).not.toContain('n/a');
+        const reasons = withInfoTexts(row);
+        expect(reasons).toContain('No paid payouts yet.');
+        expect(reasons).toContain('No funded account-months yet.');
     });
 
     it('shows a loading note instead of an unmet condition while the rulebook is still loading', () => {
         harness.queries.set('rulebook.get', loading());
         render();
         expect(container.textContent).toContain('Scale gate');
-        expect(container.textContent).toContain(
-            'Checking your thresholds and journal',
-        );
+        expect(isScaleGateBusy(container)).toBe(true);
         expect(container.textContent).not.toContain(
             'Sample thresholds not set',
         );
@@ -553,9 +564,7 @@ describe('FirmsView', () => {
         );
         harness.queries.set('edge.summary', loading());
         render();
-        expect(container.textContent).toContain(
-            'Checking your thresholds and journal',
-        );
+        expect(isScaleGateBusy(container)).toBe(true);
         expect(container.textContent).not.toContain(
             'Journal trades are below your threshold',
         );
@@ -565,9 +574,7 @@ describe('FirmsView', () => {
             answer({ summary: { sampleSize: 0 }, truncated: false }),
         );
         render();
-        expect(container.textContent).not.toContain(
-            'Checking your thresholds and journal',
-        );
+        expect(isScaleGateBusy(container)).toBe(false);
         expect(container.textContent).toContain(
             'Journal trades are below your threshold',
         );
@@ -575,13 +582,11 @@ describe('FirmsView', () => {
 
     it('shows no loading note once both the rulebook and the journal have answered', () => {
         render();
-        expect(container.textContent).not.toContain(
-            'Checking your thresholds and journal',
-        );
+        expect(isScaleGateBusy(container)).toBe(false);
         expect(container.textContent).toContain('Sample thresholds not set');
     });
 
-    it('imports the not-applicable text from the shared formatter instead of redeclaring it', () => {
+    it('shows missing values through the shared MissingValue instead of its own not-applicable text', () => {
         const source = readFileSync(
             path.join(
                 process.cwd(),
@@ -590,8 +595,9 @@ describe('FirmsView', () => {
             'utf8',
         );
         expect(source).not.toMatch(/const NOT_APPLICABLE\b/);
+        expect(source).not.toMatch(/'n\/a'/u);
         expect(source).toMatch(
-            /import \{[^}]*\bNOT_APPLICABLE\b[^}]*\} from '~\/lib\/format'/,
+            /import \{ MissingValue \} from '~\/components\/MissingValue'/,
         );
     });
 });

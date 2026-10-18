@@ -1,8 +1,9 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
+import { LayoutGrid, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { MissingValue } from '~/components/MissingValue';
 import {
     editRowAction,
     RowActionKind,
@@ -17,6 +18,7 @@ import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Dialog } from '~/components/ui/dialog';
+import { EmptyState } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import {
     formatCompactCurrency,
@@ -24,7 +26,6 @@ import {
     formatDays,
     formatOptionalPercent,
     formatPercent,
-    NOT_APPLICABLE,
 } from '~/lib/format';
 import {
     annualisedRoiOnCost,
@@ -33,6 +34,7 @@ import {
     type PlanOptIns,
     type Roi,
     ROI_BASIS_LABEL,
+    RoiBasis,
     type SimInputs,
     type SimOutputs,
     simulate,
@@ -54,6 +56,7 @@ import { partitionBySizing, type SizingRefusal } from './simulationFailure';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { type PortfolioEntry } from './types';
 import { useDebouncedComputation } from './useDebouncedSimulation';
+import { ValueOrMissing } from './ValueOrMissing';
 
 export interface SimmedEntry {
     entry: PortfolioEntry;
@@ -85,6 +88,8 @@ interface PortfolioTableRow {
 const DEBOUNCE_MS = 600;
 const MAX_TRIALS = 500;
 const EMPTY_SIMMED: SimmedEntry[] = [];
+const NOT_SIMULATED_REASON =
+    'This row was not simulated; the notice above the totals says why.';
 
 export default function PortfolioPanel({
     baseInputs,
@@ -170,11 +175,6 @@ export default function PortfolioPanel({
         <ToolPanel
             actions={
                 <>
-                    {isPending && (
-                        <span className="text-xs text-muted-foreground">
-                            computing…
-                        </span>
-                    )}
                     {portfolio.length > 0 && (
                         <Button
                             className="h-7 px-2.5 text-xs text-muted-foreground"
@@ -216,14 +216,16 @@ export default function PortfolioPanel({
             }
             className="app-prop-calculator__portfolio"
             info={panelDescriptions.portfolio}
-            title="Multi-firm planner"
+            isComputing={isPending}
+            title="Basket"
             titleAs="h3"
         >
             {portfolio.length === 0 ? (
-                <p className="py-4 text-center text-xs text-muted-foreground">
-                    Add firms to build a cross-firm portfolio and see combined
-                    expected monthly income.
-                </p>
+                <EmptyState
+                    description="Add firms to build a cross-firm portfolio and see combined expected monthly income."
+                    icon={LayoutGrid}
+                    title="No firms in the planner yet"
+                />
             ) : (
                 <div className="flex flex-col gap-4">
                     {sizing.refused.map((refusal) => (
@@ -233,8 +235,9 @@ export default function PortfolioPanel({
                         />
                     ))}
                     <SimulationFailureNotice message={computation.error} />
-                    {totals && (
+                    {totals === null && !isPending ? null : (
                         <StatStrip
+                            isLoading={totals === null}
                             items={[
                                 {
                                     id: 'combined-monthly-net',
@@ -250,10 +253,15 @@ export default function PortfolioPanel({
                                     ),
                                     label: 'Combined monthly net',
                                     tone:
-                                        totals.monthlyNet > 0
-                                            ? StatTone.Positive
-                                            : StatTone.Negative,
-                                    value: formatCurrency(totals.monthlyNet),
+                                        totals === null
+                                            ? undefined
+                                            : totals.monthlyNet > 0
+                                              ? StatTone.Positive
+                                              : StatTone.Negative,
+                                    value:
+                                        totals === null
+                                            ? null
+                                            : formatCurrency(totals.monthlyNet),
                                 },
                                 {
                                     id: 'total-funding',
@@ -267,9 +275,12 @@ export default function PortfolioPanel({
                                         </p>
                                     ),
                                     label: 'Total funding',
-                                    value: formatCompactCurrency(
-                                        totals.totalFunding,
-                                    ),
+                                    value:
+                                        totals === null
+                                            ? null
+                                            : formatCompactCurrency(
+                                                  totals.totalFunding,
+                                              ),
                                 },
                                 {
                                     id: 'total-eval-cost',
@@ -284,7 +295,10 @@ export default function PortfolioPanel({
                                         </p>
                                     ),
                                     label: 'Total eval cost',
-                                    value: formatCurrency(totals.totalCost),
+                                    value:
+                                        totals === null
+                                            ? null
+                                            : formatCurrency(totals.totalCost),
                                 },
                                 {
                                     id: 'total-accounts',
@@ -301,9 +315,12 @@ export default function PortfolioPanel({
                                         </p>
                                     ),
                                     label: 'Total accounts',
-                                    value: String(totals.totalAccounts),
+                                    value:
+                                        totals === null
+                                            ? null
+                                            : String(totals.totalAccounts),
                                 },
-                                portfolioRoiItem(totals.roi),
+                                portfolioRoiItem(totals?.roi ?? null),
                             ]}
                         />
                     )}
@@ -347,7 +364,7 @@ export default function PortfolioPanel({
     );
 }
 
-export function portfolioRoiItem(roi: Roi): StatStripItem {
+export function portfolioRoiItem(roi: null | Roi): StatStripItem {
     return {
         caption: 'monthly net × 12 ÷ total eval cost',
         id: 'portfolio-roi',
@@ -356,13 +373,17 @@ export function portfolioRoiItem(roi: Roi): StatStripItem {
                 Annualised net profit divided by total eval cost, expressed as a
                 percentage. = (combined monthly net × 12) ÷ total eval cost.
                 Above 0 % means the portfolio is expected to be net profitable
-                over the year, after fees. Shows n/a when the total eval cost is
-                $0, since a return on no outlay has no ratio.
+                over the year, after fees. Shows a dash when the total eval cost
+                is $0, since a return on no outlay has no ratio.
             </p>
         ),
-        label: ROI_BASIS_LABEL[roi.basis],
-        tone: KPI_ACCENT_STAT_TONE[roiAccent(roi)],
-        value: formatOptionalPercent(roi.value),
+        isLoading: roi === null,
+        label: ROI_BASIS_LABEL[roi?.basis ?? RoiBasis.AnnualisedOnCost],
+        tone: roi === null ? undefined : KPI_ACCENT_STAT_TONE[roiAccent(roi)],
+        value:
+            roi === null ? null : (
+                <ValueOrMissing value={formatOptionalPercent(roi.value)} />
+            ),
     };
 }
 
@@ -381,7 +402,7 @@ function ComputedCell({
         return pending ? (
             <Skeleton className="h-4 w-12" />
         ) : (
-            <span className="text-muted-foreground">{NOT_APPLICABLE}</span>
+            <MissingValue reason={NOT_SIMULATED_REASON} />
         );
     }
     return <span className={className}>{children(sim.out)}</span>;
@@ -525,7 +546,11 @@ function PortfolioTable({
                 accessorFn: (r) => r.sim?.out.daysToPassP50 ?? Infinity,
                 cell: ({ row }) => (
                     <ComputedCell pending={pending} sim={row.original.sim}>
-                        {(out) => formatDays(out.daysToPassP50)}
+                        {(out) => (
+                            <ValueOrMissing
+                                value={formatDays(out.daysToPassP50)}
+                            />
+                        )}
                     </ComputedCell>
                 ),
                 header: 'Days P50',

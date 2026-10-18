@@ -3,6 +3,7 @@
 import { type LucideIcon } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import { MissingValue } from '~/components/MissingValue';
 import { EmptyState } from '~/components/ui/empty-state';
 import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import { cn } from '~/lib/utilities';
@@ -19,8 +20,6 @@ const DATE_FORMATTER: Record<ProfileDatePrecision, (value: Date) => string> = {
     [ProfileDatePrecision.Day]: formatDisplayDate,
     [ProfileDatePrecision.Minute]: formatDisplayDateTime,
 };
-
-const NO_VALUE = '-';
 
 export function formatProfileDate(
     value: Date,
@@ -56,6 +55,24 @@ export function PrimaryCell({ children }: { children: ReactNode }) {
     );
 }
 
+export function ProfileCollectionEmpty({
+    description,
+    icon,
+    noun,
+}: {
+    description: string;
+    icon: LucideIcon;
+    noun: string;
+}) {
+    return (
+        <EmptyState
+            description={description}
+            icon={icon}
+            title={`No ${noun} yet`}
+        />
+    );
+}
+
 export function ProfileDateCell({
     precision,
     value,
@@ -63,38 +80,9 @@ export function ProfileDateCell({
     precision: ProfileDatePrecision;
     value: Date | null;
 }) {
-    return (
-        <MutedCell>
-            {value === null ? NO_VALUE : formatProfileDate(value, precision)}
-        </MutedCell>
-    );
-}
-
-export function ProfileTableEmpty({
-    action,
-    description,
-    filtered,
-    icon,
-    noun,
-}: {
-    action?: ReactNode;
-    description: string;
-    filtered: boolean;
-    icon: LucideIcon;
-    noun: string;
-}) {
-    return filtered ? (
-        <EmptyState
-            description="Try a different search or clear the filters."
-            icon={icon}
-            title={`No matching ${noun}`}
-        />
+    return value === null ? (
+        <MissingValue />
     ) : (
-        <EmptyState
-            action={action}
-            description={description}
-            icon={icon}
-            title={`No ${noun} yet`}
-        />
+        <MutedCell>{formatProfileDate(value, precision)}</MutedCell>
     );
 }

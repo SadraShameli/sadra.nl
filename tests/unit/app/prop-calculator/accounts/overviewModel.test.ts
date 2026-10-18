@@ -939,7 +939,7 @@ describe('buildOverview KPI row', () => {
         });
         const byKind = new Map(cards.kpis.map((kpi) => [kpi.kind, kpi]));
         expect(byKind.get(OverviewKpiKind.RealizedNetPerSlot)?.detail).toBe(
-            'Pooled over 1 month and 0.9 funded slot-months, SE n/a',
+            'Pooled over 1 month and 0.9 funded slot-months',
         );
         expect(byKind.get(OverviewKpiKind.PayoutsReceived)?.detail).toBe(
             '1 paid payout; 1 has no net amount, so its gross is counted',
@@ -1029,7 +1029,7 @@ describe('buildOverview cards', () => {
                     passRate: '50.0% (SE 35.4%, 95% CI 9.5% to 90.5%, n = 2)',
                     passRateCounts: '2 attempts, 2 independent',
                     plan,
-                    sessionsToFunded: '15.0 sessions (SE n/a, n = 1)',
+                    sessionsToFunded: '15.0 sessions (n = 1)',
                 },
             ],
         });
@@ -7909,6 +7909,7 @@ describe('setupChecklistCardOf (PT-69, F-V28)', () => {
                 rulebook: DEFAULT_RULEBOOK,
                 staleSnapshotNotes: new Map(),
             }),
+            false,
         );
         expect(card.steps).toHaveLength(5);
         expect(card.steps[0]?.key).toBe(SetupStep.BudgetSet);
@@ -9651,7 +9652,7 @@ describe('buildOverview copied accounts, funnel dollars and weaknesses (PT-96 st
         ]);
     });
 
-    it('shows n = 0 and the level none for a rate with no decided attempt once the threshold is set', () => {
+    it('shows a rate with no decided attempt as missing, whatever the threshold', () => {
         const open = account(EVAL_PLAN, {
             label: 'Open eval',
             purchasedOn: '2026-09-01',
@@ -9664,12 +9665,12 @@ describe('buildOverview copied accounts, funnel dollars and weaknesses (PT-96 st
             ...base,
             rulebook: sampleThresholdsRulebook(5),
         }).outcomes.rows[0];
-        expect(withThreshold?.passRate).toBe('n/a (n = 0), no sample');
+        expect(withThreshold?.passRate).toBe('n/a');
         const withoutThreshold = cardsOf({
             ...base,
             rulebook: sampleThresholdsRulebook(null),
         }).outcomes.rows[0];
-        expect(withoutThreshold?.passRate).toBe('n/a (n = 0)');
+        expect(withoutThreshold?.passRate).toBe('n/a');
     });
 
     it('lists the untested stages of every plan with their dollar gaps and says they were not tested for noise', () => {

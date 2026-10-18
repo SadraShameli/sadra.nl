@@ -1,10 +1,17 @@
+import { Gauge } from 'lucide-react';
 import { memo } from 'react';
 
+import { EnterBalancesButton } from '~/app/(app)/prop-calculator/accounts/_components/EnterBalancesButton';
+import {
+    type FigureColumn,
+    figureColumns,
+} from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
-import { formatDisplayDate } from '~/lib/format';
+import { formatDisplayDate, NOT_APPLICABLE } from '~/lib/format';
 
 import { type CushionBoardCardModel } from './overviewModel';
-import { OverviewPanel } from './OverviewPanel';
+import { OverviewEmptyPanel, OverviewPanel } from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 
 enum CushionBoardCardColumn {
@@ -17,84 +24,98 @@ enum CushionBoardCardColumn {
     Stage = 'stage',
 }
 
+interface CushionBoardDisplayRow extends CushionBoardRow {
+    readonly reason: null | string;
+}
+
+type CushionBoardRow = CushionBoardCardModel['rows'][number];
+
+const CUSHION_BOARD_COLUMNS: readonly FigureColumn<CushionBoardDisplayRow>[] = [
+    {
+        align: DataTableAlign.End,
+        header: 'Rank',
+        id: CushionBoardCardColumn.Rank,
+        textOf: (row) => row.rank,
+    },
+    {
+        header: 'Account',
+        id: CushionBoardCardColumn.Account,
+        isRowHeader: true,
+        textOf: (row) => row.account,
+    },
+    {
+        header: 'Stage',
+        id: CushionBoardCardColumn.Stage,
+        textOf: (row) => row.basis,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Floor',
+        id: CushionBoardCardColumn.Floor,
+        textOf: (row) => row.floor,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Cushion',
+        id: CushionBoardCardColumn.Cushion,
+        reasonOf: (row) => row.reason ?? undefined,
+        textOf: (row) => row.cushion,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Cushion in risk units',
+        id: CushionBoardCardColumn.CushionInRiskUnits,
+        textOf: (row) => row.ratio,
+    },
+    {
+        header: 'As of',
+        id: CushionBoardCardColumn.AsOf,
+        textOf: (row) => (row.asOf === '' ? '' : formatDisplayDate(row.asOf)),
+    },
+];
+
 export const CushionBoardCard = memo(function CushionBoardCard({
     model,
 }: {
     readonly model: CushionBoardCardModel;
 }) {
+    if (model.rows.length === 0) {
+        return (
+            <OverviewEmptyPanel
+                action={<EnterBalancesButton />}
+                description="The board ranks accounts by how close each balance is to its floor."
+                icon={Gauge}
+                section={OverviewSectionId.CushionBoard}
+                title="Enter balances to see the cushion board"
+            />
+        );
+    }
+    const rows: readonly CushionBoardDisplayRow[] = [
+        ...model.rows.map((row) => ({ ...row, reason: null })),
+        ...model.unavailable.map((row) => ({
+            account: row.account,
+            asOf: '',
+            basis: NOT_APPLICABLE,
+            cushion: NOT_APPLICABLE,
+            floor: NOT_APPLICABLE,
+            key: row.key,
+            rank: '',
+            ratio: NOT_APPLICABLE,
+            reason: sentenceOf(row.reason),
+        })),
+    ];
     return (
         <OverviewPanel
             info={model.disclosure}
             section={OverviewSectionId.CushionBoard}
         >
-            {model.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No account has a usable balance snapshot yet.
-                </p>
-            ) : (
-                <DataTable
-                    columns={[
-                        {
-                            cell: ({ row }) => <>{row.original.rank}</>,
-                            header: 'Rank',
-                            id: CushionBoardCardColumn.Rank,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.account}</>,
-                            header: 'Account',
-                            id: CushionBoardCardColumn.Account,
-                            meta: { isRowHeader: true },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.basis}</>,
-                            header: 'Stage',
-                            id: CushionBoardCardColumn.Stage,
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.floor}</>,
-                            header: 'Floor',
-                            id: CushionBoardCardColumn.Floor,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.cushion}</>,
-                            header: 'Cushion',
-                            id: CushionBoardCardColumn.Cushion,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.ratio}</>,
-                            header: 'Cushion in risk units',
-                            id: CushionBoardCardColumn.CushionInRiskUnits,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <>{formatDisplayDate(row.original.asOf)}</>
-                            ),
-                            header: 'As of',
-                            id: CushionBoardCardColumn.AsOf,
-                        },
-                    ]}
-                    data={[...model.rows]}
-                    isSortable={false}
-                    pageSize={null}
-                    rowId={(row) => row.key}
-                />
-            )}
-            {model.unavailable.length > 0 && (
-                <ul
-                    aria-label="Accounts without a cushion"
-                    className="flex list-disc flex-col gap-1 pl-5 text-xs text-muted-foreground"
-                >
-                    {model.unavailable.map((row) => (
-                        <li key={row.key}>
-                            {row.account}: {row.reason}
-                        </li>
-                    ))}
-                </ul>
-            )}
+            <DataTable
+                columns={figureColumns(CUSHION_BOARD_COLUMNS, rows)}
+                data={[...rows]}
+                isSortable={false}
+                pageSize={null}
+                rowId={(row) => row.key}
+            />
         </OverviewPanel>
     );
 });

@@ -26,6 +26,7 @@ import {
     rowActionLabels,
     rowActionsTrigger,
 } from '../../../components/rowActionsMenu';
+import { detailListEntries } from './detailListEntries';
 
 interface FakeQuery {
     data: unknown;
@@ -419,6 +420,9 @@ describe('LedgerView bankroll and reconciliation (PT-58a3)', () => {
         );
         render();
         chooseRowAction('the statement as of 5 Sep 2026', 'Edit');
+        expect(
+            detailListEntries(dialogTitled('Edit firm statement')),
+        ).toStrictEqual([['Firm', FIRM.displayName]]);
         const form = element(dialogTitled('Edit firm statement'), 'form');
         expect(input(form).value).toBe('1000');
         typeInto(input(form), '1,200');

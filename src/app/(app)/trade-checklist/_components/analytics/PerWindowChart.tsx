@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartColumn } from 'lucide-react';
 import { useMemo } from 'react';
 import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
 
@@ -10,6 +11,7 @@ import {
     type ChartConfig,
     ChartContainer,
 } from '~/components/ui/chart';
+import { EmptyState } from '~/components/ui/empty-state';
 import { formatPercent } from '~/lib/format';
 import { type LightAssessment, perWindowStats } from '~/lib/trading/analytics';
 
@@ -35,10 +37,11 @@ export function PerWindowChart({
     );
 
     return data.length === 0 ? (
-        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-            Take trades inside macro windows with recorded outcomes to see
-            per-window performance.
-        </div>
+        <EmptyState
+            description="Take trades inside macro windows and record outcomes to see per-window performance."
+            icon={ChartColumn}
+            title="No window outcomes yet"
+        />
     ) : (
         <ChartContainer
             className="app-trade-checklist__per-window-chart"

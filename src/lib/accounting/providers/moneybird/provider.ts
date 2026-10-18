@@ -12,6 +12,7 @@ import type {
     ProviderMutation,
 } from '~/lib/accounting/providers/provider';
 
+import { EUR_CODE } from '~/lib/accounting/core/currency';
 import {
     invoicePayload,
     isPurchaseInvoice,
@@ -157,6 +158,10 @@ function adaptInvoice(
     const ledgerId = invoice.details[0]?.ledgerAccountId ?? null;
     return ledgerId
         ? {
+              amount:
+                  invoice.currency === EUR_CODE
+                      ? invoice.totalPriceInclTax
+                      : null,
               date: invoice.date,
               description: invoice.reference,
               externalId: invoice.id,

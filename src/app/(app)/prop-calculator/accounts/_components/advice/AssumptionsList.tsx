@@ -1,4 +1,5 @@
 import { Badge } from '~/components/ui/badge';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { AssumptionBias } from '~/lib/prop-calculator/advisor';
 
 import { type AssumptionView } from './adviceViewModel';
@@ -28,9 +29,10 @@ export function AssumptionsList({
                 </p>
             )}
             {assumptions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No inputs were defaulted for this advice.
-                </p>
+                <EmptyState
+                    size={EmptyStateSize.Compact}
+                    title="No inputs were defaulted"
+                />
             ) : (
                 <ul className="flex flex-col gap-1 text-sm">
                     {assumptions.map((assumption, index) => (

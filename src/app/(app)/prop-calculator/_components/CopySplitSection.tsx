@@ -13,12 +13,13 @@ import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalc
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
-import { DataTable } from '~/components/ui/data-table';
-import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { Field, FieldError } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { CENTS_PER_DOLLAR } from '~/lib/prop-calculator';
 import { type CopySplitFundedSizing } from '~/lib/prop-calculator/advisor/policy';
@@ -27,10 +28,12 @@ import { stableJson } from '~/lib/stableJson';
 import {
     copySplitHeader,
     copySplitRequest,
+    type CopySplitRowView,
     copySplitRowViews,
     defaultCopySplitInputs,
     parseCopySplitInputs,
 } from './copySplitModel';
+import { ValueOrMissing } from './ValueOrMissing';
 
 enum CopySplitColumn {
     Contracts = 'contracts',
@@ -143,6 +146,8 @@ export default function CopySplitSection() {
     const header = result === null ? null : copySplitHeader(result);
     const rows = result === null ? [] : copySplitRowViews(result);
     const noiseNote = header?.noiseNote ?? null;
+    const hasContracts = rows.some((row) => row.contracts !== null);
+    const hasNoise = rows.some((row) => row.isWithinNoise);
     const fallbackNote = header?.note ?? null;
 
     return (
@@ -168,15 +173,18 @@ export default function CopySplitSection() {
                         {noiseNote === null ? null : <p>{noiseNote}</p>}
                     </>
                 }
+                isComputing={isComputing}
                 title={header?.title ?? 'Split vs concentrate'}
                 titleId="copy-split-heading"
             >
                 <RulebookSourceNotice source={rulebookSource} />
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-3">
                     <Field data-invalid={totalRiskIssue !== null}>
-                        <FieldLabel htmlFor={totalRiskId}>
-                            Total risk per trade ($)
-                        </FieldLabel>
+                        <LabelWithInfo
+                            htmlFor={totalRiskId}
+                            info="Total risk per trade across the whole group, in dollars. Each split puts this total divided by its account count on every account."
+                            label="Total risk ($)"
+                        />
                         <Input
                             {...invalidFieldProps(
                                 totalRiskIssue !== null,
@@ -199,9 +207,11 @@ export default function CopySplitSection() {
                         )}
                     </Field>
                     <Field data-invalid={splitsIssue !== null}>
-                        <FieldLabel htmlFor={splitsId}>
-                            Splits (accounts, comma separated)
-                        </FieldLabel>
+                        <LabelWithInfo
+                            htmlFor={splitsId}
+                            info="Account counts to compare, comma separated, such as 1, 2, 5, 10."
+                            label="Splits"
+                        />
                         <Input
                             {...invalidFieldProps(
                                 splitsIssue !== null,
@@ -223,9 +233,11 @@ export default function CopySplitSection() {
                         )}
                     </Field>
                     <Field data-invalid={fundedRisk === null}>
-                        <FieldLabel htmlFor={fundedRiskId}>
-                            Funded risk per trade, per account ($)
-                        </FieldLabel>
+                        <LabelWithInfo
+                            htmlFor={fundedRiskId}
+                            info="Funded risk per trade on each account, in dollars. It is the fixed funded amount, not divided by the split."
+                            label="Funded risk ($)"
+                        />
                         <Input
                             {...invalidFieldProps(
                                 fundedRisk === null,
@@ -245,11 +257,6 @@ export default function CopySplitSection() {
                         )}
                     </Field>
                 </div>
-                {isComputing && (
-                    <p className="text-xs text-muted-foreground" role="status">
-                        Computing the splits...
-                    </p>
-                )}
                 {failureReason !== null && hasRequest && (
                     <Alert variant="destructive">
                         <AlertDescription>{failureReason}</AlertDescription>
@@ -258,7 +265,7 @@ export default function CopySplitSection() {
                 {fallbackNote === null ? null : (
                     <StatusRow title={fallbackNote} tone={StatusTone.Warn} />
                 )}
-                {rows.length > 0 && (
+                {(rows.length > 0 || isComputing) && (
                     <DataTable
                         columns={[
                             {
@@ -274,7 +281,7 @@ export default function CopySplitSection() {
                             {
                                 cell: ({ row: { original: row } }) => (
                                     <span className="font-mono">
-                                        {row.passRate}
+                                        <ValueOrMissing value={row.passRate} />
                                     </span>
                                 ),
                                 header: 'Eval pass',
@@ -283,7 +290,9 @@ export default function CopySplitSection() {
                             {
                                 cell: ({ row: { original: row } }) => (
                                     <span className="font-mono">
-                                        {row.daysToPass}
+                                        <ValueOrMissing
+                                            value={row.daysToPass}
+                                        />
                                     </span>
                                 ),
                                 header: 'Days to pass P50',
@@ -292,7 +301,7 @@ export default function CopySplitSection() {
                             {
                                 cell: ({ row: { original: row } }) => (
                                     <span className="font-mono">
-                                        {row.totalFees}
+                                        <ValueOrMissing value={row.totalFees} />
                                     </span>
                                 ),
                                 header: 'Total fees',
@@ -301,7 +310,9 @@ export default function CopySplitSection() {
                             {
                                 cell: ({ row: { original: row } }) => (
                                     <span className="font-mono">
-                                        {row.monthlyNet}
+                                        <ValueOrMissing
+                                            value={row.monthlyNet}
+                                        />
                                     </span>
                                 ),
                                 header: 'Monthly net (group)',
@@ -310,7 +321,7 @@ export default function CopySplitSection() {
                             {
                                 cell: ({ row: { original: row } }) => (
                                     <span className="font-mono">
-                                        {row.cycleNet}
+                                        <ValueOrMissing value={row.cycleNet} />
                                     </span>
                                 ),
                                 header: 'Cycle net (group)',
@@ -319,31 +330,46 @@ export default function CopySplitSection() {
                             {
                                 cell: ({ row: { original: row } }) => (
                                     <span className="font-mono">
-                                        {row.netPerFeeDollar}
+                                        <ValueOrMissing
+                                            value={row.netPerFeeDollar}
+                                        />
                                     </span>
                                 ),
                                 header: 'Net per fee $',
                                 id: CopySplitColumn.NetPerFee,
                             },
-                            {
-                                cell: ({ row: { original: row } }) => (
-                                    <span className="text-muted-foreground">
-                                        {row.contracts}
-                                    </span>
-                                ),
-                                header: 'Contracts',
-                                id: CopySplitColumn.Contracts,
-                            },
-                            {
-                                cell: ({ row: { original: row } }) =>
-                                    row.isWithinNoise ? (
-                                        <Badge>within noise</Badge>
-                                    ) : null,
-                                header: 'Noise',
-                                id: CopySplitColumn.Noise,
-                            },
+                            ...(hasContracts
+                                ? [
+                                      {
+                                          cell: ({
+                                              row: { original: row },
+                                          }) => (
+                                              <span className="text-muted-foreground">
+                                                  <ValueOrMissing
+                                                      value={row.contracts}
+                                                  />
+                                              </span>
+                                          ),
+                                          header: 'Contracts',
+                                          id: CopySplitColumn.Contracts,
+                                      } satisfies DataTableColumn<CopySplitRowView>,
+                                  ]
+                                : []),
+                            ...(hasNoise
+                                ? [
+                                      {
+                                          cell: ({ row: { original: row } }) =>
+                                              row.isWithinNoise ? (
+                                                  <Badge>within noise</Badge>
+                                              ) : null,
+                                          header: 'Noise',
+                                          id: CopySplitColumn.Noise,
+                                      } satisfies DataTableColumn<CopySplitRowView>,
+                                  ]
+                                : []),
                         ]}
                         data={[...rows]}
+                        isLoading={isComputing && rows.length === 0}
                         isSortable={false}
                         pageSize={null}
                         rowId={(row) => String(row.splitCount)}

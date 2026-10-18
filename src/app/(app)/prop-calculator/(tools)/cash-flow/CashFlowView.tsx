@@ -25,7 +25,7 @@ export function CashFlowView() {
                 <ToolSection
                     id={LegacySection.CashFlow}
                     srOnlyHeading
-                    title="Cash flow"
+                    title="Projection"
                 >
                     <CashFlowPanel
                         baseInputs={simInputs}

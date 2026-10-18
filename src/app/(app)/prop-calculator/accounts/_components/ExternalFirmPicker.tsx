@@ -84,7 +84,14 @@ export function ExternalFirmPicker({
                         id="account-ledger-firm"
                         {...errorProperties}
                     >
-                        <SelectValue placeholder="Pick the firm" />
+                        <SelectValue placeholder="Pick the firm">
+                            {value === null
+                                ? undefined
+                                : options.find(
+                                      (option) =>
+                                          option.value === firmKeyId(value),
+                                  )?.label}
+                        </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         {Object.values(LedgerOnlyFirmGroup).map((group) => {

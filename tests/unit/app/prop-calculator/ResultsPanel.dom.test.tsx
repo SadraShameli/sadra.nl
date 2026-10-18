@@ -16,7 +16,7 @@ vi.mock('recharts', async (importOriginal) => {
 import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import ResultsPanel from '~/app/(app)/prop-calculator/_components/ResultsPanel';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalculator';
-import { formatCurrency, NOT_APPLICABLE } from '~/lib/format';
+import { formatCurrency } from '~/lib/format';
 import {
     LifetimeCapScope,
     type Plan,
@@ -29,6 +29,7 @@ import {
     mffProLifetimeCapFixture,
     WINNING_TRADER,
 } from '../../lib/prop-calculator/fixtures/mffProLifetimeCapFixture';
+import { missingValueText } from './missingValue';
 import { statStripLabels, statStripValue } from './statStripValue';
 
 vi.mock('~/components/ui/info-popover', () => ({
@@ -210,7 +211,34 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
         expect(card.textContent).toContain('funded value / attempt cost');
     });
 
-    it('shows n/a for funded value to attempt cost when the attempt costs nothing', () => {
+    it('lists the attempt economics rows through DetailList, one label and value per row', () => {
+        const result = simulate(calculatorInputs(1));
+        act(() => {
+            root.render(
+                <ResultsPanel
+                    fundedHorizonDays={60}
+                    isPending={false}
+                    onPin={vi.fn()}
+                    onUnpin={vi.fn()}
+                    pinned={null}
+                    plan={calculatorInputs(1).plan}
+                    result={result}
+                />,
+            );
+        });
+        const list = container.querySelector(
+            ':scope [data-testid="attempt-economics-card"] dl.app-detail-list',
+        );
+        if (list === null) throw new Error('attempt economics list missing');
+        const labels = [...list.querySelectorAll('dt')].map(
+            (term) => term.textContent,
+        );
+        expect(labels[0]).toBe('Attempt price');
+        expect(labels).toContain('Per-attempt pass');
+        expect(list.querySelectorAll('dd')).toHaveLength(labels.length);
+    });
+
+    it('shows a missing value, not n/a text, for funded value to attempt cost when the attempt costs nothing', () => {
         const result: SimOutputs = {
             ...simulate(calculatorInputs(1)),
             costPerAttempt: 0,
@@ -232,7 +260,8 @@ describe('ResultsPanel shows EV per attempt beside monthly net when a funded hor
             '[data-testid="attempt-economics-card"]',
         );
         if (!card) throw new Error('attempt economics card missing');
-        expect(card.textContent).toContain(NOT_APPLICABLE);
+        expect(card.textContent).toContain(missingValueText());
+        expect(card.textContent).not.toContain('n/a');
     });
 
     it('colors EV per attempt negative when the value is negative, like other signed KPIs', () => {

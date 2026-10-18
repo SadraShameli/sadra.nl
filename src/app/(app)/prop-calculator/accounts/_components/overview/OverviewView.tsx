@@ -7,6 +7,7 @@ import { memo, type ReactNode, useMemo, useState } from 'react';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
+import { OverviewSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { AccountsTableWithValues } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { useAccountValuesWithEngine } from '~/app/(app)/prop-calculator/accounts/_components/useAccountValues';
 import { InfoNote } from '~/components/InfoNote';
@@ -152,7 +153,7 @@ export function OverviewView({ userId }: { readonly userId: string }) {
                 </Alert>
             )}
             {load.accounts.status === OverviewSectionStatus.Pending && (
-                <PageSkeleton />
+                <OverviewSkeleton />
             )}
             {model.hasAccounts ? (
                 <OverviewSections
@@ -398,19 +399,6 @@ function OverviewTabSections({
             );
         }
     }
-}
-
-function PageSkeleton() {
-    return (
-        <div
-            aria-busy="true"
-            aria-label="Loading your overview"
-            className="min-h-screen"
-            role="status"
-        >
-            <Skeleton className="h-screen w-full" />
-        </div>
-    );
 }
 
 function ReadySection({

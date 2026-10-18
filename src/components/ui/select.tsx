@@ -4,6 +4,7 @@ import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import * as React from 'react';
 
+import { FIELD_SURFACE_CLASS } from '~/components/ui/field-surface';
 import { cn } from '~/lib/utilities';
 
 const Select = SelectPrimitive.Root;
@@ -18,11 +19,10 @@ const SelectTrigger = React.forwardRef<
 >(({ children, className, ...properties }, reference) => (
     <SelectPrimitive.Trigger
         className={cn(
-            'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-line-hover bg-background px-3 py-2 text-sm shadow-xs transition-colors outline-none',
+            FIELD_SURFACE_CLASS,
+            'flex h-9 w-full items-center justify-between gap-2 px-3 py-2 text-sm',
             'data-placeholder:text-muted-foreground',
-            'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
-            'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
-            'dark:border-line-hover dark:bg-input/30',
+            'disabled:pointer-events-none',
             'text-left whitespace-nowrap [&>span]:min-w-0 [&>span]:truncate',
             className,
         )}

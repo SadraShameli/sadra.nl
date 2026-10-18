@@ -15,11 +15,13 @@ import {
     CopyGroupWorkerOutcomeKind,
     type CopyGroupWorkerRequest,
 } from '~/app/(app)/prop-calculator/_workers/copyGroupWorkerMessages';
+import { ComputingIndicator } from '~/components/ComputingIndicator';
 import { InfoNote } from '~/components/InfoNote';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip } from '~/components/StatStrip';
 import { Button } from '~/components/ui/button';
-import { formatCurrency } from '~/lib/format';
+import { Skeleton } from '~/components/ui/skeleton';
+import { formatCount, formatCurrency } from '~/lib/format';
 import { assumptionText } from '~/lib/prop-calculator/advisor';
 import { CopyGroupSimulationRejectionKind } from '~/lib/prop-calculator/simulator';
 
@@ -162,10 +164,10 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
                         Every copy trades {formatCurrency(plan.groupRisk, 2)}{' '}
                         per trade, placed within its own plan&apos;s rules, over
                         a {plan.horizonDays}-day funded horizon and{' '}
-                        {plan.request.trials.toLocaleString('en-US')} trials.
-                        The accounts take the same trades, the same wins and
-                        losses on each one, so accounts on different plans bust
-                        together when one loss reaches their different cushions.
+                        {formatCount(plan.request.trials)} trials. The accounts
+                        take the same trades, the same wins and losses on each
+                        one, so accounts on different plans bust together when
+                        one loss reaches their different cushions.
                     </p>
                     {unpricedTriggerNote !== null && (
                         <p>{unpricedTriggerNote}</p>
@@ -196,11 +198,7 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
                     size="sm"
                     variant="outline"
                 >
-                    {isRunning
-                        ? 'Simulating...'
-                        : hasRun
-                          ? 'Run again'
-                          : 'Simulate group'}
+                    {hasRun ? 'Run again' : 'Simulate group'}
                 </Button>
             </div>
             <div role="status">
@@ -211,9 +209,10 @@ function ReadyCard({ plan }: { readonly plan: ReadyPlan }) {
                     </p>
                 )}
                 {isRunning && (
-                    <p aria-busy="true" className="text-muted-foreground">
-                        Simulating {plan.request.members.length} accounts...
-                    </p>
+                    <div aria-busy="true" className="flex flex-col gap-2">
+                        <ComputingIndicator />
+                        <Skeleton className="h-24 w-full" />
+                    </div>
                 )}
                 {state.phase === WorkerTaskPhase.Done &&
                     state.result.kind ===

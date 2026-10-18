@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 
+import { MissingValue } from '~/components/MissingValue';
 import {
     DataTable,
     type DataTableColumn,
@@ -11,8 +12,6 @@ import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { formatDisplayDate, NOT_APPLICABLE } from '~/lib/format';
 
 import { type SetupAccountRow } from './overviewModel';
-
-const SETUP_ACCOUNTS_PAGE_SIZE = 10;
 
 enum SetupAccountColumn {
     Account = 'account',
@@ -46,6 +45,7 @@ const SETUP_ACCOUNT_COLUMNS: DataTableColumn<SetupAccountRow>[] = [
     },
     {
         accessorFn: (row) => row.plan ?? NOT_APPLICABLE,
+        cell: ({ row }) => row.original.plan ?? <MissingValue />,
         filterFn: DataTableFilterFunction.Equals,
         header: 'Plan',
         id: SetupAccountColumn.Plan,
@@ -110,7 +110,6 @@ export function SetupAccountsTable({
                 ),
             }}
             initialSorting={[{ desc: false, id: SetupAccountColumn.Account }]}
-            pageSize={SETUP_ACCOUNTS_PAGE_SIZE}
             rowId={(row) => row.key}
             showFilter
         />

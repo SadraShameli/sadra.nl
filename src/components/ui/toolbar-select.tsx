@@ -43,7 +43,9 @@ export function ToolbarSelect({
                 )}
                 id={id}
             >
-                <SelectValue />
+                <SelectValue>
+                    {options.find((option) => option.value === value)?.label}
+                </SelectValue>
             </SelectTrigger>
             <SelectContent>
                 {options.map((option) => (

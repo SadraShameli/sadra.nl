@@ -1,7 +1,9 @@
 'use client';
 
+import { Building2 } from 'lucide-react';
 import { memo } from 'react';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import {
     DataTable,
     DataTableAlign,
@@ -11,7 +13,7 @@ import { NOT_APPLICABLE } from '~/lib/format';
 import { compareText } from '~/lib/prop-accounts';
 
 import { type FirmReturnsCardModel } from './overviewModel';
-import { OverviewPanel } from './OverviewPanel';
+import { OverviewEmptyPanel, OverviewPanel } from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 import { SampleBadge } from './SampleBadge';
 
@@ -66,7 +68,7 @@ function numericColumn(
 ): DataTableColumn<FirmReturnRow> {
     return {
         accessorFn: (row) => numericValue(row, key),
-        cell: ({ row: { original: row } }) => row[key],
+        cell: ({ row: { original: row } }) => <FigureText text={row[key]} />,
         header,
         id,
         meta: { align: DataTableAlign.End },
@@ -106,7 +108,7 @@ const FIRM_RETURNS_COLUMNS: DataTableColumn<FirmReturnRow>[] = [
     },
     {
         cell: ({ row: { original: row } }) => (
-            <span className="tabular-nums">{row.firstPayoutOn}</span>
+            <FigureText className="tabular-nums" text={row.firstPayoutOn} />
         ),
         enableSorting: false,
         header: 'First payout',
@@ -114,7 +116,7 @@ const FIRM_RETURNS_COLUMNS: DataTableColumn<FirmReturnRow>[] = [
     },
     {
         cell: ({ row: { original: row } }) => (
-            <span className="tabular-nums">{row.lastPayoutOn}</span>
+            <FigureText className="tabular-nums" text={row.lastPayoutOn} />
         ),
         enableSorting: false,
         header: 'Last payout',
@@ -137,11 +139,11 @@ export const FirmReturnsCard = memo(function FirmReturnsCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <OverviewPanel section={OverviewSectionId.FirmReturns}>
-                <p className="text-sm text-muted-foreground">
-                    No firm with a fee or payout recorded yet.
-                </p>
-            </OverviewPanel>
+            <OverviewEmptyPanel
+                icon={Building2}
+                section={OverviewSectionId.FirmReturns}
+                title="No firm with a fee or payout recorded yet"
+            />
         );
     }
     const noted = model.rows.filter((row) => row.coverageNote !== null);

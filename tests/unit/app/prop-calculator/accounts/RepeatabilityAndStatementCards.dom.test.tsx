@@ -132,7 +132,7 @@ describe('StatementCard and RepeatabilityCard', () => {
             '$550.00',
             '2.57x',
             '2.57x',
-            'n/a',
+            '–Not available',
             'Yes',
         ]);
         expect(rows[2]).toEqual([
@@ -178,7 +178,7 @@ describe('StatementCard and RepeatabilityCard', () => {
         ).toHaveLength(0);
     });
 
-    it('labels the net basis and the payouts basis and shows n/a for the deviation below two months', () => {
+    it('labels the net basis and the payouts basis and leaves out the deviation below two months', () => {
         act(() => {
             root.render(<RepeatabilityCard model={REPEATABILITY} />);
         });
@@ -192,10 +192,8 @@ describe('StatementCard and RepeatabilityCard', () => {
         );
         expect(terms).toContain('Mean (net per month)');
         expect(terms).toContain('Share at or above target (payouts per month)');
-        const deviation = [...container.querySelectorAll('dt')].find(
-            (term) => term.textContent === 'Standard deviation (net per month)',
-        );
-        expect(deviation?.nextElementSibling?.textContent).toBe('n/a');
+        expect(terms).not.toContain('Standard deviation (net per month)');
+        expect(container.textContent).not.toContain('n/a');
     });
 
     it('prints both shares as sampled rates with their n', () => {

@@ -2,7 +2,7 @@ import {
     formatRiskDisplay,
     type RiskDisplayFormatted,
 } from '~/app/(app)/prop-calculator/_components/riskDisplay';
-import { formatGateCurrency } from '~/lib/format';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
     ALL_INSTRUMENTS,
@@ -210,7 +210,7 @@ export function positionSizeStatusText(
     const stopText =
         stop === null
             ? ''
-            : `; the stop for the exact risk is ${formatPoints(stop.tickPoints)} points, risking ${formatGateCurrency(stop.riskAtTickStop)}`;
+            : `; the stop for the exact risk is ${formatPoints(stop.tickPoints)} points, risking ${formatWholeOrCentsCurrency(stop.riskAtTickStop)}`;
     const belowOneContract = `No whole ${symbol} contract fits: one contract risks ${result.oneContractRiskText}`;
     switch (result.outcome) {
         case PositionSizeOutcome.BelowOneContractEval: {
@@ -226,7 +226,7 @@ export function positionSizeStatusText(
             const leftover =
                 result.leftover === null
                     ? ''
-                    : `, ${formatGateCurrency(result.leftover)} left over`;
+                    : `, ${formatWholeOrCentsCurrency(result.leftover)} left over`;
             return `${result.contracts} ${symbol}${leftover}${stopText}.`;
         }
     }
@@ -256,12 +256,12 @@ export function siblingInstrumentText(
     const { sibling, siblingRisk } = result.siblingInstrument;
     return sibling === null || siblingRisk === null
         ? null
-        : `The same ${result.contracts} on ${sibling.symbol} would risk ${formatGateCurrency(dollars(siblingRisk))}.`;
+        : `The same ${result.contracts} on ${sibling.symbol} would risk ${formatWholeOrCentsCurrency(dollars(siblingRisk))}.`;
 }
 
 function atRiskIfBustedTextFor(input: PositionSizeInput): null | string {
     return input.phase === TradingPhase.Eval
-        ? `At risk if busted: ${formatGateCurrency(input.retryFee)} (retry fee), assuming a fresh eval; a fee already paid is never added on top.`
+        ? `At risk if busted: ${formatWholeOrCentsCurrency(input.retryFee)} (retry fee), assuming a fresh eval; a fee already paid is never added on top.`
         : null;
 }
 
@@ -271,7 +271,7 @@ function belowOneContractNotes(
     positionSizing: PositionSizingConfig,
 ): string[] {
     if (outcome !== PositionSizeOutcome.BelowOneContractEval) return [];
-    const entered = formatGateCurrency(risk);
+    const entered = formatWholeOrCentsCurrency(risk);
     return [
         `No whole ${positionSizing.instrument.symbol} contract fits: one contract at a ${formatPoints(positionSizing.stopPoints)} point stop risks ${formatOneContractRisk(positionSizing)}, above your ${entered}. The eval simulation still models ${entered} per trade, because eval risk is capped at the contract limit and not rounded to whole contracts, but a real order needs at least one contract: raise the risk, tighten the stop or use a micro.`,
     ];
@@ -287,10 +287,10 @@ function cappedNotes(
     const { symbol, tickSize } = INSTRUMENTS[input.instrument];
     const limit = `The ${input.phase} contract limit is ${cap} ${symbol}: ${fittingContracts} would fit at your ${formatPoints(input.stopPoints)} point stop.`;
     const tickStop = `a stop of ${formatPoints(exactRiskStop.tickPoints)} points`;
-    const tickRisk = formatGateCurrency(exactRiskStop.riskAtTickStop);
+    const tickRisk = formatWholeOrCentsCurrency(exactRiskStop.riskAtTickStop);
     const landing = exactRiskStop.isTickAligned
         ? `Offset the entry to ${tickStop} to put ${tickRisk} on ${cap} contracts.`
-        : `${formatGateCurrency(input.risk)} on ${cap} contracts lands at a ${formatPoints(exactRiskStop.exactPoints)} point stop, off the ${formatPoints(tickSize)} point tick: offset the entry to ${tickStop}, which risks ${tickRisk}.`;
+        : `${formatWholeOrCentsCurrency(input.risk)} on ${cap} contracts lands at a ${formatPoints(exactRiskStop.exactPoints)} point stop, off the ${formatPoints(tickSize)} point tick: offset the entry to ${tickStop}, which risks ${tickRisk}.`;
     return [
         `${limit} ${landing} A wider stop on ${cap} contracts risks more than you entered.`,
     ];
@@ -345,7 +345,7 @@ function exactStopNotes(
 ): string[] {
     if (exactRiskStop === null || exactRiskStop.isTickAligned) return [];
     return [
-        `The exact stop for ${formatGateCurrency(risk)} on ${placedContracts} ${instrument.symbol} is ${formatPoints(exactRiskStop.exactPoints)} points, off the ${formatPoints(instrument.tickSize)} point tick: rounded down to ${formatPoints(exactRiskStop.tickPoints)} points it risks ${formatGateCurrency(exactRiskStop.riskAtTickStop)}, never more than you entered.`,
+        `The exact stop for ${formatWholeOrCentsCurrency(risk)} on ${placedContracts} ${instrument.symbol} is ${formatPoints(exactRiskStop.exactPoints)} points, off the ${formatPoints(instrument.tickSize)} point tick: rounded down to ${formatPoints(exactRiskStop.tickPoints)} points it risks ${formatWholeOrCentsCurrency(exactRiskStop.riskAtTickStop)}, never more than you entered.`,
     ];
 }
 

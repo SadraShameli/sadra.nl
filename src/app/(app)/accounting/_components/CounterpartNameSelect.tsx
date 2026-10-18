@@ -15,6 +15,7 @@ import { api } from '~/trpc/react';
 import { useActiveCredentials } from './useActiveCredentials';
 
 const SENTINEL_NONE = '__none__';
+const NONE_LABEL = 'Pick an existing counterpart';
 
 export function CounterpartNameSelect({
     label,
@@ -39,6 +40,14 @@ export function CounterpartNameSelect({
         [rulesQ.data],
     );
     const stringValue = typeof value === 'string' ? value : '';
+    const choices = useMemo(
+        () =>
+            stringValue === '' || names.includes(stringValue)
+                ? names
+                : [stringValue, ...names],
+        [names, stringValue],
+    );
+    const selectedValue = stringValue === '' ? SENTINEL_NONE : stringValue;
 
     return (
         <div className="flex flex-col gap-2">
@@ -50,16 +59,18 @@ export function CounterpartNameSelect({
                 onValueChange={(v) =>
                     onChange(v === SENTINEL_NONE ? undefined : v)
                 }
-                value={stringValue === '' ? SENTINEL_NONE : stringValue}
+                value={selectedValue}
             >
                 <SelectTrigger>
-                    <SelectValue placeholder="Pick an existing counterpart" />
+                    <SelectValue placeholder={NONE_LABEL}>
+                        {selectedValue === SENTINEL_NONE
+                            ? NONE_LABEL
+                            : choices.find((name) => name === selectedValue)}
+                    </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value={SENTINEL_NONE}>
-                        Pick an existing counterpart
-                    </SelectItem>
-                    {names.map((name) => (
+                    <SelectItem value={SENTINEL_NONE}>{NONE_LABEL}</SelectItem>
+                    {choices.map((name) => (
                         <SelectItem key={name} value={name}>
                             {name}
                         </SelectItem>

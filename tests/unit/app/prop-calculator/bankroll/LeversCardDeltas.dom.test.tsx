@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type BankrollLeverRowSummary } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { BankrollLeverKind } from '~/lib/prop-calculator/economics';
 
+import { missingValueText } from '../missingValue';
+
 const harness = vi.hoisted(() => ({
     rows: [] as unknown[],
 }));
@@ -168,7 +170,7 @@ describe('LeversCard changes (PT-81 step 3)', () => {
         expect(cells).not.toContain('+5.0pp');
     });
 
-    it('shows n/a for the loss-risk change when either loss risk is missing', () => {
+    it('shows a missing value, not n/a text, for the loss-risk change when either loss risk is missing', () => {
         harness.rows = [
             leverRow({}),
             leverRow({
@@ -180,7 +182,9 @@ describe('LeversCard changes (PT-81 step 3)', () => {
         ];
         render();
         expect(
-            rowCells('Payout request').filter((cell) => cell === 'n/a'),
+            rowCells('Payout request').filter(
+                (cell) => cell === missingValueText(),
+            ),
         ).toHaveLength(2);
     });
 });

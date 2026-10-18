@@ -6,13 +6,8 @@ import { useMemo } from 'react';
 import { InfoNote } from '~/components/InfoNote';
 import { Badge } from '~/components/ui/badge';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
-import {
-    formatCurrency,
-    formatDays,
-    formatOptionalPercent,
-    formatPercent,
-} from '~/lib/format';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     type Plan,
     type PlanOptIns,
@@ -45,7 +40,9 @@ import {
 } from './scoring';
 import { type ScreenHourFilters } from './ScreenHourFilters';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { passDaysColumn, roiColumn } from './simOutputColumns';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
+import { useSectionComputing } from './ToolSection';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 import {
     openInSimulatorColumn,
@@ -120,6 +117,7 @@ export default function PlanComparisonTable({
     );
 
     const openInSimulator = useOpenInSimulator(planOptIns);
+    useSectionComputing(pending);
 
     const {
         accountsPerSession,
@@ -177,12 +175,7 @@ export default function PlanComparisonTable({
                 header: 'Funded survive',
                 id: 'fundedSurvive',
             },
-            {
-                accessorFn: (r) => r.out.daysToPassP50,
-                cell: ({ row }) => formatDays(row.original.out.daysToPassP50),
-                header: 'Days',
-                id: 'days',
-            },
+            passDaysColumn<Row>(),
             {
                 accessorFn: (r) => r.out.expectedGrossSpend,
                 cell: ({ row }) =>
@@ -203,14 +196,7 @@ export default function PlanComparisonTable({
                 header: 'Cycle net',
                 id: 'cycleNet',
             },
-            {
-                accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
-                cell: ({ row }) =>
-                    formatOptionalPercent(row.original.out.roiOnCost.value),
-                header: 'ROI',
-                id: 'roi',
-                sortUndefined: 'last',
-            },
+            roiColumn<Row>(),
             {
                 accessorFn: (r) => r.score,
                 cell: ({ row }) => {
@@ -261,11 +247,11 @@ export default function PlanComparisonTable({
                 />
             ) : null}
             <ComparisonRankingNote ranked={ranked} />
-            <p className="m-0 text-xs text-muted-foreground">
-                {pending
-                    ? 'computing…'
-                    : planCountText(shownRows.length, rows.length)}
-            </p>
+            {rows.length === 0 ? null : (
+                <p className="m-0 text-xs text-muted-foreground">
+                    {planCountText(shownRows.length, rows.length)}
+                </p>
+            )}
             {error === null ? (
                 <DataTable<Row>
                     className="app-prop-calculator__plan-comparison-table text-xs tabular-nums"
@@ -274,9 +260,11 @@ export default function PlanComparisonTable({
                     emptyState={
                         <EmptyState
                             icon={Layers}
-                            title={pending ? 'Computing…' : 'No plans'}
+                            size={EmptyStateSize.Compact}
+                            title="No plans"
                         />
                     }
+                    isLoading={pending && rows.length === 0}
                     pageSize={null}
                     rowClassName={(r) =>
                         r.plan === activePlan

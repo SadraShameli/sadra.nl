@@ -1,11 +1,11 @@
 'use client';
 
-import { formatDistanceToNow } from 'date-fns';
 import { ClipboardList, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import type { TradeAssessmentRow } from '~/lib/trading/types';
 
+import { RelativeTime } from '~/components/RelativeTime';
 import { deleteRowAction, RowActionsMenu } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
@@ -176,9 +176,7 @@ function HistoryRow({
                             <span className="text-muted-foreground">/100</span>
                         </ItemTitle>
                         <ItemDescription className="truncate">
-                            {formatDistanceToNow(new Date(row.createdAt), {
-                                addSuffix: true,
-                            })}
+                            <RelativeTime value={row.createdAt} />
                         </ItemDescription>
                     </ItemContent>
                     {row.outcome !== null && (

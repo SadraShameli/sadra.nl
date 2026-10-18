@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { DetailList } from '~/components/DetailList';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
 import { ToolPanel } from '~/components/ToolPanel';
@@ -76,7 +77,6 @@ import {
     MAX_ACCOUNT_LABEL_LENGTH,
 } from '~/lib/schemas/propAccounts';
 import { routes } from '~/lib/site/routes';
-import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import {
@@ -116,8 +116,8 @@ import {
     type CreateExternalFirm,
     ExternalFirmPicker,
 } from './ExternalFirmPicker';
-import { FieldRequirementMark } from './FieldRequirementMark';
 import { PersonalRulesFields } from './PersonalRulesFields';
+import { OPTIONAL_REQUIREMENT, RequirementLabel } from './RequirementLabel';
 import {
     emptySnapshotFormValues,
     initialSnapshotRules,
@@ -149,6 +149,14 @@ type TrackedStoredAccount = TrackedAccountRow<StoredAccount>;
 const CENTS_PER_DOLLAR = 100;
 
 const NONE = 'none';
+
+const NO_COPY_GROUP_LABEL = 'None (traded on its own)';
+
+const NO_REPLACED_ACCOUNT_LABEL = 'None';
+
+const NO_ROUND_LABEL = 'None (not in a round)';
+
+const CLOSED_ROUND_SUFFIX = ' (closed)';
 
 const FIX_FIELDS_MESSAGE = 'Fix the highlighted fields before saving';
 
@@ -638,7 +646,9 @@ function DashboardConventionField({
                             aria-invalid={fieldState.invalid}
                             id={`${formId}-dashboardConvention`}
                         >
-                            <SelectValue />
+                            <SelectValue>
+                                {CONVENTION_LABEL[field.value]}
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {Object.values(DashboardBalanceConvention).map(
@@ -683,8 +693,12 @@ function DateField({
             render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                     <FieldLabel htmlFor={`${formId}-${field.name}`}>
-                        {label}
-                        {isOptional && <FieldRequirementMark text="optional" />}
+                        <RequirementLabel
+                            label={label}
+                            requirement={
+                                isOptional ? OPTIONAL_REQUIREMENT : undefined
+                            }
+                        />
                     </FieldLabel>
                     <IsoDatePicker
                         aria-invalid={fieldState.invalid}
@@ -741,8 +755,10 @@ function DetailsCard({
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor={`${formId}-externalAlias`}>
-                            Alias
-                            <FieldRequirementMark text="optional" />
+                            <RequirementLabel
+                                label="Alias"
+                                requirement={OPTIONAL_REQUIREMENT}
+                            />
                         </FieldLabel>
                         <Input
                             aria-invalid={fieldState.invalid}
@@ -793,11 +809,18 @@ function DetailsCard({
                                     aria-invalid={fieldState.invalid}
                                     id={`${formId}-copyGroupId`}
                                 >
-                                    <SelectValue />
+                                    <SelectValue>
+                                        {field.value === NONE
+                                            ? NO_COPY_GROUP_LABEL
+                                            : groups.find(
+                                                  (group) =>
+                                                      group.id === field.value,
+                                              )?.name}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value={NONE}>
-                                        None (traded on its own)
+                                        {NO_COPY_GROUP_LABEL}
                                     </SelectItem>
                                     {groups.map((group) => (
                                         <SelectItem
@@ -834,11 +857,13 @@ function DetailsCard({
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-roundId`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {roundOptionLabel(field.value, rounds)}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value={NONE}>
-                                    None (not in a round)
+                                    {NO_ROUND_LABEL}
                                 </SelectItem>
                                 {rounds.map((round) => (
                                     <SelectItem
@@ -848,9 +873,7 @@ function DetailsCard({
                                         key={round.id}
                                         value={round.id}
                                     >
-                                        {round.label}
-                                        {round.status === RoundStatus.Closed &&
-                                            ' (closed)'}
+                                        {roundOptionLabel(round.id, rounds)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -864,21 +887,23 @@ function DetailsCard({
                     </Field>
                 )}
             />
-            <Controller
-                control={control}
-                name="overrideRoundBudget"
-                render={({ field }) => (
-                    <CheckboxCard
-                        aria-describedby="account-override-round-budget-hint"
-                        checked={field.value}
-                        description="Adds this account to its round even if the round has already spent its budget."
-                        descriptionId="account-override-round-budget-hint"
-                        id="account-override-round-budget"
-                        label="Override the round budget"
-                        onCheckedChange={field.onChange}
-                    />
-                )}
-            />
+            <div className="grid items-start gap-4 md:col-span-2 md:grid-cols-2">
+                <Controller
+                    control={control}
+                    name="overrideRoundBudget"
+                    render={({ field }) => (
+                        <CheckboxCard
+                            aria-describedby="account-override-round-budget-hint"
+                            checked={field.value}
+                            description="Adds this account to its round even if the round has already spent its budget."
+                            descriptionId="account-override-round-budget-hint"
+                            id="account-override-round-budget"
+                            label="Override the round budget"
+                            onCheckedChange={field.onChange}
+                        />
+                    )}
+                />
+            </div>
             <Controller
                 control={control}
                 name="replacesAccountId"
@@ -895,10 +920,19 @@ function DetailsCard({
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-replacesAccountId`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {field.value === NONE
+                                        ? NO_REPLACED_ACCOUNT_LABEL
+                                        : otherAccounts.find(
+                                              (account) =>
+                                                  account.id === field.value,
+                                          )?.label}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={NONE}>None</SelectItem>
+                                <SelectItem value={NONE}>
+                                    {NO_REPLACED_ACCOUNT_LABEL}
+                                </SelectItem>
                                 {otherAccounts.map((account) => (
                                     <SelectItem
                                         key={account.id}
@@ -923,8 +957,10 @@ function DetailsCard({
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
                         <FieldLabel htmlFor={`${formId}-tags`}>
-                            Tags
-                            <FieldRequirementMark text="optional" />
+                            <RequirementLabel
+                                label="Tags"
+                                requirement={OPTIONAL_REQUIREMENT}
+                            />
                         </FieldLabel>
                         <Input
                             aria-invalid={fieldState.invalid}
@@ -947,8 +983,10 @@ function DetailsCard({
                         data-invalid={fieldState.invalid}
                     >
                         <FieldLabel htmlFor={`${formId}-notes`}>
-                            Notes
-                            <FieldRequirementMark text="optional" />
+                            <RequirementLabel
+                                label="Notes"
+                                requirement={OPTIONAL_REQUIREMENT}
+                            />
                         </FieldLabel>
                         <Textarea
                             aria-invalid={fieldState.invalid}
@@ -1449,38 +1487,56 @@ function ReadOnlyAccount({
                 title="This account is read-only"
                 tone={StatusTone.Warn}
             />
-            <dl
-                className={cn(
-                    'grid gap-2 text-sm md:grid-cols-[max-content_1fr]',
-                )}
-            >
-                <dt className="text-muted-foreground">Label</dt>
-                <dd>{account.label}</dd>
-                <dt className="text-muted-foreground">Firm</dt>
-                <dd>{accountFirmLabel(account, externalFirms)}</dd>
-                <dt className="text-muted-foreground">Plan</dt>
-                <dd>{accountPlanLabel(account)}</dd>
-                <dt className="text-muted-foreground">Stage</dt>
-                <dd>{accountStageLabel(account.stage)}</dd>
-                <dt className="text-muted-foreground">Status</dt>
-                <dd>{accountStatusLabel(account.status)}</dd>
-                <dt className="text-muted-foreground">Purchased on</dt>
-                <dd>{formatDisplayDate(account.purchasedOn)}</dd>
-                {account.archivedAt !== null && (
-                    <>
-                        <dt className="text-muted-foreground">Archived</dt>
-                        <dd>Yes</dd>
-                    </>
-                )}
-                {account.liveStartBalanceCents !== null && (
-                    <>
-                        <dt className="text-muted-foreground">
-                            Live start balance
-                        </dt>
-                        <dd>{formatUsdCents(account.liveStartBalanceCents)}</dd>
-                    </>
-                )}
-            </dl>
+            <DetailList
+                items={[
+                    { id: 'label', label: 'Label', value: account.label },
+                    {
+                        id: 'firm',
+                        label: 'Firm',
+                        value: accountFirmLabel(account, externalFirms),
+                    },
+                    {
+                        id: 'plan',
+                        label: 'Plan',
+                        value: accountPlanLabel(account),
+                    },
+                    {
+                        id: 'stage',
+                        label: 'Stage',
+                        value: accountStageLabel(account.stage),
+                    },
+                    {
+                        id: 'status',
+                        label: 'Status',
+                        value: accountStatusLabel(account.status),
+                    },
+                    {
+                        id: 'purchased-on',
+                        label: 'Purchased on',
+                        value: formatDisplayDate(account.purchasedOn),
+                    },
+                    ...(account.archivedAt === null
+                        ? []
+                        : [
+                              {
+                                  id: 'archived',
+                                  label: 'Archived',
+                                  value: 'Yes',
+                              },
+                          ]),
+                    ...(account.liveStartBalanceCents === null
+                        ? []
+                        : [
+                              {
+                                  id: 'live-start-balance',
+                                  label: 'Live start balance',
+                                  value: formatUsdCents(
+                                      account.liveStartBalanceCents,
+                                  ),
+                              },
+                          ]),
+                ]}
+            />
             <div className="flex items-center gap-2">
                 <ArchiveAccountButton account={account} />
                 <DeleteAccountDialog
@@ -1498,6 +1554,22 @@ function ReadOnlyAccount({
             </div>
         </div>
     );
+}
+
+function roundOptionLabel(
+    roundId: string,
+    rounds: readonly {
+        readonly id: string;
+        readonly label: string;
+        readonly status: RoundStatus;
+    }[],
+): string | undefined {
+    if (roundId === NONE) return NO_ROUND_LABEL;
+    const round = rounds.find((candidate) => candidate.id === roundId);
+    if (round === undefined) return undefined;
+    return round.status === RoundStatus.Closed
+        ? `${round.label}${CLOSED_ROUND_SUFFIX}`
+        : round.label;
 }
 
 function singleLineTextIssues({
@@ -1551,7 +1623,14 @@ function StageField({
                             aria-invalid={fieldState.invalid}
                             id={`${formId}-stage`}
                         >
-                            <SelectValue />
+                            <SelectValue>
+                                {
+                                    options.find(
+                                        (option) =>
+                                            option.stage === field.value,
+                                    )?.label
+                                }
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {options.map((option) => (

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CushionBoardCard } from '~/app/(app)/prop-calculator/accounts/_components/overview/CushionBoardCard';
 import { type CushionBoardCardModel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 
-import { infoText } from '../infoPopover';
+import { infoText, withInfoTexts } from '../infoPopover';
 
 type Row = CushionBoardCardModel['rows'][number];
 
@@ -42,7 +42,7 @@ describe('CushionBoardCard', () => {
         vi.unstubAllGlobals();
     });
 
-    it('renders every populated row in rank order with its stage, floor, cushion, risk units and as-of, and the unavailable reasons (PT-113)', () => {
+    it('renders every populated row in rank order, then each account without a cushion as a row of missing values with its reason (PT-113)', () => {
         const model: CushionBoardCardModel = {
             disclosure: 'Ranked by cushion in risk units.',
             rows: [
@@ -88,11 +88,22 @@ describe('CushionBoardCard', () => {
                 '5.0R',
                 '24 Sep 2026',
             ],
+            [
+                '',
+                'TopStep C',
+                '–Not available',
+                '–Not available',
+                '–Not available',
+                '–Not available',
+                '',
+            ],
         ]);
-        const unavailable = container.querySelector(
-            '[aria-label="Accounts without a cushion"]',
-        );
-        expect(unavailable?.textContent).toBe('TopStep C: no snapshot yet');
+        const unavailable = [
+            ...container.querySelectorAll(':scope tbody tr'),
+        ].at(-1);
+        expect(
+            unavailable === undefined ? '' : withInfoTexts(unavailable),
+        ).toContain('No snapshot yet.');
         expect(infoText(container, 'Cushion board')).toContain(
             'Ranked by cushion in risk units.',
         );

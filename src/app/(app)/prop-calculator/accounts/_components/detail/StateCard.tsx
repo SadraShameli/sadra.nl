@@ -1,3 +1,8 @@
+import { Gauge } from 'lucide-react';
+
+import { EnterBalancesButton } from '~/app/(app)/prop-calculator/accounts/_components/EnterBalancesButton';
+import { StatStrip } from '~/components/StatStrip';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatCurrency, formatDisplayDate } from '~/lib/format';
 import {
     AssumptionKind,
@@ -8,14 +13,19 @@ import {
 
 import { StateCardKind, type StateCardView } from './detailState';
 
+const UNAVAILABLE = 'unavailable';
+
 export function StateCard({ view }: { readonly view: StateCardView }) {
     switch (view.kind) {
         case StateCardKind.NoSnapshot: {
             return (
-                <p className="text-sm text-muted-foreground">
-                    Enter a balance snapshot to see the reconstructed floor,
-                    lock and cushion.
-                </p>
+                <EmptyState
+                    action={<EnterBalancesButton />}
+                    description="The floor, lock and cushion are reconstructed from the latest balance."
+                    icon={Gauge}
+                    size={EmptyStateSize.Compact}
+                    title="Enter a balance to see the account state"
+                />
             );
         }
         case StateCardKind.PeakRequired: {
@@ -34,34 +44,36 @@ export function StateCard({ view }: { readonly view: StateCardView }) {
                     <p className="text-sm text-muted-foreground">
                         As of {formatDisplayDate(view.asOf)}
                     </p>
-                    <dl className="grid gap-x-6 gap-y-2 text-sm md:grid-cols-[max-content_1fr]">
-                        <div className="contents">
-                            <dt className="text-muted-foreground">Floor</dt>
-                            <dd className="tabular-nums">
-                                {floorLock === null
-                                    ? 'unavailable'
-                                    : formatCurrency(floorLock.floor)}
-                            </dd>
-                        </div>
-                        <div className="contents">
-                            <dt className="text-muted-foreground">Lock</dt>
-                            <dd>
-                                {floorLock === null
-                                    ? 'unavailable'
-                                    : floorLock.locked
-                                      ? 'locked'
-                                      : 'not locked'}
-                            </dd>
-                        </div>
-                        <div className="contents">
-                            <dt className="text-muted-foreground">Cushion</dt>
-                            <dd className="tabular-nums">
-                                {cushion === null
-                                    ? 'unavailable'
-                                    : formatCurrency(cushion)}
-                            </dd>
-                        </div>
-                    </dl>
+                    <StatStrip
+                        items={[
+                            {
+                                id: 'floor',
+                                label: 'Floor',
+                                value:
+                                    floorLock === null
+                                        ? UNAVAILABLE
+                                        : formatCurrency(floorLock.floor),
+                            },
+                            {
+                                id: 'lock',
+                                label: 'Lock',
+                                value:
+                                    floorLock === null
+                                        ? UNAVAILABLE
+                                        : floorLock.locked
+                                          ? 'locked'
+                                          : 'not locked',
+                            },
+                            {
+                                id: 'cushion',
+                                label: 'Cushion',
+                                value:
+                                    cushion === null
+                                        ? UNAVAILABLE
+                                        : formatCurrency(cushion),
+                            },
+                        ]}
+                    />
                     {view.account.assumptions.length > 0 && (
                         <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
                             {view.account.assumptions

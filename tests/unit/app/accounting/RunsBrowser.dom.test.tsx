@@ -41,7 +41,7 @@ vi.mock('~/trpc/react', () => ({
             runs: {
                 list: {
                     useQuery: () => ({
-                        data: [RUN],
+                        data: { items: [RUN], totalCount: 31 },
                         error: null,
                         isPending: false,
                     }),
@@ -83,5 +83,13 @@ describe('the runs table', () => {
         expect(rowActionItem('Open').getAttribute('href')).toBe(
             routes.accounting.run(RUN.id),
         );
+    });
+
+    it('counts every run the server holds in the page footer', () => {
+        expect(container.textContent).toContain('1 to 1 of 31');
+        const next = [...container.querySelectorAll('button')].find(
+            (button) => button.textContent === 'Next',
+        );
+        expect(next?.disabled).toBe(false);
     });
 });

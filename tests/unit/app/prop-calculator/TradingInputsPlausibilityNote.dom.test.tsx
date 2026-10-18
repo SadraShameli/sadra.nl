@@ -2,10 +2,11 @@ import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import TradingInputs, {
     PLAUSIBILITY_NOTE_ID,
 } from '~/app/(app)/prop-calculator/_components/TradingInputs';
+
+import { tradingInputsProperties } from './tradingInputsFixture';
 
 const PLAUSIBILITY_WINRATE = 0.7;
 const PLAUSIBILITY_RR = 1;
@@ -33,75 +34,19 @@ function Harness({
     onTradesPerDayChange = vi.fn(),
     tradesPerDayRef,
 }: HarnessProperties) {
-    const state = defaultCalculatorState();
-    const noop = vi.fn();
     const [tradesPerDay, setTradesPerDay] = useState(INITIAL_TRADES_PER_DAY);
     tradesPerDayRef.current = setTradesPerDay;
     return (
         <TradingInputs
-            activationDiscountPercent={state.activationDiscountPercent}
-            commissionPerRoundTrip={state.commissionPerRoundTrip}
-            copyAccounts={state.copyAccounts}
-            dayStop={state.dayStop}
-            evalDiscountPercent={state.evalDiscountPercent}
-            firmDisplayName={state.firm.displayName}
-            idleDayProbability={state.idleDayProbability}
-            instrument={state.instrument}
-            linkActivationDiscount={state.linkActivationDiscount}
-            liveTransferHazard={state.liveTransferHazard}
-            maxAttempts={state.maxAttempts}
-            maxCopyAccounts={state.firm.maxFundedAccounts(state.plan)}
-            maxEvalDays={state.maxEvalDays}
-            monthlySubscriptionDiscountPercent={
-                state.monthlySubscriptionDiscountPercent
-            }
-            onActivationDiscountPercentChange={noop}
-            onCommissionPerRoundTripChange={noop}
-            onCopyAccountsChange={noop}
-            onDayStopChange={noop}
-            onEvalDiscountPercentChange={noop}
-            onIdleDayProbabilityChange={noop}
-            onInstrumentChange={noop}
-            onLinkActivationDiscountChange={noop}
-            onLiveTransferHazardChange={noop}
-            onMaxAttemptsChange={noop}
-            onMaxEvalDaysChange={noop}
-            onMonthlySubscriptionDiscountPercentChange={noop}
-            onPayoutRequestSizeChange={noop}
-            onResetCoupon={noop}
-            onResetDiscountPercentChange={noop}
-            onRetainedCushionChange={noop}
-            onRiskDollarsChange={noop}
-            onRiskPercentChange={noop}
-            onRrRatioChange={noop}
-            onRungSizingChange={noop}
-            onSeedChange={noop}
-            onSizingModeChange={noop}
-            onStopPointsChange={noop}
-            onTakesFundedResetChange={noop}
-            onTakesOneTimeEarlyWithdrawalChange={noop}
-            onTradesPerDayChange={(n) => {
-                setTradesPerDay(n);
-                onTradesPerDayChange(n);
-            }}
-            onTrialsChange={noop}
-            onWinrateChange={noop}
-            payoutRequestSize={state.payoutRequestSize}
-            plan={state.plan}
-            resetDiscountPercent={state.resetDiscountPercent}
-            retainedCushion={state.retainedCushion}
-            riskDollars={state.riskDollars}
-            riskPercent={state.riskPercent}
-            rrRatio={PLAUSIBILITY_RR}
-            rungSizing={state.rungSizing}
-            seed={state.seed}
-            sizingMode={state.sizingMode}
-            stopPoints={state.stopPoints}
-            takesFundedReset={state.takesFundedReset}
-            takesOneTimeEarlyWithdrawal={state.takesOneTimeEarlyWithdrawal}
-            tradesPerDay={tradesPerDay}
-            trials={state.trials}
-            winrate={PLAUSIBILITY_WINRATE}
+            {...tradingInputsProperties({
+                onTradesPerDayChange: (n) => {
+                    setTradesPerDay(n);
+                    onTradesPerDayChange(n);
+                },
+                rrRatio: PLAUSIBILITY_RR,
+                tradesPerDay,
+                winrate: PLAUSIBILITY_WINRATE,
+            })}
         />
     );
 }

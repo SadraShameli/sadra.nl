@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Download, Receipt } from 'lucide-react';
+import { Download, Receipt, Wallet } from 'lucide-react';
 import { type ReactNode, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import {
     UNSET_SELECT_VALUE,
 } from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
 import { useRecordDialog } from '~/app/(app)/prop-calculator/accounts/_components/detail/useRecordDialog';
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { GrossOnlyPayoutsNote } from '~/app/(app)/prop-calculator/accounts/_components/GrossOnlyPayoutsNote';
 import {
     feeKindLabel,
@@ -29,6 +30,7 @@ import {
     firmColumnsFromSelectValue,
     firmSelectOptions,
 } from '~/app/(app)/prop-calculator/accounts/rounds/roundsModel';
+import { DetailList } from '~/components/DetailList';
 import { FilterToolbar } from '~/components/FilterToolbar';
 import { FormDialog } from '~/components/FormDialog';
 import { PanelSubheading } from '~/components/PanelSubheading';
@@ -47,7 +49,7 @@ import {
     type DataTableColumn,
 } from '~/components/ui/data-table';
 import { Dialog } from '~/components/ui/dialog';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     Field,
     FieldDescription,
@@ -412,9 +414,11 @@ function DepositsWithdrawalsSection() {
                     subject="deposits and withdrawals"
                 />
                 {rows?.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                        No deposits or withdrawals recorded yet.
-                    </p>
+                    <EmptyState
+                        icon={Wallet}
+                        size={EmptyStateSize.Compact}
+                        title="No deposits or withdrawals recorded yet"
+                    />
                 )}
                 {rows !== undefined && rows.length > 0 && (
                     <DataTable
@@ -772,11 +776,11 @@ function FirmReconciliationSection({
 
 function formatLagDays(estimate: null | SampledEstimate): string {
     if (estimate === null) return NOT_APPLICABLE;
-    const standardError =
+    const sample =
         estimate.standardError === null
-            ? NOT_APPLICABLE
-            : estimate.standardError.toFixed(1);
-    return `${estimate.value.toFixed(1)} days (SE ${standardError}, n = ${String(estimate.n)})`;
+            ? `n = ${String(estimate.n)}`
+            : `SE ${estimate.standardError.toFixed(1)}, n = ${String(estimate.n)}`;
+    return `${estimate.value.toFixed(1)} days (${sample})`;
 }
 
 function LedgerFilterBar({
@@ -1008,18 +1012,20 @@ function PayoutLagCard({ rows }: { readonly rows: readonly PayoutLagRow[] }) {
                     },
                     {
                         cell: ({ row }) => (
-                            <span className="tabular-nums">
-                                {row.original.requestToApproval}
-                            </span>
+                            <FigureText
+                                className="tabular-nums"
+                                text={row.original.requestToApproval}
+                            />
                         ),
                         header: 'Request to approval',
                         id: PayoutLagColumn.RequestToApproval,
                     },
                     {
                         cell: ({ row }) => (
-                            <span className="tabular-nums">
-                                {row.original.requestToPaid}
-                            </span>
+                            <FigureText
+                                className="tabular-nums"
+                                text={row.original.requestToPaid}
+                            />
                         ),
                         header: 'Request to paid',
                         id: PayoutLagColumn.RequestToPaid,
@@ -1121,7 +1127,17 @@ function StatementForm({
                                     id={`${formId}-firmValue`}
                                     ref={field.ref}
                                 >
-                                    <SelectValue placeholder="Choose a firm" />
+                                    <SelectValue placeholder="Choose a firm">
+                                        {
+                                            firmSelectOptions(
+                                                externalFirms,
+                                            ).find(
+                                                (option) =>
+                                                    option.value ===
+                                                    field.value,
+                                            )?.label
+                                        }
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {firmSelectOptions(externalFirms).map(
@@ -1141,15 +1157,18 @@ function StatementForm({
                     )}
                 />
             ) : (
-                <dl className="flex flex-col gap-2 text-sm">
-                    <dt className="font-medium">Firm</dt>
-                    <dd className="text-muted-foreground">
-                        {firmKeyLabel(
-                            firmKeyOf(firmColumnsOf(editing)),
-                            externalFirms,
-                        )}
-                    </dd>
-                </dl>
+                <DetailList
+                    items={[
+                        {
+                            id: 'firm',
+                            label: 'Firm',
+                            value: firmKeyLabel(
+                                firmKeyOf(firmColumnsOf(editing)),
+                                externalFirms,
+                            ),
+                        },
+                    ]}
+                />
             )}
             <Controller
                 control={form.control}
@@ -1192,7 +1211,11 @@ function StatementForm({
                                 id={`${formId}-basis`}
                                 ref={field.ref}
                             >
-                                <SelectValue placeholder="Choose gross or net" />
+                                <SelectValue placeholder="Choose gross or net">
+                                    {field.value === UNSET_SELECT_VALUE
+                                        ? undefined
+                                        : reportedPayoutBasisLabel(field.value)}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(ReportedPayoutBasis).map(
@@ -1373,7 +1396,9 @@ function TransferForm({
                                 id={`${formId}-kind`}
                                 ref={field.ref}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {bankrollTransferKindLabel(field.value)}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(BankrollTransferKind).map(

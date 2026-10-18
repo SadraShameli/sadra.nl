@@ -3,6 +3,7 @@
 import * as React from 'react';
 import * as RechartsPrimitive from 'recharts';
 
+import { Skeleton } from '~/components/ui/skeleton';
 import { cn } from '~/lib/utilities';
 
 const THEMES = { dark: '.dark', light: '' } as const;
@@ -45,6 +46,16 @@ const CHART_SIZE_CLASS: Readonly<Record<ChartSize, string>> = {
     [ChartSize.Standard]: 'h-64 lg:h-80',
     [ChartSize.Tall]: 'h-80 lg:h-96',
 };
+
+export function ChartSkeleton({
+    size = ChartSize.Standard,
+}: {
+    readonly size?: ChartSize;
+}) {
+    return (
+        <Skeleton className={cn('w-full rounded-md', CHART_SIZE_CLASS[size])} />
+    );
+}
 
 export const CHART_X_AXIS_PROPS = {
     axisLine: false,

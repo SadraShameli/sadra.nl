@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartColumn } from 'lucide-react';
 import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
@@ -11,6 +12,7 @@ import {
     ChartContainer,
     ChartSize,
 } from '~/components/ui/chart';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatCompactCurrency, formatDisplayMonth } from '~/lib/format';
 
 import { type StatementChartPoint } from './overviewModel';
@@ -29,9 +31,11 @@ export function MonthlyPayoutChart({
 }) {
     if (points.length === 0) {
         return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                No month recorded yet.
-            </div>
+            <EmptyState
+                icon={ChartColumn}
+                size={EmptyStateSize.Compact}
+                title="No month recorded yet"
+            />
         );
     }
     return (

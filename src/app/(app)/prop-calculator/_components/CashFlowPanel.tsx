@@ -8,14 +8,11 @@ import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip, StatTone } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
+import { ChartSkeleton } from '~/components/ui/chart';
 import { Field, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
-import {
-    formatCompactCurrency,
-    formatPercent,
-    NOT_APPLICABLE,
-} from '~/lib/format';
+import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimInputs, TRADING_DAYS_PER_YEAR } from '~/lib/prop-calculator';
 import { median } from '~/lib/prop-calculator/stats';
 
@@ -27,11 +24,13 @@ import { clampInt } from './clamp';
 import FunnelWhatIfSection from './FunnelWhatIfSection';
 import { KPI_ACCENT_STAT_TONE } from './kpiAccent';
 import { panelDescriptions } from './kpiDescriptions';
+import { NO_COST_ROI_REASON } from './missingReasons';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
 import {
     CASH_FLOW_MAX_TRADES_PER_DAY,
     useCashFlowSimulation,
 } from './useCashFlowSimulation';
+import { ValueOrMissing } from './ValueOrMissing';
 
 interface CashFlowPanelProperties {
     baseInputs: SimInputs;
@@ -46,6 +45,7 @@ const HORIZON_OPTIONS = [
     { days: TRADING_DAYS_PER_YEAR * 3, label: '3 years' },
 ] as const;
 
+const NO_BREAK_EVEN_REASON = 'No trial broke even within the horizon.';
 const DEFAULT_ACCOUNTS = 5;
 const MAX_ACCOUNTS = 10;
 const MIN_ACCOUNTS = 1;
@@ -132,38 +132,39 @@ export default function CashFlowPanel({
     return (
         <ToolPanel
             className="app-prop-calculator__cash-flow"
-            description={
-                pending
-                    ? 'computing…'
-                    : 'independent of the global trial/account settings above'
-            }
+            description="independent of the global trial/account settings above"
             info={panelDescriptions.cashFlow}
-            title="Cash flow over time"
+            isComputing={pending}
+            title="Net over time"
             titleAs="h3"
         >
             <FilterToolbar label="Cash flow options">
-                <ToggleGroup
-                    aria-label="Horizon"
-                    onValueChange={(value: string) => {
-                        const index = HORIZON_OPTIONS.findIndex(
-                            (option) => option.label === value,
-                        );
-                        if (index !== -1) setHorizonIndex(index);
-                    }}
-                    size="sm"
-                    type="single"
-                    value={HORIZON_OPTIONS[horizonIndex]?.label ?? ''}
-                    variant="outline"
-                >
-                    {HORIZON_OPTIONS.map((option) => (
-                        <ToggleGroupItem
-                            key={option.label}
-                            value={option.label}
-                        >
-                            {option.label}
-                        </ToggleGroupItem>
-                    ))}
-                </ToggleGroup>
+                <div className="app-prop-calculator__cash-flow-horizon -mx-1 max-w-full overflow-x-auto px-1 pb-1">
+                    <ToggleGroup
+                        aria-label="Horizon"
+                        className="w-max justify-start"
+                        onValueChange={(value: string) => {
+                            const index = HORIZON_OPTIONS.findIndex(
+                                (option) => option.label === value,
+                            );
+                            if (index !== -1) setHorizonIndex(index);
+                        }}
+                        size="sm"
+                        type="single"
+                        value={HORIZON_OPTIONS[horizonIndex]?.label ?? ''}
+                        variant="outline"
+                    >
+                        {HORIZON_OPTIONS.map((option) => (
+                            <ToggleGroupItem
+                                className="shrink-0 whitespace-nowrap"
+                                key={option.label}
+                                value={option.label}
+                            >
+                                {option.label}
+                            </ToggleGroupItem>
+                        ))}
+                    </ToggleGroup>
+                </div>
                 <Field className="w-auto" orientation="horizontal">
                     <FieldLabel htmlFor="cash-flow-accounts">
                         Accounts (max {accountCap})
@@ -268,10 +269,16 @@ export default function CashFlowPanel({
                                 medianBreakEvenMonth === null
                                     ? StatTone.Muted
                                     : StatTone.Positive,
-                            value:
-                                medianBreakEvenMonth === null
-                                    ? NOT_APPLICABLE
-                                    : `${medianBreakEvenMonth.toFixed(1)}mo`,
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_BREAK_EVEN_REASON}
+                                    value={
+                                        medianBreakEvenMonth === null
+                                            ? null
+                                            : `${medianBreakEvenMonth.toFixed(1)}mo`
+                                    }
+                                />
+                            ),
                         },
                         {
                             caption: 'within the horizon',
@@ -288,7 +295,12 @@ export default function CashFlowPanel({
                             id: 'roi-on-spend',
                             label: 'ROI on spend',
                             tone: KPI_ACCENT_STAT_TONE[roiOnSpend.accent],
-                            value: roiOnSpend.text,
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_COST_ROI_REASON}
+                                    value={roiOnSpend.text}
+                                />
+                            ),
                         },
                     ]}
                 />
@@ -329,9 +341,7 @@ export default function CashFlowPanel({
                     </div>
                 </>
             ) : error === null ? (
-                <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                    Computing cash flow…
-                </div>
+                <ChartSkeleton />
             ) : (
                 <SimulationFailureNotice message={error} />
             )}

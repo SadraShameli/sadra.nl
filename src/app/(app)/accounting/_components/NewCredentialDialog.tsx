@@ -17,7 +17,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '~/components/ui/dialog';
-import { Spinner } from '~/components/ui/spinner';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import {
     type CredentialCreateInput,
@@ -26,7 +25,10 @@ import {
 import { api } from '~/trpc/react';
 
 import { CredentialFormFields, defaultMetaFor } from './CredentialFormFields';
+import { DialogMode, dialogSubmitLabels } from './dialogSubmitLabels';
 import { useRefreshCredentials } from './useRefreshCredentials';
+
+const CREATE_LABELS = dialogSubmitLabels(DialogMode.Create);
 
 export function NewCredentialDialog() {
     const descriptors = useMemo(() => CredentialRegistry.instance.list(), []);
@@ -181,10 +183,9 @@ export function NewCredentialDialog() {
                             disabled={creationMutation.isPending}
                             type="submit"
                         >
-                            {creationMutation.isPending && (
-                                <Spinner className="size-3" />
-                            )}
-                            Save
+                            {creationMutation.isPending
+                                ? CREATE_LABELS.pendingLabel
+                                : CREATE_LABELS.submitLabel}
                         </Button>
                     </DialogFooter>
                 </form>

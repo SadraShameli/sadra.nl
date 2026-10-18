@@ -11,9 +11,8 @@ import { StatStrip, StatStripSize } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { DataTable } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, NoMatchesState } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
-import { PrRangePreset } from '~/lib/lifting/pr-filters';
 import { routes } from '~/lib/site/routes';
 import { api } from '~/trpc/react';
 
@@ -99,17 +98,7 @@ export function TodayHero() {
                     <DataTable
                         columns={prColumns}
                         data={prFilters.filteredRows}
-                        emptyState={
-                            <EmptyState
-                                description={
-                                    prFilters.range === PrRangePreset.All
-                                        ? 'Log a heavier set to set your first PR.'
-                                        : 'No PRs in this date range.'
-                                }
-                                icon={Trophy}
-                                title="No PRs yet"
-                            />
-                        }
+                        emptyState={<NoMatchesState icon={Trophy} noun="PRs" />}
                         filterPlaceholder="Search PRs"
                         hasExternalFilters={prFilters.isActive}
                         headerActions={<PrFiltersToolbar filters={prFilters} />}

@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 import {
     formatConjunctionList,
     formatCurrency,
-    formatGateCurrency,
+    formatWholeOrCentsCurrency,
 } from '~/lib/format';
 import {
     type InstrumentSymbol,
@@ -86,9 +86,10 @@ export function DailyPlanCardView({
                 card.valueAfterWin !== null &&
                 card.valueAfterLoss !== null && (
                     <p className="text-sm">
-                        Value now {formatGateCurrency(card.valueNow)}; after a
-                        win {formatGateCurrency(card.valueAfterWin)}; after a
-                        loss {formatGateCurrency(card.valueAfterLoss)}{' '}
+                        Value now {formatWholeOrCentsCurrency(card.valueNow)};
+                        after a win{' '}
+                        {formatWholeOrCentsCurrency(card.valueAfterWin)}; after
+                        a loss {formatWholeOrCentsCurrency(card.valueAfterLoss)}{' '}
                         (credit-free expected cash, if the next trade is taken
                         at the first rung).
                     </p>

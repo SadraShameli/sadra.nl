@@ -1,6 +1,9 @@
+import { Scale } from 'lucide-react';
 import { memo } from 'react';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatDisplayMonth } from '~/lib/format';
 
 import { type TiltVarianceCardModel } from './overviewModel';
@@ -26,14 +29,18 @@ export const TiltVarianceCard = memo(function TiltVarianceCard({
             section={OverviewSectionId.TiltVariance}
         >
             {model.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No months with net cash yet.
-                </p>
+                <EmptyState
+                    icon={Scale}
+                    size={EmptyStateSize.Compact}
+                    title="No months with net cash yet"
+                />
             ) : (
                 <DataTable
                     columns={[
                         {
-                            cell: ({ row }) => <>{row.original.firm}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.firm} />
+                            ),
                             header: 'Firm',
                             id: TiltVarianceCardColumn.Firm,
                             meta: { isRowHeader: true },
@@ -46,14 +53,16 @@ export const TiltVarianceCard = memo(function TiltVarianceCard({
                             id: TiltVarianceCardColumn.Month,
                         },
                         {
-                            cell: ({ row }) => <>{row.original.netCash}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.netCash} />
+                            ),
                             header: 'Net cash',
                             id: TiltVarianceCardColumn.NetCash,
                             meta: { align: DataTableAlign.End },
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.violationCost}</>
+                                <FigureText text={row.original.violationCost} />
                             ),
                             header: 'Violation cost',
                             id: TiltVarianceCardColumn.ViolationCost,
@@ -61,7 +70,9 @@ export const TiltVarianceCard = memo(function TiltVarianceCard({
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.netWithoutViolations}</>
+                                <FigureText
+                                    text={row.original.netWithoutViolations}
+                                />
                             ),
                             header: 'Net without violations',
                             id: TiltVarianceCardColumn.NetWithoutViolations,

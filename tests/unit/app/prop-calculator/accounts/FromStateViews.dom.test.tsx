@@ -47,6 +47,7 @@ import {
 import { routes } from '~/lib/site/routes';
 
 import { infoContent, infoText, withInfoTexts } from '../infoPopover';
+import { detailListEntries } from './detailListEntries';
 import { NextPayoutSectionWithWorker } from './NextPayoutSectionWithWorker';
 
 vi.mock('next/navigation', () => ({
@@ -85,6 +86,50 @@ function accountRequestOf(requests: readonly OverviewRequest[]) {
     return requests.find(
         (request) => request.kind === OverviewRequestKind.AccountFromState,
     );
+}
+
+function nextPayoutCardModel(): NextPayoutCardModel {
+    const [request] = overviewAccountRequestsFor(
+        [
+            {
+                account: FUNDED,
+                firmId: FirmId.TopStep,
+                measuredRebuyLag: null,
+                optIns: NO_PLAN_OPT_INS,
+                pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
+                planSerial: serializePlanId(PLAN.id),
+            },
+        ],
+        DEFAULT_RULEBOOK,
+    );
+    if (request === undefined) throw new Error('no request');
+    return {
+        disclosures: ['never merged into the fresh-start projection'],
+        rows: [
+            {
+                accountId: 'a',
+                label: 'Alpha',
+                plan: 'TopStep 50K',
+                view: readyView(request),
+            },
+            {
+                accountId: 'b',
+                label: 'Bravo',
+                plan: 'TopStep 50K',
+                view: { kind: AccountFromStateViewKind.Pending },
+            },
+            {
+                accountId: 'c',
+                label: 'Charlie',
+                plan: 'TopStep 50K',
+                view: {
+                    kind: AccountFromStateViewKind.Refused,
+                    reason: 'the stop is too wide',
+                },
+            },
+        ],
+        statusNote: null,
+    };
 }
 
 function readyView(request: OverviewRequest) {
@@ -767,58 +812,51 @@ describe('from-state views', () => {
 
     describe('NextPayoutCard', () => {
         it('lists a ready account, a pending account and a refused account, each in its own state', () => {
-            const [request] = overviewAccountRequestsFor(
-                [
-                    {
-                        account: FUNDED,
-                        firmId: FirmId.TopStep,
-                        measuredRebuyLag: null,
-                        optIns: NO_PLAN_OPT_INS,
-                        pendingPayoutCounts: NO_PENDING_PAYOUT_COUNTS,
-                        planSerial: serializePlanId(PLAN.id),
-                    },
-                ],
-                DEFAULT_RULEBOOK,
-            );
-            if (request === undefined) throw new Error('no request');
-            const model: NextPayoutCardModel = {
-                disclosures: ['never merged into the fresh-start projection'],
-                rows: [
-                    {
-                        accountId: 'a',
-                        label: 'Alpha',
-                        plan: 'TopStep 50K',
-                        view: readyView(request),
-                    },
-                    {
-                        accountId: 'b',
-                        label: 'Bravo',
-                        plan: 'TopStep 50K',
-                        view: { kind: AccountFromStateViewKind.Pending },
-                    },
-                    {
-                        accountId: 'c',
-                        label: 'Charlie',
-                        plan: 'TopStep 50K',
-                        view: {
-                            kind: AccountFromStateViewKind.Refused,
-                            reason: 'the stop is too wide',
-                        },
-                    },
-                ],
-                statusNote: null,
-            };
-            render(<NextPayoutCard model={model} />);
+            render(<NextPayoutCard model={nextPayoutCardModel()} />);
             const text = container.textContent;
             expect(text).toContain('$1,800 (SE $70)');
             expect(text).toContain('Not funded yet');
-            expect(text).toContain('Pending');
+            expect(text).toContain('Computing');
+            expect(text).toContain('Not available');
             expect(text).toContain('Charlie: the stop is too wide');
             expect(
                 infoText(container, "Next payout and value from today's state"),
             ).toContain('never merged');
             expect(container.querySelectorAll(':scope tbody tr')).toHaveLength(
                 3,
+            );
+        });
+
+        it('lists the figures from a ready account state as labels beside their own values', () => {
+            render(<NextPayoutCard model={nextPayoutCardModel()} />);
+            const trigger = [
+                ...container.querySelectorAll<HTMLButtonElement>(
+                    'button[aria-expanded]',
+                ),
+            ].find(
+                (candidate) =>
+                    candidate.textContent.trim() ===
+                    'Alpha: figures from its own state',
+            );
+            if (trigger === undefined) throw new Error('no Alpha figures');
+            act(() => {
+                trigger.click();
+            });
+            const entries = detailListEntries(container);
+            expect(entries.slice(0, 2)).toStrictEqual([
+                ['Value from this state, credit-free', '$1,800 (SE $70)'],
+                [
+                    'Value from this state, with end-of-horizon credit',
+                    '$1,950 (SE $70)',
+                ],
+            ]);
+            expect(entries.map(([label]) => label).slice(3)).toStrictEqual([
+                'Credit-free gain from the milestone',
+                'Payout requested at the milestone',
+                'Cash you receive from that payout',
+            ]);
+            expect(entries[2]?.[1]).toMatch(
+                /^\$[\d,]+ \(SE \$[\d,]+\) credit-free; \$[\d,]+ \(SE \$[\d,]+\) with credit$/u,
             );
         });
 

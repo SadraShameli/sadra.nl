@@ -10,6 +10,7 @@ import {
     FieldError,
     FieldLabel,
 } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
 import { Input } from '~/components/ui/input';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
@@ -20,7 +21,11 @@ import {
     SnapshotInputKind,
 } from '~/lib/prop-accounts';
 
-import { FieldRequirementMark } from './FieldRequirementMark';
+import {
+    MONEY_UNIT,
+    OPTIONAL_REQUIREMENT,
+    RequirementLabel,
+} from './RequirementLabel';
 import {
     LEDGER_ONLY_SNAPSHOT_NOTICE,
     ledgerOnlySnapshotRules,
@@ -28,10 +33,16 @@ import {
     type SnapshotFormValues,
 } from './snapshotFieldRules';
 
+export enum SnapshotHintDisplay {
+    Inline = 'inline',
+    Popover = 'popover',
+}
+
 interface SnapshotFieldsEntry {
     readonly fieldWarnings: readonly SnapshotFieldIssue[];
     readonly formIssues: readonly string[];
     readonly formWarnings: readonly string[];
+    readonly hintDisplay?: SnapshotHintDisplay;
     readonly idPrefix?: string;
     readonly isReadOnly?: boolean;
     readonly issues: readonly SnapshotFieldIssue[];
@@ -54,7 +65,7 @@ type SnapshotFieldsProperties = SnapshotFieldsEntry &
 const REQUIREMENT_NOTE: Readonly<Record<SnapshotFieldRequirement, string>> = {
     [SnapshotFieldRequirement.Hidden]: '',
     [SnapshotFieldRequirement.OneOf]: 'this or the alternative',
-    [SnapshotFieldRequirement.Optional]: 'optional',
+    [SnapshotFieldRequirement.Optional]: OPTIONAL_REQUIREMENT,
     [SnapshotFieldRequirement.Required]: 'required',
 };
 
@@ -63,6 +74,7 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
         fieldWarnings,
         formIssues,
         formWarnings,
+        hintDisplay = SnapshotHintDisplay.Inline,
         idPrefix,
         isReadOnly = false,
         issues,
@@ -125,8 +137,16 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                 const hintId = `${id}-hint`;
                 const errorId = `${id}-error`;
                 const warningId = `${id}-warning`;
+                const inlineHint =
+                    hintDisplay === SnapshotHintDisplay.Inline
+                        ? rule.hint
+                        : null;
+                const popoverHint =
+                    hintDisplay === SnapshotHintDisplay.Popover
+                        ? rule.hint
+                        : null;
                 const describedBy = [
-                    rule.hint === null ? null : hintId,
+                    inlineHint === null ? null : hintId,
                     issue === undefined ? null : errorId,
                     warning === undefined ? null : warningId,
                 ]
@@ -134,16 +154,26 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                     .join(' ');
                 return (
                     <Field data-invalid={issue !== undefined} key={rule.field}>
-                        <FieldLabel
-                            className="items-baseline gap-1"
-                            htmlFor={id}
-                        >
-                            {rule.label}
-                            {rule.input === SnapshotInputKind.Money && ' ($)'}
-                            <FieldRequirementMark
-                                text={REQUIREMENT_NOTE[rule.requirement]}
-                            />
-                        </FieldLabel>
+                        <div className="flex items-center gap-1.5">
+                            <FieldLabel htmlFor={id}>
+                                <RequirementLabel
+                                    label={rule.label}
+                                    requirement={
+                                        REQUIREMENT_NOTE[rule.requirement]
+                                    }
+                                    unit={
+                                        rule.input === SnapshotInputKind.Money
+                                            ? MONEY_UNIT
+                                            : undefined
+                                    }
+                                />
+                            </FieldLabel>
+                            {popoverHint !== null && (
+                                <InfoPopover title={rule.label}>
+                                    {popoverHint}
+                                </InfoPopover>
+                            )}
+                        </div>
                         {rule.input === SnapshotInputKind.Date ? (
                             <IsoDatePicker
                                 aria-describedby={
@@ -174,9 +204,9 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                                 value={values[rule.field]}
                             />
                         )}
-                        {rule.hint !== null && (
+                        {inlineHint !== null && (
                             <FieldDescription id={hintId}>
-                                {rule.hint}
+                                {inlineHint}
                             </FieldDescription>
                         )}
                         {issue !== undefined && (

@@ -1,5 +1,6 @@
 import { type ComponentProps, type ReactNode, type Ref } from 'react';
 
+import { ComputingIndicator } from '~/components/ComputingIndicator';
 import { ToolSectionHeading } from '~/components/ToolSectionHeading';
 import { Card, CardContent, CardHeader } from '~/components/ui/card';
 import InfoPopover from '~/components/ui/info-popover';
@@ -12,6 +13,7 @@ type ToolPanelProperties = Omit<ComponentProps<typeof Card>, 'title'> & {
     readonly contentClassName?: string;
     readonly description?: ReactNode;
     readonly info?: ReactNode;
+    readonly isComputing?: boolean;
     readonly title: ReactNode;
     readonly titleAs?: TitleTag;
     readonly titleId?: string;
@@ -25,6 +27,7 @@ export function ToolPanel({
     contentClassName,
     description,
     info,
+    isComputing = false,
     title,
     titleAs = 'h2',
     titleId,
@@ -33,6 +36,7 @@ export function ToolPanel({
 }: ToolPanelProperties) {
     return (
         <Card
+            aria-busy={isComputing || undefined}
             className={cn('app-tool__panel', 'min-w-0 gap-6', className)}
             {...properties}
         >
@@ -57,6 +61,7 @@ export function ToolPanel({
                                 {info}
                             </InfoPopover>
                         )}
+                        {isComputing ? <ComputingIndicator /> : null}
                     </div>
                     {description === undefined ? null : (
                         <p className="m-0 text-sm text-ink-muted">

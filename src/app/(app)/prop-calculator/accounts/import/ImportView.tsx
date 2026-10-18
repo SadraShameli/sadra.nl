@@ -17,6 +17,7 @@ import {
     accountPlanOptions,
     planTagLabel,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
+import { DetailList, DetailListLayout } from '~/components/DetailList';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
@@ -352,22 +353,23 @@ function ColumnReference<Column extends string>({
     required: readonly Column[];
 }) {
     return (
-        <dl
-            aria-label="Columns and formats"
-            className="flex max-h-96 flex-col gap-2 overflow-y-auto"
-        >
-            {columns.map((column) => (
-                <div key={column}>
-                    <dt className="font-mono text-xs text-foreground">
-                        {column}
+        <DetailList
+            className="max-h-96 overflow-y-auto"
+            items={columns.map((column) => ({
+                id: column,
+                label: column,
+                value: (
+                    <>
                         {required.includes(column) && (
-                            <Badge className="ml-2">required</Badge>
+                            <Badge className="mr-2">required</Badge>
                         )}
-                    </dt>
-                    <dd>{describeColumn(column)}</dd>
-                </div>
-            ))}
-        </dl>
+                        {describeColumn(column)}
+                    </>
+                ),
+            }))}
+            label="Columns and formats"
+            layout={DetailListLayout.Stacked}
+        />
     );
 }
 
@@ -449,7 +451,7 @@ function CsvImportPanel<Column extends string, Value>({
                             setFileError(null);
                             onTextChange(event.target.value);
                         }}
-                        placeholder={columns.join(',')}
+                        placeholder={`Paste the ${noun.plural} CSV here, header row first`}
                         spellCheck={false}
                         value={text}
                     />

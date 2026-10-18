@@ -100,18 +100,22 @@ const invoiceDetailSchema = z
 
 export const invoiceSchema = z
     .object({
+        currency: z.string().nullish(),
         date: z.string(),
         details: z.array(invoiceDetailSchema).default([]),
         id: externalId,
         payments: z.array(z.unknown()).default([]),
         reference: z.string().nullish(),
+        total_price_incl_tax: z.coerce.number().nullish(),
     })
     .transform((raw) => ({
+        currency: raw.currency ?? null,
         date: raw.date,
         details: raw.details,
         hasPayment: raw.payments.length > 0,
         id: raw.id,
         reference: raw.reference ?? null,
+        totalPriceInclTax: raw.total_price_incl_tax ?? null,
     }));
 export interface CreateContactRequest {
     companyName: string;

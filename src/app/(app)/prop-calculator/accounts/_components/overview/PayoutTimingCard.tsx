@@ -1,8 +1,12 @@
+import { Clock } from 'lucide-react';
 import { memo } from 'react';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import { isMissingFigure } from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
+import { MissingValue } from '~/components/MissingValue';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 
-import { OverviewPanel } from './OverviewPanel';
+import { OverviewEmptyPanel, OverviewPanel } from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 import {
     type PayoutTimingCardModel,
@@ -11,6 +15,8 @@ import {
 import { SampleBadge } from './SampleBadge';
 
 const PAYOUT_TIMING_LABEL = 'Payout timing per plan';
+
+const NO_SAMPLE_REASON = 'No paid payout on this plan to measure yet.';
 
 enum PayoutTimingColumn {
     BetweenPayouts = 'between-payouts',
@@ -61,13 +67,14 @@ export const PayoutTimingCard = memo(function PayoutTimingCard({
 }: {
     readonly model: PayoutTimingCardModel;
 }) {
-    if (model.rows.length === 0) {
+    if (!model.rows.some(hasObservedTiming)) {
         return (
-            <OverviewPanel section={OverviewSectionId.PayoutTiming}>
-                <p className="text-sm text-muted-foreground">
-                    No plan to time yet.
-                </p>
-            </OverviewPanel>
+            <OverviewEmptyPanel
+                description="Timing is measured from funded accounts that have been paid."
+                icon={Clock}
+                section={OverviewSectionId.PayoutTiming}
+                title="No paid funded account to time yet"
+            />
         );
     }
     return (
@@ -88,13 +95,24 @@ export const PayoutTimingCard = memo(function PayoutTimingCard({
 });
 
 function Figure({ figure }: { readonly figure: PayoutTimingFigure }) {
+    if (figure.n === 0) return <MissingValue reason={NO_SAMPLE_REASON} />;
     return (
         <span className="inline-flex flex-wrap items-center gap-1.5">
-            {figure.mean}
+            <FigureText text={figure.mean} />
             <span className="text-xs text-muted-foreground">
-                SE {figure.standardError}, n = {String(figure.n)}
+                {isMissingFigure(figure.standardError)
+                    ? `n = ${String(figure.n)}`
+                    : `SE ${figure.standardError}, n = ${String(figure.n)}`}
             </span>
             <SampleBadge level={figure.sampleLevel} />
         </span>
+    );
+}
+
+function hasObservedTiming(row: PayoutTimingRow): boolean {
+    return (
+        row.toFirstPayout.n > 0 ||
+        row.betweenPayouts.n > 0 ||
+        row.unpaidNote !== null
     );
 }

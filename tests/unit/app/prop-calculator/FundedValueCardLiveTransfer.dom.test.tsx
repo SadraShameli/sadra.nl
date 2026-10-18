@@ -24,6 +24,7 @@ import { MffuVariant } from '~/lib/prop-calculator/core';
 import { LiveTransferContinuationKind } from '~/lib/prop-calculator/simulator';
 
 import { infoContentOrNull } from './infoPopover';
+import { missingValueText } from './missingValue';
 
 const toolsWorkerBox = vi.hoisted(() => ({
     instances: [] as {
@@ -319,7 +320,7 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
         expect(text).toContain('Mean payouts per funded account');
     });
 
-    it('asks for a sample size under the dollar range until one exists', () => {
+    it('hides the dollar range tile, rather than a headline n/a, until a sample size exists', () => {
         succeedWith(
             {
                 ...fundedValueResult(),
@@ -331,7 +332,8 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
 
         const text = container.textContent;
         expect(text).toContain('$4,500 ± $300');
-        expect(text).toContain('enter a sample size');
+        expect(text).not.toContain('Range n accounts could show ($)');
+        expect(text).not.toContain('n/a');
     });
 
     it('says why there is no dollar range when n is set but the run gave no standard error', () => {
@@ -347,5 +349,7 @@ describe('FundedValueCard speaks dollars (F-V17, PT-82)', () => {
         const text = container.textContent;
         expect(text).toContain('$4,500');
         expect(text).toContain('too few funded trials for a standard error');
+        expect(text).toContain(missingValueText());
+        expect(text).not.toContain('n/a');
     });
 });

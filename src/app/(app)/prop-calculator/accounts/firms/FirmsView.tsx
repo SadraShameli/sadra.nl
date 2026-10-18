@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil, TriangleAlert } from 'lucide-react';
+import { Building2, Pencil, TriangleAlert } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -10,6 +10,7 @@ import { z } from 'zod';
 import type { propFirmEngagementOutputSchema } from '~/lib/schemas/propRecordOutputs';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { FirmsSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import {
     nullIfBlank,
     parsedOrIssues,
@@ -18,13 +19,16 @@ import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
 import { FormDialog } from '~/components/FormDialog';
+import { MissingValue } from '~/components/MissingValue';
 import { RowActionKind, rowActionsColumn } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Dialog } from '~/components/ui/dialog';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
@@ -36,7 +40,7 @@ import {
 } from '~/components/ui/select';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useSession } from '~/lib/auth/client';
-import { formatDisplayDate, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { formatDisplayDate, formatPercent } from '~/lib/format';
 import {
     type ExternalFirmName,
     type FirmColumns,
@@ -189,7 +193,7 @@ export function FirmsView() {
                 </Alert>
             );
         }
-        return <Skeleton className="h-64 w-full" />;
+        return <FirmsSkeleton />;
     }
 
     return (
@@ -235,9 +239,12 @@ export function FirmsView() {
             />
             <ToolPanel title="Firm roster">
                 {model.roster.firms.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        No firms yet. Add an account to see it here.
-                    </p>
+                    <EmptyState
+                        description="A firm appears here once you add an account at it."
+                        icon={Building2}
+                        size={EmptyStateSize.Compact}
+                        title="No firms yet"
+                    />
                 ) : (
                     <DataTable
                         columns={[
@@ -284,21 +291,21 @@ export function FirmsView() {
                             },
                             {
                                 cell: ({ row: { original: entry } }) =>
-                                    entry.firstPurchaseOn === null
-                                        ? NOT_APPLICABLE
-                                        : formatDisplayDate(
-                                              entry.firstPurchaseOn,
-                                          ),
+                                    entry.firstPurchaseOn === null ? (
+                                        <MissingValue />
+                                    ) : (
+                                        formatDisplayDate(entry.firstPurchaseOn)
+                                    ),
                                 header: 'First purchase',
                                 id: FirmRosterColumn.FirstPurchase,
                             },
                             {
                                 cell: ({ row: { original: entry } }) =>
-                                    entry.lastActivityOn === null
-                                        ? NOT_APPLICABLE
-                                        : formatDisplayDate(
-                                              entry.lastActivityOn,
-                                          ),
+                                    entry.lastActivityOn === null ? (
+                                        <MissingValue />
+                                    ) : (
+                                        formatDisplayDate(entry.lastActivityOn)
+                                    ),
                                 header: 'Last activity',
                                 id: FirmRosterColumn.LastActivity,
                             },
@@ -472,7 +479,9 @@ function FirmStatusForm({
                                 id={`${formId}-status`}
                                 ref={field.ref}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {firmEngagementStatusLabel(field.value)}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(FirmEngagementStatus).map(
@@ -507,7 +516,9 @@ function FirmStatusForm({
                                     id={`${formId}-reason`}
                                     ref={field.ref}
                                 >
-                                    <SelectValue />
+                                    <SelectValue>
+                                        {firmEngagementReasonLabel(field.value)}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {Object.values(FirmEngagementReason).map(
@@ -615,12 +626,11 @@ function ScaleGateCard({
                     <Badge>{SCALE_GATE_STATUS_TEXT[scaleGate.status]}</Badge>
                 )
             }
+            isComputing={isLoading}
             title="Scale gate"
         >
             {isLoading ? (
-                <p className="text-sm text-muted-foreground" role="status">
-                    Checking your thresholds and journal
-                </p>
+                <Skeleton className="h-5 w-full max-w-md" />
             ) : scaleGate.status === ScaleGateStatus.ThresholdsNotSet ? (
                 <p className="text-sm text-muted-foreground">
                     Set your sample thresholds on the rulebook to see whether
@@ -651,20 +661,22 @@ function TransferRateCell({
     return (
         <>
             <div>
-                {transferRateText(
-                    transferRate,
-                    transferRate?.perPaidPayout ?? null,
-                    transferRate?.perPaidPayoutUnavailable ?? null,
-                    'per paid payout',
-                )}
+                <TransferRateLine
+                    basis="per paid payout"
+                    estimate={transferRate?.perPaidPayout ?? null}
+                    rate={transferRate}
+                    unavailable={transferRate?.perPaidPayoutUnavailable ?? null}
+                />
             </div>
             <div className="text-xs text-muted-foreground">
-                {transferRateText(
-                    transferRate,
-                    transferRate?.perFundedAccountMonth ?? null,
-                    transferRate?.perFundedAccountMonthUnavailable ?? null,
-                    'per funded account-month',
-                )}
+                <TransferRateLine
+                    basis="per funded account-month"
+                    estimate={transferRate?.perFundedAccountMonth ?? null}
+                    rate={transferRate}
+                    unavailable={
+                        transferRate?.perFundedAccountMonthUnavailable ?? null
+                    }
+                />
             </div>
         </>
     );
@@ -680,14 +692,25 @@ function transferRateFor(
     );
 }
 
-function transferRateText(
-    rate: FirmLiveTransferRate | null,
-    estimate: null | SampledEstimate,
-    unavailable: LiveTransferRateUnavailable | null,
-    basis: string,
-): string {
-    if (estimate !== null) return `${formatRate(estimate)} ${basis}`;
-    return rate === null || unavailable === null
-        ? NOT_APPLICABLE
-        : `${NOT_APPLICABLE}: ${liveTransferUnavailableText(unavailable, rate)}`;
+function TransferRateLine({
+    basis,
+    estimate,
+    rate,
+    unavailable,
+}: {
+    readonly basis: string;
+    readonly estimate: null | SampledEstimate;
+    readonly rate: FirmLiveTransferRate | null;
+    readonly unavailable: LiveTransferRateUnavailable | null;
+}) {
+    if (estimate !== null) return <>{`${formatRate(estimate)} ${basis}`}</>;
+    return (
+        <MissingValue
+            reason={
+                rate === null || unavailable === null
+                    ? undefined
+                    : sentenceOf(liveTransferUnavailableText(unavailable, rate))
+            }
+        />
+    );
 }

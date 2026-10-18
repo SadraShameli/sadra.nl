@@ -39,6 +39,7 @@ import {
     ValueResultKind,
 } from '~/lib/prop-calculator/advisor/value';
 
+import { withInfoTexts } from '../infoPopover';
 import {
     AccountDetailValuesProbe,
     AccountsTable,
@@ -662,7 +663,7 @@ describe('account list and detail header lead with value and next action (PT-68)
             expect(rowOf('No snapshot').textContent).toContain(
                 "Enter today's balance",
             );
-            expect(rowOf('No snapshot').textContent).toContain('Not valued');
+            expect(rowOf('No snapshot').textContent).toContain('Not available');
             const enterLink = [
                 ...rowOf('Stale funded').querySelectorAll('a'),
             ].find((link) => link.textContent === "Enter today's balance");
@@ -693,8 +694,10 @@ describe('account list and detail header lead with value and next action (PT-68)
             );
             render(<AccountsTable userId={USER_ID} />);
             const text = rowOf('Hola').textContent;
-            expect(text).toContain('Not valued');
-            expect(text).toContain('Ledger only: the engine does not model');
+            expect(text).toContain('Not available');
+            expect(withInfoTexts(rowOf('Hola'))).toContain(
+                'Ledger only: the engine does not model',
+            );
             expect(text).toContain('Not modeled for this account');
         });
 
@@ -981,9 +984,11 @@ describe('account list and detail header lead with value and next action (PT-68)
                 container.querySelectorAll(':scope tbody [role="status"]'),
             ).toHaveLength(0);
             expect(container.querySelectorAll('td[role]')).toHaveLength(0);
-            expect(container.querySelectorAll('[role="status"]')).toHaveLength(
-                1,
-            );
+            expect(
+                container.querySelectorAll(
+                    '[role="status"]:not([aria-hidden="true"])',
+                ),
+            ).toHaveLength(1);
             expect(
                 container.querySelector('[aria-busy="true"]'),
             ).not.toBeNull();
@@ -1099,8 +1104,8 @@ describe('account list and detail header lead with value and next action (PT-68)
                     userId={USER_ID}
                 />,
             );
-            expect(container.textContent).toContain('Not valued');
-            expect(container.textContent).toContain('Ledger only');
+            expect(container.textContent).toContain('Not available');
+            expect(withInfoTexts(container)).toContain('Ledger only');
             expect(container.textContent).toContain(
                 'Not modeled for this account',
             );

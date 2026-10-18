@@ -405,6 +405,20 @@ describe('LadderLabPanel', () => {
             'Apply also sets the unaffordable rung choice for every trade in the simulation, eval and funded, not only for this ladder.',
         );
     });
+
+    it('stacks the grid and rule fields in one column on phone', () => {
+        render(baseInputsWith(RungSizing.CapToCushion), null);
+        const gridFields = container
+            .querySelector('#ladder-lab-instrument')
+            ?.closest('.grid');
+        const ruleFields = container
+            .querySelector('#ladder-rung-sizing')
+            ?.closest('.grid');
+        expect(gridFields?.classList.contains('grid-cols-2')).toBe(false);
+        expect(gridFields?.classList.contains('md:grid-cols-3')).toBe(true);
+        expect(ruleFields?.classList.contains('sm:grid-cols-2')).toBe(false);
+        expect(ruleFields?.classList.contains('md:grid-cols-2')).toBe(true);
+    });
 });
 
 describe('LadderLabPanel objective and contracts at the stop (PT-63, F-V15, F-V23)', () => {

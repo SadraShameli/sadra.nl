@@ -314,6 +314,7 @@ describe('CopyGroupSimulationCard', () => {
         finish(simulated());
         const text = withInfoTexts(container);
         expect(text).toContain('same trades');
+        expect(text).toContain('5,000 trials');
         expect(text).toContain('Live second');
         expect(text).toMatch(/left out/i);
     });

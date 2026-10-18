@@ -9,8 +9,8 @@ import { toast } from 'sonner';
 
 import { STICKY_ACTION_BAR_PROPS } from '~/app/(app)/_components/ScrollToTop';
 import { DAY_STOP_KIND_LABELS } from '~/app/(app)/prop-calculator/_components/describeDayStopRule';
+import { RulebookSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
-import { InfoNote } from '~/components/InfoNote';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { SwitchCard } from '~/components/ToggleCard';
 import { ToolPanel } from '~/components/ToolPanel';
@@ -34,7 +34,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { Skeleton } from '~/components/ui/skeleton';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatPercent } from '~/lib/format';
 import { formatUsdCents, usdCents } from '~/lib/prop-accounts';
@@ -182,13 +181,7 @@ export function RulebookView({
         return <OverwriteRulebook tradingPlan={tradingPlan} />;
     }
     if (rulebookQuery.isPending) {
-        return (
-            <Skeleton
-                aria-label="Loading your rulebook"
-                className="h-96 w-full"
-                role="status"
-            />
-        );
+        return <RulebookSkeleton />;
     }
     if (!isInvalidStoredRecord(rulebookQuery.error, PropRecord.Rulebook)) {
         return <RulebookLoadError message={rulebookQuery.error.message} />;
@@ -335,7 +328,9 @@ function DisplayCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-display.riskUnit`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {RISK_UNIT_LABEL[field.value]}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(RiskDisplayUnit).map((unit) => (
@@ -415,7 +410,9 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-eval.mode`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {EVAL_MODE_OPTIONS[field.value].label}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(EvalSizingMode).map((option) => (
@@ -458,7 +455,9 @@ function EvalCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-eval.ladderFractionSource`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {LADDER_SOURCE_OPTIONS[field.value].label}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(LadderFractionSource).map(
@@ -530,7 +529,9 @@ function FundedCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-funded.stopRule.kind`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {DAY_STOP_KIND_LABELS[field.value]}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(DayStopRuleKind).map((kind) => (
@@ -584,7 +585,7 @@ function HazardField({
                 }
                 return unavailableText === undefined ? null : (
                     <p className="text-xs text-muted-foreground">
-                        n/a: {unavailableText}
+                        Not measured: {unavailableText}
                     </p>
                 );
             }}
@@ -827,13 +828,9 @@ function LiveTransferCard({
                     advanced settings.
                 </p>
             }
+            isComputing={pending}
             title="Live transfer (your assumption, not a firm rule)"
         >
-            {pending && (
-                <InfoNote className="md:col-span-2" role="status">
-                    Loading your measured rates from your ledger.
-                </InfoNote>
-            )}
             {failed && (
                 <p
                     className="text-xs text-destructive md:col-span-2"
@@ -1025,7 +1022,9 @@ function ReviewCard({ control }: { control: Control<RulebookFormValues> }) {
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-review.weekday`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {WEEKDAY_LABEL[field.value]}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {WEEKDAY_ORDER.map((weekday) => (
@@ -1233,16 +1232,19 @@ function SamplesCard({ control }: { control: Control<RulebookFormValues> }) {
 function SectionCard({
     children,
     info,
+    isComputing = false,
     title,
 }: {
     children: ReactNode;
     info?: ReactNode;
+    isComputing?: boolean;
     title: string;
 }) {
     return (
         <ToolPanel
             contentClassName="grid gap-4 md:grid-cols-2"
             info={info}
+            isComputing={isComputing}
             title={title}
         >
             {children}

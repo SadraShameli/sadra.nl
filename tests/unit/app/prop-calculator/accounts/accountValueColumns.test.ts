@@ -562,7 +562,7 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
         expect(unlikely.text).toBe('3.4 calendar days (SE 0.4)');
     });
 
-    it('prints a missing standard error as not applicable', () => {
+    it('leaves out a missing standard error instead of printing n/a', () => {
         const account = fundedAccount(1800, {
             ...projection(3.4),
             expectedCalendarDaysToFirstPayout: {
@@ -570,9 +570,7 @@ describe('accountValueColumnsOf: next payout and its highlight', () => {
                 value: 3.4,
             },
         });
-        expect(columnsOf(account).nextPayout.text).toBe(
-            '3.4 calendar days (SE n/a)',
-        );
+        expect(columnsOf(account).nextPayout.text).toBe('3.4 calendar days');
     });
 
     it('highlights a payout within the configured number of days, boundary included, and not beyond', () => {

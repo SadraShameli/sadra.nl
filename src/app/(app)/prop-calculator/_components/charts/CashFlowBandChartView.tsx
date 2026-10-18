@@ -22,6 +22,8 @@ import { formatCompactCurrency } from '~/lib/format';
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator';
 import { type PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
 
+import { ChartEmptyState } from './ChartEmptyState';
+
 interface ChartRow {
     low: number;
     month: number;
@@ -43,11 +45,7 @@ const chartConfig: ChartConfig = {
 
 export default function CashFlowBandChartView({ result }: Properties) {
     if (result.days.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                No simulation data yet.
-            </div>
-        );
+        return <ChartEmptyState title="No simulation data yet" />;
     }
 
     const data = buildChartData(result);

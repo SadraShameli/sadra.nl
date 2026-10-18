@@ -1,19 +1,37 @@
+import { HandCoins } from 'lucide-react';
 import { memo } from 'react';
 
 import AccountsPassedDistributionChart from '~/app/(app)/prop-calculator/_components/AccountsPassedDistributionChart';
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import {
+    hasFigure,
+    isPendingFigure,
+} from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
 import { PanelSubheading } from '~/components/PanelSubheading';
+import { ChartSize, ChartSkeleton } from '~/components/ui/chart';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
     DataTablePhoneLayout,
 } from '~/components/ui/data-table';
+import { cn } from '~/lib/utilities';
 
 import { type FundedPayoutsCardModel } from './overviewModel';
-import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import {
+    infoLinesOf,
+    OverviewEmptyPanel,
+    OverviewPanel,
+} from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 
 const PAYOUT_COUNT_CAPTION = '# payouts per funded account';
+
+const NO_MODELED_DISTRIBUTION_TEXT =
+    'Modeled distribution: the engine has none for this plan.';
+
+const NO_REALIZED_DISTRIBUTION_TEXT =
+    'Realized distribution: no fully observed funded account yet.';
 
 enum FundedPayoutsColumn {
     ModeledFundedValue = 'modeled-funded-value',
@@ -71,7 +89,9 @@ function fundedPayoutsColumns(
         },
         {
             cell: ({ row: { original: line } }) =>
-                realizedOnly(line, (row) => row.realizedFundedValue),
+                realizedOnly(line, (row) => (
+                    <FigureText text={row.realizedFundedValue} />
+                )),
             header: 'Realized funded value',
             id: FundedPayoutsColumn.RealizedFundedValue,
             meta: { align: DataTableAlign.End },
@@ -80,7 +100,7 @@ function fundedPayoutsColumns(
             cell: ({ row: { original: line } }) =>
                 realizedOnly(line, (row) => (
                     <span className="text-muted-foreground">
-                        {row.modeledFundedValue}
+                        <FigureText text={row.modeledFundedValue} />
                         {row.fundedValueFlag !== null && (
                             <span className="block text-xs text-warning">
                                 {row.fundedValueFlag}
@@ -124,11 +144,11 @@ export const FundedPayoutsCard = memo(function FundedPayoutsCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <OverviewPanel section={OverviewSectionId.FundedPayouts}>
-                <p className="text-sm text-muted-foreground">
-                    No funded account yet.
-                </p>
-            </OverviewPanel>
+            <OverviewEmptyPanel
+                icon={HandCoins}
+                section={OverviewSectionId.FundedPayouts}
+                title="No funded account yet"
+            />
         );
     }
     return (
@@ -137,7 +157,13 @@ export const FundedPayoutsCard = memo(function FundedPayoutsCard({
             section={OverviewSectionId.FundedPayouts}
         >
             <DataTable
-                columns={fundedPayoutsColumns(model.payoutCountCap)}
+                columns={fundedPayoutsColumns(model.payoutCountCap).filter(
+                    (column) =>
+                        column.id !== FundedPayoutsColumn.RealizedFundedValue ||
+                        model.rows.some((row) =>
+                            hasFigure(row.realizedFundedValue),
+                        ),
+                )}
                 data={linesOf(model.rows)}
                 isSortable={false}
                 pageSize={null}
@@ -163,18 +189,21 @@ function DistributionPair({
 }: {
     readonly row: FundedPayoutsCardModel['rows'][number];
 }) {
+    const hasRealized = row.realizedProbabilities.length > 0;
+    const isModeledPending = isPendingFigure(row.modeledFundedValue);
+    const hasModeled = row.modeledProbabilities !== null || isModeledPending;
     return (
         <div className="flex flex-col gap-2">
             <PanelSubheading>
                 {row.plan}: payout-count distribution
             </PanelSubheading>
-            <div className="grid gap-4 md:grid-cols-2">
-                {row.realizedProbabilities.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        No fully observed funded account yet, so there is no
-                        realized distribution.
-                    </p>
-                ) : (
+            <div
+                className={cn(
+                    'grid gap-4',
+                    hasRealized && hasModeled && 'md:grid-cols-2',
+                )}
+            >
+                {hasRealized && (
                     <AccountsPassedDistributionChart
                         caption={`${PAYOUT_COUNT_CAPTION}, realized`}
                         distribution={[...row.realizedProbabilities]}
@@ -182,9 +211,9 @@ function DistributionPair({
                     />
                 )}
                 {row.modeledProbabilities === null ? (
-                    <p className="text-sm text-muted-foreground">
-                        The modeled distribution is pending the engine cards.
-                    </p>
+                    isModeledPending && (
+                        <ChartSkeleton size={ChartSize.Compact} />
+                    )
                 ) : (
                     <AccountsPassedDistributionChart
                         caption={`${PAYOUT_COUNT_CAPTION}, modeled`}
@@ -193,6 +222,16 @@ function DistributionPair({
                     />
                 )}
             </div>
+            {!hasRealized && (
+                <p className="text-xs text-muted-foreground">
+                    {NO_REALIZED_DISTRIBUTION_TEXT}
+                </p>
+            )}
+            {!hasModeled && (
+                <p className="text-xs text-muted-foreground">
+                    {NO_MODELED_DISTRIBUTION_TEXT}
+                </p>
+            )}
         </div>
     );
 }

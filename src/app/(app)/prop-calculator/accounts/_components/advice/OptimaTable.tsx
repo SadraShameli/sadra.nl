@@ -2,7 +2,7 @@ import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_componen
 import { Badge } from '~/components/ui/badge';
 import { Card } from '~/components/ui/card';
 import { DataTable } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 import {
     type DpAdviceRecordInput,
@@ -66,9 +66,10 @@ export function OptimaTable({
 }) {
     if (rows.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No engine optima were requested for this stage.
-            </p>
+            <EmptyState
+                size={EmptyStateSize.Compact}
+                title="No engine optima requested for this stage"
+            />
         );
     }
     return (

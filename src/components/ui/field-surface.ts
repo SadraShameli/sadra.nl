@@ -1,0 +1,2 @@
+export const FIELD_SURFACE_CLASS =
+    'rounded-md border border-line-hover bg-background shadow-xs transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:border-line-hover dark:bg-input/30 dark:aria-invalid:ring-destructive/40';

@@ -1,5 +1,7 @@
 'use client';
 
+import { Radio } from 'lucide-react';
+
 import { EvalLadderScope } from '~/app/(app)/prop-calculator/_components/AppliedEvalLadderNotice';
 import { useCalculatorInputs } from '~/app/(app)/prop-calculator/_components/CalculatorProvider';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
@@ -10,20 +12,22 @@ import {
     liveToolModelCacheKey,
     LiveToolStatus,
 } from '~/app/(app)/prop-calculator/_components/live/liveToolModel';
-import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useDebouncedComputation } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
 import { StatStrip } from '~/components/StatStrip';
-import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatCurrency, formatDays, formatPercent } from '~/lib/format';
 import { type LiveOutputs, simulateLiveAccount } from '~/lib/prop-calculator';
 
 const LIVE_DEBOUNCE_MS = 550;
 const RESULT_HEADING_ID = 'live-result-heading';
+const NO_LIVE_BUST_REASON = 'No simulated live account busted.';
+const NO_LIVE_WITHDRAWAL_REASON = 'No simulated live account withdrew.';
 
 export function LiveView() {
     const { state } = useCalculatorInputs();
@@ -72,13 +76,18 @@ export function LiveView() {
                                 ? model.note
                                 : undefined
                         }
+                        isComputing={
+                            model.status === LiveToolStatus.Modeled && pending
+                        }
                         title="Live stage results"
                         titleId={RESULT_HEADING_ID}
                     >
                         {model.status === LiveToolStatus.NotModeled ? (
-                            <StatusRow
-                                title={model.message}
-                                tone={StatusTone.Neutral}
+                            <EmptyState
+                                description={model.reason}
+                                icon={Radio}
+                                size={EmptyStateSize.Compact}
+                                title="No live stage modeled"
                             />
                         ) : (
                             <LiveComputationResult
@@ -104,46 +113,73 @@ function LiveComputationResult({
     result: LiveOutputs | null;
 }) {
     if (error !== null) return <SimulationFailureNotice message={error} />;
-    return result === null || pending ? (
-        <PanelSkeleton />
-    ) : (
-        <LiveResultSummary out={result} />
+    return (
+        <LiveResultSummary out={result === null || pending ? null : result} />
     );
 }
 
-function LiveResultSummary({ out }: { out: LiveOutputs }) {
+function LiveResultSummary({ out }: { out: LiveOutputs | null }) {
     return (
         <StatStrip
+            isLoading={out === null}
             items={[
                 {
                     id: 'bust-probability',
                     label: 'Bust probability',
-                    value: formatPercent(out.liveBustProbability),
+                    value:
+                        out === null
+                            ? null
+                            : formatPercent(out.liveBustProbability),
                 },
                 {
                     id: 'inactivity-closure',
                     label: 'Closed for inactivity',
-                    value: formatPercent(out.liveInactivityClosureProbability),
+                    value:
+                        out === null
+                            ? null
+                            : formatPercent(
+                                  out.liveInactivityClosureProbability,
+                              ),
                 },
                 {
                     id: 'median-days-to-bust',
                     label: 'Median days to bust',
-                    value: formatDays(out.medianDaysToBust),
+                    value:
+                        out === null ? null : (
+                            <ValueOrMissing
+                                reason={NO_LIVE_BUST_REASON}
+                                value={formatDays(out.medianDaysToBust)}
+                            />
+                        ),
                 },
                 {
                     id: 'median-days-to-first-withdrawal',
                     label: 'Median days to first withdrawal',
-                    value: formatDays(out.medianDaysToFirstWithdrawal),
+                    value:
+                        out === null ? null : (
+                            <ValueOrMissing
+                                reason={NO_LIVE_WITHDRAWAL_REASON}
+                                value={formatDays(
+                                    out.medianDaysToFirstWithdrawal,
+                                )}
+                            />
+                        ),
                 },
                 {
                     id: 'withdrawals-by-horizon',
                     label: 'Withdrawals by the horizon (median)',
-                    value: formatCurrency(out.cumulativeWithdrawalsP50),
+                    value:
+                        out === null
+                            ? null
+                            : formatCurrency(out.cumulativeWithdrawalsP50),
                 },
                 {
                     id: 'expected-annual-withdrawals',
                     label: 'Expected withdrawals per year',
-                    value: formatCurrency(out.expectedAnnualWithdrawalRate),
+                    value:
+                        out === null
+                            ? null
+                            : formatCurrency(out.expectedAnnualWithdrawalRate),
                 },
             ]}
         />

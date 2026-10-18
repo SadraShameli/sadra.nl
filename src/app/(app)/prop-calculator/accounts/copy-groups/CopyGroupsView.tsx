@@ -22,6 +22,7 @@ import {
     LEDGER_LIST_INPUT,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { InfoNote } from '~/components/InfoNote';
+import { CardSkeleton } from '~/components/PageSkeleton';
 import { RowActionKind, RowActionsMenu } from '~/components/RowActionsMenu';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
@@ -29,7 +30,7 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -39,7 +40,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { Skeleton } from '~/components/ui/skeleton';
 import { formatConjunctionList } from '~/lib/format';
 import {
     PropMutationRejection,
@@ -169,14 +169,20 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
                     />
                 )}
                 {(groupsQuery.isPending || accountsQuery.isPending) && (
-                    <div aria-busy="true" aria-label="Loading your copy groups">
-                        <Skeleton className="h-64 w-full" />
+                    <div
+                        aria-busy="true"
+                        aria-label="Loading your copy groups"
+                        className="flex flex-col gap-6"
+                        role="status"
+                    >
+                        <CardSkeleton rows={3} />
+                        <CardSkeleton rows={2} />
                     </div>
                 )}
                 {overview !== null && (
                     <>
                         {overview.groups.length === 0 ? (
-                            <EmptyState
+                            <EmptyStatePanel
                                 description="Create a group above, then add the accounts your copier trades together."
                                 icon={Layers}
                                 title="No copy groups yet"
@@ -200,6 +206,20 @@ export function CopyGroupsView({ userId }: { readonly userId: string }) {
             </div>
         </>
     );
+}
+
+function candidateLabelOf(
+    candidate:
+        | undefined
+        | {
+              readonly firmName: string;
+              readonly label: string;
+              readonly stageLabel: string;
+          },
+): string | undefined {
+    return candidate === undefined
+        ? undefined
+        : `${candidate.label} (${candidate.stageLabel}, ${candidate.firmName})`;
 }
 
 function conflictExplanation(
@@ -537,7 +557,14 @@ function GroupSection({
                                     aria-invalid={chooseError !== null}
                                     id={selectId}
                                 >
-                                    <SelectValue placeholder="Choose an account" />
+                                    <SelectValue placeholder="Choose an account">
+                                        {candidateLabelOf(
+                                            candidates.find(
+                                                (candidate) =>
+                                                    candidate.id === chosenId,
+                                            ),
+                                        )}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {candidates.map((candidate) => (
@@ -545,9 +572,7 @@ function GroupSection({
                                             key={candidate.id}
                                             value={candidate.id}
                                         >
-                                            {candidate.label} (
-                                            {candidate.stageLabel},{' '}
-                                            {candidate.firmName})
+                                            {candidateLabelOf(candidate)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

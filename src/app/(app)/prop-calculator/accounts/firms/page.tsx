@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
-import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { FirmsSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
@@ -42,7 +42,7 @@ export default function PropAccountsFirmsPage() {
                     }
                     title="Firms"
                 />
-                <Suspense fallback={<AccountsDataSkeleton />}>
+                <Suspense fallback={<FirmsSkeleton />}>
                     <PropAccountsFirmsContent />
                 </Suspense>
             </main>

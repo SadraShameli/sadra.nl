@@ -1,5 +1,6 @@
 'use client';
 
+import { Crosshair } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
@@ -35,8 +36,11 @@ import { formatRiskDisplay } from '~/app/(app)/prop-calculator/_components/riskD
 import { ToolId } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { useToolRulebook } from '~/app/(app)/prop-calculator/_components/useToolRulebook';
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
+import { InputsBesideResults } from '~/components/InputsBesideResults';
 import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     Field,
     FieldDescription,
@@ -51,10 +55,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { formatGateCurrency, NOT_APPLICABLE } from '~/lib/format';
+import { formatCount, formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
     dollars,
+    type InstrumentSpec,
     serializePlanId,
     TradingPhase,
 } from '~/lib/prop-calculator';
@@ -62,6 +67,7 @@ import { RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
 import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 
 const START_TIER = 'start';
+const FUNDED_START_TIER_LABEL = 'Funded start';
 const OPTIONAL_PLACEHOLDER = 'Optional, leave blank to skip';
 const INPUTS_HEADING_ID = 'position-size-inputs-heading';
 const RESULT_HEADING_ID = 'position-size-result-heading';
@@ -155,36 +161,49 @@ export function PositionSizeView() {
                 ownQuery={encodePositionSize(state, omittedFromLink)}
                 toolId={ToolId.PositionSize}
             />
-            <div className="app-prop-calculator__position-size mb-10 grid gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-                <section aria-labelledby={INPUTS_HEADING_ID}>
-                    <ToolPanel title="Trade" titleId={INPUTS_HEADING_ID}>
-                        <PositionSizeInputs
-                            onChange={change}
-                            onValidityChange={changeValidity}
-                            state={state}
-                        />
-                    </ToolPanel>
-                </section>
-                <section aria-labelledby={RESULT_HEADING_ID}>
-                    <ToolPanel title="Position" titleId={RESULT_HEADING_ID}>
-                        <p className="sr-only" role="status">
-                            {isInputValid
-                                ? positionSizeStatusText(state, result)
-                                : FIX_FIELD_TEXT}
-                        </p>
-                        {isInputValid ? (
-                            <PositionSizeSummary
-                                result={result}
+            <InputsBesideResults
+                className="app-prop-calculator__position-size mb-10"
+                inputs={
+                    <section aria-labelledby={INPUTS_HEADING_ID}>
+                        <ToolPanel title="Trade" titleId={INPUTS_HEADING_ID}>
+                            <PositionSizeInputs
+                                onChange={change}
+                                onValidityChange={changeValidity}
                                 state={state}
                             />
-                        ) : (
-                            <PositionSizeUnavailable />
-                        )}
-                    </ToolPanel>
-                </section>
-            </div>
+                        </ToolPanel>
+                    </section>
+                }
+                results={
+                    <section aria-labelledby={RESULT_HEADING_ID}>
+                        <ToolPanel title="Position" titleId={RESULT_HEADING_ID}>
+                            <p className="sr-only" role="status">
+                                {isInputValid
+                                    ? positionSizeStatusText(state, result)
+                                    : FIX_FIELD_TEXT}
+                            </p>
+                            {isInputValid ? (
+                                <PositionSizeSummary
+                                    result={result}
+                                    state={state}
+                                />
+                            ) : (
+                                <PositionSizeUnavailable />
+                            )}
+                        </ToolPanel>
+                    </section>
+                }
+            />
         </>
     );
+}
+
+function fundedTierLabel(tierProfit: number): string {
+    return `From ${formatWholeOrCentsCurrency(tierProfit)} profit`;
+}
+
+function instrumentOptionLabel(spec: InstrumentSpec): string {
+    return `${spec.symbol}: ${spec.label} (${formatWholeOrCentsCurrency(spec.pointValue)} per point)`;
 }
 
 function isActiveField(
@@ -264,9 +283,21 @@ function PositionSizeInputs({
         state.phase === TradingPhase.Funded
             ? fundedTierOptions(state.plan, state.instrument)
             : [];
+    const tierValue =
+        state.tierProfit === null ? START_TIER : String(state.tierProfit);
+    const tierOptions = [
+        { label: FUNDED_START_TIER_LABEL, value: START_TIER },
+        ...tiers.map((tierProfit) => ({
+            label: fundedTierLabel(tierProfit),
+            value: String(tierProfit),
+        })),
+    ];
+    const instrumentSpec = POSITION_SIZE_INSTRUMENTS.find(
+        (spec) => spec.symbol === state.instrument,
+    );
     return (
         <div className="flex flex-col gap-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
                 <NumberField
                     field={PositionSizeUrlParameter.Risk}
                     id="position-size-risk"
@@ -283,7 +314,7 @@ function PositionSizeInputs({
                 <NumberField
                     field={PositionSizeUrlParameter.Stop}
                     id="position-size-stop"
-                    invalidText={`Enter a stop from ${CALCULATOR_SCALAR_BOUNDS.sp.min} to ${CALCULATOR_SCALAR_BOUNDS.sp.max.toLocaleString('en-US')} points.`}
+                    invalidText={`Enter a stop from ${CALCULATOR_SCALAR_BOUNDS.sp.min} to ${formatCount(CALCULATOR_SCALAR_BOUNDS.sp.max)} points.`}
                     label="Today's stop (points)"
                     onValid={(stopPoints) => {
                         onChange({ stopPoints });
@@ -306,13 +337,16 @@ function PositionSizeInputs({
                     value={state.instrument}
                 >
                     <SelectTrigger id="position-size-instrument">
-                        <SelectValue />
+                        <SelectValue>
+                            {instrumentSpec === undefined
+                                ? undefined
+                                : instrumentOptionLabel(instrumentSpec)}
+                        </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         {POSITION_SIZE_INSTRUMENTS.map((spec) => (
                             <SelectItem key={spec.symbol} value={spec.symbol}>
-                                {spec.symbol}: {spec.label} (
-                                {formatGateCurrency(spec.pointValue)} per point)
+                                {instrumentOptionLabel(spec)}
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -332,7 +366,7 @@ function PositionSizeInputs({
                     plan={state.plan}
                 />
             )}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
                 <Field>
                     <FieldLabel htmlFor="position-size-phase">Phase</FieldLabel>
                     <Select
@@ -343,7 +377,11 @@ function PositionSizeInputs({
                         value={state.phase}
                     >
                         <SelectTrigger id="position-size-phase">
-                            <SelectValue />
+                            <SelectValue>
+                                {phases.includes(state.phase)
+                                    ? POSITION_SIZE_PHASE_LABELS[state.phase]
+                                    : undefined}
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {phases.map((phase) => (
@@ -373,26 +411,25 @@ function PositionSizeInputs({
                                             : dollars(Number(value)),
                                 });
                             }}
-                            value={
-                                state.tierProfit === null
-                                    ? START_TIER
-                                    : String(state.tierProfit)
-                            }
+                            value={tierValue}
                         >
                             <SelectTrigger id="position-size-tier">
-                                <SelectValue />
+                                <SelectValue>
+                                    {
+                                        tierOptions.find(
+                                            (option) =>
+                                                option.value === tierValue,
+                                        )?.label
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={START_TIER}>
-                                    Funded start
-                                </SelectItem>
-                                {tiers.map((tierProfit) => (
+                                {tierOptions.map((option) => (
                                     <SelectItem
-                                        key={tierProfit}
-                                        value={String(tierProfit)}
+                                        key={option.value}
+                                        value={option.value}
                                     >
-                                        From {formatGateCurrency(tierProfit)}{' '}
-                                        profit
+                                        {option.label}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -416,7 +453,7 @@ function PositionSizeInputs({
                 step={1}
                 value={state.roomDollars ?? ''}
             />
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
                 {state.phase === TradingPhase.Eval ? (
                     <NumberField
                         field={PositionSizeUrlParameter.RetryFee}
@@ -445,7 +482,9 @@ function PositionSizeInputs({
                         value={state.unit}
                     >
                         <SelectTrigger id="position-size-unit">
-                            <SelectValue />
+                            <SelectValue>
+                                {riskDisplayUnitLabel(state.unit)}
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {Object.values(RiskDisplayUnit).map((unit) => (
@@ -484,25 +523,37 @@ function PositionSizeSummary({
                         caption:
                             result.placedRisk === null
                                 ? 'the contract limit binds: see the stop'
-                                : `${formatGateCurrency(result.placedRisk)} placed at your stop`,
+                                : `${formatWholeOrCentsCurrency(result.placedRisk)} placed at your stop`,
                         id: 'leftover',
                         label: 'Leftover',
-                        value:
-                            result.leftover === null
-                                ? NOT_APPLICABLE
-                                : formatGateCurrency(result.leftover),
+                        value: (
+                            <ValueOrMissing
+                                value={
+                                    result.leftover === null
+                                        ? null
+                                        : formatWholeOrCentsCurrency(
+                                              result.leftover,
+                                          )
+                                }
+                            />
+                        ),
                     },
                     {
                         caption:
                             stop === null
                                 ? 'no whole contract fits'
-                                : `risks ${formatGateCurrency(stop.riskAtTickStop)} on ${result.contracts} ${symbol}`,
+                                : `risks ${formatWholeOrCentsCurrency(stop.riskAtTickStop)} on ${result.contracts} ${symbol}`,
                         id: 'exact-risk-stop',
                         label: 'Stop for the exact risk',
-                        value:
-                            stop === null
-                                ? NOT_APPLICABLE
-                                : `${formatPoints(stop.tickPoints)} pts`,
+                        value: (
+                            <ValueOrMissing
+                                value={
+                                    stop === null
+                                        ? null
+                                        : `${formatPoints(stop.tickPoints)} pts`
+                                }
+                            />
+                        ),
                     },
                     {
                         caption:
@@ -511,16 +562,23 @@ function PositionSizeSummary({
                                 : `the limit stops binding at a stop of at least ${formatPoints(result.minStopAtCap)} pts`,
                         id: 'contract-limit',
                         label: `${POSITION_SIZE_PHASE_LABELS[state.phase]} contract limit`,
-                        value:
-                            result.cap === null
-                                ? NOT_APPLICABLE
-                                : `${result.cap} ${symbol}`,
+                        value: (
+                            <ValueOrMissing
+                                value={
+                                    result.cap === null
+                                        ? null
+                                        : `${result.cap} ${symbol}`
+                                }
+                            />
+                        ),
                     },
                     {
                         caption: result.riskDisplay.label,
                         id: 'risk-display',
                         label: 'Risk, shown as',
-                        value: result.riskDisplay.text,
+                        value: (
+                            <ValueOrMissing value={result.riskDisplay.text} />
+                        ),
                     },
                 ]}
             />
@@ -559,33 +617,12 @@ function PositionSizeSummary({
 
 function PositionSizeUnavailable() {
     return (
-        <div className="flex flex-col gap-4">
-            <StatStrip
-                items={[
-                    {
-                        id: 'contracts',
-                        label: 'Contracts',
-                        value: NOT_APPLICABLE,
-                    },
-                    {
-                        id: 'leftover',
-                        label: 'Leftover',
-                        value: NOT_APPLICABLE,
-                    },
-                    {
-                        id: 'exact-risk-stop',
-                        label: 'Stop for the exact risk',
-                        value: NOT_APPLICABLE,
-                    },
-                    {
-                        id: 'contract-limit',
-                        label: 'Contract limit',
-                        value: NOT_APPLICABLE,
-                    },
-                ]}
-            />
-            <p className="text-sm text-warning">{FIX_FIELD_TEXT}</p>
-        </div>
+        <EmptyState
+            description={FIX_FIELD_TEXT}
+            icon={Crosshair}
+            size={EmptyStateSize.Compact}
+            title="No position yet"
+        />
     );
 }
 

@@ -11,7 +11,7 @@ import { FilterToolbar } from '~/components/FilterToolbar';
 import { ToolPanel } from '~/components/ToolPanel';
 import AreaChartNew from '~/components/ui/chart/area-chart-new';
 import { DataTable } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, NoMatchesState } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import { formatDisplayDate } from '~/lib/format';
@@ -49,30 +49,28 @@ export function ExerciseProgress({ exerciseId }: ExerciseProgressProperties) {
             <E1rmTrendChart exerciseId={exerciseId} unitWeight={unitWeight} />
 
             <ToolPanel title="Personal records">
-                <DataTable
-                    columns={columns}
-                    data={prFilters.filteredRows}
-                    emptyState={
-                        <EmptyState
-                            description={
-                                prFilters.isActive
-                                    ? 'No PRs match these filters.'
-                                    : 'Log some sets and your PRs will show up here.'
-                            }
-                            icon={Trophy}
-                            title="No PRs yet"
-                        />
-                    }
-                    filterPlaceholder="Search PRs"
-                    hasExternalFilters={prFilters.isActive}
-                    headerActions={<PrFiltersToolbar filters={prFilters} />}
-                    isLoading={prs.isLoading}
-                    onResetFilters={prFilters.reset}
-                    pageSize={null}
-                    rowId={(r) => r.id}
-                    showFilter
-                    skeletonRows={4}
-                />
+                {prs.data?.length === 0 ? (
+                    <EmptyState
+                        description="Log some sets of this exercise and your PRs will show up here."
+                        icon={Trophy}
+                        title="No PRs yet"
+                    />
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={prFilters.filteredRows}
+                        emptyState={<NoMatchesState icon={Trophy} noun="PRs" />}
+                        filterPlaceholder="Search PRs"
+                        hasExternalFilters={prFilters.isActive}
+                        headerActions={<PrFiltersToolbar filters={prFilters} />}
+                        isLoading={prs.isLoading}
+                        onResetFilters={prFilters.reset}
+                        pageSize={null}
+                        rowId={(r) => r.id}
+                        showFilter
+                        skeletonRows={4}
+                    />
+                )}
             </ToolPanel>
         </div>
     );

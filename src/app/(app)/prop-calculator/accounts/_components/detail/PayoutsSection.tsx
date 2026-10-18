@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Banknote } from 'lucide-react';
 import { useId } from 'react';
 import { type Control, Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -20,6 +21,7 @@ import {
 } from '~/components/RowActionsMenu';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Dialog } from '~/components/ui/dialog';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
@@ -100,9 +102,11 @@ export function PayoutsSection({
         <>
             <ListQueryStatus query={query} subject="payouts" />
             {rows?.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                    No payouts recorded yet.
-                </p>
+                <EmptyState
+                    icon={Banknote}
+                    size={EmptyStateSize.Compact}
+                    title="No payouts recorded yet"
+                />
             )}
             {rows !== undefined && rows.length > 0 && (
                 <>
@@ -400,7 +404,9 @@ function PayoutForm({
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-status`}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {payoutStatusLabel(field.value)}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(PayoutStatus).map((status) => (

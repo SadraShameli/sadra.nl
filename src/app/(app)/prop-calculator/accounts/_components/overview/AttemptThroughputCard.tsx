@@ -1,5 +1,10 @@
+import { ShoppingCart } from 'lucide-react';
 import { memo } from 'react';
 
+import {
+    figureColumns,
+    FigureText,
+} from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import {
     DataTable,
@@ -10,7 +15,7 @@ import {
 import { formatDisplayMonth } from '~/lib/format';
 
 import { type AttemptThroughputCardModel } from './overviewModel';
-import { OverviewPanel } from './OverviewPanel';
+import { OverviewEmptyPanel, OverviewPanel } from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 
 enum AttemptsByFirmColumn {
@@ -36,11 +41,11 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
 }) {
     if (model.months.length === 0) {
         return (
-            <OverviewPanel section={OverviewSectionId.AttemptThroughput}>
-                <p className="text-sm text-muted-foreground">
-                    No purchase or retry recorded yet.
-                </p>
-            </OverviewPanel>
+            <OverviewEmptyPanel
+                icon={ShoppingCart}
+                section={OverviewSectionId.AttemptThroughput}
+                title="No purchase or retry recorded yet"
+            />
         );
     }
     return (
@@ -71,7 +76,9 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
                             meta: { isRowHeader: true },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.attempts}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.attempts} />
+                            ),
                             header: 'Attempts',
                             id: AttemptsByMonthColumn.Attempts,
                             meta: { align: DataTableAlign.End },
@@ -127,22 +134,23 @@ export const AttemptThroughputCard = memo(function AttemptThroughputCard({
                         Mean attempts per month by firm
                     </PanelSubheading>
                     <DataTable
-                        columns={[
-                            {
-                                cell: ({ row }) => <>{row.original.firm}</>,
-                                header: 'Firm',
-                                id: AttemptsByFirmColumn.Firm,
-                                meta: { isRowHeader: true },
-                            },
-                            {
-                                cell: ({ row }) => (
-                                    <>{row.original.meanPerMonth}</>
-                                ),
-                                header: 'Mean per month',
-                                id: AttemptsByFirmColumn.MeanPerMonth,
-                                meta: { align: DataTableAlign.End },
-                            },
-                        ]}
+                        columns={figureColumns(
+                            [
+                                {
+                                    header: 'Firm',
+                                    id: AttemptsByFirmColumn.Firm,
+                                    isRowHeader: true,
+                                    textOf: (row) => row.firm,
+                                },
+                                {
+                                    align: DataTableAlign.End,
+                                    header: 'Mean per month',
+                                    id: AttemptsByFirmColumn.MeanPerMonth,
+                                    textOf: (row) => row.meanPerMonth,
+                                },
+                            ],
+                            model.perFirm,
+                        )}
                         data={[...model.perFirm]}
                         isSortable={false}
                         pageSize={null}

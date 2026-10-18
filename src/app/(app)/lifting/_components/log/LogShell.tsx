@@ -94,6 +94,16 @@ export function LogShell({ initialSettings }: LogShellProperties) {
     }
 
     const unitWeight = normalizeUnitWeight(initialSettings.unitWeight);
+    const exercisePicker = (
+        <AddExerciseSheet
+            onAdd={(exerciseId) =>
+                exerciseAddition.mutate({
+                    exerciseId,
+                    workoutId: workout.id,
+                })
+            }
+        />
+    );
     const unitDistance = normalizeUnitDistance(initialSettings.unitDistance);
 
     return (
@@ -123,39 +133,41 @@ export function LogShell({ initialSettings }: LogShellProperties) {
                 </Button>
             </header>
 
-            <ul className="flex flex-col gap-4">
-                {workout.exercises.map((wex) => (
-                    <li key={wex.id}>
-                        <ExerciseCard
-                            availablePlatesKg={
-                                initialSettings.availablePlatesKg
-                            }
-                            barWeightKg={initialSettings.barWeightKg}
-                            defaultRestSeconds={
-                                initialSettings.defaultRestSeconds
-                            }
-                            onRequestRest={(seconds) => {
-                                setTimerSeconds(seconds);
-                                setTimerOpen(true);
-                            }}
-                            unitDistance={unitDistance}
-                            unitWeight={unitWeight}
-                            workoutExercise={wex}
-                        />
-                    </li>
-                ))}
-            </ul>
-
-            <div className="mt-6">
-                <AddExerciseSheet
-                    onAdd={(exerciseId) =>
-                        exerciseAddition.mutate({
-                            exerciseId,
-                            workoutId: workout.id,
-                        })
-                    }
+            {workout.exercises.length === 0 ? (
+                <EmptyStatePanel
+                    action={exercisePicker}
+                    description="Add your first exercise to start logging sets."
+                    icon={Dumbbell}
+                    title="No exercises yet"
                 />
-            </div>
+            ) : (
+                <>
+                    <ul className="flex flex-col gap-4">
+                        {workout.exercises.map((wex) => (
+                            <li key={wex.id}>
+                                <ExerciseCard
+                                    availablePlatesKg={
+                                        initialSettings.availablePlatesKg
+                                    }
+                                    barWeightKg={initialSettings.barWeightKg}
+                                    defaultRestSeconds={
+                                        initialSettings.defaultRestSeconds
+                                    }
+                                    onRequestRest={(seconds) => {
+                                        setTimerSeconds(seconds);
+                                        setTimerOpen(true);
+                                    }}
+                                    unitDistance={unitDistance}
+                                    unitWeight={unitWeight}
+                                    workoutExercise={wex}
+                                />
+                            </li>
+                        ))}
+                    </ul>
+
+                    <div className="mt-6">{exercisePicker}</div>
+                </>
+            )}
 
             <div className="fixed inset-x-0 bottom-4 z-20 flex justify-center px-4 sm:hidden">
                 <Button

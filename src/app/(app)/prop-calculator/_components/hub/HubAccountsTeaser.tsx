@@ -4,6 +4,7 @@ import { ArrowRight, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
 
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
 import {
     ACCOUNT_LIST_INPUT,
     type AccountListAccount,
@@ -24,7 +25,6 @@ import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useSession } from '~/lib/auth/client';
-import { NOT_APPLICABLE } from '~/lib/format';
 import {
     formatUsdCents,
     isActiveAccount,
@@ -252,10 +252,15 @@ function SignedInTeaser({ userId }: { readonly userId: string }) {
                             summary.alertCount > 0
                                 ? StatTone.Warning
                                 : StatTone.Default,
-                        value:
-                            summary.alertCount === null
-                                ? NOT_APPLICABLE
-                                : String(summary.alertCount),
+                        value: (
+                            <ValueOrMissing
+                                value={
+                                    summary.alertCount === null
+                                        ? null
+                                        : String(summary.alertCount)
+                                }
+                            />
+                        ),
                     },
                 ]}
             />

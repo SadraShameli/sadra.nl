@@ -1,13 +1,17 @@
 'use client';
 
+import { ChartColumn, ClipboardCheck } from 'lucide-react';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
 import { FilterToolbar } from '~/components/FilterToolbar';
 import { ToolPanel } from '~/components/ToolPanel';
-import { Card, CardContent } from '~/components/ui/card';
+import { Button } from '~/components/ui/button';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
+import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
 import { ComponentCorrelationChart } from './analytics/ComponentCorrelationChart';
@@ -39,14 +43,19 @@ export function AnalyticsDashboard({
     }, [assessments, planFilter]);
 
     return assessments.length === 0 ? (
-        <Card>
-            <CardContent className="py-12 text-center">
-                <p className="text-sm text-muted-foreground">
-                    No graded assessments yet. Run the checklist and record
-                    outcomes to see analytics here.
-                </p>
-            </CardContent>
-        </Card>
+        <EmptyStatePanel
+            action={
+                <Button asChild>
+                    <Link href={routes.tradeChecklist.index}>
+                        <ClipboardCheck data-icon="inline-start" />
+                        Run the checklist
+                    </Link>
+                </Button>
+            }
+            description="Grade setups and record outcomes to see analytics here."
+            icon={ChartColumn}
+            title="No assessments yet"
+        />
     ) : (
         <div
             className={cn(

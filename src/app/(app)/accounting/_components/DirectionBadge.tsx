@@ -9,6 +9,14 @@ const DIRECTION_LABEL: Readonly<Record<BookingDirection, string>> = {
     OUT: 'Out',
 };
 
+export const DIRECTION_OPTIONS: readonly {
+    readonly label: string;
+    readonly value: BookingDirection;
+}[] = BOOKING_DIRECTIONS.map((direction) => ({
+    label: DIRECTION_LABEL[direction],
+    value: direction,
+}));
+
 export function DirectionBadge({ direction }: { direction: BookingDirection }) {
     return <Badge>{DIRECTION_LABEL[direction]}</Badge>;
 }

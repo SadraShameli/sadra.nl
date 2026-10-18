@@ -100,7 +100,7 @@ describe('SensitivityHeatmap shows an EV-per-attempt metric (F-V9, PT-61b)', () 
                 (header) => header.textContent,
             ),
         ).toEqual([
-            '↓ Winrate / RR →',
+            'WR ↓ RR →',
             '1:1',
             '1.5:1',
             '2:1',
@@ -112,5 +112,30 @@ describe('SensitivityHeatmap shows an EV-per-attempt metric (F-V9, PT-61b)', () 
         expect(
             firstTable?.querySelectorAll(':scope tbody th[scope="row"]'),
         ).toHaveLength(7);
+    });
+
+    it('pins a narrow winrate column on phone so the RR columns scroll beside it', () => {
+        const baseInputs = buildSimInputs(defaultCalculatorState());
+        act(() => {
+            root.render(
+                <SensitivityHeatmap
+                    baseInputs={baseInputs}
+                    currentRR={baseInputs.rrRatio}
+                    currentWinrate={baseInputs.winrate}
+                />,
+            );
+        });
+        const tables = [...container.querySelectorAll('table')];
+        expect(tables).toHaveLength(4);
+        for (const table of tables) {
+            for (const token of [
+                'max-md:[&_tr>*:first-child]:sticky',
+                'max-md:[&_tr>*:first-child]:left-0',
+                'max-md:[&_tr>*:first-child]:bg-background',
+                'max-md:[&_td]:px-1',
+            ]) {
+                expect(table.classList.contains(token)).toBe(true);
+            }
+        }
     });
 });

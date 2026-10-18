@@ -14,6 +14,9 @@ import { infoText } from '../infoPopover';
 const EXPLANATION =
     'Days from funded to the first payout, against days between later payouts.';
 
+const UNPAID_NOTE =
+    '1 funded account has not paid yet (oldest 90 days), not in the mean';
+
 const EMPTY_FIGURE = {
     mean: 'n/a',
     n: 0,
@@ -96,47 +99,63 @@ describe('PayoutTimingCard', () => {
         expect(cells[0]).toContain('n = 2');
         expect(cells[0]).toContain('Low sample');
         expect(cells[1]).toContain('14.0 days');
-        expect(cells[1]).toContain('SE n/a');
+        expect(cells[1]).not.toContain('SE');
         expect(cells[1]).toContain('n = 1');
         expect(cells[1]).toContain('Low sample');
     });
 
-    it('shows n/a with n = 0 for a plan with no payout', () => {
-        render({ explanation: EXPLANATION, rows: [row({})] });
+    it('shows a missing value, not n/a, for a plan whose funded accounts have not paid yet', () => {
+        render({
+            explanation: EXPLANATION,
+            rows: [row({ unpaidNote: UNPAID_NOTE })],
+        });
         const cells = [...container.querySelectorAll(':scope tbody td')].map(
             (cell) => cell.textContent,
         );
-        expect(cells[0]).toContain('n/a');
-        expect(cells[0]).toContain('n = 0');
-        expect(cells[1]).toContain('n/a');
-        expect(cells[1]).toContain('n = 0');
+        expect(cells[0]).toBe('–Not available');
+        expect(cells[1]).toBe('–Not available');
+        expect(container.textContent).not.toContain('n/a');
     });
 
     it('prints the one-line explanation', () => {
-        render({ explanation: EXPLANATION, rows: [row({})] });
+        render({
+            explanation: EXPLANATION,
+            rows: [row({ unpaidNote: UNPAID_NOTE })],
+        });
         expect(infoText(container, 'Payout timing')).toContain(EXPLANATION);
     });
 
     it('prints the unpaid sentence under its plan and nothing when there is none', () => {
-        const note =
-            '1 funded account has not paid yet (oldest 90 days), not in the mean';
         render({
             explanation: EXPLANATION,
-            rows: [row({ unpaidNote: note })],
+            rows: [row({ unpaidNote: UNPAID_NOTE })],
         });
-        expect(container.textContent).toContain(note);
+        expect(container.textContent).toContain(UNPAID_NOTE);
         render({ explanation: EXPLANATION, rows: [row({ unpaidNote: null })] });
         expect(container.textContent).not.toContain('not paid yet');
     });
 
     it('says so when no plan has a funded account', () => {
         render({ explanation: EXPLANATION, rows: [] });
-        expect(container.textContent).toContain('No plan to time yet.');
+        expect(container.textContent).toContain(
+            'No paid funded account to time yet',
+        );
+        expect(container.querySelector('table')).toBeNull();
+    });
+
+    it('shows one empty state instead of a table of missing values when no plan has observed timing', () => {
+        render({ explanation: EXPLANATION, rows: [row({})] });
+        expect(container.textContent).toContain(
+            'No paid funded account to time yet',
+        );
         expect(container.querySelector('table')).toBeNull();
     });
 
     it('names the table and marks the plan name as the row header', () => {
-        render({ explanation: EXPLANATION, rows: [row({})] });
+        render({
+            explanation: EXPLANATION,
+            rows: [row({ unpaidNote: UNPAID_NOTE })],
+        });
         expect(
             container.querySelector(
                 ':scope [aria-label="Payout timing per plan"] table',
@@ -145,6 +164,6 @@ describe('PayoutTimingCard', () => {
         const rowHeaders = [
             ...container.querySelectorAll(':scope tbody th[scope="row"]'),
         ].map((header) => header.textContent);
-        expect(rowHeaders).toEqual(['Plan A']);
+        expect(rowHeaders).toEqual([`Plan A${UNPAID_NOTE}`]);
     });
 });

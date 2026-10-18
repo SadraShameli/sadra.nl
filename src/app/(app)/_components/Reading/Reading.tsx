@@ -16,6 +16,7 @@ import { FilterDateRange } from '~/components/ui/filter-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
+import { formatNumber } from '~/lib/format';
 import {
     finestGranularityForRange,
     type Granularity,
@@ -26,7 +27,11 @@ import {
 import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
-import { DEFAULT_GRANULARITY, GRANULARITIES } from './helpers';
+import {
+    DEFAULT_GRANULARITY,
+    GRANULARITIES,
+    SENSOR_READING_FRACTION_DIGITS,
+} from './helpers';
 import { ReadingBodySkeleton } from './ReadingSkeleton';
 
 export default function ReadingSection() {
@@ -280,7 +285,7 @@ export default function ReadingSection() {
                                     labelKey: 'location',
                                     nameKey: 'sensor',
                                     valueFormatter: (value) =>
-                                        `${value.toLocaleString()} ${reading.sensor.unit}`,
+                                        `${formatNumber(value, SENSOR_READING_FRACTION_DIGITS)} ${reading.sensor.unit}`,
                                 }}
                                 xAxis={{
                                     dataKey: 'date',

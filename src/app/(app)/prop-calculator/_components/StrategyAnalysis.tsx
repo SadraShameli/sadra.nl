@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 
+import { MissingValue } from '~/components/MissingValue';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import {
     StatStrip,
@@ -11,10 +12,10 @@ import {
 import { Separator } from '~/components/ui/separator';
 import {
     formatCompactCurrency,
+    formatCount,
     formatCurrency,
     formatPercent,
     formatR,
-    NOT_APPLICABLE,
 } from '~/lib/format';
 import {
     dollars,
@@ -38,7 +39,9 @@ import {
     kellySizing,
 } from './kellySizing';
 import { panelDescriptions } from './kpiDescriptions';
+import { NO_PASS_REASON, NO_TRADE_REASON } from './missingReasons';
 import { formatSignedPercent } from './signedPercent';
+import { ValueOrMissing } from './ValueOrMissing';
 
 interface RatioItemOptions {
     bench: string;
@@ -284,10 +287,16 @@ export default function StrategyAnalysis({
                                 averageTrade === null
                                     ? StatTone.Muted
                                     : StatTone.Default,
-                            value:
-                                averageTrade === null
-                                    ? NOT_APPLICABLE
-                                    : `+${formatCurrency(averageTrade.win)} / −${formatCurrency(averageTrade.loss)}`,
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_TRADE_REASON}
+                                    value={
+                                        averageTrade === null
+                                            ? null
+                                            : `+${formatCurrency(averageTrade.win)} / −${formatCurrency(averageTrade.loss)}`
+                                    }
+                                />
+                            ),
                         },
                         {
                             caption:
@@ -296,10 +305,15 @@ export default function StrategyAnalysis({
                                     : 'no passing trials',
                             id: 'trades-per-pass',
                             label: 'Trades per pass',
-                            value:
-                                breakdown.tradesPerPass > 0
-                                    ? `${breakdown.tradesPerPass} trades`
-                                    : NOT_APPLICABLE,
+                            value: (
+                                <ValueOrMissing
+                                    value={
+                                        breakdown.tradesPerPass > 0
+                                            ? `${breakdown.tradesPerPass} trades`
+                                            : null
+                                    }
+                                />
+                            ),
                         },
                         {
                             caption: `+${rrRatio.toFixed(2)}R win · −1.00R loss`,
@@ -311,10 +325,16 @@ export default function StrategyAnalysis({
                                     : breakdown.sumR < 0
                                       ? StatTone.Negative
                                       : StatTone.Default,
-                            value:
-                                breakdown.tradesPerPass > 0
-                                    ? `${breakdown.sumR >= 0 ? '+' : ''}${breakdown.sumR.toFixed(1)}R`
-                                    : NOT_APPLICABLE,
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_PASS_REASON}
+                                    value={
+                                        breakdown.tradesPerPass > 0
+                                            ? `${breakdown.sumR >= 0 ? '+' : ''}${breakdown.sumR.toFixed(1)}R`
+                                            : null
+                                    }
+                                />
+                            ),
                         },
                         {
                             caption: `P95 ${((result.maxDrawdownP95 / plan.accountSize) * 100).toFixed(2)}% worst`,
@@ -323,7 +343,7 @@ export default function StrategyAnalysis({
                             value: `${((result.maxDrawdownP50 / plan.accountSize) * 100).toFixed(2)}% avg`,
                         },
                         {
-                            caption: `across ${result.finalBalances.length.toLocaleString()} trials`,
+                            caption: `across ${formatCount(result.finalBalances.length)} trials`,
                             id: 'balance-range',
                             label: 'Balance range',
                             value: `${formatCompactCurrency(breakdown.minBal)} – ${formatCompactCurrency(breakdown.maxBal)}`,
@@ -479,10 +499,15 @@ export default function StrategyAnalysis({
                                             : edgeLeverage > 0
                                               ? StatTone.Positive
                                               : StatTone.Negative,
-                                    value:
-                                        edgeLeverage === null
-                                            ? NOT_APPLICABLE
-                                            : `${edgeLeverage.toFixed(2)}×`,
+                                    value: (
+                                        <ValueOrMissing
+                                            value={
+                                                edgeLeverage === null
+                                                    ? null
+                                                    : `${edgeLeverage.toFixed(2)}×`
+                                            }
+                                        />
+                                    ),
                                 },
                                 {
                                     id: 'net-r-to-pass',
@@ -491,10 +516,15 @@ export default function StrategyAnalysis({
                                         netRToPass === null
                                             ? StatTone.Muted
                                             : StatTone.Default,
-                                    value:
-                                        netRToPass === null
-                                            ? NOT_APPLICABLE
-                                            : `${netRToPass.toFixed(1)}R`,
+                                    value: (
+                                        <ValueOrMissing
+                                            value={
+                                                netRToPass === null
+                                                    ? null
+                                                    : `${netRToPass.toFixed(1)}R`
+                                            }
+                                        />
+                                    ),
                                 },
                             ]}
                         />
@@ -551,12 +581,19 @@ export default function StrategyAnalysis({
                                     caption: averageRiskBasis,
                                     id: 'average-risk',
                                     label: 'Average risk',
-                                    value:
-                                        kelly.currentRiskFraction === null
-                                            ? NOT_APPLICABLE
-                                            : formatPercent(
-                                                  kelly.currentRiskFraction,
-                                              ),
+                                    value: (
+                                        <ValueOrMissing
+                                            reason={NO_TRADE_REASON}
+                                            value={
+                                                kelly.currentRiskFraction ===
+                                                null
+                                                    ? null
+                                                    : formatPercent(
+                                                          kelly.currentRiskFraction,
+                                                      )
+                                            }
+                                        />
+                                    ),
                                 },
                                 kellyIndexItem(
                                     `average risk over full Kelly, both ${drawdownBasis}`,
@@ -601,7 +638,7 @@ function kellyIndexItem(basis: string, index: KellyIndex): StatStripItem {
                 id: 'kelly-index',
                 label: 'Kelly index',
                 tone: StatTone.Muted,
-                value: NOT_APPLICABLE,
+                value: <MissingValue reason={NO_TRADE_REASON} />,
             };
         }
         case KellyIndexStatus.Sized: {
@@ -683,7 +720,7 @@ function zScoreItems(
                 id: 'z-score',
                 label: 'Z-score',
                 tone: StatTone.Muted,
-                value: `${NOT_APPLICABLE}: no edge`,
+                value: 'no edge',
             },
         ];
     }
@@ -702,7 +739,11 @@ function zScoreItems(
         {
             id: 'min-trades',
             label: 'Min trades (95% CI)',
-            value: minTrades === null ? NOT_APPLICABLE : String(minTrades),
+            value: (
+                <ValueOrMissing
+                    value={minTrades === null ? null : String(minTrades)}
+                />
+            ),
         },
     ];
 }

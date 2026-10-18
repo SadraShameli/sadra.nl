@@ -9,7 +9,7 @@ import {
 } from '~/app/(app)/prop-calculator/_components/kellySizing';
 import StrategyAnalysis from '~/app/(app)/prop-calculator/_components/StrategyAnalysis';
 import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/useCalculator';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     dollars,
     fraction,
@@ -23,6 +23,7 @@ import {
     requiredR,
 } from '~/lib/prop-calculator/economics';
 
+import { missingValueText } from './missingValue';
 import { statStripValue } from './statStripValue';
 
 vi.mock('~/components/ui/info-popover', () => ({
@@ -105,7 +106,7 @@ describe('StrategyAnalysis edge leverage and net R to pass (F-V9, PT-61b)', () =
         );
     });
 
-    it('shows n/a for net R to pass on an instant-funded plan, which has no eval', () => {
+    it('shows a missing value, not n/a text, for net R to pass on an instant-funded plan, which has no eval', () => {
         const baseInputs = inputsOf();
         const instantPlan = baseInputs.plan.withOverrides({
             isInstantFunded: true,
@@ -118,8 +119,9 @@ describe('StrategyAnalysis edge leverage and net R to pass (F-V9, PT-61b)', () =
             );
         });
         expect(statStripValue(container, 'Net R to pass')?.textContent).toBe(
-            NOT_APPLICABLE,
+            missingValueText(),
         );
+        expect(container.textContent).not.toContain('n/a');
     });
 });
 

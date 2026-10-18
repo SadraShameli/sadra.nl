@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartLine } from 'lucide-react';
 import { Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
 import {
@@ -11,6 +12,7 @@ import {
     ChartContainer,
     ChartSize,
 } from '~/components/ui/chart';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatCompactCurrency, formatDisplayDate } from '~/lib/format';
 
 import { type SnapshotSeries } from './snapshotSeries';
@@ -29,9 +31,11 @@ export function SnapshotHistoryChart({
     return (
         <div className="flex flex-col gap-3">
             {series.points.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No balances recorded yet.
-                </p>
+                <EmptyState
+                    icon={ChartLine}
+                    size={EmptyStateSize.Compact}
+                    title="No balances recorded yet"
+                />
             ) : (
                 <ChartContainer
                     aria-label="Balance history"

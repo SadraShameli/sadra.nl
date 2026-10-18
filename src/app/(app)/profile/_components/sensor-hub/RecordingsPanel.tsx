@@ -10,10 +10,11 @@ import { idSelectKey } from '~/app/(app)/profile/_components/idSelectKey';
 import {
     MutedCell,
     PrimaryCell,
+    ProfileCollectionEmpty,
     ProfileDateCell,
     ProfileDatePrecision,
-    ProfileTableEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { FormDialog } from '~/components/FormDialog';
 import {
     FormSelectField,
@@ -32,7 +33,6 @@ import {
     DataTable,
     type DataTableColumn,
     dataTableExpanderColumn,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { Dialog, DialogTrigger } from '~/components/ui/dialog';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
@@ -206,52 +206,57 @@ export function RecordingsPanel() {
                     description="Audio clips uploaded by devices. Expand a row to play it."
                     title="Recordings"
                 >
-                    <DataTable
-                        columns={columns}
-                        data={rows}
-                        emptyState={(table) => (
-                            <ProfileTableEmpty
-                                action={newButton}
-                                description="Recordings appear here as devices upload them."
-                                filtered={
-                                    scope.isActive ||
-                                    hasActiveTableFilter(table)
-                                }
-                                icon={AudioLines}
-                                noun="recordings"
-                            />
-                        )}
-                        filterPlaceholder="Search recordings…"
-                        getRowCanExpand={() => true}
-                        hasExternalFilters={scope.isActive}
-                        headerActions={
-                            <SensorHubScopeFilters
-                                controller={scope}
-                                devices={devices.data ?? []}
-                                locations={locations.data ?? []}
-                            />
-                        }
-                        isLoading={recordings.isLoading}
-                        onResetFilters={scope.reset}
-                        pageSize={20}
-                        renderExpanded={(row) => (
-                            <div className="flex flex-col gap-2 bg-background p-3">
-                                <p className="text-xs text-muted-foreground">
-                                    Playing: {row.original.file_name}
-                                </p>
-                                <audio
-                                    className="w-full"
-                                    controls
-                                    preload="none"
-                                    src={apiRoutes.recording(row.original.id)}
-                                >
-                                    <track kind="captions" />
-                                </audio>
-                            </div>
-                        )}
-                        rowId={(r) => String(r.id)}
-                        showFilter
-                    />
+                    {!recordings.isLoading &&
+                    !scope.isActive &&
+                    rows.length === 0 ? (
+                        <ProfileCollectionEmpty
+                            description="Recordings appear here as devices upload them."
+                            icon={AudioLines}
+                            noun="recordings"
+                        />
+                    ) : (
+                        <DataTable
+                            columns={columns}
+                            data={rows}
+                            emptyState={
+                                <NoMatchesState
+                                    icon={AudioLines}
+                                    noun="recordings"
+                                />
+                            }
+                            filterPlaceholder="Search recordings…"
+                            getRowCanExpand={() => true}
+                            hasExternalFilters={scope.isActive}
+                            headerActions={
+                                <SensorHubScopeFilters
+                                    controller={scope}
+                                    devices={devices.data ?? []}
+                                    locations={locations.data ?? []}
+                                />
+                            }
+                            isLoading={recordings.isLoading}
+                            onResetFilters={scope.reset}
+                            renderExpanded={(row) => (
+                                <div className="flex flex-col gap-2 bg-background p-3">
+                                    <p className="text-xs text-muted-foreground">
+                                        Playing: {row.original.file_name}
+                                    </p>
+                                    <audio
+                                        className="w-full"
+                                        controls
+                                        preload="none"
+                                        src={apiRoutes.recording(
+                                            row.original.id,
+                                        )}
+                                    >
+                                        <track kind="captions" />
+                                    </audio>
+                                </div>
+                            )}
+                            rowId={(r) => String(r.id)}
+                            showFilter
+                        />
+                    )}
                 </ToolPanel>
                 <NewRecordingDialog
                     devices={(devices.data ?? []).map((d) => ({

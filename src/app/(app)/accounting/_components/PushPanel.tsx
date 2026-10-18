@@ -160,11 +160,9 @@ export function PushPanel({
                             {progress.current} / {progress.total}
                         </span>
                         <span>
-                            <span className="text-success">
-                                {postedCount} posted
-                            </span>
+                            <span>{postedCount} posted</span>
                             {failedCount > 0 && (
-                                <span className="ml-3 text-destructive">
+                                <span className="ml-3">
                                     {failedCount} failed
                                 </span>
                             )}
@@ -204,7 +202,7 @@ export function PushPanel({
                                             isPosting={isPending}
                                             status={row.status}
                                         />
-                                        <span className="font-mono text-info">
+                                        <span className="font-mono">
                                             {b.txnId}
                                         </span>
                                         <span className="truncate text-muted-foreground">

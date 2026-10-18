@@ -7,7 +7,10 @@ import { type ReactNode, useMemo, useState } from 'react';
 import { DEFAULT_FUNDED_HORIZON_DAYS } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
 import FirmPlanPicker from '~/app/(app)/prop-calculator/_components/FirmPlanPicker';
-import { PanelSkeleton } from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
+import {
+    PanelSkeleton,
+    PanelSkeletonSize,
+} from '~/app/(app)/prop-calculator/_components/PanelSkeleton';
 import {
     payoutBlockReasonText,
     payoutFirmMinimumMessage,
@@ -57,6 +60,8 @@ import { payoutStakeViewOf } from '~/app/(app)/prop-calculator/accounts/_compone
 import { type AssumptionView } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceViewModel';
 import { AssumptionsList } from '~/app/(app)/prop-calculator/accounts/_components/advice/AssumptionsList';
 import { InfoNote } from '~/components/InfoNote';
+import { InputsBesideResults } from '~/components/InputsBesideResults';
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
@@ -68,7 +73,7 @@ import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import InfoPopover from '~/components/ui/info-popover';
 import { Input } from '~/components/ui/input';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
-import { formatGateCurrency, formatPercent } from '~/lib/format';
+import { formatPercent, formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
     CENTS_PER_DOLLAR,
@@ -158,13 +163,8 @@ const PEAK_ASSUMED_VIEW: AssumptionView = {
     text: 'No peak balance was entered, so the current balance is assumed to be the peak, the most generous trailing-drawdown state.',
 };
 
-const RULEBOOK_NOTICE_TEXT: Readonly<
-    Record<ToolRulebookStatus.Failed | ToolRulebookStatus.Loading, string>
-> = {
-    [ToolRulebookStatus.Failed]:
-        'Your rulebook could not be loaded, so no payout figures are shown.',
-    [ToolRulebookStatus.Loading]: 'Loading your rulebook.',
-};
+const RULEBOOK_FAILED_TEXT =
+    'Your rulebook could not be loaded, so no payout figures are shown.';
 
 const NOISE_VERDICT_TEXT: Readonly<Record<NoiseVerdict, string>> = {
     [NoiseVerdict.BeyondNoise]: 'beyond simulation noise',
@@ -212,6 +212,8 @@ export function PayoutPlannerView() {
         useToolRulebook();
     const rulebook =
         rulebookStatus === ToolRulebookStatus.Ready ? toolRulebook : null;
+    const isRulebookFailed = rulebookStatus === ToolRulebookStatus.Failed;
+    const isRulebookLoading = rulebook === null && !isRulebookFailed;
     const rulebookRequest =
         rulebook === null ? null : payoutPlannerRulebookRequest(rulebook);
     const state = useMemo(
@@ -313,117 +315,136 @@ export function PayoutPlannerView() {
                 ])}
                 toolId={ToolId.PayoutPlanner}
             />
-            <div className="app-prop-calculator__payout-planner mb-10 grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-                <section aria-labelledby={INPUTS_HEADING_ID}>
-                    <ToolPanel title="Account" titleId={INPUTS_HEADING_ID}>
-                        <PayoutPlannerInputs
-                            onChange={change}
-                            onValidityChange={changeValidity}
-                            requestFieldKey={requestFieldKey}
-                            state={state}
-                        />
-                    </ToolPanel>
-                </section>
-                <div className="flex flex-col gap-8">
-                    <section aria-labelledby={READINESS_HEADING_ID}>
-                        <ToolPanel
-                            info={
-                                result === null || !isInputValid
-                                    ? undefined
-                                    : payoutReadinessNotes(result)
-                            }
-                            title="Readiness"
-                            titleId={READINESS_HEADING_ID}
-                        >
-                            {rulebook === null || result === null ? (
-                                <RulebookStatusNotice
-                                    status={noticeStatusOf(rulebookStatus)}
-                                />
-                            ) : isInputValid ? (
-                                <PayoutPlannerReadinessSummary
-                                    isPeakAssumed={isPeakAssumed(state)}
-                                    result={result}
-                                />
-                            ) : (
-                                <StatusRow
-                                    title={FIX_FIELD_TEXT}
-                                    tone={StatusTone.Warn}
-                                />
-                            )}
-                        </ToolPanel>
-                    </section>
-                    <section aria-labelledby={OUTLOOK_HEADING_ID}>
-                        <ToolPanel
-                            info={
-                                result === null || !isInputValid
-                                    ? undefined
-                                    : payoutOutlookNotes(outlookTask)
-                            }
-                            title="Path to payout"
-                            titleId={OUTLOOK_HEADING_ID}
-                        >
-                            {result === null ? (
-                                <RulebookStatusNotice
-                                    status={noticeStatusOf(rulebookStatus)}
-                                />
-                            ) : isInputValid ? (
-                                <PayoutPlannerOutlookSection
-                                    outlookTask={outlookTask}
-                                    result={result}
-                                />
-                            ) : (
-                                <StatusRow
-                                    title={FIX_FIELD_TEXT}
-                                    tone={StatusTone.Warn}
-                                />
-                            )}
-                        </ToolPanel>
-                    </section>
-                    <section aria-labelledby={SWEEP_HEADING_ID}>
-                        <ToolPanel
-                            description={SWEEP_BASIS_TEXT}
-                            info={
-                                rulebook === null ||
-                                !isRequestSizeValid ? undefined : (
-                                    <PayoutSweepNotes task={sweepTask} />
-                                )
-                            }
-                            title="Payout-size sweep"
-                            titleId={SWEEP_HEADING_ID}
-                        >
-                            {rulebook === null ? (
-                                <RulebookStatusNotice
-                                    status={noticeStatusOf(rulebookStatus)}
-                                />
-                            ) : isRequestSizeValid ? (
-                                <PayoutSweepOutcome
-                                    documentedRequestDollars={
-                                        rulebook.payout.requestCents /
-                                        CENTS_PER_DOLLAR
-                                    }
-                                    enteredRequest={state.requestSize}
-                                    plan={state.plan}
-                                    task={sweepTask}
-                                />
-                            ) : (
-                                <StatusRow
-                                    title={FIX_FIELD_TEXT}
-                                    tone={StatusTone.Warn}
-                                />
-                            )}
-                        </ToolPanel>
-                    </section>
-                    {policy === null ? null : (
-                        <section aria-labelledby={ASSUMPTIONS_HEADING_ID}>
-                            <PayoutPlannerAssumptions
-                                headingId={ASSUMPTIONS_HEADING_ID}
-                                isPeakAssumed={isPeakAssumed(state)}
-                                policy={policy}
+            <InputsBesideResults
+                className="app-prop-calculator__payout-planner mb-10"
+                inputs={
+                    <section aria-labelledby={INPUTS_HEADING_ID}>
+                        <ToolPanel title="Account" titleId={INPUTS_HEADING_ID}>
+                            <PayoutPlannerInputs
+                                onChange={change}
+                                onValidityChange={changeValidity}
+                                requestFieldKey={requestFieldKey}
+                                state={state}
                             />
+                        </ToolPanel>
+                    </section>
+                }
+                results={
+                    <>
+                        <section aria-labelledby={READINESS_HEADING_ID}>
+                            <ToolPanel
+                                info={
+                                    result === null || !isInputValid
+                                        ? undefined
+                                        : payoutReadinessNotes(result)
+                                }
+                                isComputing={isRulebookLoading}
+                                title="Readiness"
+                                titleId={READINESS_HEADING_ID}
+                            >
+                                {rulebook === null || result === null ? (
+                                    <RulebookStatusNotice
+                                        isFailed={isRulebookFailed}
+                                    />
+                                ) : isInputValid ? (
+                                    <PayoutPlannerReadinessSummary
+                                        isPeakAssumed={isPeakAssumed(state)}
+                                        result={result}
+                                    />
+                                ) : (
+                                    <StatusRow
+                                        title={FIX_FIELD_TEXT}
+                                        tone={StatusTone.Warn}
+                                    />
+                                )}
+                            </ToolPanel>
                         </section>
-                    )}
-                </div>
-            </div>
+                        <section aria-labelledby={OUTLOOK_HEADING_ID}>
+                            <ToolPanel
+                                info={
+                                    result === null || !isInputValid
+                                        ? undefined
+                                        : payoutOutlookNotes(outlookTask)
+                                }
+                                isComputing={
+                                    isRulebookLoading ||
+                                    (isInputValid &&
+                                        result !== null &&
+                                        isPlanned(result) &&
+                                        isTaskRunning(outlookTask))
+                                }
+                                title="Path to payout"
+                                titleId={OUTLOOK_HEADING_ID}
+                            >
+                                {result === null ? (
+                                    <RulebookStatusNotice
+                                        isFailed={isRulebookFailed}
+                                    />
+                                ) : isInputValid ? (
+                                    <PayoutPlannerOutlookSection
+                                        outlookTask={outlookTask}
+                                        result={result}
+                                    />
+                                ) : (
+                                    <StatusRow
+                                        title={FIX_FIELD_TEXT}
+                                        tone={StatusTone.Warn}
+                                    />
+                                )}
+                            </ToolPanel>
+                        </section>
+                        <section aria-labelledby={SWEEP_HEADING_ID}>
+                            <ToolPanel
+                                description={SWEEP_BASIS_TEXT}
+                                info={
+                                    rulebook === null ||
+                                    !isRequestSizeValid ? undefined : (
+                                        <PayoutSweepNotes task={sweepTask} />
+                                    )
+                                }
+                                isComputing={
+                                    isRulebookLoading ||
+                                    (rulebook !== null &&
+                                        isRequestSizeValid &&
+                                        isTaskRunning(sweepTask))
+                                }
+                                title="Payout-size sweep"
+                                titleId={SWEEP_HEADING_ID}
+                            >
+                                {rulebook === null ? (
+                                    <RulebookStatusNotice
+                                        isFailed={isRulebookFailed}
+                                    />
+                                ) : isRequestSizeValid ? (
+                                    <PayoutSweepOutcome
+                                        documentedRequestDollars={
+                                            rulebook.payout.requestCents /
+                                            CENTS_PER_DOLLAR
+                                        }
+                                        enteredRequest={state.requestSize}
+                                        plan={state.plan}
+                                        task={sweepTask}
+                                    />
+                                ) : (
+                                    <StatusRow
+                                        title={FIX_FIELD_TEXT}
+                                        tone={StatusTone.Warn}
+                                    />
+                                )}
+                            </ToolPanel>
+                        </section>
+                        {policy === null ? null : (
+                            <section aria-labelledby={ASSUMPTIONS_HEADING_ID}>
+                                <PayoutPlannerAssumptions
+                                    headingId={ASSUMPTIONS_HEADING_ID}
+                                    isPeakAssumed={isPeakAssumed(state)}
+                                    policy={policy}
+                                />
+                            </section>
+                        )}
+                    </>
+                }
+            />
         </>
     );
 }
@@ -474,7 +495,7 @@ function creditFreeStandardErrorOf(row: PayoutSizeSweepRow): null | number {
 }
 
 function creditInclusiveFigureText(row: PayoutSizeSweepRow): string {
-    return `${formatGateCurrency(creditInclusiveOf(row))}${standardErrorText(
+    return `${formatWholeOrCentsCurrency(creditInclusiveOf(row))}${standardErrorText(
         creditInclusiveStandardErrorOf(row),
     )}`;
 }
@@ -544,6 +565,15 @@ function isPlanned(
     );
 }
 
+function isTaskRunning<TResult>(
+    task: WorkerTaskState<never, TResult>,
+): boolean {
+    return (
+        task.phase === WorkerTaskPhase.Idle ||
+        task.phase === WorkerTaskPhase.Running
+    );
+}
+
 function isWithinSimulationNoise(
     a: PayoutSizeSweepRow,
     b: PayoutSizeSweepRow,
@@ -572,7 +602,7 @@ function midSizeNotes(
         row.requestSize <= MID_SIZE_BAND_MAX;
     return isMidSize(documented) || isMidSize(winner)
         ? [
-              `Mid-size requests (${formatGateCurrency(MID_SIZE_BAND_MIN)} to ${formatGateCurrency(MID_SIZE_BAND_MAX)}) keep the balance pinned near the retained cushion and carried very high bust rates in the historical sweep.`,
+              `Mid-size requests (${formatWholeOrCentsCurrency(MID_SIZE_BAND_MIN)} to ${formatWholeOrCentsCurrency(MID_SIZE_BAND_MAX)}) keep the balance pinned near the retained cushion and carried very high bust rates in the historical sweep.`,
           ]
         : [];
 }
@@ -593,14 +623,6 @@ function nextPayoutDaysText(projection: NextPayoutProjection): string {
             return NEXT_PAYOUT_NO_TRIAL_PAID_TEXT;
         }
     }
-}
-
-function noticeStatusOf(
-    status: ToolRulebookStatus,
-): ToolRulebookStatus.Failed | ToolRulebookStatus.Loading {
-    return status === ToolRulebookStatus.Ready
-        ? ToolRulebookStatus.Loading
-        : status;
 }
 
 function outlookRequestFor(
@@ -671,15 +693,17 @@ function PayoutPlannerAssumptions({
             description={
                 <>
                     Behind the readiness, the path and the sweep: funded risk{' '}
-                    {formatGateCurrency(funded.riskCents / CENTS_PER_DOLLAR)}{' '}
+                    {formatWholeOrCentsCurrency(
+                        funded.riskCents / CENTS_PER_DOLLAR,
+                    )}{' '}
                     and take profit{' '}
-                    {formatGateCurrency(
+                    {formatWholeOrCentsCurrency(
                         funded.takeProfitCents / CENTS_PER_DOLLAR,
                     )}{' '}
                     per trade, win rate {formatPercent(strategy.winrate)},
                     reward-to-risk {strategy.rr}, up to {funded.tradesPerDayMax}{' '}
                     trades a day, retained cushion{' '}
-                    {formatGateCurrency(
+                    {formatWholeOrCentsCurrency(
                         payout.retainedCushionCents / CENTS_PER_DOLLAR,
                     )}
                     , {trials} trials, seed {seed}, {fundedHorizonDays}-day
@@ -697,6 +721,7 @@ function PayoutPlannerAssumptions({
 function PayoutPlannerCountField({
     field,
     id,
+    info,
     invalidText,
     label,
     onValid,
@@ -705,6 +730,7 @@ function PayoutPlannerCountField({
 }: {
     field: PayoutPlannerUrlParameter;
     id: string;
+    info?: string;
     invalidText: string;
     label: string;
     onValid: (value: number) => void;
@@ -716,7 +742,7 @@ function PayoutPlannerCountField({
     const hintId = `${id}-hint`;
     return (
         <Field data-invalid={isInvalid}>
-            <FieldLabel htmlFor={id}>{label}</FieldLabel>
+            <LabelWithInfo htmlFor={id} info={info} label={label} />
             <Input
                 aria-describedby={isInvalid ? hintId : undefined}
                 aria-invalid={isInvalid}
@@ -862,7 +888,7 @@ function PayoutPlannerInputs({
                 parse={parsePayoutPlannerBalance}
                 value={state.requestSize}
             />
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
                 <PayoutPlannerCountField
                     field={PayoutPlannerUrlParameter.Payouts}
                     id="payout-planner-payouts-taken"
@@ -877,8 +903,9 @@ function PayoutPlannerInputs({
                 <PayoutPlannerCountField
                     field={PayoutPlannerUrlParameter.QualifyingDays}
                     id="payout-planner-qualifying-days"
+                    info="Qualifying days since your last payout, counted toward the plan's payout day gate."
                     invalidText="Enter a whole number of qualifying days."
-                    label="Qualifying days since last payout"
+                    label="Qualifying days"
                     onValid={(qualifyingDaysSinceLastPayout) => {
                         onChange({ qualifyingDaysSinceLastPayout });
                     }}
@@ -1068,7 +1095,7 @@ function PayoutPlannerReadinessSummary({
             );
         }
         case PayoutPlannerResultKind.Ready: {
-            const requested = formatGateCurrency(
+            const requested = formatWholeOrCentsCurrency(
                 result.readiness.requestedAmount,
             );
             const cushion = result.retainedCushion;
@@ -1084,13 +1111,15 @@ function PayoutPlannerReadinessSummary({
                             {
                                 id: 'net-after-split',
                                 label: `Net after the payout split on ${requested}`,
-                                value: formatGateCurrency(result.netAfterSplit),
+                                value: formatWholeOrCentsCurrency(
+                                    result.netAfterSplit,
+                                ),
                             },
                         ]}
                     />
                     <p className="m-0 text-muted-foreground">
                         Minimum cushion kept:{' '}
-                        {formatGateCurrency(cushion.amount)} (
+                        {formatWholeOrCentsCurrency(cushion.amount)} (
                         {RETAINED_CUSHION_BASIS_TEXT[cushion.basis]})
                     </p>
                     {cushion.amount <
@@ -1114,7 +1143,9 @@ function PayoutPlannerReadinessSummary({
                         infoTitle="Maximum withdrawable"
                     >
                         Maximum withdrawable above the cushion:{' '}
-                        {formatGateCurrency(result.ruleCappedWithdrawable)}
+                        {formatWholeOrCentsCurrency(
+                            result.ruleCappedWithdrawable,
+                        )}
                     </InfoNote>
                 </div>
             );
@@ -1183,23 +1214,26 @@ function PayoutStakeComparisonSummary({
             </div>
             <div className="text-sm">
                 Requested now:{' '}
-                {formatGateCurrency(stakeComparison.requestedAmount)} (you
-                receive {formatGateCurrency(stakeComparison.traderReceivesNow)}{' '}
+                {formatWholeOrCentsCurrency(stakeComparison.requestedAmount)}{' '}
+                (you receive{' '}
+                {formatWholeOrCentsCurrency(stakeComparison.traderReceivesNow)}{' '}
                 after the split)
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-1 tabular-nums">
                 <span>
-                    Request now: {formatGateCurrency(requestNow.value)}
+                    Request now: {formatWholeOrCentsCurrency(requestNow.value)}
                     {standardErrorText(requestNow.standardError)}
                 </span>
                 <span>
-                    Continue: {formatGateCurrency(continueNow.value)}
+                    Continue: {formatWholeOrCentsCurrency(continueNow.value)}
                     {standardErrorText(continueNow.standardError)}
                 </span>
             </div>
             <div className="text-sm tabular-nums">
                 Difference (request now minus continue):{' '}
-                {formatGateCurrency(requestNow.value - continueNow.value)}
+                {formatWholeOrCentsCurrency(
+                    requestNow.value - continueNow.value,
+                )}
                 {standardErrorText(gapStandardError)},{' '}
                 {
                     NOISE_VERDICT_TEXT[
@@ -1284,7 +1318,9 @@ function PayoutSweepOutcome({
                         cell: ({ row: { original: row } }) => (
                             <>
                                 <span className="flex flex-wrap items-center gap-2">
-                                    {formatGateCurrency(row.requestSize)}
+                                    {formatWholeOrCentsCurrency(
+                                        row.requestSize,
+                                    )}
                                     {sweepRowTags(
                                         row,
                                         optimum,
@@ -1296,11 +1332,11 @@ function PayoutSweepOutcome({
                                 {row.firmMinimumAboveRequest === null ? null : (
                                     <div className="text-xs font-normal">
                                         firm minimum{' '}
-                                        {formatGateCurrency(
+                                        {formatWholeOrCentsCurrency(
                                             row.firmMinimumAboveRequest.minimum,
                                         )}{' '}
                                         is above the{' '}
-                                        {formatGateCurrency(
+                                        {formatWholeOrCentsCurrency(
                                             row.firmMinimumAboveRequest
                                                 .requested,
                                         )}{' '}
@@ -1312,7 +1348,9 @@ function PayoutSweepOutcome({
                                         covers{' '}
                                         {row.requestedSizes
                                             .map((size) =>
-                                                formatGateCurrency(size),
+                                                formatWholeOrCentsCurrency(
+                                                    size,
+                                                ),
                                             )
                                             .join(', ')}
                                     </div>
@@ -1326,7 +1364,9 @@ function PayoutSweepOutcome({
                     {
                         cell: ({ row: { original: row } }) => (
                             <span className="tabular-nums">
-                                {formatGateCurrency(creditInclusiveOf(row))}
+                                {formatWholeOrCentsCurrency(
+                                    creditInclusiveOf(row),
+                                )}
                                 {standardErrorText(
                                     creditInclusiveStandardErrorOf(row),
                                 )}
@@ -1338,7 +1378,7 @@ function PayoutSweepOutcome({
                     {
                         cell: ({ row: { original: row } }) => (
                             <span className="tabular-nums">
-                                {formatGateCurrency(creditFreeOf(row))}
+                                {formatWholeOrCentsCurrency(creditFreeOf(row))}
                                 {standardErrorText(
                                     creditFreeStandardErrorOf(row),
                                 )}
@@ -1400,21 +1440,21 @@ function PersonalPayoutOverrideNote({
     return (
         <div className="flex flex-col gap-1 border-t border-border pt-2 text-xs">
             <p className="text-muted-foreground">
-                Your entered size: {formatGateCurrency(enteredRequest)}
+                Your entered size: {formatWholeOrCentsCurrency(enteredRequest)}
                 {override.row.requestSize === enteredRequest
                     ? ''
-                    : ` (effective ${formatGateCurrency(override.row.requestSize)})`}
+                    : ` (effective ${formatWholeOrCentsCurrency(override.row.requestSize)})`}
             </p>
             {firmMinimumAboveRequest === null ? null : (
                 <StatusRow
                     title={
                         <span className="block first-letter:uppercase">
                             firm minimum{' '}
-                            {formatGateCurrency(
+                            {formatWholeOrCentsCurrency(
                                 firmMinimumAboveRequest.minimum,
                             )}{' '}
                             is above your{' '}
-                            {formatGateCurrency(
+                            {formatWholeOrCentsCurrency(
                                 firmMinimumAboveRequest.requested,
                             )}{' '}
                             entry
@@ -1454,23 +1494,19 @@ function policyFor(plan: Plan, rulebook: RulebookParameters): PayoutPolicy {
     };
 }
 
-function RulebookStatusNotice({
-    status,
-}: {
-    status: ToolRulebookStatus.Failed | ToolRulebookStatus.Loading;
-}) {
-    return status === ToolRulebookStatus.Failed ? (
+function RulebookStatusNotice({ isFailed }: { isFailed: boolean }) {
+    return isFailed ? (
         <Alert variant="destructive">
-            <AlertDescription>{RULEBOOK_NOTICE_TEXT[status]}</AlertDescription>
+            <AlertDescription>{RULEBOOK_FAILED_TEXT}</AlertDescription>
         </Alert>
     ) : (
-        <InfoNote>{RULEBOOK_NOTICE_TEXT[status]}</InfoNote>
+        <PanelSkeleton size={PanelSkeletonSize.Bar} />
     );
 }
 
 function standardErrorText(
     standardError: null | number,
-    format: (value: number) => string = formatGateCurrency,
+    format: (value: number) => string = formatWholeOrCentsCurrency,
 ): string {
     return standardError === null ? '' : ` (±${format(standardError)})`;
 }
@@ -1485,7 +1521,7 @@ function sweepOptimumNotes(
     );
     if (documented === undefined) {
         return [
-            `The documented request size of ${formatGateCurrency(documentedSize)} is not on the sweep grid.`,
+            `The documented request size of ${formatWholeOrCentsCurrency(documentedSize)} is not on the sweep grid.`,
         ];
     }
     if (winner.requestSize === documented.requestSize) {
@@ -1495,7 +1531,7 @@ function sweepOptimumNotes(
         ];
     }
     const notes = [
-        `Engine optimum: ${formatGateCurrency(winner.requestSize)} at ${creditInclusiveFigureText(winner)} a month credit-inclusive and ${formatPercent(winner.out.fundedBustProbability)} bust probability, against ${formatGateCurrency(documented.requestSize)} at ${creditInclusiveFigureText(documented)} a month credit-inclusive and ${formatPercent(documented.out.fundedBustProbability)} bust probability at the documented size.`,
+        `Engine optimum: ${formatWholeOrCentsCurrency(winner.requestSize)} at ${creditInclusiveFigureText(winner)} a month credit-inclusive and ${formatPercent(winner.out.fundedBustProbability)} bust probability, against ${formatWholeOrCentsCurrency(documented.requestSize)} at ${creditInclusiveFigureText(documented)} a month credit-inclusive and ${formatPercent(documented.out.fundedBustProbability)} bust probability at the documented size.`,
     ];
     if (isWithinSimulationNoise(winner, documented)) {
         notes.push(SWEEP_WITHIN_NOISE_TEXT);

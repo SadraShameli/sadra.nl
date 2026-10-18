@@ -35,6 +35,7 @@ import {
     rowActionLabels,
 } from '../../components/rowActionsMenu';
 import { pickOption } from './accounts/pickOption';
+import { expectDialogFieldGridsOneColumnBelowMd } from './dialogFieldGrids';
 import { fieldValidation } from './labelledControl';
 
 const NO_OPT_INS: PlanOptIns = {
@@ -133,6 +134,12 @@ describe('the planner rows end in a row menu with an edit dialog', () => {
         );
         openRowActions(ROW_LABEL);
         expect(rowActionLabels()).toEqual(['Edit', 'Remove']);
+    });
+
+    it('keeps the field grids of its edit dialog one column below md', () => {
+        render([entry]);
+        chooseRowAction(ROW_LABEL, 'Edit');
+        expectDialogFieldGridsOneColumnBelowMd();
     });
 
     it('removes a row only after the remove is confirmed', () => {

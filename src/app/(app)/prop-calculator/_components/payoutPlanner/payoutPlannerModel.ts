@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 
-import { formatDisplayDate, formatGateCurrency } from '~/lib/format';
+import { formatDisplayDate, formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     type Dollars,
     dollars,
@@ -495,7 +495,7 @@ function countText(count: number, noun: string): string {
 }
 
 function money(amount: number): string {
-    return formatGateCurrency(amount);
+    return formatWholeOrCentsCurrency(amount);
 }
 
 function payoutPlannerSnapshotOf(

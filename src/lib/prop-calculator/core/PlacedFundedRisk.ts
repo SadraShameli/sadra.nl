@@ -1,4 +1,4 @@
-import { formatGateCurrency } from '~/lib/format';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 
 import { type InstrumentSymbol } from './Instruments';
 import {
@@ -39,7 +39,7 @@ export const FUNDED_START_TIER_CONTRACT_LIMIT =
 export function formatOneContractRisk(
     positionSizing: PositionSizingConfig,
 ): string {
-    return formatGateCurrency(
+    return formatWholeOrCentsCurrency(
         Math.ceil(
             oneContractRisk(positionSizing) * CENTS_PER_DOLLAR -
                 CENT_ROUNDING_TOLERANCE_IN_CENTS,
@@ -48,7 +48,7 @@ export function formatOneContractRisk(
 }
 
 export function formatWholeCentDollars(amount: number): string {
-    return formatGateCurrency(floorToWholeCents(amount));
+    return formatWholeOrCentsCurrency(floorToWholeCents(amount));
 }
 
 export function fundedStartContractLimit(

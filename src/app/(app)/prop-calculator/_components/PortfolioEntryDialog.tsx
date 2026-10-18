@@ -171,7 +171,7 @@ export function PortfolioEntryDialog({
             submitLabel={submitLabel}
             title={title}
         >
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
                 <FormSelectField
                     control={form.control}
                     keyOf={(value) => value}
@@ -345,7 +345,7 @@ export function PortfolioEntryDialog({
             </FieldSet>
             <FieldSet className="gap-4">
                 <FieldLegend variant="label">Contract-limit sizing</FieldLegend>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2">
                     <FormSelectField
                         control={form.control}
                         keyOf={(value) => value ?? GLOBAL_SIZING_KEY}

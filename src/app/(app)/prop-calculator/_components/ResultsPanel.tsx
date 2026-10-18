@@ -10,6 +10,7 @@ import { Card, CardContent } from '~/components/ui/card';
 import { Toggle } from '~/components/ui/toggle';
 import {
     formatCompactCurrency,
+    formatCount,
     formatCurrency,
     formatDays,
     formatDelta,
@@ -17,7 +18,6 @@ import {
     formatOptionalPercent,
     formatPercent,
     formatStreak,
-    NOT_APPLICABLE,
 } from '~/lib/format';
 import { type Plan, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
@@ -34,6 +34,13 @@ import {
     signAccent,
 } from './kpiAccent';
 import { kpiDescriptions } from './kpiDescriptions';
+import {
+    NO_COST_ROI_REASON,
+    NO_PASS_DAYS_REASON,
+    NO_PASS_REASON,
+    NO_PAYOUT_REASON,
+} from './missingReasons';
+import { ValueOrMissing } from './ValueOrMissing';
 
 interface CostBreakdownBodyProperties {
     plan: Plan;
@@ -52,7 +59,7 @@ interface KpiItemProperties {
     info: ReactNode;
     label: string;
     sub: string;
-    value: string;
+    value: ReactNode;
 }
 
 interface ResultsPanelProperties {
@@ -166,7 +173,7 @@ export default function ResultsPanel({
             data-state={isPending ? 'pending' : 'idle'}
             description={
                 pinned
-                    ? `Pinned: ${pinned.accountSize.toLocaleString()} · comparing live vs pinned`
+                    ? `Pinned: ${formatCount(pinned.accountSize)} · comparing live vs pinned`
                     : 'Pin a scenario to compare deltas'
             }
             title="Results"
@@ -243,9 +250,24 @@ export default function ResultsPanel({
                                 <>
                                     <p>{kpiDescriptions.avgDaysToPass}</p>
                                     <p className="mt-2 font-mono text-xs">
-                                        P25 {formatDays(result.daysToPassP25)} ·
-                                        P50 {formatDays(result.daysToPassP50)} ·
-                                        P75 {formatDays(result.daysToPassP75)}
+                                        P25{' '}
+                                        <ValueOrMissing
+                                            value={formatDays(
+                                                result.daysToPassP25,
+                                            )}
+                                        />{' '}
+                                        · P50{' '}
+                                        <ValueOrMissing
+                                            value={formatDays(
+                                                result.daysToPassP50,
+                                            )}
+                                        />{' '}
+                                        · P75{' '}
+                                        <ValueOrMissing
+                                            value={formatDays(
+                                                result.daysToPassP75,
+                                            )}
+                                        />
                                     </p>
                                 </>
                             ),
@@ -254,7 +276,14 @@ export default function ResultsPanel({
                                 plan.minTradingDays === 0
                                     ? 'no minimum days'
                                     : `min ${plan.minTradingDays} required`,
-                            value: formatDays(result.expectedDaysToPass),
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_PASS_DAYS_REASON}
+                                    value={formatDays(
+                                        result.expectedDaysToPass,
+                                    )}
+                                />
+                            ),
                         }),
                         kpiItem({
                             delta: dCostInverted,
@@ -274,10 +303,16 @@ export default function ResultsPanel({
                             info: <p>{kpiDescriptions.firstPayout}</p>,
                             label: 'First payout',
                             sub: describeFirstPayoutGate(plan),
-                            value:
-                                result.expectedFirstPayoutDay > 0
-                                    ? `day ${result.expectedFirstPayoutDay.toFixed(0)}`
-                                    : NOT_APPLICABLE,
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_PAYOUT_REASON}
+                                    value={
+                                        result.expectedFirstPayoutDay > 0
+                                            ? `day ${result.expectedFirstPayoutDay.toFixed(0)}`
+                                            : null
+                                    }
+                                />
+                            ),
                         }),
                         kpiItem({
                             accent: netAccent,
@@ -329,13 +364,20 @@ export default function ResultsPanel({
                                       ),
                                       label: 'EV per attempt',
                                       sub: 'per attempt, ignores time; not the ranking objective',
-                                      value: attemptEconomics.economics
-                                          ? formatCurrency(
-                                                attemptEconomics.economics
-                                                    .expectedNetPerAttempt
-                                                    .value,
-                                            )
-                                          : NOT_APPLICABLE,
+                                      value: (
+                                          <ValueOrMissing
+                                              value={
+                                                  attemptEconomics.economics
+                                                      ? formatCurrency(
+                                                            attemptEconomics
+                                                                .economics
+                                                                .expectedNetPerAttempt
+                                                                .value,
+                                                        )
+                                                      : null
+                                              }
+                                          />
+                                      ),
                                   }),
                               ]
                             : []),
@@ -401,8 +443,13 @@ export default function ResultsPanel({
                             info: <p>{kpiDescriptions.roiOnCost}</p>,
                             label: 'ROI on cost',
                             sub: `net ${formatCurrency(result.expectedNet)} / cost`,
-                            value: formatOptionalPercent(
-                                result.roiOnCost.value,
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_COST_ROI_REASON}
+                                    value={formatOptionalPercent(
+                                        result.roiOnCost.value,
+                                    )}
+                                />
                             ),
                         }),
                         kpiItem({
@@ -410,14 +457,20 @@ export default function ResultsPanel({
                             info: <p>{kpiDescriptions.tradesPerPass}</p>,
                             label: 'Trades per pass',
                             sub: 'when you pass',
-                            value:
-                                result.tradesPerSuccessfulAttempt > 0
-                                    ? String(
-                                          Math.round(
-                                              result.tradesPerSuccessfulAttempt,
-                                          ),
-                                      )
-                                    : NOT_APPLICABLE,
+                            value: (
+                                <ValueOrMissing
+                                    reason={NO_PASS_REASON}
+                                    value={
+                                        result.tradesPerSuccessfulAttempt > 0
+                                            ? String(
+                                                  Math.round(
+                                                      result.tradesPerSuccessfulAttempt,
+                                                  ),
+                                              )
+                                            : null
+                                    }
+                                />
+                            ),
                         }),
                         kpiItem({
                             id: 'max-drawdown',
@@ -598,9 +651,11 @@ function CostBreakdownBody({ plan, result }: CostBreakdownBodyProperties) {
                                 Monthly subs per funded acct
                             </span>
                             <span className="text-foreground">
-                                {formatFiniteCurrency(
-                                    callback.subscriptionPerFundedAccount,
-                                )}
+                                <ValueOrMissing
+                                    value={formatFiniteCurrency(
+                                        callback.subscriptionPerFundedAccount,
+                                    )}
+                                />
                             </span>
                         </div>
                     )}

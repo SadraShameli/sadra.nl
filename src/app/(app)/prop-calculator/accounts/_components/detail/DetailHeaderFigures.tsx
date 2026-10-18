@@ -3,13 +3,12 @@
 import { TriangleAlert } from 'lucide-react';
 
 import {
-    ExpectedPayoutsReason,
     ExpectedPayoutsValue,
     NextActionValue,
     NextPayoutValue,
     ValueDetailLines,
 } from '~/app/(app)/prop-calculator/accounts/_components/AccountValueCells';
-import { ExpectedPayoutsKind } from '~/app/(app)/prop-calculator/accounts/_components/accountValueColumns';
+import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
 import {
     type AccountValues,
     hasPendingValues,
@@ -50,9 +49,7 @@ export function DetailHeaderFigures({
     }
     const { action, expectedPayouts, nextPayout } = columns;
     const hasExpectedPayoutsCaption =
-        expectedPayouts.kind === ExpectedPayoutsKind.NotValued ||
-        columns.atRisk !== null ||
-        columns.evPerAttempt !== null;
+        columns.atRisk !== null || columns.evPerAttempt !== null;
     return (
         <div
             aria-busy={hasPendingValues(values)}
@@ -61,19 +58,17 @@ export function DetailHeaderFigures({
             <StatStrip
                 items={[
                     {
-                        caption: action.reason ?? undefined,
+                        caption:
+                            action.reason === null
+                                ? undefined
+                                : sentenceOf(action.reason),
                         id: 'next-action',
                         label: 'Next action',
                         value: <NextActionValue action={action} />,
                     },
                     {
                         caption: hasExpectedPayoutsCaption ? (
-                            <>
-                                <ExpectedPayoutsReason
-                                    expectedPayouts={expectedPayouts}
-                                />
-                                <ValueDetailLines columns={columns} />
-                            </>
+                            <ValueDetailLines columns={columns} />
                         ) : undefined,
                         id: 'expected-payouts',
                         label: 'Expected payouts',

@@ -11,10 +11,11 @@ import {
     formatProfileDate,
     MutedCell,
     PrimaryCell,
+    ProfileCollectionEmpty,
     ProfileDateCell,
     ProfileDatePrecision,
-    ProfileTableEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { FormDialog } from '~/components/FormDialog';
 import {
     FormNumberField,
@@ -26,11 +27,7 @@ import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { Checkbox } from '~/components/ui/checkbox';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
-import {
-    DataTable,
-    type DataTableColumn,
-    hasActiveTableFilter,
-} from '~/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Dialog, DialogTrigger } from '~/components/ui/dialog';
 import {
     type ReadingCreateAdminInput,
@@ -226,38 +223,40 @@ export function ReadingsPanel() {
                 description="Raw sensor values, newest first. Select rows to delete them in bulk."
                 title="Readings"
             >
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={newButton}
-                            description="Readings appear here as devices report them."
-                            filtered={
-                                scope.isActive || hasActiveTableFilter(table)
-                            }
-                            icon={Activity}
-                            noun="readings"
-                        />
-                    )}
-                    filterPlaceholder="Search readings…"
-                    hasExternalFilters={scope.isActive}
-                    headerActions={
-                        <SensorHubScopeFilters
-                            controller={scope}
-                            devices={devices.data ?? []}
-                            locations={locations.data ?? []}
-                            sensors={sensors.data ?? []}
-                        />
-                    }
-                    isLoading={readings.isLoading}
-                    onResetFilters={scope.reset}
-                    onRowSelectionChange={setSelected}
-                    pageSize={25}
-                    rowId={(r) => String(r.id)}
-                    rowSelection
-                    showFilter
-                />
+                {!readings.isLoading && !scope.isActive && rows.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Readings appear here as devices report them."
+                        icon={Activity}
+                        noun="readings"
+                    />
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={
+                            <NoMatchesState
+                                icon={Activity}
+                                noun="readings"
+                            />
+                        }
+                        filterPlaceholder="Search readings…"
+                        hasExternalFilters={scope.isActive}
+                        headerActions={
+                            <SensorHubScopeFilters
+                                controller={scope}
+                                devices={devices.data ?? []}
+                                locations={locations.data ?? []}
+                                sensors={sensors.data ?? []}
+                            />
+                        }
+                        isLoading={readings.isLoading}
+                        onResetFilters={scope.reset}
+                        onRowSelectionChange={setSelected}
+                        rowId={(r) => String(r.id)}
+                        rowSelection
+                        showFilter
+                    />
+                )}
             </ToolPanel>
             <NewReadingDialog
                 devices={(devices.data ?? []).map((d) => ({

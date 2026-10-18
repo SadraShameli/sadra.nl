@@ -72,6 +72,24 @@ describe('the stat strip', () => {
         ).toHaveLength(2);
     });
 
+    it('shows a skeleton only for the figure that is still loading', () => {
+        act(() => {
+            root.render(
+                <StatStrip
+                    items={ITEMS.map((item, index) =>
+                        index === 0 ? { ...item, isLoading: true } : item,
+                    )}
+                />,
+            );
+        });
+        expect(container.textContent).not.toContain('$1,240');
+        expect(container.textContent).not.toContain('per month');
+        expect(container.textContent).toContain('38%');
+        expect(
+            container.querySelectorAll(':scope [data-slot="skeleton"]'),
+        ).toHaveLength(1);
+    });
+
     it('tones a figure and names the strip as a group', () => {
         act(() => {
             root.render(

@@ -1,8 +1,8 @@
 import { signedCurrencyText } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
 import {
     formatCurrency,
-    formatGateCurrency,
     formatPercent,
+    formatWholeOrCentsCurrency,
 } from '~/lib/format';
 import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
@@ -45,7 +45,7 @@ function deltaText(label: string, delta: UncertainValue): string {
     const spread =
         delta.standardError === null
             ? ''
-            : ` (± ${formatGateCurrency(delta.standardError)})`;
+            : ` (± ${formatWholeOrCentsCurrency(delta.standardError)})`;
     return `${label}: ${signedCurrencyText(delta.value)} EV${spread}`;
 }
 

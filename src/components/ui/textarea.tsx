@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { FIELD_SURFACE_CLASS } from '~/components/ui/field-surface';
 import { cn } from '~/lib/utilities';
 
 const Textarea = React.forwardRef<
@@ -9,7 +10,8 @@ const Textarea = React.forwardRef<
     return (
         <textarea
             className={cn(
-                'flex min-h-20 w-full rounded-md border border-line-hover bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+                FIELD_SURFACE_CLASS,
+                'flex field-sizing-content max-h-80 min-h-20 w-full resize-none px-3 py-2 text-base placeholder:text-muted-foreground md:text-sm',
                 className,
             )}
             ref={reference}

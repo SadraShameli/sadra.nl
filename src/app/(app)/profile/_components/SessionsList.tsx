@@ -1,6 +1,5 @@
 'use client';
 
-import { formatDistanceToNow } from 'date-fns';
 import { LogOut, Monitor, Smartphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
@@ -13,11 +12,16 @@ import {
 import { toast } from 'sonner';
 import { UAParser } from 'ua-parser-js';
 
+import { RelativeTime } from '~/components/RelativeTime';
 import { RowActionKind, rowActionsColumn } from '~/components/RowActionsMenu';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
+import {
+    DataTable,
+    type DataTableColumn,
+    hasActiveTableFilter,
+} from '~/components/ui/data-table';
+import { EmptyState, NoMatchesState } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { authClient } from '~/lib/auth/client';
 import { cn } from '~/lib/utilities';
@@ -125,11 +129,10 @@ export function SessionsList() {
             {
                 accessorFn: (r) => new Date(r.updatedAt).getTime(),
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(row.original.updatedAt), {
-                            addSuffix: true,
-                        })}
-                    </span>
+                    <RelativeTime
+                        className="text-xs text-muted-foreground"
+                        value={row.original.updatedAt}
+                    />
                 ),
                 header: 'Last active',
                 id: 'updatedAt',
@@ -180,16 +183,12 @@ export function SessionsList() {
             <DataTable<Row>
                 columns={columns}
                 data={rows}
-                emptyState={
-                    <EmptyState
-                        description={
-                            hasFilters
-                                ? 'No sessions match this filter.'
-                                : undefined
-                        }
-                        icon={Monitor}
-                        title="No active sessions"
-                    />
+                emptyState={(table) =>
+                    hasFilters || hasActiveTableFilter(table) ? (
+                        <NoMatchesState icon={Monitor} noun="sessions" />
+                    ) : (
+                        <EmptyState icon={Monitor} title="No active sessions" />
+                    )
                 }
                 filterPlaceholder="Search sessions…"
                 hasExternalFilters={hasFilters}

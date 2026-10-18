@@ -1,7 +1,9 @@
 'use client';
 
+import { CalendarRange } from 'lucide-react';
 import { memo } from 'react';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { PanelErrorBoundary } from '~/components/PanelErrorBoundary';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
@@ -9,7 +11,7 @@ import { formatDisplayMonth, NOT_APPLICABLE } from '~/lib/format';
 
 import { MonthlyPayoutChart } from './MonthlyPayoutChart';
 import { type StatementCardModel } from './overviewModel';
-import { OverviewPanel } from './OverviewPanel';
+import { OverviewEmptyPanel, OverviewPanel } from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 import { PurchaseCohortsView } from './PurchaseCohortsView';
 
@@ -37,11 +39,11 @@ export const StatementCard = memo(function StatementCard({
     readonly model: StatementCardModel;
 }) {
     return model.months.length === 0 ? (
-        <OverviewPanel section={OverviewSectionId.Statement}>
-            <p className="text-sm text-muted-foreground">
-                No fee, payout or event recorded yet.
-            </p>
-        </OverviewPanel>
+        <OverviewEmptyPanel
+            icon={CalendarRange}
+            section={OverviewSectionId.Statement}
+            title="No fee, payout or event recorded yet"
+        />
     ) : (
         <OverviewPanel
             info={model.caveat}
@@ -100,63 +102,75 @@ function CashByMonthTable({ model }: { readonly model: StatementCardModel }) {
                     meta: { isRowHeader: true },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.spend}</>,
+                    cell: ({ row }) => <FigureText text={row.original.spend} />,
                     header: 'Spend',
                     id: StatementCardColumn.Spend,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.payouts}</>,
+                    cell: ({ row }) => (
+                        <FigureText text={row.original.payouts} />
+                    ),
                     header: 'Payouts received',
                     id: StatementCardColumn.PayoutsReceived,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.payoutCount}</>,
+                    cell: ({ row }) => (
+                        <FigureText text={row.original.payoutCount} />
+                    ),
                     header: 'Payout count',
                     id: StatementCardColumn.PayoutCount,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.net}</>,
+                    cell: ({ row }) => <FigureText text={row.original.net} />,
                     header: 'Net',
                     id: StatementCardColumn.Net,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.cumulativeNet}</>,
+                    cell: ({ row }) => (
+                        <FigureText text={row.original.cumulativeNet} />
+                    ),
                     header: 'Cumulative net',
                     id: StatementCardColumn.CumulativeNet,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.multiple}</>,
+                    cell: ({ row }) => (
+                        <FigureText text={row.original.multiple} />
+                    ),
                     header: 'Multiple',
                     id: StatementCardColumn.Multiple,
                     meta: { align: DataTableAlign.End },
                 },
                 {
                     cell: ({ row }) => (
-                        <>{row.original.trailingThreeMonthMultiple}</>
+                        <FigureText
+                            text={row.original.trailingThreeMonthMultiple}
+                        />
                     ),
                     header: 'Trailing 3-month multiple',
                     id: StatementCardColumn.Trailing3MonthMultiple,
                     meta: { align: DataTableAlign.End },
                 },
                 {
-                    cell: ({ row }) => <>{row.original.payoutGrowth}</>,
+                    cell: ({ row }) => (
+                        <FigureText text={row.original.payoutGrowth} />
+                    ),
                     header: 'Growth',
                     id: StatementCardColumn.Growth,
                     meta: { align: DataTableAlign.End },
                 },
                 {
                     cell: ({ row }) => (
-                        <>
-                            {meetsTargetLabel(
+                        <FigureText
+                            text={meetsTargetLabel(
                                 row.original.meetsPayoutTarget,
                                 row.original.meetsMultipleTarget,
                             )}
-                        </>
+                        />
                     ),
                     header: 'Meets target',
                     id: StatementCardColumn.MeetsTarget,

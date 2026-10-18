@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 
 import type { LogLevel } from '~/lib/accounting/runner-types';
 
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatDisplayTimeWithSeconds } from '~/lib/format';
 import { cn } from '~/lib/utilities';
 
@@ -31,6 +31,17 @@ export function EventLog({
         const element = scrollReference.current;
         if (element) element.scrollTop = element.scrollHeight;
     }, [lines]);
+    if (lines.length === 0) {
+        return (
+            <EmptyState
+                className={className}
+                description="Start a run to see the log."
+                icon={Activity}
+                size={EmptyStateSize.Compact}
+                title="No events yet"
+            />
+        );
+    }
     return (
         <div
             className={cn(
@@ -41,32 +52,24 @@ export function EventLog({
             )}
             ref={scrollReference}
         >
-            {lines.length === 0 ? (
-                <EmptyState
-                    description="Start a run to see the log."
-                    icon={Activity}
-                    title="No events yet"
-                />
-            ) : (
-                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-                    {lines.map((l, index) => (
-                        <li
-                            className={cn(
-                                'flex items-start gap-2',
-                                l.level === 'error' && 'text-destructive',
-                                l.level === 'warn' && 'text-warning',
-                                l.level === 'info' && 'text-ink-soft',
-                            )}
-                            key={index}
-                        >
-                            <span className="shrink-0 text-ink-muted tabular-nums">
-                                {formatDisplayTimeWithSeconds(new Date(l.ts))}
-                            </span>
-                            <span className="wrap-break-word">{l.message}</span>
-                        </li>
-                    ))}
-                </ul>
-            )}
+            <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+                {lines.map((l, index) => (
+                    <li
+                        className={cn(
+                            'flex items-start gap-2',
+                            l.level === 'error' && 'text-destructive',
+                            l.level === 'warn' && 'text-warning',
+                            l.level === 'info' && 'text-ink-soft',
+                        )}
+                        key={index}
+                    >
+                        <span className="shrink-0 text-ink-muted tabular-nums">
+                            {formatDisplayTimeWithSeconds(new Date(l.ts))}
+                        </span>
+                        <span className="wrap-break-word">{l.message}</span>
+                    </li>
+                ))}
+            </ul>
         </div>
     );
 }

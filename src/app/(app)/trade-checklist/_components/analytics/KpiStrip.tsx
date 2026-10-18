@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 
+import { MissingValue } from '~/components/MissingValue';
 import { StatStrip, StatStripSize } from '~/components/StatStrip';
 import { formatPercent, formatR } from '~/lib/format';
 import {
@@ -10,6 +11,9 @@ import {
     type LightAssessment,
 } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
+
+const NO_OUTCOMES_REASON =
+    'Needs at least one recorded win, loss or breakeven outcome.';
 
 export function KpiStrip({ assessments }: { assessments: LightAssessment[] }) {
     const stats = useMemo(() => {
@@ -50,19 +54,24 @@ export function KpiStrip({ assessments }: { assessments: LightAssessment[] }) {
                     id: 'win-rate',
                     label: 'Win rate',
                     value:
-                        stats.sample > 0
-                            ? formatPercent(stats.winRate, 0)
-                            : '-',
+                        stats.sample > 0 ? (
+                            formatPercent(stats.winRate, 0)
+                        ) : (
+                            <MissingValue reason={NO_OUTCOMES_REASON} />
+                        ),
                 },
                 {
                     caption: 'across all graded outcomes',
                     id: 'cumulative-r',
                     label: 'Cumulative R',
-                    value: (
-                        <span className={signToneClass(stats.cumR)}>
-                            {stats.sample > 0 ? formatR(stats.cumR, 1) : '-'}
-                        </span>
-                    ),
+                    value:
+                        stats.sample > 0 ? (
+                            <span className={signToneClass(stats.cumR)}>
+                                {formatR(stats.cumR, 1)}
+                            </span>
+                        ) : (
+                            <MissingValue reason={NO_OUTCOMES_REASON} />
+                        ),
                 },
                 {
                     caption:
@@ -94,11 +103,14 @@ export function KpiStrip({ assessments }: { assessments: LightAssessment[] }) {
                     caption: 'avg R per graded trade',
                     id: 'expectancy',
                     label: 'Expectancy',
-                    value: (
-                        <span className={signToneClass(stats.expectancy)}>
-                            {stats.sample > 0 ? formatR(stats.expectancy) : '-'}
-                        </span>
-                    ),
+                    value:
+                        stats.sample > 0 ? (
+                            <span className={signToneClass(stats.expectancy)}>
+                                {formatR(stats.expectancy)}
+                            </span>
+                        ) : (
+                            <MissingValue reason={NO_OUTCOMES_REASON} />
+                        ),
                 },
             ]}
             size={StatStripSize.Large}

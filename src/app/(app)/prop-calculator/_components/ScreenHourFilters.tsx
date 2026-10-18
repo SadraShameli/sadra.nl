@@ -14,6 +14,13 @@ import {
 
 const TOP_LIMIT_ALL = 'all';
 const TOP_LIMIT_CHOICES: readonly number[] = [3, 5, 10];
+const TOP_LIMIT_OPTIONS: readonly { label: string; value: string }[] = [
+    ...TOP_LIMIT_CHOICES.map((choice) => ({
+        label: `Top ${String(choice)}`,
+        value: String(choice),
+    })),
+    { label: 'All', value: TOP_LIMIT_ALL },
+];
 const TOP_LIMIT_DISABLED_HINT =
     'Set hours per day and accounts per session first';
 
@@ -148,15 +155,20 @@ export function ScreenHourInputs({
                         className="w-28"
                         id={`${idPrefix}-top-limit`}
                     >
-                        <SelectValue />
+                        <SelectValue>
+                            {
+                                TOP_LIMIT_OPTIONS.find(
+                                    (option) => option.value === topLimitInput,
+                                )?.label
+                            }
+                        </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                        {TOP_LIMIT_CHOICES.map((choice) => (
-                            <SelectItem key={choice} value={String(choice)}>
-                                Top {choice}
+                        {TOP_LIMIT_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                                {option.label}
                             </SelectItem>
                         ))}
-                        <SelectItem value={TOP_LIMIT_ALL}>All</SelectItem>
                     </SelectContent>
                 </Select>
                 {isTopLimitEnabled ? null : (

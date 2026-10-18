@@ -33,6 +33,7 @@ export interface ProviderLedger {
 }
 
 export interface ProviderMutation {
+    amount: null | number;
     date: string;
     description: null | string;
     externalId: ExternalId;

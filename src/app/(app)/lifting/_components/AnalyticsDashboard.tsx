@@ -1,7 +1,7 @@
 'use client';
 
 import { eachDayOfInterval, getDay, subMonths } from 'date-fns';
-import { CalendarRange } from 'lucide-react';
+import { CalendarRange, Dumbbell } from 'lucide-react';
 import { type ReactNode, useMemo } from 'react';
 
 import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
@@ -119,37 +119,51 @@ function AnalyticsPanels({
 
             <PanelErrorBoundary section="Sets per muscle">
                 <ToolPanel title="Sets per muscle (last 90 days)">
-                    <div className="flex flex-col gap-2">
-                        {MUSCLE_VALUES.map((m) => {
-                            const sets = volume?.setsPerMuscle[m] ?? 0;
-                            return (
-                                <div
-                                    className="flex items-center gap-3"
-                                    key={m}
-                                >
-                                    <span className="w-24 text-xs text-muted-foreground capitalize">
-                                        {m}
-                                    </span>
-                                    {volume ? (
-                                        <>
-                                            <Progress
-                                                className="h-2 flex-1"
-                                                value={Math.min(100, sets * 5)}
-                                            />
-                                            <span className="w-10 text-right text-xs tabular-nums">
-                                                {sets}
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Skeleton className="h-2 flex-1" />
-                                            <Skeleton className="h-4 w-10" />
-                                        </>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
+                    {volume !== undefined &&
+                    MUSCLE_VALUES.every(
+                        (m) => volume.setsPerMuscle[m] === 0,
+                    ) ? (
+                        <EmptyState
+                            description="Log a workout to see how your sets spread across muscles."
+                            icon={Dumbbell}
+                            title="No sets yet"
+                        />
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {MUSCLE_VALUES.map((m) => {
+                                const sets = volume?.setsPerMuscle[m] ?? 0;
+                                return (
+                                    <div
+                                        className="flex items-center gap-3"
+                                        key={m}
+                                    >
+                                        <span className="w-24 text-xs text-muted-foreground capitalize">
+                                            {m}
+                                        </span>
+                                        {volume ? (
+                                            <>
+                                                <Progress
+                                                    className="h-2 flex-1"
+                                                    value={Math.min(
+                                                        100,
+                                                        sets * 5,
+                                                    )}
+                                                />
+                                                <span className="w-10 text-right text-xs tabular-nums">
+                                                    {sets}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Skeleton className="h-2 flex-1" />
+                                                <Skeleton className="h-4 w-10" />
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </ToolPanel>
             </PanelErrorBoundary>
 

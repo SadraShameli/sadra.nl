@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartLine } from 'lucide-react';
 import { useMemo } from 'react';
 import { Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
@@ -11,6 +12,7 @@ import {
     type ChartConfig,
     ChartContainer,
 } from '~/components/ui/chart';
+import { EmptyState } from '~/components/ui/empty-state';
 import { formatDisplayDate } from '~/lib/format';
 import {
     cumulativeRSeries,
@@ -29,9 +31,11 @@ export function CumulativeRChart({
     const data = useMemo(() => cumulativeRSeries(assessments), [assessments]);
 
     return data.length === 0 ? (
-        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-            Record outcomes with R values to see the equity curve.
-        </div>
+        <EmptyState
+            description="Record outcomes with R values to see the equity curve."
+            icon={ChartLine}
+            title="No R outcomes yet"
+        />
     ) : (
         <ChartContainer
             className="app-trade-checklist__cumulative-chart"

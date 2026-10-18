@@ -181,7 +181,15 @@ export function FormSelectField<
                         onBlur={field.onBlur}
                         ref={field.ref}
                     >
-                        <SelectValue placeholder={placeholder} />
+                        <SelectValue placeholder={placeholder}>
+                            {
+                                options.find(
+                                    (candidate) =>
+                                        keyOf(candidate.value) ===
+                                        keyOf(field.value),
+                                )?.label
+                            }
+                        </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         {options.map((option) => (

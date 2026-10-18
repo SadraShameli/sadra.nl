@@ -9,6 +9,7 @@ import { writeLastToolQuery } from '~/app/(app)/prop-calculator/_components/last
 import {
     LINKED_TOOL_CATALOG,
     type ToolCatalogEntry,
+    toolsByGroup,
 } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 
 import { basePath } from './toolPageFiles';
@@ -95,6 +96,17 @@ describe('HubToolCards', () => {
         expect(
             container.querySelectorAll('.app-prop-calculator__hub-card'),
         ).toHaveLength(LINKED_TOOL_CATALOG.length);
+    });
+
+    it('heads each tool group with the catalog group label, in the catalog group order', () => {
+        render();
+        expect(
+            [...container.querySelectorAll(':scope section > h2')].map(
+                (heading) => heading.textContent,
+            ),
+        ).toEqual(
+            toolsByGroup(LINKED_TOOL_CATALOG).map((group) => group.label),
+        );
     });
 
     it('appends the last query to the cards of tools that use the calculator inputs, once the effect has read storage', () => {

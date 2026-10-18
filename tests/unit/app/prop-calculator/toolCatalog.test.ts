@@ -2,7 +2,6 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import type { ToolPageHeadingProperties } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 
-import { panelDescriptions } from '~/app/(app)/prop-calculator/_components/kpiDescriptions';
 import {
     isCalculatorInputsPath,
     type OwnCodecToolId,
@@ -11,9 +10,12 @@ import {
     toolForPathname,
     ToolGroup,
     ToolId,
+    toolsByGroup,
     ToolUrlCodec,
 } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { routes } from '~/lib/site/routes';
+
+const MAX_HUB_BLURB_LENGTH = 130;
 
 const SPLIT_TOOLS: readonly ToolId[] = [
     ToolId.Simulator,
@@ -81,13 +83,18 @@ describe('TOOL_CATALOG', () => {
         expect(new Set(labels).size).toBe(labels.length);
     });
 
-    it('reuses the existing planner panel description', () => {
-        expect(toolCatalogEntry(ToolId.Planner).blurb).toBe(
-            panelDescriptions.portfolio,
-        );
+    it('labels the planner Multi-firm planner', () => {
         expect(toolCatalogEntry(ToolId.Planner).label).toBe(
             'Multi-firm planner',
         );
+    });
+
+    it('keeps every hub blurb to a similar short length, so no card runs to twice the height of its neighbours', () => {
+        for (const entry of TOOL_CATALOG) {
+            expect(entry.blurb.length, entry.label).toBeLessThanOrEqual(
+                MAX_HUB_BLURB_LENGTH,
+            );
+        }
     });
 
     it('marks the split tools, funded optimizer and live as calculator-input tools that share state', () => {
@@ -208,5 +215,52 @@ describe('isCalculatorInputsPath', () => {
         );
         expect(isCalculatorInputsPath(routes.propCalculator.index)).toBe(false);
         expect(isCalculatorInputsPath('/somewhere')).toBe(false);
+    });
+});
+
+describe('toolsByGroup', () => {
+    it('orders the groups as the hub screen lists them, each labelled', () => {
+        const groups = toolsByGroup(TOOL_CATALOG);
+        expect(groups.map((entry) => entry.group)).toEqual([
+            ToolGroup.Simulate,
+            ToolGroup.Analyse,
+            ToolGroup.Size,
+            ToolGroup.Compare,
+            ToolGroup.Plan,
+            ToolGroup.Labs,
+        ]);
+        expect(groups.map((entry) => entry.label)).toEqual([
+            'Simulate',
+            'Analyse',
+            'Size',
+            'Compare',
+            'Plan',
+            'Labs',
+        ]);
+    });
+
+    it('shows every catalog tool once, under its own group, in catalog order', () => {
+        const groups = toolsByGroup(TOOL_CATALOG);
+        const shown = groups.flatMap((entry) => entry.tools);
+        expect(shown.map((tool) => tool.id).toSorted(byName)).toEqual(
+            TOOL_CATALOG.map((tool) => tool.id).toSorted(byName),
+        );
+        for (const entry of groups) {
+            expect(entry.tools.length).toBeGreaterThan(0);
+            expect(
+                entry.tools.every((tool) => tool.group === entry.group),
+            ).toBe(true);
+            expect(entry.tools).toEqual(
+                TOOL_CATALOG.filter((tool) => tool.group === entry.group),
+            );
+        }
+    });
+
+    it('drops a group with no tools', () => {
+        expect(
+            toolsByGroup(
+                TOOL_CATALOG.filter((tool) => tool.group !== ToolGroup.Labs),
+            ).map((entry) => entry.group),
+        ).not.toContain(ToolGroup.Labs);
     });
 });

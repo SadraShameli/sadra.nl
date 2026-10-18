@@ -6,14 +6,15 @@ import { StatStrip } from '~/components/StatStrip';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import {
     formatCurrency,
-    formatGateCurrency,
     formatPercent,
-    NOT_APPLICABLE,
+    formatWholeOrCentsCurrency,
 } from '~/lib/format';
 import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { NO_PASS_REASON } from './missingReasons';
 import { resilienceFigures, type ResilienceRow } from './resilienceModel';
+import { ValueOrMissing } from './ValueOrMissing';
 
 interface ResiliencePanelProperties {
     baseInputs: SimInputs;
@@ -72,7 +73,7 @@ export default function ResiliencePanel({
                     To survive your P95 worst streak ({data.p95} losses), max
                     safe risk is{' '}
                     <span className="font-mono font-semibold text-foreground">
-                        {formatGateCurrency(data.safeRisk)}
+                        {formatWholeOrCentsCurrency(data.safeRisk)}
                     </span>{' '}
                     ({data.safeRiskPct.toFixed(2)}% of account).
                 </p>
@@ -82,6 +83,7 @@ export default function ResiliencePanel({
 }
 
 function ResilienceTable({ rows }: { rows: readonly ResilienceRow[] }) {
+    const hasProbability = rows.some((row) => row.prob !== null);
     const columns = useMemo<DataTableColumn<ResilienceRow>[]>(
         () => [
             {
@@ -100,15 +102,26 @@ function ResilienceTable({ rows }: { rows: readonly ResilienceRow[] }) {
                 id: 'streak',
                 meta: { isRowHeader: true },
             },
-            {
-                accessorFn: (r) => r.prob ?? -1,
-                cell: ({ row }) =>
-                    row.original.prob === null
-                        ? NOT_APPLICABLE
-                        : formatPercent(row.original.prob),
-                header: 'P(occurs in eval)',
-                id: 'prob',
-            },
+            ...(hasProbability
+                ? [
+                      {
+                          accessorFn: (r) => r.prob ?? undefined,
+                          cell: ({ row }) => (
+                              <ValueOrMissing
+                                  reason={NO_PASS_REASON}
+                                  value={
+                                      row.original.prob === null
+                                          ? null
+                                          : formatPercent(row.original.prob)
+                                  }
+                              />
+                          ),
+                          header: 'P(occurs in eval)',
+                          id: 'prob',
+                          sortUndefined: 'last',
+                      } satisfies DataTableColumn<ResilienceRow>,
+                  ]
+                : []),
             {
                 accessorFn: (r) => r.damage,
                 cell: ({ row }) => formatCurrency(row.original.damage),
@@ -122,7 +135,7 @@ function ResilienceTable({ rows }: { rows: readonly ResilienceRow[] }) {
                 id: 'survives',
             },
         ],
-        [],
+        [hasProbability],
     );
     return (
         <DataTable<ResilienceRow>

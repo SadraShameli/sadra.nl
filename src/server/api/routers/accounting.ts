@@ -926,25 +926,35 @@ export const accountingRouter = createTRPCRouter({
         list: rootProcedure
             .input(runsListInputSchema)
             .query(async ({ ctx, input }) => {
-                const runs = await accountingRunRepo.list(UserId(ctx.userId), {
+                const userId = UserId(ctx.userId);
+                const filter = {
                     accountingCredentialId:
                         input.accountingCredentialId === undefined
                             ? undefined
                             : CredentialId(input.accountingCredentialId),
-                    limit: input.limit,
-                    offset: input.offset,
-                    sortBy: input.sortBy,
-                    sortDir: input.sortDir,
                     status: input.status,
-                });
-                return runs.map((r) => ({
-                    accountingCredentialId: r.accountingCredentialId,
-                    createdAt: r.createdAt,
-                    id: r.id,
-                    startDate: r.startDate,
-                    status: r.status,
-                    summary: r.summary,
-                }));
+                };
+                const [runs, totalCount] = await Promise.all([
+                    accountingRunRepo.list(userId, {
+                        ...filter,
+                        limit: input.limit,
+                        offset: input.offset,
+                        sortBy: input.sortBy,
+                        sortDir: input.sortDir,
+                    }),
+                    accountingRunRepo.count(userId, filter),
+                ]);
+                return {
+                    items: runs.map((r) => ({
+                        accountingCredentialId: r.accountingCredentialId,
+                        createdAt: r.createdAt,
+                        id: r.id,
+                        startDate: r.startDate,
+                        status: r.status,
+                        summary: r.summary,
+                    })),
+                    totalCount,
+                };
             }),
         updateBooking: rootProcedure
             .input(runsUpdateBookingInputSchema)

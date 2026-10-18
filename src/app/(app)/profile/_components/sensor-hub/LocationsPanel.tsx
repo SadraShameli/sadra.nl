@@ -9,10 +9,11 @@ import { toast } from 'sonner';
 import {
     MutedCell,
     PrimaryCell,
+    ProfileCollectionEmpty,
     ProfileDateCell,
     ProfileDatePrecision,
-    ProfileTableEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { FormDialog } from '~/components/FormDialog';
 import { FormNumberField, FormTextField } from '~/components/FormFields';
 import {
@@ -22,11 +23,7 @@ import {
 } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import {
-    DataTable,
-    type DataTableColumn,
-    hasActiveTableFilter,
-} from '~/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Dialog, DialogTrigger } from '~/components/ui/dialog';
 import {
     type LocationCreateInput,
@@ -149,23 +146,28 @@ export function LocationsPanel() {
                     description="Places where devices capture readings and recordings."
                     title="Locations"
                 >
-                    <DataTable
-                        columns={columns}
-                        data={rows}
-                        emptyState={(table) => (
-                            <ProfileTableEmpty
-                                action={newButton}
-                                description="Add a location to group readings by where they were captured."
-                                filtered={hasActiveTableFilter(table)}
-                                icon={MapPin}
-                                noun="locations"
-                            />
-                        )}
-                        filterPlaceholder="Search locations…"
-                        isLoading={locs.isLoading}
-                        rowId={(r) => String(r.id)}
-                        showFilter
-                    />
+                    {!locs.isLoading && rows.length === 0 ? (
+                        <ProfileCollectionEmpty
+                            description="Add a location to group readings by where they were captured."
+                            icon={MapPin}
+                            noun="locations"
+                        />
+                    ) : (
+                        <DataTable
+                            columns={columns}
+                            data={rows}
+                            emptyState={
+                                <NoMatchesState
+                                    icon={MapPin}
+                                    noun="locations"
+                                />
+                            }
+                            filterPlaceholder="Search locations…"
+                            isLoading={locs.isLoading}
+                            rowId={(r) => String(r.id)}
+                            showFilter
+                        />
+                    )}
                 </ToolPanel>
                 <NewLocationDialog
                     onClose={() => setNewOpen(false)}

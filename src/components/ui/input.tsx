@@ -1,9 +1,15 @@
 import * as React from 'react';
 
+import { FIELD_SURFACE_CLASS } from '~/components/ui/field-surface';
 import { cn } from '~/lib/utilities';
 
 type InputType =
     'email' | 'number' | 'password' | 'search' | 'tel' | 'text' | 'url';
+
+export const NUMBER_INPUT_CLASS = 'max-w-28 tabular-nums';
+
+export const NUMBER_FIELD_ROW_CLASS =
+    'flex flex-wrap items-start gap-x-10 gap-y-4';
 
 function Input({
     className,
@@ -13,14 +19,12 @@ function Input({
     return (
         <input
             className={cn(
-                'flex h-9 w-full min-w-0 rounded-md border border-line-hover bg-background px-3 py-1 text-sm shadow-xs transition-colors outline-none',
+                FIELD_SURFACE_CLASS,
+                'flex h-9 w-full min-w-0 px-3 py-1 text-sm',
                 'placeholder:text-muted-foreground',
                 '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
                 'selection:bg-primary selection:text-primary-foreground',
-                'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
-                'aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40',
-                'dark:border-line-hover dark:bg-input/30',
+                'disabled:pointer-events-none',
                 className,
             )}
             data-slot="input"

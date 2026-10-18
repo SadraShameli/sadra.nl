@@ -132,8 +132,8 @@ describe('PooledCapCard and LiveProximityCard', () => {
             root.render(<PooledCapCard model={POOLED} />);
         });
         expect(rowTexts()).toEqual([
-            'Firm A 50K|Shared pool|4|5|0|0|',
-            'Firm B 100K|Cap scope unverified|1|5|Unverified|4|',
+            'Firm A 50K|Shared pool|4|5|0|0',
+            'Firm B 100K|Cap scope unverified|1|5|Unverified|4',
         ]);
         expect(infoText(container, 'Pooled caps')).toContain(
             POOLED.countingNote,
@@ -157,7 +157,7 @@ describe('PooledCapCard and LiveProximityCard', () => {
                 />,
             );
         });
-        expect(container.textContent).toContain('No plan in use yet.');
+        expect(container.textContent).toContain('No plan in use yet');
         expect(container.querySelector('table')).toBeNull();
         expect(
             container.querySelector(
@@ -280,7 +280,7 @@ describe('PooledCapCard and LiveProximityCard', () => {
             );
         });
         expect(container.textContent).toContain(
-            'No open funded account to measure against a live trigger.',
+            'No open funded account to measure',
         );
         expect(container.querySelector('table')).toBeNull();
     });
@@ -305,10 +305,10 @@ describe('PooledCapCard and LiveProximityCard', () => {
             PROXIMITY.unlistedNote ?? 'missing',
         );
         expect(container.textContent).not.toContain(
-            'None of your open funded accounts has a payout-count live trigger to count down.',
+            'No live trigger to count down',
         );
         expect(container.textContent).not.toContain(
-            'No open funded account to measure against a live trigger.',
+            'No open funded account to measure',
         );
     });
 
@@ -329,10 +329,10 @@ describe('PooledCapCard and LiveProximityCard', () => {
             );
         });
         expect(container.textContent).not.toContain(
-            'No open funded account to measure against a live trigger.',
+            'No open funded account to measure',
         );
         expect(container.textContent).toContain(
-            'None of your open funded accounts has a payout-count live trigger to count down.',
+            'No live trigger to count down',
         );
     });
 });

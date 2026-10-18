@@ -5,15 +5,19 @@ import { ChevronRight, History } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
+import { MissingValue } from '~/components/MissingValue';
 import { linkRowAction, rowActionsColumn } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
+import { Button } from '~/components/ui/button';
 import {
+    DATA_TABLE_PAGE_SIZE,
     DataTable,
+    DataTableAlign,
     type DataTableColumn,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterSelect } from '~/components/ui/filter-select';
+import { Skeleton } from '~/components/ui/skeleton';
 import { Eur } from '~/lib/accounting/core/money';
 import {
     CredentialRegistry,
@@ -32,9 +36,8 @@ import { RunStatusBadge, runStatusLabel } from './RunStatusBadge';
 
 const ALL = '__all__';
 const DEFAULT_SORTING: SortingState = [{ desc: true, id: 'createdAt' }];
-const PAGE_SIZE = 20;
 
-type RunRow = RouterOutputs['accounting']['runs']['list'][number];
+type RunRow = RouterOutputs['accounting']['runs']['list']['items'][number];
 
 export function RunsBrowser() {
     const [offset, setOffset] = useState(0);
@@ -47,7 +50,7 @@ export function RunsBrowser() {
     const sort = sorting[0];
     const runsQ = api.accounting.runs.list.useQuery({
         accountingCredentialId: targetFilter === ALL ? undefined : targetFilter,
-        limit: PAGE_SIZE,
+        limit: DATA_TABLE_PAGE_SIZE,
         offset,
         sortBy: RUN_SORT_KEYS.find((k) => k === sort?.id),
         sortDir: sort?.desc === false ? 'asc' : 'desc',
@@ -82,7 +85,10 @@ export function RunsBrowser() {
         [credentialsQ.data],
     );
 
-    const rows = runsQ.data ?? [];
+    const rows = useMemo(() => runsQ.data?.items ?? [], [runsQ.data]);
+    const isCollectionEmpty =
+        !runsQ.isPending && !hasFilters && offset === 0 && rows.length === 0;
+    const isTargetPending = credentialsQ.isPending;
 
     const columns = useMemo<DataTableColumn<RunRow>[]>(
         () => [
@@ -124,9 +130,12 @@ export function RunsBrowser() {
                         : '',
                 cell: ({ row }) => {
                     const id = row.original.accountingCredentialId;
-                    return (
+                    if (id === null) return <MissingValue />;
+                    return isTargetPending ? (
+                        <Skeleton className="h-4 w-24" />
+                    ) : (
                         <span className="text-xs text-muted-foreground">
-                            {id ? (labelByCredentialId.get(id) ?? id) : '-'}
+                            {labelByCredentialId.get(id) ?? id}
                         </span>
                     );
                 },
@@ -142,6 +151,7 @@ export function RunsBrowser() {
                 ),
                 header: 'Bookings',
                 id: 'bookingsCount',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorFn: (r) => r.summary.totalEur,
@@ -152,22 +162,18 @@ export function RunsBrowser() {
                 ),
                 header: 'Total',
                 id: 'totalEur',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorFn: (r) => r.summary.unknownsCount,
                 cell: ({ row }) => (
-                    <span
-                        className={
-                            row.original.summary.unknownsCount > 0
-                                ? 'font-mono text-xs text-warning'
-                                : 'font-mono text-xs text-muted-foreground'
-                        }
-                    >
+                    <span className="font-mono text-xs">
                         {row.original.summary.unknownsCount}
                     </span>
                 ),
                 header: 'Unknowns',
                 id: 'unknownsCount',
+                meta: { align: DataTableAlign.End },
             },
             rowActionsColumn<RunRow>({
                 actionsOf: (run) => [
@@ -181,7 +187,7 @@ export function RunsBrowser() {
                     `run created ${formatDisplayDateTime(run.createdAt)}`,
             }),
         ],
-        [labelByCredentialId],
+        [isTargetPending, labelByCredentialId],
     );
 
     return (
@@ -191,25 +197,30 @@ export function RunsBrowser() {
                     description={runsQ.error.message}
                     title="Could not fetch runs"
                 />
+            ) : isCollectionEmpty ? (
+                <EmptyState
+                    action={
+                        <Button asChild variant="outline">
+                            <Link href={routes.accounting.index}>
+                                Start a run
+                            </Link>
+                        </Button>
+                    }
+                    description="Each import run is listed here with what it previewed and posted."
+                    icon={History}
+                    title="No runs yet"
+                />
             ) : (
                 <DataTable
                     columns={columns}
                     data={rows}
-                    emptyState={(table) => (
+                    emptyState={
                         <EmptyState
-                            description={
-                                hasFilters || hasActiveTableFilter(table)
-                                    ? 'No runs match the current filters.'
-                                    : 'Plan a run from the dashboard to see it appear here.'
-                            }
+                            description="No runs match these filters."
                             icon={History}
-                            title={
-                                hasFilters || hasActiveTableFilter(table)
-                                    ? 'No matches'
-                                    : 'No runs yet'
-                            }
+                            title="No matches"
                         />
-                    )}
+                    }
                     filterPlaceholder="Search runs…"
                     hasExternalFilters={hasFilters}
                     headerActions={
@@ -257,15 +268,17 @@ export function RunsBrowser() {
                     isLoading={runsQ.isPending}
                     onResetFilters={reset}
                     onSortingChange={sortBy}
-                    pageSize={null}
                     rowId={(r) => r.id}
                     serverPagination={{
-                        hasNextPage: rows.length === PAGE_SIZE,
+                        hasNextPage:
+                            offset + rows.length <
+                            (runsQ.data?.totalCount ?? 0),
                         isPending: runsQ.isPending,
                         onPageIndexChange: (pageIndex) =>
-                            setOffset(pageIndex * PAGE_SIZE),
-                        pageIndex: offset / PAGE_SIZE,
-                        pageSize: PAGE_SIZE,
+                            setOffset(pageIndex * DATA_TABLE_PAGE_SIZE),
+                        pageIndex: offset / DATA_TABLE_PAGE_SIZE,
+                        pageSize: DATA_TABLE_PAGE_SIZE,
+                        totalCount: runsQ.data?.totalCount,
                     }}
                     showFilter
                 />

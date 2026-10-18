@@ -4,17 +4,19 @@ import { useCallback, useState } from 'react';
 
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { MissingValue } from '~/components/MissingValue';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip } from '~/components/StatStrip';
-import { formatGateCurrency, NOT_APPLICABLE } from '~/lib/format';
+import { Separator } from '~/components/ui/separator';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     type Dollars,
     fraction,
     type Fraction0to1,
 } from '~/lib/prop-calculator';
-import { BankrollLeverLabel } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 
+import { BankrollField, BankrollFieldKind } from './BankrollField';
 import {
     BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL,
     bankrollCycleDescription,
@@ -25,9 +27,12 @@ import {
     bankrollTwoStrategiesSummary,
     bankrollVariantWithRisk,
 } from './bankrollModel';
-import { BankrollNumberField } from './BankrollNumberField';
-import { BankrollRunStatus } from './BankrollRunStatus';
+import {
+    BankrollRunStatus,
+    isAwaitingRequestedResult,
+} from './BankrollRunStatus';
 import { BankrollSection } from './BankrollSection';
+import { growthStatItems, readyValue } from './bankrollStatItems';
 import {
     type BankrollViewState,
     parseBankrollDollarsField,
@@ -35,6 +40,7 @@ import {
     parseBankrollPositiveIntField,
     parseBankrollReinvestFractionField,
 } from './bankrollUrlState';
+import { StrategyBRiskField } from './StrategyBRiskField';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
 
@@ -133,161 +139,171 @@ export function TwoStrategiesCard({
 
     return (
         <BankrollSection
-            description="Compares strategy A (your current risk) against strategy B (an alternate risk), on the same seed and the same bankroll policy."
             headingId="bankroll-two-strategies-heading"
+            info="Compares strategy A (your current risk) against strategy B (an alternate risk), on the same seed and the same bankroll policy. Capacity, monthly budget, payout lag and round budget come from Projection."
+            inputs={
+                <>
+                    <BankrollField
+                        id="bankroll-two-strategies-start"
+                        info="The cash both strategies start with, in dollars."
+                        label="Starting bankroll"
+                        onChange={(raw) =>
+                            setStart(parseBankrollDollarsField(raw))
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-two-strategies-horizon"
+                        info="How many trading days to simulate."
+                        kind={BankrollFieldKind.Integer}
+                        label="Horizon"
+                        onChange={(raw) =>
+                            setHorizonDays(parseBankrollPositiveIntField(raw))
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-two-strategies-reinvest"
+                        info="The share of each payout put back into the bankroll, from 0 to 1. Empty means 0: every payout is withdrawn."
+                        label="Reinvest fraction"
+                        onChange={(raw) =>
+                            setReinvestFraction(
+                                parseBankrollReinvestFractionField(raw),
+                            )
+                        }
+                    />
+                    <StrategyBRiskField
+                        conflictId={RISK_B_CONFLICT_MESSAGE_ID}
+                        id="bankroll-two-strategies-risk-b"
+                        onChange={setRiskB}
+                        risk={riskB}
+                    />
+                    <Separator />
+                    <PanelSubheading info="Optional. A deterministic figure, not a forecast: the bankroll multiplied by the cycle multiple once per cycle over the horizon. It shows once both strategies have a multiple and a length.">
+                        Cycle illustration
+                    </PanelSubheading>
+                    <BankrollField
+                        id="bankroll-two-strategies-cycle-multiple-a"
+                        info="Optional. How many times strategy A's bankroll grows per cycle."
+                        initial={state.compareMultipleA}
+                        label="A cycle multiple"
+                        onChange={(raw) =>
+                            onChange({
+                                compareMultipleA:
+                                    parseBankrollMultipleField(raw),
+                            })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-two-strategies-cycle-days-a"
+                        info="Optional. Trading days per strategy A cycle."
+                        initial={state.compareCycleDaysA}
+                        kind={BankrollFieldKind.Integer}
+                        label="A cycle length"
+                        onChange={(raw) =>
+                            onChange({
+                                compareCycleDaysA:
+                                    parseBankrollPositiveIntField(raw),
+                            })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-two-strategies-cycle-multiple-b"
+                        info="Optional. How many times strategy B's bankroll grows per cycle."
+                        initial={state.compareMultipleB}
+                        label="B cycle multiple"
+                        onChange={(raw) =>
+                            onChange({
+                                compareMultipleB:
+                                    parseBankrollMultipleField(raw),
+                            })
+                        }
+                    />
+                    <BankrollField
+                        id="bankroll-two-strategies-cycle-days-b"
+                        info="Optional. Trading days per strategy B cycle."
+                        initial={state.compareCycleDaysB}
+                        kind={BankrollFieldKind.Integer}
+                        label="B cycle length"
+                        onChange={(raw) =>
+                            onChange({
+                                compareCycleDaysB:
+                                    parseBankrollPositiveIntField(raw),
+                            })
+                        }
+                    />
+                </>
+            }
+            isComputing={isAwaitingRequestedResult(canRun, worker.state)}
+            results={
+                <>
+                    {summaries === null ? (
+                        <BankrollRunStatus
+                            emptyText="Enter a starting bankroll, a horizon and a strategy B risk to compare."
+                            isRequested={canRun}
+                            skeleton={
+                                <>
+                                    <StrategySummary label="A" summary={null} />
+                                    <StrategySummary label="B" summary={null} />
+                                </>
+                            }
+                            state={worker.state}
+                        />
+                    ) : (
+                        <>
+                            <StrategySummary label="A" summary={summaries[0]} />
+                            <StrategySummary label="B" summary={summaries[1]} />
+                        </>
+                    )}
+                    {figures === null ? null : (
+                        <ul
+                            aria-label="Closed-form cycle illustration"
+                            className="flex flex-col gap-1 text-xs text-muted-foreground"
+                        >
+                            {figures.map((figure, index) => (
+                                <li key={index === 0 ? 'A' : 'B'}>
+                                    {BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL},
+                                    strategy {index === 0 ? 'A' : 'B'} (
+                                    {bankrollCycleDescription(figure)}):{' '}
+                                    {figure.quantity.value === null ? (
+                                        <MissingValue />
+                                    ) : (
+                                        formatWholeOrCentsCurrency(
+                                            figure.quantity.value,
+                                        )
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </>
+            }
             title="Two strategies"
-        >
-            <div className="grid gap-4 sm:grid-cols-2">
-                <BankrollNumberField
-                    id="bankroll-two-strategies-start"
-                    initial={null}
-                    label="Starting bankroll ($)"
-                    onChange={(raw) => setStart(parseBankrollDollarsField(raw))}
-                />
-                <BankrollNumberField
-                    id="bankroll-two-strategies-horizon"
-                    initial={null}
-                    label="Horizon (trading days)"
-                    onChange={(raw) =>
-                        setHorizonDays(parseBankrollPositiveIntField(raw))
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-two-strategies-reinvest"
-                    initial={null}
-                    label="Reinvest fraction (0 to 1)"
-                    onChange={(raw) =>
-                        setReinvestFraction(
-                            parseBankrollReinvestFractionField(raw),
-                        )
-                    }
-                />
-                <BankrollNumberField
-                    describedBy={
-                        riskB === null ? undefined : RISK_B_CONFLICT_MESSAGE_ID
-                    }
-                    id="bankroll-two-strategies-risk-b"
-                    initial={null}
-                    label="Strategy B risk per trade ($)"
-                    onChange={(raw) => setRiskB(parseBankrollDollarsField(raw))}
-                />
-                <BankrollNumberField
-                    id="bankroll-two-strategies-cycle-multiple-a"
-                    initial={state.compareMultipleA}
-                    label="Strategy A cycle multiple (optional)"
-                    onChange={(raw) =>
-                        onChange({
-                            compareMultipleA: parseBankrollMultipleField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-two-strategies-cycle-days-a"
-                    initial={state.compareCycleDaysA}
-                    label="Strategy A cycle length (trading days, optional)"
-                    onChange={(raw) =>
-                        onChange({
-                            compareCycleDaysA:
-                                parseBankrollPositiveIntField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-two-strategies-cycle-multiple-b"
-                    initial={state.compareMultipleB}
-                    label="Strategy B cycle multiple (optional)"
-                    onChange={(raw) =>
-                        onChange({
-                            compareMultipleB: parseBankrollMultipleField(raw),
-                        })
-                    }
-                />
-                <BankrollNumberField
-                    id="bankroll-two-strategies-cycle-days-b"
-                    initial={state.compareCycleDaysB}
-                    label="Strategy B cycle length (trading days, optional)"
-                    onChange={(raw) =>
-                        onChange({
-                            compareCycleDaysB:
-                                parseBankrollPositiveIntField(raw),
-                        })
-                    }
-                />
-            </div>
-            {riskB === null ? null : (
-                <p
-                    className="text-xs text-warning"
-                    id={RISK_B_CONFLICT_MESSAGE_ID}
-                >
-                    Strategy B: {BankrollLeverLabel.ConflictsWithHardRule3}
-                </p>
-            )}
-            {summaries === null ? (
-                <BankrollRunStatus
-                    idleText="Enter a starting bankroll, a horizon and a strategy B risk to compare."
-                    isRequested={canRun}
-                    state={worker.state}
-                />
-            ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <StrategySummaryColumn label="A" summary={summaries[0]} />
-                    <StrategySummaryColumn label="B" summary={summaries[1]} />
-                </div>
-            )}
-            {figures === null ? null : (
-                <ul
-                    aria-label="Closed-form cycle illustration"
-                    className="flex flex-col gap-1 text-xs text-muted-foreground"
-                >
-                    {figures.map((figure, index) => (
-                        <li key={index === 0 ? 'A' : 'B'}>
-                            {BANKROLL_CLOSED_FORM_ILLUSTRATION_LABEL}, strategy{' '}
-                            {index === 0 ? 'A' : 'B'} (
-                            {bankrollCycleDescription(figure)}):{' '}
-                            {figure.quantity.value === null
-                                ? NOT_APPLICABLE
-                                : formatGateCurrency(figure.quantity.value)}
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </BankrollSection>
+        />
     );
 }
 
-function StrategySummaryColumn({
+function StrategySummary({
     label,
     summary,
 }: {
-    label: string;
-    summary: BankrollProjectionSummary;
+    readonly label: string;
+    readonly summary: BankrollProjectionSummary | null;
 }) {
     return (
-        <div className="grid gap-3">
+        <div className="flex flex-col gap-3">
             <PanelSubheading>Strategy {label}</PanelSubheading>
             <StatStrip
+                isLoading={summary === null}
                 items={[
                     {
                         id: 'final-bankroll',
                         label: 'Final bankroll (P10 / P50 / P90)',
-                        value: `${formatGateCurrency(summary.finalCashP10)} / ${formatGateCurrency(summary.finalCashP50)} / ${formatGateCurrency(summary.finalCashP90)}`,
+                        value: readyValue(
+                            summary,
+                            (ready) =>
+                                `${formatWholeOrCentsCurrency(ready.finalCashP10)} / ${formatWholeOrCentsCurrency(ready.finalCashP50)} / ${formatWholeOrCentsCurrency(ready.finalCashP90)}`,
+                        ),
                     },
-                    {
-                        id: 'multiple',
-                        label: 'Multiple (P50 cash / start)',
-                        value:
-                            summary.multiple === null
-                                ? NOT_APPLICABLE
-                                : `${summary.multiple.toFixed(2)}x`,
-                    },
-                    {
-                        id: 'measured-cycle-days',
-                        label: 'Measured cycle days',
-                        value:
-                            summary.measuredCycleDays === null
-                                ? NOT_APPLICABLE
-                                : summary.measuredCycleDays.toFixed(1),
-                    },
+                    ...growthStatItems(summary),
                 ]}
             />
         </div>

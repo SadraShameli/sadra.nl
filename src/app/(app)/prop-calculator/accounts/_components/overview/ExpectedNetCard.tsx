@@ -1,7 +1,13 @@
+import { Sigma } from 'lucide-react';
 import { memo } from 'react';
 
+import {
+    type FigureColumn,
+    figureColumns,
+} from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 
+import { ModelFailureNote, ModelStatusPanel } from './ModelStatusPanel';
 import { type ExpectedNetCardModel, ExpectedNetStatus } from './overviewModel';
 import { InfoLines, InfoStack, OverviewPanel } from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
@@ -21,6 +27,79 @@ enum ExpectedNetCardColumn {
     RankOptimum = 'rank-optimum',
 }
 
+type ExpectedNetRow = ExpectedNetCardModel['rows'][number];
+
+const EXPECTED_NET_FIGURE_COLUMNS: readonly FigureColumn<ExpectedNetRow>[] = [
+    {
+        align: DataTableAlign.End,
+        header: 'Active funded slots',
+        id: ExpectedNetCardColumn.ActiveFundedSlots,
+        textOf: (row) => row.activeSlots,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Documented policy, monthly net (credit-free)',
+        id: ExpectedNetCardColumn.DocumentedPolicyMonthlyNetCreditFree,
+        textOf: (row) => row.documented.creditFree,
+    },
+    {
+        align: DataTableAlign.End,
+        className: 'text-muted-foreground',
+        header: 'Documented policy, credit-inclusive',
+        id: ExpectedNetCardColumn.DocumentedPolicyCreditInclusive,
+        textOf: (row) => row.documented.creditInclusive,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Documented request',
+        id: ExpectedNetCardColumn.DocumentedRequest,
+        textOf: (row) => row.documented.requestSize,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Documented times slots',
+        id: ExpectedNetCardColumn.DocumentedTimesSlots,
+        textOf: (row) => row.documented.totalCreditFree,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Payout-size optimum, monthly net (credit-free)',
+        id: ExpectedNetCardColumn.PayoutSizeOptimumMonthlyNetCreditFree,
+        textOf: (row) => row.optimum.creditFree,
+    },
+    {
+        align: DataTableAlign.End,
+        className: 'text-muted-foreground',
+        header: 'Payout-size optimum, credit-inclusive',
+        id: ExpectedNetCardColumn.PayoutSizeOptimumCreditInclusive,
+        textOf: (row) => row.optimum.creditInclusive,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Optimum request',
+        id: ExpectedNetCardColumn.OptimumRequest,
+        textOf: (row) => row.optimum.requestSize,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Optimum times slots',
+        id: ExpectedNetCardColumn.OptimumTimesSlots,
+        textOf: (row) => row.optimum.totalCreditFree,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Rank, documented',
+        id: ExpectedNetCardColumn.RankDocumented,
+        textOf: (row) => row.rankDocumented,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Rank, optimum',
+        id: ExpectedNetCardColumn.RankOptimum,
+        textOf: (row) => row.rankOptimum,
+    },
+];
+
 export const ExpectedNetCard = memo(function ExpectedNetCard({
     model,
 }: {
@@ -28,24 +107,25 @@ export const ExpectedNetCard = memo(function ExpectedNetCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <OverviewPanel section={OverviewSectionId.ExpectedNet}>
-                <p className="text-sm text-muted-foreground">
-                    {model.statusNote ?? 'No plan to model yet.'}
-                </p>
-            </OverviewPanel>
+            <ModelStatusPanel
+                emptyTitle="No modeled plan to value yet"
+                icon={Sigma}
+                section={OverviewSectionId.ExpectedNet}
+                status={model.status}
+                statusNote={model.statusNote}
+            />
         );
     }
     return (
         <OverviewPanel
             info={<ExpectedNetInfo model={model} />}
+            isComputing={model.status === ExpectedNetStatus.Pending}
             section={OverviewSectionId.ExpectedNet}
         >
-            {model.status !== ExpectedNetStatus.Ready &&
-                model.statusNote !== null && (
-                    <p className="text-sm text-muted-foreground" role="status">
-                        {model.statusNote}
-                    </p>
-                )}
+            <ModelFailureNote
+                status={model.status}
+                statusNote={model.statusNote}
+            />
             <DataTable
                 columns={[
                     {
@@ -63,92 +143,7 @@ export const ExpectedNetCard = memo(function ExpectedNetCard({
                         id: ExpectedNetCardColumn.Plan,
                         meta: { isRowHeader: true },
                     },
-                    {
-                        cell: ({ row }) => <>{row.original.activeSlots}</>,
-                        header: 'Active funded slots',
-                        id: ExpectedNetCardColumn.ActiveFundedSlots,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => (
-                            <>{row.original.documented.creditFree}</>
-                        ),
-                        header: 'Documented policy, monthly net (credit-free)',
-                        id: ExpectedNetCardColumn.DocumentedPolicyMonthlyNetCreditFree,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => (
-                            <span className="text-muted-foreground">
-                                {row.original.documented.creditInclusive}
-                            </span>
-                        ),
-                        header: 'Documented policy, credit-inclusive',
-                        id: ExpectedNetCardColumn.DocumentedPolicyCreditInclusive,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => (
-                            <>{row.original.documented.requestSize}</>
-                        ),
-                        header: 'Documented request',
-                        id: ExpectedNetCardColumn.DocumentedRequest,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => (
-                            <>{row.original.documented.totalCreditFree}</>
-                        ),
-                        header: 'Documented times slots',
-                        id: ExpectedNetCardColumn.DocumentedTimesSlots,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => (
-                            <>{row.original.optimum.creditFree}</>
-                        ),
-                        header: 'Payout-size optimum, monthly net (credit-free)',
-                        id: ExpectedNetCardColumn.PayoutSizeOptimumMonthlyNetCreditFree,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => (
-                            <span className="text-muted-foreground">
-                                {row.original.optimum.creditInclusive}
-                            </span>
-                        ),
-                        header: 'Payout-size optimum, credit-inclusive',
-                        id: ExpectedNetCardColumn.PayoutSizeOptimumCreditInclusive,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => (
-                            <>{row.original.optimum.requestSize}</>
-                        ),
-                        header: 'Optimum request',
-                        id: ExpectedNetCardColumn.OptimumRequest,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => (
-                            <>{row.original.optimum.totalCreditFree}</>
-                        ),
-                        header: 'Optimum times slots',
-                        id: ExpectedNetCardColumn.OptimumTimesSlots,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => <>{row.original.rankDocumented}</>,
-                        header: 'Rank, documented',
-                        id: ExpectedNetCardColumn.RankDocumented,
-                        meta: { align: DataTableAlign.End },
-                    },
-                    {
-                        cell: ({ row }) => <>{row.original.rankOptimum}</>,
-                        header: 'Rank, optimum',
-                        id: ExpectedNetCardColumn.RankOptimum,
-                        meta: { align: DataTableAlign.End },
-                    },
+                    ...figureColumns(EXPECTED_NET_FIGURE_COLUMNS, model.rows),
                 ]}
                 data={[...model.rows]}
                 isSortable={false}

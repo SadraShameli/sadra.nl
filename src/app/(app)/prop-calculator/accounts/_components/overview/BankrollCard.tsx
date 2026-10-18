@@ -2,6 +2,7 @@
 
 import { memo, type ReactNode, useState } from 'react';
 
+import { hasFigure } from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip } from '~/components/StatStrip';
 import { Field, FieldLabel } from '~/components/ui/field';
@@ -57,9 +58,11 @@ export const BankrollCard = memo(function BankrollCard({
             {model.grownFromText !== null && (
                 <p className="text-sm">{model.grownFromText}</p>
             )}
-            <p className="text-sm text-muted-foreground">
-                Money-weighted return: {model.moneyWeightedReturn}
-            </p>
+            {hasFigure(model.moneyWeightedReturn) && (
+                <p className="text-sm text-muted-foreground">
+                    Money-weighted return: {model.moneyWeightedReturn}
+                </p>
+            )}
             <LossRiskBlock lossRisk={model.lossRisk} />
             <ScaleAtMultipleLine
                 initial={model.scale}
@@ -126,7 +129,7 @@ function LossRiskBlock({
                         label: 'Realized minimum budget',
                         value: lossRisk.minimumBudget,
                     },
-                ]}
+                ].filter((item) => hasFigure(item.value))}
             />
             {lossRisk.minimumBudgetNote !== null && (
                 <p className="text-xs text-muted-foreground">

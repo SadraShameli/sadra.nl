@@ -21,14 +21,25 @@ function roiItem(monthlyNet: number, totalCost: number): StatStripItem {
 }
 
 describe('portfolioRoiItem: the portfolio "Annual ROI on fees" figure (R1-29)', () => {
-    it('renders n/a with the neutral tone when the total eval cost is $0 and the portfolio is profitable, not in red', () => {
-        expect(renderedRoiCard(1500, 0)).toContain('>n/a<');
+    it('renders a missing value, not n/a text, with the neutral tone when the total eval cost is $0 and the portfolio is profitable', () => {
+        expect(renderedRoiCard(1500, 0)).toContain('>Not available<');
+        expect(renderedRoiCard(1500, 0)).not.toContain('n/a');
         expect(roiItem(1500, 0).tone).toBe(StatTone.Default);
     });
 
-    it('renders n/a with the neutral tone at $0 cost and a loss', () => {
-        expect(renderedRoiCard(-200, 0)).toContain('>n/a<');
+    it('renders a missing value, not n/a text, with the neutral tone at $0 cost and a loss', () => {
+        expect(renderedRoiCard(-200, 0)).toContain('>Not available<');
+        expect(renderedRoiCard(-200, 0)).not.toContain('n/a');
         expect(roiItem(-200, 0).tone).toBe(StatTone.Default);
+    });
+
+    it('holds a skeleton in place of the figure while the portfolio is still computing', () => {
+        const item = portfolioRoiItem(null);
+        expect(item.isLoading).toBe(true);
+        expect(item.label).toBe('Annual ROI on fees');
+        expect(
+            renderToStaticMarkup(createElement(StatStrip, { items: [item] })),
+        ).toContain('data-slot="skeleton"');
     });
 
     it('renders a positive annual ROI with the positive tone', () => {

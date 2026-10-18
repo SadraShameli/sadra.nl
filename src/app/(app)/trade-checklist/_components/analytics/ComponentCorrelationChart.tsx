@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartColumn } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     Bar,
@@ -21,6 +22,7 @@ import {
     type ChartConfig,
     ChartContainer,
 } from '~/components/ui/chart';
+import { EmptyState } from '~/components/ui/empty-state';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     componentScoreCorrelation,
@@ -86,9 +88,11 @@ export function ComponentCorrelationChart({
             </FilterToolbar>
 
             {totalWithData === 0 ? (
-                <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                    Not enough graded outcomes for this component yet.
-                </div>
+                <EmptyState
+                    description="Grade more setups with recorded outcomes to compare this component."
+                    icon={ChartColumn}
+                    title="Not enough outcomes yet"
+                />
             ) : (
                 <ChartContainer config={chartConfig}>
                     <BarChart

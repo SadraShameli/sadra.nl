@@ -21,10 +21,11 @@ import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
+    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { Dialog } from '~/components/ui/dialog';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, NoMatchesState } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -235,7 +236,13 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
             <DataTable
                 columns={columns}
                 data={rows}
-                emptyState={<EmptyState icon={Users} title="No users" />}
+                emptyState={(table) =>
+                    hasActiveTableFilter(table) ? (
+                        <NoMatchesState icon={Users} noun="users" />
+                    ) : (
+                        <EmptyState icon={Users} title="No users yet" />
+                    )
+                }
                 headerActions={(table) => (
                     <DataTableFacetSelect
                         column={table.getColumn('role')}
@@ -359,7 +366,9 @@ function CreateUserDialog({
                                     aria-invalid={fieldState.invalid}
                                     id={`${formId}-role`}
                                 >
-                                    <SelectValue />
+                                    <SelectValue>
+                                        {ROLE_LABEL[field.value]}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="user">

@@ -160,6 +160,18 @@ function invalidStoredRulebookError(): Error {
     });
 }
 
+function isLiveTransferCardBusy(scope: HTMLElement): boolean {
+    const heading = [...scope.querySelectorAll('h2')].find(
+        (candidate) =>
+            candidate.textContent ===
+            'Live transfer (your assumption, not a firm rule)',
+    );
+    return (
+        heading?.closest('[data-slot="card"]')?.getAttribute('aria-busy') ===
+        'true'
+    );
+}
+
 function requireButton(scope: ParentNode, name: string): HTMLButtonElement {
     const button = buttonIn(scope, name);
     if (button === undefined) throw new Error(`no ${name} button`);
@@ -1032,10 +1044,10 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         );
     });
 
-    it('says the measured rates are loading while the ledger is read', () => {
+    it('marks the live transfer card as computing while the ledger is read', () => {
         harness.measuredStatus = { failed: false, pending: true };
         render();
-        expect(container.textContent).toContain('Loading your measured rates');
+        expect(isLiveTransferCardBusy(container)).toBe(true);
         expect(container.textContent).not.toContain(
             'Measured rates unavailable',
         );
@@ -1050,17 +1062,17 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
         };
         render();
         expect(hazardItem('My Funded Futures').textContent).toContain(
-            'n/a: 2 transfers against 1 paid payout',
+            'Not measured: 2 transfers against 1 paid payout',
         );
-        expect(hazardItem('Apex').textContent).not.toContain('n/a:');
+        expect(hazardItem('Apex').textContent).not.toContain('Not measured:');
         expect(container.textContent).not.toContain(
             'Measured rates unavailable',
         );
     });
 
-    it('shows no n/a line when every rate was measured', () => {
+    it('shows no not-measured line when every rate was measured', () => {
         render();
-        expect(container.textContent).not.toContain('n/a:');
+        expect(container.textContent).not.toContain('Not measured:');
     });
 
     it('discloses how many measured transfers are accounts recorded straight at Live', () => {
@@ -1095,9 +1107,7 @@ describe('RulebookView measured live-transfer rates (PT-73, F-V26)', () => {
 
     it('shows neither notice when the rates were read', () => {
         render();
-        expect(container.textContent).not.toContain(
-            'Loading your measured rates',
-        );
+        expect(isLiveTransferCardBusy(container)).toBe(false);
         expect(container.textContent).not.toContain(
             'Measured rates unavailable',
         );

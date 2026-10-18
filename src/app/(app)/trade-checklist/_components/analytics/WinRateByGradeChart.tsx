@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartColumn } from 'lucide-react';
 import { useMemo } from 'react';
 import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
 
@@ -10,6 +11,7 @@ import {
     type ChartConfig,
     ChartContainer,
 } from '~/components/ui/chart';
+import { EmptyState } from '~/components/ui/empty-state';
 import { formatPercent } from '~/lib/format';
 import { type LightAssessment, winRateByGrade } from '~/lib/trading/analytics';
 
@@ -33,9 +35,11 @@ export function WinRateByGradeChart({
     }, [assessments]);
 
     return data.length === 0 ? (
-        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-            Record W/L/BE outcomes to see win rate per grade.
-        </div>
+        <EmptyState
+            description="Record win, loss or breakeven outcomes to see win rate per grade."
+            icon={ChartColumn}
+            title="No outcomes yet"
+        />
     ) : (
         <ChartContainer
             className="app-trade-checklist__win-rate-chart"

@@ -125,7 +125,10 @@ export function ObjectiveSelect({
 }: ObjectiveSelectProperties) {
     const selectId = useId();
     return (
-        <Field className="w-auto gap-2" orientation="horizontal">
+        <Field
+            className="app-prop-calculator__objective-select w-auto max-w-full min-w-0 gap-2"
+            orientation="horizontal"
+        >
             <FieldLabel htmlFor={selectId}>{OBJECTIVE_SELECT_LABEL}</FieldLabel>
             <Select
                 onValueChange={(value) => {
@@ -134,8 +137,14 @@ export function ObjectiveSelect({
                 }}
                 value={objective}
             >
-                <SelectTrigger className="w-auto" id={selectId}>
-                    <SelectValue />
+                <SelectTrigger className="w-auto min-w-0" id={selectId}>
+                    <SelectValue>
+                        {
+                            OBJECTIVE_OPTIONS.find(
+                                (option) => option.objective === objective,
+                            )?.label
+                        }
+                    </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                     {OBJECTIVE_OPTIONS.map((option) => (

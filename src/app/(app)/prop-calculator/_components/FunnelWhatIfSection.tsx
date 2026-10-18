@@ -4,18 +4,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type UseFormRegisterReturn, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
+import { LabelWithInfo } from '~/components/LabelWithInfo';
 import { StatStrip } from '~/components/StatStrip';
 import {
     Field,
     FieldDescription,
     FieldError,
-    FieldLabel,
     FieldLegend,
     FieldSet,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { Separator } from '~/components/ui/separator';
-import { formatCompactCurrency, NOT_APPLICABLE } from '~/lib/format';
+import { formatCompactCurrency } from '~/lib/format';
 import { dollars, floorToWholeCents, fraction } from '~/lib/prop-calculator';
 import {
     attemptEconomics,
@@ -151,7 +152,7 @@ export default function FunnelWhatIfSection() {
                     What-if funnel (attempts, pass rate, payout rate, payout,
                     fee)
                 </FieldLegend>
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-5">
                     <WhatIfField
                         id="cash-flow-what-if-attempts"
                         invalid={isInvalid}
@@ -166,8 +167,9 @@ export default function FunnelWhatIfSection() {
                     />
                     <WhatIfField
                         id="cash-flow-what-if-payout-rate"
+                        info="Share of funded accounts that reach a payout, in percent."
                         invalid={isInvalid}
-                        label="Payout rate given funded (%)"
+                        label="Payout rate (%)"
                         registration={whatIfForm.register('payoutRate')}
                     />
                     <WhatIfField
@@ -242,10 +244,16 @@ export default function FunnelWhatIfSection() {
                             {
                                 id: 'payout-multiple',
                                 label: 'Payout multiple',
-                                value:
-                                    outcome.result.payoutMultiple.value === null
-                                        ? NOT_APPLICABLE
-                                        : `${outcome.result.payoutMultiple.value.toFixed(2)}:1`,
+                                value: (
+                                    <ValueOrMissing
+                                        value={
+                                            outcome.result.payoutMultiple
+                                                .value === null
+                                                ? null
+                                                : `${outcome.result.payoutMultiple.value.toFixed(2)}:1`
+                                        }
+                                    />
+                                ),
                             },
                         ]}
                     />
@@ -268,18 +276,20 @@ export default function FunnelWhatIfSection() {
 
 function WhatIfField({
     id,
+    info,
     invalid = false,
     label,
     registration,
 }: {
     id: string;
+    info?: string;
     invalid?: boolean;
     label: string;
     registration: UseFormRegisterReturn;
 }) {
     return (
         <Field data-invalid={invalid}>
-            <FieldLabel htmlFor={id}>{label}</FieldLabel>
+            <LabelWithInfo htmlFor={id} info={info} label={label} />
             <Input
                 {...registration}
                 aria-describedby={

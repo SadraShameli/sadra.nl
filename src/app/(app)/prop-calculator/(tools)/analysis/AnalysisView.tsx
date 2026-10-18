@@ -62,6 +62,7 @@ export function AnalysisView() {
                 <ToolSection
                     id={LegacySection.Strategy}
                     info={panelDescriptions.strategyAnalysis}
+                    isComputing={isPending}
                     isPanel
                     title="Strategy analysis"
                 >
@@ -79,6 +80,7 @@ export function AnalysisView() {
                 <ToolSection
                     id={LegacySection.TailRisk}
                     info={panelDescriptions.tailRisk}
+                    isComputing={isPending}
                     isPanel
                     title="Tail risk"
                 >
@@ -93,6 +95,7 @@ export function AnalysisView() {
                 <ToolSection
                     id={LegacySection.Drawdown}
                     info={panelDescriptions.drawdownDuration}
+                    isComputing={isPending}
                     isPanel
                     title="Drawdown duration and recovery"
                 >
@@ -107,6 +110,7 @@ export function AnalysisView() {
                 <ToolSection
                     id={LegacySection.Resilience}
                     info={panelDescriptions.resilience}
+                    isComputing={isPending}
                     isPanel
                     title="Streak and drawdown resilience"
                 >

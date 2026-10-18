@@ -25,6 +25,7 @@ import { SwitchCard } from '~/components/ToggleCard';
 import { Badge } from '~/components/ui/badge';
 import {
     DataTable,
+    DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
@@ -33,10 +34,7 @@ import { Dialog } from '~/components/ui/dialog';
 import { EmptyState } from '~/components/ui/empty-state';
 import { Field, FieldLabel } from '~/components/ui/field';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
-import {
-    FilterSelect,
-    type FilterSelectOption,
-} from '~/components/ui/filter-select';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { Input } from '~/components/ui/input';
 import {
     Select,
@@ -48,19 +46,14 @@ import {
 import { Eur } from '~/lib/accounting/core/money';
 import { formatDisplayDate } from '~/lib/format';
 
-import { DirectionBadge } from './DirectionBadge';
+import { ConversionNotes } from './ConversionNotes';
+import { DialogMode, dialogSubmitLabels } from './dialogSubmitLabels';
+import { DIRECTION_OPTIONS, DirectionBadge } from './DirectionBadge';
 import { LedgerCombobox } from './LedgerCombobox';
 import { RuleFormDialog, type RuleFormDialogPrefill } from './RulesManager';
 import { type TaxCodeOption, useTaxCodes } from './useTaxCodes';
 
 const ALL = '__all__';
-type DirectionFilter = BookingDirection | typeof ALL;
-
-const DIRECTION_OPTIONS: readonly FilterSelectOption[] = [
-    { label: 'Incoming', value: 'IN' },
-    { label: 'Outgoing', value: 'OUT' },
-];
-
 interface BookingEditValues {
     counterpartLedger: LedgerReference;
     counterpartName: string;
@@ -68,6 +61,8 @@ interface BookingEditValues {
     isRefund: boolean;
     taxCode: string;
 }
+
+type DirectionFilter = BookingDirection | typeof ALL;
 
 interface PerCounterpartRow {
     count: number;
@@ -169,17 +164,12 @@ export function BookingsTable({
             {
                 accessorKey: 'amountEur',
                 cell: ({ row }) => (
-                    <span
-                        className={
-                            row.original.direction === 'IN'
-                                ? 'font-mono text-xs text-success'
-                                : 'font-mono text-xs text-destructive'
-                        }
-                    >
+                    <span className="font-mono text-xs">
                         {Eur.format(row.original.amountEur)}
                     </span>
                 ),
-                header: 'EUR',
+                header: 'Amount',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorKey: 'taxCode',
@@ -191,16 +181,15 @@ export function BookingsTable({
             {
                 accessorKey: 'notes',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-muted-foreground">
-                        {row.original.notes.join(' + ')}
-                    </span>
+                    <ConversionNotes notes={row.original.notes} />
                 ),
+                enableSorting: false,
                 header: 'Conversion',
             },
             {
                 accessorKey: 'txnId',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-info">
+                    <span className="font-mono text-xs text-muted-foreground">
                         {row.original.txnId}
                     </span>
                 ),
@@ -276,7 +265,6 @@ export function BookingsTable({
                 )}
                 initialColumnVisibility={{ sourceCurrency: false }}
                 onResetFilters={reset}
-                pageSize={20}
                 rowId={(r) => r.txnId}
                 showFilter
             />
@@ -349,15 +337,17 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                     </span>
                 ),
                 header: 'Txns',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorKey: 'totalEur',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-success">
+                    <span className="font-mono text-xs">
                         {Eur.format(row.original.totalEur)}
                     </span>
                 ),
-                header: 'EUR',
+                header: 'Total',
+                meta: { align: DataTableAlign.End },
             },
         ],
         [],
@@ -394,7 +384,6 @@ export function MatchAuditTable({ result }: { result: ConversionResult }) {
                 </>
             )}
             onResetFilters={() => setDirection(ALL)}
-            pageSize={20}
             rowId={(r) => `${r.direction}|${r.matchedDisplay}|${r.rawName}`}
             showFilter
         />
@@ -459,15 +448,17 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
                     </span>
                 ),
                 header: 'Txns',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorKey: 'total',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-success">
+                    <span className="font-mono text-xs">
                         {Eur.format(row.original.total)}
                     </span>
                 ),
-                header: 'EUR',
+                header: 'Total',
+                meta: { align: DataTableAlign.End },
             },
         ],
         [],
@@ -494,7 +485,6 @@ export function PerCounterpartTable({ result }: { result: ConversionResult }) {
                 <DirectionSelect onChange={setDirection} value={direction} />
             }
             onResetFilters={() => setDirection(ALL)}
-            pageSize={20}
             rowId={(r) => `${r.direction}|${r.name}`}
             showFilter
         />
@@ -531,13 +521,11 @@ export function TotalPanel({ result }: { result: ConversionResult }) {
                 {
                     id: 'in',
                     label: 'In',
-                    tone: StatTone.Positive,
                     value: Eur.format(totals.inEur),
                 },
                 {
                     id: 'out',
                     label: 'Out',
-                    tone: StatTone.Negative,
                     value: Eur.format(totals.outEur),
                 },
                 {
@@ -603,7 +591,7 @@ export function UnknownsTable({
             {
                 accessorKey: 'rawName',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs text-warning">
+                    <span className="font-mono text-xs">
                         {row.original.rawName}
                     </span>
                 ),
@@ -618,6 +606,7 @@ export function UnknownsTable({
                     </span>
                 ),
                 header: 'Txns',
+                meta: { align: DataTableAlign.End },
             },
             {
                 accessorKey: 'firstSeen',
@@ -694,7 +683,6 @@ export function UnknownsTable({
                     </>
                 }
                 onResetFilters={reset}
-                pageSize={20}
                 rowId={(r) => `${r.direction}|${r.rawName}`}
                 showFilter
             />
@@ -803,8 +791,8 @@ function BookingEditDialog({
             onCancel={onClose}
             onSubmit={save}
             pending={false}
-            submitLabel="Save changes"
             title="Edit booking"
+            {...dialogSubmitLabels(DialogMode.Edit)}
         >
             <Controller
                 control={form.control}
@@ -813,18 +801,32 @@ function BookingEditDialog({
                     <Field>
                         <FieldLabel htmlFor={directionId}>Direction</FieldLabel>
                         <Select
-                            onValueChange={(v) => field.onChange(v)}
+                            onValueChange={(v) =>
+                                field.onChange(
+                                    DIRECTION_OPTIONS.find((o) => o.value === v)
+                                        ?.value ?? field.value,
+                                )
+                            }
                             value={field.value}
                         >
                             <SelectTrigger
                                 className="h-8 w-full text-xs"
                                 id={directionId}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {
+                                        DIRECTION_OPTIONS.find(
+                                            (o) => o.value === field.value,
+                                        )?.label
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="IN">IN</SelectItem>
-                                <SelectItem value="OUT">OUT</SelectItem>
+                                {DIRECTION_OPTIONS.map((o) => (
+                                    <SelectItem key={o.value} value={o.value}>
+                                        {o.label}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </Field>
@@ -896,7 +898,13 @@ function BookingEditDialog({
                                 className="h-8 w-full text-xs"
                                 id={taxCodeId}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {
+                                        taxCodeOptions.find(
+                                            (o) => o.code === field.value,
+                                        )?.label
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {taxCodeOptions.map((o) => (

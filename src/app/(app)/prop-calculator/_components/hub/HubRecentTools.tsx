@@ -1,5 +1,6 @@
 'use client';
 
+import { History } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -14,6 +15,7 @@ import { readLastToolQuery } from '~/app/(app)/prop-calculator/_components/lastT
 import { type ToolCatalogEntry } from '~/app/(app)/prop-calculator/_components/toolCatalog';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 
 interface RecentToolsState {
@@ -50,9 +52,12 @@ export function HubRecentTools() {
                         ))}
                     </div>
                 ) : recent.tools.length === 0 ? (
-                    <p className="flex min-h-9 items-center text-sm text-muted-foreground">
-                        The tools you open show up here.
-                    </p>
+                    <EmptyState
+                        description="The tools you open show up here."
+                        icon={History}
+                        size={EmptyStateSize.Compact}
+                        title="No tools opened yet"
+                    />
                 ) : (
                     <ul className="flex min-h-9 flex-wrap gap-2">
                         {recent.tools.map((entry) => {

@@ -12,6 +12,7 @@ import {
 } from '~/components/ui/chart';
 import { formatCompactCurrency } from '~/lib/format';
 
+import { ChartEmptyState } from './ChartEmptyState';
 import { type BarShapeProperties } from './types';
 
 export interface RuleStressBarDatum {
@@ -33,9 +34,7 @@ const NOT_WORSE_FILL = 'var(--success)';
 
 export default function RuleStressBarChartView({ rows }: Properties) {
     return rows.length === 0 ? (
-        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-            No simulation data yet.
-        </div>
+        <ChartEmptyState title="No simulation data yet" />
     ) : (
         <div className="flex flex-col gap-2">
             <ChartContainer

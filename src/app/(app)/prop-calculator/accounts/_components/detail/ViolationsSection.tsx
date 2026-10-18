@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ShieldCheck } from 'lucide-react';
 import { useId } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -11,6 +12,7 @@ import {
     useTodayIsoDate,
 } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { FormDialog } from '~/components/FormDialog';
+import { MissingValue } from '~/components/MissingValue';
 import {
     deleteRowAction,
     editRowAction,
@@ -18,6 +20,7 @@ import {
 } from '~/components/RowActionsMenu';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Dialog } from '~/components/ui/dialog';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     Field,
     FieldDescription,
@@ -34,7 +37,7 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
-import { formatDisplayDate, NOT_APPLICABLE } from '~/lib/format';
+import { formatDisplayDate } from '~/lib/format';
 import {
     formatUsdCents,
     RuleViolationKind,
@@ -169,7 +172,9 @@ export function ViolationForm({
                                 id={`${formId}-kind`}
                                 ref={field.ref}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {ruleViolationKindLabel(field.value)}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(RuleViolationKind).map(
@@ -249,18 +254,26 @@ export function ViolationForm({
                                 id={`${formId}-decisionId`}
                                 ref={field.ref}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {decisionOptionLabel(
+                                        field.value,
+                                        decisions,
+                                    )}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value={NO_LINKED_DECISION}>
-                                    No linked decision
+                                    {NO_LINKED_DECISION_LABEL}
                                 </SelectItem>
                                 {decisions.map((decision) => (
                                     <SelectItem
                                         key={decision.id}
                                         value={decision.id}
                                     >
-                                        {`Decision on ${formatDisplayDate(decision.decidedOn)}`}
+                                        {decisionOptionLabel(
+                                            decision.id,
+                                            decisions,
+                                        )}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -321,9 +334,11 @@ export function ViolationsSection({
         <>
             <ListQueryStatus query={query} subject="rule violations" />
             {rows?.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                    No rule violations recorded yet.
-                </p>
+                <EmptyState
+                    icon={ShieldCheck}
+                    size={EmptyStateSize.Compact}
+                    title="No rule violations recorded yet"
+                />
             )}
             {rows !== undefined && rows.length > 0 && (
                 <DataTable
@@ -349,9 +364,11 @@ export function ViolationsSection({
                         {
                             cell: ({ row: { original: row } }) => (
                                 <>
-                                    {row.costCents === null
-                                        ? NOT_APPLICABLE
-                                        : formatUsdCents(row.costCents)}
+                                    {row.costCents === null ? (
+                                        <MissingValue reason="No cost was recorded for this violation." />
+                                    ) : (
+                                        formatUsdCents(row.costCents)
+                                    )}
                                 </>
                             ),
                             header: 'Cost',
@@ -437,12 +454,25 @@ export function ViolationsSection({
     );
 }
 
+const NO_LINKED_DECISION_LABEL = 'No linked decision';
+
 const RULE_VIOLATION_KIND_DISCLAIMER: Partial<
     Record<RuleViolationKind, string>
 > = {
     [RuleViolationKind.ForcedRecovery]:
         "the documented ladder's step up after a loss is not a violation",
 };
+
+function decisionOptionLabel(
+    decisionId: string,
+    decisions: readonly { readonly decidedOn: string; readonly id: string }[],
+): string | undefined {
+    if (decisionId === NO_LINKED_DECISION) return NO_LINKED_DECISION_LABEL;
+    const decision = decisions.find((candidate) => candidate.id === decisionId);
+    return decision === undefined
+        ? undefined
+        : `Decision on ${formatDisplayDate(decision.decidedOn)}`;
+}
 
 function formTitleOf(
     editing: null | ViolationRow,

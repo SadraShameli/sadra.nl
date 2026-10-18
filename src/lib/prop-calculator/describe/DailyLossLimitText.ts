@@ -1,4 +1,4 @@
-import { formatGateCurrency } from '~/lib/format';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     type DailyLossLimitConfig,
     type DailyLossLimitDescriptor,
@@ -11,13 +11,13 @@ export function dailyLossLimitText(config: DailyLossLimitConfig): string {
 }
 
 function currencyRangeText(min: number, max: number): string {
-    return `${formatGateCurrency(min)} to ${formatGateCurrency(max)}`;
+    return `${formatWholeOrCentsCurrency(min)} to ${formatWholeOrCentsCurrency(max)}`;
 }
 
 function descriptorText(descriptor: DailyLossLimitDescriptor): string {
     switch (descriptor.kind) {
         case DailyLossLimitShape.Fixed: {
-            return formatGateCurrency(descriptor.amount);
+            return formatWholeOrCentsCurrency(descriptor.amount);
         }
         case DailyLossLimitShape.None: {
             return 'none';
@@ -28,7 +28,7 @@ function descriptorText(descriptor: DailyLossLimitDescriptor): string {
         case DailyLossLimitShape.RangeWithUnlimitedTier: {
             const limited =
                 descriptor.max <= descriptor.min
-                    ? formatGateCurrency(descriptor.min)
+                    ? formatWholeOrCentsCurrency(descriptor.min)
                     : currencyRangeText(descriptor.min, descriptor.max);
             return `${limited}, none on some tiers`;
         }

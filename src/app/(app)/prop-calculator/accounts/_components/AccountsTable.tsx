@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react';
 
 import { FilterToolbar } from '~/components/FilterToolbar';
 import { InfoNote } from '~/components/InfoNote';
+import { MissingValue } from '~/components/MissingValue';
 import {
     deleteRowAction,
     linkRowAction,
@@ -74,7 +75,7 @@ import {
 } from './accountListFilters';
 import { formatUsdCents } from './accountPlanOptions';
 import {
-    ExpectedPayoutsFigure,
+    ExpectedPayoutsValue,
     NextActionFigure,
     NextPayoutFigure,
     ValueDetailLines,
@@ -85,6 +86,7 @@ import {
     type LedgerOnlyFirmOption,
     ledgerOnlyFirmOptions,
 } from './externalFirmOptions';
+import { ComputingFigure } from './FigureText';
 import {
     ACCOUNT_DELETE_DESCRIPTION,
     accountDeleteTitle,
@@ -244,16 +246,14 @@ export function AccountsTableWithValues({
 
     return (
         <section
-            aria-busy={isComputing}
             aria-labelledby="prop-accounts-list-heading"
             className="app-prop-accounts__list"
         >
-            <ToolPanel title="Accounts" titleId="prop-accounts-list-heading">
-                {isComputing && (
-                    <p className="sr-only" role="status">
-                        Computing values
-                    </p>
-                )}
+            <ToolPanel
+                isComputing={isComputing}
+                title="Accounts"
+                titleId="prop-accounts-list-heading"
+            >
                 {accountsQuery.isError && (
                     <StatusRow
                         detail={`${accountsQuery.error.message} The table shows the last loaded accounts.`}
@@ -546,6 +546,12 @@ function encodeOption(value: string): string {
 
 const NO_COPY_GROUP = 'None';
 
+const NO_BALANCE_REASON =
+    'No balance snapshot is recorded for this account yet.';
+
+const NO_FLOOR_REASON =
+    'The latest snapshot has no drawdown floor from the firm dashboard, so the cushion cannot be computed.';
+
 interface AccountColumnsInput {
     readonly externalFirms: readonly ExternalFirmName[];
     readonly groupNames: ReadonlyMap<string, string>;
@@ -640,7 +646,7 @@ function accountColumns({
             cell: valueCell(
                 valueColumns,
                 inactiveReason,
-                <span className="text-muted-foreground">Computing</span>,
+                <ComputingFigure />,
                 (columns) => <NextActionFigure action={columns.action} />,
             ),
             header: 'Next action',
@@ -653,7 +659,7 @@ function accountColumns({
                 null,
                 (columns) => (
                     <>
-                        <ExpectedPayoutsFigure
+                        <ExpectedPayoutsValue
                             expectedPayouts={columns.expectedPayouts}
                         />
                         <ValueDetailLines columns={columns} />
@@ -683,7 +689,7 @@ function accountColumns({
         {
             cell: ({ row: { original: row } }) =>
                 row.latestSnapshot === null ? (
-                    <span className="text-muted-foreground">No balance</span>
+                    <MissingValue reason={NO_BALANCE_REASON} />
                 ) : (
                     <>
                         <div>
@@ -701,9 +707,13 @@ function accountColumns({
         {
             cell: ({ row: { original: row } }) =>
                 row.cushionCents === null ? (
-                    <span className="text-xs text-muted-foreground">
-                        Needs the dashboard floor
-                    </span>
+                    <MissingValue
+                        reason={
+                            row.latestSnapshot === null
+                                ? NO_BALANCE_REASON
+                                : NO_FLOOR_REASON
+                        }
+                    />
                 ) : (
                     formatUsdCents(row.cushionCents)
                 ),

@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { TriangleAlert } from 'lucide-react';
+import { History, TriangleAlert } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -21,6 +21,7 @@ import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard } from '~/components/ToggleCard';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     Field,
     FieldDescription,
@@ -123,9 +124,11 @@ export function EventsSection({
         <>
             <ListQueryStatus query={query} subject="account events" />
             {rows?.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                    No lifecycle events recorded yet.
-                </p>
+                <EmptyState
+                    icon={History}
+                    size={EmptyStateSize.Compact}
+                    title="No lifecycle events recorded yet"
+                />
             )}
             {rows !== undefined && rows.length > 0 && (
                 <ol className="flex flex-col gap-2 text-sm">
@@ -169,9 +172,10 @@ export function EventsSection({
                 </p>
             )}
             {plan !== null && options.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                    No lifecycle event applies to this account now.
-                </p>
+                <EmptyState
+                    size={EmptyStateSize.Compact}
+                    title="No lifecycle event applies to this account now"
+                />
             )}
             {options.length > 0 && (
                 <EventForm
@@ -354,7 +358,14 @@ function EventForm({
                                 id={`${formId}-kind`}
                                 ref={field.ref}
                             >
-                                <SelectValue placeholder="Choose an event" />
+                                <SelectValue placeholder="Choose an event">
+                                    {
+                                        options.find(
+                                            (option) =>
+                                                option.kind === field.value,
+                                        )?.label
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {options.map((option) => (
@@ -400,7 +411,9 @@ function EventForm({
                                     id={`${formId}-bustCause`}
                                     ref={field.ref}
                                 >
-                                    <SelectValue />
+                                    <SelectValue>
+                                        {bustCauseLabel(field.value)}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {Object.values(BustCause).map((cause) => (

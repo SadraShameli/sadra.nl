@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil, TriangleAlert } from 'lucide-react';
+import { Pencil, RefreshCw, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
@@ -21,6 +21,7 @@ import {
     upgradePlanSelection,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPlanOptions';
 import { AccountPlanPicker } from '~/app/(app)/prop-calculator/accounts/_components/AccountPlanPicker';
+import { AccountDetailSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { ArchiveAccountButton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsTable';
 import { reconstructedMaxRiskOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
 import { DeleteAccountDialog } from '~/app/(app)/prop-calculator/accounts/_components/DeleteAccountDialog';
@@ -48,6 +49,7 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { errorMessage } from '~/lib/errorMessage';
 import { formatDisplayDate } from '~/lib/format';
@@ -356,9 +358,7 @@ export function AccountDetailView({
 
     if (account === undefined) {
         return accountQuery.error === null ? (
-            <div aria-busy="true" aria-label="Loading the account">
-                <Skeleton className="h-96 w-full" />
-            </div>
+            <AccountDetailSkeleton />
         ) : (
             <Alert variant="destructive">
                 <TriangleAlert />
@@ -943,14 +943,26 @@ function ReplacementChain({
         <>
             <ListQueryStatus query={accountsQuery} subject="accounts" />
             <ListQueryStatus query={eventsQuery} subject="account events" />
+            {view !== null &&
+                view.replaces === null &&
+                account.replacesAccountId === null &&
+                view.replacedBy.length === 0 &&
+                view.lag === null && (
+                    <EmptyState
+                        icon={RefreshCw}
+                        size={EmptyStateSize.Compact}
+                        title="Not part of a replacement chain"
+                    />
+                )}
             {view !== null && (
                 <div className="flex flex-col gap-2 text-sm">
                     {view.replaces === null ? (
-                        <p className="text-muted-foreground">
-                            {account.replacesAccountId === null
-                                ? 'This account does not replace another account.'
-                                : 'This account replaces an account that no longer exists.'}
-                        </p>
+                        account.replacesAccountId !== null && (
+                            <p className="text-muted-foreground">
+                                This account replaces an account that no longer
+                                exists.
+                            </p>
+                        )
                     ) : (
                         <p>
                             Replaces{' '}

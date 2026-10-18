@@ -1,25 +1,27 @@
 'use client';
 
 import { endOfDay, startOfDay } from 'date-fns';
-import { Calendar, ExternalLink } from 'lucide-react';
+import { Calendar, ExternalLink, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 
+import { MissingValue } from '~/components/MissingValue';
 import {
     deleteRowAction,
     linkRowAction,
     rowActionsColumn,
 } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
-import { EmptyState, EmptyStatePanel } from '~/components/ui/empty-state';
+import { EmptyStatePanel, NoMatchesState } from '~/components/ui/empty-state';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { formatDisplayDateTime } from '~/lib/format';
@@ -100,9 +102,11 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 accessorFn: (r) => WorkoutDuration.seconds(r) ?? -1,
                 cell: ({ row }) => {
                     const dur = WorkoutDuration.seconds(row.original);
-                    return (
+                    return dur === null ? (
+                        <MissingValue />
+                    ) : (
                         <span className="text-muted-foreground tabular-nums">
-                            {dur === null ? '-' : DurationFormat.seconds(dur)}
+                            {DurationFormat.seconds(dur)}
                         </span>
                     );
                 },
@@ -140,7 +144,15 @@ export function HistoryView({ from }: HistoryViewProperties) {
 
     return !dateRange && !workouts.isLoading && allRows.length === 0 ? (
         <EmptyStatePanel
-            description="Start a workout from the Log tab and it'll show up here."
+            action={
+                <Button asChild className="gap-2">
+                    <Link href={routes.lifting.log}>
+                        <Play className="size-4" />
+                        Start workout
+                    </Link>
+                </Button>
+            }
+            description="Workouts you log show up here."
             icon={Calendar}
             title="No workouts yet"
         />
@@ -150,11 +162,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 columns={columns}
                 data={allRows}
                 emptyState={
-                    <EmptyState
-                        description="Try widening the filters or logging a workout."
-                        icon={Calendar}
-                        title="No workouts match"
-                    />
+                    <NoMatchesState icon={Calendar} noun="workouts" />
                 }
                 hasExternalFilters={Boolean(dateRange?.from)}
                 headerActions={(table) => {
@@ -204,7 +212,6 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 }}
                 isLoading={workouts.isLoading}
                 onResetFilters={() => setDateRange(undefined)}
-                pageSize={20}
                 rowId={(r) => r.id}
                 showFilter
             />

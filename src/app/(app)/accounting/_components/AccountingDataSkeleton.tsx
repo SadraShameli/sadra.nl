@@ -1,7 +1,11 @@
-import { Skeleton } from '~/components/ui/skeleton';
+import { CardSkeleton } from '~/components/PageSkeleton';
+
+const ACCOUNTING_SKELETON_ROWS = 6;
 
 export function AccountingDataSkeleton() {
     return (
-        <Skeleton aria-busy="true" className="min-h-144 w-full rounded-xl" />
+        <div aria-busy="true">
+            <CardSkeleton rows={ACCOUNTING_SKELETON_ROWS} />
+        </div>
     );
 }

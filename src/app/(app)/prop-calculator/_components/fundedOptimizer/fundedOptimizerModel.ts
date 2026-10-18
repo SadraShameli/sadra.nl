@@ -13,6 +13,7 @@ import {
     type FundedSweepResult,
     MAX_FUNDED_SWEEP_TRIALS,
 } from '~/app/(app)/prop-calculator/_workers/fundedSweepWorkerMessages';
+import { formatCount } from '~/lib/format';
 import {
     CENTS_PER_DOLLAR,
     DayStopRuleKind,
@@ -122,7 +123,7 @@ export function fundedOptimizerRanking(
         RankingSurface.FundedRiskSweep,
     );
     return {
-        heading: `Funded optimizer, ranked by ${SIZING_OBJECTIVE_LABEL[effective]}`,
+        heading: `Candidates, ranked by ${SIZING_OBJECTIVE_LABEL[effective]}`,
         sort: fundedSortOf(effective),
     };
 }
@@ -234,7 +235,7 @@ export function fundedOptimizerSweep(
 
 export function fundedOptimizerTrialsNote(requested: number): null | string {
     return requested > MAX_FUNDED_SWEEP_TRIALS
-        ? `trials reduced from ${requested.toLocaleString('en-US')} to ${MAX_FUNDED_SWEEP_TRIALS.toLocaleString('en-US')}: the sweep runs at most ${MAX_FUNDED_SWEEP_TRIALS.toLocaleString('en-US')} trials per policy, so its standard errors are those of ${MAX_FUNDED_SWEEP_TRIALS.toLocaleString('en-US')} trials`
+        ? `trials reduced from ${formatCount(requested)} to ${formatCount(MAX_FUNDED_SWEEP_TRIALS)}: the sweep runs at most ${formatCount(MAX_FUNDED_SWEEP_TRIALS)} trials per policy, so its standard errors are those of ${formatCount(MAX_FUNDED_SWEEP_TRIALS)} trials`
         : null;
 }
 

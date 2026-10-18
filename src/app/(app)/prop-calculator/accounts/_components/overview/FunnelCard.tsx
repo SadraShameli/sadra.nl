@@ -1,7 +1,10 @@
+import { Filter } from 'lucide-react';
 import { memo } from 'react';
 
+import { figureColumns } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 import { type FunnelCardModel } from './overviewModel';
 import { infoLinesOf, OverviewPanel } from './OverviewPanel';
@@ -42,95 +45,96 @@ export const FunnelCard = memo(function FunnelCard({
             section={OverviewSectionId.Funnel}
         >
             {model.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No account with a modeled plan yet.
-                </p>
+                <EmptyState
+                    icon={Filter}
+                    size={EmptyStateSize.Compact}
+                    title="No account with a modeled plan yet"
+                />
             ) : (
                 <DataTable
-                    columns={[
-                        {
-                            cell: ({ row }) => <>{row.original.firm}</>,
-                            header: 'Firm',
-                            id: FunnelByFirmColumn.Firm,
-                            meta: { isRowHeader: true },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.purchased}</>,
-                            header: 'Purchased',
-                            id: FunnelByFirmColumn.Purchased,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.passed}</>,
-                            header: 'Passed',
-                            id: FunnelByFirmColumn.Passed,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.funded}</>,
-                            header: 'Funded',
-                            id: FunnelByFirmColumn.Funded,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.firstPayout}</>,
-                            header: 'First payout',
-                            id: FunnelByFirmColumn.FirstPayout,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.movedLive}</>,
-                            header: 'Moved live',
-                            id: FunnelByFirmColumn.MovedLive,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <>{row.original.structuralBusts}</>
-                            ),
-                            header: 'Structural busts',
-                            id: FunnelByFirmColumn.StructuralBusts,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <>{row.original.withinPlanBusts}</>
-                            ),
-                            header: 'Within-plan busts',
-                            id: FunnelByFirmColumn.WithinPlanBusts,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.unknownBusts}</>,
-                            header: 'Unknown busts',
-                            id: FunnelByFirmColumn.UnknownBusts,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.payoutRate}</>,
-                            header: 'Payout rate',
-                            id: FunnelByFirmColumn.PayoutRate,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.fees}</>,
-                            header: 'Fees',
-                            id: FunnelByFirmColumn.Fees,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.netPayouts}</>,
-                            header: 'Net payouts',
-                            id: FunnelByFirmColumn.NetPayouts,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.net}</>,
-                            header: 'Net',
-                            id: FunnelByFirmColumn.Net,
-                            meta: { align: DataTableAlign.End },
-                        },
-                    ]}
+                    columns={figureColumns(
+                        [
+                            {
+                                header: 'Firm',
+                                id: FunnelByFirmColumn.Firm,
+                                isRowHeader: true,
+                                textOf: (row) => row.firm,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Purchased',
+                                id: FunnelByFirmColumn.Purchased,
+                                textOf: (row) => row.purchased,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Passed',
+                                id: FunnelByFirmColumn.Passed,
+                                textOf: (row) => row.passed,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Funded',
+                                id: FunnelByFirmColumn.Funded,
+                                textOf: (row) => row.funded,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'First payout',
+                                id: FunnelByFirmColumn.FirstPayout,
+                                textOf: (row) => row.firstPayout,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Moved live',
+                                id: FunnelByFirmColumn.MovedLive,
+                                textOf: (row) => row.movedLive,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Structural busts',
+                                id: FunnelByFirmColumn.StructuralBusts,
+                                textOf: (row) => row.structuralBusts,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Within-plan busts',
+                                id: FunnelByFirmColumn.WithinPlanBusts,
+                                textOf: (row) => row.withinPlanBusts,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Unknown busts',
+                                id: FunnelByFirmColumn.UnknownBusts,
+                                textOf: (row) => row.unknownBusts,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Payout rate',
+                                id: FunnelByFirmColumn.PayoutRate,
+                                textOf: (row) => row.payoutRate,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Fees',
+                                id: FunnelByFirmColumn.Fees,
+                                textOf: (row) => row.fees,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Net payouts',
+                                id: FunnelByFirmColumn.NetPayouts,
+                                textOf: (row) => row.netPayouts,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Net',
+                                id: FunnelByFirmColumn.Net,
+                                textOf: (row) => row.net,
+                            },
+                        ],
+                        model.rows,
+                    )}
                     data={[...model.rows]}
                     isSortable={false}
                     pageSize={null}
@@ -144,39 +148,40 @@ export const FunnelCard = memo(function FunnelCard({
                         this stage)
                     </PanelSubheading>
                     <DataTable
-                        columns={[
-                            {
-                                cell: ({ row }) => <>{row.original.firm}</>,
-                                header: 'Firm',
-                                id: FunnelByStageColumn.Firm,
-                                meta: { isRowHeader: true },
-                            },
-                            {
-                                cell: ({ row }) => <>{row.original.stage}</>,
-                                header: 'Stage',
-                                id: FunnelByStageColumn.Stage,
-                            },
-                            {
-                                cell: ({ row }) => <>{row.original.fees}</>,
-                                header: 'Fees',
-                                id: FunnelByStageColumn.Fees,
-                                meta: { align: DataTableAlign.End },
-                            },
-                            {
-                                cell: ({ row }) => (
-                                    <>{row.original.netPayouts}</>
-                                ),
-                                header: 'Net payouts',
-                                id: FunnelByStageColumn.NetPayouts,
-                                meta: { align: DataTableAlign.End },
-                            },
-                            {
-                                cell: ({ row }) => <>{row.original.net}</>,
-                                header: 'Net',
-                                id: FunnelByStageColumn.Net,
-                                meta: { align: DataTableAlign.End },
-                            },
-                        ]}
+                        columns={figureColumns(
+                            [
+                                {
+                                    header: 'Firm',
+                                    id: FunnelByStageColumn.Firm,
+                                    isRowHeader: true,
+                                    textOf: (row) => row.firm,
+                                },
+                                {
+                                    header: 'Stage',
+                                    id: FunnelByStageColumn.Stage,
+                                    textOf: (row) => row.stage,
+                                },
+                                {
+                                    align: DataTableAlign.End,
+                                    header: 'Fees',
+                                    id: FunnelByStageColumn.Fees,
+                                    textOf: (row) => row.fees,
+                                },
+                                {
+                                    align: DataTableAlign.End,
+                                    header: 'Net payouts',
+                                    id: FunnelByStageColumn.NetPayouts,
+                                    textOf: (row) => row.netPayouts,
+                                },
+                                {
+                                    align: DataTableAlign.End,
+                                    header: 'Net',
+                                    id: FunnelByStageColumn.Net,
+                                    textOf: (row) => row.net,
+                                },
+                            ],
+                            model.stageDollars,
+                        )}
                         data={[...model.stageDollars]}
                         isSortable={false}
                         pageSize={null}

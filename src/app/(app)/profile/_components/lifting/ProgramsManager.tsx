@@ -8,10 +8,11 @@ import { toast } from 'sonner';
 import {
     MutedCell,
     PrimaryCell,
+    ProfileCollectionEmpty,
     ProfileDateCell,
     ProfileDatePrecision,
-    ProfileTableEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import {
     deleteRowAction,
     linkRowAction,
@@ -26,7 +27,6 @@ import {
     type DataTableColumn,
     DataTableFilterFunction,
     type DataTableInstance,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { FilterSelect } from '~/components/ui/filter-select';
@@ -209,85 +209,97 @@ export function ProgramsManager() {
         ];
     }, [programNameById, unenroll]);
 
-    const programsPageButton = (
-        <Button asChild size="sm">
-            <Link href={routes.lifting.programs}>
-                <ExternalLink className="size-4" />
-                Programs page
-            </Link>
-        </Button>
-    );
-
     return (
         <div className="flex flex-col gap-6">
             <ToolPanel
-                actions={programsPageButton}
+                actions={
+                    <Button asChild size="sm">
+                        <Link href={routes.lifting.programs}>
+                            <ExternalLink className="size-4" />
+                            Programs page
+                        </Link>
+                    </Button>
+                }
                 description="Programs you created. Build and edit them on the programs page."
                 title="Custom programs"
             >
-                <DataTable
-                    columns={ownedColumns}
-                    data={ownedRows}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={programsPageButton}
-                            description="Build one on the programs page, or duplicate an official program to customize it."
-                            filtered={hasActiveTableFilter(table)}
-                            icon={LibraryBig}
-                            noun="custom programs"
-                        />
-                    )}
-                    filterPlaceholder="Search programs…"
-                    headerActions={(table) => (
-                        <>
-                            <DataTableFacetSelect
-                                column={table.getColumn(ProgramColumn.Category)}
-                                format={(value) => (
-                                    <span className="capitalize">{value}</span>
-                                )}
-                                label="Category"
-                                placeholder="All categories"
+                {!mine.isLoading && ownedRows.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Build one on the programs page, or duplicate an official program to customize it."
+                        icon={LibraryBig}
+                        noun="custom programs"
+                    />
+                ) : (
+                    <DataTable
+                        columns={ownedColumns}
+                        data={ownedRows}
+                        emptyState={
+                            <NoMatchesState
+                                icon={LibraryBig}
+                                noun="custom programs"
                             />
-                            <FrequencySelect table={table} />
-                        </>
-                    )}
-                    isLoading={mine.isLoading}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
+                        }
+                        filterPlaceholder="Search programs…"
+                        headerActions={(table) => (
+                            <>
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        ProgramColumn.Category,
+                                    )}
+                                    format={(value) => (
+                                        <span className="capitalize">
+                                            {value}
+                                        </span>
+                                    )}
+                                    label="Category"
+                                    placeholder="All categories"
+                                />
+                                <FrequencySelect table={table} />
+                            </>
+                        )}
+                        isLoading={mine.isLoading}
+                        rowId={(r) => r.id}
+                        showFilter
+                    />
+                )}
             </ToolPanel>
 
             <ToolPanel
                 description="Programs you are currently following."
                 title="Enrollments"
             >
-                <DataTable
-                    columns={enrollmentColumns}
-                    data={enrollments}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={programsPageButton}
-                            description="Enroll in a program from the programs page."
-                            filtered={hasActiveTableFilter(table)}
-                            icon={LibraryBig}
-                            noun="enrollments"
-                        />
-                    )}
-                    filterPlaceholder="Search enrollments…"
-                    headerActions={(table) => (
-                        <DataTableFacetSelect
-                            column={table.getColumn(ProgramColumn.Status)}
-                            format={(value) => (
-                                <span className="capitalize">{value}</span>
-                            )}
-                            label="Status"
-                            placeholder="All statuses"
-                        />
-                    )}
-                    isLoading={mine.isLoading}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
+                {!mine.isLoading && enrollments.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Enroll in a program from the programs page."
+                        icon={LibraryBig}
+                        noun="enrollments"
+                    />
+                ) : (
+                    <DataTable
+                        columns={enrollmentColumns}
+                        data={enrollments}
+                        emptyState={
+                            <NoMatchesState
+                                icon={LibraryBig}
+                                noun="enrollments"
+                            />
+                        }
+                        filterPlaceholder="Search enrollments…"
+                        headerActions={(table) => (
+                            <DataTableFacetSelect
+                                column={table.getColumn(ProgramColumn.Status)}
+                                format={(value) => (
+                                    <span className="capitalize">{value}</span>
+                                )}
+                                label="Status"
+                                placeholder="All statuses"
+                            />
+                        )}
+                        isLoading={mine.isLoading}
+                        rowId={(r) => r.id}
+                        showFilter
+                    />
+                )}
             </ToolPanel>
         </div>
     );

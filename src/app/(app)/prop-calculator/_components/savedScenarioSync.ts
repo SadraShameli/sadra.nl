@@ -5,6 +5,7 @@ import {
     localStorageOrNull,
 } from '~/app/(app)/prop-calculator/_components/browserStorage';
 import { errorMessage } from '~/lib/errorMessage';
+import { formatCount } from '~/lib/format';
 import {
     MAX_SAVED_SCENARIOS,
     PropLimitRejection,
@@ -146,7 +147,7 @@ export class ScenarioImportRuns {
 
 const IMPORT_FLAG_KEY_PREFIX = 'propCalc.scenarios.imported.v1:';
 const IMPORT_FLAG_VALUE = '1';
-const QUERY_LIMIT_LABEL = MAX_SCENARIO_QUERY_LENGTH.toLocaleString('en-US');
+const QUERY_LIMIT_LABEL = formatCount(MAX_SCENARIO_QUERY_LENGTH);
 
 const SKIP_REASON_LABELS: Readonly<Record<ScenarioSkipReason, string>> = {
     [ScenarioSkipReason.AccountLimit]: 'account limit reached',

@@ -375,6 +375,14 @@ function eligibleNowFigures(): AccountFromStateFigures {
     };
 }
 
+function enterBalancesHref(section: HTMLElement | undefined): null | string {
+    return (
+        [...(section?.querySelectorAll('a') ?? [])]
+            .find((anchor) => anchor.textContent === 'Enter balances')
+            ?.getAttribute('href') ?? null
+    );
+}
+
 function evalSnapshotRow(
     accountId: string,
     asOf: string,
@@ -866,7 +874,6 @@ describe('OverviewView', () => {
             'Realized P(an attempt pays)',
             'Realized P(net below zero) at 1 attempt',
             'Realized P(no payout)',
-            'Realized minimum budget',
         ]);
         expect(
             labels.filter((label) => label === 'Injected capital'),
@@ -1283,14 +1290,16 @@ describe('OverviewView', () => {
                 .querySelector('[aria-busy="true"]')
                 ?.getAttribute('aria-label'),
         ).toBe('Loading your overview');
-        expect(container.querySelectorAll('.animate-pulse')).toHaveLength(1);
+        expect(
+            container.querySelectorAll('.animate-pulse').length,
+        ).toBeGreaterThan(0);
         expect(
             labelledSections().filter(
                 (section) => headingOf(section)?.textContent === 'Key figures',
             ),
         ).toHaveLength(0);
     });
-    it('shows the cushion and payout readiness boards with the reason an account has no state yet (F-80, F-81)', () => {
+    it('shows one empty state with the way to enter balances on the cushion and payout readiness boards when no account has a state yet (F-80, F-81)', () => {
         answerEverything([
             overviewAccount('alpha', {
                 fundedOn: '2026-09-05',
@@ -1302,15 +1311,19 @@ describe('OverviewView', () => {
         render();
         const cushion = sectionNamed('Cushion board');
         expect(cushion?.textContent).toContain(
-            'No account has a usable balance snapshot yet.',
+            'Enter balances to see the cushion board',
         );
-        expect(cushion?.textContent).toContain('alpha: it has no snapshot yet');
+        expect(cushion?.textContent).not.toContain('it has no snapshot yet');
+        expect(enterBalancesHref(cushion)).toBe(
+            routes.propCalculator.accounts.review,
+        );
         const readiness = sectionNamed('Payout readiness');
         expect(readiness?.textContent).toContain(
-            'No funded account has a usable balance snapshot yet.',
+            'Enter balances to see payout readiness',
         );
-        expect(readiness?.textContent).toContain(
-            'beta: it has no snapshot yet',
+        expect(readiness?.textContent).not.toContain('it has no snapshot yet');
+        expect(enterBalancesHref(readiness)).toBe(
+            routes.propCalculator.accounts.review,
         );
     });
 
@@ -1388,7 +1401,7 @@ describe('OverviewView', () => {
         );
     });
 
-    it('shows the profit concentration and where EV comes from cards with their labels (PT-69, F-V26, F-V28)', () => {
+    it('shows the profit concentration card with its labels and collapses where EV comes from while the engine has no figure (PT-69, F-V26, F-V28)', () => {
         answerEverything([heldFundedAccount()]);
         render();
         openOverviewTab(container, OverviewTab.Money);
@@ -1399,27 +1412,25 @@ describe('OverviewView', () => {
             'Withdrawable above the retained cushion',
         );
         const ev = sectionNamed('Where EV comes from');
-        expect(ev?.textContent).toContain(
-            'Conversion EV per attempt (modeled)',
-        );
+        expect(ev?.textContent).toContain('No EV figure to show yet');
+        expect(
+            ev?.querySelector(
+                '[aria-label="Conversion EV per attempt by plan"]',
+            ),
+        ).toBeNull();
         expect(infoText(container, 'Where EV comes from')).toContain(
             'not the ranking objective',
         );
-        expect(ev?.textContent).toContain(firm.displayName);
     });
 
-    it('puts the worst day and followed recommendations KPIs after net (PT-69, F-V29, F-V20)', () => {
+    it('hides the worst day and followed recommendations KPIs while neither has a value (PT-69, F-V29, F-V20)', () => {
         answerEverything([heldFundedAccount()]);
         render();
         const kpis = sectionNamed('Key figures')?.textContent ?? '';
-        expect(kpis).toContain('Worst day loss');
-        expect(kpis).toContain('Followed recommendations');
-        expect(kpis.indexOf('Worst day loss')).toBeGreaterThan(
-            kpis.indexOf('Payouts received minus spend'),
-        );
-        expect(kpis.indexOf('Followed recommendations')).toBeGreaterThan(
-            kpis.indexOf('Worst day loss'),
-        );
+        expect(kpis).toContain('Payouts received minus spend');
+        expect(kpis).not.toContain('Worst day loss');
+        expect(kpis).not.toContain('Followed recommendations');
+        expect(kpis).not.toContain('n/a');
     });
 
     it("reads each account's latest two snapshots, so the worst day KPI measures a live-shaped load (PT-69b, F-V29)", () => {
@@ -1575,6 +1586,7 @@ describe('OverviewView', () => {
 
         const heldDone: (() => void)[] = [];
         let created = 0;
+        let isHoldingEveryAnswer = false;
         let isStreamingProgress = false;
 
         class FakeWorker {
@@ -1606,6 +1618,10 @@ describe('OverviewView', () => {
                         },
                     });
                 };
+                if (isHoldingEveryAnswer) {
+                    heldDone.push(done);
+                    return;
+                }
                 if (!isStreamingProgress) {
                     queueMicrotask(done);
                     return;
@@ -1631,8 +1647,28 @@ describe('OverviewView', () => {
             posted.length = 0;
             heldDone.length = 0;
             created = 0;
+            isHoldingEveryAnswer = false;
             isStreamingProgress = false;
             isAnsweringAccountFromState = false;
+        });
+
+        it('shows no setup done count while the engine is still computing the expected value, then the final count', async () => {
+            isHoldingEveryAnswer = true;
+            vi.stubGlobal('Worker', FakeWorker);
+            answerEverything([
+                overviewAccount('alpha'),
+                overviewAccount('beta'),
+            ]);
+            render();
+            await settle();
+            const computing = sectionNamed('Setup checklist');
+            expect(computing?.textContent).not.toMatch(/\d of 5 steps done/u);
+            expect(computing?.textContent).toContain('Counting the steps done');
+            for (const done of heldDone) done();
+            await settle();
+            expect(sectionNamed('Setup checklist')?.textContent).toContain(
+                '3 of 5 steps done',
+            );
         });
 
         it('starts one worker per request group even when the worker streams a progress message per outcome', async () => {
@@ -1784,7 +1820,7 @@ describe('OverviewView', () => {
                 sectionNamed('Fresh-start projection')?.textContent,
             ).toContain('one ES contract risks more than your risk');
             expect(sectionNamed('Exposure')?.textContent).toContain(
-                'alpha: it has no snapshot yet',
+                'Enter balances to see your exposure',
             );
             const expectedNet = sectionNamed('Expected net');
             expect(expectedNet?.textContent).toContain('$1,111 (SE $9)');
@@ -1981,7 +2017,10 @@ describe('OverviewView', () => {
             expect(expectedNet?.textContent).toContain(
                 'Web workers are not available in this browser.',
             );
-            expect(expectedNet?.textContent).toContain('Not available');
+            expect(expectedNet?.textContent).not.toContain('n/a');
+            expect(expectedNet?.textContent).not.toContain(
+                'Documented policy, monthly net',
+            );
         });
 
         it('sends nothing while no plan is held', () => {

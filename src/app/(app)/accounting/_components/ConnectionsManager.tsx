@@ -10,6 +10,7 @@ import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
 import type { CredentialKind } from '~/lib/accounting/credentials/registry';
 
 import { FormDialog } from '~/components/FormDialog';
+import { TitledCardSkeleton } from '~/components/PageSkeleton';
 import {
     deleteRowAction,
     editRowAction,
@@ -29,7 +30,6 @@ import {
     DialogTitle,
 } from '~/components/ui/dialog';
 import { EmptyStatePanel } from '~/components/ui/empty-state';
-import { Skeleton } from '~/components/ui/skeleton';
 import { Spinner } from '~/components/ui/spinner';
 import {
     CredentialRegistry,
@@ -45,6 +45,7 @@ import { api } from '~/trpc/react';
 
 import { CredentialBadge } from './CredentialBadge';
 import { CredentialFormFields } from './CredentialFormFields';
+import { DialogMode, dialogSubmitLabels } from './dialogSubmitLabels';
 import { useRefreshCredentials } from './useRefreshCredentials';
 
 type StoredCredential = {
@@ -209,18 +210,19 @@ export function ConnectionsManager() {
 
     return (
         <div className="flex flex-col gap-6">
-            {credentialsQ.isPending && (
-                <div className="flex flex-col gap-3">
-                    <Skeleton className="h-20 w-full" />
-                    <Skeleton className="h-20 w-full" />
-                </div>
-            )}
+            {credentialsQ.isPending &&
+                ROLE_ORDER.map((role) => (
+                    <TitledCardSkeleton
+                        key={role}
+                        title={ROLE_SECTION_LABEL[role]}
+                    />
+                ))}
 
             {credentialsQ.data?.length === 0 && (
                 <EmptyStatePanel
-                    description="Add a credential to start importing"
+                    description="Add a bank, card or accounting connection to start importing."
                     icon={KeyRound}
-                    title="No credentials yet"
+                    title="No connections yet"
                 />
             )}
 
@@ -339,8 +341,8 @@ function EditCredentialFields({
             onCancel={onClose}
             onSubmit={save}
             pending={updateMut.isPending}
-            submitLabel="Save changes"
             title="Edit credential"
+            {...dialogSubmitLabels(DialogMode.Edit)}
         >
             <CredentialFormFields
                 credentialId={credential.id}

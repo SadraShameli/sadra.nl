@@ -10,6 +10,8 @@ import {
 import { ToolPageHeading } from '~/app/(app)/prop-calculator/_components/ToolPageHeading';
 import { routes } from '~/lib/site/routes';
 
+import { basePath } from './toolPageFiles';
+
 const navigation = vi.hoisted(() => ({
     pathname: '/',
     router: { replace: vi.fn<(href: string) => void>() },
@@ -142,6 +144,58 @@ describe('ToolPageHeading', () => {
         ).toBeNull();
         expect(
             container.querySelector('[data-testid="saved-scenarios"]'),
+        ).toBeNull();
+    });
+
+    function tabs(): HTMLAnchorElement[] {
+        return [
+            ...container.querySelectorAll<HTMLAnchorElement>(
+                ':scope header nav[aria-label="Prop calculator tools in this group"] a',
+            ),
+        ];
+    }
+
+    it('shows the tools of its group as tabs under the heading, with its own tool current', () => {
+        navigation.pathname = routes.propCalculator.positionSize;
+        render(
+            <ToolPageHeading
+                ownQuery="risk=300"
+                toolId={ToolId.PositionSize}
+            />,
+        );
+        expect(tabs().map((tab) => tab.textContent)).toEqual([
+            toolCatalogEntry(ToolId.Sizing).label,
+            toolCatalogEntry(ToolId.PositionSize).label,
+        ]);
+        expect(
+            tabs()
+                .filter((tab) => tab.getAttribute('aria-current') === 'page')
+                .map((tab) => tab.textContent),
+        ).toEqual([toolCatalogEntry(ToolId.PositionSize).label]);
+        expect(basePath(tabs()[0]?.getAttribute('href') ?? '')).toBe(
+            routes.propCalculator.sizing,
+        );
+        expect(tabs()[1]?.getAttribute('href')).toBe(
+            routes.propCalculator.positionSize,
+        );
+    });
+
+    it('shows the rules browser beside the compare tool, though it shares no state itself', () => {
+        navigation.pathname = routes.propCalculator.rules;
+        render(<ToolPageHeading toolId={ToolId.Rules} />);
+        expect(tabs().map((tab) => tab.textContent)).toEqual([
+            toolCatalogEntry(ToolId.Compare).label,
+            toolCatalogEntry(ToolId.Rules).label,
+        ]);
+    });
+
+    it('shows no tabs for a tool that is alone in its group', () => {
+        navigation.pathname = routes.propCalculator.analysis;
+        render(<ToolPageHeading toolId={ToolId.Analysis} />);
+        expect(
+            container.querySelector(
+                'nav[aria-label="Prop calculator tools in this group"]',
+            ),
         ).toBeNull();
     });
 });

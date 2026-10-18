@@ -1,11 +1,17 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type ReactNode, startTransition, useState } from 'react';
+import { type ReactNode, startTransition, useRef, useState } from 'react';
 
 import { PageTransition } from '~/components/PageTransition';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
+import {
+    scrollStripFadeClass,
+    useScrollStrip,
+} from '~/components/useScrollStrip';
 import { cn } from '~/lib/utilities';
+
+const ACTIVE_TAB_SELECTOR = '[role="tab"][data-state="active"]';
 
 export type PageTab<TValue extends string> = {
     content: ReactNode;
@@ -29,6 +35,11 @@ export function PageTabs<TValue extends string>({
     const [uncontrolledValue, setUncontrolledValue] =
         useState<TValue>(defaultValue);
     const value = controlledValue ?? uncontrolledValue;
+    const stripReference = useRef<HTMLDivElement>(null);
+    const edges = useScrollStrip(stripReference, {
+        activeKey: value,
+        activeSelector: ACTIVE_TAB_SELECTOR,
+    });
     const selectTab = (next: string) => {
         const tab = tabs.find((candidate) => candidate.value === next);
         if (tab === undefined) return;
@@ -45,7 +56,13 @@ export function PageTabs<TValue extends string>({
             onValueChange={selectTab}
             value={value}
         >
-            <div className="-mx-1 max-w-full overflow-x-auto px-1 pb-1">
+            <div
+                className={cn(
+                    'relative -mx-1 max-w-full scrollbar-none overflow-x-auto px-1 pb-1',
+                    scrollStripFadeClass(edges),
+                )}
+                ref={stripReference}
+            >
                 <TabsList className="inline-flex w-max justify-start">
                     {tabs.map((tab) => (
                         <TabsTrigger key={tab.value} value={tab.value}>

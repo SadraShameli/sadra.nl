@@ -3,9 +3,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HEADER_SCROLL_MARGIN } from '~/app/(app)/_components/headerHeight';
-import { ToolSection } from '~/app/(app)/prop-calculator/_components/ToolSection';
+import {
+    ToolSection,
+    useSectionComputing,
+} from '~/app/(app)/prop-calculator/_components/ToolSection';
 import { FirmId } from '~/lib/prop-calculator';
 import { LegacySection } from '~/lib/site/legacyCalculatorLinks';
+
+import { hasComputingIndicator } from './computingIndicator';
 
 describe('ToolSection', () => {
     let container: HTMLDivElement;
@@ -152,4 +157,57 @@ describe('ToolSection', () => {
             section.classList.contains('app-prop-calculator__section-charts'),
         ).toBe(true);
     });
+
+    it.each([true, false])(
+        'shows the panel computing indicator exactly while its content reports computing (%s)',
+        (isComputing) => {
+            act(() => {
+                root.render(
+                    <ToolSection
+                        id={LegacySection.FirmComparison}
+                        isPanel
+                        title="Firm comparison"
+                    >
+                        <ComputingProbe isComputing={isComputing} />
+                    </ToolSection>,
+                );
+            });
+            const section = renderedSection();
+            expect(hasComputingIndicator(section)).toBe(isComputing);
+            expect(section.querySelector('[aria-busy="true"]') !== null).toBe(
+                isComputing,
+            );
+        },
+    );
+
+    it('clears the computing indicator when the reporting content unmounts', () => {
+        act(() => {
+            root.render(
+                <ToolSection
+                    id={LegacySection.FirmComparison}
+                    isPanel
+                    title="Firm comparison"
+                >
+                    <ComputingProbe isComputing />
+                </ToolSection>,
+            );
+        });
+        act(() => {
+            root.render(
+                <ToolSection
+                    id={LegacySection.FirmComparison}
+                    isPanel
+                    title="Firm comparison"
+                >
+                    <p>done</p>
+                </ToolSection>,
+            );
+        });
+        expect(hasComputingIndicator(renderedSection())).toBe(false);
+    });
 });
+
+function ComputingProbe({ isComputing }: { readonly isComputing: boolean }) {
+    useSectionComputing(isComputing);
+    return <p>probe</p>;
+}

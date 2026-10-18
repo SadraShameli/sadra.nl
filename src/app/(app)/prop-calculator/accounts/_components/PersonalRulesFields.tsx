@@ -13,7 +13,11 @@ import {
     type PersonalRuleKey,
     type PersonalRulesText,
 } from './accountPlanOptions';
-import { FieldRequirementMark } from './FieldRequirementMark';
+import {
+    MONEY_UNIT,
+    OPTIONAL_REQUIREMENT,
+    RequirementLabel,
+} from './RequirementLabel';
 
 interface PersonalRulesFieldsProperties {
     readonly errors: Partial<Record<PersonalRuleKey, string>>;
@@ -49,13 +53,12 @@ export function PersonalRulesFields({
                     .join(' ');
                 return (
                     <Field data-invalid={error !== undefined} key={field.key}>
-                        <FieldLabel
-                            className="items-baseline gap-1"
-                            htmlFor={id}
-                        >
-                            {field.label}
-                            {field.isMoney && ' ($)'}
-                            <FieldRequirementMark text="optional" />
+                        <FieldLabel htmlFor={id}>
+                            <RequirementLabel
+                                label={field.label}
+                                requirement={OPTIONAL_REQUIREMENT}
+                                unit={field.isMoney ? MONEY_UNIT : undefined}
+                            />
                         </FieldLabel>
                         <Input
                             aria-describedby={describedBy}

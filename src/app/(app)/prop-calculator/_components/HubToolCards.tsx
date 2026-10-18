@@ -12,41 +12,13 @@ import { cn } from '~/lib/utilities';
 import { readLastToolQuery } from './lastToolQuery';
 import {
     LINKED_TOOL_CATALOG,
-    pageStateBlobsOf,
     type ToolCatalogEntry,
-    ToolGroup,
+    toolsByGroup,
 } from './toolCatalog';
-import { withPageStateBlobsOnly } from './urlState';
-
-export interface HubToolGroup {
-    group: ToolGroup;
-    label: string;
-    tools: readonly ToolCatalogEntry[];
-}
-
-const HUB_GROUP_LABELS: Readonly<Record<ToolGroup, string>> = {
-    [ToolGroup.Analyse]: 'Analyse',
-    [ToolGroup.Compare]: 'Compare',
-    [ToolGroup.Labs]: 'Labs',
-    [ToolGroup.Plan]: 'Plan',
-    [ToolGroup.Simulate]: 'Simulate',
-    [ToolGroup.Size]: 'Size',
-};
-
-const HUB_GROUP_ORDER: readonly ToolGroup[] = [
-    ToolGroup.Simulate,
-    ToolGroup.Analyse,
-    ToolGroup.Size,
-    ToolGroup.Compare,
-    ToolGroup.Plan,
-    ToolGroup.Labs,
-];
+import { toolNavPage } from './toolNavItems';
 
 export function hubCardHref(entry: ToolCatalogEntry, query = ''): Route {
-    return subnavHref(
-        { carriesQuery: entry.usesCalculatorInputs, href: entry.route },
-        withPageStateBlobsOnly(query, pageStateBlobsOf(entry.id)),
-    );
+    return subnavHref(toolNavPage(entry, query), '');
 }
 
 export function HubToolCards() {
@@ -56,20 +28,20 @@ export function HubToolCards() {
         setLastQuery(readLastToolQuery());
     }, []);
 
-    const groups = hubToolGroups(LINKED_TOOL_CATALOG);
+    const groups = toolsByGroup(LINKED_TOOL_CATALOG);
 
     return (
-        <div className="flex flex-col gap-10">
+        <div className="gap-x-6 md:columns-2">
             {groups.map(({ group, label, tools }) => (
                 <section
                     aria-labelledby={`hub-group-${group}`}
-                    className="flex flex-col gap-4"
+                    className="mb-10 flex break-inside-avoid flex-col gap-4"
                     key={group}
                 >
                     <ToolSectionHeading id={`hub-group-${group}`}>
                         {label}
                     </ToolSectionHeading>
-                    <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <ul className="flex flex-col gap-4">
                         {tools.map((entry) => {
                             const Icon = entry.icon;
                             return (
@@ -111,14 +83,4 @@ export function HubToolCards() {
             ))}
         </div>
     );
-}
-
-export function hubToolGroups(
-    catalog: readonly ToolCatalogEntry[],
-): readonly HubToolGroup[] {
-    return HUB_GROUP_ORDER.map((group) => ({
-        group,
-        label: HUB_GROUP_LABELS[group],
-        tools: catalog.filter((entry) => entry.group === group),
-    })).filter((entry) => entry.tools.length > 0);
 }

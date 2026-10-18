@@ -17,7 +17,7 @@ export default function DaysToPassHistogramView({ result }: Properties) {
             barColor="var(--success)"
             barLabel="Passing trials"
             binCount={wholeDayBinCount(result.daysToPassValues)}
-            emptyMessage="No passing trials yet."
+            emptyMessage="No passing trials yet"
             size={ChartSize.Tall}
             values={result.daysToPassValues}
             wrapperClassName="app-prop-calculator__days-to-pass-histogram"

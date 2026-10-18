@@ -21,7 +21,7 @@ export default function FinalBalanceHistogramView({ result }: Properties) {
             barColor="var(--chart-1)"
             barLabel="Trials"
             binCount={BIN_COUNT}
-            emptyMessage="No simulation data yet."
+            emptyMessage="No simulation data yet"
             referenceLines={[
                 {
                     color: 'var(--muted-foreground)',

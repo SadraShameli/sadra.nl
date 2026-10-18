@@ -1,18 +1,20 @@
 'use client';
 
+import { ChartNoAxesColumn } from 'lucide-react';
 import { useMemo } from 'react';
 
+import { MissingValue } from '~/components/MissingValue';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip, StatTone } from '~/components/StatStrip';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import {
-    formatCompactCurrency,
-    formatPercent,
-    NOT_APPLICABLE,
-} from '~/lib/format';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
+
+const NO_GAIN_SCENARIO_REASON =
+    'The gain side is only measured at 10% and 25% of capital.';
 
 interface TailRiskPanelProperties {
     result: SimOutputs;
@@ -77,7 +79,16 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
         };
     }, [result]);
 
-    if (!m) return null;
+    if (!m) {
+        return (
+            <EmptyState
+                description="The run kept no final balances, so there is no tail to measure."
+                icon={ChartNoAxesColumn}
+                size={EmptyStateSize.Compact}
+                title="No final balances"
+            />
+        );
+    }
 
     const tailRatioString = Number.isFinite(m.tailRatio)
         ? m.tailRatio.toFixed(2)
@@ -210,19 +221,22 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
                 accessorFn: (r) => r.gainP ?? -1,
                 cell: ({ row }) => {
                     const g = row.original.gainP;
+                    if (g === null) {
+                        return (
+                            <MissingValue reason={NO_GAIN_SCENARIO_REASON} />
+                        );
+                    }
                     return (
                         <span
                             className={cn(
-                                g === null
-                                    ? 'text-muted-foreground'
-                                    : g > 0.5
-                                      ? 'text-success'
-                                      : g > 0.25
-                                        ? 'text-warning'
-                                        : 'text-muted-foreground',
+                                g > 0.5
+                                    ? 'text-success'
+                                    : g > 0.25
+                                      ? 'text-warning'
+                                      : 'text-muted-foreground',
                             )}
                         >
-                            {g === null ? NOT_APPLICABLE : formatPercent(g)}
+                            {formatPercent(g)}
                         </span>
                     );
                 },

@@ -110,8 +110,14 @@ describe('a shared strategy lab link reaches the rendered lab page (PT-53f)', ()
     }
 
     function isSharedShown(): boolean {
-        return container.textContent.includes(
-            `${sharedScenario.label}: simulating`,
+        return [
+            ...container.querySelectorAll(
+                ':scope .app-prop-calculator__lab-scenario-chart[aria-busy="true"]',
+            ),
+        ].some(
+            (panel) =>
+                panel.querySelector(':scope h3')?.textContent ===
+                sharedScenario.label,
         );
     }
 

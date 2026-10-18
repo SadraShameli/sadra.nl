@@ -7,6 +7,7 @@ import {
     ChevronDown,
     ChevronUp,
     ExternalLink,
+    LibraryBig,
     LineChart,
     LogOut,
     Pause,
@@ -19,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { FilterToolbar } from '~/components/FilterToolbar';
+import { TitledCardSkeleton } from '~/components/PageSkeleton';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import {
     deleteRowAction,
@@ -34,12 +36,11 @@ import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, NoMatchesState } from '~/components/ui/empty-state';
 import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { Input } from '~/components/ui/input';
 import { Progress } from '~/components/ui/progress';
-import { Skeleton } from '~/components/ui/skeleton';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     PROGRAM_CATEGORY_VALUES,
@@ -183,7 +184,7 @@ export function ProgramsLibrary({
             />
 
             {mine.isLoading ? (
-                <Skeleton className="h-40 w-full rounded-2xl" />
+                <TitledCardSkeleton title="Active" />
             ) : (
                 activeEnrollments.length > 0 && (
                     <ToolPanel title="Active">
@@ -294,17 +295,16 @@ export function ProgramsLibrary({
                     />
                 </FilterToolbar>
 
-                {filtered.length === 0 && (
-                    <EmptyState
-                        description={
-                            isFiltersActive
-                                ? 'Try clearing some filters.'
-                                : 'No programs available yet.'
-                        }
-                        icon={Search}
-                        title="No programs match"
-                    />
-                )}
+                {filtered.length === 0 &&
+                    (isFiltersActive ? (
+                        <NoMatchesState icon={Search} noun="programs" />
+                    ) : (
+                        <EmptyState
+                            description="Official programs show up here once they are published."
+                            icon={LibraryBig}
+                            title="No programs yet"
+                        />
+                    ))}
 
                 {filtered.length > 0 && (
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">

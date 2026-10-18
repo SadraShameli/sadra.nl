@@ -162,7 +162,7 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
     }
 
     function rankingInfo(): string {
-        return infoText(container, 'Funded optimizer, ranked by monthly net');
+        return infoText(container, 'Candidates, ranked by monthly net');
     }
 
     function headerTexts(): string[] {
@@ -298,10 +298,14 @@ describe('FundedOptimizerView renders the sweep table (F-27 (3), (5), (7), (10))
     it('announces the progress count politely and marks the running region busy', () => {
         sweepBox.progress = { completed: 2, total: 6 };
         render({}, null);
-        const status = container.querySelector('[role="status"]');
-        expect(status?.textContent).toBe('2 of 6 policies');
+        const status = [...container.querySelectorAll('[role="status"]')].find(
+            (region) => region.textContent === '2 of 6 policies',
+        );
+        expect(status).toBeDefined();
         expect(
-            container.querySelector('[aria-busy="true"]')?.contains(status),
+            container
+                .querySelector('[aria-busy="true"]')
+                ?.contains(status ?? null),
         ).toBe(true);
     });
 

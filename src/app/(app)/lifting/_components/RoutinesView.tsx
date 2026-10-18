@@ -1,13 +1,14 @@
 'use client';
 
-import { Dumbbell, Play } from 'lucide-react';
+import { Dumbbell, History, Play } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { RoutinesViewSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
 import { deleteRowAction, RowActionsMenu } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { EmptyStatePanel } from '~/components/ui/empty-state';
-import { Skeleton } from '~/components/ui/skeleton';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -17,19 +18,19 @@ export function RoutinesView() {
     const routines = api.lifting.routine.list.useQuery();
 
     if (routines.isLoading) {
-        return (
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {Array.from({ length: 4 }, (_, index) => (
-                    <li key={index}>
-                        <Skeleton className="h-32 w-full rounded-2xl" />
-                    </li>
-                ))}
-            </ul>
-        );
+        return <RoutinesViewSkeleton />;
     }
     return !routines.data || routines.data.length === 0 ? (
         <EmptyStatePanel
-            description="Save your favorite workouts as routines for one-tap starts."
+            action={
+                <Button asChild className="gap-2">
+                    <Link href={routes.lifting.history}>
+                        <History className="size-4" />
+                        Open history
+                    </Link>
+                </Button>
+            }
+            description="Open a past workout and choose Save as routine for one-tap starts."
             icon={Dumbbell}
             title="No routines yet"
         />
@@ -49,7 +50,7 @@ function RoutinesList({ routines }: { routines: readonly Routine[] }) {
     });
 
     return (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {routines.map((r) => (
                 <li key={r.id}>
                     <ToolPanel

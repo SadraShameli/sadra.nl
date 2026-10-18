@@ -11,7 +11,7 @@ const TABS_LIST_CLASS =
     'inline-table h-10 items-center justify-center rounded-full bg-muted p-1 text-muted-foreground';
 
 const TABS_TRIGGER_CLASS =
-    'inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap ring-offset-background transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 data-[state=active]:selected-pill';
+    'inline-flex items-center justify-center rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap ring-offset-background transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 data-[state=active]:selected-option';
 
 const TabsList = React.forwardRef<
     React.ComponentRef<typeof TabsPrimitive.List>,

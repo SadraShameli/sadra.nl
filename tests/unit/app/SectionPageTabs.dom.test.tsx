@@ -1,5 +1,6 @@
 import { act } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
+import { createRoot, hydrateRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { type RouteSubnavItem } from '~/app/(app)/_components/RouteSubnav';
@@ -102,5 +103,49 @@ describe('SectionPageTabs', () => {
     it('renders nothing on a child route of a grouped page', () => {
         render('/section/programs/starting-strength');
         expect(container.getHTML()).toBe('');
+    });
+
+    describe('pages that carry a query', () => {
+        const QUERY_ITEMS: readonly RouteSubnavItem[] = [
+            subnavGroup('Plan', [
+                {
+                    carriesQuery: true,
+                    href: '/section/bankroll',
+                    label: 'Bankroll',
+                    query: 'firm=apex',
+                },
+                {
+                    carriesQuery: true,
+                    href: '/section/cash-flow',
+                    label: 'Cash flow',
+                    query: 'firm=apex',
+                },
+            ]),
+        ];
+
+        it('links the bare pages on the server, so hydration matches, then adds each query in the browser', async () => {
+            navigation.pathname = '/section/bankroll';
+            const element = (
+                <SectionPageTabs items={QUERY_ITEMS} label="Plan pages" />
+            );
+            act(() => {
+                root.unmount();
+            });
+            container.innerHTML = renderToString(element);
+            expect(tabs().map((tab) => tab.getAttribute('href'))).toEqual([
+                '/section/bankroll',
+                '/section/cash-flow',
+            ]);
+            const errors = vi.spyOn(console, 'error');
+            await act(async () => {
+                root = hydrateRoot(container, element);
+                await Promise.resolve();
+            });
+            expect(errors).not.toHaveBeenCalled();
+            expect(tabs().map((tab) => tab.getAttribute('href'))).toEqual([
+                '/section/bankroll?firm=apex',
+                '/section/cash-flow?firm=apex',
+            ]);
+        });
     });
 });

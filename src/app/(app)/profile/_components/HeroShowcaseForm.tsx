@@ -5,7 +5,7 @@ import { useId } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { Button } from '~/components/ui/button';
+import { ProfileFormFooter } from '~/app/(app)/profile/_components/ProfileFormFooter';
 import {
     Field,
     FieldDescription,
@@ -53,13 +53,16 @@ export function HeroShowcaseForm({
     readonly initial: HeroShowcaseInput | null;
 }) {
     const formId = useId();
-    const update = api.site.updateHeroShowcase.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: () => toast.success('Homepage figures saved'),
-    });
     const form = useForm<HeroShowcaseInput>({
         defaultValues: initial ?? DEFAULT_HERO_SHOWCASE,
         resolver: zodResolver(heroShowcaseInputSchema),
+    });
+    const update = api.site.updateHeroShowcase.useMutation({
+        onError: (error) => toast.error(error.message),
+        onSuccess: (_data, values) => {
+            toast.success('Homepage figures saved');
+            form.reset(values);
+        },
     });
 
     return (
@@ -68,7 +71,7 @@ export function HeroShowcaseForm({
             id={formId}
             onSubmit={form.handleSubmit((values) => update.mutate(values))}
         >
-            <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+            <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
                 {FIELDS.map((field) => {
                     const inputId = `${formId}-${field.name}`;
                     const noteId = `${inputId}-note`;
@@ -84,7 +87,7 @@ export function HeroShowcaseForm({
                             <Input
                                 aria-describedby={noteId}
                                 aria-invalid={error !== undefined}
-                                className="tabular-nums"
+                                className="max-w-40 tabular-nums"
                                 id={inputId}
                                 inputMode="decimal"
                                 step={field.step}
@@ -106,13 +109,11 @@ export function HeroShowcaseForm({
                     );
                 })}
             </div>
-            <Button
-                className="self-start"
-                disabled={update.isPending}
-                type="submit"
-            >
-                Save figures
-            </Button>
+            <ProfileFormFooter
+                isDirty={form.formState.isDirty}
+                isPending={update.isPending}
+                onCancel={() => form.reset()}
+            />
         </form>
     );
 }

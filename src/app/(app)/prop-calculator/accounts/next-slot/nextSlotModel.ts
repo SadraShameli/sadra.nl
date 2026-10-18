@@ -9,10 +9,18 @@ import {
     type OverviewResult,
     type PayoutSizeOptimumFigures,
 } from '~/app/(app)/prop-calculator/_workers/overviewWorkerMessages';
+import { PENDING_FIGURE } from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
 import { groupFailureOf } from '~/app/(app)/prop-calculator/accounts/_components/overview/engineSlot';
 import { type OverviewEngine } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
+import { estimateCurrency } from '~/app/(app)/prop-calculator/accounts/_components/overview/uncertainText';
 import { ruleSourceListText } from '~/app/(app)/prop-calculator/accounts/_components/ruleSourceText';
-import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { sentenceOf } from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
+import {
+    formatCount,
+    formatCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import {
     isNextSlotHourKeyAvailable,
     type NextSlotAllocation,
@@ -54,7 +62,6 @@ import {
     SizingObjective,
 } from '~/lib/prop-calculator/advisor';
 import { chooseObjective } from '~/lib/prop-calculator/advisor/actions';
-import { type UncertainValue } from '~/lib/prop-calculator/stats';
 
 export interface NextSlotListedFirmGroup {
     readonly firm: string;
@@ -141,8 +148,6 @@ interface NextSlotListedViewRow {
     readonly plan: string;
     readonly reasons: readonly string[];
 }
-
-const SENTENCE_END = /[.!?]$/u;
 
 const REQUEST_KINDS: ReadonlySet<OverviewRequestKind> = new Set([
     OverviewRequestKind.DocumentedRun,
@@ -354,7 +359,7 @@ function assumptionsOf(
     const { enginePolicy, run } = first.spec;
     return [
         ...lines,
-        `Every run simulates ${run.trials.toLocaleString('en-US')} trials with seed ${String(run.seed)}, up to ${String(run.maxEvalDays)} evaluation days and a ${String(enginePolicy.fundedHorizonDays)} day funded horizon.`,
+        `Every run simulates ${formatCount(run.trials)} trials with seed ${String(run.seed)}, up to ${String(run.maxEvalDays)} evaluation days and a ${String(enginePolicy.fundedHorizonDays)} day funded horizon.`,
         enginePolicy.commissionPerRoundTrip === 0
             ? 'Commission is zero, which is optimistic.'
             : `Commission is ${formatCurrency(enginePolicy.commissionPerRoundTrip)} per round trip.`,
@@ -367,14 +372,6 @@ function capacityNoteOf(allocation: NextSlotAllocation): null | string {
     return capacity === null
         ? null
         : `Capacity: ${String(capacity.activeUnits)} of ${String(capacity.limit)} daily accounts in use (a copy group counts once), ${String(capacity.remaining)} left.`;
-}
-
-function currencyEstimate(estimate: UncertainValue): string {
-    const standardError =
-        estimate.standardError === null
-            ? NOT_APPLICABLE
-            : formatCurrency(estimate.standardError);
-    return `${formatCurrency(estimate.value)} (SE ${standardError})`;
 }
 
 function cushionLabelOf(figure: NextSlotMonthlyFigure): string {
@@ -438,7 +435,12 @@ function listedFirmGroupOf(
     { firmName, rows }: ListedFirmRows,
 ): NextSlotListedFirmGroup {
     const details = rows.map((row) =>
-        row.reasons.map((reason) => reason.detail),
+        row.reasons
+            .filter(
+                (reason) =>
+                    reason.reason !== NextSlotExclusionReason.EnginePending,
+            )
+            .map((reason) => reason.detail),
     );
     const shared = new Set(
         (details[0] ?? []).filter((detail) =>
@@ -451,8 +453,14 @@ function listedFirmGroupOf(
         plans: rows.map((row, index) => ({
             documentedNet:
                 row.figures === null
-                    ? NOT_APPLICABLE
-                    : currencyEstimate(row.figures.documented.creditInclusive),
+                    ? row.reasons.some(
+                          (reason) =>
+                              reason.reason ===
+                              NextSlotExclusionReason.EnginePending,
+                      )
+                        ? PENDING_FIGURE
+                        : NOT_APPLICABLE
+                    : estimateCurrency(row.figures.documented.creditInclusive),
             key: row.planSerial,
             plan: row.planLabel,
             reasons: (details[index] ?? [])
@@ -527,8 +535,8 @@ function monthlyFigureText(
               requestSize: NOT_APPLICABLE,
           }
         : {
-              creditFree: currencyEstimate(figure.creditFree),
-              creditInclusive: currencyEstimate(figure.creditInclusive),
+              creditFree: estimateCurrency(figure.creditFree),
+              creditInclusive: estimateCurrency(figure.creditInclusive),
               requestSize: formatCurrency(figure.requestSize),
           };
 }
@@ -609,7 +617,7 @@ function rankedViewRowOf(
                 ? CAPACITY_LIMIT_NOTE
                 : null,
         creditFree: documented.creditFree,
-        cycleNet: currencyEstimate(figures.cycleNet),
+        cycleNet: estimateCurrency(figures.cycleNet),
         documentedNet: documented.creditInclusive,
         documentedRank: `${String(row.documentedRank)} of ${String(allocation.ranked.length)}`,
         firm: row.firmName,
@@ -617,7 +625,7 @@ function rankedViewRowOf(
         key: row.planSerial,
         labels: [
             FRESH_START_LABEL,
-            `${figures.trials.toLocaleString('en-US')} trials`,
+            `${formatCount(figures.trials)} trials`,
             cushionLabelOf(figures.documented),
             `Full request only at ${formatCurrency(figures.documented.requestSize)}`,
             lifetimeCapLabel(figures),
@@ -726,11 +734,6 @@ function requestsBySerial(
         bySerial.set(request.planSerial, kinds);
     }
     return bySerial;
-}
-
-function sentenceOf(detail: string): string {
-    const capitalized = `${detail.charAt(0).toUpperCase()}${detail.slice(1)}`;
-    return SENTENCE_END.test(capitalized) ? capitalized : `${capitalized}.`;
 }
 
 function sharedRebuyLagOf(ledger: PortfolioLedger): MeasuredRebuyLag | null {

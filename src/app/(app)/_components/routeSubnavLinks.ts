@@ -22,8 +22,11 @@ export interface SubnavLinkAttributes {
 }
 
 export interface SubnavPage {
+    readonly carriesQuery?: boolean;
     readonly href: string;
     readonly label: string;
+    readonly prefetch?: boolean;
+    readonly query?: string;
 }
 
 export type SubnavPages = readonly [SubnavPage, ...SubnavPage[]];
@@ -78,7 +81,7 @@ export function subnavGroup(
     label: string,
     pages: SubnavPages,
 ): SubnavLink & { readonly label: string } {
-    return { href: pages[0].href, label, pages };
+    return { ...pages[0], label, pages };
 }
 
 export function subnavHref(item: SubnavLink, query: string): Route {

@@ -12,6 +12,8 @@ import {
 } from '~/components/ui/chart';
 import { type SimOutputs } from '~/lib/prop-calculator';
 
+import { ChartEmptyState } from './ChartEmptyState';
+
 interface Properties {
     maxEvalDays: number;
     result: SimOutputs;
@@ -33,11 +35,7 @@ export default function PassRateByDayChartView({
     totalTrials,
 }: Properties) {
     if (result.daysToPassValues.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                No passing trials yet.
-            </div>
-        );
+        return <ChartEmptyState title="No passing trials yet" />;
     }
 
     const data = buildPassRateCurve(

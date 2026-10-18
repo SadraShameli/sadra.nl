@@ -321,7 +321,7 @@ describe('NextSlotView', () => {
                 'ul[aria-label="Assumptions"]',
             ),
         ).not.toBeNull();
-        expect(container.textContent).toContain('No plan is ranked yet');
+        expect(container.textContent).toContain('No plan to rank');
         const sections = [
             ...container.querySelectorAll<HTMLElement>(
                 'section[aria-labelledby]',
@@ -422,7 +422,9 @@ describe('NextSlotView', () => {
         });
         render();
         expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
-        expect(container.querySelectorAll('h2')).toHaveLength(0);
+        expect(
+            container.querySelectorAll('section[aria-labelledby]'),
+        ).toHaveLength(0);
     });
 
     it('shows the page with a note when the journal fails to load', () => {

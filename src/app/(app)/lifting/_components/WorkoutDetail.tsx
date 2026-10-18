@@ -1,10 +1,25 @@
 'use client';
 
-import { Calendar, Clock, Flame, Layers, Trash2, Trophy } from 'lucide-react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+    BookmarkPlus,
+    Calendar,
+    Clock,
+    Flame,
+    Layers,
+    Trash2,
+    Trophy,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { type z } from 'zod';
 
+import { RoutineDraft } from '~/app/(app)/lifting/_components/RoutineDraft';
+import { FormDialog } from '~/components/FormDialog';
+import { FormTextField } from '~/components/FormFields';
+import { MissingValue } from '~/components/MissingValue';
 import { PageHeader } from '~/components/PageHeader';
 import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
@@ -13,6 +28,7 @@ import { Button } from '~/components/ui/button';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { Dialog, DialogTrigger } from '~/components/ui/dialog';
 import { EmptyState } from '~/components/ui/empty-state';
 import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
 import { FilterSelect } from '~/components/ui/filter-select';
@@ -20,6 +36,7 @@ import { FilterToggle } from '~/components/ui/filter-toggle';
 import { Input } from '~/components/ui/input';
 import { formatDisplayDateTime } from '~/lib/format';
 import { DistanceUnit, DurationFormat, WeightUnit } from '~/lib/lifting/format';
+import { routineInputSchema } from '~/lib/lifting/schemas';
 import { workoutName } from '~/lib/lifting/workout-name';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -33,6 +50,36 @@ interface WorkoutDetailViewProperties {
 type WorkoutExercise = WorkoutDetail['exercises'][number];
 
 const FILTER_ALL = '__all__';
+
+const SetColumn = {
+    Distance: 'distanceM',
+    Duration: 'durationS',
+    Reps: 'reps',
+    Rir: 'rir',
+    Rpe: 'rpe',
+    Tempo: 'tempo',
+    Weight: 'weightKg',
+} as const;
+
+type SetColumn = (typeof SetColumn)[keyof typeof SetColumn];
+
+const OPTIONAL_SET_COLUMNS: readonly SetColumn[] = Object.values(SetColumn);
+
+const SET_COLUMN_VALUE: Readonly<
+    Record<SetColumn, (set: SetRow) => null | number | string>
+> = {
+    [SetColumn.Distance]: (set) => set.distanceM,
+    [SetColumn.Duration]: (set) => set.durationS,
+    [SetColumn.Reps]: (set) => set.reps,
+    [SetColumn.Rir]: (set) => set.rir,
+    [SetColumn.Rpe]: (set) => set.rpe,
+    [SetColumn.Tempo]: (set) => set.tempo,
+    [SetColumn.Weight]: (set) => set.weightKg,
+};
+
+const routineNameSchema = routineInputSchema.pick({ name: true });
+
+type RoutineNameValues = z.infer<typeof routineNameSchema>;
 
 export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
     const router = useRouter();
@@ -117,80 +164,76 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 meta: { isRowHeader: true },
             },
             {
-                accessorKey: 'weightKg',
-                cell: ({ row }) => (
-                    <span className="font-semibold tabular-nums">
-                        {row.original.weightKg === null
-                            ? '-'
-                            : WeightUnit.format(
-                                  row.original.weightKg,
-                                  unitWeight,
-                              )}
-                    </span>
-                ),
+                accessorKey: SetColumn.Weight,
+                cell: ({ row }) =>
+                    row.original.weightKg === null ? (
+                        <MissingValue />
+                    ) : (
+                        <span className="font-semibold tabular-nums">
+                            {WeightUnit.format(
+                                row.original.weightKg,
+                                unitWeight,
+                            )}
+                        </span>
+                    ),
                 header: 'Weight',
             },
             {
-                accessorKey: 'reps',
-                cell: ({ row }) => (
-                    <span className="font-semibold tabular-nums">
-                        × {row.original.reps ?? '-'}
-                    </span>
-                ),
+                accessorKey: SetColumn.Reps,
+                cell: ({ row }) =>
+                    row.original.reps === null ? (
+                        <MissingValue />
+                    ) : (
+                        <span className="font-semibold tabular-nums">
+                            × {row.original.reps}
+                        </span>
+                    ),
                 header: 'Reps',
             },
             {
-                accessorKey: 'rpe',
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.rpe ?? '-'}
-                    </span>
-                ),
+                accessorKey: SetColumn.Rpe,
+                cell: ({ row }) => <SetDetailCell value={row.original.rpe} />,
                 header: 'RPE',
             },
             {
-                accessorKey: 'rir',
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.rir ?? '-'}
-                    </span>
-                ),
+                accessorKey: SetColumn.Rir,
+                cell: ({ row }) => <SetDetailCell value={row.original.rir} />,
                 header: 'RIR',
             },
             {
-                accessorKey: 'tempo',
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.tempo ?? '-'}
-                    </span>
-                ),
+                accessorKey: SetColumn.Tempo,
+                cell: ({ row }) => <SetDetailCell value={row.original.tempo} />,
                 enableSorting: false,
                 header: 'Tempo',
             },
             {
-                accessorKey: 'distanceM',
+                accessorKey: SetColumn.Distance,
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.distanceM === null
-                            ? '-'
-                            : `${DistanceUnit.toDisplay(
-                                  row.original.distanceM,
-                                  unitDistance,
-                              ).toFixed(
-                                  unitDistance === 'm' ? 0 : 2,
-                              )} ${unitDistance}`}
-                    </span>
+                    <SetDetailCell
+                        value={
+                            row.original.distanceM === null
+                                ? null
+                                : `${DistanceUnit.toDisplay(
+                                      row.original.distanceM,
+                                      unitDistance,
+                                  ).toFixed(
+                                      unitDistance === 'm' ? 0 : 2,
+                                  )} ${unitDistance}`
+                        }
+                    />
                 ),
                 header: 'Distance',
             },
             {
-                accessorKey: 'durationS',
+                accessorKey: SetColumn.Duration,
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.durationS === null
-                            ? '-'
-                            : DurationFormat.seconds(row.original.durationS)}
-                    </span>
+                    <SetDetailCell
+                        value={
+                            row.original.durationS === null
+                                ? null
+                                : DurationFormat.seconds(row.original.durationS)
+                        }
+                    />
                 ),
                 header: 'Duration',
             },
@@ -221,29 +264,34 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
             <div className="flex flex-col gap-3">
                 <PageHeader
                     actions={
-                        <ConfirmDialog
-                            confirmLabel="Delete"
-                            description={
-                                <>
-                                    &ldquo;{workoutName(w)}&rdquo; and all its
-                                    sets will be permanently removed. This
-                                    cannot be undone.
-                                </>
-                            }
-                            isPending={remove.isPending}
-                            onConfirm={() => remove.mutate({ id: w.id })}
-                            title="Delete workout?"
-                        >
-                            <Button
-                                aria-label="Delete workout"
-                                className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
-                                type="button"
-                                variant="outline"
+                        <>
+                            <SaveAsRoutineButton workout={w} />
+                            <ConfirmDialog
+                                confirmLabel="Delete"
+                                description={
+                                    <>
+                                        &ldquo;{workoutName(w)}&rdquo; and all
+                                        its sets will be permanently removed.
+                                        This cannot be undone.
+                                    </>
+                                }
+                                isPending={remove.isPending}
+                                onConfirm={() => remove.mutate({ id: w.id })}
+                                title="Delete workout?"
                             >
-                                <Trash2 className="size-4" />
-                                <span className="hidden sm:inline">Delete</span>
-                            </Button>
-                        </ConfirmDialog>
+                                <Button
+                                    aria-label="Delete workout"
+                                    className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
+                                    type="button"
+                                    variant="outline"
+                                >
+                                    <Trash2 className="size-4" />
+                                    <span className="hidden sm:inline">
+                                        Delete
+                                    </span>
+                                </Button>
+                            </ConfirmDialog>
+                        </>
                     }
                     backLink={{
                         href: routes.lifting.history,
@@ -290,9 +338,11 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                         id: 'volume',
                         label: 'Volume',
                         value:
-                            stats.volumeKg > 0
-                                ? WeightUnit.format(stats.volumeKg, unitWeight)
-                                : '-',
+                            stats.volumeKg > 0 ? (
+                                WeightUnit.format(stats.volumeKg, unitWeight)
+                            ) : (
+                                <MissingValue reason="Volume counts sets that have both a weight and reps." />
+                            ),
                     },
                     {
                         id: 'prs',
@@ -363,6 +413,9 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                                                 title="No sets logged"
                                             />
                                         }
+                                        initialColumnVisibility={emptySetColumns(
+                                            wex.sets,
+                                        )}
                                         pageSize={null}
                                         rowId={(s) => s.id}
                                     />
@@ -373,5 +426,88 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 )}
             </ToolPanel>
         </div>
+    );
+}
+
+function emptySetColumns(sets: readonly SetRow[]): Record<string, boolean> {
+    return Object.fromEntries(
+        OPTIONAL_SET_COLUMNS.filter((column) =>
+            sets.every((set) => SET_COLUMN_VALUE[column](set) === null),
+        ).map((column) => [column, false]),
+    );
+}
+
+function SaveAsRoutineButton({ workout }: { workout: WorkoutDetail }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const utilities = api.useUtils();
+    const blocks = useMemo(
+        () => RoutineDraft.blocksOf(workout.exercises),
+        [workout.exercises],
+    );
+    const leftOut = RoutineDraft.leftOutCount(workout.exercises);
+    const form = useForm<RoutineNameValues>({
+        defaultValues: { name: workoutName(workout) },
+        resolver: zodResolver(routineNameSchema),
+    });
+    const create = api.lifting.routine.create.useMutation({
+        onError: (error) => toast.error(error.message),
+        onSuccess: async () => {
+            toast.success('Routine saved');
+            setIsOpen(false);
+            await utilities.lifting.routine.list.invalidate();
+        },
+    });
+
+    return (
+        <Dialog
+            onOpenChange={(open) => {
+                if (open) form.reset({ name: workoutName(workout) });
+                setIsOpen(open);
+            }}
+            open={isOpen}
+        >
+            <DialogTrigger asChild>
+                <Button
+                    className="shrink-0 gap-2"
+                    disabled={blocks.length === 0}
+                    type="button"
+                    variant="outline"
+                >
+                    <BookmarkPlus className="size-4" />
+                    Save as routine
+                </Button>
+            </DialogTrigger>
+            <FormDialog
+                description={
+                    leftOut === 0
+                        ? 'Start future workouts with these exercises in one tap.'
+                        : `Start future workouts with these exercises in one tap. ${leftOut} custom ${leftOut === 1 ? 'exercise is' : 'exercises are'} left out: routines use built-in exercises only.`
+                }
+                form={form}
+                onCancel={() => setIsOpen(false)}
+                onSubmit={(values) =>
+                    create.mutate({ blocks, name: values.name })
+                }
+                pending={create.isPending}
+                submitLabel="Save routine"
+                title="Save as routine"
+            >
+                <FormTextField
+                    control={form.control}
+                    label="Routine name"
+                    name="name"
+                />
+            </FormDialog>
+        </Dialog>
+    );
+}
+
+function SetDetailCell({ value }: { value: null | number | string }) {
+    return value === null ? (
+        <MissingValue />
+    ) : (
+        <span className="text-xs text-muted-foreground tabular-nums">
+            {value}
+        </span>
     );
 }

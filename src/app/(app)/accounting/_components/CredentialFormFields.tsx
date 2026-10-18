@@ -63,12 +63,14 @@ export function CredentialFormFields({
                         value={descriptor.id}
                     >
                         <SelectTrigger id="cred-kind">
-                            <SelectValue />
+                            <SelectValue>
+                                {descriptorLabel(descriptor)}
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {descriptors.map((d) => (
                                 <SelectItem key={d.id} value={d.id}>
-                                    {d.label} ({d.role})
+                                    {descriptorLabel(d)}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -77,7 +79,7 @@ export function CredentialFormFields({
                     <Input
                         disabled
                         id="cred-kind"
-                        value={`${descriptor.label} (${descriptor.role})`}
+                        value={descriptorLabel(descriptor)}
                     />
                 )}
             </div>
@@ -153,4 +155,8 @@ export function defaultMetaFor(
         }
     }
     return out;
+}
+
+function descriptorLabel(descriptor: CredentialDescriptor): string {
+    return `${descriptor.label} (${descriptor.role})`;
 }

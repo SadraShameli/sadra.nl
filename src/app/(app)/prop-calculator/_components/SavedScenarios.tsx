@@ -16,6 +16,7 @@ import {
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
 import { ConfirmDialog } from '~/components/ui/confirm-dialog';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Field, FieldError } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -23,6 +24,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '~/components/ui/popover';
+import { Skeleton } from '~/components/ui/skeleton';
 import { useSession } from '~/lib/auth/client';
 import { errorMessage } from '~/lib/errorMessage';
 import { type TradingFirm } from '~/lib/prop-calculator';
@@ -59,7 +61,8 @@ const savedScenarioFormSchema = z.object({
 });
 type SavedScenarioFormValues = z.infer<typeof savedScenarioFormSchema>;
 
-const LOADING_SCENARIOS_TEXT = 'Loading saved scenarios...';
+const LOADING_SCENARIOS_TEXT = 'Loading saved scenarios';
+const SCENARIO_SKELETON_ROWS = ['first', 'second', 'third'] as const;
 
 const CLEAR_ALL_TEXT = 'Clear all';
 
@@ -382,15 +385,6 @@ function LocalScenarios({
     );
 }
 
-function scenarioListStatus(
-    loadError: null | string,
-    scenarios: null | readonly SavedScenarioRecord[],
-): null | string {
-    if (loadError !== null) return loadError;
-    if (scenarios === null) return LOADING_SCENARIOS_TEXT;
-    return scenarios.length === 0 ? 'No saved scenarios yet.' : null;
-}
-
 function ScenarioPanel<TRecord extends SavedScenarioRecord>({
     busy,
     clearAllConfirmation,
@@ -409,8 +403,6 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
     });
     const formId = useId();
     const scenarioName = useWatch({ control: form.control, name: 'name' });
-
-    const status = scenarioListStatus(loadError, scenarios);
 
     const handleSave = form.handleSubmit(async (values) => {
         const error = await onSave(values.name);
@@ -466,70 +458,73 @@ function ScenarioPanel<TRecord extends SavedScenarioRecord>({
                         />
                     )}
                 </div>
-                {status === null && scenarios !== null ? (
-                    <ul
-                        className={cn(
-                            'app-prop-calculator__saved-scenarios-list',
-                            'flex flex-col gap-1',
-                        )}
-                    >
-                        {scenarios.map((s) => (
-                            <li
-                                className={cn(
-                                    'app-prop-calculator__saved-scenario-item',
-                                    'flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-accent',
-                                )}
-                                key={s.name}
-                            >
-                                <Button
-                                    className="h-auto flex-1 justify-start px-1 py-0 text-sm font-normal"
-                                    onClick={() => onLoad(s)}
-                                    size="sm"
-                                    type="button"
-                                    variant="ghost"
-                                >
-                                    {s.name}
-                                </Button>
-                                <RowActionsMenu
-                                    actions={[
-                                        {
-                                            confirm: {
-                                                confirmLabel: 'Replace',
-                                                description:
-                                                    'The saved inputs are overwritten with the current config.',
-                                                title: `Replace “${s.name}” with the current config?`,
-                                            },
-                                            icon: RotateCcw,
-                                            kind: RowActionKind.Select,
-                                            label: 'Replace with current config',
-                                            onSelect: () => onReplace(s),
-                                        },
-                                        deleteRowAction({
-                                            description:
-                                                'This saved scenario is removed for good.',
-                                            onDelete: () => onDelete(s),
-                                            title: `Delete “${s.name}”?`,
-                                        }),
-                                    ]}
-                                    isPending={busy}
-                                    label={s.name}
-                                />
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p
-                        className={cn(
-                            'text-xs',
-                            loadError === null
-                                ? 'text-muted-foreground'
-                                : 'text-destructive',
-                        )}
-                        role={loadError === null ? undefined : 'alert'}
-                    >
-                        {status}
+                {loadError === null ? null : (
+                    <p className="text-xs text-destructive" role="alert">
+                        {loadError}
                     </p>
                 )}
+                {loadError === null ? (
+                    scenarios === null ? (
+                        <ScenarioStoreLoading />
+                    ) : scenarios.length === 0 ? (
+                        <EmptyState
+                            icon={Bookmark}
+                            size={EmptyStateSize.Compact}
+                            title="No saved scenarios yet"
+                        />
+                    ) : (
+                        <ul
+                            className={cn(
+                                'app-prop-calculator__saved-scenarios-list',
+                                'flex flex-col gap-1',
+                            )}
+                        >
+                            {scenarios.map((s) => (
+                                <li
+                                    className={cn(
+                                        'app-prop-calculator__saved-scenario-item',
+                                        'flex items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-accent',
+                                    )}
+                                    key={s.name}
+                                >
+                                    <Button
+                                        className="h-auto flex-1 justify-start px-1 py-0 text-sm font-normal"
+                                        onClick={() => onLoad(s)}
+                                        size="sm"
+                                        type="button"
+                                        variant="ghost"
+                                    >
+                                        {s.name}
+                                    </Button>
+                                    <RowActionsMenu
+                                        actions={[
+                                            {
+                                                confirm: {
+                                                    confirmLabel: 'Replace',
+                                                    description:
+                                                        'The saved inputs are overwritten with the current config.',
+                                                    title: `Replace “${s.name}” with the current config?`,
+                                                },
+                                                icon: RotateCcw,
+                                                kind: RowActionKind.Select,
+                                                label: 'Replace with current config',
+                                                onSelect: () => onReplace(s),
+                                            },
+                                            deleteRowAction({
+                                                description:
+                                                    'This saved scenario is removed for good.',
+                                                onDelete: () => onDelete(s),
+                                                title: `Delete “${s.name}”?`,
+                                            }),
+                                        ]}
+                                        isPending={busy}
+                                        label={s.name}
+                                    />
+                                </li>
+                            ))}
+                        </ul>
+                    )
+                ) : null}
             </div>
         </div>
     );
@@ -559,9 +554,14 @@ function ScenarioStoreError({
 
 function ScenarioStoreLoading() {
     return (
-        <p className="text-xs text-muted-foreground">
-            {LOADING_SCENARIOS_TEXT}
-        </p>
+        <div aria-busy="true" className="flex flex-col gap-2">
+            <span className="sr-only" role="status">
+                {LOADING_SCENARIOS_TEXT}
+            </span>
+            {SCENARIO_SKELETON_ROWS.map((row) => (
+                <Skeleton className="h-8 w-full" key={row} />
+            ))}
+        </div>
     );
 }
 

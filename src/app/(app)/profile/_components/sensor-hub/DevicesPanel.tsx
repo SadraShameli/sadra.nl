@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Copy, Cpu, Key, Plus, ShieldOff, Sliders } from 'lucide-react';
+import { Copy, Cpu, Key, Plus, Radio, ShieldOff, Sliders } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -10,7 +10,7 @@ import { idSelectKey } from '~/app/(app)/profile/_components/idSelectKey';
 import {
     MutedCell,
     PrimaryCell,
-    ProfileTableEmpty,
+    ProfileCollectionEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
 import { FormDialog } from '~/components/FormDialog';
 import {
@@ -32,7 +32,6 @@ import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import {
@@ -43,6 +42,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '~/components/ui/dialog';
+import { EmptyState, EmptyStateSize, NoMatchesState } from '~/components/ui/empty-state';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     type DeviceCreateInput,
     deviceCreateSchema,
@@ -52,6 +53,8 @@ import { api, type RouterOutputs } from '~/trpc/react';
 type DeviceRow = RouterOutputs['device']['listAdmin'][number];
 
 type LocationOption = { id: number; name: string };
+
+const SENSOR_SKELETON_CARDS = 4;
 
 const DeviceColumn = {
     Location: 'location',
@@ -257,30 +260,37 @@ export function DevicesPanel() {
                     description="Sensor boards, their tokens and the sensors they carry."
                     title="Devices"
                 >
-                    <DataTable
-                        columns={columns}
-                        data={allRows}
-                        emptyState={(table) => (
-                            <ProfileTableEmpty
-                                action={newButton}
-                                description="Register a sensor device to start collecting readings."
-                                filtered={hasActiveTableFilter(table)}
-                                icon={Cpu}
-                                noun="devices"
-                            />
-                        )}
-                        filterPlaceholder="Search devices…"
-                        headerActions={(table) => (
-                            <DataTableFacetSelect
-                                column={table.getColumn(DeviceColumn.Location)}
-                                label="Location"
-                                placeholder="All locations"
-                            />
-                        )}
-                        isLoading={devices.isLoading}
-                        rowId={(r) => String(r.id)}
-                        showFilter
-                    />
+                    {!devices.isLoading && allRows.length === 0 ? (
+                        <ProfileCollectionEmpty
+                            description="Register a sensor device to start collecting readings."
+                            icon={Cpu}
+                            noun="devices"
+                        />
+                    ) : (
+                        <DataTable
+                            columns={columns}
+                            data={allRows}
+                            emptyState={
+                                <NoMatchesState
+                                    icon={Cpu}
+                                    noun="devices"
+                                />
+                            }
+                            filterPlaceholder="Search devices…"
+                            headerActions={(table) => (
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        DeviceColumn.Location,
+                                    )}
+                                    label="Location"
+                                    placeholder="All locations"
+                                />
+                            )}
+                            isLoading={devices.isLoading}
+                            rowId={(r) => String(r.id)}
+                            showFilter
+                        />
+                    )}
                 </ToolPanel>
                 <DeviceDialog
                     initial={null}
@@ -516,7 +526,7 @@ function ManageSensorsDialog({
                     Sensors for {device?.name ?? `device #${deviceId}`}
                 </DialogTitle>
             </DialogHeader>
-            <div className="grid max-h-80 gap-2 overflow-y-auto py-2 sm:grid-cols-2">
+            <div className="grid max-h-80 gap-2 overflow-y-auto py-2 md:grid-cols-2">
                 {(allSensors.data ?? []).map((s) => (
                     <CheckboxCard
                         checked={selected.has(s.id)}
@@ -527,10 +537,24 @@ function ManageSensorsDialog({
                         onCheckedChange={() => toggle(s.id)}
                     />
                 ))}
-                {(allSensors.data ?? []).length === 0 && (
-                    <p className="py-2 text-center text-sm text-muted-foreground">
-                        No sensors defined. Create one in the Sensors tab.
-                    </p>
+                {allSensors.isLoading &&
+                    Array.from(
+                        { length: SENSOR_SKELETON_CARDS },
+                        (_, index) => (
+                            <Skeleton
+                                className="h-14 w-full rounded-2xl"
+                                key={index}
+                            />
+                        ),
+                    )}
+                {allSensors.data?.length === 0 && (
+                    <EmptyState
+                        className="md:col-span-2"
+                        description="Create one in the Sensors tab."
+                        icon={Radio}
+                        size={EmptyStateSize.Compact}
+                        title="No sensors yet"
+                    />
                 )}
             </div>
             <DialogFooter>

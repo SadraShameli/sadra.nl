@@ -235,7 +235,7 @@ describe('ViolationsSection', () => {
     it('says no violations are recorded yet when the list is empty', () => {
         render([]);
         expect(container.textContent).toContain(
-            'No rule violations recorded yet.',
+            'No rule violations recorded yet',
         );
     });
 

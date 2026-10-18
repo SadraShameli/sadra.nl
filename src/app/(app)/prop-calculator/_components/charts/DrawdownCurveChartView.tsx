@@ -15,6 +15,7 @@ import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { median } from '~/lib/prop-calculator/stats';
 
+import { ChartEmptyState } from './ChartEmptyState';
 import { type SampledPathChartRow } from './types';
 
 interface Properties {
@@ -28,11 +29,7 @@ const chartConfig: ChartConfig = {
 
 export default function DrawdownCurveChartView({ result }: Properties) {
     if (result.sampleEquityCurves.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                No simulation data yet.
-            </div>
-        );
+        return <ChartEmptyState title="No simulation data yet" />;
     }
 
     const data = buildDrawdownData(result.sampleEquityCurves);

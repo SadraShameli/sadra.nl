@@ -46,6 +46,8 @@ import {
 } from '~/components/ui/table';
 import { cn } from '~/lib/utilities';
 
+export const DATA_TABLE_PAGE_SIZE = 25;
+
 export {
     DataTableAlign,
     type DataTableColumn,
@@ -155,7 +157,7 @@ export function DataTable<TData extends RowData>({
     onResetFilters,
     onRowSelectionChange,
     onSortingChange,
-    pageSize = 10,
+    pageSize = DATA_TABLE_PAGE_SIZE,
     phoneLayout = DataTablePhoneLayout.Cards,
     regionLabel,
     renderExpanded,

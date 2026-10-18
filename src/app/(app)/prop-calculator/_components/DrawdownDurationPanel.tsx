@@ -1,14 +1,18 @@
 'use client';
 
+import { ChartNoAxesColumn } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip } from '~/components/StatStrip';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatDays, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { mean } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
+
+import { ValueOrMissing } from './ValueOrMissing';
 
 interface DdEpisode {
     depthPct: number;
@@ -69,7 +73,16 @@ export default function DrawdownDurationPanel({
         };
     }, [result]);
 
-    if (!m) return null;
+    if (!m) {
+        return (
+            <EmptyState
+                description="The run kept no sample equity curves, so there are no drawdowns to measure."
+                icon={ChartNoAxesColumn}
+                size={EmptyStateSize.Compact}
+                title="No equity curves"
+            />
+        );
+    }
 
     const underwaterClass =
         m.avgUnderwaterPct < 0.2
@@ -113,10 +126,19 @@ export default function DrawdownDurationPanel({
                         value: m.avgEpisodesPerPath.toFixed(1),
                     },
                     {
-                        caption: `max ${formatDays(m.maxDuration)}`,
+                        caption: (
+                            <>
+                                max{' '}
+                                <ValueOrMissing
+                                    value={formatDays(m.maxDuration)}
+                                />
+                            </>
+                        ),
                         id: 'avg-duration',
                         label: 'Avg DD duration',
-                        value: formatDays(m.avgDuration),
+                        value: (
+                            <ValueOrMissing value={formatDays(m.avgDuration)} />
+                        ),
                     },
                     {
                         caption: 'mean peak-to-trough',
@@ -130,7 +152,9 @@ export default function DrawdownDurationPanel({
                         label: 'Avg recovery time',
                         value: (
                             <span className={recoveryClass}>
-                                {formatDays(m.avgRecovery)}
+                                <ValueOrMissing
+                                    value={formatDays(m.avgRecovery)}
+                                />
                             </span>
                         ),
                     },

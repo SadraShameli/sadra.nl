@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Layers } from 'lucide-react';
 import { useCallback, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -10,7 +11,9 @@ import { useToolsRequest } from '~/app/(app)/prop-calculator/_components/bankrol
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { RoundsSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { parsedOrIssues } from '~/app/(app)/prop-calculator/accounts/_components/detail/formParsing';
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
@@ -22,6 +25,7 @@ import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     Field,
     FieldDescription,
@@ -217,7 +221,7 @@ export function RoundsView() {
                 />
             );
         }
-        return <Skeleton className="h-64 w-full" />;
+        return <RoundsSkeleton />;
     }
 
     const nextRoundResult =
@@ -299,14 +303,18 @@ export function RoundsView() {
                             aria-label="Rounds by firm"
                             columns={[
                                 {
-                                    cell: ({ row }) => <>{row.original.firm}</>,
+                                    cell: ({ row }) => (
+                                        <FigureText text={row.original.firm} />
+                                    ),
                                     header: 'Firm',
                                     id: RoundsByFirmColumn.Firm,
                                     meta: { isRowHeader: true },
                                 },
                                 {
                                     cell: ({ row }) => (
-                                        <>{row.original.rounds}</>
+                                        <FigureText
+                                            text={row.original.rounds}
+                                        />
                                     ),
                                     header: 'Rounds',
                                     id: RoundsByFirmColumn.Rounds,
@@ -314,33 +322,43 @@ export function RoundsView() {
                                 },
                                 {
                                     cell: ({ row }) => (
-                                        <>{row.original.closedRounds}</>
+                                        <FigureText
+                                            text={row.original.closedRounds}
+                                        />
                                     ),
                                     header: 'Closed',
                                     id: RoundsByFirmColumn.Closed,
                                     meta: { align: DataTableAlign.End },
                                 },
                                 {
-                                    cell: ({ row }) => <>{row.original.min}</>,
+                                    cell: ({ row }) => (
+                                        <FigureText text={row.original.min} />
+                                    ),
                                     header: 'Min multiple',
                                     id: RoundsByFirmColumn.MinMultiple,
                                     meta: { align: DataTableAlign.End },
                                 },
                                 {
-                                    cell: ({ row }) => <>{row.original.mean}</>,
+                                    cell: ({ row }) => (
+                                        <FigureText text={row.original.mean} />
+                                    ),
                                     header: 'Mean multiple',
                                     id: RoundsByFirmColumn.MeanMultiple,
                                     meta: { align: DataTableAlign.End },
                                 },
                                 {
-                                    cell: ({ row }) => <>{row.original.max}</>,
+                                    cell: ({ row }) => (
+                                        <FigureText text={row.original.max} />
+                                    ),
                                     header: 'Max multiple',
                                     id: RoundsByFirmColumn.MaxMultiple,
                                     meta: { align: DataTableAlign.End },
                                 },
                                 {
                                     cell: ({ row }) => (
-                                        <>{row.original.sharePositive}</>
+                                        <FigureText
+                                            text={row.original.sharePositive}
+                                        />
                                     ),
                                     header: 'Share positive',
                                     id: RoundsByFirmColumn.SharePositive,
@@ -374,28 +392,36 @@ export function RoundsView() {
             )}
             <ToolPanel title="Your rounds">
                 {model.rounds.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                        No rounds yet. Create one below, or accept a suggestion
-                        above.
-                    </p>
+                    <EmptyState
+                        description="Create one below, or accept a suggestion."
+                        icon={Layers}
+                        size={EmptyStateSize.Compact}
+                        title="No rounds yet"
+                    />
                 ) : (
                     <DataTable
                         aria-label="Rounds"
                         columns={[
                             {
-                                cell: ({ row }) => <>{row.original.label}</>,
+                                cell: ({ row }) => (
+                                    <FigureText text={row.original.label} />
+                                ),
                                 header: 'Label',
                                 id: RoundColumn.Label,
                                 meta: { isRowHeader: true },
                             },
                             {
-                                cell: ({ row }) => <>{row.original.firm}</>,
+                                cell: ({ row }) => (
+                                    <FigureText text={row.original.firm} />
+                                ),
                                 header: 'Firm',
                                 id: RoundColumn.Firm,
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.statusLabel}</>
+                                    <FigureText
+                                        text={row.original.statusLabel}
+                                    />
                                 ),
                                 header: 'Status',
                                 id: RoundColumn.Status,
@@ -423,14 +449,18 @@ export function RoundsView() {
                                 id: RoundColumn.Budget,
                             },
                             {
-                                cell: ({ row }) => <>{row.original.netCents}</>,
+                                cell: ({ row }) => (
+                                    <FigureText text={row.original.netCents} />
+                                ),
                                 header: 'Net',
                                 id: RoundColumn.Net,
                                 meta: { align: DataTableAlign.End },
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.payoutsCents}</>
+                                    <FigureText
+                                        text={row.original.payoutsCents}
+                                    />
                                 ),
                                 header: 'Payouts',
                                 id: RoundColumn.Payouts,
@@ -438,7 +468,9 @@ export function RoundsView() {
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.realizedMultiple}</>
+                                    <FigureText
+                                        text={row.original.realizedMultiple}
+                                    />
                                 ),
                                 header: 'Realized multiple',
                                 id: RoundColumn.RealizedMultiple,
@@ -446,7 +478,9 @@ export function RoundsView() {
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.toDateMultiple}</>
+                                    <FigureText
+                                        text={row.original.toDateMultiple}
+                                    />
                                 ),
                                 header: 'To-date multiple',
                                 id: RoundColumn.ToDateMultiple,
@@ -454,7 +488,9 @@ export function RoundsView() {
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.inProgressText}</>
+                                    <FigureText
+                                        text={row.original.inProgressText}
+                                    />
                                 ),
                                 header: 'In progress',
                                 id: RoundColumn.InProgress,
@@ -462,7 +498,7 @@ export function RoundsView() {
                             },
                             {
                                 cell: ({ row }) => (
-                                    <>{row.original.cycleDays}</>
+                                    <FigureText text={row.original.cycleDays} />
                                 ),
                                 header: 'Cycle',
                                 id: RoundColumn.Cycle,
@@ -714,7 +750,15 @@ function RoundForm({
                                     id={`${formId}-firmValue`}
                                     ref={field.ref}
                                 >
-                                    <SelectValue placeholder="Choose a firm" />
+                                    <SelectValue placeholder="Choose a firm">
+                                        {
+                                            options.find(
+                                                (option) =>
+                                                    option.value ===
+                                                    field.value,
+                                            )?.label
+                                        }
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {options.map((option) => (
@@ -849,14 +893,14 @@ function SuggestionsCard({
             <ItemGroup className="gap-2">
                 {suggestions.map((row) => (
                     <Item
-                        className="rounded-2xl border-line"
+                        className="flex-wrap rounded-2xl border-line"
                         key={row.key}
                         size="sm"
                         variant="outline"
                     >
-                        <ItemContent>
+                        <ItemContent className="min-w-0 basis-56">
                             <ItemTitle>{row.firm}</ItemTitle>
-                            <ItemDescription>
+                            <ItemDescription className="line-clamp-none">
                                 {row.memberCount} accounts purchased{' '}
                                 {row.earliestPurchase === row.latestPurchase
                                     ? `on ${formatDisplayDate(row.earliestPurchase)}`

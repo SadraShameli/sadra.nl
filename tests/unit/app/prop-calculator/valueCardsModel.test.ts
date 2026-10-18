@@ -6,17 +6,16 @@ import { RulebookSource } from '~/app/(app)/prop-calculator/_components/bankroll
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
 import {
     calculatorFieldLabelOf,
-    dollarRangeSubText,
     dollarRangeText,
     fundedValueEstimateToolsRequest,
     fundedValueSampleSize,
     isInvalidSampleSizeField,
     parseFundedValueSampleSizeField,
-    sampleRangeSubText,
+    sampleRangeCaption,
     sampleRangeText,
     signedCurrencyText,
+    toolsWorkerCancelledText,
     toolsWorkerFailureReason,
-    toolsWorkerPendingText,
     uncertainCountText,
     uncertainCurrencyText,
     valueBasisText,
@@ -522,39 +521,18 @@ describe('dollar sample range text (F-V17, PT-82)', () => {
     });
 
     it('names the label and n under a range', () => {
-        expect(dollarRangeSubText(range, 10)).toBe(
+        expect(sampleRangeCaption(range)).toBe(
             'what your own n accounts could show by chance, n = 10',
         );
     });
 
-    it('asks for a sample size when none is set', () => {
-        expect(dollarRangeSubText(null, null)).toBe('enter a sample size');
-    });
-
     it('says why there is no range when n is set but the run had too few funded trials for a standard error', () => {
-        expect(dollarRangeSubText(null, 10)).toBe(
+        expect(sampleRangeCaption(null)).toBe(
             'too few funded trials for a standard error',
         );
-        expect(dollarRangeSubText(undefined, 10)).toBe(
+        expect(sampleRangeCaption(undefined)).toBe(
             'too few funded trials for a standard error',
         );
-    });
-});
-
-describe('sampleRangeSubText (PT-66)', () => {
-    it('names the sample size the range was computed for', () => {
-        expect(
-            sampleRangeSubText({
-                label: 'what your own n accounts could show by chance',
-                lower: 0.5,
-                sampleSize: 10,
-                upper: 1.75,
-            }),
-        ).toBe('what your own n accounts could show by chance, n = 10');
-    });
-
-    it('asks for a sample size when there is no range', () => {
-        expect(sampleRangeSubText(null)).toBe('enter a sample size');
     });
 });
 
@@ -604,22 +582,25 @@ describe('isInvalidSampleSizeField (PT-66)', () => {
     });
 });
 
-describe('toolsWorkerPendingText (PT-66)', () => {
-    it('reports a running computation and a cancelled one', () => {
+describe('toolsWorkerCancelledText (PT-66)', () => {
+    it('reports a cancelled computation', () => {
         expect(
-            toolsWorkerPendingText({ phase: ToolsWorkerPhase.Running }),
-        ).toBe('Computing...');
-        expect(
-            toolsWorkerPendingText({ phase: ToolsWorkerPhase.Cancelled }),
+            toolsWorkerCancelledText({ phase: ToolsWorkerPhase.Cancelled }),
         ).toBe('Computation cancelled.');
+    });
+
+    it('reports nothing while running, since the panel header shows the computing indicator', () => {
+        expect(
+            toolsWorkerCancelledText({ phase: ToolsWorkerPhase.Running }),
+        ).toBeNull();
     });
 
     it('reports nothing for idle, failed or succeeded', () => {
         expect(
-            toolsWorkerPendingText({ phase: ToolsWorkerPhase.Idle }),
+            toolsWorkerCancelledText({ phase: ToolsWorkerPhase.Idle }),
         ).toBeNull();
         expect(
-            toolsWorkerPendingText({
+            toolsWorkerCancelledText({
                 phase: ToolsWorkerPhase.Failed,
                 reason: 'x',
             }),

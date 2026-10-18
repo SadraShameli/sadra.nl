@@ -13,7 +13,7 @@ import {
     DataTableFilterFunction,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
-import { EmptyState } from '~/components/ui/empty-state';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { FilterToggle } from '~/components/ui/filter-toggle';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -143,11 +143,7 @@ export function ExercisesBrowser() {
                     columns={columns}
                     data={allRows}
                     emptyState={
-                        <EmptyState
-                            description="Try a different search or clear the filters."
-                            icon={Dumbbell}
-                            title="No exercises match"
-                        />
+                        <NoMatchesState icon={Dumbbell} noun="exercises" />
                     }
                     filterPlaceholder="Search exercises"
                     headerActions={(table) => {
@@ -179,7 +175,6 @@ export function ExercisesBrowser() {
                         );
                     }}
                     isLoading={exercises.isLoading}
-                    pageSize={25}
                     rowId={(r) => r.id}
                     search={{ onChange: setSearch, value: search }}
                     showFilter

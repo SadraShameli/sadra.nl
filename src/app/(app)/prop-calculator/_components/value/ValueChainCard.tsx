@@ -10,6 +10,7 @@ import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Skeleton } from '~/components/ui/skeleton';
 import {
     assumptionText,
     liveTransferAssumptionLines,
@@ -19,8 +20,8 @@ import { stableJson } from '~/lib/stableJson';
 
 import {
     signedCurrencyText,
+    toolsWorkerCancelledText,
     toolsWorkerFailureReason,
-    toolsWorkerPendingText,
     uncertainCurrencyText,
     type ValueCardsInput,
     ValueCardsInputKind,
@@ -55,23 +56,20 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
     const cardSteps = result === null ? [] : valueChainCardSteps(result);
     const stepFailures = result === null ? [] : valueChainCardFailures(result);
     const failureReason = refusal ?? toolsWorkerFailureReason(worker.state);
-    const pendingText =
-        refusal === null ? toolsWorkerPendingText(worker.state) : null;
+    const cancelledText =
+        refusal === null ? toolsWorkerCancelledText(worker.state) : null;
+    const isComputing =
+        refusal === null && worker.state.phase === ToolsWorkerPhase.Running;
 
     return (
-        <section
-            aria-busy={
-                refusal === null &&
-                worker.state.phase === ToolsWorkerPhase.Running
-            }
-            aria-labelledby="value-chain-heading"
-        >
+        <section aria-labelledby="value-chain-heading">
             <ToolPanel
                 info={
                     result === null ? undefined : (
                         <ValueChainAssumptions cardSteps={cardSteps} />
                     )
                 }
+                isComputing={isComputing}
                 title="Value chain"
                 titleAs="h3"
                 titleId="value-chain-heading"
@@ -82,9 +80,12 @@ export function ValueChainCard({ cards }: { cards: ValueCardsInput }) {
                             <AlertDescription>{failureReason}</AlertDescription>
                         </Alert>
                     )}
-                    {pendingText === null ? null : (
-                        <InfoNote>{pendingText}</InfoNote>
+                    {cancelledText === null ? null : (
+                        <InfoNote>{cancelledText}</InfoNote>
                     )}
+                    {isComputing && result === null ? (
+                        <Skeleton className="h-24 w-full rounded-lg" />
+                    ) : null}
                     {stepFailures.map((failure) => (
                         <Alert key={failure.kind} variant="destructive">
                             <AlertDescription>{failure.text}</AlertDescription>

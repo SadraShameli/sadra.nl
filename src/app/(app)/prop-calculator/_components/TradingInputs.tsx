@@ -33,11 +33,7 @@ import { Separator } from '~/components/ui/separator';
 import { Slider } from '~/components/ui/slider';
 import { Toggle } from '~/components/ui/toggle';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
-import {
-    formatCurrency,
-    formatGateCurrency,
-    formatPercent,
-} from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     capRiskToContractLimit,
@@ -67,6 +63,7 @@ import {
     describeMonthlySubscriptionFee,
     purchaseCouponDiscounts,
 } from './feePreview';
+import { instrumentPointValueLabel } from './instrumentLabels';
 import { inputHints } from './kpiDescriptions';
 import { PercentInput } from './PercentInput';
 import { describePlacedFundedRisk, placedFundedRisk } from './placedFundedRisk';
@@ -88,6 +85,16 @@ const SIZING_HINT_ID = 'position-sizing-hint';
 const RISK_INPUT_ID = 'risk-per-trade';
 const COUPON_HEADING_ID = 'coupon-heading';
 const INSTRUMENT_NOT_ENFORCED = 'not-enforced';
+const POSITION_SIZING_INSTRUMENT_OPTIONS: readonly {
+    label: string;
+    value: InstrumentSymbol | typeof INSTRUMENT_NOT_ENFORCED;
+}[] = [
+    { label: 'Not enforced', value: INSTRUMENT_NOT_ENFORCED },
+    ...ALL_INSTRUMENTS.map((spec) => ({
+        label: instrumentPointValueLabel(spec),
+        value: spec.symbol,
+    })),
+];
 const RISK_PERCENT_PRESETS = [0.25, 0.5, 1, 2, 5] as const;
 const RISK_PRESET_TOLERANCE = 0.01;
 const NO_RISK_PRESET = '';
@@ -607,7 +614,9 @@ export default function TradingInputs({
                                     value={rungSizing}
                                 >
                                     <SelectTrigger id="rung-sizing">
-                                        <SelectValue />
+                                        <SelectValue>
+                                            {RUNG_SIZING_LABELS[rungSizing]}
+                                        </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {RUNG_SIZING_OPTIONS.map((option) => (
@@ -704,7 +713,7 @@ export default function TradingInputs({
                 </Field>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
                 <Field>
                     <FieldLabel htmlFor="trades-per-day">
                         Trades per day
@@ -732,9 +741,11 @@ export default function TradingInputs({
                     />
                 </Field>
                 <Field>
-                    <FieldLabel htmlFor="commission">
-                        Commission ($/trade)
-                    </FieldLabel>
+                    <LabelWithInfo
+                        htmlFor="commission"
+                        info="Round-trip commission in dollars, charged on every trade."
+                        label="Commission ($)"
+                    />
                     <Input
                         id="commission"
                         max={50}
@@ -756,7 +767,7 @@ export default function TradingInputs({
                 </Field>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
                 <Field>
                     <FieldLabel htmlFor="max-attempts">
                         Max reset attempts
@@ -870,7 +881,7 @@ export default function TradingInputs({
                     ))}
                 </ToggleGroup>
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
                 <Field>
                     <FieldLabel htmlFor="position-sizing-instrument">
                         {CALCULATOR_FIELD_LABELS.instrument}
@@ -890,21 +901,28 @@ export default function TradingInputs({
                         value={instrument ?? INSTRUMENT_NOT_ENFORCED}
                     >
                         <SelectTrigger id="position-sizing-instrument">
-                            <SelectValue />
+                            <SelectValue>
+                                {
+                                    POSITION_SIZING_INSTRUMENT_OPTIONS.find(
+                                        (option) =>
+                                            option.value ===
+                                            (instrument ??
+                                                INSTRUMENT_NOT_ENFORCED),
+                                    )?.label
+                                }
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value={INSTRUMENT_NOT_ENFORCED}>
-                                Not enforced
-                            </SelectItem>
-                            {ALL_INSTRUMENTS.map((spec) => (
-                                <SelectItem
-                                    key={spec.symbol}
-                                    value={spec.symbol}
-                                >
-                                    {spec.symbol} (
-                                    {formatGateCurrency(spec.pointValue)}/pt)
-                                </SelectItem>
-                            ))}
+                            {POSITION_SIZING_INSTRUMENT_OPTIONS.map(
+                                (option) => (
+                                    <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                    >
+                                        {option.label}
+                                    </SelectItem>
+                                ),
+                            )}
                         </SelectContent>
                     </Select>
                 </Field>

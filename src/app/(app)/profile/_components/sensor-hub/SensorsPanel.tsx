@@ -9,9 +9,9 @@ import { toast } from 'sonner';
 import {
     MutedCell,
     PrimaryCell,
+    ProfileCollectionEmpty,
     ProfileDateCell,
     ProfileDatePrecision,
-    ProfileTableEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
 import { FormDialog } from '~/components/FormDialog';
 import { FormTextField } from '~/components/FormFields';
@@ -24,11 +24,7 @@ import {
 } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
-import {
-    DataTable,
-    type DataTableColumn,
-    hasActiveTableFilter,
-} from '~/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import {
     Dialog,
     DialogContent,
@@ -37,6 +33,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '~/components/ui/dialog';
+import { EmptyState, EmptyStateSize, NoMatchesState } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
@@ -222,36 +219,40 @@ export function SensorsPanel() {
                     description="What each device measures, and the units readings use."
                     title="Sensors"
                 >
-                    <DataTable
-                        columns={columns}
-                        data={rows}
-                        emptyState={(table) => (
-                            <ProfileTableEmpty
-                                action={newButton}
-                                description="Add a sensor to track readings from your devices."
-                                filtered={
-                                    scope.isActive ||
-                                    hasActiveTableFilter(table)
-                                }
-                                icon={Radio}
-                                noun="sensors"
-                            />
-                        )}
-                        filterPlaceholder="Search sensors…"
-                        hasExternalFilters={scope.isActive}
-                        headerActions={
-                            <SensorHubScopeFilters
-                                controller={scope}
-                                counts={counts}
-                                devices={deviceRows}
-                                locations={locations.data ?? []}
-                            />
-                        }
-                        isLoading={sensors.isLoading}
-                        onResetFilters={scope.reset}
-                        rowId={(r) => String(r.id)}
-                        showFilter
-                    />
+                    {!sensors.isLoading &&
+                    !scope.isActive &&
+                    rows.length === 0 ? (
+                        <ProfileCollectionEmpty
+                            description="Add a sensor to track readings from your devices."
+                            icon={Radio}
+                            noun="sensors"
+                        />
+                    ) : (
+                        <DataTable
+                            columns={columns}
+                            data={rows}
+                            emptyState={
+                                <NoMatchesState
+                                    icon={Radio}
+                                    noun="sensors"
+                                />
+                            }
+                            filterPlaceholder="Search sensors…"
+                            hasExternalFilters={scope.isActive}
+                            headerActions={
+                                <SensorHubScopeFilters
+                                    controller={scope}
+                                    counts={counts}
+                                    devices={deviceRows}
+                                    locations={locations.data ?? []}
+                                />
+                            }
+                            isLoading={sensors.isLoading}
+                            onResetFilters={scope.reset}
+                            rowId={(r) => String(r.id)}
+                            showFilter
+                        />
+                    )}
                 </ToolPanel>
                 <SensorDialog
                     initial={null}
@@ -376,7 +377,13 @@ function SensorDialog({
                                 aria-invalid={fieldState.invalid}
                                 id={`${formId}-unit`}
                             >
-                                <SelectValue placeholder="Pick a unit" />
+                                <SelectValue placeholder="Pick a unit">
+                                    {
+                                        units.find(
+                                            (u) => u.value === field.value,
+                                        )?.value
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {units.map((u) => (
@@ -480,9 +487,12 @@ function UnitsManagerDialog({
 
             <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
                 {units.length === 0 && (
-                    <p className="py-2 text-center text-sm text-muted-foreground">
-                        No units yet.
-                    </p>
+                    <EmptyState
+                        description="Add a unit above to use it on sensors."
+                        icon={Ruler}
+                        size={EmptyStateSize.Compact}
+                        title="No units yet"
+                    />
                 )}
                 {units.map((u) => (
                     <div

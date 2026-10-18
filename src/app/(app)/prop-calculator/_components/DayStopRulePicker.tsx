@@ -86,7 +86,9 @@ export default function DayStopRulePicker({
                     }
                     id={id}
                 >
-                    <SelectValue />
+                    <SelectValue>
+                        {DAY_STOP_KIND_LABELS[value.kind]}
+                    </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                     {Object.values(DayStopRuleKind).map((k) => (

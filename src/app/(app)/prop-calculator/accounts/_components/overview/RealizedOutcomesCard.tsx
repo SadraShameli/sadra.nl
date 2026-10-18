@@ -1,6 +1,9 @@
+import { ListChecks } from 'lucide-react';
 import { memo } from 'react';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 import { type OutcomesCardModel } from './overviewModel';
 import { infoLinesOf, OverviewPanel } from './OverviewPanel';
@@ -28,14 +31,18 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
             section={OverviewSectionId.Outcomes}
         >
             {model.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No account with a modeled plan yet.
-                </p>
+                <EmptyState
+                    icon={ListChecks}
+                    size={EmptyStateSize.Compact}
+                    title="No account with a modeled plan yet"
+                />
             ) : (
                 <DataTable
                     columns={[
                         {
-                            cell: ({ row }) => <>{row.original.plan}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.plan} />
+                            ),
                             header: 'Plan',
                             id: RealizedOutcomesCardColumn.Plan,
                             meta: { isRowHeader: true },
@@ -43,7 +50,7 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
                         {
                             cell: ({ row }) => (
                                 <>
-                                    {row.original.passRate}
+                                    <FigureText text={row.original.passRate} />
                                     <span className="block text-xs text-muted-foreground">
                                         {row.original.passRateCounts}
                                     </span>
@@ -55,9 +62,10 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
                         },
                         {
                             cell: ({ row }) => (
-                                <span className="text-muted-foreground">
-                                    {row.original.modeledPassRate}
-                                </span>
+                                <FigureText
+                                    className="text-muted-foreground"
+                                    text={row.original.modeledPassRate}
+                                />
                             ),
                             header: 'Modeled pass rate',
                             id: RealizedOutcomesCardColumn.ModeledPassRate,
@@ -65,7 +73,9 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.sessionsToFunded}</>
+                                <FigureText
+                                    text={row.original.sessionsToFunded}
+                                />
                             ),
                             header: 'Sessions to funded',
                             id: RealizedOutcomesCardColumn.SessionsToFunded,
@@ -73,9 +83,10 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
                         },
                         {
                             cell: ({ row }) => (
-                                <span className="text-muted-foreground">
-                                    {row.original.modeledSessionsToFunded}
-                                </span>
+                                <FigureText
+                                    className="text-muted-foreground"
+                                    text={row.original.modeledSessionsToFunded}
+                                />
                             ),
                             header: 'Modeled sessions to funded',
                             id: RealizedOutcomesCardColumn.ModeledSessionsToFunded,
@@ -84,7 +95,9 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
                         {
                             cell: ({ row }) => (
                                 <>
-                                    {row.original.fundedSurvival}
+                                    <FigureText
+                                        text={row.original.fundedSurvival}
+                                    />
                                     <span className="block text-xs text-muted-foreground">
                                         {row.original.fundedSurvivalCounts}
                                     </span>
@@ -96,16 +109,19 @@ export const RealizedOutcomesCard = memo(function RealizedOutcomesCard({
                         },
                         {
                             cell: ({ row }) => (
-                                <span className="text-muted-foreground">
-                                    {row.original.modeledFundedSurvival}
-                                </span>
+                                <FigureText
+                                    className="text-muted-foreground"
+                                    text={row.original.modeledFundedSurvival}
+                                />
                             ),
                             header: 'Modeled funded survival',
                             id: RealizedOutcomesCardColumn.ModeledFundedSurvival,
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.openFunded}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.openFunded} />
+                            ),
                             header: 'Still open',
                             id: RealizedOutcomesCardColumn.StillOpen,
                             meta: { align: DataTableAlign.End },

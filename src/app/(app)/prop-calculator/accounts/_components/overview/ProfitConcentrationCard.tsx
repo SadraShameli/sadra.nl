@@ -1,6 +1,9 @@
+import { PieChart } from 'lucide-react';
 import { memo } from 'react';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 import { type ProfitConcentrationCardModel } from './overviewModel';
 import { infoLinesOf, OverviewPanel } from './OverviewPanel';
@@ -27,14 +30,18 @@ export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
             section={OverviewSectionId.ProfitConcentration}
         >
             {model.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No account at a modeled firm yet.
-                </p>
+                <EmptyState
+                    icon={PieChart}
+                    size={EmptyStateSize.Compact}
+                    title="No account at a modeled firm yet"
+                />
             ) : (
                 <DataTable
                     columns={[
                         {
-                            cell: ({ row }) => <>{row.original.firm}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.firm} />
+                            ),
                             header: 'Firm',
                             id: ProfitConcentrationCardColumn.Firm,
                             meta: { isRowHeader: true },
@@ -51,14 +58,18 @@ export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
                             meta: { align: DataTableAlign.End },
                         },
                         {
-                            cell: ({ row }) => <>{row.original.withdrawable}</>,
+                            cell: ({ row }) => (
+                                <FigureText text={row.original.withdrawable} />
+                            ),
                             header: 'Withdrawable above the retained cushion',
                             id: ProfitConcentrationCardColumn.WithdrawableAboveTheRetainedCushion,
                             meta: { align: DataTableAlign.End },
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.withdrawableShare}</>
+                                <FigureText
+                                    text={row.original.withdrawableShare}
+                                />
                             ),
                             header: 'Share of your withdrawable',
                             id: ProfitConcentrationCardColumn.ShareOfYourWithdrawable,
@@ -66,14 +77,16 @@ export const ProfitConcentrationCard = memo(function ProfitConcentrationCard({
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.recentPayouts}</>
+                                <FigureText text={row.original.recentPayouts} />
                             ),
                             header: 'Recent payouts',
                             id: ProfitConcentrationCardColumn.RecentPayouts,
                         },
                         {
                             cell: ({ row }) => (
-                                <>{row.original.sinceMovedLive}</>
+                                <FigureText
+                                    text={row.original.sinceMovedLive}
+                                />
                             ),
                             header: 'Since the last move live',
                             id: ProfitConcentrationCardColumn.SinceTheLastMoveLive,

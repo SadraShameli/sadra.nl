@@ -14,9 +14,12 @@ import {
     AccountCreator,
     AccountEditor,
 } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
+import { accountStatusLabel } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { AccountDetailView } from '~/app/(app)/prop-calculator/accounts/_components/detail/AccountDetailView';
 import {
+    AccountReadIssueKind,
     AccountStage,
+    accountStageLabel,
     AccountStatus,
     AccountTracking,
     DashboardBalanceConvention,
@@ -42,6 +45,7 @@ import {
     rowActionItem,
 } from '../../../components/rowActionsMenu';
 import { AccountsTable } from './AccountsTableWithData';
+import { detailListEntries } from './detailListEntries';
 
 interface FakeQuery {
     data: unknown;
@@ -549,6 +553,36 @@ describe('a stored ledger-only account', () => {
                 tracking: AccountTracking.LedgerOnly,
             }),
         );
+    });
+
+    it('keeps an account with a read issue read-only and lists each stored fact beside its label', () => {
+        harness.queries.set(
+            'propAccounts.account.get',
+            query(
+                storedLedgerOnly({
+                    liveStartBalanceCents: 15_250_000,
+                    readIssues: [
+                        { kind: AccountReadIssueKind.CorruptPersonalRules },
+                    ],
+                }),
+            ),
+        );
+        harness.queries.set('propAccounts.account.list', query([]));
+        harness.queries.set('propAccounts.copyGroup.list', query([]));
+        act(() => {
+            root.render(<AccountEditor id={LEDGER_ID} />);
+        });
+        expect(container.textContent).toContain('This account is read-only');
+        expect(container.querySelector('form')).toBeNull();
+        expect(detailListEntries(container)).toStrictEqual([
+            ['Label', 'Big one'],
+            ['Firm', FIFTY_K.firm.displayName],
+            ['Plan', 'Rapid 150K'],
+            ['Stage', accountStageLabel(AccountStage.Funded)],
+            ['Status', accountStatusLabel(AccountStatus.Active)],
+            ['Purchased on', '3 Aug 2026'],
+            ['Live start balance', '$152,500'],
+        ]);
     });
 
     it('warns instead of silently falling back to an unlisted firm when the firm list fails to load', () => {

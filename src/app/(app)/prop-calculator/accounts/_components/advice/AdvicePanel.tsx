@@ -1,5 +1,6 @@
 'use client';
 
+import { Calculator } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useMemo, useState } from 'react';
 
 import { parsePositionSizeStop } from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeUrlState';
@@ -29,6 +30,7 @@ import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Button } from '~/components/ui/button';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { Skeleton } from '~/components/ui/skeleton';
 import { useSession } from '~/lib/auth/client';
 import {
@@ -120,6 +122,7 @@ const INACTIVE_ACCOUNT_TEXT =
 enum BuiltKind {
     Inactive = 'inactive',
     Loading = 'loading',
+    NoSnapshot = 'no-snapshot',
     NotModeled = 'not-modeled',
     Ready = 'ready',
 }
@@ -144,6 +147,7 @@ type Built =
       }
     | { readonly kind: BuiltKind.Inactive }
     | { readonly kind: BuiltKind.Loading }
+    | { readonly kind: BuiltKind.NoSnapshot }
     | { readonly kind: BuiltKind.NotModeled; readonly reason: string };
 
 type DecisionRows = NonNullable<
@@ -427,6 +431,16 @@ export function AdvicePanel({ id }: { readonly id: string }) {
         );
     }
 
+    if (built.kind === BuiltKind.NoSnapshot) {
+        return (
+            <EmptyStatePanel
+                description="Sizing advice is computed from the latest balance."
+                icon={Calculator}
+                title="No advice until a balance is recorded"
+            />
+        );
+    }
+
     if (built.kind === BuiltKind.NotModeled) {
         return (
             <StatusRow
@@ -596,14 +610,11 @@ function buildAdvisorInput(args: {
             : PENDING_PAYOUT_COUNTS_NOT_CHECKED,
         rulebook.live.cushionPercent,
     );
+    if (view.kind === StateCardKind.NoSnapshot) {
+        return { kind: BuiltKind.NoSnapshot };
+    }
     if (view.kind !== StateCardKind.Ready) {
-        return {
-            kind: BuiltKind.NotModeled,
-            reason:
-                view.kind === StateCardKind.NoSnapshot
-                    ? 'Enter a balance snapshot to compute advice for this account.'
-                    : view.message,
-        };
+        return { kind: BuiltKind.NotModeled, reason: view.message };
     }
     const options = personalAdvisorOptionsOf({
         account: view.account,

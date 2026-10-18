@@ -11,11 +11,13 @@ import { z } from 'zod';
 import {
     MutedCell,
     PrimaryCell,
+    ProfileCollectionEmpty,
     ProfileDateCell,
     ProfileDatePrecision,
-    ProfileTableEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { FormDialog } from '~/components/FormDialog';
+import { MissingValue } from '~/components/MissingValue';
 import {
     deleteRowAction,
     editRowAction,
@@ -29,7 +31,6 @@ import {
     type DataTableColumn,
     DataTableFilterFunction,
     type DataTableInstance,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { DataTableDateRange } from '~/components/ui/data-table-date-range';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
@@ -131,10 +132,10 @@ export function WorkoutsManager() {
                 accessorFn: (r) => WorkoutDuration.seconds(r) ?? -1,
                 cell: ({ row }) => {
                     const dur = WorkoutDuration.seconds(row.original);
-                    return (
-                        <MutedCell>
-                            {dur === null ? '-' : DurationFormat.seconds(dur)}
-                        </MutedCell>
+                    return dur === null ? (
+                        <MissingValue />
+                    ) : (
+                        <MutedCell>{DurationFormat.seconds(dur)}</MutedCell>
                     );
                 },
                 filterFn: DataTableFilterFunction.InNumberRange,
@@ -178,58 +179,62 @@ export function WorkoutsManager() {
         [remove],
     );
 
-    const logButton = (
-        <Button asChild size="sm">
-            <Link href={routes.lifting.log}>
-                <Play className="size-4" />
-                Start workout
-            </Link>
-        </Button>
-    );
-
     return (
         <>
             <ToolPanel
-                actions={logButton}
+                actions={
+                    <Button asChild size="sm">
+                        <Link href={routes.lifting.log}>
+                            <Play className="size-4" />
+                            Start workout
+                        </Link>
+                    </Button>
+                }
                 description="Every workout you logged. Edit the details here or open one to manage its sets."
                 title="Workouts"
             >
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={logButton}
-                            description="Start a workout from the log."
-                            filtered={hasActiveTableFilter(table)}
-                            icon={Calendar}
-                            noun="workouts"
-                        />
-                    )}
-                    filterPlaceholder="Search workouts…"
-                    headerActions={(table) => (
-                        <>
-                            <DataTableFacetSelect
-                                column={table.getColumn(WorkoutColumn.Status)}
-                                format={workoutStatusLabel}
-                                label="Status"
-                                placeholder="All statuses"
+                {!workouts.isLoading && rows.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Workouts you log appear here."
+                        icon={Calendar}
+                        noun="workouts"
+                    />
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={
+                            <NoMatchesState
+                                icon={Calendar}
+                                noun="workouts"
                             />
-                            <DurationSelect table={table} />
-                            <DataTableDateRange
-                                align="end"
-                                column={table.getColumn(WorkoutColumn.Date)}
-                                label="Workout date"
-                                maxDate={new Date()}
-                                placeholder="Any time"
-                            />
-                        </>
-                    )}
-                    isLoading={workouts.isLoading}
-                    pageSize={20}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
+                        }
+                        filterPlaceholder="Search workouts…"
+                        headerActions={(table) => (
+                            <>
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        WorkoutColumn.Status,
+                                    )}
+                                    format={workoutStatusLabel}
+                                    label="Status"
+                                    placeholder="All statuses"
+                                />
+                                <DurationSelect table={table} />
+                                <DataTableDateRange
+                                    align="end"
+                                    column={table.getColumn(WorkoutColumn.Date)}
+                                    label="Workout date"
+                                    maxDate={new Date()}
+                                    placeholder="Any time"
+                                />
+                            </>
+                        )}
+                        isLoading={workouts.isLoading}
+                        rowId={(r) => r.id}
+                        showFilter
+                    />
+                )}
             </ToolPanel>
 
             {editing && (

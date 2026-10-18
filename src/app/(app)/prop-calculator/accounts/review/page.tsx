@@ -2,7 +2,7 @@ import { type Metadata } from 'next';
 import { Suspense } from 'react';
 
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
-import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { WeeklyReviewSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
@@ -37,7 +37,7 @@ export default function PropAccountsReviewPage() {
                     }
                     title="Weekly review"
                 />
-                <Suspense fallback={<AccountsDataSkeleton />}>
+                <Suspense fallback={<WeeklyReviewSkeleton />}>
                     <PropAccountsReviewContent />
                 </Suspense>
             </main>

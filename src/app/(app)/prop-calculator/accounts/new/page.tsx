@@ -8,7 +8,7 @@ import {
     parseAccountPrefill,
 } from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
 import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
-import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { AccountFormSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
@@ -36,7 +36,7 @@ export default function NewPropAccountPage({
                     description="Pick the firm and plan, then enter what the firm dashboard shows today."
                     title="Add account"
                 />
-                <Suspense fallback={<AccountsDataSkeleton />}>
+                <Suspense fallback={<AccountFormSkeleton />}>
                     <NewPropAccountContent searchParams={searchParams} />
                 </Suspense>
             </main>

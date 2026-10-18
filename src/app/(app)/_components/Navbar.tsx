@@ -37,7 +37,11 @@ import { homeSectionHref } from '~/lib/site/homeSections';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
-import { DesktopMenuPanel, PhoneMenuPanel } from './navigation/NavMenuPanels';
+import {
+    DesktopMenuPanel,
+    NAV_MENU_SCROLL_CLASS,
+    PhoneMenuPanel,
+} from './navigation/NavMenuPanels';
 import {
     HOME_SECTION_MENU,
     NAV_ITEMS,
@@ -293,7 +297,10 @@ function NavbarView({
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent
-                                    className="max-h-[calc(100svh-7rem)] w-(--radix-popper-anchor-width) overflow-y-auto rounded-4xl border glass p-2"
+                                    className={cn(
+                                        'w-(--radix-popper-anchor-width) rounded-4xl border glass p-2',
+                                        NAV_MENU_SCROLL_CLASS,
+                                    )}
                                     onClick={(event) => {
                                         if (isLinkClick(event)) {
                                             setIsMobileMenuOpen(false);

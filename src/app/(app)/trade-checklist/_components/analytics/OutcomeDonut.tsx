@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartPie } from 'lucide-react';
 import { useMemo } from 'react';
 import { Pie, PieChart } from 'recharts';
 
@@ -8,6 +9,7 @@ import {
     ChartContainer,
     ChartSize,
 } from '~/components/ui/chart';
+import { EmptyState } from '~/components/ui/empty-state';
 import {
     type LightAssessment,
     outcomeDistribution,
@@ -49,9 +51,11 @@ export function OutcomeDonut({
     );
 
     return data.length === 0 ? (
-        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-            No recorded outcomes yet.
-        </div>
+        <EmptyState
+            description="Record outcomes to see how they are distributed."
+            icon={ChartPie}
+            title="No outcomes yet"
+        />
     ) : (
         <div
             className={cn(

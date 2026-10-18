@@ -1,6 +1,13 @@
+import { CalendarClock } from 'lucide-react';
 import { memo } from 'react';
 
 import { SimulationFailureNotice } from '~/app/(app)/prop-calculator/_components/SimulationFailureNotice';
+import { EnterBalancesButton } from '~/app/(app)/prop-calculator/accounts/_components/EnterBalancesButton';
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import {
+    PENDING_FIGURE,
+    UNAVAILABLE_FIGURE,
+} from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
 import {
     Accordion,
     AccordionContent,
@@ -22,12 +29,14 @@ import {
     type NextPayoutCardModel,
     type NextPayoutCardRow,
 } from './overviewModel';
-import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import {
+    infoLinesOf,
+    OverviewEmptyPanel,
+    OverviewPanel,
+} from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 
-const NOT_AVAILABLE_TEXT = 'Not available';
 const NOT_FUNDED_TEXT = 'Not funded yet';
-const PENDING_TEXT = 'Pending';
 
 export const NextPayoutCard = memo(function NextPayoutCard({
     model,
@@ -36,16 +45,21 @@ export const NextPayoutCard = memo(function NextPayoutCard({
 }) {
     if (model.rows.length === 0) {
         return (
-            <OverviewPanel section={OverviewSectionId.NextPayout}>
-                <p className="text-sm text-muted-foreground">
-                    {model.statusNote ?? 'No account to project yet.'}
-                </p>
-            </OverviewPanel>
+            <OverviewEmptyPanel
+                action={<EnterBalancesButton />}
+                description={model.statusNote ?? undefined}
+                icon={CalendarClock}
+                section={OverviewSectionId.NextPayout}
+                title="Enter balances to see the next payout"
+            />
         );
     }
     return (
         <OverviewPanel
             info={infoLinesOf(model.disclosures)}
+            isComputing={model.rows.some(
+                (row) => row.view.kind === AccountFromStateViewKind.Pending,
+            )}
             section={OverviewSectionId.NextPayout}
         >
             <DataTable
@@ -84,18 +98,18 @@ function cellsOf(row: NextPayoutCardRow): {
         case AccountFromStateViewKind.Failed:
         case AccountFromStateViewKind.Refused: {
             return {
-                creditFree: NOT_AVAILABLE_TEXT,
-                creditInclusive: NOT_AVAILABLE_TEXT,
-                lost: NOT_AVAILABLE_TEXT,
-                time: NOT_AVAILABLE_TEXT,
+                creditFree: UNAVAILABLE_FIGURE,
+                creditInclusive: UNAVAILABLE_FIGURE,
+                lost: UNAVAILABLE_FIGURE,
+                time: UNAVAILABLE_FIGURE,
             };
         }
         case AccountFromStateViewKind.Pending: {
             return {
-                creditFree: PENDING_TEXT,
-                creditInclusive: PENDING_TEXT,
-                lost: PENDING_TEXT,
-                time: PENDING_TEXT,
+                creditFree: PENDING_FIGURE,
+                creditInclusive: PENDING_FIGURE,
+                lost: PENDING_FIGURE,
+                time: PENDING_FIGURE,
             };
         }
         case AccountFromStateViewKind.Ready: {
@@ -146,25 +160,29 @@ const NEXT_PAYOUT_COLUMNS: DataTableColumn<NextPayoutCardRow>[] = [
         id: NextPayoutColumn.Plan,
     },
     {
-        cell: ({ row: { original: row } }) => cellsOf(row).creditFree,
+        cell: ({ row }) => (
+            <FigureText text={cellsOf(row.original).creditFree} />
+        ),
         header: 'Value from this state, credit-free',
         id: NextPayoutColumn.CreditFree,
         meta: { align: DataTableAlign.End },
     },
     {
-        cell: ({ row: { original: row } }) => cellsOf(row).creditInclusive,
+        cell: ({ row }) => (
+            <FigureText text={cellsOf(row.original).creditInclusive} />
+        ),
         header: 'Value with end-of-horizon credit',
         id: NextPayoutColumn.CreditInclusive,
         meta: { align: DataTableAlign.End },
     },
     {
-        cell: ({ row: { original: row } }) => cellsOf(row).time,
+        cell: ({ row }) => <FigureText text={cellsOf(row.original).time} />,
         header: 'Expected time to the next payout',
         id: NextPayoutColumn.Time,
         meta: { align: DataTableAlign.End },
     },
     {
-        cell: ({ row: { original: row } }) => cellsOf(row).lost,
+        cell: ({ row }) => <FigureText text={cellsOf(row.original).lost} />,
         header: 'Chance the account is lost first',
         id: NextPayoutColumn.Lost,
         meta: { align: DataTableAlign.End },

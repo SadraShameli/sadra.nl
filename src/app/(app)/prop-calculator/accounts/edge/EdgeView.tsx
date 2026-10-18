@@ -10,6 +10,8 @@ import { encodeState } from '~/app/(app)/prop-calculator/_components/urlState';
 import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
 import { FilterToolbar } from '~/components/FilterToolbar';
 import { InfoNote } from '~/components/InfoNote';
+import { MissingValue } from '~/components/MissingValue';
+import { CardSkeleton } from '~/components/PageSkeleton';
 import { StatStrip } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { ToolPanel } from '~/components/ToolPanel';
@@ -18,7 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { FilterIsoDateRange } from '~/components/ui/filter-iso-date-range';
 import { Skeleton } from '~/components/ui/skeleton';
 import { formatPercent, formatR } from '~/lib/format';
@@ -48,6 +50,9 @@ import { type PathWithQuery, routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type EdgeReport = RouterOutputs['propAccounts']['edge']['summary'];
+
+const NO_OBSERVED_REASON =
+    'No journal trade in this range has a recorded result for this figure.';
 
 const EARLIEST_DATE = `${String(MIN_ACCOUNT_DATE_YEAR)}-01-01`;
 const LATEST_DATE = `${String(MAX_ACCOUNT_DATE_YEAR)}-12-31`;
@@ -142,7 +147,16 @@ export function EdgeView() {
                 ))}
             </div>
             {rangeCheck.isValid && summaryQuery.isPending && (
-                <Skeleton className="h-48 w-full" />
+                <div
+                    aria-busy="true"
+                    aria-label="Loading your journal edge"
+                    className="flex flex-col gap-6"
+                    role="status"
+                >
+                    <Skeleton className="h-24 w-full rounded-lg" />
+                    <CardSkeleton rows={2} />
+                    <CardSkeleton rows={2} />
+                </div>
             )}
             {summaryQuery.isError && (
                 <Alert variant="destructive">
@@ -207,9 +221,11 @@ function EdgeMetricPanel({
                         id: 'observed',
                         label: 'Your journal',
                         value:
-                            metric.observed === null
-                                ? 'n/a'
-                                : format(metric.observed),
+                            metric.observed === null ? (
+                                <MissingValue reason={NO_OBSERVED_REASON} />
+                            ) : (
+                                format(metric.observed)
+                            ),
                     },
                     {
                         id: 'assumed',
@@ -258,7 +274,7 @@ function EdgeResult({
         return (
             <div className="flex flex-col gap-4">
                 {truncationNotice}
-                <EmptyState
+                <EmptyStatePanel
                     action={
                         <Button asChild variant="outline">
                             <Link href={routes.tradeChecklist.journal}>

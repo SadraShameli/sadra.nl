@@ -140,6 +140,11 @@ export function FundedOptimizerView() {
                                 </p>
                             </>
                         }
+                        isComputing={
+                            sweep.reason === null &&
+                            (sweep.result === null ||
+                                sweep.phase === WorkerTaskPhase.Running)
+                        }
                         title={ranking.heading}
                         titleId={RESULT_HEADING_ID}
                     >
@@ -205,7 +210,7 @@ function FundedOptimizerResult({
     if (reason !== null) return <SimulationFailureNotice message={reason} />;
     if (result === null || state === WorkerTaskPhase.Running) {
         return (
-            <div aria-busy="true" className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
                 {progress !== null && (
                     <p className="text-xs text-muted-foreground" role="status">
                         {`${progress.completed} of ${progress.total} policies`}

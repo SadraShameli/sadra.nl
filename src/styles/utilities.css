@@ -312,3 +312,9 @@
     background-color: var(--camel);
     color: var(--on-camel);
 }
+
+@utility selected-option {
+    background-color: color-mix(in oklab, var(--camel) 16%, transparent);
+    box-shadow: inset 0 0 0 1px var(--camel);
+    color: var(--ink);
+}

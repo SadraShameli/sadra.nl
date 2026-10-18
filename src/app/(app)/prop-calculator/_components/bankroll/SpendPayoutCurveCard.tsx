@@ -24,24 +24,27 @@ import {
     ChartContainer,
     ChartLegend,
     ChartLegendContent,
+    ChartSkeleton,
 } from '~/components/ui/chart';
 import { DataTable } from '~/components/ui/data-table';
-import { Field, FieldError, FieldLabel } from '~/components/ui/field';
-import { Input } from '~/components/ui/input';
+import { FieldError } from '~/components/ui/field';
 import {
     formatCompactCurrency,
-    formatGateCurrency,
     formatPercent,
-    NOT_APPLICABLE,
+    formatWholeOrCentsCurrency,
 } from '~/lib/format';
 import { ECONOMICS_REASON_TEXT } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 
+import { BankrollField, BankrollFieldKind } from './BankrollField';
 import {
     bankrollSpendPayoutCurveRequest,
     parseBankrollDollarCandidateList,
 } from './bankrollModel';
-import { BankrollRunStatus } from './BankrollRunStatus';
+import {
+    BankrollRunStatus,
+    isAwaitingRequestedResult,
+} from './BankrollRunStatus';
 import { BankrollSection } from './BankrollSection';
 import { useBankrollVariant } from './useBankrollVariant';
 import { useToolsRequest } from './useToolsRequest';
@@ -58,6 +61,7 @@ enum CurveColumn {
 }
 
 const MAX_BUDGETS = 10;
+const NOT_PRICED_TEXT = 'This budget was not priced.';
 const TOO_MANY_BUDGETS_TEXT = `Enter at most ${String(MAX_BUDGETS)} budgets.`;
 
 const chartConfig: ChartConfig = {
@@ -107,37 +111,49 @@ export function SpendPayoutCurveCard() {
 
     return (
         <BankrollSection
-            description="What each budget buys: whole attempts at the plan's attempt cost, priced on the same variant and seed as the cards above, every trial one attempt."
             headingId="bankroll-spend-payout-curve-heading"
-            title="Spend vs payout"
-        >
-            <Field data-invalid={isTooMany}>
-                <FieldLabel htmlFor="bankroll-curve-budgets">
-                    Budgets ($, comma-separated)
-                </FieldLabel>
-                <Input
-                    aria-invalid={isTooMany}
+            info="What each budget buys: whole attempts at the plan's attempt cost, priced on the same variant and seed as the cards above, every trial one attempt."
+            inputs={
+                <BankrollField
                     id="bankroll-curve-budgets"
-                    onChange={(event) => setBudgetsText(event.target.value)}
+                    info={`Up to ${String(MAX_BUDGETS)} budgets to compare, in dollars, separated by commas.`}
+                    isInvalid={isTooMany}
+                    kind={BankrollFieldKind.List}
+                    label="Budgets"
+                    onChange={setBudgetsText}
                     placeholder="e.g. 5000, 10000, 20000"
-                    value={budgetsText}
-                />
-                {isTooMany ? (
-                    <FieldError>{TOO_MANY_BUDGETS_TEXT}</FieldError>
-                ) : null}
-            </Field>
-            {rows === null ? (
-                <BankrollRunStatus
-                    isRequested={requestBudgets !== null}
-                    state={worker.state}
-                />
-            ) : (
-                <>
-                    <CurveChart rows={rows} />
-                    <CurveTable rows={rows} />
-                </>
+                >
+                    {isTooMany ? (
+                        <FieldError>{TOO_MANY_BUDGETS_TEXT}</FieldError>
+                    ) : null}
+                </BankrollField>
+            }
+            isComputing={isAwaitingRequestedResult(
+                requestBudgets !== null,
+                worker.state,
             )}
-        </BankrollSection>
+            results={
+                rows === null ? (
+                    <BankrollRunStatus
+                        emptyText="Enter budgets to chart what each one buys."
+                        isRequested={requestBudgets !== null}
+                        skeleton={
+                            <>
+                                <ChartSkeleton />
+                                <CurveTable isLoading rows={[]} />
+                            </>
+                        }
+                        state={worker.state}
+                    />
+                ) : (
+                    <>
+                        <CurveChart rows={rows} />
+                        <CurveTable isLoading={false} rows={rows} />
+                    </>
+                )
+            }
+            title="Spend vs payout"
+        />
     );
 }
 
@@ -238,7 +254,13 @@ function CurveChart({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
     );
 }
 
-function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
+function CurveTable({
+    isLoading,
+    rows,
+}: {
+    readonly isLoading: boolean;
+    readonly rows: readonly SpendPayoutCurveRow[];
+}) {
     return (
         <DataTable
             aria-label="Spend and payout per budget"
@@ -246,7 +268,7 @@ function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                 {
                     cell: ({ row: { original: row } }) => (
                         <span className="font-mono">
-                            {formatGateCurrency(row.budget)}
+                            {formatWholeOrCentsCurrency(row.budget)}
                         </span>
                     ),
                     header: 'Budget',
@@ -267,7 +289,9 @@ function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                         <span className="font-mono">
                             {row.figures === null
                                 ? null
-                                : formatGateCurrency(row.figures.expectedSpend)}
+                                : formatWholeOrCentsCurrency(
+                                      row.figures.expectedSpend,
+                                  )}
                         </span>
                     ),
                     header: 'Expected spend',
@@ -278,7 +302,7 @@ function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                         <span className="font-mono">
                             {row.figures === null
                                 ? null
-                                : formatGateCurrency(
+                                : formatWholeOrCentsCurrency(
                                       row.figures.expectedPayouts,
                                   )}
                         </span>
@@ -291,7 +315,9 @@ function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                         <span className="font-mono">
                             {row.figures === null
                                 ? null
-                                : formatGateCurrency(row.figures.expectedNet)}
+                                : formatWholeOrCentsCurrency(
+                                      row.figures.expectedNet,
+                                  )}
                         </span>
                     ),
                     header: 'Expected net',
@@ -302,7 +328,9 @@ function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                         <span className="font-mono">
                             {row.figures === null
                                 ? null
-                                : formatGateCurrency(row.figures.netP10)}
+                                : formatWholeOrCentsCurrency(
+                                      row.figures.netP10,
+                                  )}
                         </span>
                     ),
                     header: 'Net P10',
@@ -313,7 +341,9 @@ function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                         <span className="font-mono">
                             {row.figures === null
                                 ? null
-                                : formatGateCurrency(row.figures.netP90)}
+                                : formatWholeOrCentsCurrency(
+                                      row.figures.netP90,
+                                  )}
                         </span>
                     ),
                     header: 'Net P90',
@@ -332,16 +362,16 @@ function CurveTable({ rows }: { rows: readonly SpendPayoutCurveRow[] }) {
                 },
             ]}
             data={[...rows]}
+            isLoading={isLoading}
             isSortable={false}
             pageSize={null}
             rowId={(row) => String(row.budget)}
             rowMessage={(row) =>
                 row.figures === null ? (
-                    <span className="text-warning">
-                        {NOT_APPLICABLE}
+                    <span className="text-ink-muted">
                         {row.reason === null
-                            ? ''
-                            : `: ${ECONOMICS_REASON_TEXT[row.reason]}`}
+                            ? NOT_PRICED_TEXT
+                            : ECONOMICS_REASON_TEXT[row.reason]}
                     </span>
                 ) : undefined
             }

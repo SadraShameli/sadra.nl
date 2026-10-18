@@ -28,12 +28,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import {
-    formatCurrency,
-    formatGateCurrency,
-    formatPercent,
-    NOT_APPLICABLE,
-} from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     type DayPolicy,
@@ -61,6 +56,7 @@ import {
 } from './CalculatorProvider';
 import LadderFrontierChartView from './charts/LadderFrontierChartView';
 import DayStopRulePicker from './DayStopRulePicker';
+import { instrumentPointValueLabel } from './instrumentLabels';
 import { describeLadderIgnoredInputs } from './ladderIgnoredInputs';
 import {
     displayedLadderSlot,
@@ -100,6 +96,7 @@ import {
     UNAFFORDABLE_RUNG_LABEL,
 } from './rungSizingLabels';
 import { useLadderSearch } from './useLadderSearch';
+import { ValueOrMissing } from './ValueOrMissing';
 
 interface LadderLabPanelProperties {
     activePolicy: DayPolicy | null;
@@ -114,6 +111,16 @@ interface LatestLadderRun {
 }
 
 const INSTRUMENT_NOT_SET = 'not-set';
+const LADDER_INSTRUMENT_OPTIONS: readonly {
+    label: string;
+    value: InstrumentSymbol | typeof INSTRUMENT_NOT_SET;
+}[] = [
+    { label: 'Not set', value: INSTRUMENT_NOT_SET },
+    ...ALL_INSTRUMENTS.map((spec) => ({
+        label: instrumentPointValueLabel(spec),
+        value: spec.symbol,
+    })),
+];
 const instrumentSymbolSchema = z.enum(InstrumentSymbol);
 const rungSizingSchema = z.enum(RungSizing);
 
@@ -228,6 +235,7 @@ export default function LadderLabPanel({
     const aliasingFrom = defaultLadderGridMax(cushion);
     const isAliasingRisk = max > aliasingFrom;
     const instrumentSpec = instrument === '' ? null : INSTRUMENTS[instrument];
+    const instrumentValue = instrument === '' ? INSTRUMENT_NOT_SET : instrument;
     const pointValue = instrumentSpec?.pointValue ?? null;
     const contractCap =
         instrumentSpec === null
@@ -341,35 +349,9 @@ export default function LadderLabPanel({
                 header: '$ / funded',
                 id: 'cost',
             },
-            {
-                accessorFn: (r) =>
-                    contractCap === null || pointValue === null
-                        ? 0
-                        : (minStopPoints(
-                              Math.max(...r.ladder),
-                              contractCap,
-                              pointValue,
-                          ) ?? 0),
-                cell: ({ row }) => {
-                    const stop =
-                        contractCap === null || pointValue === null
-                            ? null
-                            : minStopPoints(
-                                  Math.max(...row.original.ladder),
-                                  contractCap,
-                                  pointValue,
-                              );
-                    return (
-                        <span className="text-muted-foreground">
-                            {stop === null
-                                ? NOT_APPLICABLE
-                                : `${stop.toFixed(1)} pt`}
-                        </span>
-                    );
-                },
-                header: 'Min stop',
-                id: 'minStop',
-            },
+            ...(contractCap === null || pointValue === null
+                ? []
+                : [minStopColumn(contractCap, pointValue)]),
             ...(labPositionSizing === null
                 ? []
                 : [contractsColumn(labPositionSizing, contractCap)]),
@@ -442,7 +424,7 @@ export default function LadderLabPanel({
                 }
                 className="app-prop-calculator__ladder-lab"
                 info={<LadderLabInfo />}
-                title="Ladder lab"
+                title="Ladder grid"
                 titleAs="h3"
             >
                 {state.phase === LadderRunPhase.Running && (
@@ -455,7 +437,7 @@ export default function LadderLabPanel({
 
                 <CalculatorObjectiveChip />
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+                <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
                     <NumberField
                         label="Min rung"
                         onChange={(value) => setGrid({ lo: value })}
@@ -503,27 +485,26 @@ export default function LadderLabPanel({
                                     }));
                                 }
                             }}
-                            value={
-                                instrument === ''
-                                    ? INSTRUMENT_NOT_SET
-                                    : instrument
-                            }
+                            value={instrumentValue}
                         >
                             <SelectTrigger id="ladder-lab-instrument">
-                                <SelectValue />
+                                <SelectValue>
+                                    {
+                                        LADDER_INSTRUMENT_OPTIONS.find(
+                                            (option) =>
+                                                option.value ===
+                                                instrumentValue,
+                                        )?.label
+                                    }
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value={INSTRUMENT_NOT_SET}>
-                                    Not set
-                                </SelectItem>
-                                {ALL_INSTRUMENTS.map((spec) => (
+                                {LADDER_INSTRUMENT_OPTIONS.map((option) => (
                                     <SelectItem
-                                        key={spec.symbol}
-                                        value={spec.symbol}
+                                        key={option.value}
+                                        value={option.value}
                                     >
-                                        {spec.symbol} (
-                                        {formatGateCurrency(spec.pointValue)}
-                                        /pt)
+                                        {option.label}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -531,7 +512,7 @@ export default function LadderLabPanel({
                     </Field>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                     <Field>
                         <FieldLabel htmlFor="ladder-day-stop-rule">
                             Day stop rule
@@ -565,7 +546,9 @@ export default function LadderLabPanel({
                             value={rungSizing}
                         >
                             <SelectTrigger id="ladder-rung-sizing">
-                                <SelectValue />
+                                <SelectValue>
+                                    {RUNG_SIZING_LABELS[rungSizing]}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {RUNG_SIZING_OPTIONS.map((option) => (
@@ -616,8 +599,7 @@ export default function LadderLabPanel({
                     state.phase === LadderRunPhase.Idle &&
                     view.kind !== LadderLabViewKind.Cancelled && (
                         <EmptyState
-                            className="border"
-                            description="Set the grid above, then press Run search to score every ladder on days to funded, cost per funded account and pass rate."
+                            description="Set the grid above and run a search to score every ladder on days to funded, cost per funded account and pass rate."
                             icon={FlaskConical}
                             title="No search run yet"
                         />
@@ -677,7 +659,6 @@ export default function LadderLabPanel({
                                 columns={columns}
                                 data={rows}
                                 initialSorting={[{ desc: false, id: 'days' }]}
-                                pageSize={15}
                                 rowClassName={(r) =>
                                     isActiveLadderRow(
                                         view,
@@ -802,6 +783,30 @@ function ladderStarText(objective: SizingObjective): string {
             return 'The star marks the fastest ladder to funded, an eval-stage proxy for monthly net.';
         }
     }
+}
+
+function minStopColumn(
+    contractCap: number,
+    pointValue: number,
+): DataTableColumn<LadderScore> {
+    const stopOf = (score: LadderScore): null | number =>
+        minStopPoints(Math.max(...score.ladder), contractCap, pointValue);
+    return {
+        accessorFn: (r) => stopOf(r) ?? undefined,
+        cell: ({ row }) => {
+            const stop = stopOf(row.original);
+            return (
+                <span className="text-muted-foreground">
+                    <ValueOrMissing
+                        value={stop === null ? null : `${stop.toFixed(1)} pt`}
+                    />
+                </span>
+            );
+        },
+        header: 'Min stop',
+        id: 'minStop',
+        sortUndefined: 'last',
+    };
 }
 
 function NumberField({

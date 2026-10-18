@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Receipt } from 'lucide-react';
 import { useId } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -13,6 +14,7 @@ import {
 import { feeKindLabel } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { FormDialog } from '~/components/FormDialog';
 import { LabelWithInfo } from '~/components/LabelWithInfo';
+import { MissingValue } from '~/components/MissingValue';
 import {
     deleteRowAction,
     editRowAction,
@@ -20,6 +22,7 @@ import {
 } from '~/components/RowActionsMenu';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Dialog } from '~/components/ui/dialog';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { IsoDatePicker } from '~/components/ui/iso-date-picker';
@@ -31,7 +34,7 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
-import { formatDisplayDate, NOT_APPLICABLE } from '~/lib/format';
+import { formatDisplayDate } from '~/lib/format';
 import {
     EntryTextKind,
     feeCheckRowOf,
@@ -109,9 +112,11 @@ export function FeesSection({
         <>
             <ListQueryStatus query={query} subject="fees" />
             {rows?.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                    No fees recorded yet.
-                </p>
+                <EmptyState
+                    icon={Receipt}
+                    size={EmptyStateSize.Compact}
+                    title="No fees recorded yet"
+                />
             )}
             {rows !== undefined && rows.length > 0 && (
                 <DataTable
@@ -146,11 +151,11 @@ export function FeesSection({
                                 const priceCheck = feeCheckRowOf(plan, row);
                                 return (
                                     <div className="text-muted-foreground">
-                                        {priceCheck.listCents === null
-                                            ? NOT_APPLICABLE
-                                            : formatUsdCents(
-                                                  priceCheck.listCents,
-                                              )}
+                                        {priceCheck.listCents === null ? (
+                                            <MissingValue />
+                                        ) : (
+                                            formatUsdCents(priceCheck.listCents)
+                                        )}
                                     </div>
                                 );
                             },
@@ -163,11 +168,13 @@ export function FeesSection({
                                 const priceCheck = feeCheckRowOf(plan, row);
                                 return (
                                     <>
-                                        {priceCheck.differenceCents === null
-                                            ? NOT_APPLICABLE
-                                            : formatUsdCents(
-                                                  priceCheck.differenceCents,
-                                              )}
+                                        {priceCheck.differenceCents === null ? (
+                                            <MissingValue />
+                                        ) : (
+                                            formatUsdCents(
+                                                priceCheck.differenceCents,
+                                            )
+                                        )}
                                         <div className="text-xs text-muted-foreground">
                                             {
                                                 FEE_PRICE_CHECK_LABEL[
@@ -360,7 +367,9 @@ function FeeForm({
                                 id={`${formId}-kind`}
                                 ref={field.ref}
                             >
-                                <SelectValue />
+                                <SelectValue>
+                                    {feeKindLabel(field.value)}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                                 {Object.values(FeeKind).map((kind) => (

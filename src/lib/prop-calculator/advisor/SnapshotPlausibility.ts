@@ -1,4 +1,4 @@
-import { formatGateCurrency } from '~/lib/format';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     dollars,
     type Dollars,
@@ -531,7 +531,7 @@ function modeledLivePlan(
 }
 
 function money(amount: number): string {
-    return formatGateCurrency(amount);
+    return formatWholeOrCentsCurrency(amount);
 }
 
 function peakIssues(

@@ -24,6 +24,7 @@ import {
 } from '~/lib/prop-calculator/advisor/value';
 import { MffuVariant } from '~/lib/prop-calculator/core';
 
+import { hasComputingIndicator } from './computingIndicator';
 import { infoContent } from './infoPopover';
 
 const DEBOUNCE_MS = 180;
@@ -546,7 +547,7 @@ describe('ValueChainCard (PT-66)', () => {
         }
     });
 
-    it('shows a pending line and marks the section busy while the worker runs', () => {
+    it('shows the computing indicator with skeletons, not a pending line, and marks the panel busy while the worker runs', () => {
         act(() => {
             root.render(<ValueChainCard cards={ready(fakeCards())} />);
         });
@@ -555,10 +556,12 @@ describe('ValueChainCard (PT-66)', () => {
                 phase: RealToolsWorkerPhase.Running,
             });
         });
-        expect(container.textContent).toContain('Computing...');
+        expect(container.textContent).not.toContain('Computing...');
+        const busy = container.querySelector('[aria-busy="true"]');
+        expect(hasComputingIndicator(busy)).toBe(true);
         expect(
-            container.querySelector('section')?.getAttribute('aria-busy'),
-        ).toBe('true');
+            busy?.querySelectorAll('[data-slot="skeleton"]').length,
+        ).toBeGreaterThan(0);
     });
 
     it('says so when the computation was cancelled', () => {
@@ -571,9 +574,7 @@ describe('ValueChainCard (PT-66)', () => {
             });
         });
         expect(container.textContent).toContain('Computation cancelled.');
-        expect(
-            container.querySelector('section')?.getAttribute('aria-busy'),
-        ).toBe('false');
+        expect(container.querySelector('[aria-busy="true"]')).toBeNull();
     });
 
     it('renders the results inside a polite live region', () => {
@@ -732,7 +733,10 @@ describe('FundedValueCard (PT-66)', () => {
         succeedFundedValue(null);
         expect(container.textContent).toContain('2.50 ± 0.04');
         expect(container.textContent).toContain('10.0%');
-        expect(container.textContent).toContain('enter a sample size');
+        expect(container.textContent).not.toContain(
+            'Range n accounts could show',
+        );
+        expect(container.textContent).not.toContain('n/a');
         expect(container.textContent).not.toContain(' to ');
     });
 
@@ -823,7 +827,7 @@ describe('FundedValueCard (PT-66)', () => {
         }
     });
 
-    it('shows a pending line and marks the section busy while the worker runs', () => {
+    it('shows the computing indicator with skeletons, not a pending line, and marks the panel busy while the worker runs', () => {
         act(() => {
             root.render(
                 <FundedValueCard
@@ -837,10 +841,12 @@ describe('FundedValueCard (PT-66)', () => {
                 phase: RealToolsWorkerPhase.Running,
             });
         });
-        expect(container.textContent).toContain('Computing...');
+        expect(container.textContent).not.toContain('Computing...');
+        const busy = container.querySelector('[aria-busy="true"]');
+        expect(hasComputingIndicator(busy)).toBe(true);
         expect(
-            container.querySelector('section')?.getAttribute('aria-busy'),
-        ).toBe('true');
+            busy?.querySelectorAll('[data-slot="skeleton"]').length,
+        ).toBeGreaterThan(0);
     });
 
     it('says so when the computation was cancelled', () => {

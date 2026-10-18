@@ -42,6 +42,7 @@ export const adaptLedger = (ledger: LedgerResponse): ProviderLedger => ({
 });
 
 export const adaptMutation = (m: MutationResponse): ProviderMutation => ({
+    amount: m.amount ?? null,
     date: m.date,
     description: m.description ?? null,
     externalId: m.id,

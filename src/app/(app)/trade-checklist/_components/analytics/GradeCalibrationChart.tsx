@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartColumn } from 'lucide-react';
 import { useMemo } from 'react';
 import {
     Bar,
@@ -18,6 +19,7 @@ import {
     type ChartConfig,
     ChartContainer,
 } from '~/components/ui/chart';
+import { EmptyState } from '~/components/ui/empty-state';
 import {
     gradeCalibration,
     type LightAssessment,
@@ -45,9 +47,11 @@ export function GradeCalibrationChart({
     );
 
     return data.length === 0 ? (
-        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-            Record outcome R values to see if A grades actually outperform B.
-        </div>
+        <EmptyState
+            description="Record outcome R values to see if A grades actually outperform B."
+            icon={ChartColumn}
+            title="No outcomes yet"
+        />
     ) : (
         <ChartContainer
             className="app-trade-checklist__grade-calibration-chart"

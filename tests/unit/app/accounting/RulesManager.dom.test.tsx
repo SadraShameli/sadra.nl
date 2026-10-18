@@ -39,8 +39,12 @@ const backend = vi.hoisted(() => {
         bankAccounts: [{ currency: 'EUR', id: 'bank-eur', ledger }],
         deleteBankAccount: vi.fn(),
         deleteRule: vi.fn(),
+        isBacktestFetching: false,
         reorderRules: vi.fn(),
         rules: [rule('rule-a', 'amazon', 0), rule('rule-b', 'bol', 1)],
+        source: undefined as
+            | undefined
+            | { id: string; isActive: boolean; kind: string; label: string },
         updateRule: vi.fn(),
     };
 });
@@ -65,7 +69,7 @@ vi.mock('~/trpc/react', () => {
                     backtest: {
                         useQuery: () => ({
                             data: undefined,
-                            isFetching: false,
+                            isFetching: backend.isBacktestFetching,
                         }),
                     },
                     create: mutationHook(vi.fn()),
@@ -107,7 +111,7 @@ vi.mock('~/app/(app)/accounting/_components/useActiveCredentials', () => ({
             label: 'Books',
         },
         isLoading: false,
-        source: undefined,
+        source: backend.source,
         sources: [],
     }),
 }));
@@ -141,6 +145,8 @@ describe('the rules manager rows', () => {
             root.unmount();
         });
         document.body.replaceChildren();
+        backend.isBacktestFetching = false;
+        backend.source = undefined;
         vi.clearAllMocks();
         vi.unstubAllGlobals();
     });
@@ -220,6 +226,26 @@ describe('the rules manager rows', () => {
             await new Promise((resolve) => setTimeout(resolve, 10));
         });
         expect(document.activeElement).toBe(trigger);
+    });
+
+    it('announces the running backtest to assistive technology', () => {
+        backend.source = {
+            id: 'wise',
+            isActive: true,
+            kind: 'wise',
+            label: 'Wise',
+        };
+        backend.isBacktestFetching = true;
+        act(() => {
+            root.render(<RulesManager />);
+        });
+        chooseRowAction('amazon', 'Edit');
+        const status = dialogTitled('Edit rule').querySelector(
+            ':scope [role="status"][aria-busy="true"]',
+        );
+        expect(status?.getAttribute('aria-label')).toBe(
+            'Checking against the last 90 days',
+        );
     });
 
     it('asks before deleting a bank account', () => {

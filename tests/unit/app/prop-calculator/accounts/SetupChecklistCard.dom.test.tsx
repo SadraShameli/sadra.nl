@@ -51,7 +51,7 @@ function modelOf(options: {
         rulebook: DEFAULT_RULEBOOK,
         staleSnapshotNotes: new Map(),
     });
-    const card = setupChecklistCardOf(checklist);
+    const card = setupChecklistCardOf(checklist, false);
     return options.hub ? { ...card, totalSteps: card.totalSteps - 1 } : card;
 }
 

@@ -53,6 +53,13 @@ const WINRATES = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6] as const;
 const RR_RATIOS = [1, 1.5, 2, 2.5, 3, 3.5, 4] as const;
 const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 300;
+const HEATMAP_CORNER_HEADER = 'WR ↓ RR →';
+const HEATMAP_TABLE_CLASS = cn(
+    'app-prop-calculator__sensitivity-table',
+    'text-xs tabular-nums',
+    'max-md:[&_td]:px-1',
+    'max-md:[&_tr>*:first-child]:sticky max-md:[&_tr>*:first-child]:left-0 max-md:[&_tr>*:first-child]:z-10 max-md:[&_tr>*:first-child]:bg-background max-md:[&_tr>*:first-child]:px-2',
+);
 
 interface HeatmapCardProperties {
     cells: Cell[];
@@ -214,8 +221,9 @@ function HeatmapCard({
     return (
         <ToolPanel
             className={`app-prop-calculator__sensitivity-${metric}`}
-            description={pending ? 'computing…' : legend}
+            description={legend}
             info={description}
+            isComputing={pending}
             title={title}
             titleAs="h3"
         >
@@ -277,7 +285,7 @@ function HeatmapCells({
                         {formatPercent(row.original.winrate, 0)}
                     </span>
                 ),
-                header: '↓ Winrate / RR →',
+                header: HEATMAP_CORNER_HEADER,
                 id: 'winrate',
                 meta: { isRowHeader: true },
             },
@@ -329,12 +337,12 @@ function HeatmapCells({
         <DataTable<HeatmapRow>
             columns={columns}
             data={rows}
-            isLoading={rows.length === 0}
+            isLoading={cells.length === 0}
             pageSize={null}
             phoneLayout={DataTablePhoneLayout.Scroll}
             rowId={(r) => String(r.winrate)}
             skeletonRows={WINRATES.length}
-            tableClassName="text-[11px] tabular-nums"
+            tableClassName={HEATMAP_TABLE_CLASS}
         />
     );
 }

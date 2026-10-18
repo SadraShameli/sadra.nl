@@ -1,16 +1,17 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Save, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ProfileFormFooter } from '~/app/(app)/profile/_components/ProfileFormFooter';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Button } from '~/components/ui/button';
 import { Field, FieldError, FieldLabel, FieldSet } from '~/components/ui/field';
-import { Input } from '~/components/ui/input';
+import { Input, NUMBER_INPUT_CLASS } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
     Select,
@@ -30,11 +31,20 @@ import {
     UNIT_LENGTH_VALUES,
     UNIT_WEIGHT_VALUES,
     WEEK_START_VALUES,
+    type WeekStart,
 } from '~/lib/lifting/types';
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type Settings = RouterOutputs['lifting']['settings']['get'];
+
+const WEEK_START_LABEL: Readonly<Record<WeekStart, string>> = {
+    mon: 'Monday',
+    sun: 'Sunday',
+};
+
+const LEAD_FIELD_COLUMNS_CLASS =
+    'md:grid-cols-[12rem_minmax(0,1fr)] md:gap-x-10';
 
 export function LiftingSettingsForm({ initial }: { initial: Settings }) {
     const utilities = api.useUtils();
@@ -95,10 +105,12 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
         };
         update.mutate(diff, {
             onSuccess: () => {
-                setSaved({
+                const next = {
                     ...values,
                     availablePlatesKg: [...values.availablePlatesKg],
-                });
+                };
+                setSaved(next);
+                form.reset(next);
             },
         });
     });
@@ -125,17 +137,6 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
 
     return (
         <ToolPanel
-            actions={
-                <Button
-                    disabled={update.isPending}
-                    form={formId}
-                    size="sm"
-                    type="submit"
-                >
-                    <Save className="size-4" />
-                    {update.isPending ? 'Saving…' : 'Save'}
-                </Button>
-            }
             description="Units, bar and plates, and rest defaults used across the lifting tools."
             title="Settings"
         >
@@ -161,7 +162,7 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                         aria-invalid={fieldState.invalid}
                                         id={`${formId}-unitWeight`}
                                     >
-                                        <SelectValue />
+                                        <SelectValue>{field.value}</SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {UNIT_WEIGHT_VALUES.map((v) => (
@@ -191,7 +192,7 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                         aria-invalid={fieldState.invalid}
                                         id={`${formId}-unitDistance`}
                                     >
-                                        <SelectValue />
+                                        <SelectValue>{field.value}</SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {UNIT_DISTANCE_VALUES.map((v) => (
@@ -221,7 +222,7 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                         aria-invalid={fieldState.invalid}
                                         id={`${formId}-unitLength`}
                                     >
-                                        <SelectValue />
+                                        <SelectValue>{field.value}</SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {UNIT_LENGTH_VALUES.map((v) => (
@@ -237,7 +238,10 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                     />
                 </Section>
 
-                <Section title="Bar and plates">
+                <Section
+                    className={LEAD_FIELD_COLUMNS_CLASS}
+                    title="Bar and plates"
+                >
                     <Controller
                         control={form.control}
                         name="barWeightKg"
@@ -248,6 +252,7 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                 </FieldLabel>
                                 <Input
                                     aria-invalid={fieldState.invalid}
+                                    className="tabular-nums"
                                     id={`${formId}-barWeightKg`}
                                     inputMode="decimal"
                                     onChange={(event) => {
@@ -280,6 +285,8 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                         </Label>
                         <div className="flex gap-2">
                             <Input
+                                aria-label={`Plate weight (${unitWeight})`}
+                                className={NUMBER_INPUT_CLASS}
                                 inputMode="decimal"
                                 onChange={(event) =>
                                     setPlateDraft(event.target.value)
@@ -330,7 +337,42 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                     </div>
                 </Section>
 
-                <Section title="Rest and week">
+                <Section
+                    className={LEAD_FIELD_COLUMNS_CLASS}
+                    title="Rest and week"
+                >
+                    <Controller
+                        control={form.control}
+                        name="weekStart"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-weekStart`}>
+                                    Week starts on
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-weekStart`}
+                                    >
+                                        <SelectValue>
+                                            {WEEK_START_LABEL[field.value]}
+                                        </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {WEEK_START_VALUES.map((v) => (
+                                            <SelectItem key={v} value={v}>
+                                                {WEEK_START_LABEL[v]}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
                     <Controller
                         control={form.control}
                         name="defaultRestSeconds"
@@ -343,6 +385,7 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                 </FieldLabel>
                                 <Input
                                     aria-invalid={fieldState.invalid}
+                                    className={NUMBER_INPUT_CLASS}
                                     id={`${formId}-defaultRestSeconds`}
                                     inputMode="numeric"
                                     min={0}
@@ -363,39 +406,15 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                             </Field>
                         )}
                     />
-                    <Controller
-                        control={form.control}
-                        name="weekStart"
-                        render={({ field, fieldState }) => (
-                            <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor={`${formId}-weekStart`}>
-                                    Week starts on
-                                </FieldLabel>
-                                <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                >
-                                    <SelectTrigger
-                                        aria-invalid={fieldState.invalid}
-                                        id={`${formId}-weekStart`}
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {WEEK_START_VALUES.map((v) => (
-                                            <SelectItem key={v} value={v}>
-                                                {v === 'mon'
-                                                    ? 'Monday'
-                                                    : 'Sunday'}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FieldError errors={[fieldState.error]} />
-                            </Field>
-                        )}
-                    />
                 </Section>
+                <ProfileFormFooter
+                    isDirty={form.formState.isDirty}
+                    isPending={update.isPending}
+                    onCancel={() => {
+                        form.reset();
+                        setPlateDraft('');
+                    }}
+                />
             </form>
         </ToolPanel>
     );

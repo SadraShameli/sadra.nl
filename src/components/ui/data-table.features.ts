@@ -148,6 +148,7 @@ export type DataTableServerPagination = {
     onPageIndexChange: (pageIndex: number) => void;
     pageIndex: number;
     pageSize: number;
+    totalCount?: number;
 };
 
 export type DataTableSlot<TData extends RowData> =

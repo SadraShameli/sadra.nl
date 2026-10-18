@@ -65,10 +65,12 @@ describe('recently used tools on the hub', () => {
         vi.unstubAllGlobals();
     });
 
-    it('keeps its row before any tool visit, with a note instead of links, so nothing below it moves', () => {
+    it('keeps its row before any tool visit, with a compact empty state instead of a plain note or links', () => {
         renderHub();
         expect(container.textContent).toContain('Recently used');
-        expect(container.textContent).toContain(
+        const empty = container.querySelector('[data-slot="empty"]');
+        expect(empty?.textContent).toContain('No tools opened yet');
+        expect(empty?.textContent).toContain(
             'The tools you open show up here.',
         );
         expect(container.querySelectorAll('a')).toHaveLength(0);

@@ -9,7 +9,13 @@ const CONJUNCTION_LIST = new Intl.ListFormat('en-GB', {
     type: 'conjunction',
 });
 
-const CURRENCY_NUMBER_FORMATS = new Map<number, Intl.NumberFormat>();
+const FIXED_NUMBER_FORMATS = new Map<number, Intl.NumberFormat>();
+
+const COUNT_FORMAT = new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 0,
+});
+
+const NUMBER_FORMATS = new Map<number, Intl.NumberFormat>();
 
 export function formatCompactCurrency(n: number): string {
     const abs = Math.abs(n);
@@ -26,9 +32,13 @@ export function formatConjunctionList(items: readonly string[]): string {
     return CONJUNCTION_LIST.format(items);
 }
 
+export function formatCount(n: number): string {
+    return COUNT_FORMAT.format(n);
+}
+
 export function formatCurrency(n: number, fractionDigits = 0): string {
     const sign = n < 0 ? '-' : '';
-    return `${sign}$${currencyNumberFormat(fractionDigits).format(Math.abs(n))}`;
+    return `${sign}$${fixedNumberFormat(fractionDigits).format(Math.abs(n))}`;
 }
 
 export function formatDays(d: number): string {
@@ -75,12 +85,16 @@ export function formatFiniteCurrency(n: number, fractionDigits = 0): string {
         : NOT_APPLICABLE;
 }
 
-export function formatGateCurrency(
-    amount: number,
-    { compact = false }: { compact?: boolean } = {},
-): string {
-    if (!Number.isSafeInteger(amount)) return formatCurrency(amount, 2);
-    return compact ? formatCompactCurrency(amount) : formatCurrency(amount);
+export function formatFixedNumber(n: number, fractionDigits = 2): string {
+    return fixedNumberFormat(fractionDigits).format(n);
+}
+
+export function formatNumber(n: number, maximumFractionDigits = 2): string {
+    const cached = NUMBER_FORMATS.get(maximumFractionDigits);
+    if (cached !== undefined) return cached.format(n);
+    const created = new Intl.NumberFormat('en-US', { maximumFractionDigits });
+    NUMBER_FORMATS.set(maximumFractionDigits, created);
+    return created.format(n);
 }
 
 export function formatOptionalPercent(
@@ -107,14 +121,22 @@ export function formatStreak(streak: number): string {
     return String(Math.round(streak));
 }
 
-function currencyNumberFormat(fractionDigits: number): Intl.NumberFormat {
-    const cached = CURRENCY_NUMBER_FORMATS.get(fractionDigits);
+export function formatWholeOrCentsCurrency(
+    amount: number,
+    { compact = false }: { compact?: boolean } = {},
+): string {
+    if (!Number.isSafeInteger(amount)) return formatCurrency(amount, 2);
+    return compact ? formatCompactCurrency(amount) : formatCurrency(amount);
+}
+
+function fixedNumberFormat(fractionDigits: number): Intl.NumberFormat {
+    const cached = FIXED_NUMBER_FORMATS.get(fractionDigits);
     if (cached !== undefined) return cached;
     const created = new Intl.NumberFormat('en-US', {
         maximumFractionDigits: fractionDigits,
         minimumFractionDigits: fractionDigits,
     });
-    CURRENCY_NUMBER_FORMATS.set(fractionDigits, created);
+    FIXED_NUMBER_FORMATS.set(fractionDigits, created);
     return created;
 }
 

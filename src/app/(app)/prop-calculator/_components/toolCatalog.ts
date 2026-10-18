@@ -19,7 +19,6 @@ import {
 import { BankrollUrlParameter } from '~/lib/schemas/bankrollUrlParameter';
 import { routes } from '~/lib/site/routes';
 
-import { panelDescriptions } from './kpiDescriptions';
 import { PageStateBlob } from './types';
 
 export enum ToolGroup {
@@ -67,10 +66,34 @@ export interface ToolCatalogEntry {
     usesCalculatorInputs: boolean;
 }
 
+export interface ToolGroupTools {
+    group: ToolGroup;
+    label: string;
+    tools: readonly [ToolCatalogEntry, ...ToolCatalogEntry[]];
+}
+
 type ToolDefinition = Omit<
     ToolCatalogEntry,
     'id' | 'ownUrlCodec' | 'sharesState' | 'usesCalculatorInputs'
 >;
+
+const TOOL_GROUP_LABELS: Readonly<Record<ToolGroup, string>> = {
+    [ToolGroup.Analyse]: 'Analyse',
+    [ToolGroup.Compare]: 'Compare',
+    [ToolGroup.Labs]: 'Labs',
+    [ToolGroup.Plan]: 'Plan',
+    [ToolGroup.Simulate]: 'Simulate',
+    [ToolGroup.Size]: 'Size',
+};
+
+const TOOL_GROUP_ORDER: readonly ToolGroup[] = [
+    ToolGroup.Simulate,
+    ToolGroup.Analyse,
+    ToolGroup.Size,
+    ToolGroup.Compare,
+    ToolGroup.Plan,
+    ToolGroup.Labs,
+];
 
 function calculatorTool(definition: ToolDefinition) {
     return {
@@ -110,7 +133,7 @@ const TOOL_DEFINITIONS = {
         route: routes.propCalculator.analysis,
     }),
     [ToolId.Bankroll]: calculatorTool({
-        blurb: 'How likely a batch ends net negative or runs out of cash, the budget your own loss-risk threshold needs, and a reinvesting projection with bands and path ruin.',
+        blurb: 'How likely a batch ends net negative or runs dry, the budget your loss-risk threshold needs, and a reinvesting projection.',
         featured: true,
         group: ToolGroup.Plan,
         hasPage: true,
@@ -119,7 +142,7 @@ const TOOL_DEFINITIONS = {
         route: routes.propCalculator.bankroll,
     }),
     [ToolId.CashFlow]: calculatorTool({
-        blurb: 'Rules-aware cash flow over time: eval purchases and retries, funded payouts and re-buys, with the P10 to P90 spread of cumulative net.',
+        blurb: 'Cash flow over time: eval buys and retries, funded payouts and re-buys, with the P10 to P90 spread of cumulative net.',
         featured: false,
         group: ToolGroup.Plan,
         hasPage: true,
@@ -137,7 +160,7 @@ const TOOL_DEFINITIONS = {
         route: routes.propCalculator.compare,
     }),
     [ToolId.FundedOptimizer]: calculatorTool({
-        blurb: 'Ranks funded-stage candidates under your retained cushion and payout request, in the same order and columns as the command-line funded optimizer.',
+        blurb: 'Ranks funded-stage candidates under your retained cushion and payout request, in the same order as the command-line optimizer.',
         featured: false,
         group: ToolGroup.Plan,
         hasPage: true,
@@ -165,7 +188,7 @@ const TOOL_DEFINITIONS = {
     }),
     [ToolId.PayoutPlanner]: ownCodecTool(
         {
-            blurb: 'From a balance, a peak and past payouts: payout readiness, the blocking gate, the rule-capped withdrawable and the net after the split.',
+            blurb: 'From a balance, peak and past payouts: readiness, the blocking gate, the rule-capped withdrawable and the net after the split.',
             featured: false,
             group: ToolGroup.Plan,
             hasPage: true,
@@ -176,7 +199,7 @@ const TOOL_DEFINITIONS = {
         ToolUrlCodec.PayoutPlanner,
     ),
     [ToolId.Planner]: calculatorTool({
-        blurb: panelDescriptions.portfolio,
+        blurb: 'A basket of accounts across any mix of firms and plans, with combined monthly income, total eval spend and portfolio ROI.',
         featured: false,
         group: ToolGroup.Plan,
         hasPage: true,
@@ -311,4 +334,23 @@ export function toolCatalogEntry(id: ToolId): ToolCatalogEntry {
 
 export function toolForPathname(pathname: string): null | ToolCatalogEntry {
     return TOOLS_BY_ROUTE.get(pathname) ?? null;
+}
+
+export function toolsByGroup(
+    catalog: readonly ToolCatalogEntry[],
+): readonly ToolGroupTools[] {
+    const groups: ToolGroupTools[] = [];
+    for (const group of TOOL_GROUP_ORDER) {
+        const [first, ...rest] = catalog.filter(
+            (entry) => entry.group === group,
+        );
+        if (first !== undefined) {
+            groups.push({
+                group,
+                label: TOOL_GROUP_LABELS[group],
+                tools: [first, ...rest],
+            });
+        }
+    }
+    return groups;
 }

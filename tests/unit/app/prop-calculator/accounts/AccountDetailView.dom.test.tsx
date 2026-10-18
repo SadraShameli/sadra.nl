@@ -78,6 +78,7 @@ import {
 } from '../../../components/rowActionsMenu';
 import { transfer } from '../../../lib/prop-accounts/metrics/ledgerFixtures';
 import { withInfoTexts } from '../infoPopover';
+import { statStripValue } from '../statStripValue';
 import { openDisclosure } from './openDisclosure';
 import { pickOption } from './pickOption';
 
@@ -847,9 +848,7 @@ describe('AccountDetailView', () => {
         render();
         const chain = sectionTitled('Replacement chain');
         expect(chain.textContent).not.toContain('Measured rebuy lag');
-        expect(chain.textContent).toContain(
-            'This account does not replace another account.',
-        );
+        expect(chain.textContent).toContain('Not part of a replacement chain');
     });
 
     it('notes paid payouts that have no net amount', () => {
@@ -1044,7 +1043,7 @@ describe('AccountDetailView', () => {
         render();
         const violations = sectionTitled('Violations');
         expect(violations.textContent).toContain(
-            'No rule violations recorded yet.',
+            'No rule violations recorded yet',
         );
         const dialog = openRecordDialog(
             violations,
@@ -1129,6 +1128,15 @@ describe('AccountDetailView', () => {
         expect(state.textContent).toContain('Floor');
         expect(state.textContent).toContain('Cushion');
         expect(state.textContent).not.toContain('unavailable');
+        expect(statStripValue(state, 'Floor')?.textContent).toMatch(
+            /^\$\d{1,3}(?:,\d{3})*$/u,
+        );
+        expect(['locked', 'not locked']).toContain(
+            statStripValue(state, 'Lock')?.textContent,
+        );
+        expect(statStripValue(state, 'Cushion')?.textContent).toMatch(
+            /^-?\$\d{1,3}(?:,\d{3})*$/u,
+        );
     });
 
     it('mounts the value and next payout section, the live transition preview and the simulate link once the state reconstructs (PT-37)', () => {

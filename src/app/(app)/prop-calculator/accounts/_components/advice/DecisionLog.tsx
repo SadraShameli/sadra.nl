@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { PencilLine } from 'lucide-react';
+import { NotebookPen, PencilLine } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ import {
     type DataTableColumn,
 } from '~/components/ui/data-table';
 import { Dialog } from '~/components/ui/dialog';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import { errorMessage } from '~/lib/errorMessage';
@@ -146,9 +147,11 @@ export function DecisionLog({
                 </p>
             )}
             {decisions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No sizing decisions have been logged yet.
-                </p>
+                <EmptyState
+                    icon={NotebookPen}
+                    size={EmptyStateSize.Compact}
+                    title="No sizing decisions logged yet"
+                />
             ) : (
                 <DataTable
                     columns={[
@@ -210,7 +213,7 @@ function adherenceText(decision: DecisionRow, stepCents: number): string {
     const followed = isDecisionFollowed(decision, stepCents);
     if (followed === null || decision.actualRiskCents === null) return '';
     const verdict = followed ? 'followed' : 'not followed';
-    if (decision.acceptedRiskCents === 0) return `n/a, ${verdict}`;
+    if (decision.acceptedRiskCents === 0) return verdict;
     const ratio = decision.actualRiskCents / decision.acceptedRiskCents;
     return `${(ratio * 100).toFixed(0)}% of the accepted size, ${verdict}`;
 }

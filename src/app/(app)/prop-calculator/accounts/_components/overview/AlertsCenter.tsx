@@ -1,7 +1,8 @@
-import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
+import { BellOff, CircleAlert, Info, TriangleAlert } from 'lucide-react';
 
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { Badge } from '~/components/ui/badge';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { AlertSeverity } from '~/lib/prop-accounts';
 import { cn } from '~/lib/utilities';
 
@@ -22,9 +23,11 @@ export function AlertsCenter({
 }) {
     if (alerts.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground">
-                No alerts right now.
-            </p>
+            <EmptyState
+                icon={BellOff}
+                size={EmptyStateSize.Compact}
+                title="No alerts right now"
+            />
         );
     }
     return (

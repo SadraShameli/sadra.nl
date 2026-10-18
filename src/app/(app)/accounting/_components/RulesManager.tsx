@@ -14,6 +14,7 @@ import type {
 
 import { FormDialog } from '~/components/FormDialog';
 import { InfoNote } from '~/components/InfoNote';
+import { TitledCardSkeleton } from '~/components/PageSkeleton';
 import {
     deleteRowAction,
     editRowAction,
@@ -32,7 +33,7 @@ import {
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { DateRangePicker } from '~/components/ui/date-picker';
 import { Dialog } from '~/components/ui/dialog';
-import { EmptyState, EmptyStatePanel } from '~/components/ui/empty-state';
+import { EmptyState } from '~/components/ui/empty-state';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import {
@@ -42,16 +43,29 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
+import { CurrencyAmount } from '~/lib/accounting/core/money';
 import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
+import { CredentialRole } from '~/lib/accounting/credentials/index';
 import { api } from '~/trpc/react';
 
-import { DirectionBadge, directionLabel } from './DirectionBadge';
+import { dialogModeOf, dialogSubmitLabels } from './dialogSubmitLabels';
+import {
+    DIRECTION_OPTIONS,
+    DirectionBadge,
+    directionLabel,
+} from './DirectionBadge';
 import { LedgerCombobox } from './LedgerCombobox';
+import { NoConnectionPanel } from './NoConnectionState';
 import { useActiveCredentials } from './useActiveCredentials';
 import { type TaxCodeOption, useTaxCodes } from './useTaxCodes';
 
 const VAT_NONE = '__none__';
+const BANK_ACCOUNTS_TITLE = 'Bank accounts';
+const RULES_TITLE = 'Rules';
+const BACKTEST_LOOKBACK_DAYS = 90;
+const BACKTEST_CHECKING_LABEL = `Checking against the last ${String(BACKTEST_LOOKBACK_DAYS)} days`;
 const toastError = (error: { message: string }) => toast.error(error.message);
 
 export interface RuleFormDialogPrefill {
@@ -232,7 +246,7 @@ export function RuleFormDialog({
 
     const today = new Date();
     const ninetyDaysAgo = new Date(today);
-    ninetyDaysAgo.setDate(today.getDate() - 90);
+    ninetyDaysAgo.setDate(today.getDate() - BACKTEST_LOOKBACK_DAYS);
     const backtestQ = api.accounting.rules.backtest.useQuery(
         {
             credentialId: sourceCredentialId ?? '',
@@ -267,8 +281,8 @@ export function RuleFormDialog({
             onSubmit={submit}
             pending={isPending}
             submitDisabled={!canSave}
-            submitLabel={isEdit ? 'Save changes' : 'Create rule'}
             title={isEdit ? 'Edit rule' : 'New rule'}
+            {...dialogSubmitLabels(dialogModeOf(isEdit))}
         >
             <Controller
                 control={form.control}
@@ -423,7 +437,7 @@ export function RuleFormDialog({
 }
 
 export function RulesManager() {
-    const { accounting, source } = useActiveCredentials();
+    const { accounting, isLoading, source } = useActiveCredentials();
     const credentialId = accounting?.id ?? '';
 
     const ledgersQ = api.accounting.ledgers.list.useQuery(
@@ -441,7 +455,12 @@ export function RulesManager() {
 
     return (
         <div className="flex flex-col gap-6">
-            {credentialId ? (
+            {isLoading ? (
+                <>
+                    <TitledCardSkeleton title={BANK_ACCOUNTS_TITLE} />
+                    <TitledCardSkeleton title={RULES_TITLE} />
+                </>
+            ) : credentialId ? (
                 <>
                     <BankAccountsCard
                         credentialId={credentialId}
@@ -454,10 +473,7 @@ export function RulesManager() {
                     />
                 </>
             ) : (
-                <EmptyStatePanel
-                    description="Add an accounting credential in Connections to manage its bank accounts and booking rules."
-                    title="No accounting credential"
-                />
+                <NoConnectionPanel role={CredentialRole.Accounting} />
             )}
         </div>
     );
@@ -476,16 +492,29 @@ function BacktestPreview({
     };
 }) {
     if (query.isFetching && !query.data) {
-        return <InfoNote>Checking against the last 90 days…</InfoNote>;
+        return (
+            <Skeleton
+                aria-busy
+                aria-label={BACKTEST_CHECKING_LABEL}
+                className="h-12 w-full rounded-lg"
+                role="status"
+            />
+        );
     }
     if (!query.data) return null;
     const totals = Object.entries(query.data.totalByCurrency)
-        .map(([code, amount]) => `${amount.toFixed(2)} ${code}`)
+        .map(([code, amount]) => {
+            const currency = currencyCodeSchema.safeParse(code);
+            return currency.success
+                ? CurrencyAmount.format({ amount, currency: currency.data })
+                : `${String(amount)} ${code}`;
+        })
         .join(', ');
     return (
         <InfoNote>
             Would match <strong>{query.data.matchCount}</strong> of{' '}
-            {query.data.transactionCount} transaction(s) in the last 90 days
+            {query.data.transactionCount} transaction(s) in the last{' '}
+            {BACKTEST_LOOKBACK_DAYS} days
             {totals ? `, totaling ${totals}` : ''}.
         </InfoNote>
     );
@@ -549,8 +578,8 @@ function BankAccountFormDialog({
             onSubmit={submit}
             pending={upsert.isPending}
             submitDisabled={!canSave}
-            submitLabel={isEdit ? 'Save changes' : 'Create account'}
             title={isEdit ? 'Edit bank account' : 'New bank account'}
+            {...dialogSubmitLabels(dialogModeOf(isEdit))}
         >
             <Controller
                 control={form.control}
@@ -663,45 +692,44 @@ function BankAccountsCard({
             }
             contentClassName="gap-3"
             description="Map each bank account or currency to the ledger it books to."
-            title="Bank accounts"
+            title={BANK_ACCOUNTS_TITLE}
         >
-            <DataTable
-                columns={columns}
-                data={allAccounts}
-                emptyState={(table) => (
-                    <EmptyState
-                        description={
-                            hasActiveTableFilter(table)
-                                ? 'No bank accounts match the current filters.'
-                                : 'Map a Wise currency to a ledger to start importing.'
-                        }
-                        icon={Landmark}
-                        title={
-                            hasActiveTableFilter(table)
-                                ? 'No matches'
-                                : 'No bank accounts'
-                        }
-                    />
-                )}
-                filterPlaceholder="Search accounts…"
-                headerActions={(table) => (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <DataTableFacetSelect
-                            column={table.getColumn('currency')}
-                            placeholder="All currencies"
+            {!banksQ.isPending && allAccounts.length === 0 ? (
+                <EmptyState
+                    description="Map a bank currency to a ledger to start importing."
+                    icon={Landmark}
+                    title="No bank accounts"
+                />
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={allAccounts}
+                    emptyState={
+                        <EmptyState
+                            description="No bank accounts match these filters."
+                            icon={Landmark}
+                            title="No matches"
                         />
-                        <DataTableFacetSelect
-                            column={table.getColumn('ledger')}
-                            placeholder="All ledgers"
-                        />
-                    </div>
-                )}
-                initialSorting={[{ desc: false, id: 'currency' }]}
-                isLoading={banksQ.isPending}
-                pageSize={25}
-                rowId={(r) => r.id}
-                showFilter
-            />
+                    }
+                    filterPlaceholder="Search accounts…"
+                    headerActions={(table) => (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <DataTableFacetSelect
+                                column={table.getColumn('currency')}
+                                placeholder="All currencies"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('ledger')}
+                                placeholder="All ledgers"
+                            />
+                        </div>
+                    )}
+                    initialSorting={[{ desc: false, id: 'currency' }]}
+                    isLoading={banksQ.isPending}
+                    rowId={(r) => r.id}
+                    showFilter
+                />
+            )}
             <Dialog
                 onOpenChange={(isOpen) => {
                     if (!isOpen) setForm(null);
@@ -730,15 +758,25 @@ function DirectionSelect({
 }) {
     return (
         <Select
-            onValueChange={(v) => onChange(v as BookingDirection)}
+            onValueChange={(v) =>
+                onChange(
+                    DIRECTION_OPTIONS.find((o) => o.value === v)?.value ??
+                        value,
+                )
+            }
             value={value}
         >
             <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue />
+                <SelectValue>
+                    {DIRECTION_OPTIONS.find((o) => o.value === value)?.label}
+                </SelectValue>
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="OUT">OUT</SelectItem>
-                <SelectItem value="IN">IN</SelectItem>
+                {DIRECTION_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                    </SelectItem>
+                ))}
             </SelectContent>
         </Select>
     );
@@ -769,9 +807,14 @@ function MatchTypeSelect({
     value: MatchType;
 }) {
     return (
-        <Select onValueChange={(v) => onChange(v as MatchType)} value={value}>
+        <Select
+            onValueChange={(v) =>
+                onChange(MATCH_TYPES.find((t) => t === v) ?? value)
+            }
+            value={value}
+        >
             <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue />
+                <SelectValue>{MATCH_TYPE_LABEL[value]}</SelectValue>
             </SelectTrigger>
             <SelectContent>
                 {MATCH_TYPES.map((t) => (
@@ -953,50 +996,49 @@ function RulesCard({
             }
             contentClassName="gap-3"
             description="Match a counterpart to a ledger, a direction and a VAT code."
-            title="Rules"
+            title={RULES_TITLE}
         >
-            <DataTable
-                columns={columns}
-                data={allRules}
-                emptyState={(table) => (
-                    <EmptyState
-                        description={
-                            hasActiveTableFilter(table)
-                                ? 'No rules match the current filters.'
-                                : 'Add a rule to classify transactions.'
-                        }
-                        icon={Filter}
-                        title={
-                            hasActiveTableFilter(table)
-                                ? 'No matches'
-                                : 'No rules yet'
-                        }
-                    />
-                )}
-                filterPlaceholder="Search rules…"
-                headerActions={(table) => (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <DataTableFacetSelect
-                            column={table.getColumn('direction')}
-                            format={directionLabel}
-                            placeholder="All directions"
+            {!rulesQ.isPending && allRules.length === 0 ? (
+                <EmptyState
+                    description="Rules decide how each transaction is booked."
+                    icon={Filter}
+                    title="No rules yet"
+                />
+            ) : (
+                <DataTable
+                    columns={columns}
+                    data={allRules}
+                    emptyState={
+                        <EmptyState
+                            description="No rules match these filters."
+                            icon={Filter}
+                            title="No matches"
                         />
-                        <DataTableFacetSelect
-                            column={table.getColumn('ledger')}
-                            placeholder="All ledgers"
-                        />
-                        <DataTableFacetSelect
-                            column={table.getColumn('taxCode')}
-                            format={labelOf}
-                            placeholder="All VAT codes"
-                        />
-                    </div>
-                )}
-                isLoading={rulesQ.isPending}
-                pageSize={25}
-                rowId={(r) => r.id}
-                showFilter
-            />
+                    }
+                    filterPlaceholder="Search rules…"
+                    headerActions={(table) => (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <DataTableFacetSelect
+                                column={table.getColumn('direction')}
+                                format={directionLabel}
+                                placeholder="All directions"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('ledger')}
+                                placeholder="All ledgers"
+                            />
+                            <DataTableFacetSelect
+                                column={table.getColumn('taxCode')}
+                                format={labelOf}
+                                placeholder="All VAT codes"
+                            />
+                        </div>
+                    )}
+                    isLoading={rulesQ.isPending}
+                    rowId={(r) => r.id}
+                    showFilter
+                />
+            )}
             <Dialog
                 onOpenChange={(isOpen) => {
                     if (!isOpen) setForm(null);
@@ -1029,7 +1071,9 @@ function VatSelect({
     return (
         <Select onValueChange={onChange} value={value}>
             <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue placeholder="VAT code" />
+                <SelectValue placeholder="VAT code">
+                    {options.find((o) => o.code === value)?.label}
+                </SelectValue>
             </SelectTrigger>
             <SelectContent>
                 {options.map((o) => (

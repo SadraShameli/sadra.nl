@@ -9,6 +9,7 @@ import type { Booking, LedgerReference } from '~/lib/accounting/core/types';
 import { StatStrip } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Skeleton } from '~/components/ui/skeleton';
 import { Eur } from '~/lib/accounting/core/money';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { type RunStatus } from '~/lib/accounting/runs/types';
@@ -118,7 +119,12 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
                 <span className="text-sm text-ink-muted">
                     Created {formatDisplayDateTime(run.createdAt)} ·
                     transactions since {formatDisplayDate(run.startDate)} ·
-                    target {targetLabel}
+                    target{' '}
+                    {credentialsQ.isPending ? (
+                        <Skeleton className="inline-block h-4 w-24 align-middle" />
+                    ) : (
+                        targetLabel
+                    )}
                 </span>
             </div>
 

@@ -17,7 +17,7 @@ export default function BreakevenMonthHistogramView({ result }: Properties) {
             barColor="var(--success)"
             barLabel="Trials"
             binCount={BIN_COUNT}
-            emptyMessage="No trials went cash-flow positive within this horizon."
+            emptyMessage="No trials went cash-flow positive within this horizon"
             size={ChartSize.Tall}
             values={result.breakEvenMonthValues}
             wrapperClassName="app-prop-calculator__breakeven-month-histogram"

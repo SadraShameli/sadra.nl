@@ -45,6 +45,7 @@ import {
     purchased,
     transfer,
 } from '../../lib/prop-accounts/metrics/ledgerFixtures';
+import { missingValueText } from './missingValue';
 import { statStripValue } from './statStripValue';
 
 interface FakeQuery {
@@ -662,7 +663,7 @@ describe('HubAccountsTeaser', () => {
             });
             render();
             expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
-            expect(statValue('Alerts')).toBe('n/a');
+            expect(statValue('Alerts')).toBe(missingValueText());
             expect(container.textContent).toContain(
                 'The alert count could not be checked: transfers down',
             );
@@ -684,7 +685,7 @@ describe('HubAccountsTeaser', () => {
             render();
             expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
             expect(statValue('Net')).toBe(formatUsdCents(usdCents(120_000)));
-            expect(statValue('Alerts')).toBe('n/a');
+            expect(statValue('Alerts')).toBe(missingValueText());
             expect(container.textContent).toContain(
                 'The alert count could not be checked: Your stored rulebook is not valid: x',
             );
@@ -701,7 +702,7 @@ describe('HubAccountsTeaser', () => {
             });
             render();
             expect(statValue('Spend')).toBe(formatUsdCents(usdCents(20_000)));
-            expect(statValue('Alerts')).toBe('n/a');
+            expect(statValue('Alerts')).toBe(missingValueText());
             expect(container.textContent).toContain(
                 'The alert count could not be checked: Your events could not be loaded: x',
             );

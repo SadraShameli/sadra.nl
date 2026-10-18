@@ -13,6 +13,8 @@ import {
 } from '~/components/ui/chart';
 import { histogram } from '~/lib/prop-calculator/stats';
 
+import { ChartEmptyState } from './ChartEmptyState';
+
 interface HistogramChartViewProperties {
     barColor: string;
     barLabel: string;
@@ -50,11 +52,7 @@ export default function HistogramChartView({
     xAxisTickFormatter,
 }: HistogramChartViewProperties) {
     if (values.length === 0) {
-        return (
-            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                {emptyMessage}
-            </div>
-        );
+        return <ChartEmptyState title={emptyMessage} />;
     }
 
     const bins: HistogramRow[] = histogram(values, binCount).map((b) => ({

@@ -1,11 +1,13 @@
 'use client';
 
+import { ListChecks } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { executionDeviationLabel } from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip, StatTone } from '~/components/StatStrip';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { formatPercent, formatR } from '~/lib/format';
 import {
     deviationFrequency,
@@ -83,9 +85,12 @@ export function ExecutionImpactPanel({
             <div className="flex flex-col gap-2">
                 <PanelSubheading>Most frequent deviations</PanelSubheading>
                 {freq.length === 0 ? (
-                    <p className="m-0 text-sm text-muted-foreground">
-                        No deviations recorded yet.
-                    </p>
+                    <EmptyState
+                        description="Deviations you tag when recording outcomes show up here."
+                        icon={ListChecks}
+                        size={EmptyStateSize.Compact}
+                        title="No deviations yet"
+                    />
                 ) : (
                     <ul
                         className={cn(

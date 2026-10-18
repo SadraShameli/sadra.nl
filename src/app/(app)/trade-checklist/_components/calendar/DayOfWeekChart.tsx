@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartColumn } from 'lucide-react';
 import { useMemo } from 'react';
 import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
 
@@ -11,6 +12,7 @@ import {
     ChartContainer,
     ChartSize,
 } from '~/components/ui/chart';
+import { EmptyState } from '~/components/ui/empty-state';
 import { formatPercent } from '~/lib/format';
 import { dayOfWeekStats, type LightAssessment } from '~/lib/trading/analytics';
 
@@ -73,8 +75,10 @@ export function DayOfWeekChart({
             </BarChart>
         </ChartContainer>
     ) : (
-        <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-            Record outcomes across weekdays to see day-of-week edge.
-        </div>
+        <EmptyState
+            description="Record outcomes across weekdays to see day-of-week edge."
+            icon={ChartColumn}
+            title="No outcomes yet"
+        />
     );
 }

@@ -52,4 +52,17 @@ describe('the journal assessments table', () => {
             document.body.querySelector(':scope [role="dialog"]')?.textContent,
         ).toContain(`${row.score.toFixed(1)} / 100`);
     });
+
+    it('swaps the filters and table for a call to run the checklist before any assessment exists', () => {
+        act(() => {
+            root.render(<JournalView history={[]} plans={[]} />);
+        });
+        const links = [...container.querySelectorAll('a')].map((link) => [
+            link.textContent,
+            link.getAttribute('href'),
+        ]);
+        expect(links).toEqual([['Run the checklist', '/trade-checklist']]);
+        expect(container.querySelector('table')).toBeNull();
+        expect(container.querySelector('input')).toBeNull();
+    });
 });

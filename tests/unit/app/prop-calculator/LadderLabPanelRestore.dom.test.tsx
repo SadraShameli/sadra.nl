@@ -19,7 +19,7 @@ import {
     RUNG_SIZING_LABELS,
     UNAFFORDABLE_RUNG_LABEL,
 } from '~/app/(app)/prop-calculator/_components/rungSizingLabels';
-import { formatGateCurrency } from '~/lib/format';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     ApexVariant,
     DayStopRuleKind,
@@ -229,7 +229,7 @@ describe('LadderLabPanel restored from the result slot', () => {
         expect(fieldValue('Rungs')).toBe('3');
         expect(fieldValue('Sims per ladder')).toBe('1234');
         expect(selectedText(labelledSelect(container, 'Instrument'))).toBe(
-            `${InstrumentSymbol.ES} (${formatGateCurrency(INSTRUMENTS[InstrumentSymbol.ES].pointValue)}/pt)`,
+            `${InstrumentSymbol.ES} (${formatWholeOrCentsCurrency(INSTRUMENTS[InstrumentSymbol.ES].pointValue)}/pt)`,
         );
         expect(
             selectedText(labelledSelect(container, UNAFFORDABLE_RUNG_LABEL)),

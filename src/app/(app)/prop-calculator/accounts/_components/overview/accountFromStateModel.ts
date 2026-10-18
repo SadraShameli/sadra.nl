@@ -399,11 +399,10 @@ function nextPayoutModelOf(
                 return NEXT_PAYOUT_ELIGIBLE_NOW_TEXT;
             }
             case NextPayoutTimingKind.InDays: {
-                const standardError =
-                    estimate.standardError === null
-                        ? NOT_APPLICABLE
-                        : estimate.standardError.toFixed(1);
-                return `${estimate.value.toFixed(1)} ${unit} (SE ${standardError})`;
+                const value = `${estimate.value.toFixed(1)} ${unit}`;
+                return estimate.standardError === null
+                    ? value
+                    : `${value} (SE ${estimate.standardError.toFixed(1)})`;
             }
             case NextPayoutTimingKind.NoTrialPaid: {
                 return NEXT_PAYOUT_NO_TRIAL_PAID_TEXT;

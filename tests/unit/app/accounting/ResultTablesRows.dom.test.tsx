@@ -139,6 +139,29 @@ describe('the run result rows', () => {
         });
     });
 
+    it('reads each conversion as a sentence with the fee on its own line', () => {
+        act(() => {
+            root.render(
+                <BookingsTable
+                    bookings={[
+                        { ...BOOKING, notes: ['USD@ECB1.1188'] },
+                        { ...BOOKING, notes: ['EUR+fee0.50'], txnId: 'card-2' },
+                    ]}
+                    credentialId="books"
+                    ledgerOptions={[SOFTWARE]}
+                    onEdit={vi.fn()}
+                    rules={[]}
+                />,
+            );
+        });
+        const body = container.querySelector('tbody')?.textContent ?? '';
+        expect(body).toContain('USD → EUR at 1.1188 (ECB)');
+        expect(body).toContain('EUR, no conversion');
+        expect(body).toContain('Fee €0.50');
+        expect(body).not.toContain('@ECB');
+        expect(body).not.toContain('+fee');
+    });
+
     it('starts a rule for an unknown counterpart from its row menu', () => {
         act(() => {
             root.render(
@@ -160,7 +183,7 @@ describe('the run result rows', () => {
             [...dialog.querySelectorAll(':scope [role="combobox"]')].map(
                 (select) => select.textContent,
             ),
-        ).toContain('IN');
+        ).toContain('In');
     });
 
     it('offers no row menu on unknowns when no rule can be created', () => {

@@ -10,8 +10,9 @@ import { type z } from 'zod';
 import {
     MutedCell,
     PrimaryCell,
-    ProfileTableEmpty,
+    ProfileCollectionEmpty,
 } from '~/app/(app)/profile/_components/ProfileTable';
+import { NoMatchesState } from '~/components/ui/empty-state';
 import { FormDialog } from '~/components/FormDialog';
 import { FormTextField } from '~/components/FormFields';
 import {
@@ -25,7 +26,6 @@ import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveTableFilter,
 } from '~/components/ui/data-table';
 import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { Dialog } from '~/components/ui/dialog';
@@ -177,41 +177,48 @@ export function ExercisesManager() {
                 description="Your own exercises. Built-in exercises are managed centrally."
                 title="Exercises"
             >
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={(table) => (
-                        <ProfileTableEmpty
-                            action={newButton}
-                            description="Add an exercise the built-in library is missing."
-                            filtered={hasActiveTableFilter(table)}
-                            icon={Dumbbell}
-                            noun="custom exercises"
-                        />
-                    )}
-                    filterPlaceholder="Search exercises…"
-                    headerActions={(table) => (
-                        <>
-                            <DataTableFacetSelect
-                                column={table.getColumn(ExerciseColumn.Muscle)}
-                                format={capitalized}
-                                label="Muscle"
-                                placeholder="All muscles"
+                {!query.isLoading && rows.length === 0 ? (
+                    <ProfileCollectionEmpty
+                        description="Add an exercise the built-in library is missing."
+                        icon={Dumbbell}
+                        noun="custom exercises"
+                    />
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={
+                            <NoMatchesState
+                                icon={Dumbbell}
+                                noun="custom exercises"
                             />
-                            <DataTableFacetSelect
-                                column={table.getColumn(
-                                    ExerciseColumn.Equipment,
-                                )}
-                                format={capitalized}
-                                label="Equipment"
-                                placeholder="All equipment"
-                            />
-                        </>
-                    )}
-                    isLoading={query.isLoading}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
+                        }
+                        filterPlaceholder="Search exercises…"
+                        headerActions={(table) => (
+                            <>
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        ExerciseColumn.Muscle,
+                                    )}
+                                    format={capitalized}
+                                    label="Muscle"
+                                    placeholder="All muscles"
+                                />
+                                <DataTableFacetSelect
+                                    column={table.getColumn(
+                                        ExerciseColumn.Equipment,
+                                    )}
+                                    format={capitalized}
+                                    label="Equipment"
+                                    placeholder="All equipment"
+                                />
+                            </>
+                        )}
+                        isLoading={query.isLoading}
+                        rowId={(r) => r.id}
+                        showFilter
+                    />
+                )}
             </ToolPanel>
 
             <ExerciseDialog
@@ -286,7 +293,13 @@ function EnumSelect({
                             aria-invalid={fieldState.invalid}
                             id={`${formId}-${field.name}`}
                         >
-                            <SelectValue />
+                            <SelectValue>
+                                {values.includes(field.value) ? (
+                                    <span className="capitalize">
+                                        {field.value}
+                                    </span>
+                                ) : undefined}
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {values.map((v) => (
@@ -344,7 +357,7 @@ function ExerciseDialog({
                     label="Name"
                     name="name"
                 />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <EnumSelect
                         control={form.control}
                         label="Primary muscle"

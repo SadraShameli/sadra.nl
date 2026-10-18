@@ -87,7 +87,7 @@ describe('FundedPayoutsCard', () => {
     it('draws only the modeled distribution while no funded account is fully observed, and says so', () => {
         render(model([row({ realizedProbabilities: [] })]));
         expect(container.textContent).toContain(
-            'No fully observed funded account yet, so there is no realized distribution.',
+            'Realized distribution: no fully observed funded account yet.',
         );
         expect(
             container.querySelectorAll(
@@ -96,10 +96,29 @@ describe('FundedPayoutsCard', () => {
         ).toHaveLength(1);
     });
 
-    it('draws only the realized distribution while the engine has not answered', () => {
+    it('draws the realized distribution beside a placeholder while the engine has not answered', () => {
+        render(
+            model([
+                row({
+                    modeledFundedValue: 'Pending',
+                    modeledProbabilities: null,
+                }),
+            ]),
+        );
+        expect(
+            container.querySelectorAll(
+                '.app-prop-calculator__accounts-passed-chart',
+            ),
+        ).toHaveLength(1);
+        expect(
+            container.querySelector('[data-slot="skeleton"]'),
+        ).not.toBeNull();
+    });
+
+    it('draws only the realized distribution and says the engine has none when it answered without one', () => {
         render(model([row({ modeledProbabilities: null })]));
         expect(container.textContent).toContain(
-            'The modeled distribution is pending the engine cards.',
+            'Modeled distribution: the engine has none for this plan.',
         );
         expect(
             container.querySelectorAll(

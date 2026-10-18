@@ -11,11 +11,14 @@ import {
     ToolsRequestKind,
     ToolsResponseKind,
 } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { NOT_APPLICABLE } from '~/lib/format';
 import {
     BankrollLeverKind,
     BankrollLeverLabel,
 } from '~/lib/prop-calculator/economics';
 import { type SimOutputs } from '~/lib/prop-calculator/simulator';
+
+import { hasComputingIndicator } from '../computingIndicator';
 
 const currentState = vi.hoisted(() => ({
     isPending: false,
@@ -165,6 +168,14 @@ function monthEndRows() {
 function requireInput(element: Element | null): HTMLInputElement {
     if (element === null) throw new Error('expected the input to exist');
     return element as HTMLInputElement;
+}
+
+function runWorker(index: number): void {
+    act(() => {
+        toolsWorkerBox.instances[index]?.setState({
+            phase: RealToolsWorkerPhase.Running,
+        });
+    });
 }
 
 function setInputValue(input: HTMLInputElement, value: string): void {
@@ -620,7 +631,7 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         );
     });
 
-    it('says the Projection card is simulating, not asking for inputs, while its filled-in request runs', () => {
+    it('shows the Projection card computing indicator and skeletons, not asking for inputs, while its filled-in request runs', () => {
         act(() => {
             root.render(<BankrollView />);
         });
@@ -648,9 +659,13 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
         const projection = container.querySelector(
             'section[aria-labelledby="bankroll-projection-heading"]',
         );
-        expect(projection?.querySelector('[role="status"]')?.textContent).toBe(
-            'Simulating, this can take a few seconds.',
-        );
+        expect(hasComputingIndicator(projection)).toBe(true);
+        expect(projection?.textContent).not.toContain('Simulating');
+        expect(
+            projection?.querySelector(
+                ':scope [aria-busy="true"] [data-slot="skeleton"]',
+            ),
+        ).not.toBeNull();
         expect(projection?.textContent).not.toContain(
             'Enter a starting bankroll and a horizon to project.',
         );
@@ -1486,4 +1501,193 @@ describe('BankrollView (PT-62a): no video figure renders unless the user typed t
             expect(runSpy).toHaveBeenCalledTimes(1);
         });
     });
+});
+
+describe('BankrollView panels: inputs beside results, one field per row, skeletons while computing', () => {
+    let root: Root;
+    let container: HTMLElement;
+
+    const SECTIONS = [
+        'bankroll-setup-heading',
+        'bankroll-projection-heading',
+        'bankroll-two-strategies-heading',
+        'bankroll-batch-heading',
+        'bankroll-same-ev-heading',
+        'bankroll-levers-heading',
+        'bankroll-spend-payout-curve-heading',
+    ] as const;
+
+    const FIELD_LABEL_COUNT = 27;
+    const MAX_LABEL_WORDS = 3;
+
+    beforeEach(() => {
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        toolsWorkerBox.instances = [];
+        currentState.isPending = false;
+        currentState.result = fakeSimOutputs();
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+        act(() => {
+            root.render(<BankrollView />);
+        });
+    });
+
+    afterEach(() => {
+        act(() => root.unmount());
+        container.remove();
+        vi.unstubAllGlobals();
+    });
+
+    function sectionOf(headingId: string): HTMLElement {
+        const section = container.querySelector<HTMLElement>(
+            `section[aria-labelledby="${CSS.escape(headingId)}"]`,
+        );
+        if (section === null) throw new Error(`no section ${headingId}`);
+        return section;
+    }
+
+    function columnsOf(headingId: string): {
+        inputs: Element;
+        results: Element;
+    } {
+        const layout = sectionOf(headingId).querySelector(
+            '.app-inputs-beside-results',
+        );
+        const [inputs, results] = [...(layout?.children ?? [])];
+        if (inputs === undefined || results === undefined) {
+            throw new Error(`no inputs beside results in ${headingId}`);
+        }
+        return { inputs, results };
+    }
+
+    function type(id: string, value: string): void {
+        act(() => {
+            setInputValue(requireInput(container.querySelector(id)), value);
+        });
+    }
+
+    it.each(SECTIONS)(
+        'puts every %s field in one column of one field group, before the results',
+        (headingId) => {
+            const { inputs, results } = columnsOf(headingId);
+            const group = inputs.querySelector('[data-slot="field-group"]');
+            expect(group).not.toBeNull();
+            expect(inputs.querySelector('[class*="grid-cols"]')).toBeNull();
+            const fields = [...sectionOf(headingId).querySelectorAll('input')];
+            expect(fields.length).toBeGreaterThan(0);
+            for (const field of fields) {
+                expect(group?.contains(field)).toBe(true);
+            }
+            expect(results.querySelector('input')).toBeNull();
+        },
+    );
+
+    it('keeps every field label short and moves its units, ranges and notes behind an info button', () => {
+        const labels = [
+            ...container.querySelectorAll('[data-slot="field-label"]'),
+        ];
+        expect(labels).toHaveLength(FIELD_LABEL_COUNT);
+        for (const label of labels) {
+            const text = label.textContent;
+            expect(text.split(' ').length).toBeLessThanOrEqual(MAX_LABEL_WORDS);
+            expect(text).not.toMatch(/[$(),]/);
+            expect(text.toLowerCase()).not.toContain('optional');
+            expect(label.nextElementSibling?.getAttribute('aria-label')).toBe(
+                `About ${text}`,
+            );
+        }
+    });
+
+    it.each(SECTIONS.filter((id) => id !== 'bankroll-setup-heading'))(
+        'shows an empty state instead of figures in %s before its inputs are entered',
+        (headingId) => {
+            const { results } = columnsOf(headingId);
+            expect(results.querySelector('[data-slot="empty"]')).not.toBeNull();
+            expect(results.textContent).toContain('No result yet');
+            expect(results.querySelector('[data-slot="skeleton"]')).toBeNull();
+            expect(results.textContent).not.toContain(NOT_APPLICABLE);
+        },
+    );
+
+    it('asks for a budget on the Setup panel instead of showing n/a budget figures', () => {
+        const { results } = columnsOf('bankroll-setup-heading');
+        expect(results.textContent).toContain(
+            'Enter a budget to price the batch it buys.',
+        );
+        expect(results.textContent).not.toContain('Attempts affordable');
+        expect(results.textContent).toContain('Attempt cost');
+    });
+
+    it.each([
+        {
+            enter: () => {
+                type('#bankroll-budget', '5000');
+            },
+            headingId: 'bankroll-setup-heading',
+            index: 0,
+        },
+        {
+            enter: () => {
+                type('#bankroll-start', '5000');
+                type('#bankroll-horizon', '180');
+            },
+            headingId: 'bankroll-projection-heading',
+            index: 1,
+        },
+        {
+            enter: () => {
+                type('#bankroll-two-strategies-start', '5000');
+                type('#bankroll-two-strategies-horizon', '60');
+                type('#bankroll-two-strategies-risk-b', '500');
+            },
+            headingId: 'bankroll-two-strategies-heading',
+            index: 2,
+        },
+        {
+            enter: () => {
+                type('#bankroll-batch-attempts', '40');
+            },
+            headingId: 'bankroll-batch-heading',
+            index: 3,
+        },
+        {
+            enter: () => {
+                type('#bankroll-same-ev-bankroll', '5000');
+                type('#bankroll-same-ev-risk-b', '500');
+            },
+            headingId: 'bankroll-same-ev-heading',
+            index: 4,
+        },
+        {
+            enter: () => {
+                type('#bankroll-levers-bankroll', '5000');
+                type('#bankroll-levers-risks', '200, 300');
+            },
+            headingId: 'bankroll-levers-heading',
+            index: 5,
+        },
+        {
+            enter: () => {
+                type('#bankroll-curve-budgets', '5000, 10000');
+            },
+            headingId: 'bankroll-spend-payout-curve-heading',
+            index: 6,
+        },
+    ])(
+        'shows skeletons shaped like the result in $headingId while it computes, never a zero dollar, zero percent or n/a placeholder',
+        ({ enter, headingId, index }) => {
+            enter();
+            runWorker(index);
+            const { results } = columnsOf(headingId);
+            expect(
+                results.querySelectorAll('[data-slot="skeleton"]').length,
+            ).toBeGreaterThan(0);
+            expect(results.querySelector('[data-slot="empty"]')).toBeNull();
+            const text = results.textContent;
+            expect(text).not.toMatch(/\$0(?![\d,.])/);
+            expect(text).not.toMatch(/(?<![\d.])0\.0%/);
+            expect(text).not.toContain(NOT_APPLICABLE);
+        },
+    );
 });

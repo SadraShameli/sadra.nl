@@ -21,11 +21,16 @@ import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
-import { Progress } from '~/components/ui/progress';
+import { formatCurrency, formatWholeOrCentsCurrency } from '~/lib/format';
 import { saveAssessment } from '~/lib/trading/actions';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 
+import {
+    ComponentScoreMeter,
+    ComponentScoresNotScored,
+    hasScoredComponents,
+} from './ComponentScores';
 import { OutcomeDialog } from './OutcomeDialog';
 import { ReasonListPanel } from './ReasonListPanel';
 
@@ -132,7 +137,8 @@ export function AnalysisReport({
                                 detail={
                                     <>
                                         Plan: {plan.name} · Risk on this
-                                        account: ${dollars.toLocaleString()}
+                                        account:{' '}
+                                        {formatWholeOrCentsCurrency(dollars)}
                                     </>
                                 }
                                 title={recommendationHeadline(
@@ -166,7 +172,9 @@ export function AnalysisReport({
                                             }
                                         >
                                             {isRiskAllowed
-                                                ? `$${recommendedDollars.toLocaleString()}`
+                                                ? formatCurrency(
+                                                      recommendedDollars,
+                                                  )
                                                 : '$0'}
                                         </span>
                                     ),
@@ -194,30 +202,26 @@ export function AnalysisReport({
                 contentClassName="grid gap-4 md:grid-cols-2"
                 title="Scorecard"
             >
-                {WEIGHT_CATEGORIES.map(({ hint, key, label }) => {
-                    const s = result.componentScores[key];
-                    const pct =
-                        s.max > 0 ? Math.min(100, (s.earned / s.max) * 100) : 0;
-                    return (
+                {hasScoredComponents(result.componentScores) ? (
+                    WEIGHT_CATEGORIES.map(({ hint, key, label }) => (
                         <div
-                            className="rounded-lg border border-border/60 p-3"
+                            className="flex flex-col gap-1.5 rounded-lg border border-border/60 p-3"
                             key={key}
                         >
-                            <div className="flex items-baseline justify-between">
-                                <p className="text-sm font-medium text-foreground">
-                                    {label}
-                                </p>
-                                <p className="font-mono text-xs text-muted-foreground">
-                                    {s.earned.toFixed(1)} / {s.max}
-                                </p>
-                            </div>
-                            <Progress className="mt-2" value={pct} />
-                            <p className="mt-1.5 text-xs text-muted-foreground">
-                                {s.note || hint}
+                            <ComponentScoreMeter
+                                label={label}
+                                score={result.componentScores[key]}
+                            />
+                            <p className="m-0 text-xs text-muted-foreground">
+                                {result.componentScores[key].note || hint}
                             </p>
                         </div>
-                    );
-                })}
+                    ))
+                ) : (
+                    <div className="md:col-span-2">
+                        <ComponentScoresNotScored />
+                    </div>
+                )}
             </ToolPanel>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -372,16 +376,16 @@ function recommendationHeadline(
         case 'marginal': {
             return sized === 0
                 ? 'Sit this one out.'
-                : `Marginal setup: consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
+                : `Marginal setup: consider reduced size (${formatCurrency(sized)} vs ${formatWholeOrCentsCurrency(base)} standard).`;
         }
         case 'skip': {
             return 'Skip this setup.';
         }
         case 'strong-take': {
-            return `Take this trade at full risk ($${sized.toLocaleString()}).`;
+            return `Take this trade at full risk (${formatCurrency(sized)}).`;
         }
         case 'take': {
-            return `Take this trade ($${sized.toLocaleString()}).`;
+            return `Take this trade (${formatCurrency(sized)}).`;
         }
     }
 }

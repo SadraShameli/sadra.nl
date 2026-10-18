@@ -144,7 +144,7 @@ describe('the decision log shows adherence from the one library notion (PT-108 s
         ]);
     });
 
-    it('shows "n/a" with the verdict at a zero accepted size', () => {
+    it('shows only the verdict at a zero accepted size, with no share of it', () => {
         render([
             decisionOf({
                 acceptedRiskCents: usdCents(0),
@@ -152,7 +152,7 @@ describe('the decision log shows adherence from the one library notion (PT-108 s
             }),
         ]);
 
-        expect(adherenceCells()).toEqual(['n/a, followed']);
+        expect(adherenceCells()).toEqual(['followed']);
     });
 
     it('shows nothing for a decision whose actual risk is not recorded', () => {

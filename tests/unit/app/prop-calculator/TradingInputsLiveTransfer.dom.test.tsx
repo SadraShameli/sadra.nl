@@ -2,10 +2,10 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
 import TradingInputs from '~/app/(app)/prop-calculator/_components/TradingInputs';
 
 import { infoText } from './infoPopover';
+import { tradingInputsProperties } from './tradingInputsFixture';
 
 function hazardInput(): HTMLInputElement {
     const input = document.body.querySelector<HTMLInputElement>(
@@ -19,70 +19,12 @@ function renderInputs(
     hazard: number,
     onChange: (n: number) => void,
 ): React.ReactElement {
-    const state = defaultCalculatorState();
-    const noop = vi.fn();
     return (
         <TradingInputs
-            activationDiscountPercent={state.activationDiscountPercent}
-            commissionPerRoundTrip={state.commissionPerRoundTrip}
-            copyAccounts={state.copyAccounts}
-            dayStop={state.dayStop}
-            evalDiscountPercent={state.evalDiscountPercent}
-            firmDisplayName={state.firm.displayName}
-            idleDayProbability={state.idleDayProbability}
-            instrument={state.instrument}
-            linkActivationDiscount={state.linkActivationDiscount}
-            liveTransferHazard={hazard}
-            maxAttempts={state.maxAttempts}
-            maxCopyAccounts={state.firm.maxFundedAccounts(state.plan)}
-            maxEvalDays={state.maxEvalDays}
-            monthlySubscriptionDiscountPercent={
-                state.monthlySubscriptionDiscountPercent
-            }
-            onActivationDiscountPercentChange={noop}
-            onCommissionPerRoundTripChange={noop}
-            onCopyAccountsChange={noop}
-            onDayStopChange={noop}
-            onEvalDiscountPercentChange={noop}
-            onIdleDayProbabilityChange={noop}
-            onInstrumentChange={noop}
-            onLinkActivationDiscountChange={noop}
-            onLiveTransferHazardChange={onChange}
-            onMaxAttemptsChange={noop}
-            onMaxEvalDaysChange={noop}
-            onMonthlySubscriptionDiscountPercentChange={noop}
-            onPayoutRequestSizeChange={noop}
-            onResetCoupon={noop}
-            onResetDiscountPercentChange={noop}
-            onRetainedCushionChange={noop}
-            onRiskDollarsChange={noop}
-            onRiskPercentChange={noop}
-            onRrRatioChange={noop}
-            onRungSizingChange={noop}
-            onSeedChange={noop}
-            onSizingModeChange={noop}
-            onStopPointsChange={noop}
-            onTakesFundedResetChange={noop}
-            onTakesOneTimeEarlyWithdrawalChange={noop}
-            onTradesPerDayChange={noop}
-            onTrialsChange={noop}
-            onWinrateChange={noop}
-            payoutRequestSize={state.payoutRequestSize}
-            plan={state.plan}
-            resetDiscountPercent={state.resetDiscountPercent}
-            retainedCushion={state.retainedCushion}
-            riskDollars={state.riskDollars}
-            riskPercent={state.riskPercent}
-            rrRatio={state.rrRatio}
-            rungSizing={state.rungSizing}
-            seed={state.seed}
-            sizingMode={state.sizingMode}
-            stopPoints={state.stopPoints}
-            takesFundedReset={state.takesFundedReset}
-            takesOneTimeEarlyWithdrawal={state.takesOneTimeEarlyWithdrawal}
-            tradesPerDay={state.tradesPerDay}
-            trials={state.trials}
-            winrate={state.winrate}
+            {...tradingInputsProperties({
+                liveTransferHazard: hazard,
+                onLiveTransferHazardChange: onChange,
+            })}
         />
     );
 }

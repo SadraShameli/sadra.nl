@@ -41,7 +41,7 @@ export default function InfoPopover({
                     aria-label={`About ${title}`}
                     className={cn(
                         'relative size-4 rounded-full p-0 text-muted-foreground',
-                        'before:absolute before:top-1/2 before:left-1/2 before:size-6 before:-translate-1/2 pointer-coarse:before:size-11',
+                        'before:absolute before:top-1/2 before:left-1/2 before:size-8 before:-translate-1/2 pointer-coarse:before:size-11',
                         className,
                     )}
                     size="sm"

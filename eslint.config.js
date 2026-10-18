@@ -83,8 +83,37 @@ const EDITORIAL_FILES = [
     'src/app/(app)/_components/Portfolio/**/*.tsx',
 ];
 
+const PARENT_IMPORT_PATTERN = {
+    message:
+        "Import through the ~/ alias (for example '~/lib/...'); only same-folder './' imports stay relative.",
+    regex: String.raw`^\.\.(?:/|$)`,
+};
+
+const RELATIVE_TIME_MESSAGE =
+    'Show relative times with RelativeTime from ~/components/RelativeTime, which formats after hydration so the server and client render the same text.';
+
 const DATE_FORMAT_MESSAGE =
     'Format dates for display with formatDisplayDate, formatDisplayDateTime, formatDisplayDateRange or formatDisplayMonth from ~/lib/format, so every page shows one format (18 Oct 2026, 08:58).';
+
+const NUMBER_FORMAT_MESSAGE =
+    'Format numbers for display with formatCount, formatNumber, formatCurrency or formatPercent from ~/lib/format, so every page groups and rounds the same way.';
+
+const METRIC_RESTRICTIONS = [
+    {
+        message:
+            'Show figures with StatStrip and label and value facts with DetailList from ~/components, not a hand-built dl, dt or dd list.',
+        selector: 'JSXOpeningElement[name.name=/^(dl|dt|dd)$/]',
+    },
+];
+
+const NUMBER_FORMAT_RESTRICTIONS = [
+    { message: NUMBER_FORMAT_MESSAGE, property: 'toLocaleString' },
+    {
+        message: NUMBER_FORMAT_MESSAGE,
+        object: 'Intl',
+        property: 'NumberFormat',
+    },
+];
 
 const CHART_RESTRICTIONS = [
     {
@@ -220,15 +249,7 @@ const config = defineConfig(
         rules: {
             'no-restricted-imports': [
                 'error',
-                {
-                    patterns: [
-                        {
-                            message:
-                                "Import through the ~/ alias (for example '~/lib/...'); only same-folder './' imports stay relative.",
-                            regex: String.raw`^\.\.(?:/|$)`,
-                        },
-                    ],
-                },
+                { patterns: [PARENT_IMPORT_PATTERN] },
             ],
             'no-restricted-syntax': ['error', ...RHF_WATCH_RESTRICTIONS],
         },
@@ -258,6 +279,16 @@ const config = defineConfig(
                                 'Use a type-* utility (type-micro, type-eyebrow, type-small, type-body, type-lead) or text-xs, text-sm, text-base instead of an arbitrary font size.',
                             pattern: String.raw`^(?:[\w\[\]&=:>*-]+:)*text-\[\d+(?:\.\d+)?(?:px|rem|em)\](?:\/.+)?$`,
                         },
+                        {
+                            message:
+                                'The sm breakpoint is 375px here, so sm:grid-cols-* splits a phone screen. Keep one column on phone and split from md: or lg:.',
+                            pattern: String.raw`^(?:[\w\[\]&=:>*-]+:)*sm:(?:[\w\[\]&=:>*-]+:)*grid-cols-.+$`,
+                        },
+                        {
+                            message:
+                                'Show work in progress with Spinner from ~/components/ui/spinner, the one place that spins.',
+                            pattern: String.raw`^(?:[\w\[\]&=:>*-]+:)*animate-spin$`,
+                        },
                     ],
                 },
             ],
@@ -266,6 +297,22 @@ const config = defineConfig(
     {
         files: ['src/components/**/*.tsx'],
         ignores: ['src/components/ui/**', 'src/components/ToolPanel.tsx'],
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                ...RHF_WATCH_RESTRICTIONS,
+                ...NATIVE_CONTROL_RESTRICTIONS,
+                ...CHART_RESTRICTIONS,
+                ...PANEL_RESTRICTIONS,
+                ...METRIC_RESTRICTIONS,
+            ],
+        },
+    },
+    {
+        files: [
+            'src/components/StatStrip.tsx',
+            'src/components/DetailList.tsx',
+        ],
         rules: {
             'no-restricted-syntax': [
                 'error',
@@ -288,6 +335,7 @@ const config = defineConfig(
                 ...PANEL_RESTRICTIONS,
                 ...STATUS_RESTRICTIONS,
                 ...HEADING_RESTRICTIONS,
+                ...METRIC_RESTRICTIONS,
             ],
         },
     },
@@ -301,6 +349,7 @@ const config = defineConfig(
                 ...CHART_RESTRICTIONS,
                 ...PANEL_RESTRICTIONS,
                 ...STATUS_RESTRICTIONS,
+                ...METRIC_RESTRICTIONS,
             ],
         },
     },
@@ -316,7 +365,13 @@ const config = defineConfig(
                             message: DATE_FORMAT_MESSAGE,
                             name: 'date-fns',
                         },
+                        {
+                            importNames: ['formatDistanceToNow'],
+                            message: RELATIVE_TIME_MESSAGE,
+                            name: 'date-fns',
+                        },
                     ],
+                    patterns: [PARENT_IMPORT_PATTERN],
                 },
             ],
             'no-restricted-properties': [
@@ -334,6 +389,17 @@ const config = defineConfig(
                     object: 'Intl',
                     property: 'DateTimeFormat',
                 },
+                ...NUMBER_FORMAT_RESTRICTIONS,
+            ],
+        },
+    },
+    {
+        files: ['src/components/**/*.{ts,tsx}'],
+        ignores: ['src/components/ui/**'],
+        rules: {
+            'no-restricted-properties': [
+                'error',
+                ...NUMBER_FORMAT_RESTRICTIONS,
             ],
         },
     },

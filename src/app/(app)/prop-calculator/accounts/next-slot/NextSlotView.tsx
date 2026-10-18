@@ -1,5 +1,6 @@
 'use client';
 
+import { ListOrdered } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 import { z } from 'zod';
 
@@ -9,6 +10,16 @@ import {
 } from '~/app/(app)/prop-calculator/_components/ObjectiveChip';
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import { NextSlotSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import {
+    type FigureColumn,
+    figureColumns,
+    FigureText,
+} from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import {
+    hasFigure,
+    isPendingFigure,
+} from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
 import {
     EVENT_LIST_INPUT,
     LEDGER_LIST_INPUT,
@@ -25,6 +36,7 @@ import {
     DataTableAlign,
     type DataTableColumn,
 } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import { Field, FieldLabel } from '~/components/ui/field';
 import InfoPopover from '~/components/ui/info-popover';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -168,11 +180,7 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
         );
     }
     if (model === null) {
-        return (
-            <div aria-busy="true" aria-label="Loading next slot">
-                <Skeleton className="h-64 w-full" />
-            </div>
-        );
+        return <NextSlotSkeleton />;
     }
     return (
         <div className="flex flex-col gap-8">
@@ -192,6 +200,7 @@ export function NextSlotView({ userId }: { readonly userId: string }) {
             <Section
                 id="ranked"
                 info={<RankedInfo model={model} />}
+                isComputing={model.isProvisional}
                 title="Ranked"
             >
                 <RankedTable
@@ -241,10 +250,18 @@ function ListedSection({
     readonly title: string;
 }) {
     if (groups.length === 0) return null;
+    const isComputing = groups.some((group) =>
+        group.plans.some((row) => isPendingFigure(row.documentedNet)),
+    );
     return (
-        <Section description={description} id={id} title={title}>
+        <Section
+            description={description}
+            id={id}
+            isComputing={isComputing}
+            title={title}
+        >
             <DataTable
-                columns={LISTED_COLUMNS}
+                columns={listedColumnsOf(groups)}
                 data={listedLinesOf(groups)}
                 isSortable={false}
                 labelledBy={`next-slot-${id}`}
@@ -288,19 +305,15 @@ function Progress({ model }: { readonly model: NextSlotModel }) {
 function rankedFigure(
     id: RankedColumn,
     header: string,
-    figure: (row: NextSlotRankedViewRow) => ReactNode,
+    textOf: (row: NextSlotRankedViewRow) => string,
     isMuted = false,
-): DataTableColumn<NextSlotRankedViewRow> {
+): FigureColumn<NextSlotRankedViewRow> {
     return {
-        cell: ({ row: { original: row } }) =>
-            isMuted ? (
-                <span className="text-muted-foreground">{figure(row)}</span>
-            ) : (
-                figure(row)
-            ),
+        align: DataTableAlign.End,
+        className: isMuted ? 'text-muted-foreground' : undefined,
         header,
         id,
-        meta: { align: DataTableAlign.End },
+        textOf,
     };
 }
 
@@ -316,7 +329,7 @@ function rankedNotesOf(row: NextSlotRankedViewRow): readonly string[] {
     ].filter((note): note is string => note !== null);
 }
 
-const RANKED_COLUMNS: DataTableColumn<NextSlotRankedViewRow>[] = [
+const RANKED_LEAD_COLUMNS: DataTableColumn<NextSlotRankedViewRow>[] = [
     {
         cell: ({ row: { original: row } }) => (
             <span className="tabular-nums">{row.rank}</span>
@@ -349,6 +362,9 @@ const RANKED_COLUMNS: DataTableColumn<NextSlotRankedViewRow>[] = [
         id: RankedColumn.Plan,
         meta: { isRowHeader: true },
     },
+];
+
+const RANKED_FIGURE_COLUMNS: readonly FigureColumn<NextSlotRankedViewRow>[] = [
     rankedFigure(
         RankedColumn.DocumentedNet,
         'Documented monthly net, credit-inclusive',
@@ -428,6 +444,45 @@ type ListedLineRow =
 
 type ListedPlanRow = NextSlotListedFirmGroup['plans'][number];
 
+function listedColumnsOf(
+    groups: readonly NextSlotListedFirmGroup[],
+): DataTableColumn<ListedLineRow>[] {
+    const plans = groups.flatMap((group) => group.plans);
+    const hasPlanReason = plans.some((row) => row.reasons.length > 0);
+    const hasDocumentedNet = plans.some((row) => hasFigure(row.documentedNet));
+    return [
+        {
+            cell: listedPlanCell((row) => row.plan),
+            header: 'Plan',
+            id: ListedColumn.Plan,
+            meta: { isRowHeader: true },
+        },
+        ...(hasDocumentedNet
+            ? [
+                  {
+                      cell: listedPlanCell((row) => (
+                          <FigureText text={row.documentedNet} />
+                      )),
+                      header: 'Documented monthly net, credit-inclusive',
+                      id: ListedColumn.DocumentedNet,
+                      meta: { align: DataTableAlign.End },
+                  },
+              ]
+            : []),
+        ...(hasPlanReason
+            ? [
+                  {
+                      cell: listedPlanCell((row) => (
+                          <ReasonList reasons={row.reasons} />
+                      )),
+                      header: 'Plan reason',
+                      id: ListedColumn.PlanReason,
+                  },
+              ]
+            : []),
+    ];
+}
+
 function listedLinesOf(
     groups: readonly NextSlotListedFirmGroup[],
 ): ListedLineRow[] {
@@ -446,26 +501,6 @@ function listedPlanCell(
     return ({ row: { original: line } }) =>
         line.kind === ListedLine.Plan ? render(line.row) : null;
 }
-
-const LISTED_COLUMNS: DataTableColumn<ListedLineRow>[] = [
-    {
-        cell: listedPlanCell((row) => row.plan),
-        header: 'Plan',
-        id: ListedColumn.Plan,
-        meta: { isRowHeader: true },
-    },
-    {
-        cell: listedPlanCell((row) => row.documentedNet),
-        header: 'Documented monthly net, credit-inclusive',
-        id: ListedColumn.DocumentedNet,
-        meta: { align: DataTableAlign.End },
-    },
-    {
-        cell: listedPlanCell((row) => <ReasonList reasons={row.reasons} />),
-        header: 'Plan reason',
-        id: ListedColumn.PlanReason,
-    },
-];
 
 function RankedInfo({ model }: { readonly model: NextSlotModel }) {
     return (
@@ -535,13 +570,22 @@ function RankedTable({
                 <InfoNote>{model.capacityNote}</InfoNote>
             )}
             {model.ranked.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No plan is ranked yet: every plan is either still computing
-                    or listed below with its reason.
-                </p>
+                model.isProvisional ? (
+                    <Skeleton className="h-40 w-full" />
+                ) : (
+                    <EmptyState
+                        description="Every plan is listed below with its reason."
+                        icon={ListOrdered}
+                        size={EmptyStateSize.Compact}
+                        title="No plan to rank"
+                    />
+                )
             ) : (
                 <DataTable
-                    columns={RANKED_COLUMNS}
+                    columns={[
+                        ...RANKED_LEAD_COLUMNS,
+                        ...figureColumns(RANKED_FIGURE_COLUMNS, model.ranked),
+                    ]}
                     data={[...model.ranked]}
                     isSortable={false}
                     labelledBy="next-slot-ranked"
@@ -569,12 +613,14 @@ function Section({
     description,
     id,
     info,
+    isComputing = false,
     title,
 }: {
     readonly children: ReactNode;
     readonly description?: string;
     readonly id: string;
     readonly info?: ReactNode;
+    readonly isComputing?: boolean;
     readonly title: string;
 }) {
     return (
@@ -582,6 +628,7 @@ function Section({
             <ToolPanel
                 description={description}
                 info={info}
+                isComputing={isComputing}
                 title={title}
                 titleId={`next-slot-${id}`}
             >

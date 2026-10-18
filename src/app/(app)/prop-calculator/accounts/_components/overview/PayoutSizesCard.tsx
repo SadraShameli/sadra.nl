@@ -1,8 +1,11 @@
 'use client';
 
+import { HandCoins } from 'lucide-react';
 import { memo } from 'react';
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 
+import { FigureText } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
+import { hasFigure } from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { StatStrip } from '~/components/StatStrip';
 import {
@@ -21,7 +24,11 @@ import { formatCompactCurrency } from '~/lib/format';
 import { type HistogramBin } from '~/lib/prop-calculator/stats';
 
 import { type PayoutSizesCardModel } from './overviewModel';
-import { infoLinesOf, OverviewPanel } from './OverviewPanel';
+import {
+    infoLinesOf,
+    OverviewEmptyPanel,
+    OverviewPanel,
+} from './OverviewPanel';
 import { OverviewSectionId } from './overviewSections';
 
 const histogramConfig: ChartConfig = {
@@ -35,11 +42,11 @@ export const PayoutSizesCard = memo(function PayoutSizesCard({
 }) {
     if (model.count === 0) {
         return (
-            <OverviewPanel section={OverviewSectionId.PayoutSizes}>
-                <p className="text-sm text-muted-foreground">
-                    No paid payout yet.
-                </p>
-            </OverviewPanel>
+            <OverviewEmptyPanel
+                icon={HandCoins}
+                section={OverviewSectionId.PayoutSizes}
+                title="No paid payout yet"
+            />
         );
     }
     return (
@@ -54,7 +61,7 @@ export const PayoutSizesCard = memo(function PayoutSizesCard({
                     { id: 'median', label: 'Median', value: model.median },
                     { id: 'p10', label: 'p10', value: model.p10 },
                     { id: 'p90', label: 'p90', value: model.p90 },
-                ]}
+                ].filter((item) => hasFigure(item.value))}
             />
             <div className="flex flex-col gap-2">
                 <PayoutHistogram bins={model.histogram} />
@@ -186,7 +193,7 @@ function payoutSizeColumns(
             meta: { align: DataTableAlign.End },
         },
         {
-            cell: ({ row: { original: row } }) => row.mean,
+            cell: ({ row }) => <FigureText text={row.original.mean} />,
             header: 'Mean payout',
             id: PayoutSizeColumn.Mean,
             meta: { align: DataTableAlign.End },
@@ -197,7 +204,9 @@ function payoutSizeColumns(
         : [
               ...columns,
               {
-                  cell: ({ row: { original: row } }) => row.median,
+                  cell: ({ row }) => (
+                      <FigureText text={row.original.median ?? ''} />
+                  ),
                   header: medianLabel,
                   id: PayoutSizeColumn.Median,
                   meta: { align: DataTableAlign.End },

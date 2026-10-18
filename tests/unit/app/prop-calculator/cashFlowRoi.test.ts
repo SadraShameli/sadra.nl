@@ -4,24 +4,24 @@ import { cashFlowRoiOnSpend } from '~/app/(app)/prop-calculator/_components/cash
 import { KpiAccent } from '~/app/(app)/prop-calculator/_components/kpiAccent';
 
 describe('cashFlowRoiOnSpend (R1-29)', () => {
-    it('shows n/a with a neutral accent at zero spend instead of a green 0%', () => {
+    it('leaves the figure empty, not n/a text, with a neutral accent at zero spend instead of a green 0%', () => {
         expect(cashFlowRoiOnSpend(1500, 0)).toEqual({
             accent: KpiAccent.Neutral,
-            text: 'n/a',
+            text: null,
         });
     });
 
-    it('shows n/a with a neutral accent at zero spend and a loss', () => {
+    it('leaves the figure empty, not n/a text, with a neutral accent at zero spend and a loss', () => {
         expect(cashFlowRoiOnSpend(-200, 0)).toEqual({
             accent: KpiAccent.Neutral,
-            text: 'n/a',
+            text: null,
         });
     });
 
-    it('shows n/a when there is no result yet', () => {
+    it('leaves the figure empty, not n/a text, when there is no result yet', () => {
         expect(cashFlowRoiOnSpend(0, 0)).toEqual({
             accent: KpiAccent.Neutral,
-            text: 'n/a',
+            text: null,
         });
     });
 

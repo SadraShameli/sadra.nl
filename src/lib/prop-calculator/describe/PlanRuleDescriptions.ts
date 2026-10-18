@@ -1,7 +1,7 @@
 import {
     formatCurrency,
-    formatGateCurrency,
     formatPercent,
+    formatWholeOrCentsCurrency,
     NOT_APPLICABLE,
 } from '~/lib/format';
 import {
@@ -363,7 +363,7 @@ export function describePlanRules(plan: Plan): readonly PlanRuleLine[] {
                       segment(
                           PlanRuleSegmentKind.PayoutLadder,
                           'payout ladder',
-                          `${plan.payoutLadder.steps.map((step) => formatGateCurrency(step)).join(', ')}; min request ${formatCurrency(plan.payoutLadder.minRequestAmount)}`,
+                          `${plan.payoutLadder.steps.map((step) => formatWholeOrCentsCurrency(step)).join(', ')}; min request ${formatCurrency(plan.payoutLadder.minRequestAmount)}`,
                       ),
                   ],
               ]
@@ -533,7 +533,7 @@ function describePerCyclePayoutGate(minimum: Dollars): string {
     const threshold =
         minimum <= ONE_CENT
             ? `above ${formatCurrency(0)}`
-            : `at least ${formatGateCurrency(minimum)}`;
+            : `at least ${formatWholeOrCentsCurrency(minimum)}`;
     return `${threshold}, ${FIRST_PAYOUT_WAIVER}`;
 }
 

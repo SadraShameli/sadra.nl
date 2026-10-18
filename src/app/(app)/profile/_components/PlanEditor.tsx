@@ -18,7 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { GripVertical, Plus, Save, Trash2 } from 'lucide-react';
+import { GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useTransition } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -30,6 +30,7 @@ import type {
     TradingPlanRow,
 } from '~/lib/trading/types';
 
+import { ProfileFormFooter } from '~/app/(app)/profile/_components/ProfileFormFooter';
 import { LabelWithInfo } from '~/components/LabelWithInfo';
 import { useBlockNavigationWhile } from '~/components/NavigationBlocker';
 import { PanelSubheading } from '~/components/PanelSubheading';
@@ -37,7 +38,11 @@ import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { CheckboxCard, SwitchCard } from '~/components/ToggleCard';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
-import { Input } from '~/components/ui/input';
+import {
+    Input,
+    NUMBER_FIELD_ROW_CLASS,
+    NUMBER_INPUT_CLASS,
+} from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Slider } from '~/components/ui/slider';
 import { TimeInput } from '~/components/ui/time-input';
@@ -95,6 +100,9 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
         if (oldIndex === -1 || newIndex === -1) return;
         updateConfig('windows', arrayMove(config.windows, oldIndex, newIndex));
     };
+
+    const isGroupComplete = (items: readonly ConfluenceKey[]) =>
+        items.every((item) => config.setup.allowedConfluences.includes(item));
 
     const weightsSum = Object.values(config.weights).reduce((a, b) => a + b, 0);
     const isWeightsValid = Math.abs(weightsSum - 100) < 0.01;
@@ -220,13 +228,13 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 className={cn('app-profile__plan-risk', 'flex flex-col gap-3')}
             >
                 <PanelSubheading>Risk</PanelSubheading>
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className={NUMBER_FIELD_ROW_CLASS}>
                     <div>
                         <Label className="text-sm" htmlFor="fundedR">
                             Funded risk ($)
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="fundedR"
                             onChange={(event) =>
                                 updateConfig('risk', {
@@ -243,7 +251,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             Eval risk ($)
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="evalR"
                             onChange={(event) =>
                                 updateConfig('risk', {
@@ -260,7 +268,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             Max trades / window
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="maxT"
                             onChange={(event) =>
                                 updateConfig('risk', {
@@ -281,13 +289,13 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 className={cn('app-profile__plan-setup', 'flex flex-col gap-3')}
             >
                 <PanelSubheading>Setup requirements</PanelSubheading>
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className={NUMBER_FIELD_ROW_CLASS}>
                     <div>
                         <Label className="text-sm" htmlFor="minRR">
                             Minimum R:R
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="minRR"
                             onChange={(event) =>
                                 updateConfig('setup', {
@@ -305,7 +313,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                             Required PD arrays at SL
                         </Label>
                         <Input
-                            className="mt-2"
+                            className={cn('mt-2', NUMBER_INPUT_CLASS)}
                             id="pdC"
                             onChange={(event) =>
                                 updateConfig('setup', {
@@ -328,50 +336,33 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                                 <PanelSubheading as="h4">
                                     {group.label}
                                 </PanelSubheading>
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        onClick={() =>
-                                            updateConfig('setup', {
-                                                ...config.setup,
-                                                allowedConfluences:
-                                                    config.setup.allowedConfluences.filter(
-                                                        (x: ConfluenceKey) =>
-                                                            !group.items.includes(
-                                                                x,
-                                                            ),
-                                                    ),
-                                            })
-                                        }
-                                        size="sm"
-                                        type="button"
-                                        variant="outline"
-                                    >
-                                        Clear
-                                    </Button>
-                                    <Button
-                                        onClick={() => {
-                                            const rest =
-                                                config.setup.allowedConfluences.filter(
-                                                    (x: ConfluenceKey) =>
-                                                        !group.items.includes(
-                                                            x,
-                                                        ),
-                                                );
-                                            updateConfig('setup', {
-                                                ...config.setup,
-                                                allowedConfluences: [
-                                                    ...rest,
-                                                    ...group.items,
-                                                ],
-                                            });
-                                        }}
-                                        size="sm"
-                                        type="button"
-                                        variant="outline"
-                                    >
-                                        All
-                                    </Button>
-                                </div>
+                                <Button
+                                    onClick={() => {
+                                        const outsideGroup =
+                                            config.setup.allowedConfluences.filter(
+                                                (x: ConfluenceKey) =>
+                                                    !group.items.includes(x),
+                                            );
+                                        updateConfig('setup', {
+                                            ...config.setup,
+                                            allowedConfluences: isGroupComplete(
+                                                group.items,
+                                            )
+                                                ? outsideGroup
+                                                : [
+                                                      ...outsideGroup,
+                                                      ...group.items,
+                                                  ],
+                                        });
+                                    }}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost"
+                                >
+                                    {isGroupComplete(group.items)
+                                        ? 'Clear all'
+                                        : 'Select all'}
+                                </Button>
                             </div>
                             <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                                 {group.items.map((c) => {
@@ -422,7 +413,7 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                     <PanelSubheading>Scoring weights</PanelSubheading>
                     <Badge>Total {weightsSum.toFixed(0)} / 100</Badge>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                     {WEIGHT_CATEGORIES.map(({ hint, key, label }) => (
                         <div
                             className="flex flex-col gap-2 rounded-lg border border-border/60 p-3"
@@ -492,15 +483,13 @@ export function PlanEditor({ plan }: { plan: TradingPlanRow }) {
                 </div>
             </section>
 
-            <div className="flex justify-end gap-2">
-                <Button
-                    disabled={pending || !isWeightsValid || !name.trim()}
-                    type="submit"
-                >
-                    <Save className="mr-1 size-4" />
-                    {pending ? 'Saving…' : 'Save changes'}
-                </Button>
-            </div>
+            <ProfileFormFooter
+                isDirty={form.formState.isDirty}
+                isPending={pending}
+                isSaveDisabled={!isWeightsValid || !name.trim()}
+                isSticky
+                onCancel={() => form.reset()}
+            />
         </form>
     );
 }

@@ -44,6 +44,7 @@ export const mutationRowSchema = z.object({
 });
 
 export const mutationSchema = z.object({
+    amount: numeric.nullish(),
     date: isoDate,
     description: z.string().nullish(),
     id: externalId,

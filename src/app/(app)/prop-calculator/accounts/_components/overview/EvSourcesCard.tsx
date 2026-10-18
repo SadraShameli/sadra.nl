@@ -1,6 +1,13 @@
+import { Sigma } from 'lucide-react';
 import { memo } from 'react';
 
+import {
+    type FigureColumn,
+    figureColumns,
+    FigureText,
+} from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 import { type EvSourcesCardModel } from './overviewModel';
 import { InfoLines, InfoStack, OverviewPanel } from './OverviewPanel';
@@ -23,11 +30,56 @@ enum FundedProgressColumn {
     ValueOfAFreshFundedAccount = 'value-of-a-fresh-funded-account',
 }
 
+type EvSourcePlanRow = EvSourcesCardModel['plans'][number];
+
+const EV_PLAN_COLUMNS: readonly FigureColumn<EvSourcePlanRow>[] = [
+    {
+        header: 'Plan',
+        id: ConversionEvColumn.Plan,
+        isRowHeader: true,
+        textOf: (row) => row.plan,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Attempt cost',
+        id: ConversionEvColumn.AttemptCost,
+        textOf: (row) => row.attemptCost,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Pass rate',
+        id: ConversionEvColumn.PassRate,
+        textOf: (row) => row.passRate,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Value of a fresh funded account',
+        id: ConversionEvColumn.ValueOfAFreshFundedAccount,
+        textOf: (row) => row.freshFundedValue,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Conversion EV per attempt (modeled)',
+        id: ConversionEvColumn.ConversionEVPerAttemptModeled,
+        textOf: (row) => row.modeledConversionEv,
+    },
+    {
+        align: DataTableAlign.End,
+        header: 'Conversion EV per attempt (realized)',
+        id: ConversionEvColumn.ConversionEVPerAttemptRealized,
+        textOf: (row) => row.realizedConversionEv,
+    },
+];
+
 export const EvSourcesCard = memo(function EvSourcesCard({
     model,
 }: {
     readonly model: EvSourcesCardModel;
 }) {
+    const planColumns = figureColumns(EV_PLAN_COLUMNS, model.plans);
+    const hasPlanFigures = planColumns.some(
+        (column) => column.id !== ConversionEvColumn.Plan,
+    );
     return (
         <OverviewPanel
             info={
@@ -47,57 +99,20 @@ export const EvSourcesCard = memo(function EvSourcesCard({
             }
             section={OverviewSectionId.EvSources}
         >
-            {model.plans.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No plan you hold yet.
-                </p>
+            {!hasPlanFigures || model.plans.length === 0 ? (
+                <EmptyState
+                    icon={Sigma}
+                    size={EmptyStateSize.Compact}
+                    title={
+                        model.plans.length === 0
+                            ? 'No plan you hold yet'
+                            : 'No EV figure to show yet'
+                    }
+                />
             ) : (
                 <DataTable
                     aria-label="Conversion EV per attempt by plan"
-                    columns={[
-                        {
-                            cell: ({ row }) => <>{row.original.plan}</>,
-                            header: 'Plan',
-                            id: ConversionEvColumn.Plan,
-                            meta: { isRowHeader: true },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.attemptCost}</>,
-                            header: 'Attempt cost',
-                            id: ConversionEvColumn.AttemptCost,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.passRate}</>,
-                            header: 'Pass rate',
-                            id: ConversionEvColumn.PassRate,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <>{row.original.freshFundedValue}</>
-                            ),
-                            header: 'Value of a fresh funded account',
-                            id: ConversionEvColumn.ValueOfAFreshFundedAccount,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <>{row.original.modeledConversionEv}</>
-                            ),
-                            header: 'Conversion EV per attempt (modeled)',
-                            id: ConversionEvColumn.ConversionEVPerAttemptModeled,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <>{row.original.realizedConversionEv}</>
-                            ),
-                            header: 'Conversion EV per attempt (realized)',
-                            id: ConversionEvColumn.ConversionEVPerAttemptRealized,
-                            meta: { align: DataTableAlign.End },
-                        },
-                    ]}
+                    columns={planColumns}
                     data={[...model.plans]}
                     isSortable={false}
                     pageSize={null}
@@ -110,7 +125,7 @@ export const EvSourcesCard = memo(function EvSourcesCard({
                     columns={[
                         {
                             cell: ({ row: { original: row } }) => (
-                                <>{row.account}</>
+                                <FigureText text={row.account} />
                             ),
                             header: 'Funded account',
                             id: FundedProgressColumn.FundedAccount,
@@ -118,14 +133,14 @@ export const EvSourcesCard = memo(function EvSourcesCard({
                         },
                         {
                             cell: ({ row: { original: row } }) => (
-                                <>{row.plan}</>
+                                <FigureText text={row.plan} />
                             ),
                             header: 'Plan',
                             id: FundedProgressColumn.Plan,
                         },
                         {
                             cell: ({ row: { original: row } }) => (
-                                <>{row.valueNow}</>
+                                <FigureText text={row.valueNow} />
                             ),
                             header: 'Value from its own state',
                             id: FundedProgressColumn.ValueFromItsOwnState,
@@ -133,7 +148,7 @@ export const EvSourcesCard = memo(function EvSourcesCard({
                         },
                         {
                             cell: ({ row: { original: row } }) => (
-                                <>{row.freshFundedValue}</>
+                                <FigureText text={row.freshFundedValue} />
                             ),
                             header: 'Value of a fresh funded account',
                             id: FundedProgressColumn.ValueOfAFreshFundedAccount,
@@ -141,7 +156,7 @@ export const EvSourcesCard = memo(function EvSourcesCard({
                         },
                         {
                             cell: ({ row: { original: row } }) => (
-                                <>{row.heldInFundedProgress}</>
+                                <FigureText text={row.heldInFundedProgress} />
                             ),
                             header: `Held in funded progress (${model.heldLabel})`,
                             id: FundedProgressColumn.HeldInFundedProgress,

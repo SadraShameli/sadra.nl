@@ -3,44 +3,38 @@
 import { ListChecks } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
+import { z } from 'zod';
 
-import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
-
+import { MissingValue } from '~/components/MissingValue';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
-import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import {
+    DATA_TABLE_PAGE_SIZE,
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterDateRange } from '~/components/ui/filter-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
+import { Skeleton } from '~/components/ui/skeleton';
+import { Eur } from '~/lib/accounting/core/money';
 import { CredentialRole } from '~/lib/accounting/credentials/index';
-import { MutationType } from '~/lib/accounting/providers/eboekhouden/enums';
+import {
+    MUTATION_TYPE_LABEL,
+    MutationType,
+} from '~/lib/accounting/providers/eboekhouden/enums';
 import { formatDisplayDate } from '~/lib/format';
-import { api } from '~/trpc/react';
+import { api, type RouterOutputs } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
+import { NoConnectionState } from './NoConnectionState';
+import { columnWhenAnyRow } from './tableColumns';
 import { useActiveCredentials } from './useActiveCredentials';
 
 const ALL = '__all__';
-const PAGE_SIZE = 100;
 
-type Mutation = {
-    date: string;
-    description: null | string;
-    externalId: ExternalId;
-    ledgerId: LedgerId;
-    paymentReference: null | string;
-    type: string;
-};
-
-const MUTATION_TYPE_LABEL: Record<MutationType, string> = {
-    [MutationType.GeneralJournal]: 'General journal',
-    [MutationType.InvoicePaymentReceived]: 'Invoice payment received',
-    [MutationType.InvoicePaymentSent]: 'Invoice payment sent',
-    [MutationType.InvoiceReceived]: 'Invoice received',
-    [MutationType.InvoiceSent]: 'Invoice sent',
-    [MutationType.MoneyReceived]: 'Money received',
-    [MutationType.MoneySent]: 'Money sent',
-};
+type Mutation = RouterOutputs['accounting']['mutations']['list'][number];
 
 const toIso = (d: Date): string => {
     const y = d.getFullYear();
@@ -49,8 +43,14 @@ const toIso = (d: Date): string => {
     return `${y}-${m}-${day}`;
 };
 
+const mutationTypeLabel = (type: string): string => {
+    const known = z.enum(MutationType).safeParse(type);
+    return known.success ? MUTATION_TYPE_LABEL[known.data] : type;
+};
+
 export function MutationsBrowser() {
-    const { accounting } = useActiveCredentials();
+    const { accounting, isLoading: isCredentialsLoading } =
+        useActiveCredentials();
     const credentialId = accounting?.id ?? '';
     const [typeFilter, setTypeFilter] = useState<string>(ALL);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -68,11 +68,28 @@ export function MutationsBrowser() {
             credentialId,
             dateFrom,
             dateTo,
-            limit: PAGE_SIZE,
+            limit: DATA_TABLE_PAGE_SIZE,
             offset,
         },
         { enabled: !!credentialId },
     );
+    const ledgersQ = api.accounting.ledgers.list.useQuery(
+        { credentialId },
+        { enabled: !!credentialId },
+    );
+
+    const ledgerLabelById = useMemo(
+        () =>
+            new Map(
+                (ledgersQ.data ?? []).map((ledger) => [
+                    ledger.externalId,
+                    `${ledger.code} ${ledger.description}`,
+                ]),
+            ),
+        [ledgersQ.data],
+    );
+    const isLedgersPending = !!credentialId && ledgersQ.isPending;
+    const ledgersErrorMessage = ledgersQ.error?.message ?? null;
 
     const allMutations = useMemo(
         () => mutationsQ.data ?? [],
@@ -89,6 +106,10 @@ export function MutationsBrowser() {
     }, [allMutations, typeFilter]);
 
     const hasFilters = typeFilter !== ALL || Boolean(dateRange?.from);
+    const isLoading =
+        isCredentialsLoading || (!!credentialId && mutationsQ.isPending);
+    const isCollectionEmpty =
+        !isLoading && !hasFilters && offset === 0 && allMutations.length === 0;
     const reset = () => {
         setTypeFilter(ALL);
         setDateRange(undefined);
@@ -120,39 +141,81 @@ export function MutationsBrowser() {
             {
                 accessorKey: 'type',
                 cell: ({ row }) => (
-                    <Badge>
-                        {(MUTATION_TYPE_LABEL as Record<string, string>)[
-                            row.original.type
-                        ] ?? row.original.type}
-                    </Badge>
+                    <Badge>{mutationTypeLabel(row.original.type)}</Badge>
                 ),
                 header: 'Type',
             },
             {
-                accessorKey: 'ledgerId',
-                cell: ({ row }) => (
-                    <span className="font-mono text-xs text-muted-foreground">
-                        {row.original.ledgerId}
-                    </span>
-                ),
+                accessorFn: (r) => ledgerLabelById.get(r.ledgerId) ?? '',
+                cell: ({ row }) => {
+                    if (isLedgersPending) {
+                        return <Skeleton className="h-4 w-32" />;
+                    }
+                    if (ledgersErrorMessage !== null) {
+                        return (
+                            <MissingValue
+                                reason={`Ledger ${row.original.ledgerId} has no name here because the ledger list could not be loaded: ${ledgersErrorMessage}`}
+                            />
+                        );
+                    }
+                    const label = ledgerLabelById.get(row.original.ledgerId);
+                    return label === undefined ? (
+                        <MissingValue
+                            reason={`Ledger ${row.original.ledgerId} is not in the ledger list of this backend.`}
+                        />
+                    ) : (
+                        <span className="text-xs">{label}</span>
+                    );
+                },
                 header: 'Ledger',
+                id: 'ledger',
             },
-            {
-                accessorKey: 'description',
-                cell: ({ row }) => row.original.description ?? '-',
-                header: 'Description',
-            },
-            {
-                accessorKey: 'paymentReference',
-                cell: ({ row }) => (
-                    <span className="font-mono text-xs text-muted-foreground">
-                        {row.original.paymentReference ?? '-'}
-                    </span>
-                ),
-                header: 'Reference',
-            },
+            ...columnWhenAnyRow<Mutation>(
+                allMutations,
+                (m) => m.amount !== null,
+                {
+                    accessorKey: 'amount',
+                    cell: ({ row }) =>
+                        row.original.amount === null ? (
+                            <MissingValue />
+                        ) : (
+                            <span className="font-mono text-xs">
+                                {Eur.format(row.original.amount)}
+                            </span>
+                        ),
+                    enableSorting: true,
+                    header: 'Amount',
+                    meta: { align: DataTableAlign.End },
+                },
+            ),
+            ...columnWhenAnyRow<Mutation>(
+                allMutations,
+                (m) => m.description !== null,
+                {
+                    accessorKey: 'description',
+                    cell: ({ row }) =>
+                        row.original.description ?? <MissingValue />,
+                    header: 'Description',
+                },
+            ),
+            ...columnWhenAnyRow<Mutation>(
+                allMutations,
+                (m) => m.paymentReference !== null,
+                {
+                    accessorKey: 'paymentReference',
+                    cell: ({ row }) =>
+                        row.original.paymentReference === null ? (
+                            <MissingValue />
+                        ) : (
+                            <span className="font-mono text-xs text-muted-foreground">
+                                {row.original.paymentReference}
+                            </span>
+                        ),
+                    header: 'Reference',
+                },
+            ),
         ],
-        [],
+        [allMutations, isLedgersPending, ledgerLabelById, ledgersErrorMessage],
     );
 
     return (
@@ -170,78 +233,75 @@ export function MutationsBrowser() {
                     description={mutationsQ.error.message}
                     title="Could not fetch mutations"
                 />
+            ) : isLoading || credentialId ? (
+                isCollectionEmpty ? (
+                    <EmptyState
+                        description="Bookings posted to the accounting backend appear here."
+                        icon={ListChecks}
+                        title="No mutations yet"
+                    />
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={
+                            <EmptyState
+                                description="No mutations match these filters."
+                                icon={ListChecks}
+                                title="No matches"
+                            />
+                        }
+                        filterPlaceholder="Search mutations…"
+                        hasExternalFilters={hasFilters}
+                        headerActions={
+                            <div className="flex flex-wrap items-center gap-2">
+                                <FilterSelect
+                                    label="Type"
+                                    onValueChange={(v) => {
+                                        setTypeFilter(v ?? ALL);
+                                        setOffset(0);
+                                    }}
+                                    options={typeOptions.map((code) => ({
+                                        label: mutationTypeLabel(code),
+                                        value: code,
+                                    }))}
+                                    placeholder="All types"
+                                    value={
+                                        typeFilter === ALL
+                                            ? undefined
+                                            : typeFilter
+                                    }
+                                />
+                                <FilterDateRange
+                                    align="end"
+                                    label="Mutation date"
+                                    onChange={(r) => {
+                                        setDateRange(r);
+                                        setOffset(0);
+                                    }}
+                                    placeholder="Any date"
+                                    value={dateRange}
+                                />
+                            </div>
+                        }
+                        initialSorting={[{ desc: true, id: 'date' }]}
+                        isLoading={isLoading}
+                        onResetFilters={reset}
+                        rowId={(r) => r.externalId}
+                        serverPagination={{
+                            hasNextPage:
+                                allMutations.length === DATA_TABLE_PAGE_SIZE,
+                            isPending: mutationsQ.isPending,
+                            onPageIndexChange: (pageIndex) =>
+                                setOffset(pageIndex * DATA_TABLE_PAGE_SIZE),
+                            pageIndex: offset / DATA_TABLE_PAGE_SIZE,
+                            pageSize: DATA_TABLE_PAGE_SIZE,
+                        }}
+                        showFilter
+                    />
+                )
             ) : (
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={
-                        <EmptyState
-                            description={
-                                credentialId
-                                    ? hasFilters
-                                        ? 'No mutations match this filter.'
-                                        : 'Fetched mutations from this credential will appear here.'
-                                    : 'Pick an accounting credential above to load mutations.'
-                            }
-                            icon={ListChecks}
-                            title={
-                                credentialId
-                                    ? 'No mutations yet'
-                                    : 'No credential selected'
-                            }
-                        />
-                    }
-                    filterPlaceholder="Search mutations…"
-                    hasExternalFilters={hasFilters}
-                    headerActions={
-                        <div className="flex flex-wrap items-center gap-2">
-                            <FilterSelect
-                                label="Type"
-                                onValueChange={(v) => {
-                                    setTypeFilter(v ?? ALL);
-                                    setOffset(0);
-                                }}
-                                options={typeOptions.map((code) => ({
-                                    label:
-                                        (
-                                            MUTATION_TYPE_LABEL as Record<
-                                                string,
-                                                string
-                                            >
-                                        )[code] ?? code,
-                                    value: code,
-                                }))}
-                                placeholder="All types"
-                                value={
-                                    typeFilter === ALL ? undefined : typeFilter
-                                }
-                            />
-                            <FilterDateRange
-                                align="end"
-                                label="Mutation date"
-                                onChange={(r) => {
-                                    setDateRange(r);
-                                    setOffset(0);
-                                }}
-                                placeholder="Any date"
-                                value={dateRange}
-                            />
-                        </div>
-                    }
-                    initialSorting={[{ desc: true, id: 'date' }]}
-                    isLoading={!!credentialId && mutationsQ.isPending}
-                    onResetFilters={reset}
-                    rowId={(r) => r.externalId}
-                    serverPagination={{
-                        hasNextPage: rows.length === PAGE_SIZE,
-                        isPending: mutationsQ.isPending,
-                        onPageIndexChange: (pageIndex) =>
-                            setOffset(pageIndex * PAGE_SIZE),
-                        pageIndex: offset / PAGE_SIZE,
-                        pageSize: PAGE_SIZE,
-                    }}
-                    showFilter
-                />
+                <NoConnectionState role={CredentialRole.Accounting} />
             )}
         </ToolPanel>
     );

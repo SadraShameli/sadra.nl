@@ -130,7 +130,7 @@ vi.mock('~/trpc/react', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-const LOADING_TEXT = 'Loading saved scenarios...';
+const LOADING_TEXT = 'Loading saved scenarios';
 const LOCAL_HEADING = 'Saved';
 const ACCOUNT_HEADING = 'Saved to your account';
 
@@ -263,7 +263,10 @@ describe('SavedScenarios session stores', () => {
     it('shows the browser panel to an anonymous visitor', async () => {
         await openPanel();
         expect(sectionHeadings()).toEqual([LOCAL_HEADING]);
-        expect(panelText()).toContain('No saved scenarios yet.');
+        expect(panelText()).toContain('No saved scenarios yet');
+        expect(
+            document.body.querySelector('[data-slot="empty"]')?.textContent,
+        ).toBe('No saved scenarios yet');
     });
 
     it('keeps the browser panel and its typed name through an anonymous session refetch', async () => {
@@ -343,6 +346,12 @@ describe('SavedScenarios session stores', () => {
         };
         await openPanel();
         expect(panelText()).toContain(LOADING_TEXT);
+        expect(panelText()).not.toContain('...');
+        expect(
+            document.body.querySelector(
+                ':scope [aria-busy="true"] [data-slot="skeleton"]',
+            ),
+        ).not.toBeNull();
         expect(sectionHeadings()).toEqual([]);
     });
 
@@ -539,7 +548,10 @@ describe('SavedScenarios session stores', () => {
         expect(
             window.localStorage.getItem('propCalc.scenarios.v1'),
         ).not.toContain('Local one');
-        expect(panelText()).toContain('No saved scenarios yet.');
+        expect(panelText()).toContain('No saved scenarios yet');
+        expect(
+            document.body.querySelector('[data-slot="empty"]')?.textContent,
+        ).toBe('No saved scenarios yet');
     });
 
     it('saves a deliberately chosen MonthlyNet in the browser store, so loading it later keeps the choice (PT-63d, F-V15)', async () => {

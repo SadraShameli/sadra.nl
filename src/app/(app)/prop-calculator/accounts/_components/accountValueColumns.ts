@@ -16,12 +16,7 @@ import {
     estimateCurrency,
     estimatePercent,
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/uncertainText';
-import {
-    formatCurrency,
-    formatDisplayDate,
-    formatPercent,
-    NOT_APPLICABLE,
-} from '~/lib/format';
+import { formatCurrency, formatDisplayDate, formatPercent } from '~/lib/format';
 import {
     AdviceUnavailableReason,
     sampleAdequacy,
@@ -664,13 +659,12 @@ function readyNextPayoutOf(
         }
         case NextPayoutTimingKind.InDays: {
             const days = timing.calendarDays;
-            const standardError =
-                days.standardError === null
-                    ? NOT_APPLICABLE
-                    : days.standardError.toFixed(1);
+            const daysText = `${days.value.toFixed(1)} calendar days`;
             return nextPayoutView(
                 NextPayoutKind.InDays,
-                `${days.value.toFixed(1)} calendar days (SE ${standardError})`,
+                days.standardError === null
+                    ? daysText
+                    : `${daysText} (SE ${days.standardError.toFixed(1)})`,
                 {
                     days: days.value,
                     isSoon:

@@ -1,6 +1,9 @@
+import { Layers } from 'lucide-react';
 import { memo } from 'react';
 
+import { figureColumns } from '~/app/(app)/prop-calculator/accounts/_components/FigureText';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 
 import { type PooledCapCardModel } from './overviewModel';
 import { InfoStack, OverviewPanel } from './OverviewPanel';
@@ -35,55 +38,58 @@ export const PooledCapCard = memo(function PooledCapCard({
             section={OverviewSectionId.PooledCaps}
         >
             {model.rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                    No plan in use yet.
-                </p>
+                <EmptyState
+                    icon={Layers}
+                    size={EmptyStateSize.Compact}
+                    title="No plan in use yet"
+                />
             ) : (
                 <DataTable
-                    columns={[
-                        {
-                            cell: ({ row }) => <>{row.original.plan}</>,
-                            header: 'Plan',
-                            id: PooledCapCardColumn.Plan,
-                            meta: { isRowHeader: true },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.scope}</>,
-                            header: 'Cap scope',
-                            id: PooledCapCardColumn.CapScope,
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.used}</>,
-                            header: 'Funded in use',
-                            id: PooledCapCardColumn.FundedInUse,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.cap}</>,
-                            header: 'Plan cap',
-                            id: PooledCapCardColumn.PlanCap,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => (
-                                <>{row.original.poolFreeSlots}</>
-                            ),
-                            header: 'Pool free slots',
-                            id: PooledCapCardColumn.PoolFreeSlots,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.freeSlots}</>,
-                            header: 'Free slots',
-                            id: PooledCapCardColumn.FreeSlots,
-                            meta: { align: DataTableAlign.End },
-                        },
-                        {
-                            cell: ({ row }) => <>{row.original.note}</>,
-                            header: 'Note',
-                            id: PooledCapCardColumn.Note,
-                        },
-                    ]}
+                    columns={figureColumns(
+                        [
+                            {
+                                header: 'Plan',
+                                id: PooledCapCardColumn.Plan,
+                                isRowHeader: true,
+                                textOf: (row) => row.plan,
+                            },
+                            {
+                                header: 'Cap scope',
+                                id: PooledCapCardColumn.CapScope,
+                                textOf: (row) => row.scope,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Funded in use',
+                                id: PooledCapCardColumn.FundedInUse,
+                                textOf: (row) => row.used,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Plan cap',
+                                id: PooledCapCardColumn.PlanCap,
+                                textOf: (row) => row.cap,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Pool free slots',
+                                id: PooledCapCardColumn.PoolFreeSlots,
+                                textOf: (row) => row.poolFreeSlots,
+                            },
+                            {
+                                align: DataTableAlign.End,
+                                header: 'Free slots',
+                                id: PooledCapCardColumn.FreeSlots,
+                                textOf: (row) => row.freeSlots,
+                            },
+                            {
+                                header: 'Note',
+                                id: PooledCapCardColumn.Note,
+                                textOf: (row) => row.note ?? '',
+                            },
+                        ],
+                        model.rows,
+                    )}
                     data={[...model.rows]}
                     isSortable={false}
                     pageSize={null}

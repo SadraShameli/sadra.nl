@@ -3,28 +3,34 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
-import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
+import {
+    type BankrollLeverRowSummary,
+    ToolsResponseKind,
+} from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
+import { MissingValue } from '~/components/MissingValue';
 import { Badge } from '~/components/ui/badge';
 import { DataTable } from '~/components/ui/data-table';
-import { Field, FieldLabel } from '~/components/ui/field';
-import { Input } from '~/components/ui/input';
 import {
     formatDelta,
-    formatGateCurrency,
     formatPercent,
-    NOT_APPLICABLE,
+    formatWholeOrCentsCurrency,
 } from '~/lib/format';
 import { type Dollars } from '~/lib/prop-calculator';
 import { BankrollLeverKind } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
 
+import { BankrollField, BankrollFieldKind } from './BankrollField';
 import {
     type BankrollLeverCandidates,
     bankrollLeversRequest,
     parseBankrollCandidateList,
     parseBankrollDollarCandidateList,
 } from './bankrollModel';
-import { BankrollRunStatus } from './BankrollRunStatus';
+import {
+    BankrollRunStatus,
+    isAwaitingRequestedResult,
+} from './BankrollRunStatus';
 import { BankrollSection } from './BankrollSection';
 import { parseBankrollDollarsField } from './bankrollUrlState';
 import { useBankrollVariant } from './useBankrollVariant';
@@ -92,196 +98,203 @@ export function LeversCard() {
 
     return (
         <BankrollSection
-            description="Tries each candidate risk, trades per day and payout request against your current setup and shows how much each one moves the results."
             headingId="bankroll-levers-heading"
-            title="Levers"
-        >
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Field>
-                    <FieldLabel htmlFor="bankroll-levers-bankroll">
-                        Bankroll ($)
-                    </FieldLabel>
-                    <Input
+            info="Tries each candidate risk, trades per day and payout request against your current setup and shows how much each one moves the results."
+            inputs={
+                <>
+                    <BankrollField
                         id="bankroll-levers-bankroll"
-                        inputMode="decimal"
-                        onChange={(event) =>
-                            setBankroll(
-                                parseBankrollDollarsField(event.target.value),
-                            )
+                        info="The bankroll the loss risk is measured at, in dollars."
+                        label="Bankroll"
+                        onChange={(raw) =>
+                            setBankroll(parseBankrollDollarsField(raw))
                         }
                         placeholder="Enter your bankroll"
-                        type="number"
                     />
-                </Field>
-                <Field>
-                    <FieldLabel htmlFor="bankroll-levers-risks">
-                        Risk candidates ($, comma-separated)
-                    </FieldLabel>
-                    <Input
+                    <BankrollField
                         id="bankroll-levers-risks"
-                        onChange={(event) => setRisksText(event.target.value)}
+                        info="Risk per trade values to try, in dollars, separated by commas."
+                        kind={BankrollFieldKind.List}
+                        label="Risk per trade"
+                        onChange={setRisksText}
                         placeholder="e.g. 200, 300"
-                        value={risksText}
                     />
-                </Field>
-                <Field>
-                    <FieldLabel htmlFor="bankroll-levers-trades-per-day">
-                        Trades/day candidates (comma-separated)
-                    </FieldLabel>
-                    <Input
+                    <BankrollField
                         id="bankroll-levers-trades-per-day"
-                        onChange={(event) =>
-                            setTradesPerDayText(event.target.value)
-                        }
+                        info="Trades per day values to try, separated by commas."
+                        kind={BankrollFieldKind.List}
+                        label="Trades per day"
+                        onChange={setTradesPerDayText}
                         placeholder="e.g. 1, 2"
-                        value={tradesPerDayText}
                     />
-                </Field>
-                <Field>
-                    <FieldLabel htmlFor="bankroll-levers-request-sizes">
-                        Payout request candidates ($, comma-separated)
-                    </FieldLabel>
-                    <Input
+                    <BankrollField
                         id="bankroll-levers-request-sizes"
-                        onChange={(event) =>
-                            setRequestSizesText(event.target.value)
-                        }
+                        info="Payout request sizes to try, in dollars, separated by commas."
+                        kind={BankrollFieldKind.List}
+                        label="Payout request"
+                        onChange={setRequestSizesText}
                         placeholder="e.g. 500, 1000"
-                        value={requestSizesText}
                     />
-                </Field>
-            </div>
-            {rows === null ? (
-                <BankrollRunStatus isRequested={canRun} state={worker.state} />
-            ) : (
-                <DataTable
-                    columns={[
-                        {
-                            cell: ({ row: { original: row } }) =>
-                                LEVER_KIND_LABEL[row.kind],
-                            header: 'Lever',
-                            id: LeverColumn.Lever,
-                            meta: { isRowHeader: true },
-                        },
-                        {
-                            cell: ({ row: { original: row } }) => (
-                                <span className="font-mono">
-                                    {formatLeverValue(row.kind, row.value)}
-                                </span>
-                            ),
-                            header: 'Value',
-                            id: LeverColumn.Value,
-                        },
-                        {
-                            cell: ({ row: { original: row } }) => (
-                                <span className="font-mono">
-                                    {formatGateCurrency(row.deltaEvPerAttempt)}
-                                </span>
-                            ),
-                            header: 'Δ EV/attempt',
-                            id: LeverColumn.DeltaEvPerAttempt,
-                        },
-                        {
-                            cell: ({ row: { original: row } }) => (
-                                <span className="font-mono">
-                                    {formatGateCurrency(row.deltaMonthlyNet)}
-                                </span>
-                            ),
-                            header: 'Δ Monthly net',
-                            id: LeverColumn.DeltaMonthlyNet,
-                        },
-                        {
-                            cell: ({ row: { original: row } }) => (
-                                <span className="font-mono">
-                                    {
-                                        formatDelta(
-                                            row.deltaPassProbability,
-                                            0,
-                                            'percent',
-                                        ).text
-                                    }
-                                </span>
-                            ),
-                            header: 'Δ P(pass)',
-                            id: LeverColumn.DeltaPassProbability,
-                        },
-                        {
-                            cell: ({ row: { original: row } }) => (
-                                <span className="font-mono">
-                                    {row.deltaAttemptPaysProbability ===
-                                    undefined
-                                        ? NOT_APPLICABLE
-                                        : formatDelta(
-                                              row.deltaAttemptPaysProbability,
-                                              0,
-                                              'percent',
-                                          ).text}
-                                </span>
-                            ),
-                            header: 'Δ P(pays)',
-                            id: LeverColumn.DeltaPaysProbability,
-                        },
-                        {
-                            cell: ({ row: { original: row } }) => (
-                                <span className="font-mono">
-                                    {row.lossRisk === null
-                                        ? NOT_APPLICABLE
-                                        : formatPercent(row.lossRisk)}
-                                </span>
-                            ),
-                            header: 'Loss risk',
-                            id: LeverColumn.LossRisk,
-                        },
-                        {
-                            cell: ({ row: { original: row } }) => (
-                                <span className="font-mono">
-                                    {row.deltaLossProbability === null
-                                        ? NOT_APPLICABLE
-                                        : formatDelta(
-                                              row.deltaLossProbability,
-                                              0,
-                                              'percent',
-                                          ).text}
-                                </span>
-                            ),
-                            header: 'Δ Loss risk',
-                            id: LeverColumn.DeltaLossRisk,
-                        },
-                        {
-                            cell: ({ row: { original: row } }) =>
-                                row.label === null ? null : (
-                                    <Badge>{row.label}</Badge>
-                                ),
-                            header: 'Note',
-                            id: LeverColumn.Note,
-                        },
-                    ]}
-                    data={[...rows]}
-                    isSortable={false}
-                    pageSize={null}
-                />
-            )}
-        </BankrollSection>
+                </>
+            }
+            isComputing={isAwaitingRequestedResult(canRun, worker.state)}
+            results={
+                rows === null ? (
+                    <BankrollRunStatus
+                        emptyText="Enter a bankroll and at least one list of candidates to try."
+                        isRequested={canRun}
+                        skeleton={<LeversTable isLoading rows={[]} />}
+                        state={worker.state}
+                    />
+                ) : (
+                    <LeversTable isLoading={false} rows={rows} />
+                )
+            }
+            title="Levers"
+        />
     );
 }
 
 function formatLeverValue(
     kind: BankrollLeverKind,
     value: null | number,
-): string {
-    if (value === null) return NOT_APPLICABLE;
+): null | string {
+    if (value === null) return null;
     switch (kind) {
         case BankrollLeverKind.Base: {
             return String(value);
         }
         case BankrollLeverKind.RequestSize: {
-            return formatGateCurrency(value);
+            return formatWholeOrCentsCurrency(value);
         }
         case BankrollLeverKind.Risk: {
-            return formatGateCurrency(value);
+            return formatWholeOrCentsCurrency(value);
         }
         case BankrollLeverKind.TradesPerDay: {
             return String(value);
         }
     }
+}
+
+function LeversTable({
+    isLoading,
+    rows,
+}: {
+    readonly isLoading: boolean;
+    readonly rows: readonly BankrollLeverRowSummary[];
+}) {
+    return (
+        <DataTable
+            columns={[
+                {
+                    cell: ({ row: { original: row } }) =>
+                        LEVER_KIND_LABEL[row.kind],
+                    header: 'Lever',
+                    id: LeverColumn.Lever,
+                    meta: { isRowHeader: true },
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            <ValueOrMissing
+                                value={formatLeverValue(row.kind, row.value)}
+                            />
+                        </span>
+                    ),
+                    header: 'Value',
+                    id: LeverColumn.Value,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {formatWholeOrCentsCurrency(row.deltaEvPerAttempt)}
+                        </span>
+                    ),
+                    header: 'Δ EV/attempt',
+                    id: LeverColumn.DeltaEvPerAttempt,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {formatWholeOrCentsCurrency(row.deltaMonthlyNet)}
+                        </span>
+                    ),
+                    header: 'Δ Monthly net',
+                    id: LeverColumn.DeltaMonthlyNet,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {
+                                formatDelta(
+                                    row.deltaPassProbability,
+                                    0,
+                                    'percent',
+                                ).text
+                            }
+                        </span>
+                    ),
+                    header: 'Δ P(pass)',
+                    id: LeverColumn.DeltaPassProbability,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.deltaAttemptPaysProbability === undefined ? (
+                                <MissingValue />
+                            ) : (
+                                formatDelta(
+                                    row.deltaAttemptPaysProbability,
+                                    0,
+                                    'percent',
+                                ).text
+                            )}
+                        </span>
+                    ),
+                    header: 'Δ P(pays)',
+                    id: LeverColumn.DeltaPaysProbability,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.lossRisk === null ? (
+                                <MissingValue />
+                            ) : (
+                                formatPercent(row.lossRisk)
+                            )}
+                        </span>
+                    ),
+                    header: 'Loss risk',
+                    id: LeverColumn.LossRisk,
+                },
+                {
+                    cell: ({ row: { original: row } }) => (
+                        <span className="font-mono">
+                            {row.deltaLossProbability === null ? (
+                                <MissingValue />
+                            ) : (
+                                formatDelta(
+                                    row.deltaLossProbability,
+                                    0,
+                                    'percent',
+                                ).text
+                            )}
+                        </span>
+                    ),
+                    header: 'Δ Loss risk',
+                    id: LeverColumn.DeltaLossRisk,
+                },
+                {
+                    cell: ({ row: { original: row } }) =>
+                        row.label === null ? null : <Badge>{row.label}</Badge>,
+                    header: 'Note',
+                    id: LeverColumn.Note,
+                },
+            ]}
+            data={[...rows]}
+            isLoading={isLoading}
+            isSortable={false}
+            pageSize={null}
+        />
+    );
 }

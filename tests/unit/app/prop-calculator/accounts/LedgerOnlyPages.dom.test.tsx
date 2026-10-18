@@ -22,7 +22,6 @@ import { OverviewView } from '~/app/(app)/prop-calculator/accounts/_components/o
 import { LEDGER_ONLY_SNAPSHOT_NOTICE } from '~/app/(app)/prop-calculator/accounts/_components/snapshotFieldRules';
 import { ImportView } from '~/app/(app)/prop-calculator/accounts/import/ImportView';
 import { LedgerView } from '~/app/(app)/prop-calculator/accounts/ledger/LedgerView';
-import { NOT_APPLICABLE } from '~/lib/format';
 import {
     AccountEventKind,
     AccountStage,
@@ -44,14 +43,20 @@ import {
     usdCents,
 } from '~/lib/prop-accounts';
 import {
+    ACCOUNT_CSV_COLUMNS,
+    AccountCsvColumn,
+    REQUIRED_ACCOUNT_CSV_COLUMNS,
+} from '~/lib/prop-accounts/csv';
+import {
     ALL_FIRMS,
     NO_PLAN_OPT_INS,
     serializePlanId,
 } from '~/lib/prop-calculator';
 
 import { typeInto } from '../../../components/formDialog';
-import { infoText } from '../infoPopover';
+import { infoContent } from '../infoPopover';
 import { AccountsTable } from './AccountsTableWithData';
+import { detailListEntries } from './detailListEntries';
 import { openOverviewTab, overviewNavigation } from './overviewTabs';
 import { pickOption } from './pickOption';
 
@@ -61,6 +66,8 @@ interface FakeQuery {
     isError: boolean;
     isPending: boolean;
 }
+
+const MISSING_CELL_TEXT = '–Not available';
 
 const harness = vi.hoisted(() => {
     const queries = new Map<string, FakeQuery>();
@@ -293,12 +300,12 @@ function lagPayout(
 }
 
 function lagText(estimate: null | SampledEstimate): string {
-    if (estimate === null) return NOT_APPLICABLE;
-    const standardError =
+    if (estimate === null) return MISSING_CELL_TEXT;
+    const sample =
         estimate.standardError === null
-            ? NOT_APPLICABLE
-            : estimate.standardError.toFixed(1);
-    return `${estimate.value.toFixed(1)} days (SE ${standardError}, n = ${String(estimate.n)})`;
+            ? `n = ${String(estimate.n)}`
+            : `SE ${estimate.standardError.toFixed(1)}, n = ${String(estimate.n)}`;
+    return `${estimate.value.toFixed(1)} days (${sample})`;
 }
 
 function ledgerOnlyAccount(overrides: Record<string, unknown> = {}) {
@@ -588,7 +595,7 @@ describe('ledger-only accounts across the accounts pages', () => {
         expect(container.textContent).not.toContain(UNLISTED_FIRM_LABEL);
     });
 
-    it('names a firm of your own on the overview and counts ledger-only accounts beside realized net per slot', () => {
+    it('names a firm of your own on the overview and hides the realized net per slot tile while no slot-month is counted', () => {
         const account = atHola();
         harness.queries.set('propAccounts.account.list', answer([account]));
         harness.queries.set('propAccounts.copyGroup.list', answer([]));
@@ -622,12 +629,9 @@ describe('ledger-only accounts across the accounts pages', () => {
             isPending: false,
         });
         render(<OverviewView userId={USER_ID} />);
-        expect(
-            infoText(
-                sectionTitled('Key figures'),
-                'Realized net per slot per month',
-            ),
-        ).toContain('1 ledger-only account not counted');
+        expect(sectionTitled('Key figures').textContent).not.toContain(
+            'Realized net per slot per month',
+        );
         expect(container.textContent).not.toContain(UNLISTED_FIRM_LABEL);
         openOverviewTab(container, OverviewTab.Costs);
         expect(sectionTitled('Costs').textContent).toContain(HOLA.name);
@@ -654,6 +658,27 @@ describe('ledger-only accounts across the accounts pages', () => {
             'every row is ready to import.',
         );
         expect(container.textContent).not.toContain('add the firm first');
+    });
+
+    it('lists every account column with its format behind the import info and marks the required ones', () => {
+        harness.queries.set('propAccounts.account.list', answer([]));
+        harness.queries.set('propAccounts.snapshot.latestForAll', answer([]));
+        harness.queries.set(
+            'propAccounts.snapshot.latestTwoForAll',
+            answer([]),
+        );
+        render(<ImportView />);
+        const entries = detailListEntries(
+            infoContent(container, 'Import accounts'),
+        );
+        expect(entries.map(([column]) => column)).toStrictEqual(
+            ACCOUNT_CSV_COLUMNS,
+        );
+        const required = new Set<string>(REQUIRED_ACCOUNT_CSV_COLUMNS);
+        for (const [column, format] of entries) {
+            expect(format.startsWith('required')).toBe(required.has(column));
+        }
+        expect(entries).toContainEqual([AccountCsvColumn.Notes, 'Free text.']);
     });
 
     it('names a firm of your own in the ledger export', async () => {

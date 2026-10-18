@@ -29,7 +29,7 @@ import {
     type PayoutSweepResult,
 } from '~/app/(app)/prop-calculator/_workers/payoutSweepWorkerMessages';
 import { payoutStakeViewOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
-import { formatGateCurrency } from '~/lib/format';
+import { formatWholeOrCentsCurrency } from '~/lib/format';
 import {
     ALL_FIRMS,
     CumulativeAmountTrigger,
@@ -75,7 +75,8 @@ import {
 } from '~/lib/prop-calculator/simulator';
 import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
 
-import { withInfoTexts } from './infoPopover';
+import { hasComputingIndicator } from './computingIndicator';
+import { infoText, withInfoTexts } from './infoPopover';
 import { statStripValue } from './statStripValue';
 
 type AnyEvent = WorkerTaskEvent<never, unknown>;
@@ -504,6 +505,16 @@ describe('PayoutPlannerView (PT-31e)', () => {
         return withInfoTexts(sectionOf(heading));
     }
 
+    function isShowingLoadingSkeleton(heading: string): boolean {
+        const section = sectionOf(heading);
+        const busy = section.querySelector(':scope [aria-busy="true"]');
+        return (
+            busy !== null &&
+            hasComputingIndicator(busy) &&
+            section.querySelector('[data-slot="skeleton"]') !== null
+        );
+    }
+
     function bodyRows(): HTMLTableRowElement[] {
         return [
             ...sectionOf('Payout-size sweep').querySelectorAll(
@@ -525,6 +536,42 @@ describe('PayoutPlannerView (PT-31e)', () => {
         );
         expect(layout?.classList.contains('grid-cols-[minmax(0,1fr)]')).toBe(
             true,
+        );
+    });
+
+    it('sets the readiness beside the account inputs from lg through the shared inputs-beside-results layout', () => {
+        render(<PayoutPlannerView />);
+        const layout = container.querySelector(
+            '.app-prop-calculator__payout-planner',
+        );
+        expect(layout?.classList.contains('app-inputs-beside-results')).toBe(
+            true,
+        );
+        const [inputs, results] = [...(layout?.children ?? [])];
+        expect(inputs?.querySelector('h2')?.textContent).toBe('Account');
+        expect(results?.querySelector('h2')?.textContent).toBe('Readiness');
+    });
+
+    it('stacks the payouts taken and qualifying days fields on phone, with a short qualifying days label', () => {
+        render(<PayoutPlannerView />);
+        const qualifying = container.querySelector(
+            '#payout-planner-qualifying-days',
+        );
+        const grid = qualifying?.closest('.grid');
+        expect(
+            container
+                .querySelector('#payout-planner-payouts-taken')
+                ?.closest('.grid'),
+        ).toBe(grid);
+        expect(grid?.classList.contains('sm:grid-cols-2')).toBe(false);
+        expect(grid?.classList.contains('md:grid-cols-2')).toBe(true);
+        expect(
+            container.querySelector(
+                'label[for="payout-planner-qualifying-days"]',
+            )?.textContent,
+        ).toBe('Qualifying days');
+        expect(infoText(container, 'Qualifying days')).toContain(
+            'since your last payout',
         );
     });
 
@@ -663,9 +710,14 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             expect(fakeWorker.sweepRequests).toHaveLength(0);
             expect(fakeWorker.outlookRequests).toHaveLength(0);
-            expect(sectionText('Readiness')).toContain(LOADING_TEXT);
-            expect(sectionText('Path to payout')).toContain(LOADING_TEXT);
-            expect(sectionText('Payout-size sweep')).toContain(LOADING_TEXT);
+            for (const title of [
+                'Readiness',
+                'Path to payout',
+                'Payout-size sweep',
+            ]) {
+                expect(sectionText(title)).not.toContain(LOADING_TEXT);
+                expect(isShowingLoadingSkeleton(title)).toBe(true);
+            }
         });
 
         it('runs no worker and shows a loading state while a signed-in rulebook query is pending, then runs on the personal rulebook', () => {
@@ -676,7 +728,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             expect(fakeWorker.sweepRequests).toHaveLength(0);
             expect(fakeWorker.outlookRequests).toHaveLength(0);
-            expect(sectionText('Readiness')).toContain(LOADING_TEXT);
+            expect(isShowingLoadingSkeleton('Readiness')).toBe(true);
 
             const personal = {
                 ...DEFAULT_RULEBOOK,
@@ -1089,10 +1141,10 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 row.textContent.includes('Engine optimum'),
             )?.textContent;
             expect(documentedText).toContain(
-                formatGateCurrency(documented.requestSize),
+                formatWholeOrCentsCurrency(documented.requestSize),
             );
             expect(winnerText).toContain(
-                formatGateCurrency(winner.requestSize),
+                formatWholeOrCentsCurrency(winner.requestSize),
             );
             expect(documentedText).not.toBe(winnerText);
         });
@@ -1115,7 +1167,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             const text = sectionText('Payout-size sweep');
             expect(text).toContain(
-                `Engine optimum: ${formatGateCurrency(winner.requestSize)}`,
+                `Engine optimum: ${formatWholeOrCentsCurrency(winner.requestSize)}`,
             );
             expect(text).toContain('90.0% bust probability');
             expect(text).toContain('at the documented size');
@@ -1175,7 +1227,7 @@ describe('PayoutPlannerView (PT-31e)', () => {
 
             const text = sectionText('Payout-size sweep');
             expect(text).toContain(
-                `firm minimum ${formatGateCurrency(documented.requestSize)} is above the $500 size`,
+                `firm minimum ${formatWholeOrCentsCurrency(documented.requestSize)} is above the $500 size`,
             );
             expect(text).toContain('covers $500, $750');
         });
@@ -1307,10 +1359,10 @@ describe('PayoutPlannerView (PT-31e)', () => {
             );
             const { estimates } = documented.out;
             expect(row?.cells[1]?.textContent).toContain(
-                `±${formatGateCurrency(estimates.expectedMonthlyNet.standardError)}`,
+                `±${formatWholeOrCentsCurrency(estimates.expectedMonthlyNet.standardError)}`,
             );
             expect(row?.cells[2]?.textContent).toContain(
-                `±${formatGateCurrency(estimates.expectedMonthlyRealizedNet.standardError)}`,
+                `±${formatWholeOrCentsCurrency(estimates.expectedMonthlyRealizedNet.standardError)}`,
             );
             expect(row?.cells[3]?.textContent).toContain(
                 `±${(estimates.fundedBustProbability.standardError * 100).toFixed(1)}%`,
@@ -1345,11 +1397,11 @@ describe('PayoutPlannerView (PT-31e)', () => {
                 candidate.textContent.includes('Documented rule'),
             );
             expect(row?.cells[1]?.textContent).toContain(
-                formatGateCurrency(1234),
+                formatWholeOrCentsCurrency(1234),
             );
             expect(row?.cells[1]?.textContent).not.toContain('±');
             expect(row?.cells[2]?.textContent).toContain(
-                formatGateCurrency(567),
+                formatWholeOrCentsCurrency(567),
             );
             expect(row?.cells[2]?.textContent).not.toContain('±');
             expect(row?.cells[3]?.textContent).toContain('±');
@@ -1403,10 +1455,10 @@ describe('PayoutPlannerView (PT-31e)', () => {
             });
 
             expect(text).toContain(
-                `${formatGateCurrency(5000)} (±${formatGateCurrency(222)}) a month credit-inclusive`,
+                `${formatWholeOrCentsCurrency(5000)} (±${formatWholeOrCentsCurrency(222)}) a month credit-inclusive`,
             );
             expect(text).toContain(
-                `${formatGateCurrency(1000)} (±${formatGateCurrency(111)}) a month credit-inclusive`,
+                `${formatWholeOrCentsCurrency(1000)} (±${formatWholeOrCentsCurrency(111)}) a month credit-inclusive`,
             );
         });
     });

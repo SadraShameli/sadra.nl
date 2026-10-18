@@ -1,7 +1,7 @@
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
+import { DetailList } from '~/components/DetailList';
 import { PanelSubheading } from '~/components/PanelSubheading';
 import { Card, CardContent } from '~/components/ui/card';
-import InfoPopover from '~/components/ui/info-popover';
-import { NOT_APPLICABLE } from '~/lib/format';
 
 import { type AttemptEconomicsCardModel } from './attemptEconomicsModel';
 
@@ -21,33 +21,27 @@ export default function AttemptEconomicsCard({
                 <PanelSubheading as="h4">Attempt economics</PanelSubheading>
                 {model.reason === null ? (
                     <>
-                        <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs tabular-nums">
-                            {model.decomposition.map((row) => (
-                                <div
-                                    className="col-span-2 flex items-center justify-between gap-3"
-                                    key={row.label}
-                                >
-                                    <dt className="flex items-center gap-1 text-muted-foreground">
-                                        {row.label}
-                                        {row.infoText && (
-                                            <InfoPopover title={row.label}>
-                                                {row.infoText}
-                                            </InfoPopover>
-                                        )}
-                                    </dt>
-                                    <dd className="text-foreground">
-                                        {row.valueText}
-                                    </dd>
-                                </div>
-                            ))}
-                        </dl>
-                        <p className="mt-1 font-mono text-xs text-muted-foreground">
+                        <DetailList
+                            className="mt-1 tabular-nums"
+                            items={model.decomposition.map((row) => ({
+                                id: row.label,
+                                info: row.infoText,
+                                label: row.label,
+                                value: <ValueOrMissing value={row.valueText} />,
+                            }))}
+                        />
+                        <p className="mt-1 text-xs wrap-break-word text-muted-foreground">
                             {model.formula}
                         </p>
-                        <p className="font-mono text-xs text-muted-foreground">
-                            {model.economics.fundedValueToAttemptCost.value
-                                ?.label ?? NOT_APPLICABLE}
-                        </p>
+                        {model.economics.fundedValueToAttemptCost.value ===
+                        null ? null : (
+                            <p className="text-xs wrap-break-word text-muted-foreground">
+                                {
+                                    model.economics.fundedValueToAttemptCost
+                                        .value.label
+                                }
+                            </p>
+                        )}
                     </>
                 ) : (
                     <p className="text-xs text-muted-foreground">

@@ -93,6 +93,14 @@ export function SelectFieldInput({
         : isShowSavedAsOption
           ? 'Clear selection'
           : 'Load options first';
+    const choices: readonly FieldOption[] = [
+        { label: placeholderLabel, value: SENTINEL_NONE },
+        ...(isShowSavedAsOption
+            ? [{ label: `current: ${stringValue}`, value: stringValue }]
+            : []),
+        ...options,
+    ];
+    const selectedValue = stringValue === EMPTY ? SENTINEL_NONE : stringValue;
 
     return (
         <div className="flex flex-col gap-2">
@@ -103,21 +111,18 @@ export function SelectFieldInput({
                     onValueChange={(v) =>
                         onChange(v === SENTINEL_NONE ? undefined : v)
                     }
-                    value={stringValue === EMPTY ? SENTINEL_NONE : stringValue}
+                    value={selectedValue}
                 >
                     <SelectTrigger className="flex-1" id={fieldId}>
-                        <SelectValue placeholder={placeholderLabel} />
+                        <SelectValue placeholder={placeholderLabel}>
+                            {
+                                choices.find((o) => o.value === selectedValue)
+                                    ?.label
+                            }
+                        </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value={SENTINEL_NONE}>
-                            {placeholderLabel}
-                        </SelectItem>
-                        {isShowSavedAsOption && (
-                            <SelectItem value={stringValue}>
-                                current: {stringValue}
-                            </SelectItem>
-                        )}
-                        {options.map((o) => (
+                        {choices.map((o) => (
                             <SelectItem key={o.value} value={o.value}>
                                 {o.label}
                             </SelectItem>

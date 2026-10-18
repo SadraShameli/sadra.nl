@@ -2,9 +2,11 @@ import { describeUnscorableLadderRun } from '~/app/(app)/prop-calculator/_compon
 import { payoutBlockReasonText } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
 import {
     formatConjunctionList,
+    formatCount,
     formatCurrency,
     formatDisplayDate,
     formatPercent,
+    formatWholeOrCentsCurrency,
 } from '~/lib/format';
 import {
     type Dollars,
@@ -490,7 +492,7 @@ export function ledgerRecordedLadderRowOf(
         source: AdviceSource.LedgerRecordedLadder,
         standardError: null,
         status: OptimumRowStatus.Ready,
-        text: `Ledger-recorded ladder ${ladderText(row.ladder)}. Pass rate ${formatPercent(row.passRate)}, ${row.daysToFunded.toFixed(1)} days to funded, cost per funded ${wholeOrCents(row.costPerFundedAccount)}. From ${row.provenance.file}, section ${row.provenance.section}, row ${row.provenance.row}.${staleNote}`,
+        text: `Ledger-recorded ladder ${ladderText(row.ladder)}. Pass rate ${formatPercent(row.passRate)}, ${row.daysToFunded.toFixed(1)} days to funded, cost per funded ${formatWholeOrCentsCurrency(row.costPerFundedAccount)}. From ${row.provenance.file}, section ${row.provenance.section}, row ${row.provenance.row}.${staleNote}`,
         value: row.daysToFunded,
     };
 }
@@ -582,7 +584,7 @@ function contractsAtStopText(
     if (contracts === 0) {
         return `, which is below one ${symbol} contract at your ${stop}`;
     }
-    return `, which is ${String(contracts)} ${symbol} contract${contracts === 1 ? '' : 's'} (${wholeOrCents(contracts * oneContractRisk(resolved))}) at your ${stop}`;
+    return `, which is ${String(contracts)} ${symbol} contract${contracts === 1 ? '' : 's'} (${formatWholeOrCentsCurrency(contracts * oneContractRisk(resolved))}) at your ${stop}`;
 }
 
 function dailyPlanCardViewOf(card: DailyPlanCard): DailyPlanCardViewModel {
@@ -855,7 +857,7 @@ function fundedWinnerSentence(
 ): string {
     if (context.cushion === null) return '';
     const risk = fundedWinnerRiskAt(optimum.policy, context.cushion);
-    return ` Winner ${optimum.label} = ${wholeOrCents(risk)} at your cushion of ${wholeOrCents(context.cushion)}${contractsAtStopText(risk, context.placement)}.`;
+    return ` Winner ${optimum.label} = ${formatWholeOrCentsCurrency(risk)} at your cushion of ${formatWholeOrCentsCurrency(context.cushion)}${contractsAtStopText(risk, context.placement)}.`;
 }
 
 function ladderOptimumRowOf(result: LadderEngineOptimumResult): OptimumRowView {
@@ -874,7 +876,7 @@ function ladderOptimumRowOf(result: LadderEngineOptimumResult): OptimumRowView {
 }
 
 function ladderText(ladder: readonly number[]): string {
-    return ladder.map((rung) => wholeOrCents(rung)).join(', ');
+    return ladder.map((rung) => formatWholeOrCentsCurrency(rung)).join(', ');
 }
 
 function ledgerRowsOf(
@@ -1363,14 +1365,10 @@ function scoredLadderRowOf(
 
 function simulationTextOf(provenance: ProvenanceView): string {
     if (provenance.trials === null) return 'no simulation run';
-    const trials = `simulated, ${provenance.trials.toLocaleString('en-US')} trials`;
+    const trials = `simulated, ${formatCount(provenance.trials)} trials`;
     return provenance.seed === null
         ? trials
         : `${trials}, seed ${String(provenance.seed)}`;
-}
-
-function wholeOrCents(amount: number): string {
-    return formatCurrency(amount, Number.isSafeInteger(amount) ? 0 : 2);
 }
 
 function windowRuleTextOf(maxTradesPerWindow: number): string {

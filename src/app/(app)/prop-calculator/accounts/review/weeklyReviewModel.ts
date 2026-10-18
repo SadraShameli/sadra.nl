@@ -137,7 +137,9 @@ export interface WeeklyReviewResult {
     readonly asOf: string;
     readonly corruptRows: readonly WeeklyReviewCorruptRow[];
     readonly ledgerOnlyExcludedCount: number;
+    readonly nothingToRecordNotice: string;
     readonly notUpdatedCount: number;
+    readonly notUpdatedNotice: null | string;
     readonly rows: readonly WeeklyReviewRow[];
     readonly weekStart: string;
     readonly windowEnd: string;
@@ -252,6 +254,10 @@ interface WeeklyReviewSnapshotSubmitEntry extends Omit<
     readonly balanceCents: number;
 }
 
+export const RECORD_UNCHANGED_LABEL = 'Record as unchanged';
+
+const NOTHING_TO_RECORD_LEAD = 'Nothing to record this week';
+
 const WEEK_DAYS = 7;
 
 interface ReviewEntry {
@@ -311,7 +317,9 @@ export function buildWeeklyReview(
         corruptRows,
         ledgerOnlyExcludedCount:
             input.accounts.filter(isActiveLedgerOnly).length,
+        nothingToRecordNotice: nothingToRecordNoticeOf(rows),
         notUpdatedCount: rows.filter(isNotUpdated).length,
+        notUpdatedNotice: notUpdatedNoticeOf(rows),
         rows,
         weekStart,
         windowEnd: input.today,
@@ -436,6 +444,10 @@ function adherenceOf(
 
 function brandedCentsOrNull(cents: null | number) {
     return cents === null ? null : usdCents(cents);
+}
+
+function canRecordUnchanged(row: WeeklyReviewRow): boolean {
+    return row.entryKind === WeeklyReviewEntryKind.Unchanged && !row.isBlocked;
 }
 
 function decisionEntryFor(
@@ -654,6 +666,24 @@ function missingFieldLabelsFor(
             ),
         ),
     ];
+}
+
+function nothingToRecordNoticeOf(rows: readonly WeeklyReviewRow[]): string {
+    return rows.some(canRecordUnchanged)
+        ? `${NOTHING_TO_RECORD_LEAD}: enter a snapshot for an account or tick ${RECORD_UNCHANGED_LABEL}`
+        : `${NOTHING_TO_RECORD_LEAD}: enter a snapshot for an account`;
+}
+
+function notUpdatedNoticeOf(rows: readonly WeeklyReviewRow[]): null | string {
+    const notUpdated = rows.filter(isNotUpdated);
+    const count = notUpdated.length;
+    if (count === 0) return null;
+    const subject = count === 1 ? '1 account' : `${String(count)} accounts`;
+    const pronoun = count === 1 ? 'it is' : 'they are';
+    const remedy = notUpdated.some(canRecordUnchanged)
+        ? `enter a snapshot or tick ${RECORD_UNCHANGED_LABEL}`
+        : 'enter a snapshot';
+    return `${subject} not updated: ${pronoun} left out of the snapshots and decisions of this review unless you ${remedy}.`;
 }
 
 function planKeyOf(account: WeeklyReviewAccountInput): PlanKeyInput {

@@ -5,7 +5,7 @@ import { useMemo, useRef } from 'react';
 
 import { InfoNote } from '~/components/InfoNote';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import {
     formatCurrency,
     formatDays,
@@ -34,6 +34,7 @@ import { useBankrollVariant } from './bankroll/useBankrollVariant';
 import { useCalculatorInputs } from './CalculatorProvider';
 import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
+import { NO_PASS_DAYS_REASON } from './missingReasons';
 import { CalculatorObjectiveChip } from './ObjectiveChip';
 import {
     documentedSizingHeadline,
@@ -44,9 +45,12 @@ import {
 } from './objectiveRanking';
 import { riskPercentToDollars } from './riskConversion';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { roiColumn } from './simOutputColumns';
 import { partitionBySizing } from './simulationFailure';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
+import { useSectionComputing } from './ToolSection';
 import { useDebouncedComputation } from './useDebouncedSimulation';
+import { ValueOrMissing } from './ValueOrMissing';
 
 const RISK_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5] as const;
 const DEBOUNCE_MS = 500;
@@ -118,6 +122,7 @@ export default function OptimalRiskTable({
     );
 
     const cardReference = useRef<HTMLDivElement>(null);
+    useSectionComputing(pending);
 
     const starred = useMemo(
         () =>
@@ -179,7 +184,12 @@ export default function OptimalRiskTable({
             },
             {
                 accessorFn: (r) => r.out.daysToPassP50,
-                cell: ({ row }) => formatDays(row.original.out.daysToPassP50),
+                cell: ({ row }) => (
+                    <ValueOrMissing
+                        reason={NO_PASS_DAYS_REASON}
+                        value={formatDays(row.original.out.daysToPassP50)}
+                    />
+                ),
                 header: 'Days P50',
                 id: 'days',
             },
@@ -197,14 +207,7 @@ export default function OptimalRiskTable({
                 id: 'cycleNet',
             },
             ...(bankroll === null ? [] : bankrollColumns()),
-            {
-                accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
-                cell: ({ row }) =>
-                    formatOptionalPercent(row.original.out.roiOnCost.value),
-                header: 'ROI',
-                id: 'roi',
-                sortUndefined: 'last',
-            },
+            roiColumn<Row>(),
             {
                 accessorFn: (r) => r.out.maxLosingStreakP95,
                 cell: ({ row }) =>
@@ -244,14 +247,14 @@ export default function OptimalRiskTable({
             </InfoNote>
             <RulebookSourceNotice source={rulebookSource} />
             <CalculatorObjectiveChip />
-            <p className="m-0 text-xs text-muted-foreground">
-                {pending
-                    ? 'computing…'
-                    : `engine optimum for ${riskTableObjective(objectiveView.effective).label} at ${formatPercent(
-                          (bestRow?.riskPct ?? 0) / 100,
-                          2,
-                      )}`}
-            </p>
+            {bestRow === null ? null : (
+                <p className="m-0 text-xs text-muted-foreground">
+                    {`engine optimum for ${riskTableObjective(objectiveView.effective).label} at ${formatPercent(
+                        bestRow.riskPct / 100,
+                        2,
+                    )}`}
+                </p>
+            )}
             <AppliedEvalLadderNotice
                 onCleared={() => cardReference.current?.focus()}
                 scope={EvalLadderScope.NotUsedHere}
@@ -270,9 +273,11 @@ export default function OptimalRiskTable({
                     <EmptyState
                         description="Adjust your inputs to see the optimal risk distribution."
                         icon={Target}
+                        size={EmptyStateSize.Compact}
                         title="No data yet"
                     />
                 }
+                isLoading={pending && rows.length === 0}
                 pageSize={null}
                 rowClassName={(r) =>
                     r.riskPct === closestRiskPct
@@ -289,20 +294,26 @@ function bankrollColumns(): DataTableColumn<Row>[] {
     return [
         {
             accessorFn: (r) => r.bankroll?.noPayoutProbability ?? undefined,
-            cell: ({ row }) =>
-                formatOptionalPercent(
-                    row.original.bankroll?.noPayoutProbability ?? null,
-                ),
+            cell: ({ row }) => (
+                <ValueOrMissing
+                    value={formatOptionalPercent(
+                        row.original.bankroll?.noPayoutProbability ?? null,
+                    )}
+                />
+            ),
             header: 'P(no payout)',
             id: 'noPayout',
             sortUndefined: 'last',
         },
         {
             accessorFn: (r) => r.bankroll?.lossProbability ?? undefined,
-            cell: ({ row }) =>
-                formatOptionalPercent(
-                    row.original.bankroll?.lossProbability ?? null,
-                ),
+            cell: ({ row }) => (
+                <ValueOrMissing
+                    value={formatOptionalPercent(
+                        row.original.bankroll?.lossProbability ?? null,
+                    )}
+                />
+            ),
             header: 'P(batch < 0)',
             id: 'batchLoss',
             sortUndefined: 'last',

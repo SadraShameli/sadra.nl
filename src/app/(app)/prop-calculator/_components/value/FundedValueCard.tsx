@@ -6,14 +6,15 @@ import { useToolsRequest } from '~/app/(app)/prop-calculator/_components/bankrol
 import { SIM_DEBOUNCE_MS } from '~/app/(app)/prop-calculator/_components/useCalculator';
 import { useDebouncedValue } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
 import { ToolsWorkerPhase } from '~/app/(app)/prop-calculator/_components/useToolsWorker';
+import { ValueOrMissing } from '~/app/(app)/prop-calculator/_components/ValueOrMissing';
 import { ToolsResponseKind } from '~/app/(app)/prop-calculator/_workers/toolsWorkerMessages';
 import { InfoNote } from '~/components/InfoNote';
-import { StatStrip } from '~/components/StatStrip';
+import { StatStrip, type StatStripItem } from '~/components/StatStrip';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Alert, AlertDescription } from '~/components/ui/alert';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
-import { formatPercent, NOT_APPLICABLE } from '~/lib/format';
+import { formatPercent } from '~/lib/format';
 import {
     assumptionText,
     liveTransferAssumptionLines,
@@ -22,16 +23,15 @@ import { type FundedValueEstimateResult } from '~/lib/prop-calculator/advisor/va
 import { stableJson } from '~/lib/stableJson';
 
 import {
-    dollarRangeSubText,
     dollarRangeText,
     fundedValueEstimateToolsRequest,
     fundedValueSampleSize,
     isInvalidSampleSizeField,
     parseFundedValueSampleSizeField,
-    sampleRangeSubText,
+    sampleRangeCaption,
     sampleRangeText,
+    toolsWorkerCancelledText,
     toolsWorkerFailureReason,
-    toolsWorkerPendingText,
     uncertainCountText,
     uncertainCurrencyText,
     type ValueCardsInput,
@@ -91,18 +91,15 @@ export function FundedValueCard({
     const failureReason = shouldShowWorkerOutput
         ? toolsWorkerFailureReason(worker.state)
         : null;
-    const pendingText = shouldShowWorkerOutput
-        ? toolsWorkerPendingText(worker.state)
+    const cancelledText = shouldShowWorkerOutput
+        ? toolsWorkerCancelledText(worker.state)
         : null;
+    const isComputing =
+        shouldShowWorkerOutput &&
+        worker.state.phase === ToolsWorkerPhase.Running;
 
     return (
-        <section
-            aria-busy={
-                shouldShowWorkerOutput &&
-                worker.state.phase === ToolsWorkerPhase.Running
-            }
-            aria-labelledby="funded-value-heading"
-        >
+        <section aria-labelledby="funded-value-heading">
             <ToolPanel
                 info={
                     result === null ||
@@ -112,6 +109,7 @@ export function FundedValueCard({
                         <FundedValueAssumptions result={result} />
                     )
                 }
+                isComputing={isComputing}
                 title="Funded value"
                 titleAs="h3"
                 titleId="funded-value-heading"
@@ -162,58 +160,13 @@ export function FundedValueCard({
                             <AlertDescription>{failureReason}</AlertDescription>
                         </Alert>
                     )}
-                    {pendingText === null ? null : (
-                        <InfoNote>{pendingText}</InfoNote>
+                    {cancelledText === null ? null : (
+                        <InfoNote>{cancelledText}</InfoNote>
                     )}
-                    {result === null ? null : (
+                    {result === null && !isComputing ? null : (
                         <StatStrip
-                            items={[
-                                {
-                                    caption: `${String(result.trials)} trials`,
-                                    id: 'expected-payout',
-                                    label: 'Expected payout per funded account',
-                                    value: uncertainCurrencyText(
-                                        result.fundedValue,
-                                    ),
-                                },
-                                {
-                                    caption: dollarRangeSubText(
-                                        result.dollarSampleRange,
-                                        settled.sampleSize,
-                                    ),
-                                    id: 'dollar-range',
-                                    label: 'Range n accounts could show ($)',
-                                    value:
-                                        dollarRangeText(
-                                            result.dollarSampleRange,
-                                        ) ?? NOT_APPLICABLE,
-                                },
-                                {
-                                    caption: `${String(result.trials)} trials`,
-                                    id: 'mean-payouts',
-                                    label: 'Mean payouts per funded account',
-                                    value: uncertainCountText(
-                                        result.meanPayoutsPerAccount,
-                                    ),
-                                },
-                                {
-                                    id: 'zero-payouts',
-                                    label: 'P(0 payouts)',
-                                    value: formatPercent(
-                                        result.probabilityZeroPayouts.value,
-                                    ),
-                                },
-                                {
-                                    caption: sampleRangeSubText(
-                                        result.sampleRange,
-                                    ),
-                                    id: 'payout-range',
-                                    label: 'Range n accounts could show (payouts)',
-                                    value:
-                                        sampleRangeText(result.sampleRange) ??
-                                        NOT_APPLICABLE,
-                                },
-                            ]}
+                            isLoading={result === null}
+                            items={fundedValueItems(result, settled.sampleSize)}
                         />
                     )}
                 </div>
@@ -254,4 +207,79 @@ function FundedValueAssumptions({
             )}
         </div>
     );
+}
+
+function fundedValueItems(
+    result: FundedValueEstimateResult | null,
+    sampleSize: null | number,
+): StatStripItem[] {
+    const trialsCaption =
+        result === null ? undefined : `${String(result.trials)} trials`;
+    const hasSampleSize = sampleSize !== null;
+    return [
+        {
+            caption: trialsCaption,
+            id: 'expected-payout',
+            label: 'Expected payout per funded account',
+            value:
+                result === null
+                    ? null
+                    : uncertainCurrencyText(result.fundedValue),
+        },
+        ...(hasSampleSize
+            ? [
+                  {
+                      caption:
+                          result === null
+                              ? undefined
+                              : sampleRangeCaption(result.dollarSampleRange),
+                      id: 'dollar-range',
+                      label: 'Range n accounts could show ($)',
+                      value:
+                          result === null ? null : (
+                              <ValueOrMissing
+                                  value={dollarRangeText(
+                                      result.dollarSampleRange,
+                                  )}
+                              />
+                          ),
+                  },
+              ]
+            : []),
+        {
+            caption: trialsCaption,
+            id: 'mean-payouts',
+            label: 'Mean payouts per funded account',
+            value:
+                result === null
+                    ? null
+                    : uncertainCountText(result.meanPayoutsPerAccount),
+        },
+        {
+            id: 'zero-payouts',
+            label: 'P(0 payouts)',
+            value:
+                result === null
+                    ? null
+                    : formatPercent(result.probabilityZeroPayouts.value),
+        },
+        ...(hasSampleSize
+            ? [
+                  {
+                      caption:
+                          result === null
+                              ? undefined
+                              : sampleRangeCaption(result.sampleRange),
+                      id: 'payout-range',
+                      label: 'Range n accounts could show (payouts)',
+                      value:
+                          result === null ? null : (
+                              <ValueOrMissing
+                                  value={sampleRangeText(result.sampleRange)}
+                              />
+                          ),
+                  },
+              ]
+            : []),
+    ];
 }

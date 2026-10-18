@@ -1,5 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const harness = vi.hoisted(() => ({
@@ -121,5 +122,25 @@ describe('LiftingSettingsForm', () => {
             { defaultRestSeconds: 120 },
             { defaultRestSeconds: 90 },
         ]);
+    });
+
+    it('flags unsaved edits in the form footer and clears the flag once saved', async () => {
+        expect(container.textContent).not.toContain('Unsaved changes');
+        await typeRest('120');
+        expect(container.textContent).toContain('Unsaved changes');
+        await save();
+        expect(container.textContent).not.toContain('Unsaved changes');
+    });
+
+    it('names every chosen unit and the week start in the server-rendered selects', () => {
+        const html = renderToString(
+            <LiftingSettingsForm initial={INITIAL as never} />,
+        );
+        const holder = document.createElement('div');
+        holder.innerHTML = html;
+        const shown = [...holder.querySelectorAll('[role="combobox"]')].map(
+            (trigger) => trigger.textContent.trim(),
+        );
+        expect(shown).toEqual(['kg', 'm', 'cm', 'Monday']);
     });
 });

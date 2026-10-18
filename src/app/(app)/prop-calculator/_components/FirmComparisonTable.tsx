@@ -7,15 +7,9 @@ import { FilterToolbar } from '~/components/FilterToolbar';
 import { InfoNote } from '~/components/InfoNote';
 import { StatusRow, StatusTone } from '~/components/StatusRow';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
 import InfoPopover from '~/components/ui/info-popover';
-import {
-    formatCurrency,
-    formatDays,
-    formatOptionalPercent,
-    formatPercent,
-    NOT_APPLICABLE,
-} from '~/lib/format';
+import { formatCurrency, formatPercent } from '~/lib/format';
 import {
     dollars,
     type FirmId,
@@ -38,6 +32,10 @@ import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
 import {
+    NO_FUNDED_ACCOUNT_REASON,
+    NO_SCREEN_HOUR_REASON,
+} from './missingReasons';
+import {
     BatchLossCache,
     type PricedComparisonRow,
     rankComparison,
@@ -57,12 +55,15 @@ import {
     useScreenHourFilters,
 } from './ScreenHourFilters';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { passDaysColumn, roiColumn } from './simOutputColumns';
 import { SimulationFailureNotice } from './SimulationFailureNotice';
+import { useSectionComputing } from './ToolSection';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 import {
     openInSimulatorColumn,
     useOpenInSimulator,
 } from './useOpenInSimulator';
+import { ValueOrMissing } from './ValueOrMissing';
 
 const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 500;
@@ -179,6 +180,7 @@ export default function FirmComparisonTable({
     );
 
     const openInSimulator = useOpenInSimulator(planOptIns);
+    useSectionComputing(pending);
 
     const {
         accountsPerSession,
@@ -245,12 +247,7 @@ export default function FirmComparisonTable({
                 header: 'Funded survive',
                 id: 'fundedSurvive',
             },
-            {
-                accessorFn: (r) => r.out.daysToPassP50,
-                cell: ({ row }) => formatDays(row.original.out.daysToPassP50),
-                header: 'Days',
-                id: 'days',
-            },
+            passDaysColumn<Row>(),
             {
                 accessorFn: (r) => r.out.expectedTotalCost,
                 cell: ({ row }) =>
@@ -271,14 +268,7 @@ export default function FirmComparisonTable({
                 header: 'Cycle net',
                 id: 'cycleNet',
             },
-            {
-                accessorFn: (r) => r.out.roiOnCost.value ?? undefined,
-                cell: ({ row }) =>
-                    formatOptionalPercent(row.original.out.roiOnCost.value),
-                header: 'ROI',
-                id: 'roi',
-                sortUndefined: 'last',
-            },
+            roiColumn<Row>(),
             {
                 accessorFn: (r) => r.score,
                 cell: ({ row }) => monthlyNetScoreText(row.original.score),
@@ -312,11 +302,11 @@ export default function FirmComparisonTable({
                 />
             ) : null}
             <ComparisonRankingNote ranked={ranked} />
-            <p className="m-0 text-xs text-muted-foreground">
-                {pending
-                    ? 'computing…'
-                    : `closest plan to $${(targetAccountSize / 1000).toFixed(0)}K${shownRows.length < ranked.rows.length ? `, showing ${shownRows.length} of ${ranked.rows.length}` : ''}`}
-            </p>
+            {rows.length === 0 ? null : (
+                <p className="m-0 text-xs text-muted-foreground">
+                    {`closest plan to $${(targetAccountSize / 1000).toFixed(0)}K${shownRows.length < ranked.rows.length ? `, showing ${shownRows.length} of ${ranked.rows.length}` : ''}`}
+                </p>
+            )}
             {error === null ? (
                 <DataTable<Row>
                     className="app-prop-calculator__firm-comparison-table text-xs tabular-nums"
@@ -325,9 +315,11 @@ export default function FirmComparisonTable({
                     emptyState={
                         <EmptyState
                             icon={Building2}
-                            title={pending ? 'Computing…' : 'No matching plans'}
+                            size={EmptyStateSize.Compact}
+                            title="No matching plans"
                         />
                     }
+                    isLoading={pending && rows.length === 0}
                     pageSize={null}
                     rowClassName={(r) =>
                         r.firm.id === activeFirmId
@@ -361,7 +353,12 @@ export function noPayoutColumn<
         accessorFn: (r) => valueOf(r) ?? undefined,
         cell: ({ row }) => {
             const value = valueOf(row.original);
-            return value === null ? NOT_APPLICABLE : formatPercent(value);
+            return (
+                <ValueOrMissing
+                    reason={NO_FUNDED_ACCOUNT_REASON}
+                    value={value === null ? null : formatPercent(value)}
+                />
+            );
         },
         header: 'P(no payout)',
         id: 'noPayout',
@@ -385,7 +382,12 @@ export function screenHourColumn<Row extends { out: SimOutputs }>(
         accessorFn: (r) => valueOf(r) ?? undefined,
         cell: ({ row }) => {
             const value = valueOf(row.original);
-            return value === null ? NOT_APPLICABLE : formatCurrency(value);
+            return (
+                <ValueOrMissing
+                    reason={NO_SCREEN_HOUR_REASON}
+                    value={value === null ? null : formatCurrency(value)}
+                />
+            );
         },
         header: '$/screen hour',
         id: 'netPerScreenHour',

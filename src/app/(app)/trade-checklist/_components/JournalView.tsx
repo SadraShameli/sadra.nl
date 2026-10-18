@@ -1,18 +1,21 @@
 'use client';
 
-import { formatDistanceToNow } from 'date-fns';
-import { ClipboardList, Eye } from 'lucide-react';
+import { ClipboardCheck, ClipboardList, Eye } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
 
 import type { Outcome, TradeAssessmentRow } from '~/lib/trading/types';
 
+import { RelativeTime } from '~/components/RelativeTime';
 import { RowActionKind, rowActionsColumn } from '~/components/RowActionsMenu';
 import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
-import { EmptyState } from '~/components/ui/empty-state';
+import { EmptyState, EmptyStateSize } from '~/components/ui/empty-state';
+import { routes } from '~/lib/site/routes';
 import { dateKey, filterAssessments } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
 
@@ -225,11 +228,10 @@ export function JournalView({ history, plans }: JournalViewProperties) {
             {
                 accessorFn: (r) => new Date(r.createdAt).getTime(),
                 cell: ({ row }) => (
-                    <span className="whitespace-nowrap text-muted-foreground">
-                        {formatDistanceToNow(new Date(row.original.createdAt), {
-                            addSuffix: true,
-                        })}
-                    </span>
+                    <RelativeTime
+                        className="whitespace-nowrap text-muted-foreground"
+                        value={row.original.createdAt}
+                    />
                 ),
                 header: 'When',
                 id: 'when',
@@ -249,6 +251,29 @@ export function JournalView({ history, plans }: JournalViewProperties) {
         ],
         [],
     );
+
+    if (history.length === 0) {
+        return (
+            <ToolPanel
+                className="app-trade-checklist__journal-view"
+                title="Assessments"
+            >
+                <EmptyState
+                    action={
+                        <Button asChild>
+                            <Link href={routes.tradeChecklist.index}>
+                                <ClipboardCheck data-icon="inline-start" />
+                                Run the checklist
+                            </Link>
+                        </Button>
+                    }
+                    description="Graded setups show up here to filter and review."
+                    icon={ClipboardList}
+                    title="No assessments yet"
+                />
+            </ToolPanel>
+        );
+    }
 
     return (
         <ToolPanel
@@ -276,20 +301,12 @@ export function JournalView({ history, plans }: JournalViewProperties) {
                 data={filtered}
                 emptyState={
                     <EmptyState
-                        description={
-                            hasFiltersActive
-                                ? 'Try clearing your filters or picking another date.'
-                                : 'Run the checklist to log your first trade assessment.'
-                        }
+                        description="Try clearing your filters or picking another date."
                         icon={ClipboardList}
-                        title={
-                            hasFiltersActive
-                                ? 'No matching assessments'
-                                : 'No assessments yet'
-                        }
+                        size={EmptyStateSize.Compact}
+                        title="No matching assessments"
                     />
                 }
-                pageSize={25}
                 rowId={(r) => r.id}
             />
 

@@ -38,6 +38,14 @@ import {
     readinessBoardInputsOf,
     readinessOverridesOf,
 } from '~/app/(app)/prop-calculator/accounts/_components/advice/personalRuleOptions';
+import {
+    PENDING_FIGURE,
+    UNAVAILABLE_FIGURE,
+} from '~/app/(app)/prop-calculator/accounts/_components/figureValues';
+import {
+    periodTerminated,
+    sentenceOf,
+} from '~/app/(app)/prop-calculator/accounts/_components/sentenceText';
 import { firmsModelOf } from '~/app/(app)/prop-calculator/accounts/firms/firmsModel';
 import { errorMessage } from '~/lib/errorMessage';
 import {
@@ -926,6 +934,7 @@ export interface SetupAccountRow {
 export interface SetupChecklistCardModel {
     readonly doneCount: number;
     readonly isComplete: boolean;
+    readonly isCounting: boolean;
     readonly steps: readonly SetupStepRow[];
     readonly totalSteps: number;
 }
@@ -1607,7 +1616,6 @@ const PENDING_FEE_ATTRIBUTION_TEXT: Readonly<
         'Fees paid on or after the start of an eval attempt that is still open are pending: they count toward cost per funded account once that attempt passes or fails.',
 };
 
-const PENDING = 'Pending';
 const NO_MODELED_COST = 'No modeled cost (the engine passes no attempt)';
 const MODELED_COST_PENDING =
     'The modeled cost per funded account is pending the engine cards.';
@@ -1672,9 +1680,6 @@ const REPEATABILITY_BASIS_NOTE =
     'Mean, standard deviation, worst, best and share positive are net per month. The share at or above target compares payouts per month with your monthly payout target.';
 const NO_ATTEMPT_COST_TEXT =
     'No attempt cost is recorded yet, so the realized loss risk cannot be computed.';
-const SENTENCE_END = /[.!?]$/u;
-
-const NOT_AVAILABLE = 'Not available';
 const ENGINE_COMPUTING_NOTE =
     'The engine is computing these figures off the main thread.';
 const NO_ACTIVE_FUNDED_SLOT = 'No active funded slot';
@@ -1692,7 +1697,7 @@ const NEXT_PAYOUT_DISCLOSURES: readonly string[] = [
 const NEXT_PAYOUT_NO_RULEBOOK_NOTE =
     'Your rulebook has not loaded, so no from-state figure can be computed.';
 const NEXT_PAYOUT_NO_ACCOUNTS_NOTE =
-    'No active funded or evaluation account has a usable snapshot yet. Record a snapshot to see its value and next payout from its own state.';
+    'Each figure is computed from the account’s own latest snapshot.';
 const PROJECTION_DISCLOSURES: readonly string[] = [
     'Each plan is simulated as a fresh start from a new purchase of every active account on it, under your documented policy, not from your current balances.',
     'The timeline books no end-of-horizon credit, while the expected monthly net on the Expected net card includes one capped payout request for each surviving account, so the two are different figures and are not comparable.',
@@ -2262,7 +2267,7 @@ export function ledgerOrDateFailure<Result>(
         if (!(error instanceof IsoDateError)) throw error;
         return {
             kind: OverviewSectionStatus.Failed,
-            message: asSentence(error.message),
+            message: periodTerminated(error.message),
         };
     }
 }
@@ -2426,10 +2431,12 @@ export function scaleModelAtBudget(
 
 export function setupChecklistCardOf(
     checklist: SetupChecklist,
+    isCounting: boolean,
 ): SetupChecklistCardModel {
     return {
         doneCount: checklist.doneCount,
         isComplete: checklist.isComplete,
+        isCounting,
         steps: checklist.steps.map((result) => ({
             accounts: result.missing.flatMap(setupAccountRows),
             actionLabel: SETUP_STEP_ACTION[result.step],
@@ -2759,11 +2766,6 @@ function alertsLoad(queries: PortfolioQueries): SectionLoad<AlertRows> {
               rows: { accounts, copyGroups, payouts, rulebook, snapshots },
               status: OverviewSectionStatus.Ready,
           };
-}
-
-function asSentence(text: string): string {
-    const trimmed = text.trim();
-    return SENTENCE_END.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
 function attemptEconomicsCard(
@@ -3380,13 +3382,13 @@ function conversionEvText(
             ),
         });
         return conversion.value === null
-            ? NOT_AVAILABLE
+            ? UNAVAILABLE_FIGURE
             : formatCurrency(conversion.value);
     }
     return documented.kind === EngineSlotKind.Pending ||
         values.kind === EngineSlotKind.Pending
-        ? PENDING
-        : NOT_AVAILABLE;
+        ? PENDING_FIGURE
+        : UNAVAILABLE_FIGURE;
 }
 
 function costCard(
@@ -3505,7 +3507,7 @@ function costCardDisclosures(
         ready === null
             ? engine.failure === null
                 ? MODELED_COST_PENDING
-                : `The modeled cost per funded account is not available: ${asSentence(engine.failure)}`
+                : `The modeled cost per funded account is not available: ${periodTerminated(engine.failure)}`
             : `The modeled cost per funded account is the simulator's replacement-chain cost under your documented policy: fresh start, ${formatTrials(ready.trials)}, with the engine's pass rate rather than yours.`,
     ];
 }
@@ -3575,10 +3577,6 @@ function cushionBoardRow(
     };
 }
 
-function dayLossNoteSentence(note: string): string {
-    return asSentence(`${note.charAt(0).toUpperCase()}${note.slice(1)}`);
-}
-
 function decisionsLoad(
     queries: PortfolioQueries,
 ): SectionLoad<readonly OverviewDecisionRow[]> {
@@ -3627,10 +3625,10 @@ function engineText<Figures>(
     switch (slot.kind) {
         case EngineSlotKind.Failed:
         case EngineSlotKind.Refused: {
-            return NOT_AVAILABLE;
+            return UNAVAILABLE_FIGURE;
         }
         case EngineSlotKind.Pending: {
-            return PENDING;
+            return PENDING_FIGURE;
         }
         case EngineSlotKind.Ready: {
             return ready(slot.figures);
@@ -3943,7 +3941,7 @@ function expectedNetCard(
         status,
         statusNote:
             status === ExpectedNetStatus.Failed
-                ? `The engine cards could not be computed: ${asSentence(engine.failure ?? NOT_AVAILABLE)}`
+                ? `The engine cards could not be computed: ${periodTerminated(engine.failure ?? UNAVAILABLE_FIGURE)}`
                 : status === ExpectedNetStatus.Pending
                   ? ENGINE_COMPUTING_NOTE
                   : null,
@@ -3958,10 +3956,10 @@ function expectedNetFigure<Figures extends MonthlyNetFigures>(
     switch (slot.kind) {
         case EngineSlotKind.Failed:
         case EngineSlotKind.Refused: {
-            return unavailableFigure(NOT_AVAILABLE);
+            return unavailableFigure(UNAVAILABLE_FIGURE);
         }
         case EngineSlotKind.Pending: {
-            return unavailableFigure(PENDING);
+            return unavailableFigure(PENDING_FIGURE);
         }
         case EngineSlotKind.Ready: {
             const { figures } = slot;
@@ -3997,7 +3995,7 @@ function expectedNetKpi(
             ...base,
             detail: `Modeled monthly net per slot under ${engine.ruleLabel}: pending the engine cards`,
             tone: KpiTone.Pending,
-            value: PENDING,
+            value: PENDING_FIGURE,
         };
     }
     if (held.length === 0) {
@@ -4013,7 +4011,7 @@ function expectedNetKpi(
     ) {
         return {
             ...base,
-            detail: `The engine cards could not be computed: ${asSentence(engine.failure ?? NOT_AVAILABLE)}`,
+            detail: `The engine cards could not be computed: ${periodTerminated(engine.failure ?? UNAVAILABLE_FIGURE)}`,
             tone: KpiTone.Neutral,
             value: NOT_APPLICABLE,
         };
@@ -4025,7 +4023,7 @@ function expectedNetKpi(
             ...base,
             detail: `Modeled monthly net per slot under ${engine.ruleLabel}: pending the engine cards`,
             tone: KpiTone.Pending,
-            value: PENDING,
+            value: PENDING_FIGURE,
         };
     }
     const answered = held.flatMap(({ count, plan }) =>
@@ -4435,7 +4433,7 @@ function followedRecommendationsKpi(load: PortfolioLoad): OverviewKpi {
                 ...base,
                 detail: 'Pending your sizing decisions',
                 tone: KpiTone.Pending,
-                value: PENDING,
+                value: PENDING_FIGURE,
             };
         }
         case OverviewSectionStatus.Ready: {
@@ -4511,11 +4509,9 @@ function formatSampledRate(
 ): string {
     const level = sampleAdequacy(kind, estimate?.n ?? 0, thresholds);
     const levelText = level === null ? '' : `, ${SAMPLE_LEVEL_LABEL[level]}`;
-    const figure =
-        estimate === null
-            ? `${NOT_APPLICABLE} (n = 0)`
-            : formatSampledRateWithoutLevel(estimate);
-    return `${figure}${levelText}`;
+    return estimate === null
+        ? NOT_APPLICABLE
+        : `${formatSampledRateWithoutLevel(estimate)}${levelText}`;
 }
 
 function formatSampledRateWithoutLevel(estimate: SampledEstimate): string {
@@ -4535,11 +4531,11 @@ function formatSampledRateWithoutLevel(estimate: SampledEstimate): string {
 
 function formatSessions(estimate: null | SampledEstimate): string {
     if (estimate === null) return NOT_APPLICABLE;
-    const standardError =
+    const sample =
         estimate.standardError === null
-            ? NOT_APPLICABLE
-            : estimate.standardError.toFixed(1);
-    return `${estimate.value.toFixed(1)} sessions (SE ${standardError}, n = ${String(estimate.n)})`;
+            ? `n = ${String(estimate.n)}`
+            : `SE ${estimate.standardError.toFixed(1)}, n = ${String(estimate.n)}`;
+    return `${estimate.value.toFixed(1)} sessions (${sample})`;
 }
 
 function fromStateEntriesFor(
@@ -4890,6 +4886,16 @@ function hasError(error: unknown): boolean {
     return error !== null && error !== undefined;
 }
 
+function hasPendingExpectedValue(
+    ledger: PortfolioLedger,
+    view: EngineView,
+): boolean {
+    return heldPolicyGroupsOf(ledger).some((group) => {
+        const slot = view.plans.get(group.policyKey)?.documented;
+        return slot === undefined || slot.kind === EngineSlotKind.Pending;
+    });
+}
+
 function heldInFundedProgressText(
     values: EngineSlot<PlanValuesFigures> | undefined,
     fromState: EngineSlot<AccountFromStateFigures>,
@@ -4906,13 +4912,13 @@ function heldInFundedProgressText(
             valueNow: dollars(fromState.figures.valueNow.creditFree.value),
         });
         return progress.value === null
-            ? NOT_AVAILABLE
+            ? UNAVAILABLE_FIGURE
             : formatCurrency(progress.value);
     }
     return values.kind === EngineSlotKind.Pending ||
         fromState.kind === EngineSlotKind.Pending
-        ? PENDING
-        : NOT_AVAILABLE;
+        ? PENDING_FIGURE
+        : UNAVAILABLE_FIGURE;
 }
 
 function heldPlanInputsOf(
@@ -4969,7 +4975,7 @@ function householdNoteOf(
 }
 
 function hubSetupCardOf(checklist: SetupChecklist): SetupChecklistCardModel {
-    const card = setupChecklistCardOf(checklist);
+    const card = setupChecklistCardOf(checklist, false);
     const shown = card.steps.filter(
         (step) =>
             step.status !== SetupStepStatus.NotChecked &&
@@ -5102,7 +5108,7 @@ function kpiRow(
                   value: NOT_APPLICABLE,
               }
             : {
-                  detail: `Pooled over ${counted({ count: perSlot.n, plural: 'months', singular: 'month' })} and ${perSlot.slotMonths.toFixed(1)} funded slot-months, SE ${optionalCents(pooled.standardError)}`,
+                  detail: `Pooled over ${counted({ count: perSlot.n, plural: 'months', singular: 'month' })} and ${perSlot.slotMonths.toFixed(1)} funded slot-months${pooled.standardError === null ? '' : `, SE ${formatUsdCents(pooled.standardError)}`}`,
                   kind: OverviewKpiKind.RealizedNetPerSlot,
                   label: 'Realized net per slot per month',
                   note: perSlotNote,
@@ -5702,7 +5708,7 @@ function modeledOutcomesDisclosure(engine: EngineView): string {
     }
     return engine.failure === null
         ? MODELED_OUTCOMES_PENDING
-        : `The modeled pass rate and survival are not available: ${asSentence(engine.failure)}`;
+        : `The modeled pass rate and survival are not available: ${periodTerminated(engine.failure)}`;
 }
 
 function modeledSessionsText(estimate: Estimate | null): string {
@@ -6273,7 +6279,7 @@ function projectionCard(
         status,
         statusNote:
             status === ExpectedNetStatus.Failed
-                ? `The projection could not be computed: ${asSentence(groupFailureOf(engine, OverviewRequestGroup.Projection) ?? NOT_AVAILABLE)}`
+                ? `The projection could not be computed: ${periodTerminated(groupFailureOf(engine, OverviewRequestGroup.Projection) ?? UNAVAILABLE_FIGURE)}`
                 : status === ExpectedNetStatus.Pending
                   ? ENGINE_COMPUTING_NOTE
                   : null,
@@ -6286,10 +6292,10 @@ function projectionFigureText(
 ): string {
     switch (slot.kind) {
         case EngineSlotKind.Failed: {
-            return NOT_AVAILABLE;
+            return UNAVAILABLE_FIGURE;
         }
         case EngineSlotKind.Pending: {
-            return PENDING;
+            return PENDING_FIGURE;
         }
         case EngineSlotKind.Ready: {
             return ready(slot.figures);
@@ -6429,7 +6435,7 @@ function projectionRow(
 }
 
 function readableError(error: unknown): string {
-    return asSentence(errorMessage(error));
+    return periodTerminated(errorMessage(error));
 }
 
 function readinessBoardCard(
@@ -6809,16 +6815,19 @@ function setupFor(
             new StaleSnapshotRule().evaluate(context),
             latestSnapshotsOf(context),
         );
+        const expectedValuePlanSerials = expectedValuePlanSerialsOf(
+            ledger,
+            view,
+        );
         return setupChecklistCardOf(
             setupChecklistOf({
-                expectedValuePlanSerials: expectedValuePlanSerialsOf(
-                    ledger,
-                    view,
-                ),
+                expectedValuePlanSerials,
                 ledger,
                 rulebook: ready.alerts.rulebook,
                 staleSnapshotNotes,
             }),
+            expectedValuePlanSerials === null &&
+                hasPendingExpectedValue(ledger, view),
         );
     });
     return computed.kind === OverviewSectionStatus.Ready
@@ -7056,7 +7065,7 @@ function worstDayKpi(
                   detail: 'Pending your accounts and snapshots',
                   note: null,
                   tone: KpiTone.Pending,
-                  value: PENDING,
+                  value: PENDING_FIGURE,
               };
     }
     const dayLoss = dayLossShareOfContext(context);
@@ -7074,7 +7083,7 @@ function worstDayKpi(
                     ? `On ${formatDisplayDate(worstDay.date)}, ${breakdown}; no available bankroll to compare it with`
                     : `On ${formatDisplayDate(worstDay.date)}, ${breakdown}: ${formatPercent(worstDay.share)} of your available bankroll`,
             note: combinedNote(
-                ...dayLossBasisNotes(worstDay).map(dayLossNoteSentence),
+                ...dayLossBasisNotes(worstDay).map((note) => sentenceOf(note)),
                 unmeasured,
             ),
             tone: KpiTone.Negative,
