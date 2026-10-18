@@ -32,7 +32,7 @@ import {
 } from '~/components/ui/data-table';
 import { Dialog, DialogTrigger } from '~/components/ui/dialog';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
-import { Input } from '~/components/ui/input';
+import { FilePicker } from '~/components/ui/file-picker';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     type RecordingCreateAdminInput,
@@ -360,21 +360,17 @@ function NewRecordingDialog({
                         <FieldLabel htmlFor={`${formId}-fileBase64`}>
                             WAV file (max 10 MB)
                         </FieldLabel>
-                        <Input
+                        <FilePicker
                             accept=".wav,audio/wav,audio/x-wav"
                             aria-invalid={fieldState.invalid}
+                            fileName={
+                                fileName && reading
+                                    ? `Reading ${fileName}…`
+                                    : fileName || null
+                            }
                             id={`${formId}-fileBase64`}
-                            onChange={(event) => {
-                                const file = event.target.files?.[0];
-                                if (file) handleFile(file);
-                            }}
-                            type="file"
+                            onFile={handleFile}
                         />
-                        {fileName && (
-                            <p className="text-xs text-muted-foreground">
-                                {reading ? `Reading ${fileName}…` : fileName}
-                            </p>
-                        )}
                         <FieldError errors={[fieldState.error]} />
                     </Field>
                 )}

@@ -10,6 +10,7 @@ import {
     FieldLabel,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
     AccountTracking,
     type SnapshotField,
@@ -147,25 +148,36 @@ export function SnapshotFields(properties: SnapshotFieldsProperties) {
                                 text={REQUIREMENT_NOTE[rule.requirement]}
                             />
                         </FieldLabel>
-                        <Input
-                            aria-describedby={
-                                describedBy === '' ? undefined : describedBy
-                            }
-                            aria-invalid={issue !== undefined}
-                            id={id}
-                            inputMode={inputModeOf(rule.input)}
-                            onChange={(event) => {
-                                if (isReadOnly) return;
-                                onChange(rule.field, event.target.value);
-                            }}
-                            readOnly={isReadOnly}
-                            type={
-                                rule.input === SnapshotInputKind.Date
-                                    ? 'date'
-                                    : 'text'
-                            }
-                            value={values[rule.field]}
-                        />
+                        {rule.input === SnapshotInputKind.Date ? (
+                            <IsoDatePicker
+                                aria-describedby={
+                                    describedBy === '' ? undefined : describedBy
+                                }
+                                aria-invalid={issue !== undefined}
+                                disabled={isReadOnly}
+                                id={id}
+                                onChange={(isoDate) => {
+                                    onChange(rule.field, isoDate);
+                                }}
+                                value={values[rule.field]}
+                            />
+                        ) : (
+                            <Input
+                                aria-describedby={
+                                    describedBy === '' ? undefined : describedBy
+                                }
+                                aria-invalid={issue !== undefined}
+                                id={id}
+                                inputMode={inputModeOf(rule.input)}
+                                onChange={(event) => {
+                                    if (isReadOnly) return;
+                                    onChange(rule.field, event.target.value);
+                                }}
+                                readOnly={isReadOnly}
+                                type="text"
+                                value={values[rule.field]}
+                            />
+                        )}
                         {rule.hint !== null && (
                             <FieldDescription id={hintId}>
                                 {rule.hint}

@@ -61,6 +61,7 @@ import { Badge } from '~/components/ui/badge';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import { formatGateCurrency, formatPercent } from '~/lib/format';
 import {
     ALL_FIRMS,
@@ -833,16 +834,14 @@ function PayoutPlannerInputs({
                 <FieldLabel htmlFor="payout-planner-last-payout-on">
                     Last payout date (optional)
                 </FieldLabel>
-                <Input
+                <IsoDatePicker
                     id="payout-planner-last-payout-on"
-                    onChange={(event) => {
-                        const lastPayoutOn = parsePayoutPlannerDate(
-                            event.target.value,
-                        );
-                        onChange({ lastPayoutOn });
+                    onChange={(isoDate) => {
+                        onChange({
+                            lastPayoutOn: parsePayoutPlannerDate(isoDate),
+                        });
                     }}
-                    type="date"
-                    value={state.lastPayoutOn ?? ''}
+                    value={state.lastPayoutOn}
                 />
             </Field>
         </div>

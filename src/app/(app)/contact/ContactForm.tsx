@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '~/components/ui/button';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
 import { type ContactInput, contactInputSchema } from '~/lib/schemas/contact';
 import { api } from '~/trpc/react';
@@ -92,15 +93,15 @@ export function ContactForm() {
                 aria-hidden="true"
                 className="pointer-events-none absolute -left-2499.75 size-0 overflow-hidden"
             >
-                <label>
+                <Label>
                     Leave this empty
-                    <input
+                    <Input
                         autoComplete="off"
                         tabIndex={-1}
                         type="text"
                         {...form.register('honeypot')}
                     />
-                </label>
+                </Label>
             </div>
             <div className="mt-2 flex justify-end">
                 <Button disabled={send.isPending} type="submit">

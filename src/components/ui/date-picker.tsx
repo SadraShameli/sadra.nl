@@ -16,6 +16,8 @@ import { cn } from '~/lib/utilities';
 
 interface DatePickerProperties {
     align?: 'center' | 'end' | 'start';
+    'aria-describedby'?: string;
+    'aria-invalid'?: boolean;
     className?: string;
     disabled?: boolean;
     id?: string;
@@ -41,6 +43,8 @@ interface DateRangePickerProperties {
 
 export function DatePicker({
     align = 'start',
+    'aria-describedby': ariaDescribedBy,
+    'aria-invalid': ariaInvalid,
     className,
     disabled,
     id,
@@ -58,10 +62,13 @@ export function DatePicker({
               : maxDate
                 ? { after: maxDate }
                 : undefined;
+    const [isOpen, setIsOpen] = React.useState(false);
     return (
-        <Popover>
+        <Popover onOpenChange={setIsOpen} open={isOpen}>
             <PopoverTrigger asChild>
                 <Button
+                    aria-describedby={ariaDescribedBy}
+                    aria-invalid={ariaInvalid}
                     className={cn(
                         'justify-start gap-2 font-normal',
                         !value && 'text-muted-foreground',
@@ -82,9 +89,13 @@ export function DatePicker({
             </PopoverTrigger>
             <PopoverContent align={align} className="w-auto p-0">
                 <Calendar
+                    defaultMonth={value}
                     disabled={disabledMatcher}
                     mode="single"
-                    onSelect={onChange}
+                    onSelect={(date) => {
+                        onChange(date);
+                        setIsOpen(false);
+                    }}
                     selected={value}
                 />
             </PopoverContent>

@@ -215,8 +215,25 @@ function failed(message: string): FakeQuery {
     };
 }
 
+function firmStatusSelect(): HTMLSelectElement {
+    return element(
+        document.body,
+        `form[aria-label="${FIRM_FORM_LABEL}"] select`,
+    ) as HTMLSelectElement;
+}
+
 function loading(): FakeQuery {
     return { data: undefined, error: null, isError: false, isPending: true };
+}
+
+function openFirmForm(scope: ParentNode) {
+    const trigger = element(
+        scope,
+        `button[aria-label="Change the status of ${FIRST_FIRM.displayName}"]`,
+    );
+    act(() => {
+        trigger.click();
+    });
 }
 
 function paidPayoutRow(accountId: string, paidOn: string, id: string) {
@@ -233,8 +250,11 @@ function paidPayoutRow(accountId: string, paidOn: string, id: string) {
     };
 }
 
-async function submitFirmForm(scope: ParentNode) {
-    const form = element(scope, `form[aria-label="${FIRM_FORM_LABEL}"]`);
+async function submitFirmForm() {
+    const form = element(
+        document.body,
+        `form[aria-label="${FIRM_FORM_LABEL}"]`,
+    );
     await act(async () => {
         form.dispatchEvent(
             new Event('submit', { bubbles: true, cancelable: true }),
@@ -308,8 +328,9 @@ describe('FirmsView', () => {
             answer([account(ALPHA_ID, 'Alpha')]),
         );
         render();
-        chooseSelectValue(container, 'paused');
-        await submitFirmForm(container);
+        openFirmForm(container);
+        chooseSelectValue(document.body, 'paused');
+        await submitFirmForm();
         expect(harness.set).toHaveBeenCalledWith(
             expect.objectContaining({
                 externalFirmId: null,
@@ -327,11 +348,12 @@ describe('FirmsView', () => {
             answer([account(ALPHA_ID, 'Alpha')]),
         );
         render();
-        chooseSelectValue(container, 'paused');
-        chooseSelectValue(container, 'sent-live');
-        await submitFirmForm(container);
+        openFirmForm(container);
+        chooseSelectValue(document.body, 'paused');
+        chooseSelectValue(document.body, 'sent-live');
+        await submitFirmForm();
         expect(harness.set).not.toHaveBeenCalled();
-        expect(container.textContent).toContain('needs the date');
+        expect(document.body.textContent).toContain('needs the date');
     });
 
     it('shows an error instead of an indefinite loading skeleton when a required query fails', () => {
@@ -359,12 +381,13 @@ describe('FirmsView', () => {
         );
         harness.queries.set('firmEngagement.list', failed('status down'));
         render();
+        openFirmForm(container);
         const save = element(
-            container,
+            document.body,
             `form[aria-label="${FIRM_FORM_LABEL}"] button[type="submit"]`,
         );
         expect((save as HTMLButtonElement).disabled).toBe(true);
-        await submitFirmForm(container);
+        await submitFirmForm();
         expect(harness.set).not.toHaveBeenCalled();
     });
 
@@ -377,12 +400,13 @@ describe('FirmsView', () => {
         render();
         expect(container.textContent).toContain(FIRST_FIRM.displayName);
         expect(container.textContent).toContain('still loading');
+        openFirmForm(container);
         const save = element(
-            container,
+            document.body,
             `form[aria-label="${FIRM_FORM_LABEL}"] button[type="submit"]`,
         );
         expect((save as HTMLButtonElement).disabled).toBe(true);
-        await submitFirmForm(container);
+        await submitFirmForm();
         expect(harness.set).not.toHaveBeenCalled();
     });
 
@@ -393,12 +417,8 @@ describe('FirmsView', () => {
         );
         harness.queries.set('firmEngagement.list', loading());
         render();
-        const statusSelect = () =>
-            element(
-                container,
-                `form[aria-label="${FIRM_FORM_LABEL}"] select`,
-            ) as HTMLSelectElement;
-        expect(statusSelect().value).toBe('active');
+        openFirmForm(container);
+        expect(firmStatusSelect().value).toBe('active');
 
         harness.queries.set(
             'firmEngagement.list',
@@ -406,8 +426,8 @@ describe('FirmsView', () => {
         );
         render();
 
-        expect(statusSelect().value).toBe('paused');
-        await submitFirmForm(container);
+        expect(firmStatusSelect().value).toBe('paused');
+        await submitFirmForm();
         expect(harness.set).toHaveBeenCalledWith(
             expect.objectContaining({ status: 'paused' }),
         );
@@ -420,8 +440,9 @@ describe('FirmsView', () => {
         );
         harness.queries.set('firmEngagement.list', loading());
         render();
+        openFirmForm(container);
         const form = element(
-            container,
+            document.body,
             `form[aria-label="${FIRM_FORM_LABEL}"]`,
         );
 
@@ -429,7 +450,7 @@ describe('FirmsView', () => {
         expect(statusSelect.disabled).toBe(true);
         const sinceInput = element(
             form,
-            'input[type="date"]',
+            '[data-slot="iso-date-input"]',
         ) as HTMLInputElement;
         expect(sinceInput.disabled).toBe(true);
 
@@ -447,7 +468,7 @@ describe('FirmsView', () => {
 
         chooseSelectValue(form, 'sent-live');
         const dateInputs = [
-            ...form.querySelectorAll('input[type="date"]'),
+            ...form.querySelectorAll('[data-slot="iso-date-input"]'),
         ] as HTMLInputElement[];
         expect(dateInputs.length).toBe(2);
         for (const input of dateInputs) {

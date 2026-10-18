@@ -288,18 +288,19 @@ export default function StrategyLabPanel({
             ))}
             <SimulationFailureNotice message={error} />
             {isHazardPriced && (
-                <Alert className="mt-3" variant="warning">
-                    <AlertDescription className="text-xs">
-                        {`Live-transfer hazard of ${liveTransferHazardPercentText(liveTransferHazard)} per paid payout (your assumption, not a firm rule): E[$/mo] includes it and ends each paid account's simulated payouts at a transfer, while E[$/mo] no transfer is the same scenario with the hazard at 0. A transferred account keeps its slot to the end of the funded horizon. Copy-traded accounts are sent live together. ${LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT}`}
+                <div className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    {`Live-transfer hazard of ${liveTransferHazardPercentText(liveTransferHazard)} per paid payout (your assumption, not a firm rule).`}
+                    <InfoPopover title="Live-transfer hazard">
+                        <p>
+                            {`E[$/mo] includes it and ends each paid account's simulated payouts at a transfer, while E[$/mo] no transfer is the same scenario with the hazard at 0. A transferred account keeps its slot to the end of the funded horizon. Copy-traded accounts are sent live together. ${LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT}`}
+                        </p>
                         {hazardContinuationNotes(results.values(), plan).map(
                             (note) => (
-                                <span className="mt-1 block" key={note}>
-                                    {note}
-                                </span>
+                                <p key={note}>{note}</p>
                             ),
                         )}
-                    </AlertDescription>
-                </Alert>
+                    </InfoPopover>
+                </div>
             )}
             <StrategyLabTable
                 isHazardPriced={isHazardPriced}

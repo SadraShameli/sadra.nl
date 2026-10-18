@@ -17,7 +17,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
-import { Field } from '~/components/ui/field';
+import { Field, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
     Tooltip,
@@ -244,12 +244,12 @@ export function SetRow({
                             className="flex flex-col gap-1"
                             data-invalid={fieldState.invalid}
                         >
-                            <label
+                            <FieldLabel
                                 className="text-[10px] tracking-wide text-muted-foreground uppercase"
                                 htmlFor={`set-${set.id}-rpe`}
                             >
                                 RPE
-                            </label>
+                            </FieldLabel>
                             <Input
                                 aria-invalid={
                                     rpeValue !== '' &&
@@ -277,12 +277,12 @@ export function SetRow({
                             className="flex flex-col gap-1"
                             data-invalid={fieldState.invalid}
                         >
-                            <label
+                            <FieldLabel
                                 className="text-[10px] tracking-wide text-muted-foreground uppercase"
                                 htmlFor={`set-${set.id}-rir`}
                             >
                                 RIR
-                            </label>
+                            </FieldLabel>
                             <Input
                                 aria-invalid={
                                     rirValue !== '' &&
@@ -310,12 +310,12 @@ export function SetRow({
                             className="flex flex-col gap-1"
                             data-invalid={fieldState.invalid}
                         >
-                            <label
+                            <FieldLabel
                                 className="text-[10px] tracking-wide text-muted-foreground uppercase"
                                 htmlFor={`set-${set.id}-tempo`}
                             >
                                 Tempo
-                            </label>
+                            </FieldLabel>
                             <Input
                                 aria-invalid={
                                     tempoValue !== '' &&
@@ -338,12 +338,12 @@ export function SetRow({
                             className="flex flex-col gap-1"
                             data-invalid={fieldState.invalid}
                         >
-                            <label
+                            <FieldLabel
                                 className="text-[10px] tracking-wide text-muted-foreground uppercase"
                                 htmlFor={`set-${set.id}-distance`}
                             >
                                 Distance ({unitDistance})
-                            </label>
+                            </FieldLabel>
                             <Input
                                 aria-invalid={
                                     distanceValue !== '' &&
@@ -375,12 +375,12 @@ export function SetRow({
                             className="flex flex-col gap-1"
                             data-invalid={fieldState.invalid}
                         >
-                            <label
+                            <FieldLabel
                                 className="text-[10px] tracking-wide text-muted-foreground uppercase"
                                 htmlFor={`set-${set.id}-duration`}
                             >
                                 Duration (s)
-                            </label>
+                            </FieldLabel>
                             <Input
                                 aria-invalid={
                                     durationValue !== '' &&

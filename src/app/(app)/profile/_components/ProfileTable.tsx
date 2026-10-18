@@ -14,6 +14,11 @@ import {
     type DataTableColumn,
 } from '~/components/ui/data-table';
 import { EmptyState } from '~/components/ui/empty-state';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '~/components/ui/tooltip';
 import { cn } from '~/lib/utilities';
 
 export const ProfileDatePrecision = {
@@ -157,22 +162,22 @@ export function RowActionLink<T extends string>({
     label,
 }: RowActionIdentity & { download?: string; href: Route<T> }) {
     return (
-        <Button asChild size="icon-sm" variant="ghost">
-            {download === undefined ? (
-                <Link aria-label={label} href={href} title={label}>
-                    <Icon className="size-4" />
-                </Link>
-            ) : (
-                <a
-                    aria-label={label}
-                    download={download}
-                    href={href}
-                    title={label}
-                >
-                    <Icon className="size-4" />
-                </a>
-            )}
-        </Button>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button asChild size="icon-sm" variant="ghost">
+                    {download === undefined ? (
+                        <Link aria-label={label} href={href}>
+                            <Icon className="size-4" />
+                        </Link>
+                    ) : (
+                        <a aria-label={label} download={download} href={href}>
+                            <Icon className="size-4" />
+                        </a>
+                    )}
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
     );
 }
 

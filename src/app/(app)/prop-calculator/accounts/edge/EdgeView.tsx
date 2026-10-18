@@ -21,6 +21,7 @@ import {
 import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
 import { EmptyState } from '~/components/ui/empty-state';
 import { FilterIsoDateRange } from '~/components/ui/filter-iso-date-range';
+import InfoPopover from '~/components/ui/info-popover';
 import { Skeleton } from '~/components/ui/skeleton';
 import { formatPercent, formatR } from '~/lib/format';
 import {
@@ -89,20 +90,6 @@ export function EdgeView() {
             <h2 className="sr-only" id="prop-accounts-edge-heading">
                 Journal edge
             </h2>
-            <Alert>
-                <NotebookPen />
-                <AlertTitle>Display only</AlertTitle>
-                <AlertDescription>
-                    These numbers come from your trade journal and never change
-                    your rulebook or the sizing advice. Drift is flagged only
-                    when the journal sits more than {DRIFT_STANDARD_ERRORS}{' '}
-                    standard errors from the assumption, with the standard error
-                    taken at the assumed win rate and reward to risk, and only
-                    once the journal holds enough trades to expect at least{' '}
-                    {MIN_EXPECTED_WINS_AND_LOSSES} wins and{' '}
-                    {MIN_EXPECTED_WINS_AND_LOSSES} losses at that win rate.
-                </AlertDescription>
-            </Alert>
             <div className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                     <FilterIsoDateRange
@@ -126,6 +113,24 @@ export function EdgeView() {
                             setTo('');
                         }}
                     />
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    Read only: journal numbers never change your rulebook or the
+                    sizing advice.
+                    <InfoPopover title="How drift is flagged">
+                        <p>
+                            Drift is flagged only when the journal sits more
+                            than {DRIFT_STANDARD_ERRORS} standard errors from
+                            the assumption, with the standard error taken at the
+                            assumed win rate and reward to risk.
+                        </p>
+                        <p>
+                            It waits until the journal holds enough trades to
+                            expect at least {MIN_EXPECTED_WINS_AND_LOSSES} wins
+                            and {MIN_EXPECTED_WINS_AND_LOSSES} losses at that
+                            win rate.
+                        </p>
+                    </InfoPopover>
                 </div>
                 {[...rangeCheck.issues].map(([field, issue]) => (
                     <p

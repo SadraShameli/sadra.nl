@@ -460,6 +460,18 @@ describe('StrategyLabPanel lifetime cap pooling gap (PT-12h, F-110 REV-5)', () =
     });
 });
 
+function hazardText(): string {
+    const about = document.body.querySelector<HTMLButtonElement>(
+        ':scope button[aria-label="About Live-transfer hazard"]',
+    );
+    if (about !== null) {
+        act(() => {
+            about.click();
+        });
+    }
+    return document.body.textContent;
+}
+
 describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
     let container: HTMLDivElement;
     let root: Root;
@@ -543,18 +555,18 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
 
     it('labels the hazard as your assumption, not a firm rule', () => {
         render(0.5);
-        expect(container.textContent).toContain(
+        expect(hazardText()).toContain(
             'Live-transfer hazard of 50.0% per paid payout (your assumption, not a firm rule)',
         );
-        expect(container.textContent).not.toContain('\u{2014}');
+        expect(hazardText()).not.toContain('\u{2014}');
     });
 
     it('words a hazard below one tenth of a percent with the digits it was entered with', () => {
         render(0.0004);
-        expect(container.textContent).toContain(
+        expect(hazardText()).toContain(
             'Live-transfer hazard of 0.04% per paid payout',
         );
-        expect(container.textContent).not.toContain('of 0.0% per paid payout');
+        expect(hazardText()).not.toContain('of 0.0% per paid payout');
     });
 
     it('words the continuation with the one lib text the advice note uses', () => {
@@ -563,7 +575,7 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
             instrument: InstrumentSymbol.MNQ,
             stopPoints: 10,
         });
-        expect(container.textContent).toContain(
+        expect(hazardText()).toContain(
             LIVE_TRANSFER_CONTINUATION_TEXT[
                 LiveTransferContinuationKind.Modeled
             ],
@@ -572,7 +584,7 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
 
     it('words the unmodeled continuation with the one lib text the advice note uses', () => {
         render(0.5);
-        expect(container.textContent).toContain(
+        expect(hazardText()).toContain(
             LIVE_TRANSFER_CONTINUATION_TEXT[
                 LiveTransferContinuationKind.NotModeled
             ],
@@ -581,15 +593,13 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
 
     it('says the payout that concludes an account is also a transfer chance', () => {
         render(0.5);
-        expect(container.textContent).toContain(
-            LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
-        );
+        expect(hazardText()).toContain(LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT);
     });
 
     it('says the rest of the account is valued at $0 where no live plan is modeled for the scenario', () => {
         render(0.5);
-        expect(container.textContent).toContain('valued at $0');
-        expect(container.textContent).not.toContain('recurring withdrawals');
+        expect(hazardText()).toContain('valued at $0');
+        expect(hazardText()).not.toContain('recurring withdrawals');
     });
 
     it('says the live plan continues the account and adds only its recurring withdrawals where it is modeled', () => {
@@ -598,7 +608,7 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
             instrument: InstrumentSymbol.MNQ,
             stopPoints: 10,
         });
-        const text = container.textContent;
+        const text = hazardText();
         expect(text).toContain('recurring withdrawals');
         expect(text).toContain('not counted');
         expect(text).not.toContain('valued at $0');
@@ -610,7 +620,7 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
             instrument: InstrumentSymbol.MNQ,
             stopPoints: 10,
         });
-        const text = container.textContent;
+        const text = hazardText();
         expect(text).toContain(LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT);
         expect(text).toContain(
             LIVE_TRANSFER_NOTE_TEXT[
@@ -621,7 +631,7 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
 
     it('adds no continuation disclosure where the rest of the account is valued at $0', () => {
         render(0.5);
-        const text = container.textContent;
+        const text = hazardText();
         expect(text).not.toContain(LIVE_TRANSFER_UNFOLLOWED_SETTINGS_TEXT);
         expect(text).not.toContain(
             LIVE_TRANSFER_NOTE_TEXT[
@@ -632,7 +642,7 @@ describe('StrategyLabPanel live-transfer hazard (PT-73, F-V26)', () => {
 
     it('says a transferred account keeps its slot to the end of the funded horizon', () => {
         render(0.5);
-        expect(container.textContent).toContain(
+        expect(hazardText()).toContain(
             'keeps its slot to the end of the funded horizon',
         );
     });

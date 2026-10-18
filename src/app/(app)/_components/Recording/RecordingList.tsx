@@ -1,7 +1,9 @@
 import { Music2, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { Button } from '~/components/ui/button';
 import { EmptyState } from '~/components/ui/empty-state';
+import { Input } from '~/components/ui/input';
 import { ScrollArea } from '~/components/ui/scroll-area';
 import { Skeleton } from '~/components/ui/skeleton';
 import { DurationFormat } from '~/lib/lifting/format';
@@ -47,15 +49,16 @@ export function RecordingList({
                 <p className="m-0 type-micro text-ink-muted">Up next</p>
                 <div className="relative w-40 sm:w-48">
                     <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3 -translate-y-1/2 text-muted-foreground" />
-                    <input
+                    <Input
+                        aria-label="Search recordings"
                         className={cn(
                             'app-recording__list-search',
-                            'w-full rounded-full bg-foreground/4 py-1.5 pr-3 pl-7 text-xs text-foreground transition outline-none placeholder:text-muted-foreground focus:bg-foreground/8 disabled:cursor-not-allowed disabled:opacity-40',
+                            'h-8 rounded-full pl-7 text-xs',
                         )}
                         disabled={!recordings?.length}
                         onChange={(event) => setSearchQuery(event.target.value)}
                         placeholder="Search"
-                        type="text"
+                        type="search"
                         value={searchQuery}
                     />
                 </div>
@@ -97,10 +100,10 @@ export function RecordingList({
                                 const dur = recording.duration_seconds;
                                 return (
                                     <li key={recording.id}>
-                                        <button
+                                        <Button
                                             className={cn(
                                                 'app-recording__list-item',
-                                                'group flex w-full items-center gap-3 rounded-md p-2 text-left text-sm transition',
+                                                'group h-auto w-full justify-start gap-3 rounded-md p-2 text-left font-normal',
                                                 isCurrent
                                                     ? 'text-foreground'
                                                     : 'text-muted-foreground hover:bg-foreground/3 hover:text-foreground',
@@ -112,6 +115,7 @@ export function RecordingList({
                                             }
                                             onClick={() => onSelect(recording)}
                                             type="button"
+                                            variant="ghost"
                                         >
                                             <span
                                                 className={cn(
@@ -140,7 +144,7 @@ export function RecordingList({
                                                     )}
                                                 </span>
                                             )}
-                                        </button>
+                                        </Button>
                                     </li>
                                 );
                             })}

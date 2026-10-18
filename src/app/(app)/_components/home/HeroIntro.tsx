@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import { Toggle } from '~/components/ui/toggle';
 import { HeroMode, homepageContent } from '~/lib/site/content';
 import { cn } from '~/lib/utilities';
 
@@ -61,22 +62,21 @@ function HeroWord({
 }) {
     const copy = homepageContent.hero.modes[mode];
     return (
-        <button
-            aria-pressed={isActive}
+        <Toggle
             className={cn(
                 'app-home__hero-word',
-                'm-0 cursor-pointer border-0 bg-transparent p-0 text-left transition-[color,-webkit-text-stroke-color] duration-400 focus-visible:rounded-md focus-visible:outline-1 focus-visible:outline-offset-10 focus-visible:outline-camel',
+                'h-auto min-w-0 justify-start gap-0 rounded-none bg-transparent p-0 text-left font-[inherit] text-[length:inherit] leading-[inherit] tracking-[inherit] transition-[color,-webkit-text-stroke-color] duration-400 hover:bg-transparent hover:text-inherit focus-visible:rounded-md focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-1 focus-visible:outline-offset-10 focus-visible:outline-camel data-[state=on]:bg-transparent data-[state=on]:text-ink',
                 mode === HeroMode.Developer && 'italic',
                 isActive ? 'text-ink' : 'outline-word',
             )}
-            onClick={onPick}
-            type="button"
+            onPressedChange={onPick}
+            pressed={isActive}
         >
             {copy.word}
             <span className="text-camel [-webkit-text-stroke:0]">
                 {copy.punctuation}
             </span>
-        </button>
+        </Toggle>
     );
 }
 

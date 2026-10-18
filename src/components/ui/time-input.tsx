@@ -3,11 +3,11 @@
 import { Clock2 } from 'lucide-react';
 import * as React from 'react';
 
-import { Input } from '~/components/ui/input';
+import { Button } from '~/components/ui/button';
 import {
     Popover,
-    PopoverAnchor,
     PopoverContent,
+    PopoverTrigger,
 } from '~/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { cn } from '~/lib/utilities';
@@ -95,39 +95,47 @@ function TimeColumn({
 }
 
 function TimeInput({
+    'aria-label': ariaLabel,
     className,
+    disabled,
+    id,
     onValueChange,
     value,
-    ...properties
-}: Omit<React.ComponentProps<'input'>, 'onChange' | 'type' | 'value'> & {
-    onValueChange: (value: string) => void;
-    value: string;
+}: {
+    readonly 'aria-label'?: string;
+    readonly className?: string;
+    readonly disabled?: boolean;
+    readonly id?: string;
+    readonly onValueChange: (value: string) => void;
+    readonly value: string;
 }) {
     const [isOpen, setIsOpen] = React.useState(false);
     const time = ClockTime.parse(value);
     const change = (next: ClockTime) => onValueChange(next.toString());
     return (
         <Popover onOpenChange={setIsOpen} open={isOpen}>
-            <PopoverAnchor asChild>
-                <div className={cn('relative flex items-center', className)}>
+            <PopoverTrigger asChild>
+                <Button
+                    aria-label={ariaLabel}
+                    className={cn(
+                        'justify-start gap-2 font-normal tabular-nums',
+                        className,
+                    )}
+                    disabled={disabled}
+                    id={id}
+                    type="button"
+                    variant="outline"
+                >
                     <Clock2
-                        aria-hidden
-                        className="pointer-events-none absolute left-2.5 size-4 text-muted-foreground select-none"
+                        className="text-muted-foreground"
+                        data-icon="inline-start"
                     />
-                    <Input
-                        className="appearance-none pl-8 tabular-nums [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                        onChange={(event) => onValueChange(event.target.value)}
-                        onClick={() => setIsOpen(true)}
-                        type="time"
-                        value={value}
-                        {...properties}
-                    />
-                </div>
-            </PopoverAnchor>
+                    {time.toString()}
+                </Button>
+            </PopoverTrigger>
             <PopoverContent
                 align="start"
                 className="flex w-auto gap-1 rounded-2xl p-1.5"
-                onOpenAutoFocus={(event) => event.preventDefault()}
             >
                 <TimeColumn
                     count={HOURS_PER_DAY}

@@ -27,6 +27,7 @@ const twMerge = extendTailwindMerge<'glass' | 'selected-pill' | 'type-scale'>({
             'type-scale': [{ type: TYPE_SCALE }],
         },
         conflictingClassGroups: {
+            'bg-color': ['selected-pill'],
             glass: ['bg-color', 'border-color', 'shadow'],
             'selected-pill': ['bg-color', 'text-color'],
             'type-scale': [

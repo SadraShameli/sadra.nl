@@ -4,11 +4,9 @@ import { format as formatDate } from 'date-fns';
 import {
     AlertCircle,
     CalendarDays,
-    FileCheck,
     PlayCircle,
     Send,
     StopCircle,
-    Upload,
 } from 'lucide-react';
 import {
     useCallback,
@@ -44,6 +42,8 @@ import {
     DialogTrigger,
 } from '~/components/ui/dialog';
 import { EmptyState } from '~/components/ui/empty-state';
+import { FieldLegend, FieldSet } from '~/components/ui/field';
+import { FilePicker } from '~/components/ui/file-picker';
 import { FILTER_CONTROL_CLASS } from '~/components/ui/filter-control';
 import { Label } from '~/components/ui/label';
 import {
@@ -151,9 +151,6 @@ export function AccountingDashboard() {
 
     const [apiCredentialIds, setApiCredentialIds] = useState<string[]>([]);
     const [fileContents, setFileContents] = useState<Map<string, LoadedFile>>(
-        new Map(),
-    );
-    const fileInputReferences = useRef<Map<string, HTMLInputElement>>(
         new Map(),
     );
     const sourceSelectionTouched = useRef(false);
@@ -304,10 +301,8 @@ export function AccountingDashboard() {
                         />
                     </div>
 
-                    <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-                        <legend className="mb-2 text-sm font-medium text-ink">
-                            Sources
-                        </legend>
+                    <FieldSet className="min-w-0 gap-2">
+                        <FieldLegend variant="label">Sources</FieldLegend>
                         {sources.length === 0 ? (
                             <p className="m-0 text-sm text-ink-muted">
                                 No transaction sources yet. Add one under
@@ -345,55 +340,26 @@ export function AccountingDashboard() {
                                             </Label>
                                             {isChecked && isFile && (
                                                 <div className="flex items-center gap-3 px-4 py-2 sm:pl-0">
-                                                    <input
+                                                    <FilePicker
                                                         accept=".csv"
-                                                        className="hidden"
-                                                        onChange={(event) => {
-                                                            const file =
-                                                                event.target
-                                                                    .files?.[0];
-                                                            if (!file) return;
+                                                        buttonLabel={
+                                                            loadedFile
+                                                                ? 'Change CSV'
+                                                                : 'Choose CSV'
+                                                        }
+                                                        fileName={
+                                                            loadedFile?.name ??
+                                                            null
+                                                        }
+                                                        id={`source-file-${s.id}`}
+                                                        onFile={(file) => {
                                                             void loadFileContent(
                                                                 file,
                                                                 s.id,
                                                                 setFileContents,
                                                             );
                                                         }}
-                                                        ref={(element) => {
-                                                            if (element) {
-                                                                fileInputReferences.current.set(
-                                                                    s.id,
-                                                                    element,
-                                                                );
-                                                            } else {
-                                                                fileInputReferences.current.delete(
-                                                                    s.id,
-                                                                );
-                                                            }
-                                                        }}
-                                                        type="file"
                                                     />
-                                                    {loadedFile && (
-                                                        <span className="flex items-center gap-1.5 text-xs text-success">
-                                                            <FileCheck className="size-3.5" />
-                                                            {loadedFile.name}
-                                                        </span>
-                                                    )}
-                                                    <Button
-                                                        className="h-8"
-                                                        onClick={() =>
-                                                            fileInputReferences.current
-                                                                .get(s.id)
-                                                                ?.click()
-                                                        }
-                                                        size="sm"
-                                                        variant="outline"
-                                                    >
-                                                        <Upload className="size-3.5" />
-                                                        {loadedFile
-                                                            ? 'Change CSV'
-                                                            : 'Choose CSV'}
-                                                    </Button>
                                                 </div>
                                             )}
                                         </li>
@@ -401,7 +367,7 @@ export function AccountingDashboard() {
                                 })}
                             </ul>
                         )}
-                    </fieldset>
+                    </FieldSet>
 
                     <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line-faint pt-5">
                         {stream.running ? (

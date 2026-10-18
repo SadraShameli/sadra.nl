@@ -30,7 +30,8 @@ import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { Field, FieldDescription, FieldLabel } from '~/components/ui/field';
-import { Input } from '~/components/ui/input';
+import { FilePicker } from '~/components/ui/file-picker';
+import InfoPopover from '~/components/ui/info-popover';
 import { Skeleton } from '~/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import { Textarea } from '~/components/ui/textarea';
@@ -416,10 +417,7 @@ function CsvImportPanel<Column extends string, Value>({
     const issues = preview === null ? [] : csvIssues(preview);
     const canCommit = payload !== null && previewIsCurrent && !isCommitting;
 
-    const readFile = async (input: HTMLInputElement) => {
-        const file = input.files?.[0];
-        input.value = '';
-        if (file === undefined) return;
+    const readFile = async (file: File) => {
         if (file.size > MAX_CSV_BYTES) {
             setFileError(
                 describeCsvFailure({
@@ -487,15 +485,15 @@ function CsvImportPanel<Column extends string, Value>({
                 <FieldLabel className="sr-only" htmlFor={fileId}>
                     Upload a CSV file of {noun.plural}
                 </FieldLabel>
-                <Input
+                <FilePicker
                     accept=".csv,.tsv,.txt,text/csv,text/plain"
-                    className="max-w-xs"
+                    buttonLabel="Choose CSV"
                     disabled={isCommitting}
+                    fileName={text === '' ? null : 'File loaded'}
                     id={fileId}
-                    onChange={(event) => {
-                        void readFile(event.currentTarget);
+                    onFile={(file) => {
+                        void readFile(file);
                     }}
-                    type="file"
                 />
                 {text !== '' && (
                     <Button
@@ -827,25 +825,29 @@ function SnapshotImport({
 
     return (
         <div className="flex flex-col gap-4">
-            <Alert variant="warning">
-                <TriangleAlert />
-                <AlertTitle>What the preview checks</AlertTitle>
-                <AlertDescription>
-                    Each row is checked for format, ranges, duplicates within
-                    the file, a clash with the latest stored snapshot of its
-                    account, and whether its balances fit the plan, stage and
-                    dashboard convention of the account, as the account form
-                    checks them. A balance far above the account size is only a
-                    warning and does not stop the import. The preview takes the
-                    stage on each date from the purchase and funded dates only,
-                    while the import itself uses the recorded lifecycle events,
-                    so near a recorded pass or move live the two can disagree:
-                    the preview can refuse a row the import would accept, or the
-                    reverse. The import also checks the fields each plan needs
-                    in that stage and a clash with an older stored snapshot, and
-                    saves nothing if one row fails.
-                </AlertDescription>
-            </Alert>
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                The import saves nothing if a single row fails.
+                <InfoPopover title="What the preview checks">
+                    <p>
+                        Each row is checked for format, ranges, duplicates
+                        within the file, a clash with the latest stored snapshot
+                        of its account, and whether its balances fit the plan,
+                        stage and dashboard convention of the account, as the
+                        account form checks them. A balance far above the
+                        account size is only a warning.
+                    </p>
+                    <p>
+                        The preview takes the stage on each date from the
+                        purchase and funded dates only, while the import uses
+                        the recorded lifecycle events, so near a recorded pass
+                        or move live the two can disagree.
+                    </p>
+                    <p>
+                        The import also checks the fields each plan needs in
+                        that stage and a clash with an older stored snapshot.
+                    </p>
+                </InfoPopover>
+            </div>
             <CsvImportPanel
                 columns={SNAPSHOT_CSV_COLUMNS}
                 commitError={bulkCreate.error?.message ?? null}

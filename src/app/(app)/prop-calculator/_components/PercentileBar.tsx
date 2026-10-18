@@ -2,6 +2,11 @@
 
 import { Card } from '~/components/ui/card';
 import InfoPopover from '~/components/ui/info-popover';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '~/components/ui/tooltip';
 import { cn } from '~/lib/utilities';
 
 interface PercentileBarProperties {
@@ -73,11 +78,18 @@ export default function PercentileBar({
                     style={{ left: `${pct(p50)}%` }}
                 />
                 {referenceLine && (
-                    <div
-                        className="absolute top-0 h-full w-px border-l border-dashed border-success/70"
-                        style={{ left: `${pct(referenceLine.value)}%` }}
-                        title={`${referenceLine.label}: ${formatValue(referenceLine.value)}`}
-                    />
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div
+                                className="absolute top-0 h-full w-px border-l border-dashed border-success/70"
+                                style={{ left: `${pct(referenceLine.value)}%` }}
+                            />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            {referenceLine.label}:{' '}
+                            {formatValue(referenceLine.value)}
+                        </TooltipContent>
+                    </Tooltip>
                 )}
             </div>
 

@@ -156,14 +156,15 @@ function HistoryRow({
         <div className="flex items-center gap-1">
             <Item
                 asChild
-                className="min-w-0 flex-1 rounded-2xl border-line text-left hover:bg-muted/40"
+                className="h-auto min-w-0 flex-1 justify-start rounded-2xl border-line text-left font-normal whitespace-normal hover:bg-muted/40"
                 size="sm"
                 variant="outline"
             >
-                <button
+                <Button
                     className="app-trade-checklist__history-item"
                     onClick={() => onSelect(row)}
                     type="button"
+                    variant="ghost"
                 >
                     <ItemMedia>
                         <GradeTile grade={row.grade} />
@@ -187,7 +188,7 @@ function HistoryRow({
                             />
                         </ItemActions>
                     )}
-                </button>
+                </Button>
             </Item>
             <ConfirmDialog
                 confirmLabel="Delete"

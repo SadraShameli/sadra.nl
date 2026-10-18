@@ -22,4 +22,13 @@ describe('cn with the theme utilities', () => {
             'rounded-full px-3 selected-pill',
         );
     });
+
+    it('lets a later background replace an earlier selected-pill', () => {
+        expect(
+            cn(
+                'data-[state=on]:selected-pill',
+                'data-[state=on]:bg-transparent',
+            ),
+        ).toBe('data-[state=on]:bg-transparent');
+    });
 });

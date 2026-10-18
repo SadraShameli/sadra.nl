@@ -17,7 +17,7 @@ import {
 } from '~/app/(app)/prop-calculator/accounts/_components/overview/overviewModel';
 import { SampleBadge } from '~/app/(app)/prop-calculator/accounts/_components/overview/SampleBadge';
 import { QueryErrorNotice } from '~/app/(app)/prop-calculator/accounts/_components/QueryErrorNotice';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { ToolPanel } from '~/components/ToolPanel';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
@@ -29,6 +29,15 @@ import {
     FieldLabel,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
+import {
+    Item,
+    ItemActions,
+    ItemContent,
+    ItemDescription,
+    ItemGroup,
+    ItemTitle,
+} from '~/components/ui/item';
 import { Progress } from '~/components/ui/progress';
 import {
     Select,
@@ -774,10 +783,9 @@ function RoundForm({
                                 <FieldLabel htmlFor={`${formId}-openedOn`}>
                                     Opened on
                                 </FieldLabel>
-                                <Input
+                                <IsoDatePicker
                                     aria-invalid={fieldState.invalid}
                                     id={`${formId}-openedOn`}
-                                    type="date"
                                     {...field}
                                 />
                                 <FieldError errors={[fieldState.error]} />
@@ -861,22 +869,29 @@ function SuggestionsCard({
     readonly suggestions: readonly RoundSuggestionRow[];
 }) {
     return (
-        <Alert aria-label="Round suggestions" role="region">
-            <AlertTitle>Round suggestions</AlertTitle>
-            <AlertDescription>
-                <ul className="flex flex-col gap-2">
-                    {suggestions.map((row) => (
-                        <li
-                            className="flex flex-wrap items-center justify-between gap-2"
-                            key={row.key}
-                        >
-                            <span>
-                                {row.memberCount} accounts at {row.firm}{' '}
-                                purchased{' '}
+        <ToolPanel
+            className="app-prop-accounts__round-suggestions"
+            description="Accounts bought together that are not in a round yet."
+            title="Round suggestions"
+        >
+            <ItemGroup className="gap-2">
+                {suggestions.map((row) => (
+                    <Item
+                        className="rounded-2xl border-line"
+                        key={row.key}
+                        size="sm"
+                        variant="outline"
+                    >
+                        <ItemContent>
+                            <ItemTitle>{row.firm}</ItemTitle>
+                            <ItemDescription>
+                                {row.memberCount} accounts purchased{' '}
                                 {row.earliestPurchase === row.latestPurchase
                                     ? `on ${row.earliestPurchase}`
                                     : `${row.earliestPurchase} to ${row.latestPurchase}`}
-                            </span>
+                            </ItemDescription>
+                        </ItemContent>
+                        <ItemActions>
                             <Button
                                 onClick={() => {
                                     onAccept(row);
@@ -887,10 +902,10 @@ function SuggestionsCard({
                             >
                                 Prefill a round
                             </Button>
-                        </li>
-                    ))}
-                </ul>
-            </AlertDescription>
-        </Alert>
+                        </ItemActions>
+                    </Item>
+                ))}
+            </ItemGroup>
+        </ToolPanel>
     );
 }

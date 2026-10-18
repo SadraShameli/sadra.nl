@@ -1,8 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { TriangleAlert } from 'lucide-react';
-import { useId, useMemo } from 'react';
+import { Pencil, TriangleAlert } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -24,8 +24,17 @@ import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '~/components/ui/dialog';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
-import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
     Select,
     SelectContent,
@@ -254,7 +263,7 @@ export function FirmsView() {
                                 },
                                 {
                                     cell: ({ row: { original: entry } }) => (
-                                        <FirmStatusForm
+                                        <FirmStatusCell
                                             canEditEngagement={
                                                 canEditEngagement
                                             }
@@ -267,7 +276,6 @@ export function FirmsView() {
                                                 entry.firmKey,
                                                 externalFirms,
                                             )}
-                                            key={`${firmKeyId(entry.firmKey)}:${String(canEditEngagement)}`}
                                         />
                                     ),
                                     header: 'Status',
@@ -337,7 +345,7 @@ function firmColumnsFromKey(key: FirmKey): FirmColumns {
         : { externalFirmId: null, firmId: key.firmId };
 }
 
-function FirmStatusForm({
+function FirmStatusCell({
     canEditEngagement,
     entry,
     existingEngagement,
@@ -347,6 +355,66 @@ function FirmStatusForm({
     readonly entry: FirmRosterEntry;
     readonly existingEngagement: FirmEngagementRow | null;
     readonly firmLabel: string;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const status = existingEngagement?.status ?? FirmEngagementStatus.Active;
+    const sinceOn = existingEngagement?.sinceOn ?? entry.firstPurchaseOn;
+    return (
+        <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{firmEngagementStatusLabel(status)}</Badge>
+            {sinceOn !== null && (
+                <span className="font-mono text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+                    since {sinceOn}
+                </span>
+            )}
+            <Dialog onOpenChange={setIsOpen} open={isOpen}>
+                <DialogTrigger asChild>
+                    <Button
+                        aria-label={`Change the status of ${firmLabel}`}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                    >
+                        <Pencil data-icon="inline-start" />
+                        Edit
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{firmLabel}</DialogTitle>
+                        <DialogDescription>
+                            Whether you are still buying accounts at this firm,
+                            and since when.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <FirmStatusForm
+                        canEditEngagement={canEditEngagement}
+                        entry={entry}
+                        existingEngagement={existingEngagement}
+                        firmLabel={firmLabel}
+                        key={String(canEditEngagement)}
+                        onSaved={() => {
+                            setIsOpen(false);
+                        }}
+                    />
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
+}
+
+function FirmStatusForm({
+    canEditEngagement,
+    entry,
+    existingEngagement,
+    firmLabel,
+    onSaved,
+}: {
+    readonly canEditEngagement: boolean;
+    readonly entry: FirmRosterEntry;
+    readonly existingEngagement: FirmEngagementRow | null;
+    readonly firmLabel: string;
+    readonly onSaved: () => void;
 }) {
     const utilities = api.useUtils();
     const set = api.propAccounts.firmEngagement.set.useMutation();
@@ -379,6 +447,7 @@ function FirmStatusForm({
             toast.success(
                 `${firmEngagementStatusLabel(parsed.data.status)} saved`,
             );
+            onSaved();
         } catch (error) {
             toast.error(
                 error instanceof Error ? error.message : 'Could not save',
@@ -391,7 +460,7 @@ function FirmStatusForm({
     return (
         <form
             aria-label={`Edit status for ${firmLabel}`}
-            className="flex flex-col gap-2"
+            className="flex flex-col gap-4"
             noValidate
             onSubmit={(event) => {
                 if (!canEditEngagement) {
@@ -406,10 +475,7 @@ function FirmStatusForm({
                 name="status"
                 render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel
-                            className="sr-only"
-                            htmlFor={`${formId}-status`}
-                        >
+                        <FieldLabel htmlFor={`${formId}-status`}>
                             Status
                         </FieldLabel>
                         <Select
@@ -489,11 +555,10 @@ function FirmStatusForm({
                                 <FieldLabel htmlFor={`${formId}-sentLiveOn`}>
                                     Sent live on
                                 </FieldLabel>
-                                <Input
+                                <IsoDatePicker
                                     aria-invalid={fieldState.invalid}
                                     disabled={!canEditEngagement}
                                     id={`${formId}-sentLiveOn`}
-                                    type="date"
                                     {...field}
                                 />
                                 <FieldError errors={[fieldState.error]} />
@@ -509,30 +574,29 @@ function FirmStatusForm({
                         <FieldLabel htmlFor={`${formId}-sinceOn`}>
                             Since
                         </FieldLabel>
-                        <Input
+                        <IsoDatePicker
                             aria-invalid={fieldState.invalid}
                             disabled={!canEditEngagement}
                             id={`${formId}-sinceOn`}
-                            type="date"
                             {...field}
                         />
                         <FieldError errors={[fieldState.error]} />
                     </Field>
                 )}
             />
-            <Button
-                disabled={
-                    set.isPending ||
-                    form.formState.isSubmitting ||
-                    !canEditEngagement
-                }
-                size="sm"
-                type="submit"
-                variant="outline"
-            >
-                Save
-                <span className="sr-only"> the status of {firmLabel}</span>
-            </Button>
+            <DialogFooter>
+                <Button
+                    disabled={
+                        set.isPending ||
+                        form.formState.isSubmitting ||
+                        !canEditEngagement
+                    }
+                    type="submit"
+                >
+                    Save
+                    <span className="sr-only"> the status of {firmLabel}</span>
+                </Button>
+            </DialogFooter>
         </form>
     );
 }

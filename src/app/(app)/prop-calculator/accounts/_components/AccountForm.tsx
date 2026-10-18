@@ -26,6 +26,7 @@ import {
     FieldLabel,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
     Select,
     SelectContent,
@@ -691,10 +692,9 @@ function DateField({
                         {label}
                         {isOptional && <FieldRequirementMark text="optional" />}
                     </FieldLabel>
-                    <Input
+                    <IsoDatePicker
                         aria-invalid={fieldState.invalid}
                         id={`${formId}-${field.name}`}
-                        type="date"
                         {...field}
                     />
                     <FieldError errors={[fieldState.error]} />

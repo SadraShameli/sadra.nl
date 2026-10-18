@@ -17,6 +17,7 @@ import { Button } from '~/components/ui/button';
 import { DataTable, DataTableAlign } from '~/components/ui/data-table';
 import { Field, FieldError, FieldLabel } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
     Select,
     SelectContent,
@@ -250,10 +251,9 @@ function DateField({
                     <FieldLabel htmlFor={`${formId}-${field.name}`}>
                         {label}
                     </FieldLabel>
-                    <Input
+                    <IsoDatePicker
                         aria-invalid={fieldState.invalid}
                         id={`${formId}-${field.name}`}
-                        type="date"
                         {...field}
                     />
                     <FieldError errors={[fieldState.error]} />

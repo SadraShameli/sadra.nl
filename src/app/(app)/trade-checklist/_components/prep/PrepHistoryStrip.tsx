@@ -2,6 +2,12 @@
 
 import type { DailyPreparationRow } from '~/lib/schemas/tradingRows';
 
+import { Button } from '~/components/ui/button';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '~/components/ui/tooltip';
 import { cn } from '~/lib/utilities';
 
 interface PrepHistoryStripProperties {
@@ -35,24 +41,35 @@ export function PrepHistoryStrip({
                 const isToday = d === today;
                 const isSelected = d === selectedDate;
                 return (
-                    <button
-                        className={cn(
-                            'app-trade-checklist__prep-history-day',
-                            'flex aspect-square flex-col items-center justify-center rounded-md border text-xs transition',
-                            scoreTone(score),
-                            isSelected && 'ring-2 ring-foreground',
-                            isToday &&
-                                !isSelected &&
-                                'ring-1 ring-foreground/50',
-                        )}
-                        data-state={isSelected ? 'selected' : 'idle'}
-                        key={d}
-                        onClick={() => onSelect(d)}
-                        title={`${d}${score === null ? ' · no prep' : ` · ${score.toFixed(0)}%`}`}
-                        type="button"
-                    >
-                        <span className="font-mono">{dayNumber}</span>
-                    </button>
+                    <Tooltip key={d}>
+                        <TooltipTrigger asChild>
+                            <Button
+                                aria-label={`${d}: ${score === null ? 'no prep' : `${score.toFixed(0)}%`}`}
+                                aria-pressed={isSelected}
+                                className={cn(
+                                    'app-trade-checklist__prep-history-day',
+                                    'aspect-square h-auto w-full rounded-xl border p-0 font-mono text-xs',
+                                    scoreTone(score),
+                                    isSelected && 'ring-2 ring-foreground',
+                                    isToday &&
+                                        !isSelected &&
+                                        'ring-1 ring-foreground/50',
+                                )}
+                                data-state={isSelected ? 'selected' : 'idle'}
+                                onClick={() => onSelect(d)}
+                                type="button"
+                                variant="ghost"
+                            >
+                                {dayNumber}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            {d} ·{' '}
+                            {score === null
+                                ? 'no prep'
+                                : `${score.toFixed(0)}%`}
+                        </TooltipContent>
+                    </Tooltip>
                 );
             })}
         </div>

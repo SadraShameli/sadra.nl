@@ -5,6 +5,11 @@ import { useMemo } from 'react';
 import { Card } from '~/components/ui/card';
 import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import InfoPopover from '~/components/ui/info-popover';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '~/components/ui/tooltip';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimInputs, simulate } from '~/lib/prop-calculator';
 import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
@@ -294,18 +299,25 @@ function HeatmapCells({
                     const tooltip = cell
                         ? `winrate ${formatPercent(row.original.winrate, 0)} · RR ${rr}:1\neval pass ${formatPercent(cell.evalPass)}\nfunded survive ${formatPercent(cell.fundedSurvival)}\nmonthly net $${cell.monthlyNet.toFixed(0)}\nEV per attempt $${cell.evPerAttempt.toFixed(0)}`
                         : '';
+                    if (!cell) return <span className="flex h-9 w-12" />;
                     return (
-                        <span
-                            className={cn(
-                                'flex h-9 w-12 items-center justify-center rounded-sm text-foreground transition-colors',
-                                colorClass,
-                                isCurrent &&
-                                    'outline-2 -outline-offset-2 outline-primary',
-                            )}
-                            title={tooltip}
-                        >
-                            {display}
-                        </span>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span
+                                    className={cn(
+                                        'flex h-9 w-12 items-center justify-center rounded-sm text-foreground transition-colors',
+                                        colorClass,
+                                        isCurrent &&
+                                            'outline-2 -outline-offset-2 outline-primary',
+                                    )}
+                                >
+                                    {display}
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="whitespace-pre-line">
+                                {tooltip}
+                            </TooltipContent>
+                        </Tooltip>
                     );
                 },
                 header: () => <span className="block text-center">{rr}:1</span>,

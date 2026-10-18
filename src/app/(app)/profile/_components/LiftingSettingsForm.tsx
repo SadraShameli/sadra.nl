@@ -6,7 +6,6 @@ import { useId, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
     Field,
@@ -322,21 +321,18 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                     ),
                                 );
                                 return (
-                                    <Badge
-                                        asChild
-                                        className="cursor-pointer gap-1 tabular-nums hover:border-line-hover hover:bg-surface-high"
+                                    <Button
+                                        aria-label={`Remove ${display} ${unitWeight} plate`}
+                                        className="tabular-nums"
                                         key={`${p}-${index}`}
+                                        onClick={() => removePlate(index)}
+                                        size="sm"
+                                        type="button"
                                         variant="outline"
                                     >
-                                        <button
-                                            aria-label={`Remove ${display} ${unitWeight} plate`}
-                                            onClick={() => removePlate(index)}
-                                            type="button"
-                                        >
-                                            {display}
-                                            <X className="size-3 opacity-60" />
-                                        </button>
-                                    </Badge>
+                                        {display}
+                                        <X data-icon="inline-end" />
+                                    </Button>
                                 );
                             })}
                         </div>

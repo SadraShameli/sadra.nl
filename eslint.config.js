@@ -15,6 +15,37 @@ import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+const RHF_WATCH_MESSAGE =
+    "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.";
+
+const RHF_WATCH_RESTRICTIONS = [
+    {
+        message: RHF_WATCH_MESSAGE,
+        selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name='watch']",
+    },
+    {
+        message: RHF_WATCH_MESSAGE,
+        selector:
+            "VariableDeclarator[init.callee.name=/^use(Form|FormContext)$/] > ObjectPattern > Property[key.name='watch']",
+    },
+];
+
+const NATIVE_CONTROL_RESTRICTIONS = [
+    {
+        message:
+            'Use the shadcn component from ~/components/ui (Button, Input, Label, FieldSet, Select, Textarea, Dialog, Collapsible, Progress) instead of a native form element.',
+        selector:
+            'JSXOpeningElement[name.name=/^(button|datalist|details|dialog|fieldset|input|label|legend|meter|option|progress|select|summary|textarea)$/]',
+    },
+    {
+        message:
+            'Use Tooltip from ~/components/ui/tooltip instead of a native title tooltip.',
+        selector:
+            "JSXOpeningElement[name.name=/^(?!iframe$|svg$)[a-z]/] > JSXAttribute[name.name='title']",
+    },
+];
+
 const config = defineConfig(
     {
         ignores: [
@@ -150,21 +181,7 @@ const config = defineConfig(
                     ],
                 },
             ],
-            'no-restricted-syntax': [
-                'error',
-                {
-                    message:
-                        "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.",
-                    selector:
-                        "CallExpression[callee.type='MemberExpression'][callee.property.name='watch']",
-                },
-                {
-                    message:
-                        "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.",
-                    selector:
-                        "VariableDeclarator[init.callee.name=/^use(Form|FormContext)$/] > ObjectPattern > Property[key.name='watch']",
-                },
-            ],
+            'no-restricted-syntax': ['error', ...RHF_WATCH_RESTRICTIONS],
         },
     },
     {
@@ -174,6 +191,17 @@ const config = defineConfig(
             'better-tailwindcss/enforce-canonical-classes': [
                 'error',
                 { entryPoint: 'src/styles/styles.css' },
+            ],
+        },
+    },
+    {
+        files: ['src/**/*.tsx'],
+        ignores: ['src/components/ui/**'],
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                ...RHF_WATCH_RESTRICTIONS,
+                ...NATIVE_CONTROL_RESTRICTIONS,
             ],
         },
     },

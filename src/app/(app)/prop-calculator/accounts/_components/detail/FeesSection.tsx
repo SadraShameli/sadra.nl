@@ -21,6 +21,7 @@ import {
     FieldLabel,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
     Select,
     SelectContent,
@@ -423,10 +424,9 @@ function FeeForm({
                         <FieldLabel htmlFor={`${formId}-paidOn`}>
                             Paid on
                         </FieldLabel>
-                        <Input
+                        <IsoDatePicker
                             aria-invalid={fieldState.invalid}
                             id={`${formId}-paidOn`}
-                            type="date"
                             {...field}
                         />
                         <FieldError errors={[fieldState.error]} />

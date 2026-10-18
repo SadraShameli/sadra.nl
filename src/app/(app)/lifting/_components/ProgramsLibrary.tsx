@@ -412,18 +412,21 @@ function ActiveEnrollmentCard({
                     <Progress value={pct} />
                 </div>
 
-                <button
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                <Button
+                    aria-expanded={previewOpen}
+                    className="self-start"
                     onClick={() => setPreviewOpen((o) => !o)}
+                    size="sm"
                     type="button"
+                    variant="ghost"
                 >
                     {previewOpen ? (
-                        <ChevronUp className="size-3.5" />
+                        <ChevronUp data-icon="inline-start" />
                     ) : (
-                        <ChevronDown className="size-3.5" />
+                        <ChevronDown data-icon="inline-start" />
                     )}
                     {previewOpen ? 'Hide' : 'Preview'} upcoming session
-                </button>
+                </Button>
 
                 {previewOpen && (
                     <div className="rounded-md border border-border/50 bg-muted/20 p-3">

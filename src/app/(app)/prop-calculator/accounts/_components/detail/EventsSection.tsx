@@ -25,7 +25,7 @@ import {
     FieldError,
     FieldLabel,
 } from '~/components/ui/field';
-import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
     Select,
     SelectContent,
@@ -420,10 +420,9 @@ function EventForm({
                         <FieldLabel htmlFor={`${formId}-occurredOn`}>
                             Date
                         </FieldLabel>
-                        <Input
+                        <IsoDatePicker
                             aria-invalid={fieldState.invalid}
                             id={`${formId}-occurredOn`}
-                            type="date"
                             {...field}
                         />
                         <FieldError errors={[fieldState.error]} />

@@ -48,6 +48,7 @@ import {
 import { FilterIsoDateRange } from '~/components/ui/filter-iso-date-range';
 import { FilterSelect } from '~/components/ui/filter-select';
 import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
 import {
     Select,
     SelectContent,
@@ -1153,10 +1154,9 @@ function StatementForm({
                         <FieldLabel htmlFor={`${formId}-asOf`}>
                             As of
                         </FieldLabel>
-                        <Input
+                        <IsoDatePicker
                             aria-invalid={fieldState.invalid}
                             id={`${formId}-asOf`}
-                            type="date"
                             {...field}
                         />
                         <FieldError errors={[fieldState.error]} />
@@ -1425,10 +1425,9 @@ function TransferForm({
                         <FieldLabel htmlFor={`${formId}-occurredOn`}>
                             Date
                         </FieldLabel>
-                        <Input
+                        <IsoDatePicker
                             aria-invalid={fieldState.invalid}
                             id={`${formId}-occurredOn`}
-                            type="date"
                             {...field}
                         />
                         <FieldError errors={[fieldState.error]} />
