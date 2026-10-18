@@ -9,8 +9,8 @@ import {
     simulateTradePath,
 } from '~/lib/prop-calculator/core';
 
-function stateAt(balance: number, threshold: number): AccountState {
-    const state = createInitialState(50_000, threshold);
+function stateAt(balance: number): AccountState {
+    const state = createInitialState(50_000, 48_000);
     state.balance = balance;
     return state;
 }
@@ -21,11 +21,11 @@ describe('IntradayTrailingDrawdown.onTrade given a peak excursion', () => {
             amount: dollars(2000),
         });
 
-        const closedOnly = stateAt(51_000, 48_000);
+        const closedOnly = stateAt(51_000);
         drawdown.onTrade(closedOnly, 1000);
         expect(closedOnly.threshold).toBe(49_000);
 
-        const withPeak = stateAt(51_000, 48_000);
+        const withPeak = stateAt(51_000);
         drawdown.onTrade(withPeak, 1000, 3000);
         expect(withPeak.threshold).toBe(51_000);
         expect(withPeak.threshold).toBeGreaterThan(closedOnly.threshold);
@@ -36,10 +36,10 @@ describe('IntradayTrailingDrawdown.onTrade given a peak excursion', () => {
             amount: dollars(2000),
         });
 
-        const omitted = stateAt(51_000, 48_000);
+        const omitted = stateAt(51_000);
         drawdown.onTrade(omitted, 1000);
 
-        const explicit = stateAt(51_000, 48_000);
+        const explicit = stateAt(51_000);
         drawdown.onTrade(explicit, 1000, 1000);
 
         expect(explicit.threshold).toBe(omitted.threshold);
@@ -56,7 +56,7 @@ describe('IntradayTrailingDrawdown.onTrade locks off the same peak basis it ratc
             },
         });
 
-        const state = stateAt(50_000, 48_000);
+        const state = stateAt(50_000);
         drawdown.onTrade(state, -100, 2100);
 
         expect(state.thresholdLocked).toBe(true);
@@ -72,7 +72,7 @@ describe('IntradayTrailingDrawdown.onTrade locks off the same peak basis it ratc
             },
         });
 
-        const state = stateAt(50_000, 48_000);
+        const state = stateAt(50_000);
         drawdown.onTrade(state, -100, 1800);
 
         expect(state.thresholdLocked).toBe(false);
@@ -116,10 +116,10 @@ describe('a trade that runs up then reverses ratchets the floor further than its
         const drawdown = new IntradayTrailingDrawdown({
             amount: dollars(2000),
         });
-        const closedOnly = stateAt(51_000, 48_000);
+        const closedOnly = stateAt(51_000);
         drawdown.onTrade(closedOnly, finalPnl);
 
-        const withPeak = stateAt(51_000, 48_000);
+        const withPeak = stateAt(51_000);
         drawdown.onTrade(withPeak, finalPnl, peakPnl);
 
         expect(withPeak.threshold).toBeGreaterThan(closedOnly.threshold);

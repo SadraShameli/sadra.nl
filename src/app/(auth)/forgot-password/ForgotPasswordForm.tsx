@@ -2,19 +2,12 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useTransition } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 
-import { Button } from '~/components/ui/Button';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+import { Button } from '~/components/ui/button';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import { authClient } from '~/lib/auth/client';
 import {
     type ForgotPasswordInput,
@@ -30,6 +23,7 @@ export function ForgotPasswordForm() {
         mode: 'onTouched',
         resolver: zodResolver(forgotPasswordInputSchema),
     });
+    const formId = useId();
 
     const onSubmit = (data: ForgotPasswordInput) => {
         startTransition(async () => {
@@ -42,38 +36,34 @@ export function ForgotPasswordForm() {
     };
 
     return (
-        <Form {...form}>
-            <form
-                className={`app-auth__forgot-form flex flex-col gap-3`}
-                method="post"
-                onSubmit={form.handleSubmit(onSubmit)}
-            >
-                <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="email"
-                                    placeholder="you@example.com"
-                                    type="email"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button
-                    className="mt-7 w-full"
-                    disabled={pending}
-                    type="submit"
-                >
-                    {pending ? 'Sending…' : 'Send reset link'}
-                </Button>
-            </form>
-        </Form>
+        <form
+            className={`app-auth__forgot-form flex flex-col gap-3`}
+            method="post"
+            onSubmit={form.handleSubmit(onSubmit)}
+        >
+            <Controller
+                control={form.control}
+                name="email"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-email`}>
+                            Email
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="email"
+                            id={`${formId}-email`}
+                            placeholder="you@example.com"
+                            type="email"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Button className="mt-7 w-full" disabled={pending} type="submit">
+                {pending ? 'Sending…' : 'Send reset link'}
+            </Button>
+        </form>
     );
 }

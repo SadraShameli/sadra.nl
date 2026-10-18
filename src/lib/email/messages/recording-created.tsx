@@ -1,17 +1,21 @@
-import { Heading, Text } from '@react-email/components';
-import { render } from '@react-email/render';
+import type { ReactElement } from 'react';
 
-import { EmailMessage } from '../message';
-import { BaseEmail } from '../templates/base';
+import { Heading, Text } from '@react-email/components';
+
+import {
+    NotificationEmail,
+    notificationSettingsUrl,
+} from '~/lib/email/NotificationEmail';
+import { BaseEmail } from '~/lib/email/templates/base';
 
 interface RecordingCreatedTemplateProperties {
-    deviceName: null | string;
+    deviceName?: string;
     durationSeconds: null | number | undefined;
     fileName: string;
-    locationName: null | string;
+    locationName?: string;
 }
 
-export class RecordingCreatedEmail extends EmailMessage {
+export class RecordingCreatedEmail extends NotificationEmail {
     readonly subject = 'New recording';
     readonly to: string;
 
@@ -23,8 +27,8 @@ export class RecordingCreatedEmail extends EmailMessage {
         this.to = to;
     }
 
-    async render(): Promise<string> {
-        return render(<RecordingCreatedTemplate {...this.parameters} />);
+    protected content(): ReactElement {
+        return <RecordingCreatedTemplate {...this.parameters} />;
     }
 }
 
@@ -33,34 +37,35 @@ function formatDuration(seconds: null | number | undefined): string {
 }
 
 function RecordingCreatedTemplate({
-    deviceName,
+    deviceName = '-',
     durationSeconds,
     fileName,
-    locationName,
+    locationName = '-',
 }: RecordingCreatedTemplateProperties) {
     return (
-        <BaseEmail preview={`New recording: ${fileName}`}>
-            <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
+        <BaseEmail
+            notificationSettingsUrl={notificationSettingsUrl()}
+            preview={`New recording: ${fileName}`}
+        >
+            <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
                 New recording
             </Heading>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 File
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-ink-soft">
                 {fileName}
                 {formatDuration(durationSeconds)}
             </Text>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 Device
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {deviceName ?? '—'}
-            </Text>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="m-0 text-sm/snug text-ink-soft">{deviceName}</Text>
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 Location
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {locationName ?? '—'}
+            <Text className="m-0 text-sm/snug text-ink-soft">
+                {locationName}
             </Text>
         </BaseEmail>
     );

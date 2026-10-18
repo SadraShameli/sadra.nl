@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { INSTRUMENTS, InstrumentSymbol } from '~/lib/prop-calculator/core';
 import { buildTradeifyLivePlan } from '~/lib/prop-calculator/firms/tradeify/TradeifyLive';
 
 describe('buildTradeifyLivePlan', () => {
@@ -33,9 +34,13 @@ describe('buildTradeifyLivePlan', () => {
         expect(plan.payoutFromProfit(1000)).toBeCloseTo(800, 10);
     });
 
-    it("has no contract cap modeled, unlike Apex's confirmed 10-mini live cap -- Tradeify Elite Live has no confirmed number for this", () => {
+    it("has no contract cap modeled, unlike Apex's confirmed 10-mini live cap: Tradeify Elite Live has no confirmed number for this", () => {
         const plan = buildTradeifyLivePlan();
 
-        expect(plan.contractLimit).toBeNull();
+        for (const symbol of [InstrumentSymbol.NQ, InstrumentSymbol.MNQ]) {
+            expect(
+                plan.maxContractsFor(plan.initialState(), INSTRUMENTS[symbol]),
+            ).toBeNull();
+        }
     });
 });

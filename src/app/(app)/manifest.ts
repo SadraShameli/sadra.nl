@@ -2,10 +2,11 @@ import { type MetadataRoute } from 'next';
 
 import { siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
+import { THEME_BACKGROUND_COLOR } from '~/lib/site/themeColor';
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        background_color: '#000',
+        background_color: THEME_BACKGROUND_COLOR,
         description: siteContent.manifest.description,
         display: 'standalone',
         icons: [
@@ -23,6 +24,6 @@ export default function manifest(): MetadataRoute.Manifest {
         name: siteContent.manifest.name,
         short_name: siteContent.manifest.shortName,
         start_url: routes.home,
-        theme_color: '#000',
+        theme_color: THEME_BACKGROUND_COLOR,
     };
 }

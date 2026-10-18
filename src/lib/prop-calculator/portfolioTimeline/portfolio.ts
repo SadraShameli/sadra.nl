@@ -1,10 +1,16 @@
-import { TRADING_DAYS_PER_MONTH } from '../core/constants';
-import { deriveSubSeed, mulberry32 } from '../rng';
-import { percentile } from '../stats';
+import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator/core/constants';
+import { deriveSubSeed, mulberry32 } from '~/lib/prop-calculator/rng';
+import {
+    assertPayoutRequestPolicy,
+    assertPositiveSafeInteger,
+    SIM_DEFAULTS,
+} from '~/lib/prop-calculator/simulator';
+import { percentile } from '~/lib/prop-calculator/stats';
+
 import { runAccountTimeline } from './accountTimeline';
+import { pooledLifetimePayoutBudget } from './SharedPayoutBudget';
 import {
     DEFAULT_DAY_BUDGET,
-    DEFAULT_MAX_PAYOUTS_PER_CARD,
     type PortfolioTimelineInputs,
     type PortfolioTimelineResult,
 } from './types';
@@ -16,7 +22,7 @@ export function simulatePortfolioTimeline(
 ): PortfolioTimelineResult {
     const {
         accounts,
-        commissionPerRoundTrip = 0,
+        commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
         dayBudget = DEFAULT_DAY_BUDGET,
         dayStop,
         discounts,
@@ -25,8 +31,8 @@ export function simulatePortfolioTimeline(
         idleDayProbability,
         instrument,
         maxEvalDays,
-        maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
         minRetainedCushion,
+        payoutRequestPolicy,
         payoutRequestSize,
         plan,
         riskPerTrade,
@@ -39,47 +45,59 @@ export function simulatePortfolioTimeline(
         winrate,
     } = inputs;
 
-    const safeDayBudget = Math.max(1, Math.floor(dayBudget));
-    const safeTrials = Math.max(1, Math.floor(trials));
-    const N = Math.max(1, Math.floor(accounts));
+    assertPositiveSafeInteger(trials, 'trials');
+    assertPositiveSafeInteger(dayBudget, 'dayBudget');
+    assertPositiveSafeInteger(accounts, 'accounts');
+    assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
+    assertPayoutRequestPolicy(plan, payoutRequestPolicy, payoutRequestSize);
+    const N = Math.min(accounts, plan.maxFundedAccounts);
+
+    const initialPurchaseDiscounts = plan.purchaseDiscounts(discounts, N);
 
     const perTrialSpend: Float64Array[] = [];
     const perTrialPayout: Float64Array[] = [];
     const perTrialNet: Float64Array[] = [];
     const breakEvenMonthValues: number[] = [];
     let everPositiveCount = 0;
+    let finalNetNegativeCount = 0;
 
-    for (let t = 0; t < safeTrials; t++) {
-        const combinedSpend = new Float64Array(safeDayBudget + 1);
-        const combinedPayout = new Float64Array(safeDayBudget + 1);
-        const combinedNet = new Float64Array(safeDayBudget + 1);
+    for (let t = 0; t < trials; t++) {
+        const combinedSpend = new Float64Array(dayBudget + 1);
+        const combinedPayout = new Float64Array(dayBudget + 1);
+        const combinedNet = new Float64Array(dayBudget + 1);
+        const sharedPayoutBudget =
+            pooledLifetimePayoutBudget(plan) ?? undefined;
 
         for (let a = 0; a < N; a++) {
             const accountRng = mulberry32(deriveSubSeed(seed, t, a));
-            const account = runAccountTimeline({
-                commissionPerRoundTrip,
-                dayBudget: safeDayBudget,
-                dayStop,
-                discounts,
-                evalDayPolicy,
-                fundedDayPolicy,
-                idleDayProbability,
-                instrument,
-                maxEvalDays,
-                maxPayoutsPerCard,
-                minRetainedCushion,
-                payoutRequestSize,
-                plan,
-                riskPerTrade,
-                rng: accountRng,
-                rrRatio,
-                rungSizing,
-                stopPoints,
-                tradesPerDay,
-                winrate,
-            });
+            const account = runAccountTimeline(
+                {
+                    commissionPerRoundTrip,
+                    dayBudget,
+                    dayStop,
+                    discounts,
+                    evalDayPolicy,
+                    fundedDayPolicy,
+                    idleDayProbability,
+                    initialPurchaseDiscounts,
+                    instrument,
+                    maxEvalDays,
+                    minRetainedCushion,
+                    payoutRequestPolicy,
+                    payoutRequestSize,
+                    plan,
+                    riskPerTrade,
+                    rng: accountRng,
+                    rrRatio,
+                    rungSizing,
+                    stopPoints,
+                    tradesPerDay,
+                    winrate,
+                },
+                sharedPayoutBudget,
+            );
 
-            for (let d = 0; d <= safeDayBudget; d++) {
+            for (let d = 0; d <= dayBudget; d++) {
                 combinedSpend[d] =
                     (combinedSpend[d] ?? 0) + (account.cumulativeSpend[d] ?? 0);
                 combinedPayout[d] =
@@ -94,6 +112,8 @@ export function simulatePortfolioTimeline(
         perTrialPayout.push(combinedPayout);
         perTrialNet.push(combinedNet);
 
+        if ((combinedNet.at(-1) ?? 0) < 0) finalNetNegativeCount += 1;
+
         const breakEvenDay = firstNonNegativeDay(combinedNet);
         if (breakEvenDay === null) {
             continue;
@@ -104,9 +124,8 @@ export function simulatePortfolioTimeline(
     }
 
     const sampleIndices: number[] = [];
-    for (let d = 0; d <= safeDayBudget; d += STEP) sampleIndices.push(d);
-    if (sampleIndices.at(-1) !== safeDayBudget)
-        sampleIndices.push(safeDayBudget);
+    for (let d = 0; d <= dayBudget; d += STEP) sampleIndices.push(d);
+    if (sampleIndices.at(-1) !== dayBudget) sampleIndices.push(dayBudget);
 
     const days: number[] = [];
     const spendP10: number[] = [];
@@ -136,6 +155,7 @@ export function simulatePortfolioTimeline(
     }
 
     return {
+        accountsSimulated: N,
         breakEvenMonthValues,
         days,
         netP10,
@@ -144,7 +164,8 @@ export function simulatePortfolioTimeline(
         payoutP10,
         payoutP50,
         payoutP90,
-        pEverCashflowPositive: everPositiveCount / safeTrials,
+        pEverCashflowPositive: everPositiveCount / trials,
+        pFinalNetNegative: finalNetNegativeCount / trials,
         spendP10,
         spendP50,
         spendP90,

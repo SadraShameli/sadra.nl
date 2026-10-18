@@ -12,14 +12,14 @@ import {
 
 import type { WeightCategory } from '~/lib/trading/types';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+    CHART_REFERENCE_LINE_PROPS,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+} from '~/components/ui/chart';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     componentScoreCorrelation,
     type LightAssessment,
@@ -38,7 +38,7 @@ const CATEGORIES: { key: WeightCategory; label: string }[] = [
 ];
 
 const chartConfig: ChartConfig = {
-    avgR: { color: 'hsl(var(--chart-3))', label: 'Avg outcome R' },
+    avgR: { color: 'var(--chart-3)', label: 'Avg outcome R' },
 };
 
 export function ComponentCorrelationChart({
@@ -53,7 +53,7 @@ export function ComponentCorrelationChart({
             componentScoreCorrelation(assessments, category).map((d) => ({
                 ...d,
                 bucket: `${d.pctOfMax - 20}–${d.pctOfMax}%`,
-                fill: d.avgR > 0 ? 'hsl(142 71% 45%)' : 'hsl(0 84% 60%)',
+                fill: d.avgR > 0 ? 'var(--success)' : 'var(--destructive)',
                 fillOpacity: d.count < 3 ? 0.35 : 0.85,
             })),
         [assessments, category],
@@ -68,25 +68,19 @@ export function ComponentCorrelationChart({
                 'flex flex-col gap-3',
             )}
         >
-            <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs tracking-wider text-muted-foreground uppercase">
-                    Component
-                </span>
-                <Select
-                    onValueChange={(v) => setCategory(v as WeightCategory)}
+            <div className="flex flex-wrap items-center gap-2">
+                <ToolbarSelect
+                    label="Component"
+                    onValueChange={(v) => {
+                        const next = CATEGORIES.find((c) => c.key === v);
+                        if (next) setCategory(next.key);
+                    }}
+                    options={CATEGORIES.map((c) => ({
+                        label: c.label,
+                        value: c.key,
+                    }))}
                     value={category}
-                >
-                    <SelectTrigger className="w-56">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {CATEGORIES.map((c) => (
-                            <SelectItem key={c.key} value={c.key}>
-                                {c.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                />
                 <span className="text-xs text-muted-foreground">
                     Bucketed by % of component max earned. Higher buckets should
                     produce higher avg R if the section has edge.
@@ -98,35 +92,25 @@ export function ComponentCorrelationChart({
                     Not enough graded outcomes for this component yet.
                 </div>
             ) : (
-                <ChartContainer
-                    className="aspect-16/7 min-h-72 w-full"
-                    config={chartConfig}
-                >
+                <ChartContainer config={chartConfig}>
                     <BarChart
                         data={data}
                         margin={{ bottom: 36, left: 0, right: 12, top: 20 }}
                     >
-                        <XAxis
-                            axisLine={false}
-                            dataKey="bucket"
-                            tickLine={false}
-                            tickMargin={6}
-                        />
+                        <XAxis {...CHART_X_AXIS_PROPS} dataKey="bucket" />
                         <YAxis
-                            axisLine={false}
+                            {...CHART_Y_AXIS_PROPS}
                             tickFormatter={(v: number) => `${v.toFixed(1)}R`}
-                            tickLine={false}
-                            width={48}
                         />
                         <ReferenceLine
-                            stroke="hsl(0 0% 50%)"
-                            strokeDasharray="4 4"
+                            {...CHART_REFERENCE_LINE_PROPS}
+                            stroke="var(--muted-foreground)"
                             y={0}
                         />
                         <Bar dataKey="avgR" isAnimationActive={false}>
                             <LabelList
                                 dataKey="count"
-                                fill="hsl(0 0% 70%)"
+                                fill="var(--muted-foreground)"
                                 fontSize={11}
                                 formatter={(v: unknown) =>
                                     typeof v === 'number' ? `n=${v}` : ''

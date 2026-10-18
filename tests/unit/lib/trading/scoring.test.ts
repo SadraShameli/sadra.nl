@@ -69,8 +69,8 @@ describe('findCurrentWindow', () => {
         if (!first || !second) {
             throw new Error('DEFAULT_PLAN must define two windows');
         }
-        const [endH, endM] = first.end.split(':').map(Number);
-        const gap = `${String(endH ?? 0).padStart(2, '0')}:${String((endM ?? 0) + 15).padStart(2, '0')}`;
+        const [endH = 0, endM = 0] = first.end.split(':').map(Number);
+        const gap = `${String(endH).padStart(2, '0')}:${String(endM + 15).padStart(2, '0')}`;
         expect(findCurrentWindow(DEFAULT_PLAN, nyDateAt(gap))).toBeNull();
     });
 
@@ -129,5 +129,41 @@ describe('scoreAssessment grading', () => {
             makeAnswers({ sl: { bb: false, ob: false, swing: true } }),
         );
         expect(weakened.score).toBeLessThanOrEqual(clean.score);
+    });
+});
+
+describe('scoreAssessment risk / reward minimum', () => {
+    it('gives a 3R setup no exceptional credit under a 4R minimum and names the shortfall', () => {
+        const plan = {
+            ...DEFAULT_PLAN,
+            setup: { ...DEFAULT_PLAN.setup, minRR: 4 },
+        };
+        const result = scoreAssessment(
+            plan,
+            makeAnswers({ rr: { slippageR: 0, targetR: 3 } }),
+        );
+        expect(result.componentScores.rr.earned).toBeLessThan(
+            result.componentScores.rr.max,
+        );
+        expect(
+            result.strengths.some((text) => text.includes('exceptional')),
+        ).toBe(false);
+        expect(result.weaknesses).toContain(
+            'Expected 3.0R is below plan minimum of 4R.',
+        );
+    });
+
+    it('gives full credit to a setup that meets a minimum above 3R', () => {
+        const plan = {
+            ...DEFAULT_PLAN,
+            setup: { ...DEFAULT_PLAN.setup, minRR: 4 },
+        };
+        const result = scoreAssessment(
+            plan,
+            makeAnswers({ rr: { slippageR: 0, targetR: 4 } }),
+        );
+        expect(result.componentScores.rr.earned).toBe(
+            result.componentScores.rr.max,
+        );
     });
 });

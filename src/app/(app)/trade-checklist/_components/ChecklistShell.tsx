@@ -1,8 +1,7 @@
 'use client';
 
-import { Check, ChevronDown, History, Pencil, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Pencil } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import type {
@@ -13,16 +12,13 @@ import type {
 } from '~/lib/trading/types';
 
 import Eyebrow from '~/components/Eyebrow';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '~/components/ui/Popover';
-import { ScrollArea } from '~/components/ui/ScrollArea';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/popover';
 import { profileTabs, routes, withQuery } from '~/lib/site/routes';
 import {
     deleteAllAssessments,
@@ -31,18 +27,21 @@ import {
 } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 
-import { AnalysisReport } from './AnalysisReport';
-import { HistoryStrip } from './HistoryStrip';
+import { AnalysisReport, type ReportPlan } from './AnalysisReport';
+import { HistoryPanel } from './HistoryPanel';
 import { WizardStepper } from './WizardStepper';
 
 type SubmissionState =
     | {
           answers: Answers;
+          plan: ReportPlan;
           result: AssessmentResult;
           savedId: null | string;
           status: 'graded';
       }
     | { status: 'editing' };
+
+const UNLISTED_PLAN_NAME = 'Plan at the time of this assessment';
 
 export function ChecklistShell({
     activePlan,
@@ -53,7 +52,6 @@ export function ChecklistShell({
     history: TradeAssessmentRow[];
     plans: TradingPlanRow[];
 }) {
-    const router = useRouter();
     const [submission, setSubmission] = useState<SubmissionState>({
         status: 'editing',
     });
@@ -62,6 +60,13 @@ export function ChecklistShell({
     const handleSelect = (row: TradeAssessmentRow) => {
         setSubmission({
             answers: row.answers,
+            plan: {
+                config: row.planSnapshot,
+                id: row.planId,
+                name:
+                    plans.find((candidate) => candidate.id === row.planId)
+                        ?.name ?? UNLISTED_PLAN_NAME,
+            },
             result: row.result,
             savedId: row.id,
             status: 'graded',
@@ -74,7 +79,6 @@ export function ChecklistShell({
             if (submission.status === 'graded' && submission.savedId === id) {
                 setSubmission({ status: 'editing' });
             }
-            router.refresh();
         });
     };
 
@@ -84,7 +88,6 @@ export function ChecklistShell({
             if (submission.status === 'graded') {
                 setSubmission({ status: 'editing' });
             }
-            router.refresh();
         });
     };
 
@@ -104,6 +107,11 @@ export function ChecklistShell({
                         onSubmit={(answers, result) =>
                             setSubmission({
                                 answers,
+                                plan: {
+                                    config: activePlan.config,
+                                    id: activePlan.id,
+                                    name: activePlan.name,
+                                },
                                 result,
                                 savedId: null,
                                 status: 'graded',
@@ -122,9 +130,8 @@ export function ChecklistShell({
                                     ? { ...s, savedId: id }
                                     : s,
                             );
-                            router.refresh();
                         }}
-                        plan={activePlan}
+                        plan={submission.plan}
                         result={submission.result}
                         savedId={submission.savedId}
                     />
@@ -137,38 +144,13 @@ export function ChecklistShell({
                     'flex flex-col gap-4',
                 )}
             >
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between gap-2">
-                        <CardTitle className="flex items-center gap-2 text-base">
-                            <History className="size-4" />
-                            Recent
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{history.length}</Badge>
-                            {history.length > 0 && (
-                                <Button
-                                    className="size-7"
-                                    disabled={isDeletePending}
-                                    onClick={handleClearAll}
-                                    size="icon"
-                                    variant="ghost"
-                                >
-                                    <Trash2 className="size-3.5 text-muted-foreground" />
-                                </Button>
-                            )}
-                        </div>
-                    </CardHeader>
-                    <Separator />
-                    <CardContent className="p-0">
-                        <ScrollArea className="h-115">
-                            <HistoryStrip
-                                history={history}
-                                onDelete={handleDelete}
-                                onSelect={handleSelect}
-                            />
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
+                <HistoryPanel
+                    history={history}
+                    isDeletePending={isDeletePending}
+                    onDelete={handleDelete}
+                    onDeleteAll={handleClearAll}
+                    onSelect={handleSelect}
+                />
             </aside>
         </div>
     );
@@ -181,23 +163,21 @@ function PlanHeader({
     activePlan: TradingPlanRow;
     plans: TradingPlanRow[];
 }) {
-    const router = useRouter();
     const [pending, startTransition] = useTransition();
 
     const switchPlan = (planId: string) => {
         if (planId === activePlan.id) return;
         startTransition(async () => {
             await setActiveTradingPlan({ planId });
-            router.refresh();
         });
     };
 
     return (
-        <Card className="bg-black">
+        <Card className="bg-background">
             <CardContent className="flex justify-between">
                 <div>
                     <Eyebrow as="p">Active plan</Eyebrow>
-                    <p className="mt-0.5 text-lg font-semibold text-white">
+                    <p className="mt-0.5 text-lg font-semibold text-foreground">
                         {activePlan.name}
                     </p>
                 </div>

@@ -3,8 +3,8 @@
 import { Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import {
     CommandDialog,
     CommandEmpty,
@@ -12,9 +12,9 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-} from '~/components/ui/Command';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Skeleton } from '~/components/ui/Skeleton';
+} from '~/components/ui/command';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Skeleton } from '~/components/ui/skeleton';
 import { api } from '~/trpc/react';
 
 interface AddExerciseSheetProperties {
@@ -58,7 +58,7 @@ export function AddExerciseSheet({
                 />
                 <CommandList>
                     {exercises.isLoading ? (
-                        <div className="flex flex-col gap-2 px-2 py-2">
+                        <div className="flex flex-col gap-2 p-2">
                             {Array.from({ length: 6 }, (_, index) => (
                                 <Skeleton
                                     className="h-10 w-full rounded-lg"
@@ -94,10 +94,10 @@ export function AddExerciseSheet({
                                         >
                                             <div className="flex w-full items-center justify-between">
                                                 <div>
-                                                    <p className="text-sm font-medium text-neutral-200">
+                                                    <p className="text-sm font-medium text-foreground/90">
                                                         {ex.name}
                                                     </p>
-                                                    <p className="text-[11px] text-neutral-500">
+                                                    <p className="text-[11px] text-muted-foreground">
                                                         {ex.equipment} ·{' '}
                                                         {ex.primaryMuscle}
                                                     </p>

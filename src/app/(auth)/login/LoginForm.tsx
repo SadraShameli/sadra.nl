@@ -1,40 +1,31 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useState, useTransition } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import { authClient } from '~/lib/auth/client';
 import { type LoginInput, loginInputSchema } from '~/lib/schemas/auth';
-import { routes } from '~/lib/site/routes';
+import { currentCallbackUrl } from '~/lib/site/privateRoutes';
 
 export function LoginForm() {
-    const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [topError, setTopError] = useState<null | string>(null);
-    const searchParameters = useSearchParams();
-    const callbackUrl = searchParameters.get('callbackUrl') ?? routes.home;
 
     const form = useForm<LoginInput>({
-        defaultValues: { callbackUrl, email: '', password: '' },
+        defaultValues: { email: '', password: '' },
         mode: 'onTouched',
         resolver: zodResolver(loginInputSchema),
     });
+    const formId = useId();
 
     const onSubmit = (data: LoginInput) => {
         setTopError(null);
+        const callbackUrl = currentCallbackUrl();
         startTransition(async () => {
             const result = await authClient.signIn.email({
                 callbackURL: callbackUrl,
@@ -47,67 +38,64 @@ export function LoginForm() {
                 );
                 return;
             }
-            router.push(callbackUrl);
-            router.refresh();
+            window.location.assign(callbackUrl);
         });
     };
 
     return (
-        <Form {...form}>
-            <form
-                className={`app-auth__login-form flex flex-col gap-3`}
-                method="post"
-                onSubmit={form.handleSubmit(onSubmit)}
-            >
-                {topError && (
-                    <Alert variant="destructive">
-                        <AlertDescription>{topError}</AlertDescription>
-                    </Alert>
+        <form
+            className={`app-auth__login-form flex flex-col gap-3`}
+            method="post"
+            onSubmit={form.handleSubmit(onSubmit)}
+        >
+            {topError && (
+                <Alert variant="destructive">
+                    <AlertDescription>{topError}</AlertDescription>
+                </Alert>
+            )}
+            <Controller
+                control={form.control}
+                name="email"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-email`}>
+                            Email
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="email"
+                            id={`${formId}-email`}
+                            placeholder="you@example.com"
+                            type="email"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
-                <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="email"
-                                    placeholder="you@example.com"
-                                    type="email"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="current-password"
-                                    placeholder="••••••••"
-                                    type="password"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button
-                    className="mt-7 w-full"
-                    disabled={pending}
-                    type="submit"
-                >
-                    {pending ? 'Signing in…' : 'Sign in'}
-                </Button>
-            </form>
-        </Form>
+            />
+            <Controller
+                control={form.control}
+                name="password"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-password`}>
+                            Password
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="current-password"
+                            id={`${formId}-password`}
+                            placeholder="••••••••"
+                            type="password"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Button className="mt-7 w-full" disabled={pending} type="submit">
+                {pending ? 'Signing in…' : 'Sign in'}
+            </Button>
+        </form>
     );
 }

@@ -42,13 +42,18 @@ export class PhaseStats {
         return this.tradesInPhase;
     }
 
-    recordTrade(isWon: boolean, pnl: number, balance: number): void {
+    recordTrade(
+        isWon: boolean,
+        pnl: number,
+        balance: number,
+        risk: number,
+    ): void {
         this.tradesInPhase += 1;
         if (isWon) {
-            this.totals.recordWin(pnl);
+            this.totals.recordWin(pnl, risk);
             this.streak.recordWin();
         } else {
-            this.totals.recordLoss(pnl);
+            this.totals.recordLoss(pnl, risk);
             this.streak.recordLoss();
         }
         this.drawdown.recordBalance(balance);
@@ -63,6 +68,8 @@ export class TradeTotals {
     private maxDrawdownValue = 0;
 
     private maxLosingStreakValue = 0;
+
+    private riskedValue = 0;
 
     private tradesTakenValue = 0;
 
@@ -82,6 +89,10 @@ export class TradeTotals {
         return this.maxLosingStreakValue;
     }
 
+    get risked(): number {
+        return this.riskedValue;
+    }
+
     get tradesTaken(): number {
         return this.tradesTakenValue;
     }
@@ -98,13 +109,15 @@ export class TradeTotals {
         }
     }
 
-    recordLoss(pnl: number): void {
+    recordLoss(pnl: number, risk: number): void {
         this.tradesTakenValue += 1;
+        this.riskedValue += risk;
         this.grossLossesValue += -pnl;
     }
 
-    recordWin(pnl: number): void {
+    recordWin(pnl: number, risk: number): void {
         this.tradesTakenValue += 1;
+        this.riskedValue += risk;
         this.grossWinsValue += pnl;
     }
 }

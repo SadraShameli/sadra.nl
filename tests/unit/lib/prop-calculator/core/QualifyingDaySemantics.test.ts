@@ -7,12 +7,12 @@ import {
     FirmId,
     fraction,
     MffuVariant,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
-import { type Rng } from '~/lib/prop-calculator/rng';
 import {
     LossStreak,
     newPhaseStats,
@@ -20,24 +20,17 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
+import { scriptedRng } from '../scriptedRng';
+
 function freshStats(startingBalance: number) {
     const totals = new TradeTotals();
     return newPhaseStats(startingBalance, totals, new LossStreak(totals));
 }
 
-function scriptedRng(draws: readonly number[]): Rng {
-    let index = 0;
-    return () => {
-        const draw = draws[index];
-        if (draw === undefined) throw new Error('scripted rng exhausted');
-        index += 1;
-        return draw;
-    };
-}
-
 const losingDayPolicy: DayPolicy = {
     ladder: [500],
     maxLossesPerDay: null,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { kind: DayStopRuleKind.None },
 };
 

@@ -8,6 +8,7 @@ import {
     dollars,
     fraction,
     type Plan,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -19,6 +20,8 @@ import {
     newPhaseStats,
     TradeTotals,
 } from '~/lib/prop-calculator/simulator/PhaseStats';
+
+import { dayRunOptionsFor } from './dayRunOptions';
 
 const ALL_PLANS: readonly Plan[] = ALL_FIRMS.flatMap((firm) => firm.plans);
 const TRIALS = 150;
@@ -57,7 +60,7 @@ describe.each(ALL_PLANS)(
             return;
         }
 
-        it('Terminate.passProbability <= Lockout.passProbability within Monte Carlo tolerance', () => {
+        it('Terminate.evalPassProbability <= Lockout.evalPassProbability within Monte Carlo tolerance', () => {
             const lockoutTwin = plan.withOverrides({
                 evalDailyLossLimitBreach: DailyLossLimitBreachEffect.Lockout,
             });
@@ -66,8 +69,8 @@ describe.each(ALL_PLANS)(
             });
             const lockoutOut = simulate(baseInputs(lockoutTwin));
             const terminateOut = simulate(baseInputs(terminateTwin));
-            expect(terminateOut.passProbability).toBeLessThanOrEqual(
-                lockoutOut.passProbability + MONTE_CARLO_TOLERANCE,
+            expect(terminateOut.evalPassProbability).toBeLessThanOrEqual(
+                lockoutOut.evalPassProbability + MONTE_CARLO_TOLERANCE,
             );
         });
     },
@@ -77,9 +80,9 @@ describe.each(ALL_PLANS)(
     '$label: every non-zero fee component moves costPerFundedAccount',
     (plan) => {
         const base = simulate(baseInputs(plan));
-        if (base.passProbability <= 0) {
-            it('never passes at these trading parameters, so cost-per-funded-account is Infinity for every candidate and there is nothing to compare', () => {
-                expect(base.passProbability).toBe(0);
+        if (base.evalPassProbability <= 0) {
+            it('never passes the eval at these trading parameters, so cost-per-funded-account is Infinity for every candidate and there is nothing to compare', () => {
+                expect(base.evalPassProbability).toBe(0);
                 expect(base.costPerFundedAccount).toBe(Infinity);
             });
             return;
@@ -164,7 +167,10 @@ describe.each(ALL_PLANS)(
                 },
             });
             const out = simulate(baseInputs(twin));
-            expect(out.passProbability).toBe(base.passProbability);
+            expect(out.evalPassProbability).toBe(base.evalPassProbability);
+            expect(out.fundedSurvivalProbability).toBe(
+                base.fundedSurvivalProbability,
+            );
             expect(out.bustProbability).toBe(base.bustProbability);
             expect(out.timeoutProbability).toBe(base.timeoutProbability);
             expect(out.fundedBustProbability).toBe(base.fundedBustProbability);
@@ -187,24 +193,26 @@ describe.each(ALL_PLANS)(
                 if (phase === TradingPhase.Funded) {
                     plan.beginFundedPhase(idleState);
                 }
-                const idleResult = runDay({
-                    commission: dollars(0),
-                    dayPolicy: {
-                        ladder: [2000, 2000, 2000, 2000],
-                        maxLossesPerDay: null,
-                        stopRule: { kind: DayStopRuleKind.None },
-                    },
-                    idleDayProbability: 1,
-                    phase,
-                    plan,
-                    positionSizing: null,
-                    rng: () => 0,
-                    rrRatio: 2,
-                    rungSizing: RungSizing.CapToCushion,
-                    state: idleState,
-                    stats: freshStats(idleState.startingBalance),
-                    winrate: fraction(0.4),
-                });
+                const idleResult = runDay(
+                    dayRunOptionsFor(phase, {
+                        commission: dollars(0),
+                        dayPolicy: {
+                            ladder: [2000, 2000, 2000, 2000],
+                            maxLossesPerDay: null,
+                            sizing: PolicySizing.ContractCapped,
+                            stopRule: { kind: DayStopRuleKind.None },
+                        },
+                        idleDayProbability: 1,
+                        plan,
+                        positionSizing: null,
+                        rng: () => 0,
+                        rrRatio: 2,
+                        rungSizing: RungSizing.CapToCushion,
+                        state: idleState,
+                        stats: freshStats(idleState.startingBalance),
+                        winrate: fraction(0.4),
+                    }),
+                );
                 expect(idleResult.traded).toBe(false);
                 expect(idleState.consecutiveIdleDays).toBe(1);
 
@@ -212,24 +220,26 @@ describe.each(ALL_PLANS)(
                 if (phase === TradingPhase.Funded) {
                     plan.beginFundedPhase(tradedState);
                 }
-                const tradedResult = runDay({
-                    commission: dollars(0),
-                    dayPolicy: {
-                        ladder: [1],
-                        maxLossesPerDay: null,
-                        stopRule: { kind: DayStopRuleKind.None },
-                    },
-                    idleDayProbability: 0,
-                    phase,
-                    plan,
-                    positionSizing: null,
-                    rng: () => 0,
-                    rrRatio: 2,
-                    rungSizing: RungSizing.CapToCushion,
-                    state: tradedState,
-                    stats: freshStats(tradedState.startingBalance),
-                    winrate: fraction(0.4),
-                });
+                const tradedResult = runDay(
+                    dayRunOptionsFor(phase, {
+                        commission: dollars(0),
+                        dayPolicy: {
+                            ladder: [1],
+                            maxLossesPerDay: null,
+                            sizing: PolicySizing.ContractCapped,
+                            stopRule: { kind: DayStopRuleKind.None },
+                        },
+                        idleDayProbability: 0,
+                        plan,
+                        positionSizing: null,
+                        rng: () => 0,
+                        rrRatio: 2,
+                        rungSizing: RungSizing.CapToCushion,
+                        state: tradedState,
+                        stats: freshStats(tradedState.startingBalance),
+                        winrate: fraction(0.4),
+                    }),
+                );
                 expect(tradedResult.traded).toBe(true);
             });
         }
@@ -240,7 +250,7 @@ describe.each(ALL_PLANS)(
     '$label: inactivity closure fires if and only if the plan declares the ' +
         'rule for that phase (driven per-phase via runDay directly, not ' +
         'simulate(), because an all-idle run can never trade its way past ' +
-        'eval to reach a funded-only rule -- idleDayProbability:1 from day ' +
+        'eval to reach a funded-only rule: idleDayProbability:1 from day ' +
         'one means the eval profit target is never hit, so simulate() ' +
         'would time out during eval before a funded-only rule ever gets ' +
         'a chance to fire)',
@@ -248,13 +258,15 @@ describe.each(ALL_PLANS)(
         const idleDayPolicy: DayPolicy = {
             ladder: [2000, 2000, 2000, 2000],
             maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
             stopRule: { kind: DayStopRuleKind.None },
         };
 
         for (const phase of [TradingPhase.Eval, TradingPhase.Funded]) {
             const limit = plan.maxConsecutiveIdleDaysFor(phase);
+            const calendarWeek = plan.calendarWeekInactivityFor(phase);
 
-            if (limit === null) {
+            if (limit === null && calendarWeek === null) {
                 it(`phase=${phase}: has no inactivity rule, so it is never closed no matter how many idle days accumulate`, () => {
                     const state = plan.initialState();
                     if (phase === TradingPhase.Funded) {
@@ -262,24 +274,60 @@ describe.each(ALL_PLANS)(
                     }
                     const stats = freshStats(state.startingBalance);
                     for (let day = 0; day < 30; day++) {
-                        const result = runDay({
-                            commission: dollars(0),
-                            dayPolicy: idleDayPolicy,
-                            idleDayProbability: 1,
-                            phase,
-                            plan,
-                            positionSizing: null,
-                            rng: () => 0,
-                            rrRatio: 2,
-                            rungSizing: RungSizing.CapToCushion,
-                            state,
-                            stats,
-                            winrate: fraction(0.4),
-                        });
+                        const result = runDay(
+                            dayRunOptionsFor(phase, {
+                                commission: dollars(0),
+                                dayPolicy: idleDayPolicy,
+                                idleDayProbability: 1,
+                                plan,
+                                positionSizing: null,
+                                rng: () => 0,
+                                rrRatio: 2,
+                                rungSizing: RungSizing.CapToCushion,
+                                state,
+                                stats,
+                                winrate: fraction(0.4),
+                            }),
+                        );
                         expect(result.closedForInactivity).toBe(false);
                     }
                 });
-            } else {
+            } else if (calendarWeek !== null) {
+                it(`phase=${phase}: declares a ${calendarWeek.sessionsPerWeek}-session calendar-week inactivity rule, so it closes on exactly the ${calendarWeek.sessionsPerWeek}th consecutive idle session`, () => {
+                    const state = plan.initialState();
+                    if (phase === TradingPhase.Funded) {
+                        plan.beginFundedPhase(state);
+                    }
+                    const stats = freshStats(state.startingBalance);
+                    let lastResult: ReturnType<typeof runDay> | undefined;
+                    for (
+                        let day = 1;
+                        day <= calendarWeek.sessionsPerWeek;
+                        day++
+                    ) {
+                        lastResult = runDay(
+                            dayRunOptionsFor(phase, {
+                                commission: dollars(0),
+                                dayPolicy: idleDayPolicy,
+                                idleDayProbability: 1,
+                                plan,
+                                positionSizing: null,
+                                rng: () => 0,
+                                rrRatio: 2,
+                                rungSizing: RungSizing.CapToCushion,
+                                state,
+                                stats,
+                                winrate: fraction(0.4),
+                            }),
+                        );
+                        if (day < calendarWeek.sessionsPerWeek) {
+                            expect(lastResult.busted).toBe(false);
+                        }
+                    }
+                    expect(lastResult?.busted).toBe(true);
+                    expect(lastResult?.closedForInactivity).toBe(true);
+                });
+            } else if (limit !== null) {
                 it(`phase=${phase}: declares a ${limit}-day inactivity rule, so it closes on exactly the ${limit}th consecutive idle day`, () => {
                     const state = plan.initialState();
                     if (phase === TradingPhase.Funded) {
@@ -288,20 +336,21 @@ describe.each(ALL_PLANS)(
                     const stats = freshStats(state.startingBalance);
                     let lastResult: ReturnType<typeof runDay> | undefined;
                     for (let day = 1; day <= limit; day++) {
-                        lastResult = runDay({
-                            commission: dollars(0),
-                            dayPolicy: idleDayPolicy,
-                            idleDayProbability: 1,
-                            phase,
-                            plan,
-                            positionSizing: null,
-                            rng: () => 0,
-                            rrRatio: 2,
-                            rungSizing: RungSizing.CapToCushion,
-                            state,
-                            stats,
-                            winrate: fraction(0.4),
-                        });
+                        lastResult = runDay(
+                            dayRunOptionsFor(phase, {
+                                commission: dollars(0),
+                                dayPolicy: idleDayPolicy,
+                                idleDayProbability: 1,
+                                plan,
+                                positionSizing: null,
+                                rng: () => 0,
+                                rrRatio: 2,
+                                rungSizing: RungSizing.CapToCushion,
+                                state,
+                                stats,
+                                winrate: fraction(0.4),
+                            }),
+                        );
                         if (day < limit) {
                             expect(lastResult.busted).toBe(false);
                         }
@@ -362,19 +411,17 @@ describe.each(ALL_PLANS)(
         it(
             'varying riskPerTrade/tradesPerDay leaves output byte-identical once ' +
                 'evalDayPolicy is set, PROVIDED fundedRiskPerTrade/fundedTradesPerDay ' +
-                'are pinned separately -- both scalars are also the funded-phase ' +
+                'are pinned separately: both scalars are also the funded-phase ' +
                 'fallback default (day.ts:37,52), so leaving them unpinned would ' +
                 'let a real funded-side effect masquerade as an eval-side leak. ' +
-                'expectancyR is excluded from the byte-identical comparison and ' +
-                'checked separately below: engine.ts:181 computes it as ' +
-                'expectancyDollars / riskPerTrade unconditionally, phase- and ' +
-                'day-policy-agnostic, so it is a genuine, documented consumer of ' +
-                'the raw riskPerTrade scalar even once a ladder governs actual ' +
-                'position sizing -- this is not a leak',
+                'expectancyR is included: it divides by the realized average ' +
+                'risk of the trades actually taken, so the unused riskPerTrade ' +
+                'scalar has no path into it',
             () => {
                 const ladder: DayPolicy = {
                     ladder: [200, 300, 400, 100],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { kind: DayStopRuleKind.DayGreen },
                 };
                 const first = simulate(
@@ -396,14 +443,7 @@ describe.each(ALL_PLANS)(
                     }),
                 );
 
-                const { expectancyR: firstExpectancyR, ...firstRest } = first;
-                const { expectancyR: differentExpectancyR, ...differentRest } =
-                    withDifferentScalars;
-                expect(differentRest).toStrictEqual(firstRest);
-                expect(differentExpectancyR).toBeCloseTo(
-                    (firstExpectancyR * 250) / 999,
-                    6,
-                );
+                expect(withDifferentScalars).toStrictEqual(first);
             },
         );
     },

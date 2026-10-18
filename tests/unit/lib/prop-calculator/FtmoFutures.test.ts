@@ -14,12 +14,14 @@ import {
     maxContractsAt,
     PayoutFloorEffect,
     type Plan,
+    PolicySizing,
     RungSizing,
+    TierBasis,
+    tierContextFromProfits,
 } from '~/lib/prop-calculator/core';
 import {
     type FundedCycleTracker,
     newFundedCycleTracker,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import {
@@ -73,13 +75,12 @@ function requestMaxPayout(
     tracker: FundedCycleTracker,
     payoutRequestSize?: number,
 ) {
-    return tryFundedPayout({
-        maxPayouts: Infinity,
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize,
         plan,
         state,
-        tracker,
     });
 }
 
@@ -288,8 +289,8 @@ describe('FTMO Futures (Growth and Pro, 50K)', () => {
             ) {
                 throw new Error('expected tiered funded contract limits');
             }
-            expect(minis.isEffectiveNextSession).toBe(true);
-            expect(micros.isEffectiveNextSession).toBe(true);
+            expect(minis.tierBasis).toBe(TierBasis.SessionOpenProfit);
+            expect(micros.tierBasis).toBe(TierBasis.SessionOpenProfit);
             for (const [profit, expectedMinis, expectedMicros] of [
                 [0, 2, 20],
                 [999, 2, 20],
@@ -301,22 +302,32 @@ describe('FTMO Futures (Growth and Pro, 50K)', () => {
                 [4500, 5, 50],
                 [10_000, 5, 50],
             ] as const) {
-                expect(maxContractsAt(minis, profit, profit)).toBe(
-                    expectedMinis,
-                );
-                expect(maxContractsAt(micros, profit, profit)).toBe(
-                    expectedMicros,
-                );
+                expect(
+                    maxContractsAt(
+                        minis,
+                        tierContextFromProfits(profit, profit),
+                    ),
+                ).toBe(expectedMinis);
+                expect(
+                    maxContractsAt(
+                        micros,
+                        tierContextFromProfits(profit, profit),
+                    ),
+                ).toBe(expectedMicros);
             }
-            expect(maxContractsAt(minis, 3000, 0)).toBe(2);
-            expect(maxContractsAt(minis, 0, 3000)).toBe(5);
+            expect(maxContractsAt(minis, tierContextFromProfits(3000, 0))).toBe(
+                2,
+            );
+            expect(maxContractsAt(minis, tierContextFromProfits(0, 3000))).toBe(
+                5,
+            );
         }
     });
 
     it('pays 90% of the debited amount at every profit level (Payout Ratio 90/10), with no payout-method fee', () => {
         for (const plan of [growth, pro]) {
-            expect(plan.payoutFromProfit(2000)).toBeCloseTo(1800, 6);
-            expect(plan.payoutFromProfit(10_000)).toBeCloseTo(9000, 6);
+            expect(plan.payoutFromProfit(2000, 0)).toBeCloseTo(1800, 6);
+            expect(plan.payoutFromProfit(10_000, 0)).toBeCloseTo(9000, 6);
             expect(plan.payoutMethodFee).toBe(0);
         }
     });
@@ -468,13 +479,12 @@ describe('FTMO Futures (Growth and Pro, 50K)', () => {
 
             const { state, tracker } = lockedFundedAccount(pro, 3000);
             state.qualifyingDays = 5;
-            const payout = tryFundedPayout({
-                maxPayouts: Infinity,
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: pro.defaultRetainedCushion(),
                 payoutRequestSize: undefined,
                 plan: pro,
                 state,
-                tracker,
             });
             expect(payout?.debited).toBe(1000);
             expect(state.balance).toBe(ACCOUNT_SIZE + 2000);
@@ -507,7 +517,7 @@ describe('idle days are simulable in FTMO Futures Evaluation (no closure rule, b
     it(
         'a forced idle day advances no trade and never closes the account, since ' +
             'evalMaxConsecutiveIdleDays is null (no rule stated), but the day still ' +
-            'happens — a subscription-billed Evaluation must be able to reflect a ' +
+            'happens, a subscription-billed Evaluation must be able to reflect a ' +
             'skipped day, not silently trade through it',
         () => {
             for (const plan of [growth, pro]) {
@@ -528,6 +538,7 @@ describe('idle days are simulable in FTMO Futures Evaluation (no closure rule, b
                     dayPolicy: {
                         ladder: [500],
                         maxLossesPerDay: null,
+                        sizing: PolicySizing.ContractCapped,
                         stopRule: { kind: DayStopRuleKind.None },
                     },
                     idleDayProbability: 1,
@@ -549,4 +560,18 @@ describe('idle days are simulable in FTMO Futures Evaluation (no closure rule, b
             }
         },
     );
+});
+
+describe('the FTMO Futures retry note matches the T29 retry loop', () => {
+    const notes = new FtmoFutures().notes;
+    const retryNote = notes.find((note) => note.includes('runEvalWithRetries'));
+
+    it('says every failed attempt is retried, a timeout of the modeled eval horizon as well as a bust', () => {
+        expect(retryNote).toContain(
+            'charges plan.retryFee on every failed Evaluation attempt except the terminal one, a bust or a timeout alike',
+        );
+        expect(retryNote).toContain('--eval-days');
+        expect(retryNote).not.toContain('on every bust except');
+        expect(retryNote).not.toContain('N-bust run');
+    });
 });

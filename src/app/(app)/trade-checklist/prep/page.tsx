@@ -1,17 +1,21 @@
 import { and, desc, eq, gte } from 'drizzle-orm';
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { z } from 'zod';
 
-import { getServerSession } from '~/lib/auth/server';
-import { dailyPreparationRowSchema } from '~/lib/schemas/trading';
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { DefaultTradingPlanSetup } from '~/app/(app)/trade-checklist/_components/DefaultTradingPlanSetup';
+import { PrepView } from '~/app/(app)/trade-checklist/_components/PrepView';
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
+import { dailyPreparationRowSchema } from '~/lib/schemas/tradingRows';
+import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
-import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { PLAN_TIMEZONE } from '~/lib/trading/defaults';
+import { loadActiveTradingPlan } from '~/lib/trading/loadActiveTradingPlan';
 import { cn } from '~/lib/utilities';
-import { dailyPreparations, db, tradingPlans } from '~/server/db';
-
-import { PrepView } from '../_components/PrepView';
+import { dailyPreparations, db } from '~/server/db';
 
 export const metadata: Metadata = {
     description:
@@ -19,14 +23,37 @@ export const metadata: Metadata = {
     title: 'Pre-market Prep',
 };
 
-export const dynamic = 'force-dynamic';
+export default function PreMarketPrepPage() {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-trade-checklist__prep-view',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <ToolPageHeader
+                    eyebrow={siteToolTitle(ToolTicker.Checklist)}
+                    lead={
+                        <>
+                            The discipline gate before you ever pick up the
+                            mouse. Tick off the prep you finished today and let
+                            the streak speak.
+                        </>
+                    }
+                    title="Pre-market prep"
+                />
+                <Suspense fallback={<TradeChecklistDataSkeleton />}>
+                    <PreMarketPrepContent />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-export default async function PreMarketPrepPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    const userId = session.user.id;
-
-    await ensureUserHasPlan();
+async function PreMarketPrepContent() {
+    const user = await requireSessionUser(routes.auth.login);
+    const userId = user.id;
 
     const today = todayInTz();
     const since = thirtyDaysAgo();
@@ -36,11 +63,8 @@ export default async function PreMarketPrepPage() {
         gte(dailyPreparations.date, since),
     );
 
-    const [plans, recent] = await Promise.all([
-        db
-            .select({ id: tradingPlans.id, name: tradingPlans.name })
-            .from(tradingPlans)
-            .where(eq(tradingPlans.userId, userId)),
+    const [activePlan, recent] = await Promise.all([
+        loadActiveTradingPlan(userId),
         db
             .select()
             .from(dailyPreparations)
@@ -48,32 +72,16 @@ export default async function PreMarketPrepPage() {
             .orderBy(desc(dailyPreparations.date)),
     ]);
 
+    if (!activePlan) return <DefaultTradingPlanSetup />;
+
     const history = z.array(dailyPreparationRowSchema).parse(recent);
-    const activePlanId = plans[0]?.id ?? null;
 
     return (
-        <main
-            className={cn(
-                'app-trade-checklist__prep-view',
-                'container pt-spacing pb-24',
-            )}
-        >
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    Pre-market prep
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                    The discipline gate before you ever pick up the mouse. Tick
-                    off the prep you finished today and let the streak speak.
-                </p>
-            </header>
-
-            <PrepView
-                activePlanId={activePlanId}
-                history={history}
-                today={today}
-            />
-        </main>
+        <PrepView
+            activePlanId={activePlan.id}
+            history={history}
+            today={today}
+        />
     );
 }
 

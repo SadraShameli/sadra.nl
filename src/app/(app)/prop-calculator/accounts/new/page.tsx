@@ -1,0 +1,72 @@
+import { type Metadata } from 'next';
+import { Suspense } from 'react';
+
+import { AccountCreator } from '~/app/(app)/prop-calculator/accounts/_components/AccountForm';
+import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
+import {
+    accountPrefillQuery,
+    parseAccountPrefill,
+} from '~/app/(app)/prop-calculator/accounts/_components/accountPrefill';
+import { AccountsPageHeader } from '~/app/(app)/prop-calculator/accounts/_components/AccountsPageHeader';
+import { AccountsDataSkeleton } from '~/app/(app)/prop-calculator/accounts/_components/AccountsSkeleton';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
+import { loginRedirectFor } from '~/lib/site/privateRoutes';
+import { routes } from '~/lib/site/routes';
+import { cn } from '~/lib/utilities';
+import { api, HydrateClient } from '~/trpc/server';
+
+export const metadata: Metadata = {
+    description: 'Add a prop firm account.',
+    title: 'Add account',
+};
+
+export default function NewPropAccountPage({
+    searchParams,
+}: Pick<PageProps<'/prop-calculator/accounts/new'>, 'searchParams'>) {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-prop-accounts__new',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <AccountsPageHeader
+                    description="Pick the firm and plan, then enter what the firm dashboard shows today."
+                    title="Add account"
+                />
+                <Suspense fallback={<AccountsDataSkeleton />}>
+                    <NewPropAccountContent searchParams={searchParams} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
+
+async function NewPropAccountContent({
+    searchParams,
+}: Pick<PageProps<'/prop-calculator/accounts/new'>, 'searchParams'>) {
+    const prefill = parseAccountPrefill(await searchParams);
+    await requireSessionUser(
+        loginRedirectFor(
+            routes.propCalculator.accounts.new,
+            accountPrefillQuery(prefill),
+        ),
+    );
+    await Promise.all([
+        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        api.propAccounts.copyGroup.list.prefetch(),
+        api.propAccounts.externalFirm.list.prefetch(),
+        api.propAccounts.round.list.prefetch(),
+    ]);
+    return (
+        <HydrateClient>
+            <AccountCreator
+                initialFirm={prefill.firmId}
+                initialOptIns={prefill.optIns}
+                initialPlan={prefill.planSerial}
+            />
+        </HydrateClient>
+    );
+}

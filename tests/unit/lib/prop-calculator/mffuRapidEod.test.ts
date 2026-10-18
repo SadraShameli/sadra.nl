@@ -24,7 +24,7 @@ function rapidEod() {
 
 describe('MFFU Rapid EOD 50K (live-verified 2026-09-10 against help.myfundedfutures.com)', () => {
     it(
-        'caps concurrent funded accounts at 3, not 5 — corrected against the ' +
+        'caps concurrent funded accounts at 3, not 5, corrected against the ' +
             'plan-specific Rapid EOD 50k/25k articles, which both independently ' +
             'say "Three (3)"; a separate generic cross-plan MFFU page claims 5 ' +
             'but never names Rapid EOD as one of its counted plans',
@@ -92,7 +92,7 @@ describe('MFFU Rapid EOD 50K (live-verified 2026-09-10 against help.myfundedfutu
         'charges $209 for the one-time eval/reset fee, matching the regular ' +
             '(non-promotional) $50,000-tier price on myfundedfutures.com/plans/rapid-eod ' +
             '(re-verified 2026-09-14 by explicitly selecting the $50,000 radio button; ' +
-            'the page defaults to $25,000, whose own regular price is $145 -- a ' +
+            'the page defaults to $25,000, whose own regular price is $145; a ' +
             'previous check of this same page mistook the default-selected $25,000 ' +
             'price for the $50,000 price)',
         () => {

@@ -1,8 +1,11 @@
 import { Music2, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { EmptyState } from '~/components/ui/EmptyState';
-import { ScrollArea } from '~/components/ui/ScrollArea';
+import { Button } from '~/components/ui/button';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Input } from '~/components/ui/input';
+import { ScrollArea } from '~/components/ui/scroll-area';
+import { Skeleton } from '~/components/ui/skeleton';
 import { DurationFormat } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
 
@@ -10,6 +13,7 @@ import type { RecordingSummary } from './types';
 
 interface RecordingListProperties {
     currentIdx: number;
+    isLoading: boolean;
     isPlaying: boolean;
     onSelect: (recording: RecordingSummary) => void;
     recordings: RecordingSummary[] | undefined;
@@ -17,6 +21,7 @@ interface RecordingListProperties {
 
 export function RecordingList({
     currentIdx,
+    isLoading,
     isPlaying,
     onSelect,
     recordings,
@@ -37,31 +42,46 @@ export function RecordingList({
         <div
             className={cn(
                 'app-recording__list',
-                'grid h-[27vh] grid-rows-[auto_1fr] gap-3 lg:h-[25vh]',
+                'grid max-h-52 grid-rows-[auto_minmax(0,1fr)] gap-3',
             )}
         >
             <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-medium tracking-[0.2em] text-neutral-500 uppercase">
-                    Up Next
-                </p>
+                <p className="m-0 type-micro text-ink-muted">Up next</p>
                 <div className="relative w-40 sm:w-48">
-                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3 -translate-y-1/2 text-neutral-500" />
-                    <input
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        aria-label="Search recordings"
                         className={cn(
                             'app-recording__list-search',
-                            'w-full rounded-full bg-white/4 py-1.5 pr-3 pl-7 text-xs text-white transition outline-none placeholder:text-neutral-500 focus:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40',
+                            'h-8 rounded-full pl-7 text-xs',
                         )}
                         disabled={!recordings?.length}
                         onChange={(event) => setSearchQuery(event.target.value)}
                         placeholder="Search"
-                        type="text"
+                        type="search"
                         value={searchQuery}
                     />
                 </div>
             </div>
 
             <ScrollArea>
-                {recordings?.length ? (
+                {isLoading ? (
+                    <ul
+                        aria-busy="true"
+                        aria-label="Loading recordings"
+                        className="flex flex-col gap-1 pr-3"
+                    >
+                        {LOADING_ROWS.map((width) => (
+                            <li
+                                className="flex items-center gap-3 p-2"
+                                key={width}
+                            >
+                                <Skeleton className={cn('h-4', width)} />
+                                <Skeleton className="ml-auto h-3 w-10" />
+                            </li>
+                        ))}
+                    </ul>
+                ) : recordings?.length ? (
                     filtered.length === 0 ? (
                         <EmptyState
                             icon={Search}
@@ -71,7 +91,7 @@ export function RecordingList({
                         <ul
                             className={cn(
                                 'app-recording__list-items',
-                                'flex flex-col pr-3',
+                                'flex animate-in flex-col pr-3 duration-300 fade-in',
                             )}
                         >
                             {filtered.map((recording) => {
@@ -80,13 +100,13 @@ export function RecordingList({
                                 const dur = recording.duration_seconds;
                                 return (
                                     <li key={recording.id}>
-                                        <button
+                                        <Button
                                             className={cn(
                                                 'app-recording__list-item',
-                                                'group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition',
+                                                'group h-auto w-full justify-start gap-3 rounded-md p-2 text-left font-normal',
                                                 isCurrent
                                                     ? 'text-foreground'
-                                                    : 'text-neutral-400 hover:bg-white/3 hover:text-foreground',
+                                                    : 'text-muted-foreground hover:bg-foreground/3 hover:text-foreground',
                                             )}
                                             data-state={
                                                 isCurrent
@@ -95,6 +115,7 @@ export function RecordingList({
                                             }
                                             onClick={() => onSelect(recording)}
                                             type="button"
+                                            variant="ghost"
                                         >
                                             <span
                                                 className={cn(
@@ -114,8 +135,8 @@ export function RecordingList({
                                                     className={cn(
                                                         'shrink-0 text-xs tabular-nums',
                                                         isCurrent
-                                                            ? 'text-neutral-300'
-                                                            : 'text-neutral-500',
+                                                            ? 'text-foreground/80'
+                                                            : 'text-muted-foreground',
                                                     )}
                                                 >
                                                     {DurationFormat.seconds(
@@ -123,7 +144,7 @@ export function RecordingList({
                                                     )}
                                                 </span>
                                             )}
-                                        </button>
+                                        </Button>
                                     </li>
                                 );
                             })}
@@ -137,11 +158,13 @@ export function RecordingList({
     );
 }
 
+const LOADING_ROWS = ['w-3/5', 'w-2/5', 'w-1/2', 'w-2/3', 'w-1/3'] as const;
+
 function PlayingIndicator() {
     return (
         <span
             aria-hidden
-            className="flex h-4 w-4 items-end justify-center gap-0.5"
+            className="flex size-4 items-end justify-center gap-0.5"
         >
             <span className="h-3 w-0.5 origin-bottom animate-eq rounded-full bg-foreground" />
             <span className="h-2.5 w-0.5 origin-bottom animate-eq rounded-full bg-foreground [animation-delay:0.15s]" />

@@ -1,19 +1,28 @@
 import { type Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { type ReactNode, Suspense } from 'react';
 
-import { ProgramDetail } from '~/app/(app)/lifting/_components/ProgramDetail';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { LiftingDetailHeader } from '~/app/(app)/lifting/_components/LiftingDetailHeader';
+import { LiftingDetailSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
+import { LiftingUserSection } from '~/app/(app)/lifting/_components/LiftingUserSection';
+import { ProgramEnrollCard } from '~/app/(app)/lifting/_components/ProgramEnrollCard';
+import { ProgramScheduleTabs } from '~/app/(app)/lifting/_components/ProgramScheduleTabs';
+import { TitledCardSkeleton } from '~/components/PageSkeleton';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
+import {
+    loadOfficialProgram,
+    loadOfficialPrograms,
+    type ProgramRow,
+} from '~/lib/lifting/OfficialCatalog';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { loadOrNotFound } from '~/trpc/loadOrNotFound';
+import { api } from '~/trpc/server';
 
-interface PageProperties {
-    params: Promise<{ slug: string }>;
-}
+type ProgramPageProperties = PageProps<'/lifting/programs/[slug]'>;
 
 export async function generateMetadata({
     params,
-}: PageProperties): Promise<Metadata> {
+}: ProgramPageProperties): Promise<Metadata> {
     const { slug } = await params;
     return {
         description: 'Program detail and enrollment.',
@@ -21,30 +30,78 @@ export async function generateMetadata({
     };
 }
 
-export const dynamic = 'force-dynamic';
+export async function generateStaticParams() {
+    const programs = await loadOfficialPrograms();
+    return programs.map(({ slug }) => ({ slug }));
+}
 
-export default async function LiftingProgramDetailPage({
+export default function LiftingProgramDetailPage({
     params,
-}: PageProperties) {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+}: ProgramPageProperties) {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-lifting__program',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <Suspense fallback={<LiftingDetailSkeleton />}>
+                    <LiftingProgramDetailContent params={params} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
+
+async function CustomProgramDetail({ slug }: { readonly slug: string }) {
+    await requireSessionUser();
+    const program = await loadOrNotFound(() =>
+        api.lifting.program.get({ slug }),
+    );
+    return (
+        <LiftingUserSection>
+            <ProgramOverview program={program}>
+                <ProgramEnrollCard program={program} />
+            </ProgramOverview>
+        </LiftingUserSection>
+    );
+}
+
+async function LiftingProgramDetailContent({
+    params,
+}: Pick<ProgramPageProperties, 'params'>) {
     const { slug } = await params;
-    try {
-        const program = await api.lifting.program.get({ slug });
-        void api.lifting.settings.get.prefetch();
-        return (
-            <HydrateClient>
-                <main
-                    className={cn(
-                        'app-lifting__program',
-                        'container pt-spacing pb-24',
-                    )}
-                >
-                    <ProgramDetail program={program} />
-                </main>
-            </HydrateClient>
-        );
-    } catch {
-        notFound();
-    }
+    const official = await loadOfficialProgram(slug);
+    return official ? (
+        <ProgramOverview program={official}>
+            <Suspense fallback={<TitledCardSkeleton title="Enroll" />}>
+                <LiftingUserSection>
+                    <ProgramEnrollCard program={official} />
+                </LiftingUserSection>
+            </Suspense>
+        </ProgramOverview>
+    ) : (
+        <CustomProgramDetail slug={slug} />
+    );
+}
+
+function ProgramOverview({
+    children,
+    program,
+}: {
+    readonly children: ReactNode;
+    readonly program: ProgramRow;
+}) {
+    return (
+        <div className="flex flex-col gap-8">
+            <LiftingDetailHeader
+                description={program.description}
+                eyebrow={`${program.category} · ${String(program.daysPerWeek)}× / week · ${String(program.lengthWeeks)} weeks`}
+                title={program.name}
+            />
+            {children}
+            <ProgramScheduleTabs schedule={program.schedule} />
+        </div>
+    );
 }

@@ -8,8 +8,10 @@ import {
 } from './provider';
 
 export type { EmailMessage } from './message';
+export { AccountDeletionEmail } from './messages/account-deletion';
 export { ContactFormEmail } from './messages/contact-form';
 export { DeviceCreatedEmail } from './messages/device-created';
+export { EmailChangeConfirmationEmail } from './messages/email-change-confirmation';
 export { EmailVerificationEmail } from './messages/email-verification';
 export { LocationCreatedEmail } from './messages/location-created';
 export { LoudnessAlertEmail } from './messages/loudness-alert';

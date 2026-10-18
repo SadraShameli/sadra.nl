@@ -11,8 +11,12 @@ import {
     flatDayPolicy,
     fraction,
     maxContractsAt,
+    percent,
+    PolicySizing,
     resolveDailyLossLimit,
+    RetryKind,
     RungSizing,
+    tierContextFromProfits,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
@@ -25,6 +29,8 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
+import { freshFundedCycle } from './dayRunOptions';
+
 function freshStats(startingBalance: number) {
     const totals = new TradeTotals();
     return newPhaseStats(startingBalance, totals, new LossStreak(totals));
@@ -33,19 +39,29 @@ function freshStats(startingBalance: number) {
 const firm = new ApexTraderFunding();
 
 function atProfit(profit: number): DailyLossLimitContext {
-    return { isThresholdLocked: false, peakDayCloseProfit: 0, profit };
+    return {
+        isThresholdLocked: false,
+        peakDayCloseProfit: 0,
+        peakIntradayProfit: null,
+        profit,
+        sessionOpenProfit: profit,
+    };
 }
 
-function findPlan(accountSize: 50_000, variant: ApexVariant) {
-    const plan = firm.findPlan({ accountSize, firm: FirmId.Apex, variant });
+function findPlan(variant: ApexVariant) {
+    const plan = firm.findPlan({
+        accountSize: 50_000,
+        firm: FirmId.Apex,
+        variant,
+    });
     if (!plan) {
-        throw new Error(`Apex plan not found: ${accountSize} ${variant}`);
+        throw new Error(`Apex plan not found: 50_000 ${variant}`);
     }
     return plan;
 }
 
 describe('Apex payout ladder', () => {
-    const plan50kEod = findPlan(50_000, ApexVariant.Eod);
+    const plan50kEod = findPlan(ApexVariant.Eod);
 
     it('caps total payout at the lifetime cap and closes the account after payout 6', () => {
         const LIFETIME_CAP = 13_000;
@@ -64,7 +80,7 @@ describe('Apex payout ladder', () => {
         const justEnough = simulate({ ...base, fundedHorizonDays: 40 });
         const wayMore = simulate({ ...base, fundedHorizonDays: 400 });
 
-        expect(justEnough.passProbability).toBe(1);
+        expect(justEnough.fundedSurvivalProbability).toBe(1);
         expect(justEnough.fundedBustProbability).toBe(0);
         expect(justEnough.expectedGrossPayout).toBeCloseTo(LIFETIME_CAP, 6);
 
@@ -77,7 +93,7 @@ describe('Apex payout ladder', () => {
 });
 
 describe('Apex qualifying-day threshold', () => {
-    const plan50kEodQualifying = findPlan(50_000, ApexVariant.Eod);
+    const plan50kEodQualifying = findPlan(ApexVariant.Eod);
 
     it('does not advance qualifyingDays on a day below the minimum daily profit', () => {
         const state = plan50kEodQualifying.initialState();
@@ -86,7 +102,12 @@ describe('Apex qualifying-day threshold', () => {
 
         runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(200, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                200,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
             phase: TradingPhase.Eval,
             plan: plan50kEodQualifying,
             positionSizing: null,
@@ -102,7 +123,12 @@ describe('Apex qualifying-day threshold', () => {
 
         runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(300, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                300,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
             phase: TradingPhase.Eval,
             plan: plan50kEodQualifying,
             positionSizing: null,
@@ -130,14 +156,14 @@ describe('Apex qualifying-day threshold', () => {
             winrate: 1,
         });
 
-        expect(out.passProbability).toBe(1);
+        expect(out.fundedSurvivalProbability).toBe(1);
         expect(out.expectedGrossPayout).toBe(0);
         expect(out.fundedBustProbability).toBe(0);
     });
 });
 
 describe('Apex Intraday daily-loss-limit: lockout behavior differs by phase', () => {
-    const plan50kIntraday = findPlan(50_000, ApexVariant.Intraday);
+    const plan50kIntraday = findPlan(ApexVariant.Intraday);
 
     it('locks out the funded day but not the eval day, for an identical loss', () => {
         const lossState = plan50kIntraday.initialState();
@@ -170,7 +196,12 @@ describe('Apex Intraday daily-loss-limit: lockout behavior differs by phase', ()
         const evalStats = freshStats(evalState.startingBalance);
         const evalResult = runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                1500,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
             phase: TradingPhase.Eval,
             plan: plan50kIntraday,
             positionSizing: null,
@@ -187,7 +218,13 @@ describe('Apex Intraday daily-loss-limit: lockout behavior differs by phase', ()
         const fundedStats = freshStats(fundedState.startingBalance);
         const fundedResult = runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(1500, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                1500,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
+            fundedCycle: freshFundedCycle(plan50kIntraday, fundedState),
             phase: TradingPhase.Funded,
             plan: plan50kIntraday,
             positionSizing: null,
@@ -205,7 +242,7 @@ describe('Apex Intraday daily-loss-limit: lockout behavior differs by phase', ()
 });
 
 describe('Apex EOD daily-loss-limit: flat in eval, tiered once funded', () => {
-    const plan = findPlan(50_000, ApexVariant.Eod);
+    const plan = findPlan(ApexVariant.Eod);
 
     it('has a flat eval DLL and a tiered funded DLL', () => {
         expect(plan.evalDailyLossLimit).toEqual({
@@ -264,15 +301,15 @@ describe('Apex eval reset fee', () => {
     });
 
     it('charges the variant-specific eval price on reset, not the other variant’s price', () => {
-        const eod = findPlan(50_000, ApexVariant.Eod);
-        const intraday = findPlan(50_000, ApexVariant.Intraday);
-        expect(eod.fees.reset).toBe(550);
+        const eod = findPlan(ApexVariant.Eod);
+        const intraday = findPlan(ApexVariant.Intraday);
+        expect(eod.fees.reset).toBe(590);
         expect(intraday.fees.reset).toBe(249);
         expect(intraday.fees.reset).not.toBe(eod.fees.reset);
     });
 
     it('accrues one full eval-price reset fee per failed attempt in a multi-attempt trial', () => {
-        const intraday = findPlan(50_000, ApexVariant.Intraday);
+        const intraday = findPlan(ApexVariant.Intraday);
         const out = simulate({
             fundedHorizonDays: 10,
             maxAttempts: 3,
@@ -292,10 +329,51 @@ describe('Apex eval reset fee', () => {
     });
 });
 
+describe('Apex 50K fees match the homepage product picker (window.productPickerConfig, dateModified 2026-08-25, user-pasted 2026-09-23)', () => {
+    it('prices the EOD eval at $590 with a $90 PA activation, and re-buys at the $590 eval price', () => {
+        const eod = findPlan(ApexVariant.Eod);
+        expect(eod.fees.oneTimeEval).toBe(590);
+        expect(eod.fees.activation).toBe(90);
+        expect(eod.fees.reset).toBe(590);
+        expect(eod.fees.monthlySubscription).toBe(0);
+    });
+
+    it('leaves the Intraday eval at $249 with a $59 PA activation, re-buying at $249', () => {
+        const intraday = findPlan(ApexVariant.Intraday);
+        expect(intraday.fees.oneTimeEval).toBe(249);
+        expect(intraday.fees.activation).toBe(59);
+        expect(intraday.fees.reset).toBe(249);
+        expect(intraday.fees.monthlySubscription).toBe(0);
+    });
+});
+
+describe('Apex has no reset product (Evaluation Plan Fees and Access Explained: "There are no reset fees")', () => {
+    const resetOnlyCoupon = {
+        activationPercent: percent(0),
+        evalPercent: percent(0),
+        resetPercent: percent(50),
+    };
+
+    it.each([ApexVariant.Eod, ApexVariant.Intraday])(
+        'models the %s retry as a re-buy',
+        (variant) => {
+            expect(findPlan(variant).fees.retry).toBe(RetryKind.Rebuy);
+        },
+    );
+
+    it.each([ApexVariant.Eod, ApexVariant.Intraday])(
+        'keeps the %s retry at the full re-buy price under a reset-only coupon',
+        (variant) => {
+            const plan = findPlan(variant);
+            expect(plan.retryFee(resetOnlyCoupon)).toBe(plan.fees.oneTimeEval);
+        },
+    );
+});
+
 describe('Apex evaluation time limit', () => {
     it("caps the eval at ~21 trading days as a weekday approximation of Apex's 30-calendar-day (not trading-day) account expiry, per Apex's live help center", () => {
-        const eod = findPlan(50_000, ApexVariant.Eod);
-        const intraday = findPlan(50_000, ApexVariant.Intraday);
+        const eod = findPlan(ApexVariant.Eod);
+        const intraday = findPlan(ApexVariant.Intraday);
         expect(eod.evalDayCap(9999)).toBe(21);
         expect(intraday.evalDayCap(9999)).toBe(21);
     });
@@ -303,21 +381,23 @@ describe('Apex evaluation time limit', () => {
 
 describe('Apex funded inactivity closure', () => {
     it('sets a 30-day inactivity closure on both variants, per the PA inactivity policy', () => {
-        expect(findPlan(50_000, ApexVariant.Eod).maxConsecutiveIdleDays).toBe(
-            30,
-        );
-        expect(
-            findPlan(50_000, ApexVariant.Intraday).maxConsecutiveIdleDays,
-        ).toBe(30);
+        expect(findPlan(ApexVariant.Eod).maxConsecutiveIdleDays).toBe(30);
+        expect(findPlan(ApexVariant.Intraday).maxConsecutiveIdleDays).toBe(30);
     });
 
     it('closes the account on exactly the 30th consecutive idle day, not sooner', () => {
-        const plan = findPlan(50_000, ApexVariant.Eod);
+        const plan = findPlan(ApexVariant.Eod);
         const state = plan.initialState();
         const stats = freshStats(state.startingBalance);
         const dayOptions = {
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(500, 1, { kind: DayStopRuleKind.None }),
+            dayPolicy: flatDayPolicy(
+                500,
+                1,
+                { kind: DayStopRuleKind.None },
+                PolicySizing.ContractCapped,
+            ),
+            fundedCycle: freshFundedCycle(plan, state),
             idleDayProbability: 1,
             phase: TradingPhase.Funded,
             plan,
@@ -342,7 +422,7 @@ describe('Apex funded inactivity closure', () => {
 
 describe('Apex eval-phase drawdown lock (Rithmic/Wealthcharts model)', () => {
     it('locks the EOD threshold at the Target Profit Balance once EOD balance reaches Target Profit + Max Drawdown, and freezes it there', () => {
-        const plan = findPlan(50_000, ApexVariant.Eod);
+        const plan = findPlan(ApexVariant.Eod);
         const state = plan.initialState();
 
         state.balance = state.startingBalance + 5000;
@@ -356,7 +436,7 @@ describe('Apex eval-phase drawdown lock (Rithmic/Wealthcharts model)', () => {
     });
 
     it('locks the Intraday threshold at the Target Profit Balance once the trade balance reaches Target Profit + Max Drawdown, and freezes it there', () => {
-        const plan = findPlan(50_000, ApexVariant.Intraday);
+        const plan = findPlan(ApexVariant.Intraday);
         const state = plan.initialState();
 
         state.balance = state.startingBalance + 5000;
@@ -373,7 +453,7 @@ describe('Apex eval-phase drawdown lock (Rithmic/Wealthcharts model)', () => {
 describe('Apex funded contract limits: scaled by profit tier, not flat', () => {
     it('is Tiered (not Flat) for both minis and micros on both variants', () => {
         for (const variant of [ApexVariant.Eod, ApexVariant.Intraday]) {
-            const plan = findPlan(50_000, variant);
+            const plan = findPlan(variant);
             expect(plan.contractLimits?.fundedMinis?.kind).toBe(
                 ContractLimitKind.Tiered,
             );
@@ -384,24 +464,29 @@ describe('Apex funded contract limits: scaled by profit tier, not flat', () => {
     });
 
     it('starts a funded account at 2 minis / 20 micros, not the old flat 4/40 cap', () => {
-        const plan = findPlan(50_000, ApexVariant.Eod);
+        const plan = findPlan(ApexVariant.Eod);
         expect(
-            maxContractsAt(plan.contractLimits?.fundedMinis ?? null, 0),
+            maxContractsAt(
+                plan.contractLimits?.fundedMinis ?? null,
+                tierContextFromProfits(0),
+            ),
         ).toBe(2);
         expect(
-            maxContractsAt(plan.contractLimits?.fundedMicros ?? null, 0),
+            maxContractsAt(
+                plan.contractLimits?.fundedMicros ?? null,
+                tierContextFromProfits(0),
+            ),
         ).toBe(20);
     });
 
     it('scales minis up through 2 -> 3 -> 4 as funded profit crosses $1,500 and $3,000', () => {
         const minis =
-            findPlan(50_000, ApexVariant.Eod).contractLimits?.fundedMinis ??
-            null;
-        expect(maxContractsAt(minis, 0)).toBe(2);
-        expect(maxContractsAt(minis, 1499)).toBe(2);
-        expect(maxContractsAt(minis, 1500)).toBe(3);
-        expect(maxContractsAt(minis, 2999)).toBe(3);
-        expect(maxContractsAt(minis, 3000)).toBe(4);
-        expect(maxContractsAt(minis, 6000)).toBe(4);
+            findPlan(ApexVariant.Eod).contractLimits?.fundedMinis ?? null;
+        expect(maxContractsAt(minis, tierContextFromProfits(0))).toBe(2);
+        expect(maxContractsAt(minis, tierContextFromProfits(1499))).toBe(2);
+        expect(maxContractsAt(minis, tierContextFromProfits(1500))).toBe(3);
+        expect(maxContractsAt(minis, tierContextFromProfits(2999))).toBe(3);
+        expect(maxContractsAt(minis, tierContextFromProfits(3000))).toBe(4);
+        expect(maxContractsAt(minis, tierContextFromProfits(6000))).toBe(4);
     });
 });

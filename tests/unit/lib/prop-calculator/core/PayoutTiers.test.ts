@@ -5,6 +5,8 @@ import {
     FirmId,
     fraction,
     MffuVariant,
+    PayoutCountTieredPayoutSplit,
+    scalePayoutTiers,
     walkPayoutTiers,
 } from '~/lib/prop-calculator/core';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
@@ -94,5 +96,93 @@ describe('Plan construction rejects duplicate payoutTiers thresholds', () => {
                 ],
             }),
         ).not.toThrow();
+    });
+});
+
+function flat(share: number) {
+    return [{ thresholdProfit: dollars(0), traderShare: fraction(share) }];
+}
+
+describe('PayoutCountTieredPayoutSplit', () => {
+    const schedule = [
+        { fromPayoutIndex: 0, tiers: flat(0.7) },
+        { fromPayoutIndex: 2, tiers: flat(0.8) },
+        { fromPayoutIndex: 4, tiers: flat(0.9) },
+    ];
+
+    it('resolves 70/70/80/80/90/90/90 for payout indices 0 to 6', () => {
+        const split = new PayoutCountTieredPayoutSplit(schedule);
+        expect(
+            [0, 1, 2, 3, 4, 5, 6].map(
+                (index) => split.tiersFor(index)[0]?.traderShare,
+            ),
+        ).toStrictEqual([0.7, 0.7, 0.8, 0.8, 0.9, 0.9, 0.9]);
+    });
+
+    it('does not depend on construction order', () => {
+        const split = new PayoutCountTieredPayoutSplit(schedule.toReversed());
+        expect(split.tiersFor(3)[0]?.traderShare).toBe(0.8);
+        expect(
+            split.schedule.map((entry) => entry.fromPayoutIndex),
+        ).toStrictEqual([0, 2, 4]);
+    });
+
+    it('becomes stationary at the last scheduled payout index', () => {
+        expect(
+            new PayoutCountTieredPayoutSplit(schedule)
+                .stationaryFromPayoutIndex,
+        ).toBe(4);
+        expect(
+            new PayoutCountTieredPayoutSplit([
+                { fromPayoutIndex: 0, tiers: flat(0.9) },
+            ]).stationaryFromPayoutIndex,
+        ).toBe(0);
+    });
+
+    it('rejects an empty schedule, a missing index 0, a duplicate index and a non-integer or negative index', () => {
+        expect(() => new PayoutCountTieredPayoutSplit([])).toThrow(
+            'PayoutCountTieredPayoutSplit: tiers must not be empty',
+        );
+        expect(
+            () =>
+                new PayoutCountTieredPayoutSplit([
+                    { fromPayoutIndex: 1, tiers: flat(0.9) },
+                ]),
+        ).toThrow(
+            'PayoutCountTieredPayoutSplit: the first tier must start at fromPayoutIndex 0',
+        );
+        expect(
+            () =>
+                new PayoutCountTieredPayoutSplit([
+                    { fromPayoutIndex: 0, tiers: flat(0.9) },
+                    { fromPayoutIndex: 0, tiers: flat(0.8) },
+                ]),
+        ).toThrow('PayoutCountTieredPayoutSplit: duplicate fromPayoutIndex 0');
+        for (const index of [-1, 1.5]) {
+            expect(
+                () =>
+                    new PayoutCountTieredPayoutSplit([
+                        { fromPayoutIndex: 0, tiers: flat(0.9) },
+                        { fromPayoutIndex: index, tiers: flat(0.8) },
+                    ]),
+            ).toThrow(
+                `PayoutCountTieredPayoutSplit: fromPayoutIndex must be a non-negative integer, got ${index}`,
+            );
+        }
+    });
+});
+
+describe('scalePayoutTiers', () => {
+    it('scales every trader share by the factor', () => {
+        const scaled = scalePayoutTiers(
+            [
+                { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
+                { thresholdProfit: dollars(5000), traderShare: fraction(1) },
+            ],
+            0.8,
+        );
+        expect(scaled[0]?.traderShare).toBeCloseTo(0.72, 10);
+        expect(scaled[1]?.traderShare).toBeCloseTo(0.8, 10);
+        expect(scaled[1]?.thresholdProfit).toBe(5000);
     });
 });

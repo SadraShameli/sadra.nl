@@ -1,11 +1,13 @@
-import { type ReactNode } from 'react';
+import { type Instant } from 'next';
 
-import { TooltipProvider } from '~/components/ui/Tooltip';
+import { TooltipProvider } from '~/components/ui/tooltip';
 import { cn } from '~/lib/utilities';
 
 import { LiftingSubnav } from './_components/LiftingSubnav';
 
-export default function LiftingLayout({ children }: { children: ReactNode }) {
+export const instant: Instant = true;
+
+export default function LiftingLayout({ children }: LayoutProps<'/lifting'>) {
     return (
         <TooltipProvider delayDuration={250}>
             <div className={cn('app-lifting')}>

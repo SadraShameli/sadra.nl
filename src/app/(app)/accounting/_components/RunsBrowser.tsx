@@ -6,18 +6,12 @@ import { ChevronRight, History } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { Badge, type BadgeProperties } from '~/components/ui/Badge';
-import { Card, CardContent } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { Badge, type BadgeProperties } from '~/components/ui/badge';
+import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterSelect } from '~/components/ui/filter-select';
+import { Eur } from '~/lib/accounting/core/money';
 import {
     CredentialRegistry,
     CredentialRole,
@@ -43,14 +37,6 @@ const STATUS_VARIANT: Record<RunStatus, BadgeProperties['variant']> = {
     posted: 'success',
     posting: 'warning',
 };
-
-const formatEur = (n: number) =>
-    new Intl.NumberFormat('en-US', {
-        currency: 'EUR',
-        maximumFractionDigits: 2,
-        minimumFractionDigits: 2,
-        style: 'currency',
-    }).format(n);
 
 export function RunsBrowser() {
     const [offset, setOffset] = useState(0);
@@ -106,8 +92,9 @@ export function RunsBrowser() {
                 accessorKey: 'createdAt',
                 cell: ({ row }) => (
                     <Link
-                        className="font-mono text-xs text-white hover:underline"
+                        className="font-mono text-xs text-foreground hover:underline"
                         href={routes.accounting.run(row.original.id)}
+                        prefetch
                     >
                         {format(row.original.createdAt, 'PPp')}
                     </Link>
@@ -138,7 +125,7 @@ export function RunsBrowser() {
                     const id = row.original.accountingCredentialId;
                     return (
                         <span className="text-xs text-muted-foreground">
-                            {id ? (labelByCredentialId.get(id) ?? id) : '—'}
+                            {id ? (labelByCredentialId.get(id) ?? id) : '-'}
                         </span>
                     );
                 },
@@ -158,7 +145,7 @@ export function RunsBrowser() {
                 accessorFn: (r) => r.summary.totalEur,
                 cell: ({ row }) => (
                     <span className="font-mono text-xs">
-                        {formatEur(row.original.summary.totalEur)}
+                        {Eur.format(row.original.summary.totalEur)}
                     </span>
                 ),
                 header: 'Total',
@@ -170,7 +157,7 @@ export function RunsBrowser() {
                     <span
                         className={
                             row.original.summary.unknownsCount > 0
-                                ? 'font-mono text-xs text-amber-300'
+                                ? 'font-mono text-xs text-warning'
                                 : 'font-mono text-xs text-muted-foreground'
                         }
                     >
@@ -221,64 +208,52 @@ export function RunsBrowser() {
                                     }
                                 />
                             }
+                            hasExternalFilters={hasFilters}
                             headerActions={
-                                <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                    <ClearFiltersButton
-                                        active={hasFilters}
-                                        className="hidden md:flex"
-                                        onReset={reset}
-                                    />
-                                    <Select
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <FilterSelect
+                                        label="Status"
                                         onValueChange={(v) => {
                                             setStatusFilter(
-                                                v as RunStatus | typeof ALL,
+                                                RUN_STATUSES.find(
+                                                    (s) => s === v,
+                                                ) ?? ALL,
                                             );
                                             setOffset(0);
                                         }}
-                                        value={statusFilter}
-                                    >
-                                        <SelectTrigger className="h-8 w-40 shrink-0 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={ALL}>
-                                                All statuses
-                                            </SelectItem>
-                                            {RUN_STATUSES.map((s) => (
-                                                <SelectItem key={s} value={s}>
-                                                    {s}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Select
+                                        options={RUN_STATUSES.map((s) => ({
+                                            label: s,
+                                            value: s,
+                                        }))}
+                                        placeholder="All statuses"
+                                        value={
+                                            statusFilter === ALL
+                                                ? undefined
+                                                : statusFilter
+                                        }
+                                    />
+                                    <FilterSelect
+                                        label="Target"
                                         onValueChange={(v) => {
-                                            setTargetFilter(v);
+                                            setTargetFilter(v ?? ALL);
                                             setOffset(0);
                                         }}
-                                        value={targetFilter}
-                                    >
-                                        <SelectTrigger className="h-8 w-48 shrink-0 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={ALL}>
-                                                All targets
-                                            </SelectItem>
-                                            {targets.map((c) => (
-                                                <SelectItem
-                                                    key={c.id}
-                                                    value={c.id}
-                                                >
-                                                    {c.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        options={targets.map((c) => ({
+                                            label: c.label,
+                                            value: c.id,
+                                        }))}
+                                        placeholder="All targets"
+                                        value={
+                                            targetFilter === ALL
+                                                ? undefined
+                                                : targetFilter
+                                        }
+                                    />
                                 </div>
                             }
                             initialSorting={DEFAULT_SORTING}
                             isLoading={runsQ.isPending}
+                            onResetFilters={reset}
                             onSortingChange={sortBy}
                             pageSize={null}
                             rowId={(r) => r.id}

@@ -1,12 +1,8 @@
 'use client';
 
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { z } from 'zod';
+
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 
 import { ChartType } from './types';
 
@@ -36,21 +32,12 @@ export default function ChartTypeSelector({
     value,
 }: ChartTypeSelectorProperties) {
     return (
-        <Select onValueChange={(v) => onChange(v as ChartType)} value={value}>
-            <SelectTrigger
-                aria-label="Chart type"
-                className="app-prop-calculator__chart-type-selector h-8 w-full text-xs sm:w-auto"
-            >
-                <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-                {OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+        <ToolbarSelect
+            label="Chart type"
+            onValueChange={(v) => onChange(z.enum(ChartType).parse(v))}
+            options={OPTIONS}
+            value={value}
+        />
     );
 }
 

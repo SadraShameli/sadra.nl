@@ -1,15 +1,19 @@
-import { Heading, Text } from '@react-email/components';
-import { render } from '@react-email/render';
+import type { ReactElement } from 'react';
 
-import { EmailMessage } from '../message';
-import { BaseEmail } from '../templates/base';
+import { Heading, Text } from '@react-email/components';
+
+import {
+    NotificationEmail,
+    notificationSettingsUrl,
+} from '~/lib/email/NotificationEmail';
+import { BaseEmail } from '~/lib/email/templates/base';
 
 interface LocationCreatedTemplateProperties {
     locationId: number;
     locationName: string;
 }
 
-export class LocationCreatedEmail extends EmailMessage {
+export class LocationCreatedEmail extends NotificationEmail {
     readonly subject = 'New location';
     readonly to: string;
 
@@ -21,8 +25,8 @@ export class LocationCreatedEmail extends EmailMessage {
         this.to = to;
     }
 
-    async render(): Promise<string> {
-        return render(<LocationCreatedTemplate {...this.parameters} />);
+    protected content(): ReactElement {
+        return <LocationCreatedTemplate {...this.parameters} />;
     }
 }
 
@@ -31,22 +35,23 @@ function LocationCreatedTemplate({
     locationName,
 }: LocationCreatedTemplateProperties) {
     return (
-        <BaseEmail preview={`New location created: ${locationName}`}>
-            <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
+        <BaseEmail
+            notificationSettingsUrl={notificationSettingsUrl()}
+            preview={`New location created: ${locationName}`}
+        >
+            <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
                 New location created
             </Heading>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 Name
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-ink-soft">
                 {locationName}
             </Text>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 ID
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {locationId}
-            </Text>
+            <Text className="m-0 text-sm/snug text-ink-soft">{locationId}</Text>
         </BaseEmail>
     );
 }

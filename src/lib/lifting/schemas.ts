@@ -11,6 +11,8 @@ import {
     MUSCLE_VALUES,
     PR_KIND_VALUES,
     PROGRAM_CATEGORY_VALUES,
+    type ProgramBlock,
+    type ProgramSchedule,
     SET_TYPE_VALUES,
     UNIT_DISTANCE_VALUES,
     UNIT_LENGTH_VALUES,
@@ -106,6 +108,101 @@ export const updateSettingsInputSchema = settingsFormSchema.partial();
 export type UpdateSettingsInput = z.infer<typeof updateSettingsInputSchema>;
 
 const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
+
+const restSecondsSchema = z.number().int().min(0).max(3600).optional();
+const positiveCountSchema = z.number().int().positive();
+const percentOfMaxSchema = z.number().positive().max(150);
+
+const amrapBlockSchema = z.object({
+    exerciseSlug: exerciseSlugSchema,
+    kind: z.literal('amrap'),
+    pct1rm: percentOfMaxSchema.optional(),
+    restSeconds: restSecondsSchema,
+    targetReps: positiveCountSchema.optional(),
+});
+
+const emomBlockSchema = z.object({
+    exerciseSlug: exerciseSlugSchema,
+    kind: z.literal('emom'),
+    minutes: positiveCountSchema,
+    repsPerMinute: positiveCountSchema,
+    restSeconds: restSecondsSchema,
+});
+
+const rpeSchema = z.number().min(1).max(10);
+
+const pyramidSetSchemeSchema = z.object({
+    pct1rm: percentOfMaxSchema.optional(),
+    reps: positiveCountSchema,
+    rpe: rpeSchema.optional(),
+});
+
+const pyramidBlockSchema = z.object({
+    exerciseSlug: exerciseSlugSchema,
+    kind: z.literal('pyramid'),
+    restSeconds: restSecondsSchema,
+    setSchemes: z.array(pyramidSetSchemeSchema).min(1),
+});
+
+const straightRepsSchema = z.union([
+    positiveCountSchema,
+    z.string().trim().min(1),
+]);
+
+const straightBlockSchema = z.object({
+    exerciseSlug: exerciseSlugSchema,
+    kind: z.literal('straight'),
+    pct1rm: percentOfMaxSchema.optional(),
+    reps: straightRepsSchema,
+    restSeconds: restSecondsSchema,
+    rpe: rpeSchema.optional(),
+    sets: positiveCountSchema,
+});
+
+const topsetBackoffBlockSchema = z.object({
+    backoffPct: percentOfMaxSchema,
+    backoffSets: positiveCountSchema,
+    exerciseSlug: exerciseSlugSchema,
+    kind: z.literal('topset_backoff'),
+    reps: positiveCountSchema,
+    restSeconds: restSecondsSchema,
+    topPct: percentOfMaxSchema,
+});
+
+const supersetGroupSchema = z.lazy(() => z.array(programBlockSchema).min(1));
+
+const supersetBlockSchema = z.object({
+    group: supersetGroupSchema,
+    kind: z.literal('superset'),
+    restSeconds: restSecondsSchema,
+});
+
+const programBlockSchema: z.ZodType<ProgramBlock> = z.discriminatedUnion(
+    'kind',
+    [
+        amrapBlockSchema,
+        emomBlockSchema,
+        pyramidBlockSchema,
+        straightBlockSchema,
+        supersetBlockSchema,
+        topsetBackoffBlockSchema,
+    ],
+);
+
+const programDaySchema = z.object({
+    blocks: z.array(programBlockSchema).min(1),
+    isDeload: z.boolean().optional(),
+    name: z.string().trim().min(1).max(128),
+});
+
+const programWeekSchema = z.object({
+    days: z.array(programDaySchema).min(1).max(7),
+    name: z.string().trim().min(1).max(128).optional(),
+});
+
+export const programScheduleSchema = z.object({
+    weeks: z.array(programWeekSchema).min(1).max(52),
+}) satisfies z.ZodType<ProgramSchedule>;
 
 export const idActionSchema = z.object({ id: z.uuid() });
 export type IdAction = z.infer<typeof idActionSchema>;

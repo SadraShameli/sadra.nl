@@ -10,15 +10,20 @@ import {
     YAxis,
 } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_REFERENCE_LINE_PROPS,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+} from '~/components/ui/chart';
 import {
     gradeCalibration,
     type LightAssessment,
 } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
-    avgR: { color: 'hsl(var(--chart-2))', label: 'Avg outcome R' },
+    avgR: { color: 'var(--chart-2)', label: 'Avg outcome R' },
 };
 
 export function GradeCalibrationChart({
@@ -32,7 +37,7 @@ export function GradeCalibrationChart({
                 .filter((d) => d.count > 0)
                 .map((d) => ({
                     ...d,
-                    fill: d.avgR > 0 ? 'hsl(142 71% 45%)' : 'hsl(0 84% 60%)',
+                    fill: d.avgR > 0 ? 'var(--success)' : 'var(--destructive)',
                     fillOpacity: d.count < 3 ? 0.35 : 0.85,
                 })),
         [assessments],
@@ -44,37 +49,27 @@ export function GradeCalibrationChart({
         </div>
     ) : (
         <ChartContainer
-            className={cn(
-                'app-trade-checklist__grade-calibration-chart',
-                'aspect-16/7 min-h-80 w-full',
-            )}
+            className="app-trade-checklist__grade-calibration-chart"
             config={chartConfig}
         >
             <BarChart
                 data={data}
                 margin={{ bottom: 36, left: 0, right: 12, top: 20 }}
             >
-                <XAxis
-                    axisLine={false}
-                    dataKey="grade"
-                    tickLine={false}
-                    tickMargin={6}
-                />
+                <XAxis {...CHART_X_AXIS_PROPS} dataKey="grade" />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     tickFormatter={(v: number) => `${v.toFixed(1)}R`}
-                    tickLine={false}
-                    width={48}
                 />
                 <ReferenceLine
-                    stroke="hsl(0 0% 50%)"
-                    strokeDasharray="4 4"
+                    {...CHART_REFERENCE_LINE_PROPS}
+                    stroke="var(--muted-foreground)"
                     y={0}
                 />
                 <Bar dataKey="avgR" isAnimationActive={false}>
                     <LabelList
                         dataKey="count"
-                        fill="hsl(0 0% 70%)"
+                        fill="var(--muted-foreground)"
                         fontSize={11}
                         formatter={(v: unknown) =>
                             typeof v === 'number' ? `n=${v}` : ''

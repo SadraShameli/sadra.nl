@@ -8,17 +8,19 @@ import {
     flatDayPolicy,
     fraction,
     LucidVariant,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
-import { type Rng } from '~/lib/prop-calculator/rng';
 import {
     LossStreak,
     newPhaseStats,
     runDay,
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
+
+import { scriptedRng } from '../scriptedRng';
 
 function freshStats(startingBalance: number) {
     const totals = new TradeTotals();
@@ -37,20 +39,11 @@ function proPlan() {
     return plan;
 }
 
-function scriptedRng(draws: readonly number[]): Rng {
-    let index = 0;
-    return () => {
-        const draw = draws[index];
-        if (draw === undefined) throw new Error('scripted rng exhausted');
-        index += 1;
-        return draw;
-    };
-}
-
 function unevenPolicy(ladder: readonly number[]): DayPolicy {
     return {
         ladder,
         maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
         stopRule: { kind: DayStopRuleKind.None },
     };
 }
@@ -62,7 +55,7 @@ describe('peak day-close profit', () => {
         const stats = freshStats(state.startingBalance);
         const base = {
             commission: dollars(0),
-            phase: TradingPhase.Eval,
+            phase: TradingPhase.Eval as const,
             plan,
             positionSizing: null,
             rrRatio: 1,
@@ -73,7 +66,12 @@ describe('peak day-close profit', () => {
 
         runDay({
             ...base,
-            dayPolicy: flatDayPolicy(1000, 1),
+            dayPolicy: flatDayPolicy(
+                1000,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             rng: scriptedRng([0]),
             winrate: fraction(1),
         });
@@ -82,7 +80,12 @@ describe('peak day-close profit', () => {
 
         runDay({
             ...base,
-            dayPolicy: flatDayPolicy(500, 1),
+            dayPolicy: flatDayPolicy(
+                500,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             rng: scriptedRng([0.99]),
             winrate: fraction(0),
         });
@@ -119,7 +122,7 @@ describe('peak day-close profit', () => {
         const stats = freshStats(state.startingBalance);
         const base = {
             commission: dollars(0),
-            phase: TradingPhase.Eval,
+            phase: TradingPhase.Eval as const,
             plan,
             positionSizing: null,
             rrRatio: 1,
@@ -131,7 +134,12 @@ describe('peak day-close profit', () => {
 
         runDay({
             ...base,
-            dayPolicy: flatDayPolicy(2500, 1),
+            dayPolicy: flatDayPolicy(
+                2500,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             rng: scriptedRng([0]),
         });
         expect(state.balance).toBe(51_200);
@@ -140,7 +148,12 @@ describe('peak day-close profit', () => {
 
         runDay({
             ...base,
-            dayPolicy: flatDayPolicy(2500, 1),
+            dayPolicy: flatDayPolicy(
+                2500,
+                1,
+                undefined,
+                PolicySizing.ContractCapped,
+            ),
             rng: scriptedRng([0]),
         });
         expect(state.balance).toBe(52_400);

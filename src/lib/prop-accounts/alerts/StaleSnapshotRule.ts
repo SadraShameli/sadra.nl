@@ -1,0 +1,75 @@
+import { AccountStage, accountStageLabel } from '~/lib/prop-accounts/core';
+
+import { type AccountAlert } from './AccountAlert';
+import {
+    type AlertContext,
+    isActive,
+    isModeledMonitored,
+    type MonitoredAccount,
+} from './AlertContext';
+import { AlertKind } from './AlertKind';
+import { AccountAlertRule } from './AlertRule';
+import { AlertSeverity } from './AlertSeverity';
+import { TradingSessionCalendar } from './TradingSessionCalendar';
+
+export class StaleSnapshotRule extends AccountAlertRule {
+    readonly kind = AlertKind.StaleSnapshot;
+
+    protected evaluateAccount(
+        monitored: MonitoredAccount,
+        context: AlertContext,
+    ): AccountAlert | null {
+        if (!isActive(monitored) || !isModeledMonitored(monitored)) {
+            return null;
+        }
+        const snapshot = monitored.latestSnapshot;
+        const stage = monitored.account.stage;
+        if (snapshot === null) {
+            return this.alertFor(
+                monitored,
+                AlertSeverity.Warning,
+                `No balance snapshot recorded yet for this ${accountStageLabel(stage)} account; enter its current balance`,
+            );
+        }
+        switch (stage) {
+            case AccountStage.Eval:
+            case AccountStage.Live: {
+                const session = TradingSessionCalendar.lastSessionBefore(
+                    context.today,
+                );
+                return TradingSessionCalendar.isStale(
+                    stage,
+                    snapshot.asOf,
+                    context.today,
+                    context.rulebook.review.fundedStaleDays,
+                )
+                    ? this.alertFor(
+                          monitored,
+                          AlertSeverity.Warning,
+                          `Snapshot from ${snapshot.asOf} predates the last trading session ${session.date}; enter today's balance before sizing this ${accountStageLabel(stage)} account`,
+                          [session.disclosure],
+                      )
+                    : null;
+            }
+            case AccountStage.Funded: {
+                const age = TradingSessionCalendar.daysBetween(
+                    snapshot.asOf,
+                    context.today,
+                );
+                const staleDays = context.rulebook.review.fundedStaleDays;
+                return TradingSessionCalendar.isStale(
+                    stage,
+                    snapshot.asOf,
+                    context.today,
+                    staleDays,
+                )
+                    ? this.alertFor(
+                          monitored,
+                          AlertSeverity.Warning,
+                          `Funded snapshot from ${snapshot.asOf} is ${age} days old (stale after ${staleDays} days); enter this week's balance`,
+                      )
+                    : null;
+            }
+        }
+    }
+}

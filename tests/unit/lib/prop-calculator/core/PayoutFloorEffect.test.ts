@@ -59,4 +59,95 @@ describe('PayoutFloorEffect is a single discriminant, not two booleans', () => {
             expect(plan.payoutFloorEffect).toBe(PayoutFloorEffect.ReleaseFloor);
         }
     });
+
+    it('keeps the exact LockAtPlanFloor no-lock message', () => {
+        const base = apexPlan();
+        expect(() =>
+            base.withOverrides({
+                fundedDrawdown: new EodTrailingDrawdown({
+                    amount: dollars(2000),
+                }),
+                payoutFloorEffect: PayoutFloorEffect.LockAtPlanFloor,
+            }),
+        ).toThrow(
+            `${base.label}: payoutFloorEffect is LockAtPlanFloor but fundedDrawdown has no lock config`,
+        );
+    });
+
+    it('rejects MoveToLockedFloor on a funded drawdown with no lock config', () => {
+        expect(() =>
+            apexPlan().withOverrides({
+                fundedDrawdown: new EodTrailingDrawdown({
+                    amount: dollars(2000),
+                }),
+                payoutFloorEffect: PayoutFloorEffect.MoveToLockedFloor,
+            }),
+        ).toThrow(
+            /payoutFloorEffect is MoveToLockedFloor but fundedDrawdown has no lock config/,
+        );
+    });
+
+    it.each([PayoutFloorEffect.None, PayoutFloorEffect.LockAtPlanFloor])(
+        'rejects a funded lock with no profit trigger under %s, which could never fire it and would deadlock payouts',
+        (effect) => {
+            expect(() =>
+                apexPlan().withOverrides({
+                    fundedDrawdown: payoutOnlyLock(),
+                    payoutFloorEffect: effect,
+                }),
+            ).toThrow(/no profit trigger/);
+        },
+    );
+
+    it('accepts a funded lock with no profit trigger under MoveToLockedFloor', () => {
+        const plan = apexPlan().withOverrides({
+            fundedDrawdown: payoutOnlyLock(),
+            payoutFloorEffect: PayoutFloorEffect.MoveToLockedFloor,
+        });
+        expect(plan.payoutFloorEffect).toBe(
+            PayoutFloorEffect.MoveToLockedFloor,
+        );
+    });
+
+    it('rejects a separate evaluation drawdown whose lock has no profit trigger, since no payout happens in evaluation to fire it', () => {
+        expect(() =>
+            apexPlan().withOverrides({
+                drawdown: payoutOnlyLock(),
+                fundedDrawdown: new EodTrailingDrawdown({
+                    amount: dollars(2000),
+                }),
+                payoutFloorEffect: PayoutFloorEffect.None,
+            }),
+        ).toThrow(
+            /evaluation drawdown lock has no profit trigger and can never fire/,
+        );
+    });
+
+    it('accepts one shared drawdown with no profit trigger under MoveToLockedFloor, since its funded use fires the lock', () => {
+        const shared = payoutOnlyLock();
+        const plan = apexPlan().withOverrides({
+            drawdown: shared,
+            fundedDrawdown: shared,
+            payoutFloorEffect: PayoutFloorEffect.MoveToLockedFloor,
+        });
+        expect(plan.drawdown).toBe(plan.fundedDrawdown);
+    });
 });
+
+function apexPlan() {
+    const apex = findFirm(FirmId.Apex);
+    if (!apex) throw new Error('Apex not registered');
+    const base = apex.plans[0];
+    if (!base) throw new Error('Apex has no plans');
+    return base;
+}
+
+function payoutOnlyLock() {
+    return new EodTrailingDrawdown({
+        amount: dollars(2000),
+        lock: {
+            atProfit: null,
+            lockedThreshold: (startingBalance) => startingBalance + 100,
+        },
+    });
+}

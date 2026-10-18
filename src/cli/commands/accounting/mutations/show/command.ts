@@ -8,7 +8,7 @@ import { adaptMutation } from '~/lib/accounting/providers/eboekhouden/provider';
 import { MutationsResource } from '~/lib/accounting/providers/eboekhouden/resources';
 import { endDb } from '~/server/db';
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         credential: {
             description: 'eBoekhouden credential id or label to use',
@@ -58,3 +58,5 @@ export default defineCommand({
         }
     },
 });
+
+export default command;

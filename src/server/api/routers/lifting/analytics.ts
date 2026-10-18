@@ -165,7 +165,7 @@ export const liftingAnalyticsRouter = createTRPCRouter({
         }),
 
     summaryHero: protectedProcedure.query(async ({ ctx }) => {
-        const workouts = await ctx.db
+        const [lastWorkout] = await ctx.db
             .select({
                 endedAt: liftingWorkout.endedAt,
                 id: liftingWorkout.id,
@@ -175,7 +175,11 @@ export const liftingAnalyticsRouter = createTRPCRouter({
             .from(liftingWorkout)
             .where(eq(liftingWorkout.userId, ctx.userId))
             .orderBy(desc(liftingWorkout.startedAt))
-            .limit(20);
+            .limit(1);
+        const history = await ctx.db
+            .select({ startedAt: liftingWorkout.startedAt })
+            .from(liftingWorkout)
+            .where(eq(liftingWorkout.userId, ctx.userId));
         const recentPrs = await ctx.db
             .select()
             .from(liftingPersonalRecord)
@@ -184,10 +188,10 @@ export const liftingAnalyticsRouter = createTRPCRouter({
             .limit(3);
         const weekStart = await getUserWeekStart(ctx);
         const analyzer = new StreakAnalyzer(weekStart);
-        const dates = workouts.map((w) => w.startedAt);
+        const dates = history.map((w) => w.startedAt);
         return {
             currentStreak: analyzer.currentStreak(dates),
-            lastWorkout: workouts[0] ?? null,
+            lastWorkout: lastWorkout ?? null,
             recentPrs,
             sessionsThisWeek: analyzer.sessionsPerWeek(dates, 1),
         };

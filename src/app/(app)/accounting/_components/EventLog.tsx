@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 
 import type { LogLevel } from '~/lib/accounting/runner-types';
 
-import { EmptyState } from '~/components/ui/EmptyState';
+import { EmptyState } from '~/components/ui/empty-state';
 import { cn } from '~/lib/utilities';
 
 export interface LogLine {
@@ -34,7 +34,7 @@ export function EventLog({
         <div
             className={cn(
                 'app-accounting__event-log',
-                'overflow-y-auto rounded-md border border-border/40 bg-black/40 p-3 font-mono text-[11px] leading-relaxed',
+                'overflow-y-auto rounded-lg border border-line-faint bg-surface-sunken p-4 font-mono text-xs/relaxed',
                 maxHeight,
                 className,
             )}
@@ -47,18 +47,18 @@ export function EventLog({
                     title="No events yet"
                 />
             ) : (
-                <ul className="space-y-1">
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                     {lines.map((l, index) => (
                         <li
                             className={cn(
                                 'flex items-start gap-2',
-                                l.level === 'error' && 'text-red-400',
-                                l.level === 'warn' && 'text-amber-300',
-                                l.level === 'info' && 'text-slate-200',
+                                l.level === 'error' && 'text-destructive',
+                                l.level === 'warn' && 'text-warning',
+                                l.level === 'info' && 'text-ink-soft',
                             )}
                             key={index}
                         >
-                            <span className="shrink-0 text-muted-foreground">
+                            <span className="shrink-0 text-ink-muted tabular-nums">
                                 {new Date(l.ts).toISOString().slice(11, 19)}
                             </span>
                             <span className="wrap-break-word">{l.message}</span>

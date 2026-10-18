@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
     BaseTaxCodeCatalog,
     TaxCode,
@@ -27,11 +29,11 @@ export const VAT_CODE_LABEL: Record<VatCode, string> = {
     [VatCode.AfstVerk]: 'Distance sales',
     [VatCode.Afw]: 'Deviating',
     [VatCode.AfwVerk]: 'Deviating sales',
-    [VatCode.BiEuInk]: 'Purchase — within EU',
-    [VatCode.BiEuVerk]: 'Sales — within EU',
-    [VatCode.BiEuVerkD]: 'Sales — within EU (digital)',
-    [VatCode.BuEuInk]: 'Purchase — outside EU',
-    [VatCode.BuEuVerk]: 'Sales — outside EU',
+    [VatCode.BiEuInk]: 'Purchase within EU',
+    [VatCode.BiEuVerk]: 'Sales within EU',
+    [VatCode.BiEuVerkD]: 'Sales within EU (digital)',
+    [VatCode.BuEuInk]: 'Purchase outside EU',
+    [VatCode.BuEuVerk]: 'Sales outside EU',
     [VatCode.Geen]: 'No VAT',
     [VatCode.HoogInk21]: 'Purchase 21%',
     [VatCode.HoogVerk21]: 'Sales 21%',
@@ -77,7 +79,7 @@ export function isReverseChargeVat(code: VatCode): boolean {
 }
 
 export function isVatCode(value: string): value is VatCode {
-    return Object.values(VatCode).includes(value as VatCode);
+    return z.enum(VatCode).safeParse(value).success;
 }
 
 export function parseVatCode(value: string): VatCode {

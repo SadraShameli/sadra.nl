@@ -179,6 +179,11 @@ function decodeImaAdpcmBlocks(
     samplesPerBlock: number,
 ): Int16Array {
     if (blockAlign < 4 || samplesPerBlock < 1) return new Int16Array(0);
+    if (samplesPerBlock > (blockAlign - 4) * 2 + 1) {
+        throw new Error(
+            'WAV: ADPCM block holds fewer samples than its header claims',
+        );
+    }
 
     const blockCount = Math.floor(dataLength / blockAlign);
     const totalSamples = blockCount * samplesPerBlock;

@@ -3,14 +3,23 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useState, useTransition } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
-import type { ExecutionDeviation, Outcome } from '~/lib/trading/types';
+import type {
+    ExecutionDeviation,
+    Outcome,
+    TradeAssessmentRow,
+} from '~/lib/trading/types';
 
-import { badgeVariants } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
+import { SwitchCard } from '~/components/ToggleCard';
+import { Button } from '~/components/ui/button';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '~/components/ui/collapsible';
 import {
     Dialog,
     DialogContent,
@@ -18,28 +27,28 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
+} from '~/components/ui/dialog';
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import { RadioGroup, RadioGroupItem } from '~/components/ui/RadioGroup';
-import { Switch } from '~/components/ui/Switch';
-import { Textarea } from '~/components/ui/Textarea';
+    Field,
+    FieldGroup,
+    FieldLabel,
+    FieldLegend,
+    FieldSet,
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
+import { Textarea } from '~/components/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { executionDeviationSchema, outcomeSchema } from '~/lib/schemas/trading';
 import { recordAssessmentOutcome } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 
-const OUTCOMES: { label: string; tone: string; value: Outcome }[] = [
-    { label: 'Win', tone: 'border-emerald-500/50', value: 'win' },
-    { label: 'Loss', tone: 'border-rose-500/50', value: 'loss' },
-    { label: 'Breakeven', tone: 'border-amber-500/50', value: 'breakeven' },
-    { label: 'No trade', tone: 'border-border/60', value: 'no-trade' },
+import { ChoiceCards, type ChoiceOption } from './WizardFields';
+
+const OUTCOMES: readonly ChoiceOption<Outcome>[] = [
+    { label: 'Win', value: 'win' },
+    { label: 'Loss', value: 'loss' },
+    { label: 'Breakeven', value: 'breakeven' },
+    { label: 'No trade', value: 'no-trade' },
 ];
 
 const DEVIATIONS: { label: string; value: ExecutionDeviation }[] = [
@@ -64,44 +73,85 @@ const outcomeFormSchema = z.object({
 });
 type OutcomeFormValues = z.infer<typeof outcomeFormSchema>;
 
+type SavedOutcome = Pick<
+    TradeAssessmentRow,
+    | 'actualRiskTaken'
+    | 'executionDeviations'
+    | 'followedPlan'
+    | 'outcome'
+    | 'outcomeNotes'
+    | 'outcomeR'
+>;
+
 export function OutcomeDialog({
     assessmentId,
     onOpenChange,
     open,
+    saved,
 }: {
     assessmentId: string;
     onOpenChange: (isOpen: boolean) => void;
     open: boolean;
+    saved: null | SavedOutcome;
+}) {
+    return (
+        <Dialog onOpenChange={onOpenChange} open={open}>
+            <DialogContent
+                className={cn(
+                    'app-trade-checklist__outcome-dialog',
+                    'max-h-[90vh] overflow-y-auto sm:max-w-md',
+                )}
+                data-state={open ? 'open' : 'closed'}
+            >
+                <DialogHeader>
+                    <DialogTitle>Record trade outcome</DialogTitle>
+                    <DialogDescription>
+                        Tag this assessment so the hindsight stats improve.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <OutcomeForm
+                    assessmentId={assessmentId}
+                    key={assessmentId}
+                    onOpenChange={onOpenChange}
+                    saved={saved}
+                />
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function hasExecutionDetails(saved: null | SavedOutcome): boolean {
+    return (
+        saved !== null &&
+        (saved.actualRiskTaken !== null ||
+            saved.followedPlan !== null ||
+            (saved.executionDeviations?.length ?? 0) > 0)
+    );
+}
+
+function OutcomeForm({
+    assessmentId,
+    onOpenChange,
+    saved,
+}: {
+    assessmentId: string;
+    onOpenChange: (isOpen: boolean) => void;
+    saved: null | SavedOutcome;
 }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
-    const [executionOpen, setExecutionOpen] = useState(false);
+    const [executionOpen, setExecutionOpen] = useState(() =>
+        hasExecutionDetails(saved),
+    );
 
     const form = useForm<OutcomeFormValues>({
-        defaultValues: {
-            actualRisk: '',
-            deviations: [],
-            followedPlan: true,
-            notes: '',
-            outcome: 'win',
-            outcomeR: '',
-        },
+        defaultValues: outcomeFormValuesOf(saved),
         resolver: zodResolver(outcomeFormSchema),
     });
+    const formId = useId();
 
-    const deviations = form.watch('deviations');
-    const outcome = form.watch('outcome');
-
-    const toggleDeviation = (key: ExecutionDeviation) => {
-        const current = form.getValues('deviations');
-        form.setValue(
-            'deviations',
-            current.includes(key)
-                ? current.filter((d) => d !== key)
-                : [...current, key],
-            { shouldDirty: true },
-        );
-    };
+    const deviations = useWatch({ control: form.control, name: 'deviations' });
 
     const submit = form.handleSubmit((values) => {
         const risk = parseNullableNumber(values.actualRisk);
@@ -125,209 +175,180 @@ export function OutcomeDialog({
     });
 
     return (
-        <Dialog onOpenChange={onOpenChange} open={open}>
-            <DialogContent
-                className={cn(
-                    'app-trade-checklist__outcome-dialog',
-                    'max-h-[90vh] overflow-y-auto sm:max-w-md',
+        <form className="flex flex-col gap-4" onSubmit={submit}>
+            <Controller
+                control={form.control}
+                name="outcome"
+                render={({ field }) => (
+                    <ChoiceCards
+                        className="md:grid-cols-4"
+                        legend="Outcome"
+                        onValueChange={field.onChange}
+                        options={OUTCOMES}
+                        value={field.value}
+                    />
                 )}
-                data-state={open ? 'open' : 'closed'}
+            />
+
+            <Controller
+                control={form.control}
+                name="outcomeR"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-outcomeR`}>
+                            Actual R (optional)
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-outcomeR`}
+                            placeholder="+2.0"
+                            step="0.1"
+                            type="number"
+                            {...field}
+                        />
+                    </Field>
+                )}
+            />
+
+            <Controller
+                control={form.control}
+                name="notes"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-notes`}>
+                            Notes
+                        </FieldLabel>
+                        <Textarea
+                            aria-invalid={fieldState.invalid}
+                            id={`${formId}-notes`}
+                            placeholder="What happened, what worked, what to remember."
+                            rows={3}
+                            {...field}
+                        />
+                    </Field>
+                )}
+            />
+
+            <Collapsible
+                className="rounded-2xl border border-line"
+                onOpenChange={setExecutionOpen}
+                open={executionOpen}
             >
-                <DialogHeader>
-                    <DialogTitle>Record trade outcome</DialogTitle>
-                    <DialogDescription>
-                        Tag this assessment so the hindsight stats improve.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <Form {...form}>
-                    <form className="flex flex-col gap-4" onSubmit={submit}>
-                        <FormField
+                <CollapsibleTrigger asChild>
+                    <Button
+                        className={cn(
+                            'app-trade-checklist__outcome-execution-toggle',
+                            'group h-auto w-full justify-between px-4 py-3',
+                        )}
+                        type="button"
+                        variant="ghost"
+                    >
+                        Execution details (optional)
+                        <ChevronDown
+                            className="transition-transform group-data-[state=open]:rotate-180"
+                            data-icon="inline-end"
+                        />
+                    </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <FieldGroup className="gap-4 border-t border-line p-4">
+                        <Controller
                             control={form.control}
-                            name="outcome"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormControl>
-                                        <RadioGroup
-                                            className="grid grid-cols-2 gap-2"
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                        >
-                                            {OUTCOMES.map((o) => (
-                                                <label
-                                                    className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 text-sm transition ${
-                                                        outcome === o.value
-                                                            ? o.tone
-                                                            : 'border-border/60 hover:border-border'
-                                                    }`}
-                                                    htmlFor={`outcome-${o.value}`}
-                                                    key={o.value}
-                                                >
-                                                    <RadioGroupItem
-                                                        id={`outcome-${o.value}`}
-                                                        value={o.value}
-                                                    />
-                                                    {o.label}
-                                                </label>
-                                            ))}
-                                        </RadioGroup>
-                                    </FormControl>
-                                </FormItem>
+                            name="actualRisk"
+                            render={({ field, fieldState }) => (
+                                <Field data-invalid={fieldState.invalid}>
+                                    <FieldLabel
+                                        htmlFor={`${formId}-actualRisk`}
+                                    >
+                                        Actual risk taken ($)
+                                    </FieldLabel>
+                                    <Input
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-actualRisk`}
+                                        placeholder="250"
+                                        step="1"
+                                        type="number"
+                                        {...field}
+                                    />
+                                </Field>
                             )}
                         />
 
-                        <FormField
+                        <Controller
                             control={form.control}
-                            name="outcomeR"
+                            name="followedPlan"
                             render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-sm">
-                                        Actual R (optional)
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            placeholder="+2.0"
-                                            step="0.1"
-                                            type="number"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-sm">
-                                        Notes
-                                    </FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            placeholder="What happened, what worked, what to remember."
-                                            rows={3}
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                </FormItem>
-                            )}
-                        />
-
-                        <div className="rounded-md border border-border/40">
-                            <Button
-                                className={cn(
-                                    'app-trade-checklist__outcome-execution-toggle',
-                                    'h-auto w-full justify-between rounded-md px-3 py-2 text-sm font-medium',
-                                )}
-                                data-state={executionOpen ? 'open' : 'closed'}
-                                onClick={() => setExecutionOpen((o) => !o)}
-                                type="button"
-                                variant="ghost"
-                            >
-                                <span>Execution details (optional)</span>
-                                <ChevronDown
-                                    className={cn(
-                                        'size-4 transition-transform',
-                                        executionOpen && 'rotate-180',
-                                    )}
+                                <SwitchCard
+                                    checked={field.value}
+                                    id={`${formId}-followedPlan`}
+                                    label="Followed the plan as written"
+                                    onCheckedChange={field.onChange}
                                 />
-                            </Button>
-
-                            {executionOpen && (
-                                <div className="flex flex-col gap-4 border-t border-border/40 p-3">
-                                    <FormField
-                                        control={form.control}
-                                        name="actualRisk"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-sm">
-                                                    Actual risk taken ($)
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        placeholder="250"
-                                                        step="1"
-                                                        type="number"
-                                                        {...field}
-                                                    />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <FormField
-                                        control={form.control}
-                                        name="followedPlan"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center justify-between gap-2">
-                                                <FormLabel className="text-sm">
-                                                    Followed the plan as written
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Switch
-                                                        checked={field.value}
-                                                        onCheckedChange={
-                                                            field.onChange
-                                                        }
-                                                    />
-                                                </FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <div>
-                                        <Label className="text-sm">
-                                            Deviations
-                                        </Label>
-                                        <div className="mt-2 flex flex-wrap gap-1.5">
-                                            {DEVIATIONS.map((d) => (
-                                                <button
-                                                    className={cn(
-                                                        badgeVariants({
-                                                            variant:
-                                                                deviations.includes(
-                                                                    d.value,
-                                                                )
-                                                                    ? 'warning'
-                                                                    : 'outline',
-                                                        }),
-                                                        'cursor-pointer transition',
-                                                    )}
-                                                    key={d.value}
-                                                    onClick={() =>
-                                                        toggleDeviation(d.value)
-                                                    }
-                                                    type="button"
-                                                >
-                                                    {d.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
                             )}
-                        </div>
+                        />
 
-                        <DialogFooter>
-                            <Button
-                                disabled={pending}
-                                onClick={() => onOpenChange(false)}
-                                type="button"
-                                variant="ghost"
+                        <FieldSet>
+                            <FieldLegend variant="label">
+                                Deviations
+                            </FieldLegend>
+                            <ToggleGroup
+                                aria-label="Deviations"
+                                className="flex flex-wrap justify-start gap-2"
+                                onValueChange={(selected) =>
+                                    form.setValue(
+                                        'deviations',
+                                        DEVIATIONS.filter((d) =>
+                                            selected.includes(d.value),
+                                        ).map((d) => d.value),
+                                        { shouldDirty: true },
+                                    )
+                                }
+                                size="sm"
+                                type="multiple"
+                                value={deviations}
+                                variant="outline"
                             >
-                                Cancel
-                            </Button>
-                            <Button disabled={pending} type="submit">
-                                Save outcome
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
+                                {DEVIATIONS.map((d) => (
+                                    <ToggleGroupItem
+                                        key={d.value}
+                                        value={d.value}
+                                    >
+                                        {d.label}
+                                    </ToggleGroupItem>
+                                ))}
+                            </ToggleGroup>
+                        </FieldSet>
+                    </FieldGroup>
+                </CollapsibleContent>
+            </Collapsible>
+
+            <DialogFooter>
+                <Button
+                    disabled={pending}
+                    onClick={() => onOpenChange(false)}
+                    type="button"
+                    variant="ghost"
+                >
+                    Cancel
+                </Button>
+                <Button disabled={pending} type="submit">
+                    Save outcome
+                </Button>
+            </DialogFooter>
+        </form>
     );
+}
+
+function outcomeFormValuesOf(saved: null | SavedOutcome): OutcomeFormValues {
+    return {
+        actualRisk:
+            saved?.actualRiskTaken == null ? '' : String(saved.actualRiskTaken),
+        deviations: [...(saved?.executionDeviations ?? [])],
+        followedPlan: saved?.followedPlan ?? true,
+        notes: saved?.outcomeNotes ?? '',
+        outcome: saved?.outcome ?? 'win',
+        outcomeR: saved?.outcomeR == null ? '' : String(saved.outcomeR),
+    };
 }
 
 function parseNullableNumber(raw: string): null | number {

@@ -28,14 +28,13 @@ function straight(
     sets: number,
     reps: number | string,
     pct1rm?: number,
-    rest = 180,
 ): ProgramBlock {
     return {
         exerciseSlug: slug,
         kind: 'straight',
         pct1rm,
         reps,
-        restSeconds: rest,
+        restSeconds: 180,
         sets,
     };
 }
@@ -85,23 +84,21 @@ const FIVE_THREE_ONE: ProgramSchedule = {
             isDeload,
             name: '',
         });
-        return [
-            {
-                days: [
-                    { ...buildDay('overhead-press'), name: 'Press' },
-                    {
-                        ...buildDay('conventional-deadlift'),
-                        name: 'Deadlift',
-                    },
-                    {
-                        ...buildDay('barbell-bench-press'),
-                        name: 'Bench',
-                    },
-                    { ...buildDay('barbell-back-squat'), name: 'Squat' },
-                ],
-                name: `Cycle ${cycleNumber} · Week ${cycleWeek}`,
-            },
-        ];
+        return {
+            days: [
+                { ...buildDay('overhead-press'), name: 'Press' },
+                {
+                    ...buildDay('conventional-deadlift'),
+                    name: 'Deadlift',
+                },
+                {
+                    ...buildDay('barbell-bench-press'),
+                    name: 'Bench',
+                },
+                { ...buildDay('barbell-back-squat'), name: 'Squat' },
+            ],
+            name: `Cycle ${cycleNumber} · Week ${cycleWeek}`,
+        };
     }),
 };
 
@@ -382,7 +379,7 @@ export const OFFICIAL_PROGRAMS: readonly OfficialProgram[] = [
         category: 'powerlifting',
         daysPerWeek: 4,
         description:
-            'GZCLP — linear progression structured around T1 strength, T2 hypertrophy, T3 endurance tiers.',
+            'GZCLP: linear progression structured around T1 strength, T2 hypertrophy, T3 endurance tiers.',
         lengthWeeks: 8,
         name: 'GZCLP',
         schedule: GZCLP,

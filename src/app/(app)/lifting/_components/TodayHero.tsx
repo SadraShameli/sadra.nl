@@ -1,49 +1,30 @@
 'use client';
 
-import { endOfDay, format, startOfDay, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import { Activity, Flame, Play, Trophy } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { type DateRange } from 'react-day-picker';
+import { useMemo } from 'react';
 
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { PrFiltersToolbar } from '~/app/(app)/lifting/_components/shared/PrFiltersToolbar';
+import { usePrFilters } from '~/app/(app)/lifting/_components/shared/usePrFilters';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
-} from '~/components/ui/DataTable';
-import { DateRangePicker } from '~/components/ui/DatePicker';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Skeleton } from '~/components/ui/skeleton';
 import { WeightUnit } from '~/lib/lifting/format';
-import { PR_KIND_VALUES } from '~/lib/lifting/types';
+import { PrRangePreset } from '~/lib/lifting/pr-filters';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type PrRow =
     RouterOutputs['lifting']['analytics']['summaryHero']['recentPrs'][number];
-
-const PR_RANGE_VALUES = ['all', '7', '30', '90', '365'] as const;
-type PrRange = (typeof PR_RANGE_VALUES)[number];
-const PR_RANGE_LABEL: Record<PrRange, string> = {
-    '7': 'Last 7 days',
-    '30': 'Last 30 days',
-    '90': 'Last 90 days',
-    '365': 'Last year',
-    all: 'All time',
-};
-
-const PR_KIND_ALL = '__all__';
 
 export function TodayHero() {
     const summary = api.lifting.analytics.summaryHero.useQuery();
@@ -54,48 +35,7 @@ export function TodayHero() {
     const start = api.lifting.workout.start.useMutation({
         onSuccess: () => utilities.lifting.workout.getActive.invalidate(),
     });
-    const [prRange, setPrRange] = useState<PrRange>('all');
-    const [prCustomRange, setPrCustomRange] = useState<DateRange | undefined>();
-    const [prKindFilter, setPrKindFilter] = useState<string>(PR_KIND_ALL);
-
-    const filteredPrs = useMemo(() => {
-        let rows = summary.data?.recentPrs ?? [];
-        if (prKindFilter !== PR_KIND_ALL) {
-            rows = rows.filter((pr) => pr.kind === prKindFilter);
-        }
-        if (prCustomRange?.from) {
-            const from = startOfDay(prCustomRange.from);
-            const to = endOfDay(prCustomRange.to ?? prCustomRange.from);
-            return rows.filter((pr) => {
-                const d = new Date(pr.achievedAt);
-                return d >= from && d <= to;
-            });
-        }
-        if (prRange === 'all') return rows;
-        const since = subDays(new Date(), Number(prRange));
-        return rows.filter((pr) => new Date(pr.achievedAt) >= since);
-    }, [summary.data?.recentPrs, prRange, prCustomRange, prKindFilter]);
-
-    const handlePresetChange = (v: PrRange) => {
-        setPrRange(v);
-        setPrCustomRange(undefined);
-    };
-
-    const handleCustomRangeChange = (range: DateRange | undefined) => {
-        setPrCustomRange(range);
-        if (range?.from) setPrRange('all');
-    };
-
-    const isPrFiltersActive =
-        prRange !== 'all' ||
-        Boolean(prCustomRange?.from) ||
-        prKindFilter !== PR_KIND_ALL;
-
-    const resetPrFilters = () => {
-        setPrRange('all');
-        setPrCustomRange(undefined);
-        setPrKindFilter(PR_KIND_ALL);
-    };
+    const prFilters = usePrFilters(summary.data?.recentPrs);
 
     const prColumns = useMemo<DataTableColumn<PrRow>[]>(
         () => [
@@ -138,24 +78,12 @@ export function TodayHero() {
 
     return (
         <div className="flex flex-col gap-6">
-            {active.data && (
-                <Link className="block" href={routes.lifting.log}>
-                    <Alert variant="success">
-                        <Activity className="size-4" />
-                        <AlertTitle>Active workout</AlertTitle>
-                        <AlertDescription>
-                            {active.data.name ?? 'Workout'} — resume
-                        </AlertDescription>
-                    </Alert>
-                </Link>
-            )}
-
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Stat
                     icon={<Flame className="size-4" />}
                     label="Current streak"
                     value={
-                        summary.data ? `${summary.data.currentStreak} wk` : '—'
+                        summary.data ? `${summary.data.currentStreak} wk` : null
                     }
                 />
                 <Stat
@@ -164,7 +92,7 @@ export function TodayHero() {
                     value={
                         summary.data
                             ? summary.data.sessionsThisWeek.toFixed(0)
-                            : '—'
+                            : null
                     }
                 />
                 <Stat
@@ -173,150 +101,78 @@ export function TodayHero() {
                     value={
                         summary.data
                             ? summary.data.recentPrs.length.toString()
-                            : '—'
+                            : null
                     }
                 />
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        Get started
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-wrap gap-3">
+            <ToolPanel title="Get started">
+                <div className="flex flex-wrap gap-3">
+                    {active.isPending ? (
+                        <Skeleton className="h-9 w-40" />
+                    ) : active.data ? (
+                        <Button asChild className="gap-2">
+                            <Link href={routes.lifting.log}>
+                                <Activity className="size-4" />
+                                Resume {active.data.name ?? 'workout'}
+                            </Link>
+                        </Button>
+                    ) : (
                         <Button
                             className="gap-2"
-                            disabled={start.isPending || !!active.data}
+                            disabled={start.isPending}
                             onClick={() => start.mutate({})}
                             type="button"
                         >
                             <Play className="size-4" />
-                            {active.data
-                                ? 'Resume active'
-                                : start.isPending
-                                  ? 'Starting…'
-                                  : 'Start workout'}
+                            {start.isPending ? 'Starting…' : 'Start workout'}
                         </Button>
-                        <Button asChild type="button" variant="outline">
-                            <Link href={routes.lifting.routines}>
-                                From routine
-                            </Link>
-                        </Button>
-                        <Button asChild type="button" variant="outline">
-                            <Link href={routes.lifting.programs}>
-                                Pick a program
-                            </Link>
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                    )}
+                    <Button asChild type="button" variant="outline">
+                        <Link href={routes.lifting.routines}>From routine</Link>
+                    </Button>
+                    <Button asChild type="button" variant="outline">
+                        <Link href={routes.lifting.programs}>
+                            Pick a program
+                        </Link>
+                    </Button>
+                </div>
+            </ToolPanel>
 
-            {(summary.isLoading ||
-                (summary.data && summary.data.recentPrs.length > 0)) && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            <Trophy className="size-4" /> Recent PRs
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <DataTable
-                            columns={prColumns}
-                            data={filteredPrs}
-                            emptyState={
-                                <EmptyState
-                                    description={
-                                        prRange === 'all'
-                                            ? 'Log a heavier set to set your first PR.'
-                                            : 'No PRs in this date range.'
-                                    }
-                                    icon={Trophy}
-                                    title="No PRs yet"
-                                />
-                            }
-                            filterPlaceholder="Search PRs"
-                            headerActions={
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <ClearFiltersButton
-                                            active={isPrFiltersActive}
-                                            className="hidden md:flex"
-                                            onReset={resetPrFilters}
-                                        />
-                                        <Select
-                                            onValueChange={setPrKindFilter}
-                                            value={prKindFilter}
-                                        >
-                                            <SelectTrigger className="h-8 w-36 text-xs">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value={PR_KIND_ALL}>
-                                                    All kinds
-                                                </SelectItem>
-                                                {PR_KIND_VALUES.map((k) => (
-                                                    <SelectItem
-                                                        key={k}
-                                                        value={k}
-                                                    >
-                                                        <span className="capitalize">
-                                                            {k.replaceAll(
-                                                                '_',
-                                                                ' ',
-                                                            )}
-                                                        </span>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <Select
-                                            onValueChange={(v) =>
-                                                handlePresetChange(v as PrRange)
-                                            }
-                                            value={
-                                                prCustomRange ? 'all' : prRange
-                                            }
-                                        >
-                                            <SelectTrigger className="h-8 w-36 text-xs">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {PR_RANGE_VALUES.map((r) => (
-                                                    <SelectItem
-                                                        key={r}
-                                                        value={r}
-                                                    >
-                                                        {PR_RANGE_LABEL[r]}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <DateRangePicker
-                                            align="end"
-                                            className="h-8 text-xs"
-                                            onChange={handleCustomRangeChange}
-                                            placeholder="Custom range"
-                                            value={prCustomRange}
-                                        />
-                                    </div>
-                                    <ClearFiltersButton
-                                        active={isPrFiltersActive}
-                                        className="md:hidden"
-                                        onReset={resetPrFilters}
-                                    />
-                                </div>
-                            }
-                            isLoading={summary.isLoading}
-                            pageSize={null}
-                            rowId={(r) => r.id}
-                            showFilter
-                            skeletonRows={3}
-                        />
-                    </CardContent>
-                </Card>
-            )}
+            <ToolPanel title="Recent PRs">
+                {summary.data?.recentPrs.length === 0 ? (
+                    <EmptyState
+                        description="Log a heavier set to set your first PR."
+                        icon={Trophy}
+                        title="No PRs yet"
+                    />
+                ) : (
+                    <DataTable
+                        columns={prColumns}
+                        data={prFilters.filteredRows}
+                        emptyState={
+                            <EmptyState
+                                description={
+                                    prFilters.range === PrRangePreset.All
+                                        ? 'Log a heavier set to set your first PR.'
+                                        : 'No PRs in this date range.'
+                                }
+                                icon={Trophy}
+                                title="No PRs yet"
+                            />
+                        }
+                        filterPlaceholder="Search PRs"
+                        hasExternalFilters={prFilters.isActive}
+                        headerActions={<PrFiltersToolbar filters={prFilters} />}
+                        isLoading={summary.isLoading}
+                        onResetFilters={prFilters.reset}
+                        pageSize={null}
+                        rowId={(r) => r.id}
+                        showFilter
+                        skeletonRows={3}
+                    />
+                )}
+            </ToolPanel>
         </div>
     );
 }
@@ -328,7 +184,7 @@ function Stat({
 }: {
     icon: React.ReactNode;
     label: string;
-    value: string;
+    value: null | string;
 }) {
     return (
         <Card className="gap-2 py-4">
@@ -337,7 +193,13 @@ function Stat({
                     {icon}
                     {label}
                 </div>
-                <p className="mt-1 text-2xl font-bold tabular-nums">{value}</p>
+                {value === null ? (
+                    <Skeleton className="mt-1 h-8 w-16" />
+                ) : (
+                    <p className="mt-1 text-2xl font-bold tabular-nums">
+                        {value}
+                    </p>
+                )}
             </CardContent>
         </Card>
     );

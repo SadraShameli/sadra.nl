@@ -3,7 +3,7 @@
 import { Minus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 
-import { Button } from '~/components/ui/Button';
+import { Button } from '~/components/ui/button';
 import { cn } from '~/lib/utilities';
 
 interface NumberStepperProperties {
@@ -38,6 +38,11 @@ export function NumberStepper({
     const intervalReference = useRef<null | ReturnType<typeof setInterval>>(
         null,
     );
+    const valueReference = useRef(value);
+
+    useEffect(() => {
+        valueReference.current = value;
+    }, [value]);
 
     const clamp = useCallback(
         (n: number): number => {
@@ -50,16 +55,26 @@ export function NumberStepper({
 
     const apply = useCallback(
         (direction: -1 | 1, magnitude = 1) => {
-            onChange(clamp(value + direction * step * magnitude));
+            const next = clamp(
+                valueReference.current + direction * step * magnitude,
+            );
+            valueReference.current = next;
+            onChange(next);
         },
-        [clamp, onChange, step, value],
+        [clamp, onChange, step],
     );
+
+    const applyReference = useRef(apply);
+
+    useEffect(() => {
+        applyReference.current = apply;
+    }, [apply]);
 
     const startHold = (direction: -1 | 1) => {
         apply(direction, 1);
         timeoutReference.current = setTimeout(() => {
             intervalReference.current = setInterval(() => {
-                apply(direction, longPressMultiplier);
+                applyReference.current(direction, longPressMultiplier);
             }, REPEAT_MS);
         }, LONG_PRESS_MS);
     };
@@ -85,7 +100,7 @@ export function NumberStepper({
             <div className="flex items-stretch overflow-hidden rounded-lg border border-border bg-card">
                 <Button
                     aria-label={`Decrease ${label ?? ''}`}
-                    className="h-9 w-9 shrink-0 rounded-none p-0 text-muted-foreground hover:text-foreground"
+                    className="size-9 shrink-0 rounded-none p-0 text-muted-foreground hover:text-foreground"
                     onPointerCancel={clearHold}
                     onPointerDown={() => startHold(-1)}
                     onPointerLeave={clearHold}
@@ -105,7 +120,7 @@ export function NumberStepper({
                 </div>
                 <Button
                     aria-label={`Increase ${label ?? ''}`}
-                    className="h-9 w-9 shrink-0 rounded-none p-0 text-muted-foreground hover:text-foreground"
+                    className="size-9 shrink-0 rounded-none p-0 text-muted-foreground hover:text-foreground"
                     onPointerCancel={clearHold}
                     onPointerDown={() => startHold(1)}
                     onPointerLeave={clearHold}

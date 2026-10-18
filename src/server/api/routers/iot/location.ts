@@ -1,9 +1,8 @@
-import { and, desc, eq, gte } from 'drizzle-orm';
+import { and, desc, eq, gte, lt } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { LocationCreatedEmail } from '~/lib/email';
-import { fanOutEvent } from '~/lib/notify';
-import { captureError } from '~/lib/observability/logger';
+import { scheduleFanOut } from '~/lib/notify';
 import {
     locationCreateSchema,
     locationUpdateSchema,
@@ -18,6 +17,9 @@ import { type Result } from '~/server/api/types/types';
 import {
     locationProperties,
     locationReadingsProperties,
+    type PublicDevice,
+    publicDeviceColumns,
+    publicReadingColumns,
 } from '~/server/api/types/zod';
 import { location, reading, type recording } from '~/server/db/schemas/iot';
 
@@ -49,20 +51,15 @@ export const locationRouter = createTRPCRouter({
                 .insert(location)
                 .values(input)
                 .returning({ id: location.id });
-            void (async () => {
-                try {
-                    await fanOutEvent(
-                        'location_created',
-                        (to) =>
-                            new LocationCreatedEmail(to, {
-                                locationId: input.location_id,
-                                locationName: input.name,
-                            }),
-                    );
-                } catch (error: unknown) {
-                    captureError(error, { tag: 'location.notify' });
-                }
-            })();
+            scheduleFanOut(
+                'location_created',
+                (to) =>
+                    new LocationCreatedEmail(to, {
+                        locationId: input.location_id,
+                        locationName: input.name,
+                    }),
+                'location.notify',
+            );
             return { id: inserted?.id };
         }),
 
@@ -87,7 +84,8 @@ export const locationRouter = createTRPCRouter({
                 return location;
             }
 
-            const devices = await ctx.db.query.device.findMany({
+            const devices: PublicDevice[] = await ctx.db.query.device.findMany({
+                columns: publicDeviceColumns,
                 where: (device) =>
                     location.data
                         ? eq(device.location_id, location.data.id)
@@ -117,6 +115,9 @@ export const locationRouter = createTRPCRouter({
             }
 
             const readings = await ctx.db.query.reading.findMany({
+                columns: publicReadingColumns,
+                limit: input.limit,
+                orderBy: (reading, { desc }) => [desc(reading.id)],
                 where: (reading) =>
                     and(
                         location.data
@@ -125,6 +126,7 @@ export const locationRouter = createTRPCRouter({
                         input.sensor_id
                             ? eq(reading.sensor_id, input.sensor_id)
                             : undefined,
+                        input.cursor ? lt(reading.id, input.cursor) : undefined,
                     ),
             });
 

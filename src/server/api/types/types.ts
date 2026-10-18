@@ -1,6 +1,7 @@
-import { type device, type sensor } from '~/server/db/schemas/iot';
+import { type PublicDevice } from '~/lib/schemas/sensor';
+import { type sensor } from '~/server/db/schemas/iot';
 
-export type GetDeviceProperties = typeof device.$inferSelect & {
+export type GetDeviceProperties = PublicDevice & {
     sensors: number[];
 };
 

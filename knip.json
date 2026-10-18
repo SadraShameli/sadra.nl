@@ -14,6 +14,7 @@
         "caniuse-lite",
         "cssnano",
         "cssnano-preset-default",
+        "geist",
         "pino-pretty",
         "sharp"
     ]

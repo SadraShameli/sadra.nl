@@ -1,34 +1,34 @@
 'use client';
 
-import { Input } from '~/components/ui/Input';
+import { z } from 'zod';
+
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { type DayStopRule, DayStopRuleKind } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { DAY_STOP_KIND_LABELS } from './describeDayStopRule';
+
 interface DayStopRulePickerProperties {
     compact?: boolean;
+    id?: string;
     onChange: (rule: DayStopRule) => void;
     value: DayStopRule;
 }
 
-type Kind = DayStopRule['kind'];
+const DAY_STOP_RULE_LABEL = 'Day stop rule';
 
-const KIND_LABEL: Record<Kind, string> = {
-    'after-k-losses': 'Stop after K losses',
-    'after-target': 'Stop after $ target',
-    'day-green': 'Stop when day is green',
-    'first-win': 'Stop after first win',
-    none: 'No stop',
-};
+type Kind = DayStopRule['kind'];
 
 export default function DayStopRulePicker({
     compact = false,
+    id,
     onChange,
     value,
 }: DayStopRulePickerProperties) {
@@ -77,19 +77,24 @@ export default function DayStopRulePicker({
             )}
         >
             <Select
-                onValueChange={(v) => handleKind(v as Kind)}
+                onValueChange={(v) =>
+                    handleKind(z.enum(DayStopRuleKind).parse(v))
+                }
                 value={value.kind}
             >
                 <SelectTrigger
-                    aria-label="Day stop rule"
+                    aria-label={
+                        id === undefined ? DAY_STOP_RULE_LABEL : undefined
+                    }
                     className={compact ? 'h-7 text-xs' : undefined}
+                    id={id}
                 >
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                    {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
+                    {Object.values(DayStopRuleKind).map((k) => (
                         <SelectItem key={k} value={k}>
-                            {KIND_LABEL[k]}
+                            {DAY_STOP_KIND_LABELS[k]}
                         </SelectItem>
                     ))}
                 </SelectContent>

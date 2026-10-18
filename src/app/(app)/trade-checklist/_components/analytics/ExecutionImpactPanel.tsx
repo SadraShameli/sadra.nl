@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
+import { Card } from '~/components/ui/card';
 import { formatPercent, formatR } from '~/lib/format';
 import {
     deviationFrequency,
@@ -51,10 +51,10 @@ export function ExecutionImpactPanel({
                 {hasComparison ? (
                     <div className="mt-2 grid gap-3 sm:grid-cols-2">
                         <Card className="p-4">
-                            <p className="text-xs text-emerald-300">
+                            <p className="text-xs text-success">
                                 Followed plan
                             </p>
-                            <p className="mt-1 font-mono text-2xl text-emerald-400">
+                            <p className="mt-1 font-mono text-2xl text-success">
                                 {formatPercent(impact.followed.winRate, 0)}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -64,14 +64,14 @@ export function ExecutionImpactPanel({
                             </p>
                         </Card>
                         <Card className="p-4">
-                            <p className="text-xs text-amber-300">Deviated</p>
+                            <p className="text-xs text-warning">Deviated</p>
                             <p
                                 className={cn(
                                     'mt-1 font-mono text-2xl',
                                     impact.deviated.winRate >
                                         impact.followed.winRate
-                                        ? 'text-emerald-400'
-                                        : 'text-rose-400',
+                                        ? 'text-success'
+                                        : 'text-destructive',
                                 )}
                             >
                                 {formatPercent(impact.deviated.winRate, 0)}

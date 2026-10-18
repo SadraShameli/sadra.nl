@@ -1,22 +1,18 @@
 'use client';
 
-import {
-    AlertCircle,
-    CheckCircle2,
-    Loader2,
-    Send,
-    XCircle,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Send, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ExternalId, RunId } from '~/lib/accounting/core/ids';
 import type { Booking } from '~/lib/accounting/core/types';
 import type { ImportEvent } from '~/lib/accounting/runner-types';
 
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card } from '~/components/ui/Card';
-import { Progress } from '~/components/ui/Progress';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card } from '~/components/ui/card';
+import { Progress } from '~/components/ui/progress';
+import { Spinner } from '~/components/ui/spinner';
 import { apiRoutes } from '~/lib/site/routes';
 import { api } from '~/trpc/react';
 
@@ -148,7 +144,7 @@ export function PushPanel({
                     onClick={handleSend}
                 >
                     {isPending ? (
-                        <Loader2 className="size-3 animate-spin" />
+                        <Spinner className="size-3" />
                     ) : (
                         <Send className="size-3" />
                     )}
@@ -163,11 +159,11 @@ export function PushPanel({
                             {progress.current} / {progress.total}
                         </span>
                         <span>
-                            <span className="text-emerald-300">
+                            <span className="text-success">
                                 {postedCount} posted
                             </span>
                             {failedCount > 0 && (
-                                <span className="ml-3 text-rose-300">
+                                <span className="ml-3 text-destructive">
                                     {failedCount} failed
                                 </span>
                             )}
@@ -183,10 +179,10 @@ export function PushPanel({
             )}
 
             {stream.error && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive-foreground">
-                    <AlertCircle className="mt-0.5 size-3.5" />
-                    <span>{stream.error}</span>
-                </div>
+                <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{stream.error}</AlertDescription>
+                </Alert>
             )}
 
             <Card className="max-h-80 overflow-y-auto py-0">
@@ -204,7 +200,7 @@ export function PushPanel({
                                 <div className="flex items-center justify-between gap-2">
                                     <div className="flex min-w-0 items-center gap-2">
                                         <RowIcon status={row.status} />
-                                        <span className="font-mono text-sky-300">
+                                        <span className="font-mono text-info">
                                             {b.txnId}
                                         </span>
                                         <span className="truncate text-muted-foreground">
@@ -240,10 +236,10 @@ export function PushPanel({
 
 function RowIcon({ status }: { status: PostRowStatus }) {
     if (status === 'posted')
-        return <CheckCircle2 className="size-3.5 text-emerald-400" />;
+        return <CheckCircle2 className="size-3.5 text-success" />;
     return status === 'failed' ? (
-        <XCircle className="size-3.5 text-rose-400" />
+        <XCircle className="size-3.5 text-destructive" />
     ) : (
-        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+        <Spinner className="size-3.5 text-muted-foreground" />
     );
 }

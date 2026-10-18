@@ -1,38 +1,40 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { RoutinesViewSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
+import { RoutinesView } from '~/app/(app)/lifting/_components/RoutinesView';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
-
-import { RoutinesView } from '../_components/RoutinesView';
 
 export const metadata: Metadata = {
     description: 'Quick-start workout templates.',
     title: 'Routines',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function LiftingRoutinesPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
+export default function LiftingRoutinesPage() {
     return (
-        <main
-            className={cn(
-                'app-lifting__routines',
-                'container pt-spacing pb-24',
-            )}
-        >
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    Routines
-                </h1>
-                <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                    Save and replay your favorite workouts.
-                </p>
-            </header>
-            <RoutinesView />
-        </main>
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-lifting__routines',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <LiftingPageHeader
+                    description="Save and replay your favorite workouts."
+                    title="Routines"
+                />
+                <Suspense fallback={<RoutinesViewSkeleton />}>
+                    <LiftingRoutinesContent />
+                </Suspense>
+            </main>
+        </PageTransition>
     );
+}
+
+async function LiftingRoutinesContent() {
+    await requireSessionUser();
+    return <RoutinesView />;
 }

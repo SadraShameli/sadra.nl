@@ -2,52 +2,68 @@
 
 import { Plus, RotateCcw, X } from 'lucide-react';
 import { useMemo } from 'react';
+import { z } from 'zod';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { Input } from '~/components/ui/Input';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import InfoPopover from '~/components/ui/info-popover';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import {
     formatCompactCurrency,
     formatCurrency,
     formatPercent,
+    NOT_APPLICABLE,
 } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     CorrelationMode,
-    type DayStopRule,
-    DayStopRuleKind,
-    type InstrumentSymbol,
+    InstrumentSymbol,
+    LiveTransferContinuationKind,
     type Plan,
     type RungSizing,
 } from '~/lib/prop-calculator';
+import {
+    ECONOMICS_DISCLOSURE_TEXT,
+    ECONOMICS_REASON_TEXT,
+    EconomicsDisclosure,
+} from '~/lib/prop-calculator/economics';
+import {
+    LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT,
+    LIVE_TRANSFER_CONTINUATION_TEXT,
+    liveTransferContinuationNotes,
+    liveTransferHazardPercentText,
+} from '~/lib/prop-calculator/simulator';
+import {
+    CALCULATOR_SCALAR_BOUNDS,
+    LAB_SCENARIO_BOUNDS,
+    MAX_LAB_SCENARIOS,
+} from '~/lib/schemas/url';
 import { cn } from '~/lib/utilities';
 
 import AccountsPassedDistributionChart from './AccountsPassedDistributionChart';
 import DayStopRulePicker from './DayStopRulePicker';
-import { type LabScenario } from './types';
-import { useLabSimulation } from './useLabSimulation';
-
-type LabResult =
-    ReturnType<typeof useLabSimulation>['results'] extends Map<string, infer R>
-        ? R
-        : never;
+import { DayStopRuleStyle, describeDayStopRule } from './describeDayStopRule';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
+import { type LabLinkOutcome, LabLinkStatus, type LabScenario } from './types';
+import { type LabResult, useLabSimulation } from './useLabSimulation';
 
 interface StrategyLabPanelProperties {
     activationDiscountPercent: number;
     commissionPerRoundTrip: number;
     evalDiscountPercent: number;
     fundedHorizonDays: number;
+    labLink: LabLinkOutcome;
     linkActivationDiscount: boolean;
+    liveTransferHazard?: number;
     maxEvalDays: number;
     minRetainedCushion: number | undefined;
     monthlySubscriptionDiscountPercent: number;
@@ -70,18 +86,43 @@ interface StrategyLabRow {
     scenario: LabScenario;
 }
 
+const PERCENT = 100;
+const WINRATE_BOUNDS = CALCULATOR_SCALAR_BOUNDS.wr;
+const RR_BOUNDS = CALCULATOR_SCALAR_BOUNDS.rr;
+const TRADES_PER_DAY_BOUNDS = CALCULATOR_SCALAR_BOUNDS.tpd;
+const STOP_POINTS_BOUNDS = CALCULATOR_SCALAR_BOUNDS.sp;
+const ACCOUNTS_BOUNDS = LAB_SCENARIO_BOUNDS.accounts;
+const RISK_BOUNDS = LAB_SCENARIO_BOUNDS.riskPerTrade;
+
 const CORRELATION_LABEL: Record<CorrelationMode, string> = {
     copy: 'Copy-trade',
     grouped: 'Group-split',
     independent: 'Independent',
 };
+const correlationModeSchema = z.enum(CorrelationMode);
+const instrumentSymbolSchema = z.enum(InstrumentSymbol);
+
+enum LabEditorField {
+    Accounts = 'accounts',
+    Groups = 'groups',
+    Instrument = 'instrument',
+    Label = 'label',
+    Mode = 'mode',
+    RewardToRisk = 'rewardToRisk',
+    RiskPerTrade = 'riskPerTrade',
+    StopPoints = 'stopPoints',
+    TradesPerDay = 'tradesPerDay',
+    WinRate = 'winRate',
+}
 
 export default function StrategyLabPanel({
     activationDiscountPercent,
     commissionPerRoundTrip,
     evalDiscountPercent,
     fundedHorizonDays,
+    labLink,
     linkActivationDiscount,
+    liveTransferHazard,
     maxEvalDays,
     minRetainedCushion,
     monthlySubscriptionDiscountPercent,
@@ -96,12 +137,13 @@ export default function StrategyLabPanel({
     scenarios,
     seed,
 }: StrategyLabPanelProperties) {
-    const { pending, results } = useLabSimulation({
+    const { error, pending, refused, results } = useLabSimulation({
         activationDiscountPercent,
         commissionPerRoundTrip,
         discountPercent: evalDiscountPercent,
         fundedHorizonDays,
         linkActivationDiscount,
+        liveTransferHazard,
         maxEvalDays,
         minRetainedCushion,
         monthlySubscriptionDiscountPercent,
@@ -112,13 +154,15 @@ export default function StrategyLabPanel({
         scenarios,
         seed,
     });
+    const isHazardPriced =
+        liveTransferHazard !== undefined && liveTransferHazard > 0;
 
     const verdict = useMemo(() => {
         if (results.size === 0) return null;
         let best: null | { id: string; monthly: number; score: number } = null;
         for (const sc of scenarios) {
             const r = results.get(sc.id);
-            if (!r || r.pAtLeast.kHalf < 0.5) continue;
+            if (!r || r.pAtLeastFundedSurvival.kHalf < 0.5) continue;
             if (!best || r.expectedMonthlyNet > best.monthly) {
                 best = {
                     id: sc.id,
@@ -166,7 +210,7 @@ export default function StrategyLabPanel({
                         <ul className="mt-2 list-disc pl-4">
                             <li>
                                 <strong>Copy-trade</strong>: all accounts share
-                                the same outcome — bimodal distribution.
+                                the same outcome, a bimodal distribution.
                             </li>
                             <li>
                                 <strong>Group-split</strong>: accounts split
@@ -180,10 +224,26 @@ export default function StrategyLabPanel({
                             </li>
                         </ul>
                         <p className="mt-2">
-                            Theoretical P(pass) is the closed-form
-                            gambler&apos;s ruin sanity check. Day-stop modifies
-                            the per-day trade loop (stop after first win, after
-                            K losses, or after a $ target).
+                            Theo is the exact pass probability of a simple
+                            random walk with a fixed drawdown floor: each trade
+                            wins RR times the risk or loses the risk until the
+                            balance reaches the profit target or falls to the
+                            starting balance minus the drawdown. It is a{' '}
+                            {
+                                ECONOMICS_DISCLOSURE_TEXT[
+                                    EconomicsDisclosure.RandomWalkApproximation
+                                ]
+                            }
+                            . When the walk cannot be solved, the cell shows{' '}
+                            {NOT_APPLICABLE} with an info button that says why.
+                            In the simulation, day-stop modifies the per-day
+                            trade loop (stop after first win, after K losses, or
+                            after a $ target). MC eval pass, P(≥k) and E[#pass]
+                            count accounts that passed the evaluation; MC
+                            survive counts accounts that also never busted the
+                            funded account. The verdict only recommends a
+                            scenario where at least half the accounts survive
+                            funded in 50% of runs.
                         </p>
                     </InfoPopover>
                     {pending && (
@@ -202,13 +262,48 @@ export default function StrategyLabPanel({
                         <RotateCcw className="size-3.5" />
                         <span className="ml-1 text-xs">Reset</span>
                     </Button>
-                    <Button onClick={onAdd} size="sm" variant="outline">
+                    <Button
+                        disabled={scenarios.length >= MAX_LAB_SCENARIOS}
+                        onClick={onAdd}
+                        size="sm"
+                        variant="outline"
+                    >
                         <Plus className="size-3.5" />
                         <span className="ml-1 text-xs">Add scenario</span>
                     </Button>
                 </div>
             </div>
+            {labLink.status === LabLinkStatus.Rejected && (
+                <Alert className="mt-3" variant="warning">
+                    <AlertDescription className="text-xs">
+                        {`The lab scenarios in this link or saved scenario were rejected (${labLink.issue}), so the scenarios shown did not come from it.`}
+                    </AlertDescription>
+                </Alert>
+            )}
+            {refused.map((refusal) => (
+                <SimulationFailureNotice
+                    key={refusal.item.id}
+                    message={`Not simulated, ${refusal.item.label}: ${refusal.issue}`}
+                />
+            ))}
+            <SimulationFailureNotice message={error} />
+            {isHazardPriced && (
+                <div className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    {`Live-transfer hazard of ${liveTransferHazardPercentText(liveTransferHazard)} per paid payout (your assumption, not a firm rule).`}
+                    <InfoPopover title="Live-transfer hazard">
+                        <p>
+                            {`E[$/mo] includes it and ends each paid account's simulated payouts at a transfer, while E[$/mo] no transfer is the same scenario with the hazard at 0. A transferred account keeps its slot to the end of the funded horizon. Copy-traded accounts are sent live together. ${LIVE_TRANSFER_CONCLUDING_PAYOUT_TEXT}`}
+                        </p>
+                        {hazardContinuationNotes(results.values(), plan).map(
+                            (note) => (
+                                <p key={note}>{note}</p>
+                            ),
+                        )}
+                    </InfoPopover>
+                </div>
+            )}
             <StrategyLabTable
+                isHazardPriced={isHazardPriced}
                 onRemove={onRemove}
                 onUpdate={onUpdate}
                 pending={pending}
@@ -226,16 +321,24 @@ export default function StrategyLabPanel({
                     return r ? (
                         <Card className="gap-1 py-2" key={sc.id}>
                             <CardContent className="px-3">
-                                <div className="mb-1 flex items-center justify-between text-xs">
+                                <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
                                     <span className="font-semibold">
                                         {sc.label}
                                     </span>
                                     <span className="font-mono text-muted-foreground">
                                         {sc.accounts} accts •{' '}
                                         {CORRELATION_LABEL[sc.correlation]} •{' '}
-                                        {describeDayStop(sc.dayStop)}
+                                        {describeDayStopRule(
+                                            sc.dayStop,
+                                            DayStopRuleStyle.Compact,
+                                        )}
                                     </span>
                                 </div>
+                                {r.lifetimeCapPoolingGap !== null && (
+                                    <SimulationFailureNotice
+                                        message={r.lifetimeCapPoolingGap}
+                                    />
+                                )}
                                 <AccountsPassedDistributionChart
                                     distribution={r.accountsPassDistribution}
                                 />
@@ -265,7 +368,7 @@ export default function StrategyLabPanel({
                 <Alert
                     className="mt-4"
                     variant={
-                        verdictResult.pAtLeast.kHalf >= 0.5
+                        verdictResult.pAtLeastFundedSurvival.kHalf >= 0.5
                             ? 'success'
                             : 'warning'
                     }
@@ -275,15 +378,15 @@ export default function StrategyLabPanel({
                         <strong>{verdictScenario.label}</strong> wins on
                         expected monthly net (
                         {formatCurrency(verdictResult.expectedMonthlyNet)}).{' '}
-                        {verdictResult.pAtLeast.kHalf >= 0.5
+                        {verdictResult.pAtLeastFundedSurvival.kHalf >= 0.5
                             ? `P(≥${Math.ceil(
                                   verdictScenario.accounts / 2,
-                              )} of ${verdictScenario.accounts} pass) = ${formatPercent(
-                                  verdictResult.pAtLeast.kHalf,
+                              )} of ${verdictScenario.accounts} survive funded) = ${formatPercent(
+                                  verdictResult.pAtLeastFundedSurvival.kHalf,
                               )}.`
-                            : `Warning: P(≥½ pass) only ${formatPercent(
-                                  verdictResult.pAtLeast.kHalf,
-                              )} — no scenario clears the 50% portfolio-survival bar.`}
+                            : `Warning: P(≥½ survive funded) only ${formatPercent(
+                                  verdictResult.pAtLeastFundedSurvival.kHalf,
+                              )}, so no scenario clears the 50% funded-survival bar.`}
                     </AlertDescription>
                 </Alert>
             )}
@@ -291,24 +394,55 @@ export default function StrategyLabPanel({
     );
 }
 
-function describeDayStop(rule: DayStopRule): string {
-    switch (rule.kind) {
-        case DayStopRuleKind.AfterKLosses: {
-            return `Stop ${rule.k}L`;
-        }
-        case DayStopRuleKind.AfterTarget: {
-            return `Stop $${rule.dollars}`;
-        }
-        case DayStopRuleKind.DayGreen: {
-            return 'Stop when green';
-        }
-        case DayStopRuleKind.FirstWin: {
-            return 'Stop on win';
-        }
-        case DayStopRuleKind.None: {
-            return 'Take all';
-        }
-    }
+function hazardColumns(): DataTableColumn<StrategyLabRow>[] {
+    return [
+        {
+            accessorFn: (r) => r.result?.noTransferMonthlyNet ?? -Infinity,
+            cell: ({ row }) => (
+                <ResultCell
+                    className="text-muted-foreground"
+                    value={
+                        row.original.result?.noTransferMonthlyNet ?? undefined
+                    }
+                >
+                    {(v) => formatCompactCurrency(v)}
+                </ResultCell>
+            ),
+            header: 'E[$/mo] no transfer',
+            id: 'monthly-no-transfer',
+        },
+        {
+            accessorFn: (r) => r.result?.liveTransferProbability ?? -1,
+            cell: ({ row }) => (
+                <ResultCell
+                    value={row.original.result?.liveTransferProbability}
+                >
+                    {(v) => formatPercent(v)}
+                </ResultCell>
+            ),
+            header: 'Sent live',
+            id: 'sent-live',
+        },
+    ];
+}
+
+function hazardContinuationNotes(
+    results: Iterable<LabResult>,
+    plan: Plan,
+): string[] {
+    const kinds = new Set<LiveTransferContinuationKind>();
+    for (const result of results) kinds.add(result.liveTransferContinuation);
+    const notes = Object.values(LiveTransferContinuationKind)
+        .flatMap((kind) =>
+            kinds.has(kind)
+                ? [
+                      LIVE_TRANSFER_CONTINUATION_TEXT[kind],
+                      ...liveTransferContinuationNotes(plan, kind),
+                  ]
+                : [],
+        )
+        .filter((note) => note !== '');
+    return [...new Set(notes)];
 }
 
 function ResultCell({
@@ -322,17 +456,39 @@ function ResultCell({
 }) {
     return (
         <span className={cn('font-mono', className)}>
-            {value === undefined ? '—' : children(value)}
+            {value === undefined ? NOT_APPLICABLE : children(value)}
         </span>
     );
 }
 
+const LAB_EDITOR_FIELD_LABEL: Readonly<Record<LabEditorField, string>> = {
+    [LabEditorField.Accounts]: 'Accounts',
+    [LabEditorField.Groups]: 'Groups',
+    [LabEditorField.Instrument]: 'Instrument',
+    [LabEditorField.Label]: 'Scenario name',
+    [LabEditorField.Mode]: 'Mode',
+    [LabEditorField.RewardToRisk]: 'Reward to risk',
+    [LabEditorField.RiskPerTrade]: 'Risk per trade ($)',
+    [LabEditorField.StopPoints]: 'Stop (points)',
+    [LabEditorField.TradesPerDay]: 'Trades per day',
+    [LabEditorField.WinRate]: 'Win rate (%)',
+};
+
+function labEditorCellLabel(
+    field: LabEditorField,
+    scenarioLabel: string,
+): string {
+    return `${LAB_EDITOR_FIELD_LABEL[field]}, ${scenarioLabel}`;
+}
+
 function StrategyLabTable({
+    isHazardPriced,
     onRemove,
     onUpdate,
     pending,
     rows,
 }: {
+    isHazardPriced: boolean;
     onRemove: (id: string) => void;
     onUpdate: (id: string, patch: Partial<LabScenario>) => void;
     pending: boolean;
@@ -343,6 +499,10 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.Label,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-32 text-xs"
                         onChange={(event) =>
                             onUpdate(row.original.scenario.id, {
@@ -358,11 +518,20 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.RiskPerTrade,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-20 text-xs"
-                        min={1}
+                        max={RISK_BOUNDS.max}
+                        min={RISK_BOUNDS.min}
                         onChange={(event) => {
                             const n = Number(event.target.value);
-                            if (Number.isFinite(n) && n > 0)
+                            if (
+                                Number.isFinite(n) &&
+                                n >= RISK_BOUNDS.min &&
+                                n <= RISK_BOUNDS.max
+                            )
                                 onUpdate(row.original.scenario.id, {
                                     riskPerTrade: n,
                                 });
@@ -378,19 +547,29 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.WinRate,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-16 text-xs"
-                        max={95}
-                        min={5}
+                        max={Math.round(WINRATE_BOUNDS.max * PERCENT)}
+                        min={Math.round(WINRATE_BOUNDS.min * PERCENT)}
                         onChange={(event) => {
-                            const n = Number(event.target.value) / 100;
-                            if (Number.isFinite(n) && n >= 0.05 && n <= 0.95)
+                            const n = Number(event.target.value) / PERCENT;
+                            if (
+                                Number.isFinite(n) &&
+                                n >= WINRATE_BOUNDS.min &&
+                                n <= WINRATE_BOUNDS.max
+                            )
                                 onUpdate(row.original.scenario.id, {
                                     winrate: n,
                                 });
                         }}
                         step={1}
                         type="number"
-                        value={Math.round(row.original.scenario.winrate * 100)}
+                        value={Math.round(
+                            row.original.scenario.winrate * PERCENT,
+                        )}
                     />
                 ),
                 header: 'WR %',
@@ -399,12 +578,20 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.RewardToRisk,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-16 text-xs"
-                        max={10}
-                        min={0.5}
+                        max={RR_BOUNDS.max}
+                        min={RR_BOUNDS.min}
                         onChange={(event) => {
                             const n = Number(event.target.value);
-                            if (Number.isFinite(n) && n >= 0.5 && n <= 10)
+                            if (
+                                Number.isFinite(n) &&
+                                n >= RR_BOUNDS.min &&
+                                n <= RR_BOUNDS.max
+                            )
                                 onUpdate(row.original.scenario.id, {
                                     rrRatio: n,
                                 });
@@ -420,12 +607,20 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Input
+                        aria-label={labEditorCellLabel(
+                            LabEditorField.TradesPerDay,
+                            row.original.scenario.label,
+                        )}
                         className="h-7 w-14 text-xs"
-                        max={20}
-                        min={1}
+                        max={TRADES_PER_DAY_BOUNDS.max}
+                        min={TRADES_PER_DAY_BOUNDS.min}
                         onChange={(event) => {
                             const n = Math.floor(Number(event.target.value));
-                            if (Number.isFinite(n) && n >= 1 && n <= 20)
+                            if (
+                                Number.isFinite(n) &&
+                                n >= TRADES_PER_DAY_BOUNDS.min &&
+                                n <= TRADES_PER_DAY_BOUNDS.max
+                            )
                                 onUpdate(row.original.scenario.id, {
                                     tradesPerDay: n,
                                 });
@@ -443,17 +638,28 @@ function StrategyLabTable({
                     const sc = row.original.scenario;
                     return (
                         <Select
-                            onValueChange={(v) =>
-                                onUpdate(sc.id, {
-                                    instrument:
-                                        v === 'none'
-                                            ? null
-                                            : (v as InstrumentSymbol),
-                                })
-                            }
+                            onValueChange={(v) => {
+                                if (v === 'none') {
+                                    onUpdate(sc.id, { instrument: null });
+                                    return;
+                                }
+                                const parsed =
+                                    instrumentSymbolSchema.safeParse(v);
+                                if (parsed.success) {
+                                    onUpdate(sc.id, {
+                                        instrument: parsed.data,
+                                    });
+                                }
+                            }}
                             value={sc.instrument ?? 'none'}
                         >
-                            <SelectTrigger className="h-7 w-24 text-xs">
+                            <SelectTrigger
+                                aria-label={labEditorCellLabel(
+                                    LabEditorField.Instrument,
+                                    row.original.scenario.label,
+                                )}
+                                className="h-7 w-28 text-xs"
+                            >
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -480,12 +686,21 @@ function StrategyLabTable({
                     const sc = row.original.scenario;
                     return (
                         <Input
+                            aria-label={labEditorCellLabel(
+                                LabEditorField.StopPoints,
+                                row.original.scenario.label,
+                            )}
                             className="h-7 w-16 text-xs"
                             disabled={sc.instrument === null}
-                            min={0.25}
+                            max={STOP_POINTS_BOUNDS.max}
+                            min={STOP_POINTS_BOUNDS.min}
                             onChange={(event) => {
                                 const n = Number(event.target.value);
-                                if (Number.isFinite(n) && n > 0)
+                                if (
+                                    Number.isFinite(n) &&
+                                    n >= STOP_POINTS_BOUNDS.min &&
+                                    n <= STOP_POINTS_BOUNDS.max
+                                )
                                     onUpdate(sc.id, { stopPoints: n });
                             }}
                             step={0.25}
@@ -502,14 +717,22 @@ function StrategyLabTable({
                     const sc = row.original.scenario;
                     return (
                         <Input
+                            aria-label={labEditorCellLabel(
+                                LabEditorField.Accounts,
+                                row.original.scenario.label,
+                            )}
                             className="h-7 w-14 text-xs"
-                            max={20}
-                            min={1}
+                            max={ACCOUNTS_BOUNDS.max}
+                            min={ACCOUNTS_BOUNDS.min}
                             onChange={(event) => {
                                 const n = Math.floor(
                                     Number(event.target.value),
                                 );
-                                if (Number.isFinite(n) && n >= 1 && n <= 20)
+                                if (
+                                    Number.isFinite(n) &&
+                                    n >= ACCOUNTS_BOUNDS.min &&
+                                    n <= ACCOUNTS_BOUNDS.max
+                                )
                                     onUpdate(sc.id, {
                                         accounts: n,
                                         groups: Math.min(sc.groups, n),
@@ -527,22 +750,27 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Select
-                        onValueChange={(v) =>
-                            onUpdate(row.original.scenario.id, {
-                                correlation: v as CorrelationMode,
-                            })
-                        }
+                        onValueChange={(v) => {
+                            const parsed = correlationModeSchema.safeParse(v);
+                            if (parsed.success) {
+                                onUpdate(row.original.scenario.id, {
+                                    correlation: parsed.data,
+                                });
+                            }
+                        }}
                         value={row.original.scenario.correlation}
                     >
-                        <SelectTrigger className="h-7 w-36 text-xs">
+                        <SelectTrigger
+                            aria-label={labEditorCellLabel(
+                                LabEditorField.Mode,
+                                row.original.scenario.label,
+                            )}
+                            className="h-7 w-36 text-xs"
+                        >
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            {(
-                                Object.keys(
-                                    CORRELATION_LABEL,
-                                ) as CorrelationMode[]
-                            ).map((mode) => (
+                            {Object.values(CorrelationMode).map((mode) => (
                                 <SelectItem key={mode} value={mode}>
                                     {CORRELATION_LABEL[mode]}
                                 </SelectItem>
@@ -558,6 +786,10 @@ function StrategyLabTable({
                     const sc = row.original.scenario;
                     return (
                         <Input
+                            aria-label={labEditorCellLabel(
+                                LabEditorField.Groups,
+                                row.original.scenario.label,
+                            )}
                             className="h-7 w-14 text-xs"
                             disabled={
                                 sc.correlation !== CorrelationMode.Grouped
@@ -606,21 +838,27 @@ function StrategyLabTable({
                         {(v) => formatPercent(v)}
                     </ResultCell>
                 ),
-                header: 'MC pass',
+                header: 'MC eval pass',
                 id: 'mc-pass',
             },
             {
-                accessorFn: (r) => r.result?.theoreticalPassProb ?? -1,
+                accessorFn: (r) => r.result?.perAccountFundedSurvival ?? -1,
                 cell: ({ row }) => (
                     <ResultCell
-                        className="text-muted-foreground"
-                        value={row.original.result?.theoreticalPassProb}
+                        value={row.original.result?.perAccountFundedSurvival}
                     >
                         {(v) => formatPercent(v)}
                     </ResultCell>
                 ),
+                header: 'MC survive',
+                id: 'mc-survive',
+            },
+            {
+                accessorFn: (r) => r.result?.theoreticalPassProb,
+                cell: ({ row }) => <TheoCell result={row.original.result} />,
                 header: 'Theo',
                 id: 'theo',
+                sortUndefined: 'last',
             },
             {
                 accessorFn: (r) => r.result?.pAtLeast.k1 ?? -1,
@@ -653,6 +891,44 @@ function StrategyLabTable({
                 id: 'pall',
             },
             {
+                accessorFn: (r) => r.result?.pAtLeastFundedSurvival.k1 ?? -1,
+                cell: ({ row }) => (
+                    <ResultCell
+                        value={row.original.result?.pAtLeastFundedSurvival.k1}
+                    >
+                        {(v) => formatPercent(v)}
+                    </ResultCell>
+                ),
+                header: 'P(≥1 survive)',
+                id: 'p1-survive',
+            },
+            {
+                accessorFn: (r) => r.result?.pAtLeastFundedSurvival.kHalf ?? -1,
+                cell: ({ row }) => (
+                    <ResultCell
+                        value={
+                            row.original.result?.pAtLeastFundedSurvival.kHalf
+                        }
+                    >
+                        {(v) => formatPercent(v)}
+                    </ResultCell>
+                ),
+                header: 'P(≥½ survive)',
+                id: 'phalf-survive',
+            },
+            {
+                accessorFn: (r) => r.result?.pAtLeastFundedSurvival.kAll ?? -1,
+                cell: ({ row }) => (
+                    <ResultCell
+                        value={row.original.result?.pAtLeastFundedSurvival.kAll}
+                    >
+                        {(v) => formatPercent(v)}
+                    </ResultCell>
+                ),
+                header: 'P(all survive)',
+                id: 'pall-survive',
+            },
+            {
                 accessorFn: (r) => r.result?.expectedAccountsPass ?? -1,
                 cell: ({ row }) => (
                     <ResultCell
@@ -671,8 +947,8 @@ function StrategyLabTable({
                         className={
                             row.original.result &&
                             (row.original.result.expectedMonthlyNet > 0
-                                ? 'text-emerald-400'
-                                : 'text-rose-400')
+                                ? 'text-success'
+                                : 'text-destructive')
                         }
                         value={row.original.result?.expectedMonthlyNet}
                     >
@@ -682,6 +958,7 @@ function StrategyLabTable({
                 header: 'E[$/mo]',
                 id: 'monthly',
             },
+            ...(isHazardPriced ? hazardColumns() : []),
             {
                 accessorFn: (r) => r.result?.pHitDDLimit ?? -1,
                 cell: ({ row }) => (
@@ -695,9 +972,10 @@ function StrategyLabTable({
             {
                 cell: ({ row }) => (
                     <Button
+                        aria-label={`Remove ${row.original.scenario.label}`}
                         disabled={row.original.onlyOne}
                         onClick={() => onRemove(row.original.scenario.id)}
-                        size="sm"
+                        size="icon-sm"
                         title="Remove scenario"
                         variant="ghost"
                     >
@@ -708,7 +986,7 @@ function StrategyLabTable({
                 id: 'remove',
             },
         ],
-        [onRemove, onUpdate],
+        [isHazardPriced, onRemove, onUpdate],
     );
 
     return (
@@ -723,5 +1001,26 @@ function StrategyLabTable({
                 'text-xs tabular-nums',
             )}
         />
+    );
+}
+
+function TheoCell({ result }: { result: LabResult | undefined }) {
+    if (result?.theoreticalPassReason !== undefined) {
+        return (
+            <span className="inline-flex items-center gap-1 font-mono text-muted-foreground">
+                {NOT_APPLICABLE}
+                <InfoPopover title="Theo not applicable">
+                    <p>{ECONOMICS_REASON_TEXT[result.theoreticalPassReason]}</p>
+                </InfoPopover>
+            </span>
+        );
+    }
+    return (
+        <ResultCell
+            className="text-muted-foreground"
+            value={result?.theoreticalPassProb}
+        >
+            {(v) => formatPercent(v)}
+        </ResultCell>
     );
 }

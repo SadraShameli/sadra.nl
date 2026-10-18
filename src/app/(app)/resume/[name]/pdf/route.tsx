@@ -1,21 +1,20 @@
 import { renderToStream } from '@react-pdf/renderer';
 import { notFound } from 'next/navigation';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
 import { registerFonts } from '~/app/(app)/resume/_pdf/fonts';
 import { ResumeDocument } from '~/app/(app)/resume/_pdf/ResumeDocument';
 import { isRoot } from '~/lib/auth/roles';
 import { getServerSession } from '~/lib/auth/server';
 import { resumeNameSchema, resumeSearchSchema } from '~/lib/schemas/resume';
+import { portfolioContent, siteContent } from '~/lib/site/content';
 import {
     coverLetters,
     defaultResumeVariantKey,
-    portfolioContent,
     resumeContent,
     resumeVariants,
-    siteContent,
-} from '~/lib/site/content';
-import { routes } from '~/lib/site/routes';
-import { getPublicSiteOrigin } from '~/lib/site/url';
+} from '~/lib/site/resume';
 
 const cvShow: Record<
     | 'education'
@@ -32,12 +31,14 @@ const cvShow: Record<
     projectSummaries: false,
 };
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+const RESUME_AVATAR_PATH = path.join(
+    process.cwd(),
+    'src/assets/images/sadra-avatar.jpg',
+);
 
 export async function GET(
     request: Request,
-    { params }: { params: Promise<{ name: string }> },
+    { params }: RouteContext<'/resume/[name]/pdf'>,
 ) {
     const parsed = resumeNameSchema.safeParse(await params);
     if (!parsed.success) notFound();
@@ -60,7 +61,6 @@ export async function GET(
     const isShowCover = Boolean(selectedCover);
 
     registerFonts();
-    const origin = getPublicSiteOrigin();
     const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
     const filename = `${isShowCover ? 'Cover' : 'Resume'} - ${capitalizedName}.pdf`;
 
@@ -86,7 +86,10 @@ export async function GET(
             hobbies={cvShow.hobbies ? resumeContent.hobbies : []}
             languages={cvShow.languages ? resumeContent.languages : []}
             links={resumeContent.links}
-            profilePictureSrc={`${origin}${routes.resume.profileImage(name)}`}
+            profilePicture={{
+                data: await readFile(RESUME_AVATAR_PATH),
+                format: 'jpg',
+            }}
             projects={cvProjects}
             research={[]}
             showCover={isShowCover}

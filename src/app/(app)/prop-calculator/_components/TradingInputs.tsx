@@ -1,40 +1,99 @@
 'use client';
 
 import { Settings2 } from 'lucide-react';
+import { useState } from 'react';
+import { z } from 'zod';
 
+import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
 import Eyebrow from '~/components/Eyebrow';
-import { Button } from '~/components/ui/Button';
-import { Input } from '~/components/ui/Input';
+import { Button } from '~/components/ui/button';
+import {
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldGroup,
+    FieldLabel,
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '~/components/ui/Popover';
-import { Slider } from '~/components/ui/Slider';
-import { Toggle } from '~/components/ui/Toggle';
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
+} from '~/components/ui/popover';
 import {
-    formatCompactCurrency,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '~/components/ui/select';
+import { Separator } from '~/components/ui/separator';
+import { Slider } from '~/components/ui/slider';
+import { Toggle } from '~/components/ui/toggle';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
+import {
     formatCurrency,
+    formatGateCurrency,
     formatPercent,
 } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     capRiskToContractLimit,
     type DayStopRule,
+    describeFundedReset,
+    evalContractLimit,
+    fraction,
     INSTRUMENTS,
-    type InstrumentSymbol,
+    InstrumentSymbol,
     type Plan,
     points,
-    resolveContractLimit,
-    type RungSizing,
-    TradingPhase,
+    RungSizing,
 } from '~/lib/prop-calculator';
+import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
+import {
+    type EdgePlausibilityNoteInputs,
+    edgePlausibilityNoteText,
+    type PlausibilityThresholds,
+} from '~/lib/prop-calculator/economics';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
 import DayStopRulePicker from './DayStopRulePicker';
+import { EVAL_DISCOUNT_REBUY_NOTE } from './evalDiscountRebuyNote';
+import {
+    describeActivationFee,
+    describeEvalFee,
+    describeMonthlySubscriptionFee,
+    purchaseCouponDiscounts,
+} from './feePreview';
+import { inputHints } from './kpiDescriptions';
+import { PercentInput } from './PercentInput';
+import { describePlacedFundedRisk, placedFundedRisk } from './placedFundedRisk';
+import {
+    describeResetFee,
+    describeRetry,
+    hasResetOption,
+} from './retryDescription';
 import { riskDollarsToPercent, riskPercentToDollars } from './riskConversion';
+import {
+    RUNG_SIZING_LABELS,
+    RUNG_SIZING_OPTIONS,
+    UNAFFORDABLE_RUNG_LABEL,
+} from './rungSizingLabels';
+import { tradingInputBounds } from './tradingInputBounds';
 import { SizingMode } from './types';
+
+const SIZING_HINT_ID = 'position-sizing-hint';
+const RISK_INPUT_ID = 'risk-per-trade';
+const COUPON_HEADING_ID = 'coupon-heading';
+const INSTRUMENT_NOT_ENFORCED = 'not-enforced';
+const RISK_PERCENT_PRESETS = [0.25, 0.5, 1, 2, 5] as const;
+const RISK_PRESET_TOLERANCE = 0.01;
+const NO_RISK_PRESET = '';
+export const PLAUSIBILITY_NOTE_ID = 'plausibility-note';
+const rungSizingSchema = z.enum(RungSizing);
+const sizingModeSchema = z.enum(SizingMode);
+const instrumentSymbolSchema = z.enum(InstrumentSymbol);
 
 interface TradingInputsProperties {
     activationDiscountPercent: number;
@@ -46,6 +105,7 @@ interface TradingInputsProperties {
     idleDayProbability: number;
     instrument: InstrumentSymbol | null;
     linkActivationDiscount: boolean;
+    liveTransferHazard: number;
     maxAttempts: number;
     maxCopyAccounts: number;
     maxEvalDays: number;
@@ -58,6 +118,7 @@ interface TradingInputsProperties {
     onIdleDayProbabilityChange: (n: number) => void;
     onInstrumentChange: (instrument: InstrumentSymbol | null) => void;
     onLinkActivationDiscountChange: (isLinked: boolean) => void;
+    onLiveTransferHazardChange: (n: number) => void;
     onMaxAttemptsChange: (n: number) => void;
     onMaxEvalDaysChange: (n: number) => void;
     onMonthlySubscriptionDiscountPercentChange: (n: number) => void;
@@ -72,6 +133,8 @@ interface TradingInputsProperties {
     onSeedChange: (n: number) => void;
     onSizingModeChange: (m: SizingMode) => void;
     onStopPointsChange: (n: number) => void;
+    onTakesFundedResetChange: (isTaken: boolean) => void;
+    onTakesOneTimeEarlyWithdrawalChange: (isTaken: boolean) => void;
     onTradesPerDayChange: (n: number) => void;
     onTrialsChange: (n: number) => void;
     onWinrateChange: (n: number) => void;
@@ -86,9 +149,33 @@ interface TradingInputsProperties {
     seed: number;
     sizingMode: SizingMode;
     stopPoints: null | number;
+    takesFundedReset: boolean;
+    takesOneTimeEarlyWithdrawal: boolean;
     tradesPerDay: number;
     trials: number;
     winrate: number;
+}
+
+export function compoundStartDollarsOf(text: string): number | undefined {
+    const start = Number(text.replaceAll(',', '').trim());
+    return text.trim() !== '' && Number.isFinite(start) && start > 0
+        ? start
+        : undefined;
+}
+
+export function tradingEdgePlausibilityNote(
+    winrate: number,
+    rrRatio: number,
+    thresholds: PlausibilityThresholds = DEFAULT_RULEBOOK.plausibility,
+    pace: Pick<
+        EdgePlausibilityNoteInputs,
+        'compoundStartDollars' | 'tradesPerDay'
+    > = {},
+): null | string {
+    return edgePlausibilityNoteText(
+        { ...pace, rrRatio, winrate: fraction(winrate) },
+        thresholds,
+    );
 }
 
 export default function TradingInputs({
@@ -101,6 +188,7 @@ export default function TradingInputs({
     idleDayProbability,
     instrument,
     linkActivationDiscount,
+    liveTransferHazard,
     maxAttempts,
     maxCopyAccounts,
     maxEvalDays,
@@ -113,6 +201,7 @@ export default function TradingInputs({
     onIdleDayProbabilityChange,
     onInstrumentChange,
     onLinkActivationDiscountChange,
+    onLiveTransferHazardChange,
     onMaxAttemptsChange,
     onMaxEvalDaysChange,
     onMonthlySubscriptionDiscountPercentChange,
@@ -127,6 +216,8 @@ export default function TradingInputs({
     onSeedChange,
     onSizingModeChange,
     onStopPointsChange,
+    onTakesFundedResetChange,
+    onTakesOneTimeEarlyWithdrawalChange,
     onTradesPerDayChange,
     onTrialsChange,
     onWinrateChange,
@@ -141,11 +232,45 @@ export default function TradingInputs({
     seed,
     sizingMode,
     stopPoints,
+    takesFundedReset,
+    takesOneTimeEarlyWithdrawal,
     tradesPerDay,
     trials,
     winrate,
 }: TradingInputsProperties) {
     const accountSize = plan.accountSize;
+    const bounds = tradingInputBounds();
+    const [compoundStartText, setCompoundStartText] = useState('');
+    const [committedCompoundStartText, setCommittedCompoundStartText] =
+        useState('');
+    const [heldTradesPerDay, setHeldTradesPerDay] = useState<null | number>(
+        null,
+    );
+    const plausibilityNote = tradingEdgePlausibilityNote(
+        winrate,
+        rrRatio,
+        DEFAULT_RULEBOOK.plausibility,
+        {
+            compoundStartDollars: compoundStartDollarsOf(
+                committedCompoundStartText,
+            ),
+            tradesPerDay: heldTradesPerDay ?? tradesPerDay,
+        },
+    );
+    const earlyWithdrawal = plan.oneTimeEarlyWithdrawal;
+    const fundedReset = plan.fundedReset;
+    const purchaseDiscounts = purchaseCouponDiscounts(
+        plan,
+        {
+            activationDiscountPercent,
+            evalDiscountPercent,
+            linkActivationDiscount,
+            monthlySubscriptionDiscountPercent,
+            resetDiscountPercent,
+        },
+        copyAccounts,
+    );
+    const retryNote = describeRetry(plan.fees, purchaseDiscounts, maxAttempts);
     const computedRisk =
         sizingMode === SizingMode.Dollar
             ? riskDollars
@@ -157,11 +282,9 @@ export default function TradingInputs({
 
     const positionSizingSpec =
         instrument === null ? null : INSTRUMENTS[instrument];
-    const evalContractLimit = resolveContractLimit(
+    const evalContractCap = evalContractLimit(
         plan.contractLimits,
-        TradingPhase.Eval,
         positionSizingSpec?.isMicro ?? false,
-        0,
     );
     const feasibleRisk =
         positionSizingSpec === null || stopPoints === null
@@ -172,10 +295,22 @@ export default function TradingInputs({
                       instrument: positionSizingSpec,
                       stopPoints: points(stopPoints),
                   },
-                  evalContractLimit,
+                  evalContractCap,
               );
     const isRiskCappedByContracts =
         feasibleRisk !== null && feasibleRisk < computedRisk;
+    const fundedSizing = {
+        instrument: instrument ?? undefined,
+        riskPerTrade: computedRisk,
+        stopPoints: stopPoints ?? undefined,
+    };
+    const sizingRefusal = simInputsSizingIssue(fundedSizing);
+    const placedRisk = placedFundedRisk({ ...fundedSizing, plan });
+    const isSizingHintShown = placedRisk !== null || sizingRefusal !== null;
+    const riskInputAria = {
+        'aria-describedby': isSizingHintShown ? SIZING_HINT_ID : undefined,
+        'aria-invalid': sizingRefusal !== null,
+    };
 
     return (
         <div
@@ -194,35 +329,29 @@ export default function TradingInputs({
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-80">
-                        <div className="flex flex-col gap-3">
-                            <div>
-                                <label
-                                    className="mb-1 block text-xs font-medium text-muted-foreground"
-                                    htmlFor="trials"
-                                >
+                        <FieldGroup className="gap-4">
+                            <Field>
+                                <FieldLabel htmlFor="trials">
                                     Monte Carlo trials
-                                </label>
+                                </FieldLabel>
                                 <Input
                                     id="trials"
-                                    max={5000}
-                                    min={100}
+                                    max={bounds.trials.max}
+                                    min={bounds.trials.min}
                                     onChange={(event) =>
                                         onTrialsChange(
                                             Number(event.target.value),
                                         )
                                     }
-                                    step={100}
+                                    step={bounds.trials.step}
                                     type="number"
                                     value={trials}
                                 />
-                            </div>
-                            <div>
-                                <label
-                                    className="mb-1 block text-xs font-medium text-muted-foreground"
-                                    htmlFor="seed"
-                                >
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="seed">
                                     Random seed
-                                </label>
+                                </FieldLabel>
                                 <Input
                                     id="seed"
                                     onChange={(event) =>
@@ -231,51 +360,48 @@ export default function TradingInputs({
                                     type="number"
                                     value={seed}
                                 />
-                            </div>
-                            <div>
-                                <label
-                                    className="mb-1 block text-xs font-medium text-muted-foreground"
-                                    htmlFor="max-eval-days"
-                                >
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="max-eval-days">
                                     Max eval days
-                                </label>
+                                </FieldLabel>
                                 <Input
                                     id="max-eval-days"
-                                    max={365}
-                                    min={10}
+                                    max={bounds.maxEvalDays.max}
+                                    min={bounds.maxEvalDays.min}
                                     onChange={(event) =>
                                         onMaxEvalDaysChange(
                                             Number(event.target.value),
                                         )
                                     }
-                                    step={5}
+                                    step={bounds.maxEvalDays.step}
                                     type="number"
                                     value={maxEvalDays}
                                 />
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    Trials that hit this limit count as timeouts
-                                </p>
-                            </div>
-                            <div>
-                                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                                <FieldDescription>
+                                    {inputHints.maxEvalDays}
+                                </FieldDescription>
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="day-stop-rule">
                                     Day-stop rule
-                                </span>
+                                </FieldLabel>
                                 <DayStopRulePicker
+                                    id="day-stop-rule"
                                     onChange={onDayStopChange}
                                     value={dayStop}
                                 />
-                                <p className="mt-1 text-xs text-muted-foreground">
+                                <FieldDescription>
                                     Cap intraday trading: stop after first win,
                                     K losses, or a $ target.
-                                </p>
-                            </div>
-                            <div>
-                                <label
-                                    className="mb-1 block text-xs font-medium text-muted-foreground"
-                                    htmlFor="retained-cushion"
-                                >
-                                    Retained cushion on payout ($)
-                                </label>
+                                </FieldDescription>
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="retained-cushion">
+                                    {
+                                        CALCULATOR_FIELD_LABELS.retainedCushionRequest
+                                    }
+                                </FieldLabel>
                                 <Input
                                     id="retained-cushion"
                                     min={plan.defaultRetainedCushion()}
@@ -290,27 +416,26 @@ export default function TradingInputs({
                                         .toFixed(0)}
                                     step={100}
                                     type="number"
-                                    value={retainedCushion ?? ''}
+                                    value={retainedCushion?.toString() ?? ''}
                                 />
-                                <p className="mt-1 text-xs text-muted-foreground">
+                                <FieldDescription>
                                     How far above the drawdown floor a simulated
                                     payout stops short. Floored at the
                                     plan&apos;s full funded drawdown (
                                     {formatCurrency(
                                         plan.defaultRetainedCushion(),
                                     )}
-                                    ) -- no real trader drains cushion to the
-                                    edge on every withdrawal, so a lower value
-                                    is clamped up to this floor.
-                                </p>
-                            </div>
-                            <div>
-                                <label
-                                    className="mb-1 block text-xs font-medium text-muted-foreground"
-                                    htmlFor="payout-request-size"
-                                >
-                                    Payout request size ($)
-                                </label>
+                                    ). No real trader drains cushion to the edge
+                                    on every withdrawal, so a lower value is
+                                    clamped up to this floor.
+                                </FieldDescription>
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="payout-request-size">
+                                    {
+                                        CALCULATOR_FIELD_LABELS.payoutRequestOverride
+                                    }
+                                </FieldLabel>
                                 <Input
                                     id="payout-request-size"
                                     min={0}
@@ -323,21 +448,80 @@ export default function TradingInputs({
                                     placeholder="Withdraw everything"
                                     step={100}
                                     type="number"
-                                    value={payoutRequestSize ?? ''}
+                                    value={payoutRequestSize?.toString() ?? ''}
                                 />
-                                <p className="mt-1 text-xs text-muted-foreground">
+                                <FieldDescription>
                                     How much to withdraw per payout. Empty means
                                     withdraw everything above the retained
                                     cushion.
-                                </p>
-                            </div>
-                            <div>
-                                <label
-                                    className="mb-1 block text-xs font-medium text-muted-foreground"
-                                    htmlFor="idle-day-probability"
-                                >
+                                </FieldDescription>
+                            </Field>
+                            {earlyWithdrawal === null ? null : (
+                                <Field>
+                                    <FieldLabel htmlFor="one-time-early-withdrawal">
+                                        One-time early withdrawal
+                                    </FieldLabel>
+                                    <Toggle
+                                        className="w-fit"
+                                        id="one-time-early-withdrawal"
+                                        onPressedChange={
+                                            onTakesOneTimeEarlyWithdrawalChange
+                                        }
+                                        pressed={takesOneTimeEarlyWithdrawal}
+                                        size="sm"
+                                        variant="outline"
+                                    >
+                                        {takesOneTimeEarlyWithdrawal
+                                            ? 'Taken'
+                                            : 'Not taken'}
+                                    </Toggle>
+                                    <FieldDescription>
+                                        Once, after the payout day gate and
+                                        before the buffer clears, withdraw up to{' '}
+                                        {formatPercent(
+                                            earlyWithdrawal.maxProfitShare,
+                                            0,
+                                        )}{' '}
+                                        of the profit (at least{' '}
+                                        {formatCurrency(
+                                            earlyWithdrawal.minRequest,
+                                        )}
+                                        ) while the rest stays. Counted as the
+                                        first payout, so the MLL moves to start
+                                        + $100 and locks, which leaves a thin
+                                        cushion. Off by default.
+                                    </FieldDescription>
+                                </Field>
+                            )}
+                            {fundedReset === null ? null : (
+                                <Field>
+                                    <FieldLabel htmlFor="funded-reset">
+                                        {fundedReset.label}
+                                    </FieldLabel>
+                                    <Toggle
+                                        className="w-fit"
+                                        id="funded-reset"
+                                        onPressedChange={
+                                            onTakesFundedResetChange
+                                        }
+                                        pressed={takesFundedReset}
+                                        size="sm"
+                                        variant="outline"
+                                    >
+                                        {takesFundedReset
+                                            ? 'Taken'
+                                            : 'Not taken'}
+                                    </Toggle>
+                                    <FieldDescription>
+                                        {describeFundedReset(fundedReset)} The
+                                        reset discount applies. Off by default.
+                                    </FieldDescription>
+                                </Field>
+                            )}
+                            <Field>
+                                <FieldLabel htmlFor="idle-day-probability">
                                     Idle-day probability
-                                </label>
+                                </FieldLabel>
                                 <Input
                                     id="idle-day-probability"
                                     max={1}
@@ -351,51 +535,82 @@ export default function TradingInputs({
                                     type="number"
                                     value={idleDayProbability}
                                 />
-                                <p className="mt-1 text-xs text-muted-foreground">
+                                <FieldDescription>
                                     Chance any given day has zero trades. Only
                                     matters for plans with a modeled
                                     inactivity-closure rule (e.g. MFFU Rapid
                                     EOD).
-                                </p>
-                            </div>
-                            <div>
-                                <label
-                                    className="mb-1 block text-xs font-medium text-muted-foreground"
-                                    htmlFor="rung-sizing"
-                                >
-                                    Unaffordable rung
-                                </label>
-                                <select
-                                    className="h-8 w-full rounded-md border bg-transparent px-2 text-xs"
-                                    id="rung-sizing"
+                                </FieldDescription>
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="live-transfer-hazard">
+                                    Live-transfer hazard per paid payout
+                                </FieldLabel>
+                                <Input
+                                    id="live-transfer-hazard"
+                                    max={1}
+                                    min={0}
                                     onChange={(event) =>
-                                        onRungSizingChange(
-                                            event.target.value as RungSizing,
+                                        onLiveTransferHazardChange(
+                                            Number(event.target.value),
                                         )
                                     }
+                                    step={0.01}
+                                    type="number"
+                                    value={liveTransferHazard}
+                                />
+                                <FieldDescription>
+                                    The chance, after each paid payout, that the
+                                    firm sends the account live, which ends its
+                                    simulated payouts. It is your assumption,
+                                    not a firm rule. 0 leaves transfers
+                                    unpriced, as before. Only the strategy lab
+                                    uses it; the results, sizing, compare and
+                                    the other tools stay unpriced. In the lab, a
+                                    scenario with an instrument and stop points
+                                    on a plan with a verified live plan
+                                    continues the account through it; otherwise
+                                    the rest of a transferred account is valued
+                                    at $0.
+                                </FieldDescription>
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor="rung-sizing">
+                                    {UNAFFORDABLE_RUNG_LABEL}
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={(value) => {
+                                        const parsed =
+                                            rungSizingSchema.safeParse(value);
+                                        if (parsed.success) {
+                                            onRungSizingChange(parsed.data);
+                                        }
+                                    }}
                                     value={rungSizing}
                                 >
-                                    <option value="capToCushion">
-                                        Cap to cushion
-                                    </option>
-                                    <option value="skipIfUnaffordable">
-                                        Skip trade
-                                    </option>
-                                </select>
-                            </div>
-                        </div>
+                                    <SelectTrigger id="rung-sizing">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {RUNG_SIZING_OPTIONS.map((option) => (
+                                            <SelectItem
+                                                key={option}
+                                                value={option}
+                                            >
+                                                {RUNG_SIZING_LABELS[option]}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </Field>
+                        </FieldGroup>
                     </PopoverContent>
                 </Popover>
             </div>
 
-            <div>
-                <div className="mb-2 flex items-center justify-between">
-                    <span
-                        className="text-xs font-medium text-muted-foreground"
-                        id="winrate-label"
-                    >
-                        Winrate
-                    </span>
+            <Field>
+                <div className="flex items-center justify-between">
+                    <FieldLabel id="winrate-label">Winrate</FieldLabel>
                     <span className="font-mono text-xs tabular-nums">
                         {formatPercent(winrate)}
                     </span>
@@ -410,16 +625,13 @@ export default function TradingInputs({
                     step={0.01}
                     value={[winrate]}
                 />
-            </div>
+            </Field>
 
-            <div>
-                <div className="mb-2 flex items-center justify-between">
-                    <span
-                        className="text-xs font-medium text-muted-foreground"
-                        id="rr-ratio-label"
-                    >
+            <Field>
+                <div className="flex items-center justify-between">
+                    <FieldLabel id="rr-ratio-label">
                         Reward : Risk (RR)
-                    </span>
+                    </FieldLabel>
                     <span className="font-mono text-xs tabular-nums">
                         {rrRatio.toFixed(2)} : 1
                     </span>
@@ -434,35 +646,74 @@ export default function TradingInputs({
                     step={0.1}
                     value={[rrRatio]}
                 />
-            </div>
+                <FieldDescription
+                    className="text-warning"
+                    id={PLAUSIBILITY_NOTE_ID}
+                    role="status"
+                >
+                    {plausibilityNote ?? ''}
+                </FieldDescription>
+            </Field>
+            {plausibilityNote !== null && (
+                <Field>
+                    <FieldLabel htmlFor="compounding-start">
+                        Compounding start ($)
+                    </FieldLabel>
+                    <Input
+                        aria-describedby={PLAUSIBILITY_NOTE_ID}
+                        id="compounding-start"
+                        inputMode="decimal"
+                        onBlur={() => {
+                            setCommittedCompoundStartText(compoundStartText);
+                        }}
+                        onChange={(event) => {
+                            setCompoundStartText(event.target.value);
+                        }}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                setCommittedCompoundStartText(
+                                    compoundStartText,
+                                );
+                            }
+                        }}
+                        placeholder="optional, Enter to apply"
+                        type="text"
+                        value={compoundStartText}
+                    />
+                </Field>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
-                <div>
-                    <label
-                        className="mb-2 block text-xs font-medium text-muted-foreground"
-                        htmlFor="trades-per-day"
-                    >
+                <Field>
+                    <FieldLabel htmlFor="trades-per-day">
                         Trades per day
-                    </label>
+                    </FieldLabel>
                     <Input
+                        aria-describedby={PLAUSIBILITY_NOTE_ID}
                         id="trades-per-day"
                         max={50}
                         min={1}
-                        onChange={(event) =>
-                            onTradesPerDayChange(Number(event.target.value))
-                        }
+                        onBlur={() => {
+                            setHeldTradesPerDay(null);
+                        }}
+                        onChange={(event) => {
+                            setHeldTradesPerDay((held) => held ?? tradesPerDay);
+                            onTradesPerDayChange(Number(event.target.value));
+                        }}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                setHeldTradesPerDay(null);
+                            }
+                        }}
                         step={1}
                         type="number"
                         value={tradesPerDay}
                     />
-                </div>
-                <div>
-                    <label
-                        className="mb-2 block text-xs font-medium text-muted-foreground"
-                        htmlFor="commission"
-                    >
+                </Field>
+                <Field>
+                    <FieldLabel htmlFor="commission">
                         Commission ($/trade)
-                    </label>
+                    </FieldLabel>
                     <Input
                         id="commission"
                         max={50}
@@ -474,19 +725,21 @@ export default function TradingInputs({
                         }
                         step={0.5}
                         type="number"
-                        value={commissionPerRoundTrip || ''}
+                        value={
+                            commissionPerRoundTrip === 0 ||
+                            Number.isNaN(commissionPerRoundTrip)
+                                ? ''
+                                : commissionPerRoundTrip
+                        }
                     />
-                </div>
+                </Field>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-                <div>
-                    <label
-                        className="mb-2 block text-xs font-medium text-muted-foreground"
-                        htmlFor="max-attempts"
-                    >
+                <Field>
+                    <FieldLabel htmlFor="max-attempts">
                         Max reset attempts
-                    </label>
+                    </FieldLabel>
                     <Input
                         id="max-attempts"
                         max={10}
@@ -498,20 +751,14 @@ export default function TradingInputs({
                         type="number"
                         value={maxAttempts}
                     />
-                    {maxAttempts > 1 && plan.fees.reset > 0 && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            Up to {maxAttempts - 1} resets at{' '}
-                            {`$${plan.fees.reset.toFixed(0)}`} each on bust.
-                        </p>
+                    {retryNote !== null && (
+                        <FieldDescription>{retryNote}</FieldDescription>
                     )}
-                </div>
-                <div>
-                    <label
-                        className="mb-2 block text-xs font-medium text-muted-foreground"
-                        htmlFor="copy-accounts"
-                    >
+                </Field>
+                <Field>
+                    <FieldLabel htmlFor="copy-accounts">
                         Copy-traded accounts
-                    </label>
+                    </FieldLabel>
                     <Input
                         id="copy-accounts"
                         max={maxCopyAccounts}
@@ -523,42 +770,41 @@ export default function TradingInputs({
                         type="number"
                         value={copyAccounts}
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <FieldDescription>
                         max {maxCopyAccounts} for {firmDisplayName}
-                    </p>
-                </div>
+                    </FieldDescription>
+                </Field>
             </div>
 
-            <div>
-                <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
+            <Field data-invalid={sizingRefusal !== null}>
+                <div className="flex items-center justify-between">
+                    <FieldLabel htmlFor={RISK_INPUT_ID}>
                         Risk per trade (1R)
-                    </span>
+                    </FieldLabel>
                     <ToggleGroup
+                        aria-label="Risk unit"
+                        className="w-auto"
                         onValueChange={(v: string) => {
-                            if (v) onSizingModeChange(v as SizingMode);
+                            const parsed = sizingModeSchema.safeParse(v);
+                            if (parsed.success) onSizingModeChange(parsed.data);
                         }}
                         size="sm"
                         type="single"
                         value={sizingMode}
                         variant="outline"
                     >
-                        <ToggleGroupItem
-                            className="h-6 px-2 text-xs"
-                            value={SizingMode.Dollar}
-                        >
+                        <ToggleGroupItem value={SizingMode.Dollar}>
                             $
                         </ToggleGroupItem>
-                        <ToggleGroupItem
-                            className="h-6 px-2 text-xs"
-                            value={SizingMode.Percent}
-                        >
+                        <ToggleGroupItem value={SizingMode.Percent}>
                             %
                         </ToggleGroupItem>
                     </ToggleGroup>
                 </div>
                 {sizingMode === SizingMode.Dollar ? (
                     <Input
+                        {...riskInputAria}
+                        id={RISK_INPUT_ID}
                         max={accountSize}
                         min={1}
                         onChange={(event) =>
@@ -570,6 +816,8 @@ export default function TradingInputs({
                     />
                 ) : (
                     <Input
+                        {...riskInputAria}
+                        id={RISK_INPUT_ID}
                         max={5}
                         min={0.05}
                         onChange={(event) =>
@@ -580,98 +828,114 @@ export default function TradingInputs({
                         value={riskPercent}
                     />
                 )}
-                <p className="mt-1 text-xs text-muted-foreground">
-                    {otherRepresentation}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                    {[0.25, 0.5, 1, 2, 5].map((preset) => {
-                        const isActive =
-                            sizingMode === SizingMode.Percent &&
-                            Math.abs(riskPercent - preset) < 0.01;
-                        return (
-                            <Button
-                                className="h-6 px-2 text-[11px]"
-                                key={preset}
-                                onClick={() => {
-                                    onSizingModeChange(SizingMode.Percent);
-                                    onRiskPercentChange(preset);
-                                }}
-                                size="sm"
-                                type="button"
-                                variant={isActive ? 'default' : 'outline'}
-                            >
-                                {preset}%
-                            </Button>
-                        );
-                    })}
-                </div>
-                <div className="mt-3 flex flex-wrap items-end gap-3">
-                    <div className="flex flex-col gap-1">
-                        <label
-                            className="text-xs font-medium text-muted-foreground"
-                            htmlFor="position-sizing-instrument"
-                        >
-                            Instrument (contract-limit enforcement)
-                        </label>
-                        <select
-                            className="h-8 rounded-md border bg-transparent px-2 text-xs"
-                            id="position-sizing-instrument"
-                            onChange={(event) =>
-                                onInstrumentChange(
-                                    event.target.value === ''
-                                        ? null
-                                        : (event.target
-                                              .value as InstrumentSymbol),
-                                )
+                <FieldDescription>{otherRepresentation}</FieldDescription>
+                <ToggleGroup
+                    aria-label="Risk percent presets"
+                    className="flex-wrap justify-start"
+                    onValueChange={(value: string) => {
+                        if (value === NO_RISK_PRESET) return;
+                        onSizingModeChange(SizingMode.Percent);
+                        onRiskPercentChange(Number(value));
+                    }}
+                    size="sm"
+                    type="single"
+                    value={activeRiskPreset(sizingMode, riskPercent)}
+                    variant="outline"
+                >
+                    {RISK_PERCENT_PRESETS.map((preset) => (
+                        <ToggleGroupItem key={preset} value={String(preset)}>
+                            {preset}%
+                        </ToggleGroupItem>
+                    ))}
+                </ToggleGroup>
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+                <Field>
+                    <FieldLabel htmlFor="position-sizing-instrument">
+                        {CALCULATOR_FIELD_LABELS.instrument}
+                    </FieldLabel>
+                    <Select
+                        onValueChange={(value) => {
+                            if (value === INSTRUMENT_NOT_ENFORCED) {
+                                onInstrumentChange(null);
+                                return;
                             }
-                            value={instrument ?? ''}
-                        >
-                            <option value="">Not enforced</option>
+                            const parsed =
+                                instrumentSymbolSchema.safeParse(value);
+                            if (parsed.success) {
+                                onInstrumentChange(parsed.data);
+                            }
+                        }}
+                        value={instrument ?? INSTRUMENT_NOT_ENFORCED}
+                    >
+                        <SelectTrigger id="position-sizing-instrument">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value={INSTRUMENT_NOT_ENFORCED}>
+                                Not enforced
+                            </SelectItem>
                             {ALL_INSTRUMENTS.map((spec) => (
-                                <option key={spec.symbol} value={spec.symbol}>
-                                    {spec.symbol} (${spec.pointValue}/pt)
-                                </option>
+                                <SelectItem
+                                    key={spec.symbol}
+                                    value={spec.symbol}
+                                >
+                                    {spec.symbol} (
+                                    {formatGateCurrency(spec.pointValue)}/pt)
+                                </SelectItem>
                             ))}
-                        </select>
-                    </div>
-                    {instrument === null ? null : (
-                        <div className="flex flex-col gap-1">
-                            <label
-                                className="text-xs font-medium text-muted-foreground"
-                                htmlFor="position-sizing-stop"
-                            >
-                                Stop distance (points)
-                            </label>
-                            <Input
-                                className="w-28"
-                                id="position-sizing-stop"
-                                min={0.25}
-                                onChange={(event) =>
-                                    onStopPointsChange(
-                                        Number(event.target.value),
-                                    )
-                                }
-                                step={0.25}
-                                type="number"
-                                value={stopPoints ?? ''}
-                            />
-                        </div>
+                        </SelectContent>
+                    </Select>
+                </Field>
+                {instrument === null ? null : (
+                    <Field data-invalid={sizingRefusal !== null}>
+                        <FieldLabel htmlFor="position-sizing-stop">
+                            {CALCULATOR_FIELD_LABELS.stopPoints}
+                        </FieldLabel>
+                        <Input
+                            {...riskInputAria}
+                            id="position-sizing-stop"
+                            min={0.25}
+                            onChange={(event) =>
+                                onStopPointsChange(Number(event.target.value))
+                            }
+                            step={0.25}
+                            type="number"
+                            value={stopPoints ?? ''}
+                        />
+                    </Field>
+                )}
+            </div>
+            {instrument === null || stopPoints === null ? null : (
+                <FieldDescription>
+                    {isRiskCappedByContracts
+                        ? `Capped to ${formatCurrency(feasibleRisk)}/trade in eval - ${evalContractCap ?? '?'} ${positionSizingSpec?.isMicro ? 'micro' : 'mini'} contract limit at a ${stopPoints}pt stop`
+                        : `Fits within the eval contract limit at a ${stopPoints}pt stop`}
+                </FieldDescription>
+            )}
+            {isSizingHintShown ? (
+                <div className="flex flex-col gap-1" id={SIZING_HINT_ID}>
+                    {placedRisk === null ? null : (
+                        <FieldDescription>
+                            {describePlacedFundedRisk(placedRisk)}
+                        </FieldDescription>
+                    )}
+                    {sizingRefusal === null ? null : (
+                        <FieldError>{sizingRefusal}</FieldError>
                     )}
                 </div>
-                {instrument !== null && stopPoints !== null ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        {isRiskCappedByContracts
-                            ? `Capped to ${formatCurrency(feasibleRisk)}/trade in eval - ${evalContractLimit ?? '?'} ${positionSizingSpec?.isMicro ? 'micro' : 'mini'} contract limit at a ${stopPoints}pt stop`
-                            : `Fits within the eval contract limit at a ${stopPoints}pt stop`}
-                    </p>
-                ) : null}
-            </div>
+            ) : null}
 
-            <div className="border-t border-border/50 pt-4">
-                <div className="mb-3 flex items-center justify-between">
-                    <Eyebrow as="h4">Coupon</Eyebrow>
+            <Separator />
+            <section
+                aria-labelledby={COUPON_HEADING_ID}
+                className="flex flex-col gap-3"
+            >
+                <div className="flex items-center justify-between">
+                    <Eyebrow as="h4" id={COUPON_HEADING_ID}>
+                        Coupon
+                    </Eyebrow>
                     <Button
-                        className="h-7 px-2 text-xs"
                         disabled={
                             evalDiscountPercent === 0 &&
                             activationDiscountPercent === 0 &&
@@ -688,114 +952,58 @@ export default function TradingInputs({
                     </Button>
                 </div>
 
-                <div className="flex flex-col gap-3">
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs font-medium text-muted-foreground"
-                                htmlFor="eval-discount"
-                            >
+                <FieldGroup className="gap-4">
+                    <Field>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel htmlFor="eval-discount">
                                 Eval fee discount
-                            </label>
+                            </FieldLabel>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {plan.fees.oneTimeEval > 0
-                                    ? evalDiscountPercent > 0
-                                        ? `${formatCompactCurrency(
-                                              plan.fees.oneTimeEval,
-                                          )} → ${formatCompactCurrency(
-                                              plan.fees.oneTimeEval *
-                                                  (1 -
-                                                      evalDiscountPercent /
-                                                          100),
-                                          )}`
-                                        : formatCompactCurrency(
-                                              plan.fees.oneTimeEval,
-                                          )
-                                    : 'no eval fee'}
+                                {describeEvalFee(plan.fees, purchaseDiscounts)}
                             </span>
                         </div>
-                        <div className="relative">
-                            <Input
-                                className="pr-7"
-                                id="eval-discount"
-                                max={100}
-                                min={0}
-                                onChange={(event) =>
-                                    onEvalDiscountPercentChange(
-                                        Number(event.target.value),
-                                    )
-                                }
-                                step={1}
-                                type="number"
-                                value={evalDiscountPercent || ''}
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                %
-                            </span>
-                        </div>
-                    </div>
+                        <PercentInput
+                            id="eval-discount"
+                            onChange={onEvalDiscountPercentChange}
+                            value={evalDiscountPercent}
+                        />
+                        <FieldDescription>
+                            {EVAL_DISCOUNT_REBUY_NOTE}
+                        </FieldDescription>
+                    </Field>
 
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs font-medium text-muted-foreground"
-                                htmlFor="activation-discount"
-                            >
+                    <Field
+                        data-disabled={
+                            plan.fees.activation === 0 || linkActivationDiscount
+                        }
+                    >
+                        <div className="flex items-center justify-between">
+                            <FieldLabel htmlFor="activation-discount">
                                 Activation fee discount
-                            </label>
+                            </FieldLabel>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {plan.fees.activation > 0
-                                    ? (() => {
-                                          const effectiveDiscount =
-                                              linkActivationDiscount
-                                                  ? evalDiscountPercent
-                                                  : activationDiscountPercent;
-                                          return effectiveDiscount > 0
-                                              ? `${formatCompactCurrency(
-                                                    plan.fees.activation,
-                                                )} → ${formatCompactCurrency(
-                                                    plan.fees.activation *
-                                                        (1 -
-                                                            effectiveDiscount /
-                                                                100),
-                                                )}`
-                                              : formatCompactCurrency(
-                                                    plan.fees.activation,
-                                                );
-                                      })()
-                                    : 'no activation fee'}
+                                {describeActivationFee(
+                                    plan.fees,
+                                    purchaseDiscounts,
+                                )}
                             </span>
                         </div>
                         <div className="flex items-stretch gap-2">
-                            <div className="relative flex-1">
-                                <Input
-                                    className="pr-7"
-                                    disabled={
-                                        plan.fees.activation === 0 ||
-                                        linkActivationDiscount
-                                    }
-                                    id="activation-discount"
-                                    max={100}
-                                    min={0}
-                                    onChange={(event) =>
-                                        onActivationDiscountPercentChange(
-                                            Number(event.target.value),
-                                        )
-                                    }
-                                    step={1}
-                                    type="number"
-                                    value={
-                                        (linkActivationDiscount
-                                            ? evalDiscountPercent
-                                            : activationDiscountPercent) || ''
-                                    }
-                                />
-                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                    %
-                                </span>
-                            </div>
+                            <PercentInput
+                                id="activation-discount"
+                                isDisabled={
+                                    plan.fees.activation === 0 ||
+                                    linkActivationDiscount
+                                }
+                                onChange={onActivationDiscountPercentChange}
+                                value={
+                                    linkActivationDiscount
+                                        ? evalDiscountPercent
+                                        : activationDiscountPercent
+                                }
+                            />
                             <Toggle
-                                className="text-xs whitespace-nowrap"
+                                className="whitespace-nowrap"
                                 disabled={plan.fees.activation === 0}
                                 onPressedChange={onLinkActivationDiscountChange}
                                 pressed={linkActivationDiscount}
@@ -805,101 +1013,57 @@ export default function TradingInputs({
                                 Match eval
                             </Toggle>
                         </div>
-                    </div>
+                    </Field>
 
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs font-medium text-muted-foreground"
-                                htmlFor="monthly-subscription-discount"
-                            >
+                    <Field data-disabled={plan.fees.monthlySubscription === 0}>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel htmlFor="monthly-subscription-discount">
                                 Monthly subscription discount
-                            </label>
+                            </FieldLabel>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {plan.fees.monthlySubscription > 0
-                                    ? monthlySubscriptionDiscountPercent > 0
-                                        ? `${formatCompactCurrency(
-                                              plan.fees.monthlySubscription,
-                                          )} → ${formatCompactCurrency(
-                                              plan.fees.monthlySubscription *
-                                                  (1 -
-                                                      monthlySubscriptionDiscountPercent /
-                                                          100),
-                                          )}`
-                                        : formatCompactCurrency(
-                                              plan.fees.monthlySubscription,
-                                          )
-                                    : 'no monthly subscription'}
+                                {describeMonthlySubscriptionFee(
+                                    plan.fees,
+                                    purchaseDiscounts,
+                                )}
                             </span>
                         </div>
-                        <div className="relative">
-                            <Input
-                                className="pr-7"
-                                disabled={plan.fees.monthlySubscription === 0}
-                                id="monthly-subscription-discount"
-                                max={100}
-                                min={0}
-                                onChange={(event) =>
-                                    onMonthlySubscriptionDiscountPercentChange(
-                                        Number(event.target.value),
-                                    )
-                                }
-                                step={1}
-                                type="number"
-                                value={monthlySubscriptionDiscountPercent || ''}
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                %
-                            </span>
-                        </div>
-                    </div>
+                        <PercentInput
+                            id="monthly-subscription-discount"
+                            isDisabled={plan.fees.monthlySubscription === 0}
+                            onChange={
+                                onMonthlySubscriptionDiscountPercentChange
+                            }
+                            value={monthlySubscriptionDiscountPercent}
+                        />
+                    </Field>
 
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs font-medium text-muted-foreground"
-                                htmlFor="reset-discount"
-                            >
+                    <Field data-disabled={!hasResetOption(plan.fees)}>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel htmlFor="reset-discount">
                                 Reset fee discount
-                            </label>
+                            </FieldLabel>
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                {plan.fees.reset > 0
-                                    ? resetDiscountPercent > 0
-                                        ? `${formatCompactCurrency(
-                                              plan.fees.reset,
-                                          )} → ${formatCompactCurrency(
-                                              plan.fees.reset *
-                                                  (1 -
-                                                      resetDiscountPercent /
-                                                          100),
-                                          )}`
-                                        : formatCompactCurrency(plan.fees.reset)
-                                    : 'no reset fee'}
+                                {describeResetFee(plan.fees, purchaseDiscounts)}
                             </span>
                         </div>
-                        <div className="relative">
-                            <Input
-                                className="pr-7"
-                                disabled={plan.fees.reset === 0}
-                                id="reset-discount"
-                                max={100}
-                                min={0}
-                                onChange={(event) =>
-                                    onResetDiscountPercentChange(
-                                        Number(event.target.value),
-                                    )
-                                }
-                                step={1}
-                                type="number"
-                                value={resetDiscountPercent || ''}
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                %
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                        <PercentInput
+                            id="reset-discount"
+                            isDisabled={!hasResetOption(plan.fees)}
+                            onChange={onResetDiscountPercentChange}
+                            value={resetDiscountPercent}
+                        />
+                    </Field>
+                </FieldGroup>
+            </section>
         </div>
     );
+}
+
+function activeRiskPreset(sizingMode: SizingMode, riskPercent: number): string {
+    if (sizingMode !== SizingMode.Percent) return NO_RISK_PRESET;
+    const preset = RISK_PERCENT_PRESETS.find(
+        (candidate) =>
+            Math.abs(riskPercent - candidate) < RISK_PRESET_TOLERANCE,
+    );
+    return preset === undefined ? NO_RISK_PRESET : String(preset);
 }

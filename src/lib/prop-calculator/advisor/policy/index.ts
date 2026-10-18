@@ -1,0 +1,76 @@
+export {
+    COPY_SPLIT_CORRELATION_NOTE,
+    COPY_SPLIT_MIN_TRIALS,
+    COPY_SPLIT_NOISE_SIGMAS,
+    copySplitBasisLines,
+    type CopySplitCandidate,
+    copySplitCandidates,
+    type CopySplitFundedSizing,
+    CopySplitFundedSource,
+    type CopySplitPlacement,
+    type CopySplitRefusedCandidate,
+    type CopySplitRefusedRow,
+    type CopySplitResult,
+    type CopySplitRow,
+    CopySplitRowKind,
+    type CopySplitSimulatedCandidate,
+    type CopySplitSimulatedRow,
+    copySplitTrials,
+    DEFAULT_COPY_SPLIT_FUNDED,
+    rankCopySplitRows,
+    type RankedCopySplitRows,
+    runCopySplit,
+} from './CopySplit';
+export {
+    DayLedger,
+    DOCUMENTED_POLICY_DISCLOSURE_TEXT,
+    documentedDayRisk,
+    DocumentedPolicyDisclosure,
+} from './DocumentedDayRisk';
+export {
+    buildDocumentedDayPolicies,
+    cappedFundedRisk,
+    cappedRisk,
+    type DocumentedDayPolicies,
+    documentedFundedRisk,
+    documentedFundedTakeProfit,
+    documentedFundedTrades,
+    documentedLiveTransferHazard,
+    documentedSizedFundedRisk,
+    pricedCumulativeTriggerAssumptionOf,
+    resolveDocumentedPayoutRequestSize,
+    resolveDocumentedPlan,
+    resolveDocumentedRetainedCushion,
+    toSimInputs,
+    verifiedCumulativeTriggerOf,
+} from './documentedPolicySimInputs';
+export {
+    type DocumentedPolicyRun,
+    type DocumentedPolicySpec,
+    documentedPolicySpecSchema,
+} from './DocumentedPolicySpec';
+export {
+    applicableTimelineGaps,
+    DOCUMENTED_POLICY_TIMELINE_GAP_TEXT,
+    DOCUMENTED_POLICY_TIMELINE_GAPS,
+    DocumentedPolicyTimelineGap,
+    documentedPolicyTimelineInputs,
+} from './documentedPolicyTimelineInputs';
+export {
+    type EnginePolicy,
+    enginePolicySchema,
+    hasDayLimits,
+    hasPersonalCaps,
+    LifetimePayoutCapBasis,
+    MAX_COMMISSION_PER_ROUND_TRIP,
+    MAX_INTRADAY_PATH_STEPS_PER_R,
+    RebuyLagBasis,
+} from './EnginePolicy';
+export {
+    applyPersonalDayLimits,
+    ladderUnderPersonalDayLimits,
+    type PersonalDayLimits,
+    personalDayLimitsOf,
+    personalDayLimitsOfPolicy,
+    withPersonalDayLimits,
+} from './PersonalDayLimits';

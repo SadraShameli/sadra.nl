@@ -1,25 +1,24 @@
 'use client';
 
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    ReferenceLine,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Bar, BarChart, ReferenceLine, XAxis, YAxis } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_REFERENCE_LINE_PROPS,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+    type ChartSize,
+} from '~/components/ui/chart';
 import { histogram } from '~/lib/prop-calculator/stats';
-import { cn } from '~/lib/utilities';
 
 interface HistogramChartViewProperties {
-    aspectClassName: string;
     barColor: string;
     barLabel: string;
     binCount: number;
     emptyMessage: string;
     referenceLines?: readonly HistogramReferenceLine[];
+    size: ChartSize;
     values: readonly number[];
     wrapperClassName: string;
     xAxisLabel: string;
@@ -38,12 +37,12 @@ interface HistogramRow {
 }
 
 export default function HistogramChartView({
-    aspectClassName,
     barColor,
     barLabel,
     binCount,
     emptyMessage,
     referenceLines = [],
+    size,
     values,
     wrapperClassName,
     xAxisLabel,
@@ -68,16 +67,16 @@ export default function HistogramChartView({
 
     return (
         <ChartContainer
-            className={cn(wrapperClassName, aspectClassName)}
+            className={wrapperClassName}
             config={chartConfig}
+            size={size}
         >
             <BarChart
                 data={bins}
                 margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid stroke="#ccc" strokeDasharray="3 3" />
                 <XAxis
-                    axisLine={false}
+                    {...CHART_X_AXIS_PROPS}
                     dataKey="center"
                     label={{
                         fontSize: 11,
@@ -86,22 +85,19 @@ export default function HistogramChartView({
                         value: xAxisLabel,
                     }}
                     tickFormatter={xAxisTickFormatter}
-                    tickLine={false}
-                    tickMargin={6}
                 />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     label={{
                         angle: -90,
                         fontSize: 11,
                         position: 'insideLeft',
                         value: 'Trials',
                     }}
-                    tickLine={false}
-                    width={40}
                 />
                 {referenceLines.map((line) => (
                     <ReferenceLine
+                        {...CHART_REFERENCE_LINE_PROPS}
                         key={line.label}
                         label={{
                             fill: line.color,
@@ -110,7 +106,6 @@ export default function HistogramChartView({
                             value: line.label,
                         }}
                         stroke={line.color}
-                        strokeDasharray="4 4"
                         x={line.x}
                     />
                 ))}

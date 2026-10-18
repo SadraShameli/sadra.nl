@@ -1,12 +1,20 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 
-import { zodErrorResponse } from '~/lib/schemas/api';
+import {
+    parseSearchParameters,
+    readingsPageQuerySchema,
+    zodErrorResponse,
+} from '~/lib/schemas/api';
 import { readingCreateProperties } from '~/lib/schemas/sensor';
+import { markIotReadingsStale } from '~/server/iot/IotPublicReads';
 import { api } from '~/trpc/server';
 
-export async function GET() {
-    const result = await api.reading.getReadings();
+export async function GET(request: NextRequest) {
+    const page = parseSearchParameters(readingsPageQuerySchema, request);
+    if (page.response) return page.response;
+
+    const result = await api.reading.getReadings(page.data);
     return NextResponse.json(result.data);
 }
 
@@ -20,9 +28,9 @@ export async function POST(request: NextRequest) {
                 ? result.status
                 : 500;
 
-        return status === 201
-            ? new NextResponse(null, { status: 201 })
-            : NextResponse.json(result, { status });
+        if (status !== 201) return NextResponse.json(result, { status });
+        markIotReadingsStale();
+        return new NextResponse(null, { status: 201 });
     } catch (error) {
         return error instanceof ZodError
             ? zodErrorResponse(error)

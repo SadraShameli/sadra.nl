@@ -1,25 +1,30 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, Pencil, Plus, Radio, Ruler, Trash2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Check, Pencil, Plus, Radio, Ruler, X } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
+import { ProfileTextField } from '~/app/(app)/profile/_components/ProfileFormFields';
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
+    MutedCell,
+    PrimaryCell,
+    profileActionsColumn,
+    ProfileDateCell,
+    ProfileDatePrecision,
+    ProfileTableEmpty,
+    RowActionButton,
+    RowConfirmAction,
+} from '~/app/(app)/profile/_components/ProfileTable';
+import { Button } from '~/components/ui/button';
+import {
+    DataTable,
+    type DataTableColumn,
+    hasActiveTableFilter,
+} from '~/components/ui/data-table';
 import {
     Dialog,
     DialogContent,
@@ -27,25 +32,17 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/dialog';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/select';
+import { Separator } from '~/components/ui/separator';
 import {
     type SensorCreateInput,
     sensorCreateSchema,
@@ -55,6 +52,8 @@ import {
     sensorUnitUpdateSchema,
 } from '~/lib/schemas/sensor-hub';
 import { api } from '~/trpc/react';
+
+import { SensorHubScopeFilters, useSensorHubScope } from './SensorHubScope';
 
 type SensorRow = {
     created_at: Date;
@@ -69,6 +68,9 @@ export function SensorsPanel() {
     const utilities = api.useUtils();
     const sensors = api.sensor.listAdmin.useQuery();
     const units = api.sensorUnit.list.useQuery();
+    const locations = api.location.listAdmin.useQuery();
+    const devices = api.device.listAdmin.useQuery();
+    const mappings = api.sensor.listDeviceMappings.useQuery();
     const create = api.sensor.create.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
@@ -94,146 +96,178 @@ export function SensorsPanel() {
     const [newOpen, setNewOpen] = useState(false);
     const [editing, setEditing] = useState<null | SensorRow>(null);
     const [unitsOpen, setUnitsOpen] = useState(false);
+    const scope = useSensorHubScope();
+    const { deviceId, locationId } = scope.scope;
 
-    const rows = sensors.data ?? [];
     const unitOptions = units.data ?? [];
+    const deviceRows = useMemo(() => devices.data ?? [], [devices.data]);
+
+    const sensorLinks = useMemo(() => {
+        const locationOfDevice = new Map(
+            deviceRows.map((device) => [device.id, device.location_id]),
+        );
+        return (mappings.data ?? []).map((mapping) => ({
+            deviceId: mapping.device_id,
+            locationId: locationOfDevice.get(mapping.device_id),
+            sensorId: mapping.sensor_id,
+        }));
+    }, [deviceRows, mappings.data]);
+
+    const counts = useMemo(() => {
+        const sensorsByLocation = new Map<number, Set<number>>();
+        const device = new Map<number, number>();
+        for (const link of sensorLinks) {
+            device.set(link.deviceId, (device.get(link.deviceId) ?? 0) + 1);
+            if (link.locationId === undefined) continue;
+            const set = sensorsByLocation.get(link.locationId) ?? new Set();
+            set.add(link.sensorId);
+            sensorsByLocation.set(link.locationId, set);
+        }
+        const location = new Map(
+            [...sensorsByLocation].map(([id, set]) => [id, set.size]),
+        );
+        return { device, location };
+    }, [sensorLinks]);
+
+    const rows = useMemo(() => {
+        const all = sensors.data ?? [];
+        if (deviceId === undefined && locationId === undefined) return all;
+        const inScope = new Set(
+            sensorLinks
+                .filter(
+                    (link) =>
+                        (deviceId === undefined ||
+                            link.deviceId === deviceId) &&
+                        (locationId === undefined ||
+                            link.locationId === locationId),
+                )
+                .map((link) => link.sensorId),
+        );
+        return all.filter((sensor) => inScope.has(sensor.id));
+    }, [deviceId, locationId, sensorLinks, sensors.data]);
 
     const columns = useMemo<DataTableColumn<SensorRow>[]>(
         () => [
             {
                 accessorKey: 'name',
                 cell: ({ row }) => (
-                    <span className="font-medium text-white">
-                        {row.original.name}
-                    </span>
+                    <PrimaryCell>{row.original.name}</PrimaryCell>
                 ),
                 header: 'Name',
             },
             {
                 accessorKey: 'unit',
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {row.original.unit}
-                    </span>
-                ),
+                cell: ({ row }) => <MutedCell>{row.original.unit}</MutedCell>,
                 header: 'Unit',
             },
             {
                 accessorKey: 'created_at',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {new Date(row.original.created_at).toLocaleDateString()}
-                    </span>
+                    <ProfileDateCell
+                        precision={ProfileDatePrecision.Day}
+                        value={row.original.created_at}
+                    />
                 ),
                 header: 'Created',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex justify-end gap-2">
-                        <Button
-                            onClick={() => setEditing(row.original)}
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline">
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete sensor &ldquo;{row.original.name}
-                                        &rdquo;?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Removes its device mappings. Fails if
-                                        readings reference it.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            del.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            profileActionsColumn<SensorRow>((sensor) => (
+                <>
+                    <RowActionButton
+                        icon={Pencil}
+                        label="Edit sensor"
+                        onClick={() => setEditing(sensor)}
+                    />
+                    <RowConfirmAction
+                        description="Removes its device mappings. Fails if readings reference it."
+                        label="Delete sensor"
+                        onConfirm={() => del.mutate({ id: sensor.id })}
+                        title={`Delete sensor “${sensor.name}”?`}
+                    />
+                </>
+            )),
         ],
         [del],
     );
 
+    const newButton = (
+        <DialogTrigger asChild>
+            <Button size="sm">
+                <Plus className="size-4" />
+                New sensor
+            </Button>
+        </DialogTrigger>
+    );
+
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Sensors</CardTitle>
-                <div className="flex flex-wrap gap-2">
-                    <Dialog onOpenChange={setUnitsOpen} open={unitsOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm" variant="outline">
-                                <Ruler className="mr-1 size-4" />
+        <>
+            <Dialog onOpenChange={setNewOpen} open={newOpen}>
+                <ProfilePanel
+                    action={
+                        <>
+                            <Button
+                                onClick={() => setUnitsOpen(true)}
+                                size="sm"
+                                variant="outline"
+                            >
+                                <Ruler className="size-4" />
                                 Manage units
                             </Button>
-                        </DialogTrigger>
-                        <UnitsManagerDialog
-                            onClose={() => setUnitsOpen(false)}
-                            units={unitOptions}
-                        />
-                    </Dialog>
-                    <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm">
-                                <Plus className="mr-1 size-4" />
-                                New sensor
-                            </Button>
-                        </DialogTrigger>
-                        <SensorDialog
-                            initial={null}
-                            onClose={() => setNewOpen(false)}
-                            onSubmit={(v) =>
-                                create.mutate(v, {
-                                    onSuccess: () => setNewOpen(false),
-                                })
-                            }
-                            pending={create.isPending}
-                            units={unitOptions}
-                        />
-                    </Dialog>
-                </div>
-            </CardHeader>
-            <Separator />
-            <CardContent>
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={
-                        <EmptyState
-                            description="Add a sensor to track readings from your devices."
-                            icon={Radio}
-                            title="No sensors yet"
-                        />
+                            {newButton}
+                        </>
                     }
-                    isLoading={sensors.isLoading}
-                    rowId={(r) => String(r.id)}
-                    showFilter
+                    description="What each device measures, and the units readings use."
+                    title="Sensors"
+                >
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={(table) => (
+                            <ProfileTableEmpty
+                                action={newButton}
+                                description="Add a sensor to track readings from your devices."
+                                filtered={
+                                    scope.isActive ||
+                                    hasActiveTableFilter(table)
+                                }
+                                icon={Radio}
+                                noun="sensors"
+                            />
+                        )}
+                        filterPlaceholder="Search sensors…"
+                        hasExternalFilters={scope.isActive}
+                        headerActions={
+                            <SensorHubScopeFilters
+                                controller={scope}
+                                counts={counts}
+                                devices={deviceRows}
+                                locations={locations.data ?? []}
+                            />
+                        }
+                        isLoading={sensors.isLoading}
+                        onResetFilters={scope.reset}
+                        rowId={(r) => String(r.id)}
+                        showFilter
+                    />
+                </ProfilePanel>
+                <SensorDialog
+                    initial={null}
+                    onClose={() => setNewOpen(false)}
+                    onSubmit={(v) =>
+                        create.mutate(v, {
+                            onSuccess: () => setNewOpen(false),
+                        })
+                    }
+                    pending={create.isPending}
+                    units={unitOptions}
                 />
-            </CardContent>
+            </Dialog>
+
+            <Dialog onOpenChange={setUnitsOpen} open={unitsOpen}>
+                <UnitsManagerDialog
+                    onClose={() => setUnitsOpen(false)}
+                    units={unitOptions}
+                />
+            </Dialog>
 
             <Dialog
                 onOpenChange={(o) => !o && setEditing(null)}
@@ -254,7 +288,7 @@ export function SensorsPanel() {
                     />
                 )}
             </Dialog>
-        </Card>
+        </>
     );
 }
 
@@ -278,77 +312,52 @@ function SensorDialog({
         },
         resolver: zodResolver(sensorCreateSchema),
     });
+    const formId = useId();
     return (
-        <DialogContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {initial ? 'Edit sensor' : 'New sensor'}
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 flex flex-col gap-3">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Name</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            placeholder="Temperature"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="unit"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Unit</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pick a unit" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {units.map((u) => (
-                                                <SelectItem
-                                                    key={u.id}
-                                                    value={u.value}
-                                                >
-                                                    {u.value}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                    <DialogFooter className="mt-4">
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button
-                            disabled={pending || units.length === 0}
-                            type="submit"
+        <ProfileFormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={onSubmit}
+            pending={pending}
+            submitDisabled={units.length === 0}
+            submitLabel={initial ? 'Save' : 'Create'}
+            title={initial ? 'Edit sensor' : 'New sensor'}
+        >
+            <ProfileTextField
+                control={form.control}
+                label="Name"
+                name="name"
+                placeholder="Temperature"
+            />
+            <Controller
+                control={form.control}
+                name="unit"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-unit`}>Unit</FieldLabel>
+                        <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
                         >
-                            {initial ? 'Save' : 'Create'}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
-        </DialogContent>
+                            <SelectTrigger
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-unit`}
+                            >
+                                <SelectValue placeholder="Pick a unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {units.map((u) => (
+                                    <SelectItem key={u.id} value={u.value}>
+                                        {u.value}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+        </ProfileFormDialog>
     );
 }
 
@@ -374,43 +383,25 @@ function UnitRowEditor({
         defaultValues: { id: unit.id, value: unit.value },
         resolver: zodResolver(sensorUnitUpdateSchema),
     });
+    const formId = useId();
     if (!editing) {
         return (
             <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background px-3 py-2">
-                <span className="font-mono text-sm text-white">
+                <span className="font-mono text-sm text-foreground">
                     {unit.value}
                 </span>
-                <div className="flex gap-1">
-                    <Button
+                <div className="flex items-center gap-1">
+                    <RowActionButton
+                        icon={Pencil}
+                        label="Rename unit"
                         onClick={() => setEditing(true)}
-                        size="sm"
-                        variant="ghost"
-                    >
-                        <Pencil className="size-3.5" />
-                    </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="ghost">
-                                <Trash2 className="size-3.5" />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Delete unit &ldquo;{unit.value}&rdquo;?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Fails if any sensor still uses this unit.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={onDelete}>
-                                    Delete
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    />
+                    <RowConfirmAction
+                        description="Fails if any sensor still uses this unit."
+                        label="Delete unit"
+                        onConfirm={onDelete}
+                        title={`Delete unit “${unit.value}”?`}
+                    />
                 </div>
             </div>
         );
@@ -419,47 +410,49 @@ function UnitRowEditor({
     const onSubmit = form.handleSubmit((values) => update.mutate(values));
 
     return (
-        <Form {...form}>
-            <form
-                className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-2"
-                onSubmit={onSubmit}
+        <form
+            className="flex items-center gap-2 rounded-md border border-border/60 bg-background p-2"
+            onSubmit={onSubmit}
+        >
+            <Controller
+                control={form.control}
+                name="value"
+                render={({ field, fieldState }) => (
+                    <Field className="flex-1" data-invalid={fieldState.invalid}>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            className="h-8 font-mono text-sm"
+                            id={`${formId}-value`}
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Button
+                aria-label="Save unit"
+                disabled={update.isPending}
+                size="icon-sm"
+                title="Save unit"
+                type="submit"
+                variant="ghost"
             >
-                <FormField
-                    control={form.control}
-                    name="value"
-                    render={({ field }) => (
-                        <FormItem className="flex-1">
-                            <FormControl>
-                                <Input
-                                    className="h-8 font-mono text-sm"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button
-                    disabled={update.isPending}
-                    size="sm"
-                    type="submit"
-                    variant="outline"
-                >
-                    <Check className="size-3.5" />
-                </Button>
-                <Button
-                    onClick={() => {
-                        form.reset({ id: unit.id, value: unit.value });
-                        setEditing(false);
-                    }}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                >
-                    <X className="size-3.5" />
-                </Button>
-            </form>
-        </Form>
+                <Check className="size-4" />
+            </Button>
+            <Button
+                aria-label="Cancel rename"
+                onClick={() => {
+                    form.reset({ id: unit.id, value: unit.value });
+                    setEditing(false);
+                }}
+                size="icon-sm"
+                title="Cancel rename"
+                type="button"
+                variant="ghost"
+            >
+                <X className="size-4" />
+            </Button>
+        </form>
     );
 }
 
@@ -470,6 +463,7 @@ function UnitsManagerDialog({
     onClose: () => void;
     units: UnitRow[];
 }) {
+    const formId = useId();
     const utilities = api.useUtils();
     const invalidate = async () => {
         await Promise.all([
@@ -506,35 +500,35 @@ function UnitsManagerDialog({
             <DialogHeader>
                 <DialogTitle>Manage units</DialogTitle>
             </DialogHeader>
-            <Form {...unitCreateForm}>
-                <form className="mt-2 flex flex-col gap-3" onSubmit={onAdd}>
-                    <FormField
-                        control={unitCreateForm.control}
-                        name="value"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>New unit</FormLabel>
-                                <div className="flex gap-2">
-                                    <FormControl>
-                                        <Input
-                                            placeholder="e.g. lux"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <Button
-                                        disabled={create.isPending}
-                                        type="submit"
-                                    >
-                                        <Plus className="mr-1 size-4" />
-                                        Add
-                                    </Button>
-                                </div>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </form>
-            </Form>
+            <form className="mt-2 flex flex-col gap-3" onSubmit={onAdd}>
+                <Controller
+                    control={unitCreateForm.control}
+                    name="value"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-value`}>
+                                New unit
+                            </FieldLabel>
+                            <div className="flex gap-2">
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-value`}
+                                    placeholder="e.g. lux"
+                                    {...field}
+                                />
+                                <Button
+                                    disabled={create.isPending}
+                                    type="submit"
+                                >
+                                    <Plus className="size-4" />
+                                    Add
+                                </Button>
+                            </div>
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+            </form>
 
             <Separator className="my-2" />
 

@@ -1,5 +1,6 @@
-import { Badge } from '~/components/ui/Badge';
+import { FILTER_CONTROL_CLASS } from '~/components/ui/filter-control';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
+import { cn } from '~/lib/utilities';
 
 export function ActiveConnectionNote({
     credential,
@@ -11,15 +12,16 @@ export function ActiveConnectionNote({
     const descriptor = credential
         ? CredentialRegistry.instance.get(credential.kind)
         : undefined;
-    return (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {credential ? (
-                <Badge className="font-normal" variant="outline">
-                    {descriptor?.label ?? credential.kind} · {credential.label}
-                </Badge>
-            ) : (
-                <span>No {roleNoun} set.</span>
+    return credential ? (
+        <span
+            className={cn(
+                FILTER_CONTROL_CLASS,
+                'inline-flex shrink-0 items-center border border-line px-4 whitespace-nowrap text-ink-muted dark:border-line',
             )}
-        </div>
+        >
+            {descriptor?.label ?? credential.kind} · {credential.label}
+        </span>
+    ) : (
+        <span className="text-xs text-ink-muted">No {roleNoun} set.</span>
     );
 }

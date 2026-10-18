@@ -1,0 +1,2 @@
+DROP INDEX "prop_sizing_decision_user_account_decided_idx";--> statement-breakpoint
+CREATE INDEX "prop_sizing_decision_user_account_decided_idx" ON "sadranl_prop_sizing_decision" USING btree ("user_id","account_id","decided_on" DESC NULLS FIRST,"created_at" DESC NULLS FIRST,"id" DESC NULLS FIRST);

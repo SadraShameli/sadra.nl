@@ -1,20 +1,18 @@
 import { desc, eq } from 'drizzle-orm';
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
 import type { LightAssessment } from '~/lib/trading/analytics';
 
-import { getServerSession } from '~/lib/auth/server';
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { CalendarView } from '~/app/(app)/trade-checklist/_components/CalendarView';
+import { TradeChecklistDataSkeleton } from '~/app/(app)/trade-checklist/_components/TradeChecklistDataSkeleton';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
+import { siteToolTitle, ToolTicker } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
-import { ensureUserHasPlan } from '~/lib/trading/actions';
 import { cn } from '~/lib/utilities';
 import { db, tradeAssessments } from '~/server/db';
-
-import { CalendarView } from '../_components/CalendarView';
-
-interface CalendarPageProperties {
-    searchParams: Promise<{ month?: string }>;
-}
 
 export const metadata: Metadata = {
     description:
@@ -22,20 +20,55 @@ export const metadata: Metadata = {
     title: 'Trade Calendar',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function TradeCalendarPage({
+export default function TradeCalendarPage({
     searchParams,
-}: CalendarPageProperties) {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    const userId = session.user.id;
+}: PageProps<'/trade-checklist/calendar'>) {
+    return (
+        <PageTransition>
+            <main
+                className={cn(
+                    'app-trade-checklist__calendar-view',
+                    'container pt-spacing pb-24',
+                )}
+            >
+                <ToolPageHeader
+                    eyebrow={siteToolTitle(ToolTicker.Checklist)}
+                    lead={
+                        <>
+                            Trading days at a glance. Click any day to drill
+                            into that day&apos;s assessments in the journal.
+                        </>
+                    }
+                    title="Calendar"
+                />
+                <Suspense fallback={<TradeChecklistDataSkeleton />}>
+                    <TradeCalendarContent searchParams={searchParams} />
+                </Suspense>
+            </main>
+        </PageTransition>
+    );
+}
 
-    await ensureUserHasPlan();
+function defaultMonth(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
 
-    const sp = await searchParams;
+function isValidMonth(s: string): boolean {
+    return /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
+}
+
+async function TradeCalendarContent({
+    searchParams,
+}: Pick<PageProps<'/trade-checklist/calendar'>, 'searchParams'>) {
+    const user = await requireSessionUser(routes.auth.login);
+    const userId = user.id;
+
+    const { month: requestedMonth } = await searchParams;
     const month =
-        sp.month && isValidMonth(sp.month) ? sp.month : defaultMonth();
+        typeof requestedMonth === 'string' && isValidMonth(requestedMonth)
+            ? requestedMonth
+            : defaultMonth();
 
     const rows = await db
         .select({
@@ -66,33 +99,5 @@ export default async function TradeCalendarPage({
         windowId: r.answers.context.windowId,
     }));
 
-    return (
-        <main
-            className={cn(
-                'app-trade-checklist__calendar-view',
-                'container pt-spacing pb-24',
-            )}
-        >
-            <header className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                    Calendar
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                    Trading days at a glance. Click any day to drill into that
-                    day&apos;s assessments in the journal.
-                </p>
-            </header>
-
-            <CalendarView assessments={assessments} month={month} />
-        </main>
-    );
-}
-
-function defaultMonth(): string {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function isValidMonth(s: string): boolean {
-    return /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
+    return <CalendarView assessments={assessments} month={month} />;
 }

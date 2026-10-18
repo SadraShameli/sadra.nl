@@ -13,18 +13,11 @@ import {
 import { toast } from 'sonner';
 import { UAParser } from 'ua-parser-js';
 
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { authClient } from '~/lib/auth/client';
 import { cn } from '~/lib/utilities';
 
@@ -106,7 +99,7 @@ export function SessionsList() {
                     const { label } = describeUserAgent(row.original.userAgent);
                     return (
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-white">
+                            <span className="font-medium text-foreground">
                                 {label}
                             </span>
                             {row.original.current && (
@@ -194,38 +187,33 @@ export function SessionsList() {
                     />
                 }
                 filterPlaceholder="Search sessions…"
+                hasExternalFilters={hasFilters}
                 headerActions={
-                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-center">
-                        <ClearFiltersButton
-                            active={hasFilters}
-                            className="hidden md:flex"
-                            onReset={reset}
-                        />
-                        <Select
+                    <div className="flex flex-wrap items-center gap-2">
+                        <FilterSelect
+                            label="Session"
                             onValueChange={(v) =>
-                                setStatusFilter(v as StatusFilter)
+                                setStatusFilter(
+                                    STATUS_VALUES.find((s) => s === v) ?? 'all',
+                                )
                             }
-                            value={statusFilter}
-                        >
-                            <SelectTrigger className="h-8 w-40 text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUS_VALUES.map((s) => (
-                                    <SelectItem key={s} value={s}>
-                                        {STATUS_LABEL[s]}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <ClearFiltersButton
-                            active={hasFilters}
-                            className="md:hidden"
-                            onReset={reset}
+                            options={STATUS_VALUES.filter(
+                                (s) => s !== 'all',
+                            ).map((s) => ({
+                                label: STATUS_LABEL[s],
+                                value: s,
+                            }))}
+                            placeholder={STATUS_LABEL.all}
+                            value={
+                                statusFilter === 'all'
+                                    ? undefined
+                                    : statusFilter
+                            }
                         />
                     </div>
                 }
                 isLoading={loading}
+                onResetFilters={reset}
                 pageSize={null}
                 rowId={(r) => r.token}
                 showFilter
@@ -276,7 +264,7 @@ function describeUserAgent(ua: null | string | undefined): {
 }
 
 function maskIp(ip: null | string | undefined): string {
-    if (!ip) return '—';
+    if (!ip) return '-';
     if (ip === '::1' || ip === '127.0.0.1') return 'localhost';
     if (ip.includes(':')) {
         const groups = ip.split(':');

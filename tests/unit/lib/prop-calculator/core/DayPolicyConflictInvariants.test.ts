@@ -6,6 +6,7 @@ import {
     FirmId,
     fraction,
     MffuVariant,
+    PolicySizing,
 } from '~/lib/prop-calculator/core';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
 import { findFirm } from '~/lib/prop-calculator/firms';
@@ -45,6 +46,7 @@ function rapidEodPlan() {
 const someLadder: DayPolicy = {
     ladder: [400, 600, 800, 200],
     maxLossesPerDay: null,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { kind: DayStopRuleKind.None },
 };
 
@@ -52,8 +54,8 @@ describe(
     'resolveDayPolicy: funded day-policy conflict is a thrown error, not a ' +
         'silent no-op (deliberate scope: eval-side evalDayPolicy vs riskPerTrade/' +
         'tradesPerDay is NOT covered here, because riskPerTrade stays genuinely ' +
-        'meaningful even when a ladder is set -- it feeds expectancyR and the ' +
-        'funded-phase fallback default -- so hard-erroring it would break the ' +
+        'meaningful even when a ladder is set (it is the funded-phase ' +
+        'fallback default), so hard-erroring it would break the ' +
         "CLI's own --ladder feature, whose --risk flag always carries a default",
     () => {
         it('throws when fundedDayPolicy and fundedCushionPercent are both set', () => {
@@ -143,7 +145,7 @@ describe(
 
         it(
             'does not throw for evalDayPolicy set together with riskPerTrade/' +
-                "tradesPerDay -- this IS the CLI's own normal --ladder path, and " +
+                "tradesPerDay: this IS the CLI's own normal --ladder path, and " +
                 'is deliberately out of scope for a hard error (see describe block)',
             () => {
                 expect(() =>

@@ -6,12 +6,12 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 const ContentSecurityPolicy = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"} https://va.vercel-scripts.com https://vercel.live`,
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://vercel.live",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
     "font-src 'self' data:",
     "media-src 'self' blob:",
-    "connect-src 'self' https://vitals.vercel-insights.com https://vercel.live wss://ws-us3.pusher.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+    "connect-src 'self' https://vitals.vercel-insights.com https://vercel.live wss://ws-us3.pusher.com",
     "frame-src 'self' https://open.spotify.com https://www.youtube.com https://vercel.live",
     "object-src 'none'",
     "base-uri 'self'",
@@ -44,30 +44,29 @@ const securityHeaders = [
 @type {import("next").NextConfig}
 */
 const config = {
+    cacheComponents: true,
+    experimental: {
+        exposeTestingApiInProductionBuild:
+            process.env.EXPOSE_TESTING_API === '1',
+        optimizePackageImports: ['framer-motion'],
+    },
     async headers() {
         return [{ headers: securityHeaders, source: '/:path*' }];
     },
+    logging: isProduction ? undefined : { browserToTerminal: true },
+    partialPrefetching: true,
     poweredByHeader: false,
-    turbopack: {
-        rules: {
-            '*.{ts,tsx}': {
-                condition: {
-                    all: [{ not: 'foreign' }, { content: /[Zz]od/ }],
-                },
-                loaders: [
-                    {
-                        loader: 'zod-compiler/turbopack',
-                        options: { include: ['src/lib'] },
-                    },
-                ],
-            },
-        },
-    },
+    reactCompiler: true,
+    serverExternalPackages: ['zod'],
+    typedRoutes: true,
 };
 
-export default withSentryConfig(config, {
+const sentryConfig = withSentryConfig(config, {
     authToken: process.env.SENTRY_AUTH_TOKEN,
     org: process.env.SENTRY_ORG,
     project: process.env.SENTRY_PROJECT,
     silent: !process.env.CI,
+    tunnelRoute: '/monitoring',
 });
+
+export default sentryConfig;

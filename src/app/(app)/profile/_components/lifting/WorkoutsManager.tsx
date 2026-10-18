@@ -1,108 +1,66 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { endOfDay, format, startOfDay } from 'date-fns';
-import { Calendar, ExternalLink, Pencil, Trash2 } from 'lucide-react';
+import { Calendar, ExternalLink, Pencil, Play } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { type DateRange } from 'react-day-picker';
-import { useForm } from 'react-hook-form';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Button } from '~/components/ui/Button';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+    MutedCell,
+    PrimaryCell,
+    profileActionsColumn,
+    ProfileDateCell,
+    ProfileDatePrecision,
+    ProfileTableEmpty,
+    RowActionButton,
+    RowActionLink,
+    RowConfirmAction,
+} from '~/app/(app)/profile/_components/ProfileTable';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
-} from '~/components/ui/DataTable';
-import { DateRangePicker } from '~/components/ui/DatePicker';
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
-import { Textarea } from '~/components/ui/Textarea';
+    type DataTableInstance,
+    hasActiveTableFilter,
+} from '~/components/ui/data-table';
+import { DataTableDateRange } from '~/components/ui/data-table-date-range';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { Dialog } from '~/components/ui/dialog';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { FilterSelect } from '~/components/ui/filter-select';
+import { Input } from '~/components/ui/input';
+import { Textarea } from '~/components/ui/textarea';
 import { DurationFormat } from '~/lib/lifting/format';
+import {
+    WORKOUT_DURATION_BUCKETS,
+    WorkoutDuration,
+} from '~/lib/lifting/workout-duration';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type WorkoutRow = RouterOutputs['lifting']['workout']['list'][number];
 
-const FILTER_ALL = '__all__';
+const WorkoutColumn = {
+    Date: 'date',
+    Duration: 'duration',
+    Status: 'status',
+} as const;
 
-const STATUS_OPTIONS = [
-    { label: 'All', value: FILTER_ALL },
-    { label: 'Completed', value: 'completed' },
-    { label: 'In progress', value: 'in-progress' },
-] as const;
+const WorkoutStatus = {
+    Completed: 'completed',
+    InProgress: 'in-progress',
+} as const;
 
-const DURATION_OPTIONS = [
-    { label: 'Any', value: FILTER_ALL },
-    { label: '< 15 min', value: 'under-15' },
-    { label: '15 – 60 min', value: '15-60' },
-    { label: '1 – 2 h', value: '60-120' },
-    { label: '> 2 h', value: 'over-120' },
-] as const;
-
-type DurationFilter = (typeof DURATION_OPTIONS)[number]['value'];
-type StatusFilter = (typeof STATUS_OPTIONS)[number]['value'];
-
-const DURATION_RANGES: Record<
-    Exclude<DurationFilter, typeof FILTER_ALL>,
-    [number, number]
-> = {
-    '15-60': [15 * 60, 60 * 60 - 1],
-    '60-120': [60 * 60, 120 * 60 - 1],
-    'over-120': [120 * 60, Infinity],
-    'under-15': [0, 15 * 60 - 1],
-};
-
-const DURATION_RANGE_ENTRIES = Object.entries(DURATION_RANGES) as [
-    Exclude<DurationFilter, typeof FILTER_ALL>,
-    [number, number],
-][];
-
-function durationBucketOf(filterValue: unknown): DurationFilter {
-    if (!Array.isArray(filterValue)) return FILTER_ALL;
-    const [min, max] = filterValue as [number, number];
-    const match = DURATION_RANGE_ENTRIES.find(
-        ([, range]) => range[0] === min && range[1] === max,
-    );
-    return match ? match[0] : FILTER_ALL;
-}
+const WORKOUT_STATUS_LABEL = new Map<string, string>([
+    [WorkoutStatus.Completed, 'Completed'],
+    [WorkoutStatus.InProgress, 'In progress'],
+]);
 
 const workoutEditSchema = z.object({
     bodyweightKg: z.number().positive().max(500).nullable(),
@@ -136,7 +94,6 @@ export function WorkoutsManager() {
     });
 
     const [editing, setEditing] = useState<null | WorkoutRow>(null);
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
     const rows = useMemo(() => workouts.data ?? [], [workouts.data]);
 
@@ -146,10 +103,12 @@ export function WorkoutsManager() {
                 accessorKey: 'name',
                 cell: ({ row }) => (
                     <Link
-                        className="font-medium text-white hover:underline"
+                        className="hover:underline"
                         href={routes.lifting.workout(row.original.id)}
                     >
-                        {row.original.name ?? 'Workout'}
+                        <PrimaryCell>
+                            {row.original.name ?? 'Workout'}
+                        </PrimaryCell>
                     </Link>
                 ),
                 header: 'Workout',
@@ -157,250 +116,120 @@ export function WorkoutsManager() {
             {
                 accessorFn: (r) => new Date(r.startedAt).getTime(),
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {format(new Date(row.original.startedAt), 'EEE MMM d')}
-                    </span>
+                    <ProfileDateCell
+                        precision={ProfileDatePrecision.Day}
+                        value={new Date(row.original.startedAt)}
+                    />
                 ),
                 filterFn: DataTableFilterFunction.InNumberRange,
                 header: 'Date',
-                id: 'date',
+                id: WorkoutColumn.Date,
             },
             {
-                accessorFn: (r) => durationSeconds(r) ?? -1,
+                accessorFn: (r) => WorkoutDuration.seconds(r) ?? -1,
                 cell: ({ row }) => {
-                    const dur = durationSeconds(row.original);
+                    const dur = WorkoutDuration.seconds(row.original);
                     return (
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                            {dur === null ? '—' : DurationFormat.seconds(dur)}
-                        </span>
+                        <MutedCell>
+                            {dur === null ? '-' : DurationFormat.seconds(dur)}
+                        </MutedCell>
                     );
                 },
                 filterFn: DataTableFilterFunction.InNumberRange,
                 header: 'Duration',
-                id: 'duration',
+                id: WorkoutColumn.Duration,
             },
             {
-                accessorFn: (r) => (r.endedAt ? 'completed' : 'in-progress'),
+                accessorFn: (r) =>
+                    r.endedAt
+                        ? WorkoutStatus.Completed
+                        : WorkoutStatus.InProgress,
+                cell: ({ getValue }) => (
+                    <MutedCell>
+                        {workoutStatusLabel(String(getValue()))}
+                    </MutedCell>
+                ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Status',
-                id: 'status',
+                id: WorkoutColumn.Status,
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex items-center justify-end gap-2">
-                        <Button
-                            aria-label="Open workout"
-                            asChild
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Link
-                                href={routes.lifting.workout(row.original.id)}
-                            >
-                                <ExternalLink className="size-3.5" />
-                            </Link>
-                        </Button>
-                        <Button
-                            aria-label="Edit workout"
-                            onClick={() => setEditing(row.original)}
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    aria-label="Delete workout"
-                                    size="sm"
-                                    variant="outline"
-                                >
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete &ldquo;
-                                        {row.original.name ?? 'Workout'}
-                                        &rdquo;?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Removes the workout and all its sets
-                                        permanently.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            remove.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                enableSorting: false,
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            profileActionsColumn<WorkoutRow>((workout) => (
+                <>
+                    <RowActionLink
+                        href={routes.lifting.workout(workout.id)}
+                        icon={ExternalLink}
+                        label="Open workout"
+                    />
+                    <RowActionButton
+                        icon={Pencil}
+                        label="Edit workout"
+                        onClick={() => setEditing(workout)}
+                    />
+                    <RowConfirmAction
+                        description="Removes the workout and all its sets permanently."
+                        label="Delete workout"
+                        onConfirm={() => remove.mutate({ id: workout.id })}
+                        title={`Delete “${workout.name ?? 'Workout'}”?`}
+                    />
+                </>
+            )),
         ],
         [remove],
     );
 
-    return (
-        <div className="flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground">
-                Every workout you&apos;ve logged. Edit the metadata here or jump
-                in to manage individual sets.
-            </p>
+    const logButton = (
+        <Button asChild size="sm">
+            <Link href={routes.lifting.log}>
+                <Play className="size-4" />
+                Start workout
+            </Link>
+        </Button>
+    );
 
-            <DataTable
-                belowFilter={(table) => (
-                    <ClearFiltersButton
-                        active={hasActiveColumnFilter(table)}
-                        onReset={() => {
-                            setDateRange(undefined);
-                            table.resetColumnFilters();
-                        }}
-                    />
-                )}
-                columns={columns}
-                data={rows}
-                emptyState={(table) => (
-                    <EmptyState
-                        description={
-                            hasActiveColumnFilter(table)
-                                ? 'No workouts match these filters.'
-                                : 'Start a workout from the log.'
-                        }
-                        icon={Calendar}
-                        title={
-                            hasActiveColumnFilter(table)
-                                ? 'No matches'
-                                : 'No workouts yet'
-                        }
-                    />
-                )}
-                filterPlaceholder="Search workouts…"
-                filterPosition="bottom"
-                headerActions={(table) => {
-                    const statusColumn = table.getColumn('status');
-                    const durationColumn = table.getColumn('duration');
-                    const dateColumn = table.getColumn('date');
-                    return (
-                        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                    Status
-                                </span>
-                                <Select
-                                    onValueChange={(v) =>
-                                        statusColumn?.setFilterValue(
-                                            v === FILTER_ALL ? undefined : v,
-                                        )
-                                    }
-                                    value={
-                                        (statusColumn?.getFilterValue() as
-                                            StatusFilter | undefined) ??
-                                        FILTER_ALL
-                                    }
-                                >
-                                    <SelectTrigger className="h-8 w-36 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {STATUS_OPTIONS.map((o) => (
-                                            <SelectItem
-                                                key={o.value}
-                                                value={o.value}
-                                            >
-                                                {o.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                    Duration
-                                </span>
-                                <Select
-                                    onValueChange={(v) =>
-                                        durationColumn?.setFilterValue(
-                                            v === FILTER_ALL
-                                                ? undefined
-                                                : DURATION_RANGES[
-                                                      v as Exclude<
-                                                          DurationFilter,
-                                                          typeof FILTER_ALL
-                                                      >
-                                                  ],
-                                        )
-                                    }
-                                    value={durationBucketOf(
-                                        durationColumn?.getFilterValue(),
-                                    )}
-                                >
-                                    <SelectTrigger className="h-8 w-36 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {DURATION_OPTIONS.map((o) => (
-                                            <SelectItem
-                                                key={o.value}
-                                                value={o.value}
-                                            >
-                                                {o.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                    Date range
-                                </span>
-                                <DateRangePicker
-                                    align="end"
-                                    className="h-8 text-xs"
-                                    maxDate={new Date()}
-                                    onChange={(range) => {
-                                        setDateRange(range);
-                                        dateColumn?.setFilterValue(
-                                            range?.from
-                                                ? [
-                                                      startOfDay(
-                                                          range.from,
-                                                      ).getTime(),
-                                                      endOfDay(
-                                                          range.to ??
-                                                              range.from,
-                                                      ).getTime(),
-                                                  ]
-                                                : undefined,
-                                        );
-                                    }}
-                                    placeholder="Any time"
-                                    value={dateRange}
-                                />
-                            </div>
-                        </div>
-                    );
-                }}
-                isLoading={workouts.isLoading}
-                pageSize={20}
-                rowId={(r) => r.id}
-                showFilter
-            />
+    return (
+        <>
+            <ProfilePanel
+                action={logButton}
+                description="Every workout you logged. Edit the details here or open one to manage its sets."
+                title="Workouts"
+            >
+                <DataTable
+                    columns={columns}
+                    data={rows}
+                    emptyState={(table) => (
+                        <ProfileTableEmpty
+                            action={logButton}
+                            description="Start a workout from the log."
+                            filtered={hasActiveTableFilter(table)}
+                            icon={Calendar}
+                            noun="workouts"
+                        />
+                    )}
+                    filterPlaceholder="Search workouts…"
+                    headerActions={(table) => (
+                        <>
+                            <DataTableFacetSelect
+                                column={table.getColumn(WorkoutColumn.Status)}
+                                format={workoutStatusLabel}
+                                label="Status"
+                                placeholder="All statuses"
+                            />
+                            <DurationSelect table={table} />
+                            <DataTableDateRange
+                                align="end"
+                                column={table.getColumn(WorkoutColumn.Date)}
+                                label="Workout date"
+                                maxDate={new Date()}
+                                placeholder="Any time"
+                            />
+                        </>
+                    )}
+                    isLoading={workouts.isLoading}
+                    pageSize={20}
+                    rowId={(r) => r.id}
+                    showFilter
+                />
+            </ProfilePanel>
 
             {editing && (
                 <WorkoutEditDialog
@@ -418,18 +247,28 @@ export function WorkoutsManager() {
                     pending={update.isPending}
                 />
             )}
-        </div>
+        </>
     );
 }
 
-function durationSeconds(w: WorkoutRow): null | number {
-    return w.endedAt
-        ? Math.round(
-              (new Date(w.endedAt).getTime() -
-                  new Date(w.startedAt).getTime()) /
-                  1000,
-          )
-        : null;
+function DurationSelect({ table }: { table: DataTableInstance<WorkoutRow> }) {
+    const column = table.getColumn(WorkoutColumn.Duration);
+    if (!column) return null;
+    const current = column.getFilterValue();
+    const selected = WorkoutDuration.bucketForFilterValue(current);
+    return (
+        <FilterSelect
+            label="Duration"
+            onValueChange={(value) =>
+                column.setFilterValue(
+                    WorkoutDuration.bucketForValue(value)?.range,
+                )
+            }
+            options={WORKOUT_DURATION_BUCKETS}
+            placeholder="Any duration"
+            value={selected?.value}
+        />
+    );
 }
 
 function WorkoutEditDialog({
@@ -452,6 +291,7 @@ function WorkoutEditDialog({
         mode: 'onTouched',
         resolver: zodResolver(workoutEditSchema),
     });
+    const formId = useId();
 
     useEffect(() => {
         form.reset({
@@ -461,10 +301,6 @@ function WorkoutEditDialog({
         });
     }, [initial, form]);
 
-    const submit = form.handleSubmit(async (values) => {
-        await onSubmit(values);
-    });
-
     return (
         <Dialog
             onOpenChange={(o) => {
@@ -472,107 +308,101 @@ function WorkoutEditDialog({
             }}
             open
         >
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Edit workout</DialogTitle>
-                </DialogHeader>
-                <Form {...form}>
-                    <form className="flex flex-col gap-4" onSubmit={submit}>
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Name</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            onChange={(event) =>
-                                                field.onChange(
-                                                    event.target.value === ''
-                                                        ? null
-                                                        : event.target.value,
-                                                )
-                                            }
-                                            ref={field.ref}
-                                            value={field.value ?? ''}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="bodyweightKg"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Bodyweight (kg)</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            inputMode="decimal"
-                                            onChange={(event) => {
-                                                if (event.target.value === '') {
-                                                    field.onChange(null);
-                                                    return;
-                                                }
-                                                const n = Number(
-                                                    event.target.value,
-                                                );
-                                                field.onChange(
-                                                    Number.isFinite(n)
-                                                        ? n
-                                                        : null,
-                                                );
-                                            }}
-                                            ref={field.ref}
-                                            step="0.1"
-                                            type="number"
-                                            value={field.value ?? ''}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Notes</FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            onChange={(event) =>
-                                                field.onChange(
-                                                    event.target.value === ''
-                                                        ? null
-                                                        : event.target.value,
-                                                )
-                                            }
-                                            ref={field.ref}
-                                            rows={4}
-                                            value={field.value ?? ''}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <DialogFooter>
-                            <Button
-                                onClick={onClose}
-                                type="button"
-                                variant="ghost"
-                            >
-                                Cancel
-                            </Button>
-                            <Button disabled={pending} type="submit">
-                                {pending ? 'Saving…' : 'Save'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
+            <ProfileFormDialog
+                form={form}
+                onCancel={onClose}
+                onSubmit={onSubmit}
+                pending={pending}
+                submitLabel="Save"
+                title="Edit workout"
+            >
+                <Controller
+                    control={form.control}
+                    name="name"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-name`}>
+                                Name
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-name`}
+                                onChange={(event) =>
+                                    field.onChange(
+                                        event.target.value === ''
+                                            ? null
+                                            : event.target.value,
+                                    )
+                                }
+                                ref={field.ref}
+                                value={field.value ?? ''}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <Controller
+                    control={form.control}
+                    name="bodyweightKg"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-bodyweightKg`}>
+                                Bodyweight (kg)
+                            </FieldLabel>
+                            <Input
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-bodyweightKg`}
+                                inputMode="decimal"
+                                onChange={(event) => {
+                                    if (event.target.value === '') {
+                                        field.onChange(null);
+                                        return;
+                                    }
+                                    const n = Number(event.target.value);
+                                    field.onChange(
+                                        Number.isFinite(n) ? n : null,
+                                    );
+                                }}
+                                ref={field.ref}
+                                step="0.1"
+                                type="number"
+                                value={field.value ?? ''}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+                <Controller
+                    control={form.control}
+                    name="notes"
+                    render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                            <FieldLabel htmlFor={`${formId}-notes`}>
+                                Notes
+                            </FieldLabel>
+                            <Textarea
+                                aria-invalid={fieldState.invalid}
+                                id={`${formId}-notes`}
+                                onChange={(event) =>
+                                    field.onChange(
+                                        event.target.value === ''
+                                            ? null
+                                            : event.target.value,
+                                    )
+                                }
+                                ref={field.ref}
+                                rows={4}
+                                value={field.value ?? ''}
+                            />
+                            <FieldError errors={[fieldState.error]} />
+                        </Field>
+                    )}
+                />
+            </ProfileFormDialog>
         </Dialog>
     );
+}
+
+function workoutStatusLabel(value: string): string {
+    return WORKOUT_STATUS_LABEL.get(value) ?? value;
 }

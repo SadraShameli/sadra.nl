@@ -7,43 +7,23 @@ import { useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Button } from '~/components/ui/button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
-} from '~/components/ui/DataTable';
-import { DateRangePicker } from '~/components/ui/DatePicker';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '~/components/ui/Tooltip';
+} from '~/components/ui/data-table';
+import { EmptyState, EmptyStatePanel } from '~/components/ui/empty-state';
+import { FilterDateRange } from '~/components/ui/filter-date-range';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { DurationFormat } from '~/lib/lifting/format';
+import {
+    WORKOUT_DURATION_BUCKETS,
+    WorkoutDuration,
+} from '~/lib/lifting/workout-duration';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -61,31 +41,7 @@ const STATUS_OPTIONS = [
     { label: 'In progress', value: 'in-progress' },
 ] as const;
 
-const DURATION_OPTIONS = [
-    { label: 'Any', value: FILTER_ALL },
-    { label: '< 15 min', value: 'under-15' },
-    { label: '15 – 60 min', value: '15-60' },
-    { label: '1 – 2 h', value: '60-120' },
-    { label: '> 2 h', value: 'over-120' },
-] as const;
-
-type DurationFilter = (typeof DURATION_OPTIONS)[number]['value'];
 type StatusFilter = (typeof STATUS_OPTIONS)[number]['value'];
-
-const DURATION_RANGES: Record<
-    Exclude<DurationFilter, typeof FILTER_ALL>,
-    [number, number]
-> = {
-    '15-60': [15 * 60, 60 * 60 - 1],
-    '60-120': [60 * 60, 120 * 60 - 1],
-    'over-120': [120 * 60, Infinity],
-    'under-15': [0, 15 * 60 - 1],
-};
-
-const DURATION_RANGE_ENTRIES = Object.entries(DURATION_RANGES) as [
-    Exclude<DurationFilter, typeof FILTER_ALL>,
-    [number, number],
-][];
 
 export function HistoryView({ from }: HistoryViewProperties) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -116,7 +72,7 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 accessorKey: 'name',
                 cell: ({ row }) => (
                     <Link
-                        className="font-medium text-white hover:underline"
+                        className="font-medium text-foreground hover:underline"
                         href={routes.lifting.workout(row.original.id)}
                     >
                         {row.original.name ?? 'Workout'}
@@ -147,12 +103,12 @@ export function HistoryView({ from }: HistoryViewProperties) {
                 id: 'start',
             },
             {
-                accessorFn: (r) => durationSeconds(r) ?? -1,
+                accessorFn: (r) => WorkoutDuration.seconds(r) ?? -1,
                 cell: ({ row }) => {
-                    const dur = durationSeconds(row.original);
+                    const dur = WorkoutDuration.seconds(row.original);
                     return (
                         <span className="text-muted-foreground tabular-nums">
-                            {dur === null ? '—' : DurationFormat.seconds(dur)}
+                            {dur === null ? '-' : DurationFormat.seconds(dur)}
                         </span>
                     );
                 },
@@ -170,51 +126,34 @@ export function HistoryView({ from }: HistoryViewProperties) {
             {
                 cell: ({ row }) => (
                     <div className="flex justify-end">
-                        <AlertDialog>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <AlertDialogTrigger asChild>
-                                        <Button
-                                            aria-label={`Delete ${row.original.name ?? 'workout'}`}
-                                            className="size-8 p-0 text-muted-foreground hover:text-destructive"
-                                            type="button"
-                                            variant="ghost"
-                                        >
-                                            <Trash2 className="size-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                </TooltipTrigger>
-                                <TooltipContent>Delete workout</TooltipContent>
-                            </Tooltip>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete workout?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        &ldquo;
-                                        {row.original.name ?? 'Workout'}&rdquo;
-                                        and all its sets will be permanently
-                                        removed. This cannot be undone.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        disabled={remove.isPending}
-                                        onClick={() =>
-                                            remove.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                        <ConfirmDialog
+                            confirmLabel="Delete"
+                            description={
+                                <>
+                                    &ldquo;
+                                    {row.original.name ?? 'Workout'}&rdquo; and
+                                    all its sets will be permanently removed.
+                                    This cannot be undone.
+                                </>
+                            }
+                            isPending={remove.isPending}
+                            onConfirm={() =>
+                                remove.mutate({
+                                    id: row.original.id,
+                                })
+                            }
+                            title="Delete workout?"
+                            tooltip="Delete workout"
+                        >
+                            <Button
+                                aria-label={`Delete ${row.original.name ?? 'workout'}`}
+                                className="size-8 p-0 text-muted-foreground hover:text-destructive"
+                                type="button"
+                                variant="ghost"
+                            >
+                                <Trash2 className="size-4" />
+                            </Button>
+                        </ConfirmDialog>
                     </div>
                 ),
                 enableSorting: false,
@@ -226,151 +165,75 @@ export function HistoryView({ from }: HistoryViewProperties) {
     );
 
     return !dateRange && !workouts.isLoading && allRows.length === 0 ? (
-        <Card>
-            <CardContent>
-                <EmptyState
-                    description="Start a workout from the Log tab and it'll show up here."
-                    icon={Calendar}
-                    title="No workouts yet"
-                />
-            </CardContent>
-        </Card>
+        <EmptyStatePanel
+            description="Start a workout from the Log tab and it'll show up here."
+            icon={Calendar}
+            title="No workouts yet"
+        />
     ) : (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                    Workouts
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Date range</Label>
-                        <DateRangePicker
-                            maxDate={new Date()}
-                            onChange={setDateRange}
-                            placeholder="Any time"
-                            value={dateRange}
-                        />
-                    </div>
-                </div>
-
-                <DataTable
-                    columns={columns}
-                    data={allRows}
-                    emptyState={
-                        <EmptyState
-                            description="Try widening the filters or logging a workout."
-                            icon={Calendar}
-                            title="No workouts match"
-                        />
-                    }
-                    headerActions={(table) => {
-                        const statusColumn = table.getColumn('status');
-                        const durationColumn = table.getColumn('duration');
-                        return (
-                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-end">
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                        Status
-                                    </span>
-                                    <Select
-                                        onValueChange={(v) =>
-                                            statusColumn?.setFilterValue(
-                                                v === FILTER_ALL
-                                                    ? undefined
-                                                    : v,
-                                            )
-                                        }
-                                        value={
-                                            (statusColumn?.getFilterValue() as
-                                                StatusFilter | undefined) ??
-                                            FILTER_ALL
-                                        }
-                                    >
-                                        <SelectTrigger className="h-8 w-36 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {STATUS_OPTIONS.map((o) => (
-                                                <SelectItem
-                                                    key={o.value}
-                                                    value={o.value}
-                                                >
-                                                    {o.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <span className="text-[10px] tracking-wider text-muted-foreground uppercase">
-                                        Duration
-                                    </span>
-                                    <Select
-                                        onValueChange={(v) =>
-                                            durationColumn?.setFilterValue(
-                                                v === FILTER_ALL
-                                                    ? undefined
-                                                    : DURATION_RANGES[
-                                                          v as Exclude<
-                                                              DurationFilter,
-                                                              typeof FILTER_ALL
-                                                          >
-                                                      ],
-                                            )
-                                        }
-                                        value={durationBucketOf(
-                                            durationColumn?.getFilterValue(),
-                                        )}
-                                    >
-                                        <SelectTrigger className="h-8 w-36 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {DURATION_OPTIONS.map((o) => (
-                                                <SelectItem
-                                                    key={o.value}
-                                                    value={o.value}
-                                                >
-                                                    {o.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <ClearFiltersButton
-                                    active={hasActiveColumnFilter(table)}
-                                    onReset={() => table.resetColumnFilters()}
-                                />
-                            </div>
-                        );
-                    }}
-                    isLoading={workouts.isLoading}
-                    pageSize={20}
-                    rowId={(r) => r.id}
-                    showFilter
-                />
-            </CardContent>
-        </Card>
+        <ToolPanel contentClassName="flex flex-col gap-4" title="Workouts">
+            <DataTable
+                columns={columns}
+                data={allRows}
+                emptyState={
+                    <EmptyState
+                        description="Try widening the filters or logging a workout."
+                        icon={Calendar}
+                        title="No workouts match"
+                    />
+                }
+                hasExternalFilters={Boolean(dateRange?.from)}
+                headerActions={(table) => {
+                    const statusColumn = table.getColumn('status');
+                    const durationColumn = table.getColumn('duration');
+                    return (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <FilterSelect
+                                label="Status"
+                                onValueChange={(v) =>
+                                    statusColumn?.setFilterValue(v)
+                                }
+                                options={STATUS_OPTIONS.filter(
+                                    (o) => o.value !== FILTER_ALL,
+                                )}
+                                placeholder="All statuses"
+                                value={
+                                    statusColumn?.getFilterValue() as
+                                        StatusFilter | undefined
+                                }
+                            />
+                            <FilterSelect
+                                label="Duration"
+                                onValueChange={(v) =>
+                                    durationColumn?.setFilterValue(
+                                        WorkoutDuration.bucketForValue(v)
+                                            ?.range,
+                                    )
+                                }
+                                options={WORKOUT_DURATION_BUCKETS}
+                                placeholder="Any duration"
+                                value={
+                                    WorkoutDuration.bucketForFilterValue(
+                                        durationColumn?.getFilterValue(),
+                                    )?.value
+                                }
+                            />
+                            <FilterDateRange
+                                label="Workout date"
+                                maxDate={new Date()}
+                                onChange={setDateRange}
+                                placeholder="Any time"
+                                value={dateRange}
+                            />
+                        </div>
+                    );
+                }}
+                isLoading={workouts.isLoading}
+                onResetFilters={() => setDateRange(undefined)}
+                pageSize={20}
+                rowId={(r) => r.id}
+                showFilter
+            />
+        </ToolPanel>
     );
-}
-
-function durationBucketOf(filterValue: unknown): DurationFilter {
-    if (!Array.isArray(filterValue)) return FILTER_ALL;
-    const [min, max] = filterValue as [number, number];
-    const match = DURATION_RANGE_ENTRIES.find(
-        ([, range]) => range[0] === min && range[1] === max,
-    );
-    return match ? match[0] : FILTER_ALL;
-}
-
-function durationSeconds(w: WorkoutRow): null | number {
-    return w.endedAt
-        ? Math.round(
-              (new Date(w.endedAt).getTime() -
-                  new Date(w.startedAt).getTime()) /
-                  1000,
-          )
-        : null;
 }

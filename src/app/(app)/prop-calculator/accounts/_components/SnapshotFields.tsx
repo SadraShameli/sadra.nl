@@ -1,0 +1,216 @@
+'use client';
+
+import { TriangleAlert } from 'lucide-react';
+
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import {
+    Field,
+    FieldDescription,
+    FieldError,
+    FieldLabel,
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
+import { IsoDatePicker } from '~/components/ui/iso-date-picker';
+import {
+    AccountTracking,
+    type SnapshotField,
+    SnapshotFieldRequirement,
+    type SnapshotFieldRule,
+    SnapshotInputKind,
+} from '~/lib/prop-accounts';
+
+import { FieldRequirementMark } from './FieldRequirementMark';
+import {
+    LEDGER_ONLY_SNAPSHOT_NOTICE,
+    ledgerOnlySnapshotRules,
+    type SnapshotFieldIssue,
+    type SnapshotFormValues,
+} from './snapshotFieldRules';
+
+interface SnapshotFieldsEntry {
+    readonly fieldWarnings: readonly SnapshotFieldIssue[];
+    readonly formIssues: readonly string[];
+    readonly formWarnings: readonly string[];
+    readonly idPrefix?: string;
+    readonly isReadOnly?: boolean;
+    readonly issues: readonly SnapshotFieldIssue[];
+    readonly onChange: (field: SnapshotField, value: string) => void;
+    readonly values: SnapshotFormValues;
+}
+
+type SnapshotFieldsProperties = SnapshotFieldsEntry &
+    (
+        | {
+              readonly rules: readonly SnapshotFieldRule[];
+              readonly tracking?: AccountTracking.Modeled;
+          }
+        | {
+              readonly rules?: never;
+              readonly tracking: AccountTracking.LedgerOnly;
+          }
+    );
+
+const REQUIREMENT_NOTE: Readonly<Record<SnapshotFieldRequirement, string>> = {
+    [SnapshotFieldRequirement.Hidden]: '',
+    [SnapshotFieldRequirement.OneOf]: 'this or the alternative',
+    [SnapshotFieldRequirement.Optional]: 'optional',
+    [SnapshotFieldRequirement.Required]: 'required',
+};
+
+export function SnapshotFields(properties: SnapshotFieldsProperties) {
+    const {
+        fieldWarnings,
+        formIssues,
+        formWarnings,
+        idPrefix,
+        isReadOnly = false,
+        issues,
+        onChange,
+        values,
+    } = properties;
+    const idRoot = idPrefix === undefined ? 'snapshot' : `snapshot-${idPrefix}`;
+    const isLedgerOnly = properties.tracking === AccountTracking.LedgerOnly;
+    const rules = isLedgerOnly ? ledgerOnlySnapshotRules() : properties.rules;
+    const issueByField = new Map(
+        issues.map((issue) => [issue.field, issue.message]),
+    );
+    const warningByField = new Map(
+        fieldWarnings.map((warning) => [warning.field, warning.message]),
+    );
+    const visible = rules.filter(
+        (rule) => rule.requirement !== SnapshotFieldRequirement.Hidden,
+    );
+    return (
+        <div className="app-prop-accounts__snapshot-fields grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {isLedgerOnly && (
+                <p className="text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
+                    {LEDGER_ONLY_SNAPSHOT_NOTICE}
+                </p>
+            )}
+            {formIssues.length > 0 && (
+                <Alert
+                    className="md:col-span-2 lg:col-span-3"
+                    variant="destructive"
+                >
+                    <TriangleAlert />
+                    <AlertTitle>
+                        This snapshot does not fit the account
+                    </AlertTitle>
+                    <AlertDescription>
+                        <ul className="flex flex-col gap-1">
+                            {formIssues.map((message) => (
+                                <li key={message}>{message}</li>
+                            ))}
+                        </ul>
+                    </AlertDescription>
+                </Alert>
+            )}
+            {formWarnings.length > 0 && (
+                <Alert
+                    className="md:col-span-2 lg:col-span-3"
+                    role="status"
+                    variant="warning"
+                >
+                    <TriangleAlert />
+                    <AlertTitle>Check this snapshot before saving</AlertTitle>
+                    <AlertDescription>
+                        <ul className="flex flex-col gap-1">
+                            {formWarnings.map((message) => (
+                                <li key={message}>{message}</li>
+                            ))}
+                        </ul>
+                    </AlertDescription>
+                </Alert>
+            )}
+            {visible.map((rule) => {
+                const id = `${idRoot}-${rule.field}`;
+                const issue = issueByField.get(rule.field);
+                const warning = warningByField.get(rule.field);
+                const hintId = `${id}-hint`;
+                const errorId = `${id}-error`;
+                const warningId = `${id}-warning`;
+                const describedBy = [
+                    rule.hint === null ? null : hintId,
+                    issue === undefined ? null : errorId,
+                    warning === undefined ? null : warningId,
+                ]
+                    .filter((part) => part !== null)
+                    .join(' ');
+                return (
+                    <Field data-invalid={issue !== undefined} key={rule.field}>
+                        <FieldLabel
+                            className="items-baseline gap-1"
+                            htmlFor={id}
+                        >
+                            {rule.label}
+                            {rule.input === SnapshotInputKind.Money && ' ($)'}
+                            <FieldRequirementMark
+                                text={REQUIREMENT_NOTE[rule.requirement]}
+                            />
+                        </FieldLabel>
+                        {rule.input === SnapshotInputKind.Date ? (
+                            <IsoDatePicker
+                                aria-describedby={
+                                    describedBy === '' ? undefined : describedBy
+                                }
+                                aria-invalid={issue !== undefined}
+                                disabled={isReadOnly}
+                                id={id}
+                                onChange={(isoDate) => {
+                                    onChange(rule.field, isoDate);
+                                }}
+                                value={values[rule.field]}
+                            />
+                        ) : (
+                            <Input
+                                aria-describedby={
+                                    describedBy === '' ? undefined : describedBy
+                                }
+                                aria-invalid={issue !== undefined}
+                                id={id}
+                                inputMode={inputModeOf(rule.input)}
+                                onChange={(event) => {
+                                    if (isReadOnly) return;
+                                    onChange(rule.field, event.target.value);
+                                }}
+                                readOnly={isReadOnly}
+                                type="text"
+                                value={values[rule.field]}
+                            />
+                        )}
+                        {rule.hint !== null && (
+                            <FieldDescription id={hintId}>
+                                {rule.hint}
+                            </FieldDescription>
+                        )}
+                        {issue !== undefined && (
+                            <FieldError id={errorId}>{issue}</FieldError>
+                        )}
+                        {warning !== undefined && (
+                            <FieldDescription
+                                className="text-warning"
+                                id={warningId}
+                            >
+                                {warning}
+                            </FieldDescription>
+                        )}
+                    </Field>
+                );
+            })}
+        </div>
+    );
+}
+
+function inputModeOf(input: SnapshotInputKind): 'decimal' | 'numeric' | 'text' {
+    switch (input) {
+        case SnapshotInputKind.Count: {
+            return 'numeric';
+        }
+        case SnapshotInputKind.Date: {
+            return 'text';
+        }
+        case SnapshotInputKind.Money: {
+            return 'decimal';
+        }
+    }
+}

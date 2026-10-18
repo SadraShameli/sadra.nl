@@ -154,6 +154,13 @@ const RULES: SeedRule[] = [
     },
     {
         direction: 'OUT',
+        display: 'SkillSource (e-Boekhouden)',
+        ledger: SOFTWARE,
+        match: 'skillsource',
+        vatCode: VatCode.HoogInk21,
+    },
+    {
+        direction: 'OUT',
         display: 'TradingView',
         ledger: SOFTWARE,
         match: 'tradingview',

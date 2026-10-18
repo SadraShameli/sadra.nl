@@ -76,10 +76,12 @@ export const sensorRouter = createTRPCRouter({
     delete: adminProcedure
         .input(idInputSchema)
         .mutation(async ({ ctx, input }) => {
-            await ctx.db
-                .delete(sensorsToDevices)
-                .where(eq(sensorsToDevices.sensor_id, input.id));
-            await ctx.db.delete(sensor).where(eq(sensor.id, input.id));
+            await ctx.db.transaction(async (transaction) => {
+                await transaction
+                    .delete(sensorsToDevices)
+                    .where(eq(sensorsToDevices.sensor_id, input.id));
+                await transaction.delete(sensor).where(eq(sensor.id, input.id));
+            });
             return { ok: true };
         }),
 
@@ -111,18 +113,19 @@ export const sensorRouter = createTRPCRouter({
     setDeviceSensors: adminProcedure
         .input(deviceSensorsInputSchema)
         .mutation(async ({ ctx, input }) => {
-            await ctx.db
-                .delete(sensorsToDevices)
-                .where(eq(sensorsToDevices.device_id, input.deviceId));
-            if (input.sensorIds.length > 0) {
-                const q = ctx.db.insert(sensorsToDevices).values(
-                    input.sensorIds.map((sensor_id) => ({
-                        device_id: input.deviceId,
-                        sensor_id,
-                    })),
-                );
-                await q;
-            }
+            await ctx.db.transaction(async (transaction) => {
+                await transaction
+                    .delete(sensorsToDevices)
+                    .where(eq(sensorsToDevices.device_id, input.deviceId));
+                if (input.sensorIds.length > 0) {
+                    await transaction.insert(sensorsToDevices).values(
+                        input.sensorIds.map((sensor_id) => ({
+                            device_id: input.deviceId,
+                            sensor_id,
+                        })),
+                    );
+                }
+            });
             return { ok: true };
         }),
 

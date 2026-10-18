@@ -1,0 +1,1329 @@
+{
+    "DOCS-R6": {
+        "files": [
+            ".claude/prop-firms/fundednext/README.md",
+            ".claude/prop-firms/fundednext/SOURCES.md",
+            ".claude/prop-firms/fundednext/flex.md",
+            ".claude/prop-firms/fundednext/fnl003-instant.md",
+            ".claude/prop-firms/fundednext/legacy-live.md",
+            ".claude/prop-firms/fundednext/legacy.md",
+            ".claude/prop-firms/fundednext/live.md",
+            ".claude/prop-firms/fundednext/rapid-daily.md",
+            ".claude/prop-firms/fundednext/rapid-pro.md",
+            ".claude/prop-firms/fundednext/trading-rules.md",
+            ".claude/prop-firms/topstep/README.md",
+            ".claude/prop-firms/topstep/SOURCES.md",
+            ".claude/prop-firms/topstep/consistency.md",
+            ".claude/prop-firms/topstep/labs.md",
+            ".claude/prop-firms/topstep/live.md",
+            ".claude/prop-firms/topstep/pro-account.md",
+            ".claude/prop-firms/topstep/standard.md",
+            ".claude/prop-firms/topstep/trader-programs.md"
+        ],
+        "sha256": "805cbe3cf37cc91a3275423fa7505c243dc33e60aa9e61947bcfc3227f9b9ab2"
+    },
+    "N-1": {
+        "files": [
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaFutures.test.ts"
+        ],
+        "sha256": "c44dbf100aaf154daffd612fc137a6df172d441f8f8c9d7a993f24b4588ded80"
+    },
+    "N-10": {
+        "files": [
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValue.test.ts"
+        ],
+        "sha256": "e92982279ec71bf475ead9e633d06b6c3345699b81c3d6267e06b20c17df04c6"
+    },
+    "N-11": {
+        "files": [
+            "src/lib/prop-calculator/firms/lucid/LucidTrading.ts",
+            "tests/unit/cli/prop/compare.test.ts",
+            "tests/unit/lib/prop-calculator/lucidTrading.test.ts"
+        ],
+        "sha256": "31a319ba00ac9b3b7f3096750524bfe415df3f543001bbc93a98ff26d2fe482f"
+    },
+    "N-12": {
+        "files": [
+            "src/lib/prop-calculator/core/RenewalCycleObjective.ts",
+            "src/lib/prop-calculator/core/Replacement.ts",
+            "src/lib/prop-calculator/portfolioTimeline/accountTimeline.ts",
+            "src/lib/prop-calculator/portfolioTimeline/fundedCycle.ts",
+            "tests/unit/lib/prop-calculator/core/RenewalCycleObjective.test.ts",
+            "tests/unit/lib/prop-calculator/portfolioTimeline/RetryBilling.test.ts"
+        ],
+        "sha256": "2146b37ea6993051d29027fe0641b05375f3d73782661439f86ed419e8f29a08"
+    },
+    "N-13": {
+        "files": [
+            "src/lib/prop-calculator/core/Plan.ts",
+            "src/lib/prop-calculator/simulator/engine.ts",
+            "src/lib/prop-calculator/simulator/livePhase.ts",
+            "src/lib/prop-calculator/simulator/validation.ts",
+            "tests/unit/lib/prop-calculator/core/Plan.test.ts",
+            "tests/unit/lib/prop-calculator/portfolioTimeline.test.ts",
+            "tests/unit/lib/prop-calculator/portfolioTimeline/FundedCycleGuards.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/PortfolioGroups.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/SimDefaults.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts",
+            "tests/unit/lib/schemas/url.test.ts"
+        ],
+        "sha256": "2d09a0b7460c5525db015b0003e2173a11aac3a7374e887968504244529ef5ca"
+    },
+    "N-14": {
+        "files": [
+            "src/lib/prop-calculator/simulator/fundedPhase.ts",
+            "tests/unit/lib/prop-calculator/simulator/fundedPhase.test.ts"
+        ],
+        "sha256": "6df48596b0553da9ecdf3c632d7b74221308e8d023143159c29b9c87ff48b134"
+    },
+    "N-15": {
+        "files": [
+            "src/lib/prop-calculator/core/DailyLossLimit.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "src/lib/prop-calculator/core/TierBasis.ts",
+            "src/lib/prop-calculator/firms/tradeify/Tradeify.ts",
+            "tests/unit/lib/prop-calculator/core/ScalingDailyLossLimit.test.ts",
+            "tests/unit/lib/prop-calculator/core/TierBasis.test.ts",
+            "tests/unit/lib/prop-calculator/firms/tradeify/TradeifyScalingDllDp.test.ts",
+            "tests/unit/lib/prop-calculator/tradeify.test.ts"
+        ],
+        "sha256": "154418b973e9f0a6357139e8afe19a1582cfba45c73855022d046b3245a79f40"
+    },
+    "N-16": {
+        "files": [
+            "src/lib/prop-calculator/firms/apex/ApexTraderFunding.ts",
+            "tests/unit/lib/prop-calculator/firms/apex/ApexNotes.test.ts",
+            "tests/unit/lib/prop-calculator/firms/apex/ApexTierTiming.test.ts"
+        ],
+        "sha256": "8257d1d9cbe8415f879c576b1c2121f2119e08026ce8dd292297a445e9bb6d03"
+    },
+    "N-17": {
+        "files": [
+            "src/lib/prop-calculator/simulator/engine.ts",
+            "src/lib/prop-calculator/simulator/trial.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts"
+        ],
+        "sha256": "7307370e655d18de7382b4f31d0e809aedb78345e0e1bf92a78e1dba5855f6e6"
+    },
+    "N-18": {
+        "files": [
+            "src/app/(app)/prop-calculator/_components/StrategyAnalysis.tsx",
+            "src/app/(app)/prop-calculator/_components/kellySizing.ts",
+            "tests/unit/app/prop-calculator/kellySizing.test.ts"
+        ],
+        "sha256": "de1a737007eb3d230dfce96450532d5fab74d59c954c67d6981fff2d705fa6e6"
+    },
+    "N-19": {
+        "files": [
+            ".claude/prop-firms/mffu/rapid-live.md",
+            "src/lib/prop-calculator/core/DrawdownStrategy.ts",
+            "src/lib/prop-calculator/firms/mffu/MyFundedFutures.ts",
+            "tests/unit/lib/prop-calculator/core/TradingFirmNotes.test.ts"
+        ],
+        "sha256": "b10e309d7f983ed8fb8de3efe60592101c76986a7378bb07fec295b4f1fd7115"
+    },
+    "N-2": {
+        "files": [
+            "src/lib/prop-calculator/firms/e8futures/E8Futures.ts",
+            "tests/unit/lib/prop-calculator/E8Futures.test.ts"
+        ],
+        "sha256": "eb6f155b232a0e0674f13125195d45faf652436e9a8047b7e1ff8f1fbd1a09e6"
+    },
+    "N-20": {
+        "files": [
+            "src/lib/schemas/url.ts",
+            "tests/unit/lib/schemas/url.test.ts"
+        ],
+        "sha256": "9635891acf5feaaa0e990a0af7fad5ed696c82c9c8206b53bfe2069d0627effc"
+    },
+    "N-21": {
+        "files": [
+            "src/lib/prop-calculator/firms/e8futures/E8Futures.ts",
+            "tests/unit/lib/prop-calculator/E8Futures.test.ts"
+        ],
+        "sha256": "eb6f155b232a0e0674f13125195d45faf652436e9a8047b7e1ff8f1fbd1a09e6"
+    },
+    "N-22": {
+        "files": [
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFuturesLive.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaFuturesLive.test.ts"
+        ],
+        "sha256": "8b67ac515f893c407dbd2574ffc01e58e947ace60ab409ecef7a8b2b65116416"
+    },
+    "N-23": {
+        "files": [
+            "src/lib/prop-calculator/core/LiveAccountState.ts",
+            "src/lib/prop-calculator/core/LivePlan.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "13eb9d8278707b638f7c8192a8ce7d5fa62df0c3fb09f2d6922a83f4f05ca1b6"
+    },
+    "N-24": {
+        "files": [
+            "src/lib/prop-calculator/simulator/livePhase.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "8dcb48886c11977e1ea777687793c5f261b219124d2abd593eae2f579365baae"
+    },
+    "N-25": {
+        "files": [
+            "src/lib/prop-calculator/firms/apex/ApexLive.ts",
+            "tests/unit/lib/prop-calculator/firms/apex/ApexLive.test.ts"
+        ],
+        "sha256": "aeb56b2006d343cdc1d3dcd78790853f3ae4e0dbf039d7a80e6fa99778c6e33e"
+    },
+    "N-26": {
+        "files": [
+            "src/lib/prop-calculator/core/LivePlan.ts",
+            "src/lib/prop-calculator/firms/apex/ApexLive.ts",
+            "tests/unit/lib/prop-calculator/core/LivePlan.test.ts",
+            "tests/unit/lib/prop-calculator/firms/apex/ApexLive.test.ts",
+            "tests/unit/lib/prop-calculator/firms/mffu/MffuRapidLive.test.ts"
+        ],
+        "sha256": "ac6c8021aff64bdb83106698048214026250046880ab7103edb5c39cd21a6537"
+    },
+    "N-27": {
+        "files": [
+            "src/lib/prop-calculator/firms/apex/ApexTraderFunding.ts",
+            "tests/unit/lib/prop-calculator/apex.test.ts"
+        ],
+        "sha256": "29c6696e825afb48a3ea76dee9cf2de8f48ea80588b3d2a2c903d2e9d969e7b4"
+    },
+    "N-28": {
+        "files": [
+            "src/lib/prop-calculator/firms/lucid/LucidTrading.ts",
+            "tests/unit/lib/prop-calculator/firms/lucid/LucidFees.test.ts"
+        ],
+        "sha256": "7e7de35d60f372cad95d7f2eed5e2471138e86ce40bffcf60d7de2d83af2e278"
+    },
+    "N-29": {
+        "files": [
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaFutures.test.ts"
+        ],
+        "sha256": "c44dbf100aaf154daffd612fc137a6df172d441f8f8c9d7a993f24b4588ded80"
+    },
+    "N-3": {
+        "files": [
+            "src/lib/prop-calculator/firms/tpt/TptLive.ts",
+            "tests/unit/lib/prop-calculator/firms/tpt/TptLive.test.ts"
+        ],
+        "sha256": "205f9738e4a10910c5dae2e7284bc84780f32e3331c8d47696bee4df2b9a5956"
+    },
+    "N-30": {
+        "files": [
+            "src/lib/prop-calculator/firms/topstep/TopStepLive.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLive.test.ts"
+        ],
+        "sha256": "36624f8f3d901f57ba9f2cb7e1b343f4813e6278634554411549c62780229729"
+    },
+    "N-31": {
+        "files": [
+            "src/lib/prop-calculator/firms/apex/ApexTraderFunding.ts",
+            "tests/unit/lib/prop-calculator/firms/apex/ApexNotes.test.ts"
+        ],
+        "sha256": "0d87aba035759aef5688287840a2df54dfb09604caf408dbdb95313c2bff77ed"
+    },
+    "N-32": {
+        "files": [
+            "src/lib/prop-calculator/core/Plan.ts",
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/lib/prop-calculator/core/Plan.test.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts"
+        ],
+        "sha256": "b5877e7fe7b51114470fc00e7dbc9f894dd1648632d35a9c05be667d5439ccef"
+    },
+    "N-33": {
+        "files": [
+            "src/lib/prop-calculator/firms/apex/ApexTraderFunding.ts",
+            "tests/unit/lib/prop-calculator/firms/apex/ApexNotes.test.ts"
+        ],
+        "sha256": "0d87aba035759aef5688287840a2df54dfb09604caf408dbdb95313c2bff77ed"
+    },
+    "N-34": {
+        "files": [
+            "src/lib/prop-calculator/core/FundedReset.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "tests/unit/cli/prop/fundedResetFlag.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedReset.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueQualifiedReset.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/fundedReset.test.ts"
+        ],
+        "sha256": "701dd725d17d9420e15d794cb173e7e2476c974b516bacc0cc2ed0be8cb0e4ef"
+    },
+    "N-35": {
+        "files": [
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts"
+        ],
+        "sha256": "b42413781ae39e4e452baa0f736cd715b10a4285d4d32f5a10ae4f646c712589"
+    },
+    "N-36": {
+        "files": [
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts"
+        ],
+        "sha256": "b42413781ae39e4e452baa0f736cd715b10a4285d4d32f5a10ae4f646c712589"
+    },
+    "N-37": {
+        "files": [
+            "src/lib/prop-calculator/firms/lucid/LucidTrading.ts",
+            "tests/unit/lib/prop-calculator/firms/lucid/LucidFees.test.ts"
+        ],
+        "sha256": "7e7de35d60f372cad95d7f2eed5e2471138e86ce40bffcf60d7de2d83af2e278"
+    },
+    "N-38": {
+        "files": [
+            "src/lib/prop-calculator/firms/topstep/TopStep.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepFees.test.ts"
+        ],
+        "sha256": "19bf0658c08d7b55273bbd060d89eef1cb42c0f95dc13b921b90c25a7f58d27c"
+    },
+    "N-39": {
+        "files": [
+            "src/lib/prop-calculator/firms/tradeify/Tradeify.ts",
+            "tests/unit/lib/prop-calculator/firms/tradeify/TradeifyFees.test.ts"
+        ],
+        "sha256": "9a952e8ed23c77b34d1d06334014e8af38c0f4d8bc9bedf0717d92c0919c639a"
+    },
+    "N-4": {
+        "files": [
+            "src/lib/prop-calculator/firms/mffu/MffuRapidLive.ts",
+            "tests/unit/lib/prop-calculator/firms/mffu/MffuRapidLive.test.ts"
+        ],
+        "sha256": "771f280d1e3edd0dacc53c1a51961d8ff01d1603ba2fbc6b0d59d3139b2f60eb"
+    },
+    "N-41": {
+        "files": [
+            "src/lib/prop-calculator/firms/mffu/MffuRapidLive.ts",
+            "tests/unit/lib/prop-calculator/firms/mffu/MffuRapidLive.test.ts"
+        ],
+        "sha256": "771f280d1e3edd0dacc53c1a51961d8ff01d1603ba2fbc6b0d59d3139b2f60eb"
+    },
+    "N-42": {
+        "files": [
+            "src/app/(app)/prop-calculator/_components/firstPayoutGate.ts",
+            "src/app/(app)/prop-calculator/_components/ruleStressScenarios.ts",
+            "src/cli/commands/prop/plans/command.ts",
+            "tests/unit/app/prop-calculator/firstPayoutGate.test.ts",
+            "tests/unit/app/prop-calculator/ruleStressScenarios.test.ts",
+            "tests/unit/cli/prop/plans.test.ts"
+        ],
+        "sha256": "8544a55f2ddb1ac6315060a9d82fe3783cce5071f4be0561ed3441c8fc44d728"
+    },
+    "N-43": {
+        "files": [
+            "src/lib/prop-calculator/core/ConsistencyRule.ts",
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "tests/unit/lib/prop-calculator/core/ConsistencyRule.test.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaConsistency.test.ts"
+        ],
+        "sha256": "ed5d354b9abe1281a0d692088942fa33ad55bda329b3862a127504f2d825cabf"
+    },
+    "N-44": {
+        "files": [
+            "src/lib/prop-calculator/firms/topstep/TopStepLive.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLive.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "f0fbddaa06d529dbcec289b432d2639a81bdb0b9f71e273af69f684f5378a54d"
+    },
+    "N-45": {
+        "files": [
+            "src/lib/prop-calculator/core/ConsistencyRule.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "tests/unit/lib/prop-calculator/core/ConsistencyRule.test.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaConsistency.test.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaConsistencyDp.test.ts"
+        ],
+        "sha256": "e3c541c0384878bf4b8573e8f3810b7648c39a7c73688b652388a705caf7a337"
+    },
+    "N-46": {
+        "files": [
+            "src/lib/prop-calculator/simulator/livePhase.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "8dcb48886c11977e1ea777687793c5f261b219124d2abd593eae2f579365baae"
+    },
+    "N-47": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts"
+        ],
+        "sha256": "832f3e45f69090aa04529417b1335ee1842fa1df6e1ad2f5430b9316b93ed410"
+    },
+    "N-48": {
+        "files": [
+            "src/lib/prop-calculator/core/Replacement.ts",
+            "src/lib/prop-calculator/simulator/engine.ts",
+            "tests/unit/lib/prop-calculator/avgDaysForCost.test.ts"
+        ],
+        "sha256": "b99f0a9f47eaad2e2880fd40a5545b2eb36de9d189d1b3a68e1d0140b4973c9d"
+    },
+    "N-49": {
+        "files": [
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/lib/prop-calculator/core/TradingFirmNotes.test.ts"
+        ],
+        "sha256": "c0f40cfe197e006db54a5a03144f82ce1effe8b3b831513b5e512a2120d6ca76"
+    },
+    "N-5": {
+        "files": [
+            ".claude/prop-firms/lucid/live.md",
+            "src/lib/prop-calculator/firms/lucid/LucidLive.ts",
+            "src/lib/prop-calculator/firms/lucid/LucidTrading.ts",
+            "tests/unit/lib/prop-calculator/firms/lucid/LucidLive.test.ts",
+            "tests/unit/lib/prop-calculator/firms/lucid/LucidNotes.test.ts"
+        ],
+        "sha256": "91c7b448f270249d32b629f7aa6a65c0b50ee96c72b42ca38b8e8bfbd14a4223"
+    },
+    "N-50": {
+        "files": [
+            "src/lib/prop-calculator/core/LadderSearch.ts",
+            "tests/unit/lib/prop-calculator/core/LadderGrid.test.ts"
+        ],
+        "sha256": "bc2581687ed55cce929075d05213844cfcac7c2e4a7c47a341dfd0638ac259a7"
+    },
+    "N-51": {
+        "files": [
+            "src/lib/prop-calculator/firms/mffu/MyFundedFutures.ts",
+            "tests/unit/lib/prop-calculator/firms/mffu/MffuNotes.test.ts"
+        ],
+        "sha256": "f29b27b0ca19036dba0b408f29df34a34c723ef22eef10737d9182991a2dd3fe"
+    },
+    "N-52": {
+        "files": [
+            "src/app/(app)/prop-calculator/_components/feePreview.ts",
+            "src/lib/prop-calculator/core/FeeSchedule.ts",
+            "src/lib/prop-calculator/firms/lucid/LucidTrading.ts",
+            "tests/unit/app/prop-calculator/feePreview.test.ts",
+            "tests/unit/lib/prop-calculator/core/FeeSchedule.test.ts",
+            "tests/unit/lib/prop-calculator/core/Plan.test.ts",
+            "tests/unit/lib/prop-calculator/firms/lucid/LucidFees.test.ts"
+        ],
+        "sha256": "6fa4a5d7e622ee3792b36ffce14be60a00bd80ca0c1f8ec4ce08be47a9b77349"
+    },
+    "N-54": {
+        "files": [
+            "src/cli/commands/prop/live/command.ts",
+            "src/lib/prop-calculator/firms/lucid/LucidLive.ts",
+            "tests/unit/cli/prop/live.test.ts",
+            "tests/unit/lib/prop-calculator/liveFirmRegistry.test.ts"
+        ],
+        "sha256": "5150194e2db93fd5555f1363489556972e2c92d7c8b629d15ab91e43a577650d"
+    },
+    "N-55": {
+        "files": [
+            "src/lib/prop-calculator/simulator/engine.ts",
+            "src/lib/prop-calculator/simulator/types.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts"
+        ],
+        "sha256": "a948193ced58ea26290e7add205f83d2750ab6c3dd7c586a47aa186ad0b4821e"
+    },
+    "N-56": {
+        "files": [
+            "src/lib/prop-calculator/core/DayPolicy.ts",
+            "src/lib/prop-calculator/core/LadderSearch.ts",
+            "src/lib/prop-calculator/core/Plan.ts",
+            "tests/unit/lib/prop-calculator/core/DayPolicy.test.ts",
+            "tests/unit/lib/prop-calculator/core/Plan.test.ts",
+            "tests/unit/lib/prop-calculator/ladderSearch.test.ts"
+        ],
+        "sha256": "d954761c7e393fd6411d0d09219f820af2929ff37ee93a00dc1013a31761a80e"
+    },
+    "N-57": {
+        "files": [
+            "src/lib/prop-calculator/core/LivePlan.ts",
+            "src/lib/prop-calculator/firms/topstep/TopStepLive.ts",
+            "tests/unit/lib/prop-calculator/core/TradingFirmNotes.test.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLive.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "e1bfa69113a49b369c2c3d10b8f8048b6220b65dc397b1889f4515af4f5de1b2"
+    },
+    "N-58": {
+        "files": [
+            "src/lib/prop-calculator/core/LivePlan.ts",
+            "src/lib/prop-calculator/firms/topstep/TopStepLive.ts",
+            "tests/unit/lib/prop-calculator/core/TradingFirmNotes.test.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLive.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "e1bfa69113a49b369c2c3d10b8f8048b6220b65dc397b1889f4515af4f5de1b2"
+    },
+    "N-59": {
+        "files": [
+            "src/lib/prop-calculator/core/LivePlan.ts",
+            "src/lib/prop-calculator/firms/topstep/TopStepLive.ts",
+            "tests/unit/lib/prop-calculator/core/TradingFirmNotes.test.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLive.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "e1bfa69113a49b369c2c3d10b8f8048b6220b65dc397b1889f4515af4f5de1b2"
+    },
+    "N-6": {
+        "files": [
+            "src/lib/prop-calculator/firms/mffu/MyFundedFutures.ts",
+            "tests/unit/lib/prop-calculator/mffuPro.test.ts"
+        ],
+        "sha256": "595ff3baad673b5f9459cdb8ab33011974ce96db51ff2c9b84c4e3ce901c8b9c"
+    },
+    "N-60": {
+        "files": [
+            "src/lib/prop-calculator/core/FeeSchedule.ts",
+            "src/lib/prop-calculator/core/Replacement.ts",
+            "tests/unit/lib/prop-calculator/core/EvalPhaseBilling.test.ts",
+            "tests/unit/lib/prop-calculator/core/FeeSchedule.test.ts",
+            "tests/unit/lib/prop-calculator/core/RenewalCycleObjective.test.ts",
+            "tests/unit/lib/prop-calculator/core/Replacement.test.ts",
+            "tests/unit/lib/prop-calculator/core/ReplacementFromState.test.ts",
+            "tests/unit/lib/prop-calculator/portfolioTimeline/RetryBilling.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/trial.test.ts"
+        ],
+        "sha256": "2d25382160802cf66dfd68ca3dee149e8a22b64e7d199e5fafb31222ce673c99"
+    },
+    "N-61": {
+        "files": [
+            "src/lib/prop-calculator/simulator/evalPhase.ts",
+            "tests/unit/app/prop-calculator/retryTimeoutCopy.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/evalPhase.test.ts"
+        ],
+        "sha256": "174216be35c7efe8b51a565747fffb05ce0c4705ed994d8a0d001513d2251874"
+    },
+    "N-62": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts"
+        ],
+        "sha256": "e190987ee1a50633d76e384d01ce5d94307ecf380fd71fdb54c9994fff640177"
+    },
+    "N-63": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueConvergence.test.ts"
+        ],
+        "sha256": "3125230ea7be83ee1a36b921b68335631acd2754cc2473367e404314b8b36ba6"
+    },
+    "N-64": {
+        "files": [
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "src/lib/prop-calculator/firms/mffu/MyFundedFutures.ts",
+            "tests/unit/app/prop-calculator/earlyWithdrawalInput.test.ts",
+            "tests/unit/cli/prop/earlyWithdrawalFlag.test.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueMffuProRules.test.ts",
+            "tests/unit/lib/prop-calculator/firms/mffu/MffuNotes.test.ts",
+            "tests/unit/lib/prop-calculator/mffuPro.test.ts"
+        ],
+        "sha256": "5b928fe626c791a032850e38eb93fa897f0a30393fbe815be59cc198dc413ebf"
+    },
+    "N-65": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueAccuracy.test.ts"
+        ],
+        "sha256": "9316e3fbf617d139ef619c3dea127f8cd28803ac7983e6cff31946abe89b5ea9"
+    },
+    "N-66": {
+        "files": [
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueConvergence.test.ts"
+        ],
+        "sha256": "0a95f5f211ddbed688e0954d13a07b3b04a90fae9820cda4127e5021d8484c58"
+    },
+    "N-67": {
+        "files": [
+            "src/lib/prop-calculator/firms/topstep/TopStepLive.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLive.test.ts"
+        ],
+        "sha256": "36624f8f3d901f57ba9f2cb7e1b343f4813e6278634554411549c62780229729"
+    },
+    "N-68": {
+        "files": [
+            "src/lib/prop-calculator/firms/lucid/LucidLive.ts",
+            "src/lib/prop-calculator/firms/lucid/LucidTrading.ts",
+            "tests/unit/lib/prop-calculator/firms/lucid/LucidLive.test.ts",
+            "tests/unit/lib/prop-calculator/firms/lucid/LucidNotes.test.ts"
+        ],
+        "sha256": "c372d47d3c66bccba454a4e4d230cb43760dcf8d9cfb6c7c68c6be2d2673cdbc"
+    },
+    "N-69": {
+        "files": [
+            "src/lib/prop-calculator/core/DayPolicy.ts",
+            "src/lib/prop-calculator/core/Plan.ts",
+            "tests/unit/lib/prop-calculator/advisor/EvalLadderRule.test.ts",
+            "tests/unit/lib/prop-calculator/core/WholeCentDllBoundary.test.ts"
+        ],
+        "sha256": "8fabe612bfc4a5e2b9e0c81ce0dc4aff545e379b5a1ab5bf151cb67307adbf03"
+    },
+    "N-7": {
+        "files": [
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "src/lib/prop-calculator/firms/mffu/MyFundedFutures.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueMffuProRules.test.ts",
+            "tests/unit/lib/prop-calculator/mffuPro.test.ts"
+        ],
+        "sha256": "b529900b427e43df19fdae2d7e145c93ef7a5e2765f77eb111e6b85f2016dfbc"
+    },
+    "N-70": {
+        "files": [
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueWorkerDeterminism.test.ts"
+        ],
+        "sha256": "28810712c40294fe7a7b8513575afbec33bff3c1ad2eec9646d814fce8e0dc91"
+    },
+    "N-71": {
+        "files": [
+            "src/app/(app)/prop-calculator/_components/ResultsPanel.tsx",
+            "src/app/(app)/prop-calculator/_components/kpiDescriptions.ts",
+            "src/cli/commands/prop/optimize/funded/command.ts",
+            "src/lib/prop-calculator/core/DayPolicy.ts",
+            "src/lib/prop-calculator/core/FundedPayoutCycle.ts",
+            "src/lib/prop-calculator/core/PositionSizing.ts",
+            "src/lib/prop-calculator/simulator/engine.ts",
+            "tests/unit/app/prop-calculator/ResultsPanel.dom.test.tsx",
+            "tests/unit/app/prop-calculator/kpiDescriptions.test.ts",
+            "tests/unit/cli/prop/optimizeFunded.test.ts",
+            "tests/unit/lib/prop-calculator/core/DayPolicy.test.ts",
+            "tests/unit/lib/prop-calculator/core/PositionSizing.test.ts",
+            "tests/unit/lib/prop-calculator/declaredPolicySizing.test.ts",
+            "tests/unit/lib/prop-calculator/percentCushionSizing.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts"
+        ],
+        "sha256": "b22bb016d6d03bd73753ed9904747e3e18fbb26649dcf68964b7590078f42530"
+    },
+    "N-72": {
+        "files": [
+            "src/app/(app)/prop-calculator/_components/kpiDescriptions.ts",
+            "src/cli/commands/prop/optimize/funded/command.ts",
+            "src/lib/prop-calculator/core/FundedPayoutCycle.ts",
+            "src/lib/prop-calculator/simulator/engine.ts",
+            "tests/unit/app/prop-calculator/ResultsPanel.dom.test.tsx",
+            "tests/unit/app/prop-calculator/kpiDescriptions.test.ts",
+            "tests/unit/cli/prop/optimizeFunded.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedPayoutCycle.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValuePayoutPolicy.test.ts",
+            "tests/unit/lib/prop-calculator/engineCharacterization.test.ts",
+            "tests/unit/lib/prop-calculator/horizonCredit.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts"
+        ],
+        "sha256": "406469bc99eccd1c41120f784e1ec63eaf7cff07044eca8669426088d5e09870"
+    },
+    "N-73": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "src/lib/prop-calculator/core/AverageRewardSolver.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/lib/prop-calculator/core/AverageRewardRateSearch.test.ts",
+            "tests/unit/lib/prop-calculator/core/AverageRewardSolver.test.ts"
+        ],
+        "sha256": "501d538d453948736fa1ffb6bf83f06c3a3344af27cbb75af10f361c14b2fa14"
+    },
+    "N-74": {
+        "files": [
+            "src/cli/commands/prop/sim/command.ts",
+            "src/lib/prop-calculator/core/DayPolicy.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "src/lib/prop-calculator/core/PositionSizing.ts",
+            "src/lib/prop-calculator/simulator/livePhase.ts",
+            "tests/unit/cli/prop/sim.test.ts",
+            "tests/unit/lib/prop-calculator/core/DayPolicy.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueWholeContracts.test.ts",
+            "tests/unit/lib/prop-calculator/core/Plan.test.ts",
+            "tests/unit/lib/prop-calculator/core/PositionSizing.test.ts",
+            "tests/unit/lib/prop-calculator/lockoutRoomWholeContracts.test.ts",
+            "tests/unit/lib/prop-calculator/lockoutRoomWholeContractsHalfCushion.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "71f98de768d361852e9aba044cddd619461ed78839360e6de9a55bde1e7a6109"
+    },
+    "N-76": {
+        "files": [
+            "src/cli/commands/prop/live/command.ts",
+            "src/lib/prop-calculator/simulator/livePhase.ts",
+            "tests/unit/cli/prop/live.test.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLive.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/dayPolicyValidation.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "3575e85040b1c3f5e3481f06601de4f2f8468eb7042e324191b8f233e2257bd5"
+    },
+    "N-77": {
+        "files": [
+            "src/lib/prop-calculator/core/EvalStateValue.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValueGridBias.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValue.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueGridBias.test.ts"
+        ],
+        "sha256": "2b0ab7b8ced1af60f5da4e21aaefcec50bcec8be215fe41d98735baae322ed14"
+    },
+    "N-78": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "src/cli/unknownFlagGuard.ts",
+            "tests/unit/cli/prop/ladder.test.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/cli/rootUnknownFlag.test.ts",
+            "tests/unit/cli/unknownFlagGuard.test.ts"
+        ],
+        "sha256": "1dd9c55b1204791f6bb42c9e3b07d64dde220a415db3a3dbe5270394dbfc9c43"
+    },
+    "N-79": {
+        "files": [
+            "src/lib/prop-calculator/core/EvalStateValue.ts",
+            "src/lib/prop-calculator/core/Plan.ts",
+            "src/lib/prop-calculator/firms/tpt/TakeProfitTrader.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValueDoubleTargetCeiling.test.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValueReachability.test.ts",
+            "tests/unit/lib/prop-calculator/core/LadderSearchIntradayTrailing.test.ts",
+            "tests/unit/lib/prop-calculator/core/Plan.test.ts",
+            "tests/unit/lib/prop-calculator/engineCharacterization.test.ts",
+            "tests/unit/lib/prop-calculator/takeProfitTrader.test.ts"
+        ],
+        "sha256": "d24607403f4a4f40c3eead4cadc528cd4ffe2cf005299210884d7a8604f74d66"
+    },
+    "N-8": {
+        "files": [
+            "src/lib/prop-calculator/core/EvalStateValue.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValue.test.ts"
+        ],
+        "sha256": "6431ac2a9eaf748e58aadd1d9eb3556b2d3f5863ac4cee62403d1e229ab7c39d"
+    },
+    "N-80": {
+        "files": [
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "src/lib/prop-calculator/firms/tpt/TakeProfitTrader.ts",
+            "src/lib/prop-calculator/firms/tpt/TptLive.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueCalendarWeekGap.test.ts",
+            "tests/unit/lib/prop-calculator/core/InactivityRule.test.ts",
+            "tests/unit/lib/prop-calculator/firms/tpt/TptLive.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts",
+            "tests/unit/lib/prop-calculator/takeProfitTrader.test.ts"
+        ],
+        "sha256": "ede960570fb585c983822a55bab7e6615350f497f3ba829c154bd5b205e614bb"
+    },
+    "N-81": {
+        "files": [
+            "src/lib/prop-calculator/core/LivePlan.ts",
+            "src/lib/prop-calculator/firms/fundednext/FundedNextLive.ts",
+            "tests/unit/lib/prop-calculator/core/LockKeyedContractCapLivePlan.test.ts",
+            "tests/unit/lib/prop-calculator/firms/fundednext/FundedNextLive.test.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "1ad610e02a2cbf05c4cf8cf80e06aefe6a71b0730764241141a780e73afbb8cb"
+    },
+    "N-82": {
+        "files": [
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts"
+        ],
+        "sha256": "b42413781ae39e4e452baa0f736cd715b10a4285d4d32f5a10ae4f646c712589"
+    },
+    "N-83": {
+        "files": [
+            "src/lib/prop-calculator/firms/lucid/LucidTrading.ts",
+            "tests/unit/lib/prop-calculator/lucidTrading.test.ts"
+        ],
+        "sha256": "c8eed4baddf4d357af6bcfc4fa1d91b2e8588f168262b30a51c6cd359aa71459"
+    },
+    "N-84": {
+        "files": [
+            "src/lib/prop-calculator/firms/mffu/MyFundedFutures.ts",
+            "tests/unit/app/prop-calculator/kpiDescriptions.test.ts",
+            "tests/unit/lib/prop-calculator/firms/mffu/MffuNotes.test.ts",
+            "tests/unit/lib/prop-calculator/mffuRapid.test.ts"
+        ],
+        "sha256": "42aa2a960760d3aed679a508b869d9b0161fcd9fec0d8aaaafe5bbc3f63760e1"
+    },
+    "N-85": {
+        "files": [
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "src/lib/prop-calculator/firms/tpt/TakeProfitTrader.ts",
+            "src/lib/prop-calculator/firms/tradeify/Tradeify.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaFutures.test.ts",
+            "tests/unit/lib/prop-calculator/takeProfitTrader.test.ts",
+            "tests/unit/lib/prop-calculator/tradeify.test.ts"
+        ],
+        "sha256": "2b06e1c10e2b0c034b711494322833b32442944435c43e2af5a10b1fe7d29771"
+    },
+    "N-86": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "src/lib/prop-calculator/core/FundedCushionGrid.ts",
+            "src/lib/prop-calculator/core/FundedDpModelGaps.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedCushionGrid.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedDpModelGaps.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValue.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueBestDayBound.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueContinuationOffset.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueDayCloseCushion.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValueGridSaturation.test.ts"
+        ],
+        "sha256": "3705f0fa393657766fb6c3c34885672345ac0df48d150fbe5dd4dcb83bb38070"
+    },
+    "N-87": {
+        "files": [
+            "src/lib/prop-calculator/core/EvalStateValue.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValueDayCloseCushion.test.ts"
+        ],
+        "sha256": "69c3a3d542b589f3b78e9de9d9115a70203d2b6c2f7608cf3bc6a9ab00c3694a"
+    },
+    "N-89": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "src/lib/prop-calculator/core/EvalStateValue.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValue.test.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValueDayCloseCushion.test.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValuePassSmear.test.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValueReachability.test.ts"
+        ],
+        "sha256": "ff256af142ef030b66298e8b6321441c97781a521042682a3c24be52fbeb1a47"
+    },
+    "N-9": {
+        "files": [
+            "src/lib/prop-calculator/core/EvalStateValue.ts",
+            "tests/unit/lib/prop-calculator/core/EvalStateValue.test.ts"
+        ],
+        "sha256": "6431ac2a9eaf748e58aadd1d9eb3556b2d3f5863ac4cee62403d1e229ab7c39d"
+    },
+    "N-91": {
+        "files": [
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFuturesLive.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaFuturesLiveDailyLossLimit.test.ts"
+        ],
+        "sha256": "694238de06ca9dedb5e671f462c26827c4c6bc385290506c9e363c08a794ab42"
+    },
+    "N-92": {
+        "files": [
+            "src/lib/prop-calculator/firms/lucid/LucidLive.ts",
+            "src/lib/prop-calculator/firms/lucid/LucidTrading.ts",
+            "tests/unit/app/prop-calculator/accounts/detail/liveTransitionPreviewModel.test.ts",
+            "tests/unit/cli/prop/live.test.ts",
+            "tests/unit/lib/prop-calculator/firms/lucid/LucidDailyTransitionNote.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/LiveTransferSurfaceDisclosure.test.ts"
+        ],
+        "sha256": "20b232d5c0fd138f28f50c937e1604a8ce560a6822f036fa177dbe5e957a099d"
+    },
+    "N-93": {
+        "files": [
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/app/prop-calculator/firstPayoutGate.test.ts",
+            "tests/unit/app/prop-calculator/ruleStressScenarios.test.ts",
+            "tests/unit/cli/prop/plans.test.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts"
+        ],
+        "sha256": "831156b5b6efae1e3a42589a25377663567bc6b6894c2a94a5692d9d39206e4f"
+    },
+    "N-94": {
+        "files": [
+            "src/lib/prop-calculator/core/DrawdownStrategy.ts",
+            "src/lib/prop-calculator/core/LivePlan.ts",
+            "src/lib/prop-calculator/firms/topstep/TopStep.ts",
+            "src/lib/prop-calculator/firms/topstep/TopStepLive.ts",
+            "tests/unit/app/prop-calculator/accounts/FromStateViews.dom.test.tsx",
+            "tests/unit/cli/prop/adviseLivePlacement.test.ts",
+            "tests/unit/lib/prop-calculator/advisor/LiveCushionPercentRule.test.ts",
+            "tests/unit/lib/prop-calculator/advisor/LiveDailyPlanCardPlacement.test.ts",
+            "tests/unit/lib/prop-calculator/advisor/LiveSizingAdvisorStrictFloor.test.ts",
+            "tests/unit/lib/prop-calculator/core/LivePlanFloorAlive.test.ts",
+            "tests/unit/lib/prop-calculator/core/LivePlanStrictFloorWithdrawal.test.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLfaNoteDrawdownClass.test.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLfaWording.test.ts",
+            "tests/unit/lib/prop-calculator/firms/topstep/TopStepLive.test.ts"
+        ],
+        "sha256": "3a0ffd5b85a11ae17a9f2d158182a01a961eb0c74547628e1cb42489de00058a"
+    },
+    "R1-1": {
+        "files": [
+            "src/lib/prop-calculator/core/Plan.ts",
+            "src/lib/prop-calculator/simulator/engine.ts",
+            "tests/unit/lib/prop-calculator/core/BulkDiscount.test.ts"
+        ],
+        "sha256": "f29d02c33046aacdd9e8d5d13e273ef81e16d88eeebee5dbbb8b2e48303bedae"
+    },
+    "R1-10": {
+        "files": [
+            "src/lib/prop-calculator/core/LadderSearch.ts",
+            "tests/unit/lib/prop-calculator/core/LadderSearchEvalDayCap.test.ts"
+        ],
+        "sha256": "72fafb4b980da572ba48f62be7e5c8c0fc6b19b4296cc2957e7af08b3fa57a71"
+    },
+    "R1-11": {
+        "files": [
+            "src/lib/prop-calculator/core/LadderSearch.ts",
+            "tests/unit/lib/prop-calculator/core/LadderSearchContractLimits.test.ts"
+        ],
+        "sha256": "fb05c070693bb9340e553063174e9a58ea51d177508524b99551d5da477ee42c"
+    },
+    "R1-13": {
+        "files": [
+            "src/cli/commands/prop/ladder/command.ts",
+            "src/lib/prop-calculator/core/LadderSearch.ts",
+            "tests/unit/cli/prop/ladder.test.ts",
+            "tests/unit/lib/prop-calculator/core/LadderGrid.test.ts"
+        ],
+        "sha256": "5528a1f041dc3dc6093311f78aea4bf8d5c7b576d19c262382fe5f40b5092903"
+    },
+    "R1-14": {
+        "files": [
+            "src/cli/commands/prop/ladder/command.ts",
+            "src/lib/prop-calculator/core/LadderSearch.ts",
+            "tests/unit/cli/prop/ladder.test.ts",
+            "tests/unit/lib/prop-calculator/core/LadderGrid.test.ts"
+        ],
+        "sha256": "5528a1f041dc3dc6093311f78aea4bf8d5c7b576d19c262382fe5f40b5092903"
+    },
+    "R1-15": {
+        "files": [
+            "src/cli/commands/prop/ladder/command.ts",
+            "src/lib/prop-calculator/core/LadderSearch.ts",
+            "src/lib/prop-calculator/stats.ts",
+            "tests/unit/lib/prop-calculator/core/LadderSearchNoise.test.ts",
+            "tests/unit/lib/prop-calculator/stats.test.ts"
+        ],
+        "sha256": "1dd4607c775c65f6274c34d86a5776d3b932f06c96ff257869745011931811bd"
+    },
+    "R1-18": {
+        "files": [
+            "src/cli/commands/prop/live/command.ts",
+            "src/cli/commands/prop/shared.ts",
+            "tests/unit/cli/prop/live.test.ts"
+        ],
+        "sha256": "90e1761c2e3ee14b83af303a0a1bedb2329fdda0944f9b132e4f1d018136bdf5"
+    },
+    "R1-19": {
+        "files": [
+            "src/cli/commands/prop/live/command.ts",
+            "src/cli/commands/prop/shared.ts",
+            "src/lib/prop-calculator/simulator/livePhase.ts",
+            "tests/unit/cli/prop/live.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "5812a1ceaad508cc75becb3ffdc8c3ed1173a14313f338eb8ce93ae687f3d7fe"
+    },
+    "R1-2": {
+        "files": [
+            "src/lib/prop-calculator/core/AverageRewardSolver.ts",
+            "src/lib/prop-calculator/core/FeeSchedule.ts",
+            "src/lib/prop-calculator/core/RenewalCycleObjective.ts",
+            "src/lib/prop-calculator/core/Replacement.ts",
+            "tests/unit/lib/prop-calculator/core/FeeSchedule.test.ts",
+            "tests/unit/lib/prop-calculator/core/RenewalCycleObjective.test.ts",
+            "tests/unit/lib/prop-calculator/core/Replacement.test.ts",
+            "tests/unit/lib/prop-calculator/core/ResetFeeDoubleCount.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts"
+        ],
+        "sha256": "0c04c1baedbf09d41757fb9664b0b3bc8c024b33965bae326a36fb04cbca5f63"
+    },
+    "R1-21": {
+        "files": [
+            "src/app/(app)/prop-calculator/_components/CashFlowPanel.tsx",
+            "src/lib/prop-calculator/portfolioTimeline/portfolio.ts",
+            "src/lib/prop-calculator/portfolioTimeline/types.ts",
+            "tests/unit/lib/prop-calculator/portfolioTimeline/FundedAccountCap.test.ts"
+        ],
+        "sha256": "9137020bc342cad2a7f355a380949b1d028b55a38a3067bd4bc21d42bda809bc"
+    },
+    "R1-22": {
+        "files": [
+            "src/lib/prop-calculator/portfolioTimeline/accountTimeline.ts",
+            "src/lib/prop-calculator/portfolioTimeline/fundedCycle.ts",
+            "tests/unit/lib/prop-calculator/portfolioTimeline.test.ts",
+            "tests/unit/lib/prop-calculator/portfolioTimeline/PlanLifetimePayoutRule.test.ts"
+        ],
+        "sha256": "17a7b0a916035161078ee143717f435be57f5b3591bcbb8c92cb8d575ed1d964"
+    },
+    "R1-23": {
+        "files": [
+            "src/cli/commands/prop/shared.ts",
+            "src/lib/prop-calculator/core/DayPolicy.ts",
+            "tests/unit/cli/prop/shared.test.ts"
+        ],
+        "sha256": "29ba9e6319ef58a7cc7ffaa4bf8b42848dab602bd6bd4a18015f94af6e849674"
+    },
+    "R1-24": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "src/cli/commands/prop/optimize/funded/command.ts",
+            "src/cli/commands/prop/shared.ts",
+            "tests/unit/cli/prop/optimizeDp.test.ts",
+            "tests/unit/cli/prop/optimizeFunded.test.ts",
+            "tests/unit/cli/prop/shared.test.ts"
+        ],
+        "sha256": "93dadfd6e50fe0cee31a5092c9814d3e2263415b85b2c74960aacfeef4e84060"
+    },
+    "R1-25": {
+        "files": [
+            "src/cli/commands/prop/shared.ts",
+            "tests/unit/cli/prop/shared.test.ts"
+        ],
+        "sha256": "447507e37a794acc1a15809d4fafe67af86085249bad8aad3ed561d1cc352146"
+    },
+    "R1-26": {
+        "files": [
+            "src/cli/commands/prop/shared.ts",
+            "src/cli/commands/prop/sim/command.ts",
+            "src/lib/prop-calculator/simulator/day.ts",
+            "tests/unit/cli/prop/sim.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/day.test.ts"
+        ],
+        "sha256": "c45e482f96b7f26f175686c4bc18190cbc331a6c032924ed798df8e1313b2c7a"
+    },
+    "R1-27": {
+        "files": [
+            "src/cli/commands/prop/optimize/funded/command.ts",
+            "src/cli/commands/prop/shared.ts",
+            "src/lib/prop-calculator/core/DayPolicy.ts",
+            "tests/unit/cli/prop/optimizeFunded.test.ts",
+            "tests/unit/cli/prop/shared.test.ts"
+        ],
+        "sha256": "917da21235b73c2a0cf89911275d116740b205dd35850d742487385228e11f01"
+    },
+    "R1-28": {
+        "files": [
+            "src/lib/prop-calculator/core/TradePathSimulation.ts",
+            "tests/unit/lib/prop-calculator/core/TradePathSimulation.test.ts"
+        ],
+        "sha256": "3a87971f6ae33e5cffec47b293487972c939616ae7fa2be967400d9a71043079"
+    },
+    "R1-29": {
+        "files": [
+            "src/app/(app)/prop-calculator/_components/ResultsPanel.tsx",
+            "src/app/(app)/prop-calculator/_components/cashFlowRoi.ts",
+            "src/app/(app)/prop-calculator/_components/kpiAccent.ts",
+            "src/lib/format.ts",
+            "src/lib/prop-calculator/core/Roi.ts",
+            "tests/unit/app/prop-calculator/cashFlowRoi.test.ts",
+            "tests/unit/app/prop-calculator/kpiAccent.test.ts",
+            "tests/unit/app/prop-calculator/portfolioRoiCard.test.ts",
+            "tests/unit/lib/format.test.ts",
+            "tests/unit/lib/prop-calculator/core/Roi.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts"
+        ],
+        "sha256": "ed960c2a930f7fa61a220f02949a85c4595f2e4320f9d1630ae91cca4538b4b1"
+    },
+    "R1-3": {
+        "files": [
+            "src/lib/prop-calculator/simulator/engine.ts",
+            "src/lib/prop-calculator/simulator/trial.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts"
+        ],
+        "sha256": "7307370e655d18de7382b4f31d0e809aedb78345e0e1bf92a78e1dba5855f6e6"
+    },
+    "R1-30": {
+        "files": [
+            "src/cli/commands/prop/compare/command.ts",
+            "src/cli/commands/prop/ladder/command.ts",
+            "src/cli/commands/prop/sim/command.ts",
+            "src/lib/prop-calculator/simulator/types.ts",
+            "tests/unit/cli/prop/compare.test.ts",
+            "tests/unit/cli/prop/sim.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts"
+        ],
+        "sha256": "6a825f2c4964c5a74b9af625006bb0e9eda02937dbe7518c35cf5965c2ab9ad5"
+    },
+    "R1-31": {
+        "files": [
+            "src/lib/prop-calculator/core/PayoutCountSchedule.ts",
+            "src/lib/prop-calculator/core/PayoutTiers.ts",
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "tests/unit/lib/prop-calculator/alphaFuturesPayoutSplit.test.ts",
+            "tests/unit/lib/prop-calculator/core/PayoutTiers.test.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaFutures.test.ts",
+            "tests/unit/lib/prop-calculator/portfolioTimeline/PayoutCountSplit.test.ts"
+        ],
+        "sha256": "e7cd83bf3b8abfb66e33b48e7ee5d8acf74aab64fe07fbfeaebdb047909a0fd7"
+    },
+    "R1-32": {
+        "files": [
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "tests/unit/cli/prop/plans.test.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaFutures.test.ts"
+        ],
+        "sha256": "bef9d5ab5d01a6b55171717b0aaadd86bf9e5a555b82fccb9002aed5beaa9367"
+    },
+    "R1-33": {
+        "files": [
+            "src/lib/prop-calculator/firms/alphafutures/AlphaFutures.ts",
+            "tests/unit/lib/prop-calculator/core/MinPayoutRequestDefault.test.ts",
+            "tests/unit/lib/prop-calculator/firms/alphafutures/AlphaFutures.test.ts"
+        ],
+        "sha256": "7c57298e849f1cb14c6f76b8af14d58269d6759213f11a1777e5a8877e717aaf"
+    },
+    "R1-34": {
+        "files": [
+            "src/cli/commands/prop/compare/command.ts",
+            "src/lib/prop-calculator/core/PlanAvailability.ts",
+            "tests/unit/cli/prop/compare.test.ts",
+            "tests/unit/lib/prop-calculator/core/PlanAvailability.test.ts"
+        ],
+        "sha256": "c4857b35f5302d981dce7c7599c7440847cb8765527548d1b4e46f07984ccc61"
+    },
+    "R1-36": {
+        "files": [
+            "src/lib/prop-calculator/firms/e8futures/E8Futures.ts",
+            "tests/unit/lib/prop-calculator/E8Futures.test.ts"
+        ],
+        "sha256": "eb6f155b232a0e0674f13125195d45faf652436e9a8047b7e1ff8f1fbd1a09e6"
+    },
+    "R1-37": {
+        "files": [
+            "src/lib/prop-calculator/firms/e8futures/E8Futures.ts",
+            "tests/unit/lib/prop-calculator/E8Futures.test.ts"
+        ],
+        "sha256": "eb6f155b232a0e0674f13125195d45faf652436e9a8047b7e1ff8f1fbd1a09e6"
+    },
+    "R1-39": {
+        "files": [
+            "src/lib/prop-calculator/firms/e8futures/E8Futures.ts",
+            "tests/unit/lib/prop-calculator/E8Futures.test.ts",
+            "tests/unit/lib/prop-calculator/core/TradingFirmNotes.test.ts"
+        ],
+        "sha256": "ec21391015fea3a7bb39d86a188b197c74b50af037fdeb0b9076ff30807de896"
+    },
+    "R1-4": {
+        "files": [
+            "src/lib/prop-calculator/simulator/PhaseStats.ts",
+            "src/lib/prop-calculator/simulator/day.ts",
+            "src/lib/prop-calculator/simulator/engine.ts",
+            "tests/unit/lib/prop-calculator/core/PhaseStats.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/engine.test.ts"
+        ],
+        "sha256": "5499c78017c7845bbd6b930552d3f9255dfca98e98365896614906e8bcc89e95"
+    },
+    "R1-40": {
+        "files": [
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts"
+        ],
+        "sha256": "b42413781ae39e4e452baa0f736cd715b10a4285d4d32f5a10ae4f646c712589"
+    },
+    "R1-41": {
+        "files": [
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts"
+        ],
+        "sha256": "b42413781ae39e4e452baa0f736cd715b10a4285d4d32f5a10ae4f646c712589"
+    },
+    "R1-42": {
+        "files": [
+            "src/lib/prop-calculator/firms/fundednext/FundedNext.ts",
+            "tests/unit/lib/prop-calculator/fundedNext.test.ts"
+        ],
+        "sha256": "b42413781ae39e4e452baa0f736cd715b10a4285d4d32f5a10ae4f646c712589"
+    },
+    "R1-43": {
+        "files": [
+            "src/lib/prop-calculator/core/DailyLossLimit.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "src/lib/prop-calculator/core/TierBasis.ts",
+            "src/lib/prop-calculator/firms/apex/ApexTraderFunding.ts",
+            "tests/unit/lib/prop-calculator/apex.test.ts",
+            "tests/unit/lib/prop-calculator/core/DailyLossLimit.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValue.test.ts",
+            "tests/unit/lib/prop-calculator/core/TierBasis.test.ts",
+            "tests/unit/lib/prop-calculator/firms/apex/ApexTierTiming.test.ts"
+        ],
+        "sha256": "eccae3eeea43b5fe665d2800c7a1ce71f4f296c9706ca0f6eaa85710ccb5f8f8"
+    },
+    "R1-44": {
+        "files": [
+            "src/cli/commands/prop/plans/command.ts",
+            "src/lib/prop-calculator/core/PayoutCap.ts",
+            "tests/unit/cli/prop/plans.test.ts"
+        ],
+        "sha256": "b5a71be088d0e23d2a7e6deafc82465286d24e4c2f6a3cec30f5b02dc221726c"
+    },
+    "R1-45": {
+        "files": [
+            "src/cli/commands/prop/plans/command.ts",
+            "tests/unit/cli/prop/plans.test.ts"
+        ],
+        "sha256": "508926d99a65bdbfba45832da44298c93246f50b88a7a22605100440a11cffed"
+    },
+    "R1-46": {
+        "files": [
+            "src/lib/prop-calculator/core/PayoutCap.ts",
+            "tests/unit/lib/prop-calculator/core/PayoutCap.test.ts"
+        ],
+        "sha256": "4e9d4240096259c3a6e9b899bb695fccc0ae1ce3eff41cbc386c63875be2129d"
+    },
+    "R1-48": {
+        "files": [
+            "src/lib/prop-calculator/core/LivePlan.ts",
+            "src/lib/prop-calculator/firms/mffu/MffuRapidLive.ts",
+            "src/lib/prop-calculator/simulator/livePhase.ts",
+            "tests/unit/lib/prop-calculator/core/LivePlan.test.ts",
+            "tests/unit/lib/prop-calculator/firms/mffu/MffuRapidLive.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/livePhase.test.ts"
+        ],
+        "sha256": "1a25ea61cda614db31dbae85d9f4f04e78adaf75afa46803bf9c52df057d5bc8"
+    },
+    "R1-49": {
+        "files": [
+            "src/lib/prop-calculator/firms/mffu/MffuRapidLive.ts",
+            "tests/unit/lib/prop-calculator/firms/mffu/MffuRapidLive.test.ts"
+        ],
+        "sha256": "771f280d1e3edd0dacc53c1a51961d8ff01d1603ba2fbc6b0d59d3139b2f60eb"
+    },
+    "R1-50": {
+        "files": [
+            "src/lib/prop-calculator/firms/mffu/MyFundedFutures.ts",
+            "tests/unit/lib/prop-calculator/mffuBuilder.test.ts"
+        ],
+        "sha256": "6806f1503749b503cc17e886eb8be3392b4820629d322a7edbf23c4af1d1453e"
+    },
+    "R1-51": {
+        "files": [
+            "src/lib/prop-calculator/core/DrawdownStrategy.ts",
+            "src/lib/prop-calculator/core/FundedDpModelGaps.ts",
+            "src/lib/prop-calculator/core/PayoutFloorEffect.ts",
+            "src/lib/prop-calculator/firms/mffu/MyFundedFutures.ts",
+            "tests/unit/lib/prop-calculator/core/DrawdownTransitions.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedDpModelGaps.test.ts",
+            "tests/unit/lib/prop-calculator/core/PayoutFloorEffect.test.ts",
+            "tests/unit/lib/prop-calculator/mffuPro.test.ts"
+        ],
+        "sha256": "507ee0b3ae2d946dcd051df936ef5fc36c919864652fa697d04d55c64af3498c"
+    },
+    "R1-53": {
+        "files": [
+            "src/lib/prop-calculator/core/ContractLimits.ts",
+            "src/lib/prop-calculator/firms/apex/ApexLive.ts",
+            "src/lib/prop-calculator/firms/tpt/TptLive.ts",
+            "tests/unit/lib/prop-calculator/firms/apex/ApexLive.test.ts",
+            "tests/unit/lib/prop-calculator/firms/tpt/TptLive.test.ts"
+        ],
+        "sha256": "34d51484a83b959f28e0c8d745ca78e8c4bca34cd1d68bddd17f2cd505ac4a47"
+    },
+    "R1-54": {
+        "files": [
+            "src/lib/prop-calculator/core/ContractLimits.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "src/lib/prop-calculator/core/PositionSizing.ts",
+            "src/lib/prop-calculator/core/TierBasis.ts",
+            "src/lib/prop-calculator/firms/tradeify/Tradeify.ts",
+            "tests/unit/lib/prop-calculator/core/ContractLimits.test.ts",
+            "tests/unit/lib/prop-calculator/core/PositionSizing.test.ts",
+            "tests/unit/lib/prop-calculator/core/TierBasis.test.ts",
+            "tests/unit/lib/prop-calculator/tradeify.test.ts"
+        ],
+        "sha256": "3748b596a28c09252922f25cda897cb4341fe332010c24fdde2f7a0af746ab50"
+    },
+    "R1-6": {
+        "files": [
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValue.test.ts",
+            "tests/unit/lib/prop-calculator/dailyLossLimitLockout.test.ts"
+        ],
+        "sha256": "077584ee9bfe265035c6b9a2125a28748a31b372a739624f54d6abc09096e391"
+    },
+    "R1-7": {
+        "files": [
+            "src/cli/commands/prop/optimize/dp/command.ts",
+            "src/lib/prop-calculator/core/FundedCycleBaselineGrid.ts",
+            "src/lib/prop-calculator/core/FundedStateValue.ts",
+            "tests/unit/lib/prop-calculator/core/FundedCycleBaselineGrid.test.ts",
+            "tests/unit/lib/prop-calculator/core/FundedStateValue.test.ts",
+            "tests/unit/lib/prop-calculator/simulator/fundedPhase.test.ts"
+        ],
+        "sha256": "af0a593422a8c0ba2982977839696fe1dcaede210a0e695ab41a41c0a9d47bef"
+    },
+    "R1-8": {
+        "files": [
+            "src/lib/prop-calculator/core/FeeSchedule.ts",
+            "src/lib/prop-calculator/core/LadderSearch.ts",
+            "src/lib/prop-calculator/core/Replacement.ts",
+            "tests/unit/lib/prop-calculator/core/LadderSearchCost.test.ts"
+        ],
+        "sha256": "55ecaf14945eb234f944619f268150847010e3ca0c000b3a00c5186d4e626c81"
+    },
+    "R1-9": {
+        "files": [
+            "src/lib/prop-calculator/core/DrawdownStrategy.ts",
+            "src/lib/prop-calculator/core/LadderSearch.ts",
+            "src/lib/prop-calculator/core/TradingDayLedger.ts",
+            "tests/unit/lib/prop-calculator/core/DrawdownTransitions.test.ts",
+            "tests/unit/lib/prop-calculator/core/LadderSearchIntradayTrailing.test.ts",
+            "tests/unit/lib/prop-calculator/core/TradingDayLedger.test.ts"
+        ],
+        "sha256": "5e76b69ab60021a323016984456265835da79129c5761f6443e65e0c318624bf"
+    },
+    "TG-1": {
+        "files": [
+            "src/lib/prop-calculator/core/Roi.ts",
+            "tests/unit/lib/prop-calculator/core/Roi.test.ts"
+        ],
+        "sha256": "9f55e447bc162dbdb1bbbcd6dbb9a479635223f6efa75e44582751808121ab38"
+    },
+    "TG-2": {
+        "files": [
+            "src/cli/commands/prop/compare/command.ts",
+            "tests/unit/cli/prop/compare.test.ts"
+        ],
+        "sha256": "4fef07f6e1b452a7ec54febd65df7003d9fe61792db20809d9f2b76cd4d42bcc"
+    },
+    "TG-3": {
+        "files": [
+            "src/cli/commands/prop/shared.ts",
+            "src/lib/prop-calculator/core/DayPolicy.ts",
+            "tests/unit/cli/prop/shared.test.ts"
+        ],
+        "sha256": "29ba9e6319ef58a7cc7ffaa4bf8b42848dab602bd6bd4a18015f94af6e849674"
+    },
+    "TG-4": {
+        "files": [
+            "src/cli/commands/prop/live/command.ts",
+            "src/cli/commands/prop/shared.ts",
+            "tests/unit/cli/prop/live.test.ts"
+        ],
+        "sha256": "90e1761c2e3ee14b83af303a0a1bedb2329fdda0944f9b132e4f1d018136bdf5"
+    },
+    "TG-5": {
+        "files": [
+            "src/cli/commands/prop/shared.ts",
+            "tests/unit/cli/prop/shared.test.ts"
+        ],
+        "sha256": "447507e37a794acc1a15809d4fafe67af86085249bad8aad3ed561d1cc352146"
+    },
+    "TG-6": {
+        "files": [
+            "src/cli/commands/prop/shared.ts",
+            "tests/unit/cli/prop/shared.test.ts"
+        ],
+        "sha256": "447507e37a794acc1a15809d4fafe67af86085249bad8aad3ed561d1cc352146"
+    },
+    "TG-7": {
+        "files": [
+            "src/cli/commands/prop/sim/command.ts",
+            "tests/unit/cli/prop/sim.test.ts"
+        ],
+        "sha256": "7ffcec3b61663c0b8c02abe37cf3e6ec1c1900e136992e4197860d84348e177a"
+    },
+    "TG-8": {
+        "files": [
+            "src/cli/commands/prop/ladder/command.ts",
+            "tests/unit/cli/prop/ladder.test.ts"
+        ],
+        "sha256": "775b52589c1a8556d6c14a86f507b4ba24f66a10bcd06bf1e5e9c36f2f31dbeb"
+    }
+}

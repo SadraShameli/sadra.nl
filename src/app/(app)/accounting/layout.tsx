@@ -1,10 +1,5 @@
-import type { ReactNode } from 'react';
+import { type Instant } from 'next';
 
-import { notFound, redirect } from 'next/navigation';
-
-import { isRoot } from '~/lib/auth/roles';
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
 import { AccountingSubnav } from './_components/AccountingSubnav';
@@ -14,15 +9,11 @@ export const metadata = {
     title: 'Accounting Importer',
 };
 
-export default async function AccountingLayout({
-    children,
-}: {
-    children: ReactNode;
-}) {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    if (!isRoot(session.user.role)) notFound();
+export const instant: Instant = true;
 
+export default function AccountingLayout({
+    children,
+}: LayoutProps<'/accounting'>) {
     return (
         <div className={cn('app-accounting')}>
             <AccountingSubnav />

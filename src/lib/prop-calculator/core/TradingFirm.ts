@@ -1,10 +1,16 @@
+import {
+    type FirmAccountPolicy,
+    UnverifiedFirmAccountPolicy,
+} from './accountPolicy';
 import { type FirmId } from './FirmId';
 import { Plan, type PlanInit } from './Plan';
-import { arePlanIdsEqual, type PlanId } from './PlanId';
+import { arePlanIdsEqual, type PlanId, serializePlanId } from './PlanId';
 
 class ConcretePlan extends Plan {}
 
 export abstract class TradingFirm {
+    readonly accountPolicy: FirmAccountPolicy =
+        new UnverifiedFirmAccountPolicy();
     abstract readonly displayName: string;
     abstract readonly id: FirmId;
     abstract readonly plans: readonly Plan[];
@@ -17,6 +23,10 @@ export abstract class TradingFirm {
 
     findPlan(planId: PlanId): Plan | undefined {
         return this.plans.find((p) => arePlanIdsEqual(p.id, planId));
+    }
+
+    findPlanBySerial(serial: string): null | Plan {
+        return this.plans.find((p) => serializePlanId(p.id) === serial) ?? null;
     }
 
     maxFundedAccounts(plan: Plan): number {

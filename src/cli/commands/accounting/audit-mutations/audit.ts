@@ -185,16 +185,16 @@ export function auditMutations(input: {
         if (representative?.expectedLedgerId == null) continue;
         const actual = comboKey(
             representative.actualLedgerId,
-            representative.actualVatCode,
+            representative.actualVatCode ?? undefined,
         );
         const expected = comboKey(
             representative.expectedLedgerId,
-            representative.expectedTaxCode,
+            representative.expectedTaxCode ?? undefined,
         );
         if (actual === expected) continue;
         issues.push({
             codes: [actual, expected],
-            message: `Rule "${display}" is configured for ${describeCombo(expected, ledgerById)}, but all ${group.length} matched mutation(s) are consistently booked as ${describeCombo(actual, ledgerById)} instead (e.g. mutation ${representative.mutation.id}) — the rule's ledger/VAT reference looks stale.`,
+            message: `Rule "${display}" is configured for ${describeCombo(expected, ledgerById)}, but all ${group.length} matched mutation(s) are consistently booked as ${describeCombo(actual, ledgerById)} instead (e.g. mutation ${representative.mutation.id}), so the rule's ledger/VAT reference looks stale.`,
             mutationIds: group.map((c) => c.mutation.id),
             severity: 'warning',
             type: 'rule-drift',
@@ -257,7 +257,7 @@ export function buildVendorBreakdown(
         const first = group[0];
         if (!first) continue;
         const combos = groupBy(group, (c) =>
-            comboKey(c.actualLedgerId, c.actualVatCode),
+            comboKey(c.actualLedgerId, c.actualVatCode ?? undefined),
         );
         rows.push({
             combos: [...combos].map(([key, items]) => ({
@@ -326,8 +326,8 @@ function classifyMutations(
     return classified;
 }
 
-function comboKey(ledgerId: LedgerId | null, vatCode: null | string): string {
-    return `${ledgerId ?? '—'}::${vatCode ?? '—'}`;
+function comboKey(ledgerId: LedgerId | null, vatCode = '-'): string {
+    return `${ledgerId?.toString() ?? '-'}::${vatCode}`;
 }
 
 function describeCombo(
@@ -336,9 +336,9 @@ function describeCombo(
 ): string {
     const [ledgerIdRaw, vatCode] = key.split('::', 2);
     const ledgerLabel =
-        ledgerIdRaw && ledgerIdRaw !== '—'
+        ledgerIdRaw && ledgerIdRaw !== '-'
             ? ledgerCode(ledgerById, ledgerIdRaw as LedgerId)
-            : '—';
+            : '-';
     return `${ledgerLabel} / ${vatCode}`;
 }
 
@@ -360,7 +360,7 @@ function findDuplicateCandidates(mutations: MutationResponse[]): AuditIssue[] {
             .toSorted((a, b) => Number(a) - Number(b));
         issues.push({
             codes: ids,
-            message: `${group.length} mutation(s) on ${first.date} share the exact same description "${first.description}" and amount €${rowsTotal(first).toFixed(2)}: ${ids.map((id) => `#${id}`).join(', ')} — check for a duplicate booking.`,
+            message: `${group.length} mutation(s) on ${first.date} share the exact same description "${first.description}" and amount €${rowsTotal(first).toFixed(2)}: ${ids.map((id) => `#${id}`).join(', ')}. Check for a duplicate booking.`,
             mutationIds: ids,
             severity: 'warning',
             type: 'possible-duplicate',
@@ -402,7 +402,7 @@ function vendorConflictIssue(
     ledgerById: Map<LedgerId, LedgerResponse>,
 ): AuditIssue | null {
     const combos = groupBy(group, (c) =>
-        comboKey(c.actualLedgerId, c.actualVatCode),
+        comboKey(c.actualLedgerId, c.actualVatCode ?? undefined),
     );
     if (combos.size <= 1) return null;
     const parts = [...combos].map(

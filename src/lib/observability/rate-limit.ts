@@ -1,9 +1,7 @@
 import 'server-only';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { db, rateLimitBucket } from '~/server/db';
-
-import { evaluateRateLimit } from './rate-limit-policy';
 
 export async function isWithinRateLimit(arguments_: {
     bucket: string;
@@ -13,41 +11,26 @@ export async function isWithinRateLimit(arguments_: {
 }): Promise<boolean> {
     const key = arguments_.key.toLowerCase();
     const now = new Date();
+    const expiredWindow = sql`${rateLimitBucket.resetAt} <= ${now}`;
 
-    return db.transaction(async (tx) => {
-        const [existing] = await tx
-            .select()
-            .from(rateLimitBucket)
-            .where(
-                and(
-                    eq(rateLimitBucket.bucket, arguments_.bucket),
-                    eq(rateLimitBucket.key, key),
-                ),
-            )
-            .limit(1);
+    const [row] = await db
+        .insert(rateLimitBucket)
+        .values({
+            bucket: arguments_.bucket,
+            count: 1,
+            key,
+            resetAt: new Date(now.getTime() + arguments_.windowMs),
+        })
+        .onConflictDoUpdate({
+            set: {
+                count: sql`case when ${expiredWindow} then 1 else least(${rateLimitBucket.count} + 1, ${arguments_.max + 1}) end`,
+                resetAt: sql`case when ${expiredWindow} then excluded.reset_at else ${rateLimitBucket.resetAt} end`,
+            },
+            target: [rateLimitBucket.bucket, rateLimitBucket.key],
+        })
+        .returning({ count: rateLimitBucket.count });
 
-        const { allowed, next } = evaluateRateLimit(
-            existing ?? null,
-            now,
-            arguments_.max,
-            arguments_.windowMs,
-        );
-
-        await tx
-            .insert(rateLimitBucket)
-            .values({
-                bucket: arguments_.bucket,
-                count: next.count,
-                key,
-                resetAt: next.resetAt,
-            })
-            .onConflictDoUpdate({
-                set: { count: next.count, resetAt: next.resetAt },
-                target: [rateLimitBucket.bucket, rateLimitBucket.key],
-            });
-
-        return allowed;
-    });
+    return row !== undefined && row.count <= arguments_.max;
 }
 
 export async function resetRateLimit(arguments_: {

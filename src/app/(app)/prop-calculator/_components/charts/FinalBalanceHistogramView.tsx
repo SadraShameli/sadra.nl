@@ -1,5 +1,6 @@
 'use client';
 
+import { ChartSize } from '~/components/ui/chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 
@@ -17,23 +18,23 @@ export default function FinalBalanceHistogramView({ result }: Properties) {
 
     return (
         <HistogramChartView
-            aspectClassName="aspect-16/7 min-h-125 w-full"
-            barColor="hsl(var(--chart-1))"
+            barColor="var(--chart-1)"
             barLabel="Trials"
             binCount={BIN_COUNT}
             emptyMessage="No simulation data yet."
             referenceLines={[
                 {
-                    color: 'hsl(0 0% 70%)',
+                    color: 'var(--muted-foreground)',
                     label: 'Start',
                     x: startingBalance,
                 },
                 {
-                    color: 'hsl(142 76% 45%)',
+                    color: 'var(--success)',
                     label: 'Target',
                     x: targetBalance,
                 },
             ]}
+            size={ChartSize.Tall}
             values={result.finalBalances}
             wrapperClassName="app-prop-calculator__final-balance-histogram"
             xAxisLabel="Final balance"

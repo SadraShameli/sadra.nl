@@ -130,7 +130,9 @@ export type {
     AssessmentResult,
     ComponentScore,
     TimeWindow,
-    TradeAssessmentRow,
     TradingPlanConfig,
-    TradingPlanRow,
 } from '~/lib/schemas/trading';
+export type {
+    TradeAssessmentRow,
+    TradingPlanRow,
+} from '~/lib/schemas/tradingRows';

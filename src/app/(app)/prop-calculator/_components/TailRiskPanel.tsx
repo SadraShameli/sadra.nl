@@ -2,10 +2,13 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { formatCompactCurrency, formatPercent } from '~/lib/format';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import {
+    formatCompactCurrency,
+    formatPercent,
+    NOT_APPLICABLE,
+} from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { percentile } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
@@ -82,27 +85,13 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
         : '∞';
     const tailColor =
         m.tailRatio > 1.5
-            ? 'text-emerald-400'
+            ? 'text-success'
             : m.tailRatio > 1
-              ? 'text-amber-400'
-              : 'text-rose-400';
+              ? 'text-warning'
+              : 'text-destructive';
 
     return (
-        <Card className={cn('app-prop-calculator__tail-risk', 'px-5 py-5')}>
-            <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">Tail Risk</h3>
-                <InfoPopover title="Tail Risk">
-                    Value at Risk (VaR) and Conditional VaR (Expected Shortfall)
-                    computed from the full distribution of trial outcomes. VaR
-                    95% is the loss you won&apos;t exceed in 19 out of 20
-                    trials. CVaR 95% is the average loss in the worst 5% of
-                    outcomes — it describes the shape of the tail, not just
-                    where it starts. Tail ratio compares the 95th percentile
-                    gain to the 5th percentile loss; &gt; 1 means your upside
-                    tail is larger than your downside tail.
-                </InfoPopover>
-            </div>
-
+        <Card className={cn('app-prop-calculator__tail-risk', 'p-5')}>
             <div className="flex flex-col gap-5">
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
                     <StatCard
@@ -110,28 +99,28 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
                         sub="loss in 1-of-20 trials"
                         subInheritsColor
                         value={formatCompactCurrency(m.var95)}
-                        valueClassName="text-rose-400"
+                        valueClassName="text-destructive"
                     />
                     <StatCard
                         label="CVaR 95% (ES)"
                         sub="avg loss in worst 5%"
                         subInheritsColor
                         value={formatCompactCurrency(m.cvar95)}
-                        valueClassName="text-rose-400"
+                        valueClassName="text-destructive"
                     />
                     <StatCard
                         label="VaR 99%"
                         sub="loss in 1-of-100 trials"
                         subInheritsColor
                         value={formatCompactCurrency(m.var99)}
-                        valueClassName="text-rose-500"
+                        valueClassName="text-destructive"
                     />
                     <StatCard
                         label="CVaR 99% (ES)"
                         sub="avg loss in worst 1%"
                         subInheritsColor
                         value={formatCompactCurrency(m.cvar99)}
-                        valueClassName="text-rose-500"
+                        valueClassName="text-destructive"
                     />
                     <StatCard
                         label="Tail ratio"
@@ -143,7 +132,7 @@ export default function TailRiskPanel({ result }: TailRiskPanelProperties) {
                 </div>
 
                 <div>
-                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
+                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                         Loss probability
                     </p>
                     <TailRiskTable
@@ -206,10 +195,10 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
                             className={cn(
                                 'font-medium',
                                 p > 0.25
-                                    ? 'text-rose-400'
+                                    ? 'text-destructive'
                                     : p > 0.1
-                                      ? 'text-amber-400'
-                                      : 'text-emerald-400',
+                                      ? 'text-warning'
+                                      : 'text-success',
                             )}
                         >
                             {formatPercent(p)}
@@ -229,13 +218,13 @@ function TailRiskTable({ rows }: { rows: TailRiskRow[] }) {
                                 g === null
                                     ? 'text-muted-foreground'
                                     : g > 0.5
-                                      ? 'text-emerald-400'
+                                      ? 'text-success'
                                       : g > 0.25
-                                        ? 'text-amber-400'
+                                        ? 'text-warning'
                                         : 'text-muted-foreground',
                             )}
                         >
-                            {g === null ? '—' : formatPercent(g)}
+                            {g === null ? NOT_APPLICABLE : formatPercent(g)}
                         </span>
                     );
                 },

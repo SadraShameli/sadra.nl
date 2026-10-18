@@ -8,6 +8,7 @@ import {
     calculatorReducer,
     defaultCalculatorState,
 } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import { buildSimInputs } from '~/app/(app)/prop-calculator/_components/calculatorSimInputs';
 import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
 import {
     ApexVariant,
@@ -17,7 +18,9 @@ import {
     MffuVariant,
     RungSizing,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
+import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
 
 function apex() {
     const firm = ALL_FIRMS.find((f) => f.id === FirmId.Apex);
@@ -83,6 +86,58 @@ describe('calculatorReducer scalar setters', () => {
             value: NaN,
         });
         expect(next.trials).toBe(3000);
+    });
+});
+
+describe('calculatorReducer rebuy lag (PT-111, F-76)', () => {
+    it('starts at zero trading days, the engine default', () => {
+        expect(defaultCalculatorState().rebuyLagDays).toBe(0);
+    });
+
+    it('SET_REBUY_LAG_DAYS keeps a fractional lag of 2.5 days', () => {
+        const next = reduce(defaultCalculatorState(), {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: 2.5,
+        });
+        expect(next.rebuyLagDays).toBe(2.5);
+    });
+
+    it('SET_REBUY_LAG_DAYS clamps to the shared schema bounds and falls back to the current value on invalid input', () => {
+        const state = { ...defaultCalculatorState(), rebuyLagDays: 4 };
+        const negative = reduce(state, {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: -3,
+        });
+        expect(negative.rebuyLagDays).toBe(
+            CALCULATOR_SCALAR_BOUNDS.rebuyLag.min,
+        );
+        const huge = reduce(state, {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: 1_000_000,
+        });
+        expect(huge.rebuyLagDays).toBe(CALCULATOR_SCALAR_BOUNDS.rebuyLag.max);
+        const invalid = reduce(state, {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: NaN,
+        });
+        expect(invalid.rebuyLagDays).toBe(4);
+    });
+
+    it('reaches the simulation inputs, and a zero lag stays the engine default', () => {
+        const state = reduce(defaultCalculatorState(), {
+            type: CalculatorActionType.SetRebuyLagDays,
+            value: 2.5,
+        });
+        expect(buildSimInputs(state).rebuyLagDays).toBe(2.5);
+        expect(buildSimInputs(defaultCalculatorState()).rebuyLagDays).toBe(0);
+    });
+
+    it('RESET returns the lag to zero', () => {
+        const next = reduce(
+            { ...defaultCalculatorState(), rebuyLagDays: 5 },
+            { type: CalculatorActionType.Reset },
+        );
+        expect(next.rebuyLagDays).toBe(0);
     });
 });
 
@@ -457,5 +512,54 @@ describe('calculatorReducer rungSizing (H4)', () => {
             value: RungSizing.SkipIfUnaffordable,
         });
         expect(next.rungSizing).toBe(RungSizing.SkipIfUnaffordable);
+    });
+});
+
+describe('calculatorReducer objective (PT-63, F-V15)', () => {
+    it('starts on MonthlyNet (Q1)', () => {
+        expect(defaultCalculatorState().objective).toBe(
+            SizingObjective.MonthlyNet,
+        );
+    });
+
+    it('keeps the chosen objective through an applied state and drops it on reset', () => {
+        const chosen = {
+            ...defaultCalculatorState(),
+            objective: SizingObjective.CycleCash,
+        };
+        const applied = reduce(defaultCalculatorState(), {
+            state: chosen,
+            type: CalculatorActionType.ApplyState,
+        });
+        expect(applied.objective).toBe(SizingObjective.CycleCash);
+        expect(
+            reduce(applied, { type: CalculatorActionType.Reset }).objective,
+        ).toBe(SizingObjective.MonthlyNet);
+    });
+
+    it('sets only the objective on the current state, so a newer edit is never overwritten (SetObjective)', () => {
+        const edited = reduce(defaultCalculatorState(), {
+            type: CalculatorActionType.SetRiskDollars,
+            value: 321,
+        });
+        const next = reduce(edited, {
+            objective: SizingObjective.CycleCash,
+            type: CalculatorActionType.SetObjective,
+        });
+        expect(next).toStrictEqual({
+            ...edited,
+            objective: SizingObjective.CycleCash,
+        });
+        expect(next.riskDollars).toBe(321);
+    });
+
+    it('does not clamp or reset anything else for SetObjective', () => {
+        const state = defaultCalculatorState();
+        const next = reduce(state, {
+            objective: SizingObjective.RuinFirst,
+            type: CalculatorActionType.SetObjective,
+        });
+        expect(next.objective).toBe(SizingObjective.RuinFirst);
+        expect({ ...next, objective: state.objective }).toStrictEqual(state);
     });
 });

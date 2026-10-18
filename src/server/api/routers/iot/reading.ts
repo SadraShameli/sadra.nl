@@ -1,10 +1,9 @@
 import { format } from 'date-fns';
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { LoudnessAlertEmail, ReadingCreatedEmail } from '~/lib/email';
-import { fanOutEvent } from '~/lib/notify';
-import { captureError } from '~/lib/observability/logger';
+import { scheduleFanOut } from '~/lib/notify';
 import {
     adminProcedure,
     type ContextType,
@@ -19,8 +18,11 @@ import {
 } from '~/server/api/types/types';
 import {
     type Granularity,
+    publicReadingColumns,
     readingCreateProperties,
     readingProperties,
+    READINGS_SERIES_MAX_POINTS,
+    readingsPageProperties,
     readingsQueryProperties,
 } from '~/server/api/types/zod';
 import { location, reading, sensor } from '~/server/db/schemas/iot';
@@ -37,13 +39,14 @@ const adminReadingInputSchema = z.object({
     sensorId: z.number().int().positive(),
     value: z.number(),
 });
-const listAdminInputSchema = z.object({
-    device_id: z.number().int().positive().optional(),
-    limit: z.number().int().min(1).max(500).default(100),
-    location_id: z.number().int().positive().optional(),
-    offset: z.number().int().nonnegative().default(0),
-    sensor_id: z.number().int().positive().optional(),
-});
+const listAdminInputSchema = readingsPageProperties
+    .omit({ cursor: true })
+    .extend({
+        device_id: z.number().int().positive().optional(),
+        location_id: z.number().int().positive().optional(),
+        offset: z.number().int().nonnegative().default(0),
+        sensor_id: z.number().int().positive().optional(),
+    });
 const readingsQueryInputSchema = z.union([
     readingsQueryProperties,
     z.undefined(),
@@ -99,6 +102,17 @@ const PERIOD_BY_GRANULARITY: Record<
     },
 };
 
+enum DeviceFilterKind {
+    AllDevices = 'all-devices',
+    Device = 'device',
+    UnknownDevice = 'unknown-device',
+}
+
+type DeviceFilter =
+    | { id: number; kind: DeviceFilterKind.Device }
+    | { kind: DeviceFilterKind.AllDevices }
+    | { kind: DeviceFilterKind.UnknownDevice };
+
 async function resolveDateRange(
     input: z.infer<typeof readingsQueryProperties>,
     context: ContextType,
@@ -134,20 +148,26 @@ async function resolveDateRange(
     };
 }
 
-async function resolveDeviceFk(
+const NO_READINGS = 'No readings could be found';
+
+async function resolveDeviceFilter(
     locationPkId: number,
     devicePublicId: number | undefined,
     context: ContextType,
-): Promise<number | undefined> {
-    if (!devicePublicId) return undefined;
-    const d = await context.db.query.device.findFirst({
+): Promise<DeviceFilter> {
+    if (devicePublicId === undefined) {
+        return { kind: DeviceFilterKind.AllDevices };
+    }
+    const found = await context.db.query.device.findFirst({
         where: (device) =>
             and(
                 eq(device.device_id, devicePublicId),
                 eq(device.location_id, locationPkId),
             ),
     });
-    return d?.id;
+    return found === undefined
+        ? { kind: DeviceFilterKind.UnknownDevice }
+        : { id: found.id, kind: DeviceFilterKind.Device };
 }
 
 export const readingRouter = createTRPCRouter({
@@ -226,25 +246,20 @@ export const readingRouter = createTRPCRouter({
                 .where(eq(location.id, ctx.device.location_id))
                 .limit(1);
 
-            void (async () => {
-                try {
-                    await fanOutEvent(
-                        'reading_created',
-                        (to) =>
-                            new ReadingCreatedEmail(to, {
-                                deviceName: ctx.device.name,
-                                locationName: loc?.name ?? null,
-                                sensorReadings: resolved.map((r) => ({
-                                    name: r.name,
-                                    unit: r.unit,
-                                    value: r.value,
-                                })),
-                            }),
-                    );
-                } catch (error: unknown) {
-                    captureError(error, { tag: 'reading.notify' });
-                }
-            })();
+            scheduleFanOut(
+                'reading_created',
+                (to) =>
+                    new ReadingCreatedEmail(to, {
+                        deviceName: ctx.device.name,
+                        locationName: loc?.name ?? undefined,
+                        sensorReadings: resolved.map((r) => ({
+                            name: r.name,
+                            unit: r.unit,
+                            value: r.value,
+                        })),
+                    }),
+                'reading.notify',
+            );
 
             const threshold = ctx.device.loudness_threshold;
             if (threshold > 0) {
@@ -256,22 +271,17 @@ export const readingRouter = createTRPCRouter({
                     loudness.value > threshold &&
                     shouldAlert(ctx.device.id)
                 ) {
-                    void (async () => {
-                        try {
-                            await fanOutEvent(
-                                'loudness_alert',
-                                (to) =>
-                                    new LoudnessAlertEmail(to, {
-                                        deviceName: ctx.device.name,
-                                        locationName: loc?.name ?? null,
-                                        threshold,
-                                        value: loudness.value,
-                                    }),
-                            );
-                        } catch (error: unknown) {
-                            captureError(error, { tag: 'reading.alert' });
-                        }
-                    })();
+                    scheduleFanOut(
+                        'loudness_alert',
+                        (to) =>
+                            new LoudnessAlertEmail(to, {
+                                deviceName: ctx.device.name,
+                                locationName: loc?.name ?? undefined,
+                                threshold,
+                                value: loudness.value,
+                            }),
+                        'reading.alert',
+                    );
                 }
             }
 
@@ -300,31 +310,44 @@ export const readingRouter = createTRPCRouter({
             return await getReading(input, ctx);
         }),
 
-    getReadings: publicProcedure.query(async ({ ctx }) => {
-        return { data: await ctx.db.query.reading.findMany() };
-    }),
+    getReadings: publicProcedure
+        .input(readingsPageProperties.prefault({}))
+        .query(async ({ ctx, input }) => {
+            return {
+                data: await ctx.db.query.reading.findMany({
+                    columns: publicReadingColumns,
+                    limit: input.limit,
+                    orderBy: (reading, { desc }) => [desc(reading.id)],
+                    where: (reading) =>
+                        input.cursor ? lt(reading.id, input.cursor) : undefined,
+                }),
+            };
+        }),
 
     getReadingsInput: publicProcedure
         .input(readingsQueryInputSchema)
         .query(async ({ ctx, input }): Promise<Result<GetReadingsRecord[]>> => {
             if (!input) {
-                return { error: 'No readings could be found' };
+                return { error: NO_READINGS };
             }
 
-            const { from, to } = await resolveDateRange(input, ctx);
-            const { dateFormat, label: periodLabel } =
-                PERIOD_BY_GRANULARITY[input.granularity];
-            const deviceFk = await resolveDeviceFk(
+            const deviceFilter = await resolveDeviceFilter(
                 input.location_id,
                 input.device_id,
                 ctx,
             );
+            if (deviceFilter.kind === DeviceFilterKind.UnknownDevice) {
+                return { error: NO_READINGS };
+            }
+            const { from, to } = await resolveDateRange(input, ctx);
+            const { dateFormat, label: periodLabel } =
+                PERIOD_BY_GRANULARITY[input.granularity];
 
             const baseWhere = and(
                 eq(reading.location_id, input.location_id),
-                deviceFk === undefined
-                    ? undefined
-                    : eq(reading.device_id, deviceFk),
+                deviceFilter.kind === DeviceFilterKind.Device
+                    ? eq(reading.device_id, deviceFilter.id)
+                    : undefined,
                 gte(reading.created_at, from),
                 lte(reading.created_at, to),
             );
@@ -350,11 +373,12 @@ export const readingRouter = createTRPCRouter({
                     })
                     .from(reading)
                     .where(baseWhere)
-                    .orderBy(asc(reading.id));
-                rows = raw;
+                    .orderBy(desc(reading.id))
+                    .limit(READINGS_SERIES_MAX_POINTS);
+                rows = raw.toReversed();
             } else {
                 const trunc = sql<Date>`date_trunc(${input.granularity}, ${reading.created_at})`;
-                rows = await ctx.db
+                const bucketed = await ctx.db
                     .select({
                         avg: sql<number>`avg(${reading.value})`,
                         bucket: trunc,
@@ -365,11 +389,13 @@ export const readingRouter = createTRPCRouter({
                     .from(reading)
                     .where(baseWhere)
                     .groupBy(sql`2`, reading.sensor_id)
-                    .orderBy(sql`2`);
+                    .orderBy(desc(sql`2`))
+                    .limit(READINGS_SERIES_MAX_POINTS);
+                rows = bucketed.toReversed();
             }
 
             if (rows.length === 0) {
-                return { error: 'No readings could be found' };
+                return { error: NO_READINGS };
             }
 
             const sensorIds = [...new Set(rows.map((r) => r.sensor_id))];

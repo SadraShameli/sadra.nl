@@ -21,7 +21,7 @@ const booking: Booking = {
     txnId: 'TX-idempotency',
 };
 
-const invoiceJson = (hasPayments: boolean) => ({
+const invoiceJson = () => ({
     date: '2026-02-01',
     details: [
         {
@@ -31,7 +31,7 @@ const invoiceJson = (hasPayments: boolean) => ({
         },
     ],
     id: 'inv-1',
-    payments: hasPayments ? [{ id: 'pay-1' }] : [],
+    payments: [],
     reference: 'TX-idempotency',
 });
 
@@ -61,7 +61,7 @@ describe('MoneybirdSession.postBooking idempotency', () => {
                 ) {
                     return jsonResponse(
                         200,
-                        hasCreatedInvoice ? [invoiceJson(false)] : [],
+                        hasCreatedInvoice ? [invoiceJson()] : [],
                     );
                 }
                 if (
@@ -70,7 +70,7 @@ describe('MoneybirdSession.postBooking idempotency', () => {
                 ) {
                     invoiceCreationCount += 1;
                     hasCreatedInvoice = true;
-                    return jsonResponse(201, invoiceJson(false));
+                    return jsonResponse(201, invoiceJson());
                 }
                 if (
                     method === 'POST' &&

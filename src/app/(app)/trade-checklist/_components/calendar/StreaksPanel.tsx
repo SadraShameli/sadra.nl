@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
+import { Card } from '~/components/ui/card';
 import { computeStreaks, type LightAssessment } from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
 
@@ -15,31 +15,31 @@ export function StreaksPanel({
 
     const tiles = [
         {
-            cls: stats.currentWin > 0 ? 'text-emerald-400' : '',
+            cls: stats.currentWin > 0 ? 'text-success' : '',
             hint: 'current win run',
             label: 'Win streak',
             value: String(stats.currentWin),
         },
         {
-            cls: stats.currentLoss > 0 ? 'text-rose-400' : '',
+            cls: stats.currentLoss > 0 ? 'text-destructive' : '',
             hint: 'current loss run',
             label: 'Loss streak',
             value: String(stats.currentLoss),
         },
         {
-            cls: 'text-emerald-300',
+            cls: 'text-success',
             hint: 'best ever',
             label: 'Longest win',
             value: String(stats.bestWin),
         },
         {
-            cls: 'text-rose-300',
+            cls: 'text-destructive',
             hint: 'worst ever',
             label: 'Longest loss',
             value: String(stats.bestLoss),
         },
         {
-            cls: stats.consecutiveTradingDays > 0 ? 'text-amber-300' : '',
+            cls: stats.consecutiveTradingDays > 0 ? 'text-warning' : '',
             hint: 'weekdays in a row',
             label: 'Trading days',
             value: String(stats.consecutiveTradingDays),
@@ -60,7 +60,7 @@ export function StreaksPanel({
                     </p>
                     <p
                         className={cn(
-                            'mt-1 font-mono text-2xl font-bold text-white',
+                            'mt-1 font-mono text-2xl font-bold text-foreground',
                             t.cls,
                         )}
                     >

@@ -1,19 +1,20 @@
 'use client';
 
-import { Loader2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 
 import type { CredentialMetaField } from '~/lib/accounting/credentials/index';
 
-import { Button } from '~/components/ui/Button';
-import { Label } from '~/components/ui/Label';
+import { Button } from '~/components/ui/button';
+import { Label } from '~/components/ui/label';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
+import { Spinner } from '~/components/ui/spinner';
 import { api } from '~/trpc/react';
 
 interface FieldOption {
@@ -88,9 +89,9 @@ export function SelectFieldInput({
         !hasOptions && stringValue !== EMPTY && stringValue.length > 0;
 
     const placeholderLabel = hasOptions
-        ? '— pick one —'
+        ? 'Pick one'
         : isShowSavedAsOption
-          ? '— clear selection —'
+          ? 'Clear selection'
           : 'Load options first';
 
     return (
@@ -134,7 +135,7 @@ export function SelectFieldInput({
                     variant="outline"
                 >
                     {isPending ? (
-                        <Loader2 className="size-3 animate-spin" />
+                        <Spinner className="size-3" />
                     ) : (
                         <RefreshCw className="size-3" />
                     )}

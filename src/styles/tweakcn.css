@@ -1,0 +1,58 @@
+@layer base {
+    :root,
+    .dark {
+        --background: var(--ground);
+        --foreground: var(--ink);
+        --card: var(--surface);
+        --card-foreground: var(--ink);
+        --popover: var(--surface-raised);
+        --popover-foreground: var(--ink);
+        --primary: var(--camel);
+        --primary-foreground: var(--on-camel);
+        --secondary: var(--surface-high);
+        --secondary-foreground: var(--ink);
+        --muted: var(--surface-sunken);
+        --muted-foreground: var(--ink-muted);
+        --accent: var(--surface-high);
+        --accent-foreground: var(--ink);
+        --destructive: var(--danger);
+        --destructive-foreground: var(--on-status);
+        --success-foreground: var(--on-status);
+        --warning-foreground: var(--on-status);
+        --info-foreground: var(--on-status);
+        --border: var(--line);
+        --input: var(--line-strong);
+        --ring: var(--camel);
+        --radius: 1rem;
+        --sidebar: var(--ground-alt);
+        --sidebar-foreground: var(--ink-soft);
+        --sidebar-primary: var(--camel);
+        --sidebar-primary-foreground: var(--on-camel);
+        --sidebar-accent: var(--surface-high);
+        --sidebar-accent-foreground: var(--ink);
+        --sidebar-border: var(--line);
+        --sidebar-ring: var(--camel);
+        --font-sans:
+            var(--font-hanken-grotesk), ui-sans-serif, system-ui, sans-serif;
+        --font-serif:
+            var(--font-bodoni-moda), Didot, 'Bodoni 72', Georgia, serif;
+        --font-mono: var(--font-jetbrains-mono), ui-monospace, Menlo, monospace;
+        --letter-spacing: 0em;
+        --spacing: 0.25rem;
+        --shadow-2xs: 0 0 #0000;
+        --shadow-xs: 0 0 #0000;
+        --shadow-sm: 0 0 #0000;
+        --shadow: 0 0 #0000;
+        --shadow-md: var(--shadow-float);
+        --shadow-lg: var(--shadow-float);
+        --shadow-xl: var(--shadow-float);
+        --shadow-2xl: var(--shadow-float);
+        --tracking-normal: 0em;
+    }
+}
+
+@layer base {
+    body {
+        letter-spacing: var(--tracking-normal);
+    }
+}

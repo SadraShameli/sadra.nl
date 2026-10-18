@@ -1,19 +1,15 @@
 'use client';
 
-import {
-    type DailyLossLimitConfig,
-    type DailyLossLimitDescriptor,
-    DailyLossLimitShape,
-    describeDailyLossLimit,
-    DrawdownKind,
-    type Plan,
-    TradingPhase,
-} from '~/lib/prop-calculator';
+import { Badge } from '~/components/ui/badge';
+import { type Plan, TradingPhase } from '~/lib/prop-calculator';
+import { DRAWDOWN_KIND_TEXT } from '~/lib/prop-calculator/describe';
 import { cn } from '~/lib/utilities';
 
+import { describeConsistencyBadge } from './consistencyBadge';
+import { dailyLossLimitLabel } from './dailyLossLimitLabel';
 import { ptddColor } from './metricColors';
 
-interface BadgeProperties {
+interface PlanStatProperties {
     label: string;
     value: string;
     valueClassName?: string;
@@ -25,13 +21,8 @@ interface PlanStatsBadgesProperties {
 
 export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
     const ptdd = plan.profitTarget / plan.drawdown.amount;
-    const payoutPct = ((plan.payoutTiers[0]?.traderShare ?? 1) * 100).toFixed(
-        0,
-    );
-    const hasConsistency = plan.consistency !== null;
-    const consistencyPct = hasConsistency
-        ? (plan.consistency.maxBestDayShare * 100).toFixed(0)
-        : null;
+    const payoutLabel = payoutShareLabel(plan);
+    const consistencyLabel = describeConsistencyBadge(plan);
     const dailyLossLimitValue = dailyLossLimitLabel(plan.fundedDailyLossLimit);
     const isDailyLossLimitHard = plan.isDailyLossLimitTerminating(
         TradingPhase.Funded,
@@ -41,24 +32,31 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
         <div
             className={cn(
                 'app-prop-calculator__plan-stats-badges',
-                'flex flex-col gap-y-1 text-xs md:flex-row md:flex-wrap md:items-center md:gap-x-5',
+                'flex flex-wrap items-center gap-2',
             )}
         >
-            <Badge
+            <PlanStat
                 label="PT:DD"
                 value={`${ptdd.toFixed(2)}×`}
                 valueClassName={ptddColor(ptdd)}
             />
-            <Badge label="Drawdown" value={drawdownLabel(plan.drawdown.kind)} />
-            <Badge label="Payout" value={`${payoutPct}%`} />
+            <PlanStat
+                label="Drawdown"
+                value={DRAWDOWN_KIND_TEXT[plan.drawdown.kind]}
+                valueClassName="inline-block first-letter:uppercase"
+            />
+            <PlanStat label="Payout" value={payoutLabel} />
             {plan.minTradingDays > 0 && (
-                <Badge label="Min days" value={String(plan.minTradingDays)} />
+                <PlanStat
+                    label="Min days"
+                    value={String(plan.minTradingDays)}
+                />
             )}
-            {consistencyPct !== null && (
-                <Badge label="Consistency" value={`${consistencyPct}% rule`} />
+            {consistencyLabel !== null && (
+                <PlanStat label="Consistency" value={consistencyLabel} />
             )}
             {dailyLossLimitValue !== null && (
-                <Badge
+                <PlanStat
                     label="Daily loss"
                     value={
                         isDailyLossLimitHard
@@ -74,49 +72,22 @@ export default function PlanStatsBadges({ plan }: PlanStatsBadgesProperties) {
     );
 }
 
-function Badge({ label, value, valueClassName }: BadgeProperties) {
+function payoutShareLabel(plan: Plan): string {
+    const schedule = plan.payoutSplit.schedule;
+    const first = schedule[0]?.tiers[0]?.traderShare ?? 1;
+    const last = schedule.at(-1)?.tiers[0]?.traderShare ?? first;
+    const firstPct = (first * 100).toFixed(0);
+    const lastPct = (last * 100).toFixed(0);
+    return firstPct === lastPct ? `${firstPct}%` : `${firstPct}–${lastPct}%`;
+}
+
+function PlanStat({ label, value, valueClassName }: PlanStatProperties) {
     return (
-        <span className="flex items-center gap-1.5">
+        <Badge className="gap-1.5 font-normal" variant="outline">
             <span className="text-muted-foreground">{label}</span>
-            <span className={`font-mono font-semibold ${valueClassName ?? ''}`}>
+            <span className={cn('font-mono font-semibold', valueClassName)}>
                 {value}
             </span>
-        </span>
+        </Badge>
     );
-}
-
-function dailyLossLimitLabel(config: DailyLossLimitConfig): null | string {
-    return describeLabel(describeDailyLossLimit(config));
-}
-
-function describeLabel(descriptor: DailyLossLimitDescriptor): null | string {
-    switch (descriptor.kind) {
-        case DailyLossLimitShape.Fixed: {
-            return `$${descriptor.amount.toLocaleString()}`;
-        }
-        case DailyLossLimitShape.None: {
-            return null;
-        }
-        case DailyLossLimitShape.Range: {
-            return descriptor.max <= descriptor.min
-                ? `$${descriptor.min.toLocaleString()}`
-                : `$${descriptor.min.toLocaleString()}–$${descriptor.max.toLocaleString()} (scales)`;
-        }
-        case DailyLossLimitShape.ShareOfPeak: {
-            return `${(descriptor.share * 100).toFixed(0)}% of peak`;
-        }
-        case DailyLossLimitShape.Staged: {
-            const before = describeLabel(descriptor.before);
-            const after = describeLabel(descriptor.after);
-            if (before === null) return after;
-            return after === null ? before : `${before} → ${after}`;
-        }
-    }
-}
-
-function drawdownLabel(kind: DrawdownKind): string {
-    if (kind === DrawdownKind.EodTrailing) return 'EOD trailing';
-    return kind === DrawdownKind.IntradayTrailing
-        ? 'Intraday trailing'
-        : 'Static';
 }

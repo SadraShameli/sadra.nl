@@ -1,12 +1,16 @@
 export { runAccountTimeline } from './accountTimeline';
+export { simulateBankrollTimeline } from './bankrollTimeline';
 export { runEvalToFundedCycle } from './fundedCycle';
 export { simulatePortfolioTimeline } from './portfolio';
+export { type SharedPayoutBudget } from './SharedPayoutBudget';
 export {
     type AccountTimelineInputs,
     type AccountTimelineResult,
+    type BankrollPolicy,
+    type BankrollTimelineInputs,
+    type BankrollTimelineResult,
     type CardResult,
     DEFAULT_DAY_BUDGET,
-    DEFAULT_MAX_PAYOUTS_PER_CARD,
     type EvalToFundedCycleOptions,
     type PayoutEvent,
     type PortfolioTimelineInputs,

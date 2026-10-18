@@ -1,11 +1,10 @@
 import { sql } from 'drizzle-orm';
-import { NextResponse } from 'next/server';
+import { connection, NextResponse } from 'next/server';
 
 import { db } from '~/server/db';
 
-export const dynamic = 'force-dynamic';
-
 export async function GET() {
+    await connection();
     const startedAt = Date.now();
     try {
         await db.execute(sql`select 1`);

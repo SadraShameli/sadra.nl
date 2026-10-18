@@ -5,9 +5,18 @@ import { captureError } from '~/lib/observability/logger';
 
 export interface EmailSendArguments {
     from: string;
+    headers: Readonly<Record<string, string>>;
     html: string;
     subject: string;
+    text: string;
     to: string;
+}
+
+class ResendRejectionError extends Error {
+    constructor(reason: string) {
+        super(`Resend rejected the message: ${reason}`);
+        this.name = 'ResendRejectionError';
+    }
 }
 
 export abstract class EmailProvider {
@@ -26,15 +35,15 @@ export class FallbackEmailProvider extends EmailProvider {
         try {
             await this.primary.send(arguments_);
         } catch (primaryError) {
+            captureError(primaryError, {
+                fields: { subject: arguments_.subject },
+                tag: 'email.primary',
+            });
             try {
                 await this.fallback.send(arguments_);
             } catch (fallbackError) {
-                captureError(primaryError, {
-                    fields: { subject: arguments_.subject, to: arguments_.to },
-                    tag: 'email.primary',
-                });
                 captureError(fallbackError, {
-                    fields: { subject: arguments_.subject, to: arguments_.to },
+                    fields: { subject: arguments_.subject },
                     tag: 'email.fallback',
                 });
                 throw fallbackError;
@@ -44,20 +53,20 @@ export class FallbackEmailProvider extends EmailProvider {
 }
 
 export class LettermintProvider extends EmailProvider {
-    private readonly client: ReturnType<typeof Lettermint.email>;
-
-    constructor(token: string) {
+    constructor(private readonly token: string) {
         super();
-        this.client = Lettermint.email(token);
     }
 
     override async send(arguments_: EmailSendArguments): Promise<void> {
-        await this.client
-            .from(arguments_.from)
-            .to(arguments_.to)
-            .subject(arguments_.subject)
-            .html(arguments_.html)
-            .send();
+        const client = new Lettermint({ sendingToken: this.token });
+        await client.emails.send({
+            from: arguments_.from,
+            headers: { ...arguments_.headers },
+            html: arguments_.html,
+            subject: arguments_.subject,
+            text: arguments_.text,
+            to: [arguments_.to],
+        });
     }
 }
 
@@ -70,11 +79,14 @@ export class ResendProvider extends EmailProvider {
     }
 
     override async send(arguments_: EmailSendArguments): Promise<void> {
-        await this.client.emails.send({
+        const { error } = await this.client.emails.send({
             from: arguments_.from,
+            headers: { ...arguments_.headers },
             html: arguments_.html,
             subject: arguments_.subject,
+            text: arguments_.text,
             to: arguments_.to,
         });
+        if (error !== null) throw new ResendRejectionError(error.message);
     }
 }

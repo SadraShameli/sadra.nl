@@ -3,8 +3,13 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 
+import { GradeTile } from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
 import { routes, withQuery } from '~/lib/site/routes';
-import { dayCellGrid, type LightAssessment } from '~/lib/trading/analytics';
+import {
+    type DayCell,
+    dayCellGrid,
+    type LightAssessment,
+} from '~/lib/trading/analytics';
 import { cn } from '~/lib/utilities';
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -44,73 +49,58 @@ export function CalendarHeatmap({
                             const dayNumber = Number(
                                 cell.date.split('-', 3)[2],
                             );
-                            const isClickable = cell.total > 0;
+                            const isTraded = cell.total > 0 && cell.inMonth;
                             const inner = (
                                 <div
                                     className={cn(
-                                        'flex h-20 flex-col gap-1 rounded-md border p-1.5 text-xs transition',
-                                        cellTone(cell.bestGrade, cell.total),
-                                        !cell.inMonth && 'opacity-30',
-                                        isClickable &&
-                                            cell.inMonth &&
-                                            'hover:scale-[1.02]',
+                                        'flex h-24 flex-col justify-between gap-1 rounded-2xl border p-2.5 transition-colors',
+                                        isTraded
+                                            ? 'border-line-strong bg-muted/40 group-hover:border-ink-muted/60 group-hover:bg-muted/60'
+                                            : 'border-line',
+                                        !cell.inMonth &&
+                                            'border-transparent opacity-40',
                                     )}
                                 >
-                                    <div className="flex items-baseline justify-between">
-                                        <span className="font-mono text-xs text-muted-foreground">
+                                    <div className="flex items-start justify-between gap-1">
+                                        <span
+                                            className={cn(
+                                                'font-mono text-xs tabular-nums',
+                                                isTraded
+                                                    ? 'text-foreground'
+                                                    : 'text-muted-foreground',
+                                            )}
+                                        >
                                             {dayNumber}
                                         </span>
-                                        {cell.bestGrade && (
-                                            <span className="font-orbitron text-xs font-bold text-white">
-                                                {cell.bestGrade}
+                                        {isTraded && (
+                                            <span className="hidden text-xs text-muted-foreground sm:inline">
+                                                {cell.total === 1
+                                                    ? '1 trade'
+                                                    : `${cell.total} trades`}
                                             </span>
                                         )}
                                     </div>
-                                    {cell.total > 0 && (
-                                        <div className="mt-auto flex flex-wrap items-center justify-between gap-1">
-                                            <span className="hidden font-mono text-[10px] text-muted-foreground sm:inline">
-                                                {cell.total} trade
-                                                {cell.total === 1 ? '' : 's'}
+                                    {isTraded && (
+                                        <div className="flex items-end justify-between gap-1">
+                                            {cell.bestGrade !== null && (
+                                                <GradeTile
+                                                    className="size-8 rounded-lg text-base"
+                                                    grade={cell.bestGrade}
+                                                />
+                                            )}
+                                            <span className="hidden font-mono text-xs text-muted-foreground tabular-nums md:inline">
+                                                {tally(cell)}
                                             </span>
-                                            <div className="flex flex-wrap gap-0.5">
-                                                {Array.from(
-                                                    { length: cell.wins },
-                                                    (_, index) => (
-                                                        <span
-                                                            className="size-1.5 rounded-full bg-emerald-400"
-                                                            key={`w${index}`}
-                                                        />
-                                                    ),
-                                                )}
-                                                {Array.from(
-                                                    { length: cell.losses },
-                                                    (_, index) => (
-                                                        <span
-                                                            className="size-1.5 rounded-full bg-rose-500"
-                                                            key={`l${index}`}
-                                                        />
-                                                    ),
-                                                )}
-                                                {Array.from(
-                                                    {
-                                                        length: cell.breakevens,
-                                                    },
-                                                    (_, index) => (
-                                                        <span
-                                                            className="size-1.5 rounded-full bg-amber-400"
-                                                            key={`b${index}`}
-                                                        />
-                                                    ),
-                                                )}
-                                            </div>
                                         </div>
                                     )}
                                 </div>
                             );
-                            return isClickable && cell.inMonth ? (
+                            return isTraded ? (
                                 <Link
+                                    aria-label={`${cell.date}: ${cell.total === 1 ? '1 trade' : `${cell.total} trades`}`}
                                     className={cn(
                                         'app-trade-checklist__calendar-day-link',
+                                        'group rounded-2xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
                                     )}
                                     href={withQuery(
                                         routes.tradeChecklist.journal,
@@ -131,12 +121,12 @@ export function CalendarHeatmap({
     );
 }
 
-function cellTone(bestGrade: null | string, total: number): string {
-    if (total === 0 || !bestGrade) return 'bg-card/30 border-border/20';
-    if (bestGrade.startsWith('A'))
-        return 'bg-emerald-500/20 border-emerald-500/40';
-    if (bestGrade.startsWith('B')) return 'bg-amber-500/20 border-amber-500/40';
-    return bestGrade.startsWith('C')
-        ? 'bg-orange-500/20 border-orange-500/40'
-        : 'bg-rose-500/20 border-rose-500/40';
+function tally(cell: DayCell): string {
+    return [
+        cell.wins > 0 ? `${cell.wins}W` : null,
+        cell.losses > 0 ? `${cell.losses}L` : null,
+        cell.breakevens > 0 ? `${cell.breakevens}BE` : null,
+    ]
+        .filter((part) => part !== null)
+        .join(' ');
 }

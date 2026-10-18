@@ -4,10 +4,9 @@ import { useId } from 'react';
 
 import type { CredentialMetaField } from '~/lib/accounting/credentials/index';
 
-import { Card, CardContent } from '~/components/ui/Card';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import { Switch } from '~/components/ui/Switch';
+import { SwitchCard } from '~/components/ToggleCard';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import { MetaFieldType } from '~/lib/accounting/credentials/index';
 
 import { CounterpartNameSelect } from './CounterpartNameSelect';
@@ -61,25 +60,13 @@ export function MetaFieldInput({
     if (field.type === MetaFieldType.Boolean) {
         const isChecked = typeof value === 'boolean' && value;
         return (
-            <Card className="py-3">
-                <CardContent className="flex items-start justify-between gap-3 px-3">
-                    <div>
-                        <Label className="text-sm" htmlFor={fieldId}>
-                            {field.label}
-                        </Label>
-                        {field.description && (
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                                {field.description}
-                            </p>
-                        )}
-                    </div>
-                    <Switch
-                        checked={isChecked}
-                        id={fieldId}
-                        onCheckedChange={onChange}
-                    />
-                </CardContent>
-            </Card>
+            <SwitchCard
+                checked={isChecked}
+                description={field.description}
+                id={fieldId}
+                label={field.label}
+                onCheckedChange={onChange}
+            />
         );
     }
 

@@ -107,5 +107,4 @@ export async function POST(request: NextRequest) {
     return asSseResponse(stream);
 }
 
-export const runtime = 'nodejs';
 export const maxDuration = 60;

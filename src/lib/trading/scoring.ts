@@ -10,6 +10,8 @@ import type {
 
 import { GRADE_THRESHOLDS, PLAN_TIMEZONE } from './defaults';
 
+const EXCEPTIONAL_EXPECTED_R = 3;
+
 const MENTAL_LABELS = {
     boredomHunt: 'boredom-driven setup hunt',
     distracted: 'lack of focus',
@@ -40,19 +42,19 @@ export function scoreAssessment(
 ): AssessmentResult {
     const redFlags: string[] = [
         ...(plan.knockouts.distracted && answers.mental.distracted
-            ? ['Distracted — execution risk too high to trade.']
+            ? ['Distracted: execution risk too high to trade.']
             : []),
         ...(plan.knockouts.revengeOrFomo && answers.mental.revengeOrFomo
-            ? ['Revenge / FOMO impulse detected — stand down.']
+            ? ['Revenge / FOMO impulse detected. Stand down.']
             : []),
         ...(plan.knockouts.boredomHunt && answers.mental.boredomHunt
-            ? ['Setup is invented out of boredom — walk away.']
+            ? ['Setup is invented out of boredom. Walk away.']
             : []),
         ...(plan.knockouts.outsideMacroWindow && !answers.context.windowId
             ? ['Outside macro time window.']
             : []),
         ...(plan.knockouts.bothSidedLiquidity && answers.dol.bothSided
-            ? ['Both-sided liquidity — sit out until one side is taken.']
+            ? ['Both-sided liquidity: sit out until one side is taken.']
             : []),
         ...(plan.knockouts.dolAlreadyTaken && answers.finals.dolAlreadyTaken
             ? ['Draw on liquidity already taken or invalidated.']
@@ -67,7 +69,7 @@ export function scoreAssessment(
         slCount < plan.setup.requiredPdArrays
     ) {
         redFlags.push(
-            `Stop has only ${slCount}/${plan.setup.requiredPdArrays} PD arrays — protection insufficient.`,
+            `Stop has only ${slCount}/${plan.setup.requiredPdArrays} PD arrays, so protection is insufficient.`,
         );
     }
 
@@ -147,10 +149,10 @@ export function scoreAssessment(
     ];
 
     if (answers.finals.overExtended) {
-        weaknesses.push('Market already expanded too far — late entry risk.');
+        weaknesses.push('Market already expanded too far: late entry risk.');
     }
     if (answers.mental.hesitation) {
-        weaknesses.push('Hesitation flagged — execution may not match plan.');
+        weaknesses.push('Hesitation flagged: execution may not match plan.');
     }
 
     const grade = gradeFromScore(score);
@@ -360,13 +362,13 @@ function scoreDol(
     if (answers.distanceR >= 1.5 && answers.distanceR <= 5) {
         earned += max * 0.2;
         strengths.push(
-            `Draw is ${answers.distanceR}R away — clean target room.`,
+            `Draw is ${answers.distanceR}R away: clean target room.`,
         );
     } else if (answers.distanceR < 1.5 && answers.distanceR > 0) {
-        weaknesses.push(`Draw only ${answers.distanceR}R away — limited room.`);
+        weaknesses.push(`Draw only ${answers.distanceR}R away: limited room.`);
     } else if (answers.distanceR > 5) {
         weaknesses.push(
-            `Draw ${answers.distanceR}R away — risk of mid-leg failure.`,
+            `Draw ${answers.distanceR}R away: risk of mid-leg failure.`,
         );
     }
 
@@ -443,7 +445,7 @@ function scoreMental(
 
     if (fails.length === 0) {
         strengths.push(
-            'All four mental-state checks passed — clean execution mindset.',
+            'All four mental-state checks passed: clean execution mindset.',
         );
     } else {
         weaknesses.push(`Mental flags raised: ${fails.join(', ')}.`);
@@ -481,17 +483,21 @@ function scoreRiskReward(
     const expected = Math.max(0, answers.targetR - answers.slippageR);
     let earned = 0;
 
-    if (expected >= 3) {
+    if (expected >= minRR && expected >= EXCEPTIONAL_EXPECTED_R) {
         earned = max;
         strengths.push(
-            `Expected ${expected.toFixed(1)}R after slippage — exceptional payoff.`,
+            `Expected ${expected.toFixed(1)}R after slippage: exceptional payoff.`,
         );
     } else if (expected >= minRR) {
         earned =
             max *
             (0.7 +
                 0.3 *
-                    Math.min(1, (expected - minRR) / Math.max(0.1, 3 - minRR)));
+                    Math.min(
+                        1,
+                        (expected - minRR) /
+                            Math.max(0.1, EXCEPTIONAL_EXPECTED_R - minRR),
+                    ));
         strengths.push(
             `Expected ${expected.toFixed(1)}R meets plan minimum (${minRR}R).`,
         );
@@ -532,7 +538,9 @@ function scoreState(
         earned += max * 0.3;
         strengths.push('Recent sweep of opposing liquidity present.');
     } else {
-        weaknesses.push('No recent opposing sweep — entries less protected.');
+        weaknesses.push(
+            'No recent opposing sweep, so entries are less protected.',
+        );
     }
 
     if (answers.displacement === 'toward') {
@@ -542,7 +550,7 @@ function scoreState(
         );
     } else if (answers.displacement === 'away') {
         weaknesses.push(
-            'Displacement away from DOL — order flow conflicts setup.',
+            'Displacement away from DOL: order flow conflicts with the setup.',
         );
     }
 
@@ -555,8 +563,8 @@ function scoreState(
         earned += max * 0.35;
         strengths.push(
             answers.dayType === 'balanced'
-                ? 'Balanced day with reversal at range extreme — coherent narrative.'
-                : 'Imbalanced day with HTF continuation — coherent narrative.',
+                ? 'Balanced day with reversal at range extreme: coherent narrative.'
+                : 'Imbalanced day with HTF continuation: coherent narrative.',
         );
     } else {
         weaknesses.push(

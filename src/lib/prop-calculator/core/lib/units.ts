@@ -33,6 +33,37 @@ export function profitShareMultiplier(value: number): ProfitShareMultiplier {
     return value as ProfitShareMultiplier;
 }
 
+export const ONE_CENT = dollars(0.01);
+
+export const CENTS_PER_DOLLAR = 100;
+export const CENT_ROUNDING_TOLERANCE_IN_CENTS = 1e-6;
+
+export function ceilToWholeCents(amount: number): number {
+    return (
+        Math.ceil(
+            amount * CENTS_PER_DOLLAR - CENT_ROUNDING_TOLERANCE_IN_CENTS,
+        ) / CENTS_PER_DOLLAR
+    );
+}
+
+export function floorToWholeCents(amount: number): number {
+    return (
+        Math.floor(
+            amount * CENTS_PER_DOLLAR + CENT_ROUNDING_TOLERANCE_IN_CENTS,
+        ) / CENTS_PER_DOLLAR
+    );
+}
+
+export function isAtOrBelowWithinCentTolerance(
+    amount: number,
+    bound: number,
+): boolean {
+    return (
+        amount * CENTS_PER_DOLLAR <=
+        bound * CENTS_PER_DOLLAR + CENT_ROUNDING_TOLERANCE_IN_CENTS
+    );
+}
+
 export const contractCountSchema = z
     .number()
     .int()
@@ -40,6 +71,13 @@ export const contractCountSchema = z
     .transform(contracts);
 
 export const dollarsSchema = z.number().transform(dollars);
+
+export const nonNegativeDollarsSchema = z
+    .number()
+    .nonnegative()
+    .transform(dollars);
+
+export const payoutRequestSizeSchema = z.number().positive();
 
 export const fractionSchema = z.number().min(0).max(1).transform(fraction);
 

@@ -24,7 +24,7 @@ describe('the four trial outcomes exhaustively partition every trial', () => {
                 const total =
                     out.bustProbability +
                     out.timeoutProbability +
-                    out.passProbability +
+                    out.fundedSurvivalProbability +
                     out.fundedBustProbability;
 
                 expect(total).toBeCloseTo(1, 9);

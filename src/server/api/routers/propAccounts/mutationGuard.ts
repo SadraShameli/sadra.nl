@@ -1,0 +1,506 @@
+import { TRPCError } from '@trpc/server';
+import 'server-only';
+import { type z } from 'zod';
+
+import { formatConjunctionList } from '~/lib/format';
+import { isWithinRateLimit } from '~/lib/observability/rate-limit';
+import {
+    AccountEventKind,
+    AccountStage,
+    accountStageLabel,
+    AccountTracking,
+    describeUnresolvedPlan,
+    hasMixedStages,
+    impliedEvalPassOn,
+    isLedgerOnlyPlanKey,
+    LEDGER_ONLY_SNAPSHOT_FIELD_LIST,
+    type LedgerOnlyPlanKey,
+    type LifecycleRejection,
+    liveStartEntryIssues,
+    type PlanKeyInput,
+    PlanKeyResolutionKind,
+    type PlanLifecycleFacts,
+    resolvePlanKey,
+    type SnapshotEntryAccount,
+    stageCountsOf,
+} from '~/lib/prop-accounts';
+import {
+    type OwnedAccount,
+    PROP_MUTATION_WINDOW_MS,
+    PROP_MUTATIONS_PER_WINDOW,
+    type PropAccountRepo,
+    PropInvalidStoredRecordError,
+    PropListTooLargeError,
+    PropQuotaExceededError,
+    PropRecordNotFoundError,
+} from '~/lib/prop-accounts/server';
+import { type Plan } from '~/lib/prop-calculator';
+import {
+    PropMutationRejection,
+    type PropRecord,
+    type PropRejection,
+    type PropRejectionSource,
+} from '~/lib/schemas/propAccountOutputs';
+import { type accountUpdateSchema } from '~/lib/schemas/propAccounts';
+import { protectedProcedure } from '~/server/api/trpc';
+
+export enum ModeledOperation {
+    CopyGroup = 'copy-group',
+    PlanRules = 'plan-rules',
+    PlanSnapshotFields = 'plan-snapshot-fields',
+}
+
+export enum PropRouterBucket {
+    Account = 'account',
+    Bankroll = 'bankroll',
+    CopyGroup = 'copy-group',
+    Decision = 'decision',
+    Edge = 'edge',
+    Event = 'event',
+    ExternalFirm = 'external-firm',
+    Fee = 'fee',
+    FirmEngagement = 'firm-engagement',
+    FirmStatement = 'firm-statement',
+    Payout = 'payout',
+    Round = 'round',
+    Rulebook = 'rulebook',
+    Scenario = 'scenario',
+    Snapshot = 'snapshot',
+    Violation = 'violation',
+}
+
+enum PostgresErrorCode {
+    CheckViolation = '23514',
+    ForeignKeyViolation = '23503',
+    StringTooLong = '22001',
+    UniqueViolation = '23505',
+}
+
+export interface LiveStartEntry {
+    readonly account: SnapshotEntryAccount;
+    readonly label: string;
+    readonly plan: Plan;
+}
+
+interface DatabaseErrorFields {
+    readonly code: PostgresErrorCode;
+    readonly constraint: null | string;
+}
+
+type ModeledAccountUpdate = Extract<
+    z.output<typeof accountUpdateSchema>,
+    { readonly tracking: AccountTracking.Modeled }
+>;
+
+export class PropMutationRejectionError
+    extends Error
+    implements PropRejectionSource
+{
+    readonly propRejection: PropRejection;
+
+    constructor(
+        readonly reason: PropMutationRejection,
+        message: string,
+        readonly lifecycleRejection: LifecycleRejection | null = null,
+    ) {
+        super(message);
+        this.name = 'PropMutationRejectionError';
+        this.propRejection = {
+            lifecycleRejection,
+            limit: null,
+            quota: null,
+            reason,
+            record: null,
+            recordId: null,
+        };
+    }
+}
+
+const MODELED_OPERATION_TEXT: Readonly<Record<ModeledOperation, string>> = {
+    [ModeledOperation.CopyGroup]:
+        'cannot join a copy group, since a copy group sizes modeled accounts together',
+    [ModeledOperation.PlanRules]:
+        'cannot take a change that needs its plan rules',
+    [ModeledOperation.PlanSnapshotFields]: `takes only ${LEDGER_ONLY_SNAPSHOT_FIELD_LIST} in a snapshot; the other fields feed plan rules it does not have`,
+};
+
+const RATE_LIMIT_BUCKET_PREFIX = 'prop-accounts';
+const MAX_CAUSE_DEPTH = 5;
+
+const FIRM_STATUS_EXISTS =
+    'This firm already has a status; change that one instead';
+
+const CHECK_CONSTRAINT_MESSAGES: Readonly<Record<string, string>> = {
+    prop_payout_approved_after_request_ck:
+        'A payout cannot be approved before it was requested',
+    prop_payout_paid_after_approval_ck:
+        'A payout cannot be paid before it was approved',
+};
+
+const UNIQUE_CONSTRAINT_MESSAGES: Readonly<Record<string, string>> = {
+    prop_account_user_label_active_idx:
+        'An active account with this label already exists; pick another label or archive the other account',
+    prop_copy_group_user_name_idx: 'A copy group with this name already exists',
+    prop_external_firm_user_name_idx: 'One of your firms already has this name',
+    prop_firm_engagement_user_external_firm_idx: FIRM_STATUS_EXISTS,
+    prop_firm_engagement_user_firm_idx: FIRM_STATUS_EXISTS,
+    prop_round_user_label_idx: 'A round with this label already exists',
+    prop_saved_scenario_user_name_idx:
+        'A saved scenario with this name already exists',
+};
+
+export const propProcedure = protectedProcedure.use(async ({ next }) => {
+    const result = await next();
+    if (!result.ok) {
+        const mapped = toPropError(result.error.cause);
+        if (mapped !== null) throw mapped;
+    }
+    return result;
+});
+
+export async function assertCopyGroupAcceptsStages(
+    repo: PropAccountRepo,
+    copyGroupId: string,
+    joiningStages: readonly AccountStage[],
+    movingAccountId: null | string,
+): Promise<void> {
+    const group = await repo.loadOwnedCopyGroupOrThrow(copyGroupId);
+    const members = await repo.listAccountRefsIn(copyGroupId);
+    const memberStages = members
+        .filter((member) => member.id !== movingAccountId)
+        .map((member) => member.stage);
+    const stages = [...memberStages, ...joiningStages];
+    if (!hasMixedStages(stages)) return;
+    const stageNamesOf = (listed: readonly AccountStage[]) =>
+        formatConjunctionList(
+            stageCountsOf(listed).map(({ stage }) => accountStageLabel(stage)),
+        );
+    const joining =
+        joiningStages.length === 1
+            ? `the account joining is ${stageNamesOf(joiningStages)}`
+            : `the accounts joining are ${stageNamesOf(joiningStages)}`;
+    const conflict =
+        memberStages.length === 0
+            ? joining
+            : `it already has ${stageNamesOf(memberStages)} members and ${joining}`;
+    throw new PropMutationRejectionError(
+        PropMutationRejection.MixedStageCopyGroup,
+        `Copy group "${group.name}" would mix ${stageNamesOf(stages)} accounts: ${conflict}. The members of a group must share one stage, inactive and archived members included.`,
+    );
+}
+
+const EXTERNAL_FIRM_NOT_OWNED = 'The firm you picked is not one of your firms';
+
+export async function assertExternalFirmOwned(
+    repo: PropAccountRepo,
+    externalFirmIds: null | ReadonlySet<string> | string,
+): Promise<void> {
+    if (externalFirmIds === null) return;
+    const ids =
+        typeof externalFirmIds === 'string'
+            ? [externalFirmIds]
+            : [...externalFirmIds];
+    const [firstId, ...restIds] = ids;
+    if (firstId === undefined) return;
+    if (restIds.length === 0) {
+        await ownedReferenceOrThrow(
+            () => repo.loadOwnedExternalFirmOrThrow(firstId),
+            EXTERNAL_FIRM_NOT_OWNED,
+        );
+        return;
+    }
+    await ownedReferenceOrThrow(
+        () => repo.loadOwnedExternalFirmsOrThrow(ids),
+        EXTERNAL_FIRM_NOT_OWNED,
+    );
+}
+
+export function assertLiveStartsDocumented(
+    entries: readonly LiveStartEntry[],
+): void {
+    const implausible = entries.flatMap((entry) => {
+        const issues = liveStartEntryIssues(
+            entry.plan,
+            AccountStage.Live,
+            entry.account,
+        );
+        return issues.length === 0 ? [] : { entry, issues };
+    });
+    const [first] = implausible;
+    if (first === undefined) return;
+    const others =
+        implausible.length > 1
+            ? ` (and ${String(implausible.length - 1)} more with a live start outside the documented range)`
+            : '';
+    throw new PropMutationRejectionError(
+        PropMutationRejection.ImplausibleSnapshot,
+        `Account "${first.entry.label}" has a live start balance its plan does not document: ${first.issues.map((issue) => issue.message).join(' ')}${others}`,
+    );
+}
+
+export function assertModeledForOperation(
+    account: { readonly label: string; readonly tracking: AccountTracking },
+    operation: ModeledOperation,
+): void {
+    if (account.tracking === AccountTracking.Modeled) return;
+    throw notModeledError(account.label, operation);
+}
+
+export function assertStageMatchesAccount(
+    account: { readonly label: string; readonly stage: AccountStage },
+    stage: AccountStage,
+): void {
+    if (account.stage === stage) return;
+    throw new PropMutationRejectionError(
+        PropMutationRejection.StageMismatch,
+        `Account "${account.label}" is ${accountStageLabel(account.stage)} now, but this decision was made for ${accountStageLabel(stage)}; reload the account and size it again`,
+    );
+}
+
+export async function impliedPassBound(
+    repo: PropAccountRepo,
+    account: Pick<OwnedAccount, 'fundedOn' | 'id' | 'purchasedOn' | 'stage'>,
+    facts: Pick<PlanLifecycleFacts, 'isInstantFunded'>,
+): Promise<null | string> {
+    if (impliedEvalPassOn(account, facts, false) === null) return null;
+    const hasRecordedPass = await repo.hasEventOfKind(
+        account.id,
+        AccountEventKind.EvalPassed,
+    );
+    return impliedEvalPassOn(account, facts, hasRecordedPass)?.on ?? null;
+}
+
+export async function ownedReferenceOrThrow<Row>(
+    load: () => Promise<Row>,
+    message: string,
+): Promise<Row> {
+    try {
+        return await load();
+    } catch (error) {
+        if (error instanceof PropRecordNotFoundError) {
+            throw new PropMutationRejectionError(
+                PropMutationRejection.ReferenceNotOwned,
+                message,
+            );
+        }
+        throw error;
+    }
+}
+
+export function propMutationProcedure(bucket: PropRouterBucket) {
+    return propRateLimitedProcedure(
+        bucket,
+        'Too many changes in a short time; wait a minute and try again',
+    );
+}
+
+export function propRateLimitedProcedure(
+    bucket: PropRouterBucket,
+    message: string,
+) {
+    return propProcedure.use(async ({ ctx, next }) => {
+        const isAllowed = await isWithinRateLimit({
+            bucket: `${RATE_LIMIT_BUCKET_PREFIX}:${bucket}`,
+            key: ctx.userId,
+            max: PROP_MUTATIONS_PER_WINDOW,
+            windowMs: PROP_MUTATION_WINDOW_MS,
+        });
+        if (!isAllowed) {
+            throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message });
+        }
+        return next();
+    });
+}
+
+export function resolvedPlanOrThrow(
+    key: LedgerOnlyPlanKey | ModeledAccountUpdate | PlanKeyInput,
+): Plan {
+    if (isLedgerOnlyPlanKey(key)) {
+        throw notModeledError(null, ModeledOperation.PlanRules);
+    }
+    const planKey = 'readIssues' in key ? key : { ...key, readIssues: [] };
+    const resolution = resolvePlanKey(planKey);
+    switch (resolution.kind) {
+        case PlanKeyResolutionKind.Resolved: {
+            return resolution.plan;
+        }
+        case PlanKeyResolutionKind.Unresolved: {
+            throw new PropMutationRejectionError(
+                PropMutationRejection.UnresolvablePlan,
+                describeUnresolvedPlan(planKey, resolution.reason),
+            );
+        }
+    }
+}
+
+export function returnedRowOrThrow<Row>(
+    row: Row | undefined,
+    record: PropRecord,
+): Row {
+    if (row === undefined) throw new PropRecordNotFoundError(record);
+    return row;
+}
+
+function databaseErrorOf(cause: unknown): DatabaseErrorFields | null {
+    let current: unknown = cause;
+    for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {
+        if (typeof current !== 'object' || current === null) return null;
+        const code: unknown = Reflect.get(current, 'code');
+        if (isPostgresErrorCode(code)) {
+            const constraint: unknown = Reflect.get(current, 'constraint');
+            return {
+                code,
+                constraint: typeof constraint === 'string' ? constraint : null,
+            };
+        }
+        current = Reflect.get(current, 'cause');
+    }
+    return null;
+}
+
+function fromDatabaseError(
+    error: DatabaseErrorFields,
+    cause: unknown,
+): TRPCError {
+    switch (error.code) {
+        case PostgresErrorCode.CheckViolation: {
+            return new TRPCError({
+                cause,
+                code: 'BAD_REQUEST',
+                message:
+                    (error.constraint === null
+                        ? undefined
+                        : CHECK_CONSTRAINT_MESSAGES[error.constraint]) ??
+                    `A value is outside what the database accepts (check ${error.constraint ?? 'unknown'}); dates must be real days from 2000 through 2100 and amounts within range`,
+            });
+        }
+        case PostgresErrorCode.ForeignKeyViolation: {
+            return new TRPCError({
+                cause,
+                code: 'CONFLICT',
+                message:
+                    'The change refers to a record that no longer exists, or a record other entries still refer to',
+            });
+        }
+        case PostgresErrorCode.StringTooLong: {
+            return new TRPCError({
+                cause,
+                code: 'BAD_REQUEST',
+                message: 'A text value is longer than the database accepts',
+            });
+        }
+        case PostgresErrorCode.UniqueViolation: {
+            return new TRPCError({
+                cause,
+                code: 'CONFLICT',
+                message:
+                    (error.constraint === null
+                        ? undefined
+                        : UNIQUE_CONSTRAINT_MESSAGES[error.constraint]) ??
+                    'This record already exists',
+            });
+        }
+    }
+}
+
+function fromRejection(error: PropMutationRejectionError): TRPCError {
+    switch (error.reason) {
+        case PropMutationRejection.DecisionOfOtherAccount:
+        case PropMutationRejection.ExclusivityNotConfirmed:
+        case PropMutationRejection.FutureDate:
+        case PropMutationRejection.ImplausibleSnapshot:
+        case PropMutationRejection.LifecycleTransition:
+        case PropMutationRejection.MissingSnapshotField:
+        case PropMutationRejection.NotModeledForOperation:
+        case PropMutationRejection.OutOfOrderEvent:
+        case PropMutationRejection.StageNotOfferedByPlan:
+        case PropMutationRejection.UnresolvablePlan: {
+            return new TRPCError({
+                cause: error,
+                code: 'BAD_REQUEST',
+                message: error.message,
+            });
+        }
+        case PropMutationRejection.DuplicateImportLabel:
+        case PropMutationRejection.DuplicateSnapshot:
+        case PropMutationRejection.MixedStageCopyGroup:
+        case PropMutationRejection.RecordInUse:
+        case PropMutationRejection.RoundBudgetExceeded:
+        case PropMutationRejection.RoundClosed:
+        case PropMutationRejection.StageMismatch:
+        case PropMutationRejection.TrackingChange:
+        case PropMutationRejection.UpgradeChangesAccount: {
+            return new TRPCError({
+                cause: error,
+                code: 'CONFLICT',
+                message: error.message,
+            });
+        }
+        case PropMutationRejection.ReferenceNotOwned: {
+            return new TRPCError({
+                cause: error,
+                code: 'NOT_FOUND',
+                message: error.message,
+            });
+        }
+    }
+}
+
+function isPostgresErrorCode(value: unknown): value is PostgresErrorCode {
+    return (
+        typeof value === 'string' &&
+        (Object.values(PostgresErrorCode) as string[]).includes(value)
+    );
+}
+
+function notModeledError(
+    label: null | string,
+    operation: ModeledOperation,
+): PropMutationRejectionError {
+    const subject =
+        label === null
+            ? 'This ledger-only account'
+            : `Ledger-only account "${label}"`;
+    return new PropMutationRejectionError(
+        PropMutationRejection.NotModeledForOperation,
+        `${subject} ${MODELED_OPERATION_TEXT[operation]}. Upgrade it to a modeled plan first, once its plan is modeled.`,
+    );
+}
+
+function toPropError(cause: unknown): null | TRPCError {
+    if (cause instanceof PropRecordNotFoundError) {
+        return new TRPCError({
+            cause,
+            code: 'NOT_FOUND',
+            message: cause.message,
+        });
+    }
+    if (cause instanceof PropQuotaExceededError) {
+        return new TRPCError({
+            cause,
+            code: 'TOO_MANY_REQUESTS',
+            message: cause.message,
+        });
+    }
+    if (cause instanceof PropListTooLargeError) {
+        return new TRPCError({
+            cause,
+            code: 'BAD_REQUEST',
+            message: cause.message,
+        });
+    }
+    if (cause instanceof PropInvalidStoredRecordError) {
+        return new TRPCError({
+            cause,
+            code: 'PRECONDITION_FAILED',
+            message: cause.message,
+        });
+    }
+    if (cause instanceof PropMutationRejectionError) {
+        return fromRejection(cause);
+    }
+    const databaseError = databaseErrorOf(cause);
+    return databaseError === null
+        ? null
+        : fromDatabaseError(databaseError, cause);
+}

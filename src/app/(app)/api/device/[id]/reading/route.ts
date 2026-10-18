@@ -1,16 +1,24 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { idPathParameterSchema, parseRouteParameters } from '~/lib/schemas/api';
-import { api } from '~/trpc/server';
+import {
+    idPathParameterSchema,
+    parseRouteParameters,
+    parseSearchParameters,
+    readingsPageQuerySchema,
+} from '~/lib/schemas/api';
+import { readPublicDeviceReadings } from '~/server/iot/IotPublicReads';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> },
+    { params }: RouteContext<'/api/device/[id]/reading'>,
 ) {
     const parsed = parseRouteParameters(idPathParameterSchema, await params);
     if (parsed.response) return parsed.response;
+    const page = parseSearchParameters(readingsPageQuerySchema, request);
+    if (page.response) return page.response;
 
-    const result = await api.device.getDeviceReadings({
+    const result = await readPublicDeviceReadings({
+        ...page.data,
         device: { device_id: parsed.data.id },
     });
 

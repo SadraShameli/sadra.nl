@@ -22,3 +22,9 @@ pnpm-lock.yaml
 
 # Static assets
 public/
+
+# Generated theme catalog
+src/lib/theme/bundled.json
+
+# Agent worktrees
+.claude/worktrees/

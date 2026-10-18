@@ -1,0 +1,57 @@
+'use client';
+
+import {
+    useCalculatorActions,
+    useCalculatorInputs,
+} from './CalculatorProvider';
+import SavedScenarios from './SavedScenarios';
+import { buildShareLink, shareLinkForQuery } from './shareLink';
+import ShareLinkButton from './ShareLinkButton';
+
+interface CalculatorToolbarProperties {
+    ownQuery?: string;
+    pageQuery?: string;
+}
+
+export function CalculatorToolbar({
+    ownQuery,
+    pageQuery = '',
+}: CalculatorToolbarProperties) {
+    return ownQuery === undefined ? (
+        <CalculatorStateToolbar pageQuery={pageQuery} />
+    ) : (
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            <ShareLinkButton
+                buildLink={(origin, pathname) =>
+                    shareLinkForQuery(origin, pathname, ownQuery)
+                }
+            />
+        </div>
+    );
+}
+
+function CalculatorStateToolbar({ pageQuery }: { pageQuery: string }) {
+    const { encodeOptions, firms, state } = useCalculatorInputs();
+    const { applyState } = useCalculatorActions();
+    return (
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            <ShareLinkButton
+                buildLink={(origin, pathname) =>
+                    buildShareLink(
+                        origin,
+                        pathname,
+                        state,
+                        encodeOptions,
+                        pageQuery,
+                    )
+                }
+            />
+            <SavedScenarios
+                encodeOptions={encodeOptions}
+                firms={firms}
+                onLoad={applyState}
+                state={state}
+            />
+        </div>
+    );
+}

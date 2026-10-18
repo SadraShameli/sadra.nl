@@ -1,12 +1,13 @@
 'use client';
 
+import { Field, FieldDescription, FieldLabel } from '~/components/ui/field';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
 import { formatCompactCurrency } from '~/lib/format';
 import {
     parseFirmId,
@@ -38,13 +39,8 @@ export default function FirmPlanPicker({
                 'grid gap-4 md:grid-cols-2',
             )}
         >
-            <div>
-                <label
-                    className="mb-2 block text-xs font-medium text-muted-foreground"
-                    htmlFor="firm-select"
-                >
-                    Firm
-                </label>
+            <Field>
+                <FieldLabel htmlFor="firm-select">Firm</FieldLabel>
                 <Select
                     onValueChange={(v) => {
                         const firmId = parseFirmId(v);
@@ -64,26 +60,24 @@ export default function FirmPlanPicker({
                         ))}
                     </SelectContent>
                 </Select>
-            </div>
+            </Field>
 
-            <div>
-                <label
-                    className="mb-2 block text-xs font-medium text-muted-foreground"
-                    htmlFor="plan-select"
-                >
+            <Field>
+                <FieldLabel htmlFor="plan-select">
                     Plan &amp; account size
-                </label>
+                </FieldLabel>
                 <Select
                     onValueChange={(v) => {
-                        const next = firm.plans.find(
-                            (p) => serializePlanId(p.id) === v,
-                        );
+                        const next = firm.findPlanBySerial(v);
                         if (next) onPlanChange(next);
                     }}
                     value={serializePlanId(plan.id)}
                 >
-                    <SelectTrigger id="plan-select">
-                        <SelectValue />
+                    <SelectTrigger
+                        aria-describedby="plan-select-terms"
+                        id="plan-select"
+                    >
+                        <SelectValue>{plan.label}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                         {firm.plans.map((p) => (
@@ -91,15 +85,24 @@ export default function FirmPlanPicker({
                                 key={serializePlanId(p.id)}
                                 value={serializePlanId(p.id)}
                             >
-                                {p.label} · target{' '}
-                                {formatCompactCurrency(p.profitTarget)} ·
-                                drawdown{' '}
-                                {formatCompactCurrency(p.drawdown.amount)}
+                                <span className="flex flex-col">
+                                    <span>{p.label}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                        {planTermsText(p)}
+                                    </span>
+                                </span>
                             </SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
-            </div>
+                <FieldDescription id="plan-select-terms">
+                    {planTermsText(plan)}
+                </FieldDescription>
+            </Field>
         </div>
     );
+}
+
+function planTermsText(plan: Plan): string {
+    return `Target ${formatCompactCurrency(plan.profitTarget)} · drawdown ${formatCompactCurrency(plan.drawdown.amount)}`;
 }

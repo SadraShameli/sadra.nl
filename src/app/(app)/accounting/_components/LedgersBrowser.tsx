@@ -5,17 +5,16 @@ import { useMemo } from 'react';
 
 import type { LedgerId } from '~/lib/accounting/core/ids';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    type DataTableInstance,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { EmptyState } from '~/components/ui/EmptyState';
+    hasActiveTableFilter,
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { EmptyState } from '~/components/ui/empty-state';
 import { LedgerCategory } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 
@@ -29,10 +28,6 @@ type Ledger = {
     externalId: LedgerId;
     group: null | string;
 };
-
-function hasActiveFilter(table: DataTableInstance<Ledger>): boolean {
-    return table.getColumn('category')?.getFilterValue() !== undefined;
-}
 
 const LEDGER_CATEGORY_LABEL: Record<LedgerCategory, string> = {
     [LedgerCategory.Af]: 'Depreciation',
@@ -98,7 +93,7 @@ export function LedgersBrowser() {
                 accessorKey: 'group',
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground">
-                        {row.original.group ?? '—'}
+                        {row.original.group ?? '-'}
                     </span>
                 ),
                 header: 'Group',
@@ -123,7 +118,7 @@ export function LedgersBrowser() {
                             <EmptyState
                                 description={
                                     credentialId
-                                        ? hasActiveFilter(table)
+                                        ? hasActiveTableFilter(table)
                                             ? 'No ledgers match this filter.'
                                             : 'Try a different category or pick another credential.'
                                         : 'Pick an accounting credential to load its ledgers.'
@@ -138,18 +133,8 @@ export function LedgersBrowser() {
                         )}
                         filterPlaceholder="Search ledgers…"
                         headerActions={(table) => (
-                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                <ClearFiltersButton
-                                    active={hasActiveFilter(table)}
-                                    className="hidden md:flex"
-                                    onReset={() => table.resetColumnFilters()}
-                                />
-                                <ActiveConnectionNote
-                                    credential={accounting}
-                                    roleNoun="accounting credential"
-                                />
+                            <div className="flex flex-wrap items-center gap-2">
                                 <DataTableFacetSelect
-                                    className="w-48"
                                     column={table.getColumn('category')}
                                     format={(value) =>
                                         (
@@ -161,17 +146,20 @@ export function LedgersBrowser() {
                                     }
                                     placeholder="All categories"
                                 />
-                                <ClearFiltersButton
-                                    active={hasActiveFilter(table)}
-                                    className="md:hidden"
-                                    onReset={() => table.resetColumnFilters()}
-                                />
                             </div>
                         )}
                         isLoading={!!credentialId && ledgersQ.isPending}
                         pageSize={25}
                         rowId={(r) => r.externalId}
                         showFilter
+                        toolbarEnd={
+                            <>
+                                <ActiveConnectionNote
+                                    credential={accounting}
+                                    roleNoun="accounting credential"
+                                />
+                            </>
+                        }
                     />
                 )}
             </CardContent>

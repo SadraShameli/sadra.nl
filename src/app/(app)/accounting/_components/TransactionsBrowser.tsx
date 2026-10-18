@@ -9,31 +9,23 @@ import type {
     TransactionMatch,
 } from '~/lib/accounting/core/types';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
-} from '~/components/ui/DataTable';
-import { DateRangePicker } from '~/components/ui/DatePicker';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+    hasActiveTableFilter,
+} from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterDateRange } from '~/components/ui/filter-date-range';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { api } from '~/trpc/react';
 
 import { ActiveConnectionNote } from './ActiveConnectionNote';
 import { DirectionBadge } from './DirectionBadge';
 import { useActiveCredentials } from './useActiveCredentials';
 
-const ALL = '__all__';
 const MATCHED = '__matched__';
 const UNKNOWN = '__unknown__';
 const LOOKBACK_DAYS = 90;
@@ -58,8 +50,9 @@ export function TransactionsBrowser() {
     const { accounting, source } = useActiveCredentials();
     const credentialId = source?.id ?? '';
     const accountingCredentialId = accounting?.id ?? '';
+    const [initialDateRange] = useState<DateRange>(defaultRange);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
-        defaultRange,
+        initialDateRange,
     );
 
     const range = useMemo(() => {
@@ -127,8 +120,8 @@ export function TransactionsBrowser() {
                     <span
                         className={
                             row.original.direction === 'IN'
-                                ? 'font-mono text-xs text-emerald-300'
-                                : 'font-mono text-xs text-rose-300'
+                                ? 'font-mono text-xs text-success'
+                                : 'font-mono text-xs text-destructive'
                         }
                     >
                         {amountFormat.format(row.original.sourceAmount)}{' '}
@@ -147,7 +140,7 @@ export function TransactionsBrowser() {
                                 row.original.sourceCurrency}
                         </span>
                     ) : (
-                        '—'
+                        '-'
                     ),
                 header: 'Fee',
             },
@@ -164,7 +157,7 @@ export function TransactionsBrowser() {
                         </div>
                     ) : (
                         <Badge
-                            className="font-mono text-[10px] text-amber-300"
+                            className="font-mono text-[10px] text-warning"
                             variant="outline"
                         >
                             Unknown
@@ -199,7 +192,7 @@ export function TransactionsBrowser() {
                             <EmptyState
                                 description={
                                     credentialId
-                                        ? hasActiveColumnFilter(table)
+                                        ? hasActiveTableFilter(table)
                                             ? 'No transactions match this filter.'
                                             : 'Fetched transactions from this credential will appear here.'
                                         : 'Pick a transactions credential above to load transactions.'
@@ -213,13 +206,64 @@ export function TransactionsBrowser() {
                             />
                         )}
                         filterPlaceholder="Search transactions…"
+                        hasExternalFilters={dateRange !== initialDateRange}
                         headerActions={(table) => (
-                            <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                <ClearFiltersButton
-                                    active={hasActiveColumnFilter(table)}
-                                    className="hidden md:flex"
-                                    onReset={() => table.resetColumnFilters()}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <FilterSelect
+                                    label="Direction"
+                                    onValueChange={(v) =>
+                                        table
+                                            .getColumn('direction')
+                                            ?.setFilterValue(v)
+                                    }
+                                    options={[
+                                        { label: 'In', value: 'IN' },
+                                        { label: 'Out', value: 'OUT' },
+                                    ]}
+                                    placeholder="All directions"
+                                    value={
+                                        table
+                                            .getColumn('direction')
+                                            ?.getFilterValue() as
+                                            string | undefined
+                                    }
                                 />
+                                <FilterSelect
+                                    label="Match"
+                                    onValueChange={(v) =>
+                                        table
+                                            .getColumn('match')
+                                            ?.setFilterValue(v)
+                                    }
+                                    options={[
+                                        { label: 'Matched', value: MATCHED },
+                                        { label: 'Unknown', value: UNKNOWN },
+                                    ]}
+                                    placeholder="All matches"
+                                    value={
+                                        table
+                                            .getColumn('match')
+                                            ?.getFilterValue() as
+                                            string | undefined
+                                    }
+                                />
+                                <FilterDateRange
+                                    align="end"
+                                    label="Transaction date"
+                                    onChange={setDateRange}
+                                    placeholder="Any date"
+                                    value={dateRange}
+                                />
+                            </div>
+                        )}
+                        initialSorting={[{ desc: true, id: 'date' }]}
+                        isLoading={!!credentialId && txnsQ.isPending}
+                        onResetFilters={() => setDateRange(initialDateRange)}
+                        pageSize={25}
+                        rowId={(r) => r.txnId}
+                        showFilter
+                        toolbarEnd={
+                            <>
                                 <ActiveConnectionNote
                                     credential={source}
                                     roleNoun="transaction source"
@@ -228,81 +272,8 @@ export function TransactionsBrowser() {
                                     credential={accounting}
                                     roleNoun="accounting credential"
                                 />
-                                <DateRangePicker
-                                    align="end"
-                                    className="h-8 w-fit shrink-0 text-xs"
-                                    onChange={setDateRange}
-                                    placeholder="Any date"
-                                    value={dateRange}
-                                />
-                                <Select
-                                    onValueChange={(v) =>
-                                        table
-                                            .getColumn('direction')
-                                            ?.setFilterValue(
-                                                v === ALL ? undefined : v,
-                                            )
-                                    }
-                                    value={
-                                        (table
-                                            .getColumn('direction')
-                                            ?.getFilterValue() as
-                                            string | undefined) ?? ALL
-                                    }
-                                >
-                                    <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={ALL}>
-                                            All directions
-                                        </SelectItem>
-                                        <SelectItem value="IN">In</SelectItem>
-                                        <SelectItem value="OUT">Out</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Select
-                                    onValueChange={(v) =>
-                                        table
-                                            .getColumn('match')
-                                            ?.setFilterValue(
-                                                v === ALL ? undefined : v,
-                                            )
-                                    }
-                                    value={
-                                        (table
-                                            .getColumn('match')
-                                            ?.getFilterValue() as
-                                            string | undefined) ?? ALL
-                                    }
-                                >
-                                    <SelectTrigger className="h-8 w-36 shrink-0 text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value={ALL}>
-                                            All matches
-                                        </SelectItem>
-                                        <SelectItem value={MATCHED}>
-                                            Matched
-                                        </SelectItem>
-                                        <SelectItem value={UNKNOWN}>
-                                            Unknown
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <ClearFiltersButton
-                                    active={hasActiveColumnFilter(table)}
-                                    className="md:hidden"
-                                    onReset={() => table.resetColumnFilters()}
-                                />
-                            </div>
-                        )}
-                        initialSorting={[{ desc: true, id: 'date' }]}
-                        isLoading={!!credentialId && txnsQ.isPending}
-                        pageSize={25}
-                        rowId={(r) => r.txnId}
-                        showFilter
+                            </>
+                        }
                     />
                 )}
             </CardContent>

@@ -6,6 +6,7 @@ import { z, ZodError } from 'zod';
 
 import { isAdminOrAbove, isRoot, resolveRole } from '~/lib/auth/roles';
 import { auth } from '~/lib/auth/server';
+import { isPropRejectionSource } from '~/lib/schemas/propAccountOutputs';
 import { db } from '~/server/db';
 import { device } from '~/server/db/schemas/iot';
 import { hashDeviceToken } from '~/server/helpers/device-token';
@@ -27,6 +28,9 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
             ...shape,
             data: {
                 ...shape.data,
+                ...(isPropRejectionSource(error.cause) && {
+                    propRejection: error.cause.propRejection,
+                }),
                 zodError:
                     error.cause instanceof ZodError
                         ? z.treeifyError(error.cause)

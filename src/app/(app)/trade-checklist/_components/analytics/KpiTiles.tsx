@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
+import { Card } from '~/components/ui/card';
 import { formatPercent, formatR } from '~/lib/format';
 import {
     computeStreaks,
@@ -44,25 +44,25 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
         {
             hint: `n=${stats.sample}`,
             label: 'Win rate',
-            value: stats.sample > 0 ? formatPercent(stats.winRate, 0) : '—',
+            value: stats.sample > 0 ? formatPercent(stats.winRate, 0) : '-',
         },
         {
             cls:
                 stats.cumR > 0
-                    ? 'text-emerald-400'
+                    ? 'text-success'
                     : stats.cumR < 0
-                      ? 'text-rose-400'
+                      ? 'text-destructive'
                       : '',
             hint: 'across all graded outcomes',
             label: 'Cumulative R',
-            value: stats.sample > 0 ? formatR(stats.cumR, 1) : '—',
+            value: stats.sample > 0 ? formatR(stats.cumR, 1) : '-',
         },
         {
             cls:
                 stats.currentWin > 0
-                    ? 'text-emerald-400'
+                    ? 'text-success'
                     : stats.currentLoss > 0
-                      ? 'text-rose-400'
+                      ? 'text-destructive'
                       : '',
             hint:
                 stats.currentWin > 0
@@ -81,13 +81,13 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
         {
             cls:
                 stats.expectancy > 0
-                    ? 'text-emerald-400'
+                    ? 'text-success'
                     : stats.expectancy < 0
-                      ? 'text-rose-400'
+                      ? 'text-destructive'
                       : '',
             hint: 'avg R per graded trade',
             label: 'Expectancy',
-            value: stats.sample > 0 ? formatR(stats.expectancy) : '—',
+            value: stats.sample > 0 ? formatR(stats.expectancy) : '-',
         },
     ];
 
@@ -105,7 +105,7 @@ export function KpiTiles({ assessments }: { assessments: LightAssessment[] }) {
                     </p>
                     <p
                         className={cn(
-                            'mt-1 font-mono text-2xl font-bold text-white',
+                            'mt-1 font-mono text-2xl font-bold text-foreground',
                             t.cls,
                         )}
                     >

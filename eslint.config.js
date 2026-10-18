@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import nextPlugin from '@next/eslint-plugin-next';
 import prettier from 'eslint-config-prettier';
+import betterTailwind from 'eslint-plugin-better-tailwindcss';
 // @ts-expect-error - no types published
 import drizzle from 'eslint-plugin-drizzle';
 // @ts-expect-error - no types published
@@ -10,11 +11,45 @@ import perfectionist from 'eslint-plugin-perfectionist';
 import promise from 'eslint-plugin-promise';
 import hooks from 'eslint-plugin-react-hooks';
 import unicorn from 'eslint-plugin-unicorn';
+import { defineConfig } from 'eslint/config';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+const RHF_WATCH_MESSAGE =
+    "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.";
+
+const RHF_WATCH_RESTRICTIONS = [
+    {
+        message: RHF_WATCH_MESSAGE,
+        selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name='watch']",
+    },
+    {
+        message: RHF_WATCH_MESSAGE,
+        selector:
+            "VariableDeclarator[init.callee.name=/^use(Form|FormContext)$/] > ObjectPattern > Property[key.name='watch']",
+    },
+];
+
+const NATIVE_CONTROL_RESTRICTIONS = [
+    {
+        message:
+            'Use the shadcn component from ~/components/ui (Button, Input, Label, FieldSet, Select, Textarea, Dialog, Collapsible, Progress) instead of a native form element.',
+        selector:
+            'JSXOpeningElement[name.name=/^(button|datalist|details|dialog|fieldset|input|label|legend|meter|option|progress|select|summary|textarea)$/]',
+    },
+    {
+        message:
+            'Use Tooltip from ~/components/ui/tooltip instead of a native title tooltip.',
+        selector:
+            "JSXOpeningElement[name.name=/^(?!iframe$|svg$)[a-z]/] > JSXAttribute[name.name='title']",
+    },
+];
+
+const config = defineConfig(
     {
         ignores: [
+            '.claude/worktrees',
             '.next',
             'drizzle',
             'public',
@@ -34,11 +69,17 @@ export default tseslint.config(
             prettier,
         ],
         files: ['**/*.ts', '**/*.tsx'],
-        languageOptions: { parserOptions: { projectService: true } },
+        languageOptions: {
+            parserOptions: {
+                projectService: true,
+                tsconfigRootDir: import.meta.dirname,
+            },
+        },
         plugins: {
             '@next/next': nextPlugin,
             drizzle,
             'jsx-a11y': jsxA11y,
+            // @ts-expect-error - react-hooks 7 types clash with ESLint 10's Plugin type
             'react-hooks': hooks,
         },
         rules: {
@@ -96,6 +137,7 @@ export default tseslint.config(
                     ignore: [/^\[.+\]/u, /\.d\.ts$/u],
                 },
             ],
+            'unicorn/name-replacements': 'off',
             'unicorn/no-array-callback-reference': 'off',
             'unicorn/no-array-reduce': 'off',
             'unicorn/no-nested-ternary': 'off',
@@ -104,7 +146,6 @@ export default tseslint.config(
             'unicorn/number-literal-case': 'off',
             'unicorn/prefer-global-this': 'off',
             'unicorn/prefer-spread': 'off',
-            'unicorn/prevent-abbreviations': 'off',
         },
     },
     {
@@ -116,15 +157,57 @@ export default tseslint.config(
             prettier,
         ],
         files: ['**/*.{js,mjs,cjs}'],
+        languageOptions: { globals: globals.node },
         rules: {
             'no-empty': ['error', { allowEmptyCatch: true }],
             'perfectionist/sort-classes': 'off',
+            'unicorn/name-replacements': 'off',
             'unicorn/no-null': 'off',
             'unicorn/prefer-module': 'off',
-            'unicorn/prevent-abbreviations': 'off',
+        },
+    },
+    {
+        files: ['src/**/*.ts', 'src/**/*.tsx'],
+        rules: {
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            message:
+                                "Import through the ~/ alias (for example '~/lib/...'); only same-folder './' imports stay relative.",
+                            regex: String.raw`^\.\.(?:/|$)`,
+                        },
+                    ],
+                },
+            ],
+            'no-restricted-syntax': ['error', ...RHF_WATCH_RESTRICTIONS],
+        },
+    },
+    {
+        files: ['src/**/*.{ts,tsx}', 'tests/**/*.tsx'],
+        plugins: { 'better-tailwindcss': betterTailwind },
+        rules: {
+            'better-tailwindcss/enforce-canonical-classes': [
+                'error',
+                { entryPoint: 'src/styles/styles.css' },
+            ],
+        },
+    },
+    {
+        files: ['src/**/*.tsx'],
+        ignores: ['src/components/ui/**'],
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                ...RHF_WATCH_RESTRICTIONS,
+                ...NATIVE_CONTROL_RESTRICTIONS,
+            ],
         },
     },
     {
         linterOptions: { reportUnusedDisableDirectives: true },
     },
 );
+
+export default config;

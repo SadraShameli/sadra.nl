@@ -1,12 +1,24 @@
 import { defineCommand } from 'citty';
 
-export default defineCommand({
+const group = defineCommand({
     meta: {
         description:
             'Prop-firm calculator: plan rules, simulations and ladder search',
         name: 'prop',
     },
     subCommands: {
+        accounts: async () => {
+            const commandModule = await import('./accounts/group');
+            return commandModule.default;
+        },
+        advise: async () => {
+            const commandModule = await import('./advise/command');
+            return commandModule.default;
+        },
+        bankroll: async () => {
+            const commandModule = await import('./bankroll/group');
+            return commandModule.default;
+        },
         compare: async () => {
             const commandModule = await import('./compare/command');
             return commandModule.default;
@@ -33,3 +45,5 @@ export default defineCommand({
         },
     },
 });
+
+export default group;

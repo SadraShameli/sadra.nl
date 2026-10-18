@@ -1,7 +1,11 @@
 import 'server-only';
 import { TRPCError } from '@trpc/server';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
+import {
+    type ExerciseRow,
+    loadOfficialExercises,
+} from '~/lib/lifting/OfficialCatalog';
 import {
     customExerciseInputSchema,
     exerciseIdActionSchema,
@@ -10,32 +14,9 @@ import {
     updateCustomExerciseInputSchema,
 } from '~/lib/lifting/schemas';
 import { createTRPCRouter, protectedProcedure } from '~/server/api/trpc';
-import { db, liftingExercise, liftingExerciseAlias } from '~/server/db';
+import { liftingExercise } from '~/server/db';
 
-type ExerciseRow = typeof liftingExercise.$inferSelect;
-
-const loadOfficialExercises = async (): Promise<{
-    aliases: Record<string, string[]>;
-    rows: ExerciseRow[];
-}> => {
-    const rows = await db
-        .select()
-        .from(liftingExercise)
-        .where(isNull(liftingExercise.ownerId));
-    const aliasRows = await db
-        .select({
-            alias: liftingExerciseAlias.alias,
-            exerciseId: liftingExerciseAlias.exerciseId,
-        })
-        .from(liftingExerciseAlias);
-    const aliases: Record<string, string[]> = {};
-    for (const a of aliasRows) {
-        const list = aliases[a.exerciseId] ?? [];
-        list.push(a.alias.toLowerCase());
-        aliases[a.exerciseId] = list;
-    }
-    return { aliases, rows };
-};
+import { exerciseVisibleTo } from './visibility';
 
 function slugify(value: string): string {
     return value
@@ -101,14 +82,10 @@ export const liftingExerciseRouter = createTRPCRouter({
         .input(exerciseSlugActionSchema)
         .query(async ({ ctx, input }) => {
             const row = await ctx.db.query.liftingExercise.findFirst({
-                where: (fields, { and: a, eq: equals, isNull: n, or: o }) =>
-                    a(
-                        equals(fields.slug, input.slug),
-                        o(
-                            n(fields.ownerId),
-                            equals(fields.ownerId, ctx.userId),
-                        ),
-                    ),
+                where: and(
+                    eq(liftingExercise.slug, input.slug),
+                    exerciseVisibleTo(ctx.userId),
+                ),
             });
             if (!row) {
                 throw new TRPCError({

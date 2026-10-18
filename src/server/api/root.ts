@@ -9,6 +9,8 @@ import { recordingsRouter } from './routers/iot/recording';
 import { sensorRouter } from './routers/iot/sensor';
 import { sensorUnitRouter } from './routers/iot/sensor-unit';
 import { liftingRouter } from './routers/lifting';
+import { propAccountsRouter } from './routers/propAccounts';
+import { siteRouter } from './routers/site';
 import { userRouter } from './routers/user';
 
 export const appRouter = createTRPCRouter({
@@ -17,10 +19,12 @@ export const appRouter = createTRPCRouter({
     device: deviceRouter,
     lifting: liftingRouter,
     location: locationRouter,
+    propAccounts: propAccountsRouter,
     reading: readingRouter,
     recording: recordingsRouter,
     sensor: sensorRouter,
     sensorUnit: sensorUnitRouter,
+    site: siteRouter,
     user: userRouter,
 });
 

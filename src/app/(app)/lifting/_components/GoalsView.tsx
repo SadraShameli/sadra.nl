@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
     differenceInCalendarDays,
     eachDayOfInterval,
-    endOfDay,
     format,
     getDay,
     isBefore,
@@ -26,62 +25,44 @@ import {
     Trophy,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useMemo, useState } from 'react';
-import { type DateRange } from 'react-day-picker';
-import { useForm } from 'react-hook-form';
+import { useCallback, useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Calendar } from '~/components/ui/Calendar';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { HEAT_LEVEL_CLASS } from '~/app/(app)/lifting/_components/shared/heatLevelClass';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Calendar } from '~/components/ui/calendar';
+import { Card, CardContent } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     DataTableAlign,
     type DataTableColumn,
     DataTableFilterFunction,
-    type DataTableInstance,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { DatePicker, DateRangePicker } from '~/components/ui/DatePicker';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import { Progress } from '~/components/ui/Progress';
+} from '~/components/ui/data-table';
+import { DataTableDateRange } from '~/components/ui/data-table-date-range';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { DatePicker } from '~/components/ui/date-picker';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
+import { Progress } from '~/components/ui/progress';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Tabs, TabsList, TabsTrigger } from '~/components/ui/Tabs';
+} from '~/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
-} from '~/components/ui/Tooltip';
+} from '~/components/ui/tooltip';
 import { WeightUnit } from '~/lib/lifting/format';
 import { type CreateGoalInput, goalInputSchema } from '~/lib/lifting/schemas';
 import {
@@ -156,23 +137,13 @@ function formatGoalTarget(
     return kind === 'streak' ? `${value} wk` : String(value);
 }
 
-const HEAT_LEVELS = [
-    'bg-muted/40',
-    'bg-emerald-500/25',
-    'bg-emerald-500/50',
-    'bg-emerald-500/75',
-    'bg-emerald-500',
-] as const;
-
 const WEEKDAY_HINTS = ['Mon', 'Wed', 'Fri'] as const;
 
 const CALENDAR_MODIFIER_CLASS = {
-    achieved:
-        'bg-emerald-500/30 text-emerald-100 hover:bg-emerald-500/40 rounded-md',
-    targetActive:
-        'bg-amber-500/30 text-amber-100 hover:bg-amber-500/40 rounded-md',
+    achieved: 'bg-success/30 text-success hover:bg-success/40 rounded-md',
+    targetActive: 'bg-warning/30 text-warning hover:bg-warning/40 rounded-md',
     targetMissed:
-        'bg-rose-500/30 text-rose-100 hover:bg-rose-500/40 rounded-md',
+        'bg-destructive/30 text-destructive hover:bg-destructive/40 rounded-md',
 } as const;
 
 interface Stats {
@@ -184,6 +155,7 @@ interface Stats {
 }
 
 export function GoalsView() {
+    const formId = useId();
     const utilities = api.useUtils();
     const goalsQuery = api.lifting.goal.list.useQuery({});
     const settings = api.lifting.settings.get.useQuery();
@@ -204,7 +176,7 @@ export function GoalsView() {
     const markAchieved = api.lifting.goal.markAchieved.useMutation({
         onError: (error) => toast.error(error.message),
         onSuccess: () => {
-            toast.success('Goal achieved — nice work.');
+            toast.success('Goal achieved, nice work.');
             void invalidate();
         },
     });
@@ -228,9 +200,6 @@ export function GoalsView() {
         },
         resolver: zodResolver(goalInputSchema),
     });
-    const [targetDateRange, setTargetDateRange] = useState<
-        DateRange | undefined
-    >();
     const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
 
     const stats = useMemo(() => computeStats(goals), [goals]);
@@ -246,20 +215,6 @@ export function GoalsView() {
         }
         return map;
     }, [goals]);
-
-    const EXTRA_FILTER_COLUMNS = ['kind', 'exercise', 'targetDate'] as const;
-
-    const hasExtraFilters = (table: DataTableInstance<GoalRow>): boolean =>
-        EXTRA_FILTER_COLUMNS.some(
-            (id) => table.getColumn(id)?.getFilterValue() !== undefined,
-        );
-
-    const clearExtraFilters = (table: DataTableInstance<GoalRow>) => {
-        setTargetDateRange(undefined);
-        for (const id of EXTRA_FILTER_COLUMNS) {
-            table.getColumn(id)?.setFilterValue(undefined);
-        }
-    };
 
     const setStatus = useCallback(
         (g: GoalRow, status: GoalStatus) => {
@@ -302,7 +257,7 @@ export function GoalsView() {
             {
                 accessorKey: 'targetValue',
                 cell: ({ row }) => (
-                    <span className="font-semibold text-white tabular-nums">
+                    <span className="font-semibold text-foreground tabular-nums">
                         {formatGoalTarget(
                             row.original.kind,
                             row.original.targetValue,
@@ -317,7 +272,7 @@ export function GoalsView() {
                 cell: ({ row }) =>
                     row.original.exerciseSlug && row.original.exerciseName ? (
                         <Link
-                            className="text-xs text-muted-foreground hover:text-white hover:underline"
+                            className="text-xs text-muted-foreground hover:text-foreground hover:underline"
                             href={routes.lifting.exercise(
                                 row.original.exerciseSlug,
                             )}
@@ -325,7 +280,7 @@ export function GoalsView() {
                             {row.original.exerciseName}
                         </Link>
                     ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                     ),
                 enableSorting: false,
                 filterFn: DataTableFilterFunction.Equals,
@@ -374,14 +329,14 @@ export function GoalsView() {
                     row.achievedAt ? new Date(row.achievedAt).getTime() : 0,
                 cell: ({ row }) =>
                     row.original.achievedAt ? (
-                        <span className="text-xs text-emerald-400 tabular-nums">
+                        <span className="text-xs text-success tabular-nums">
                             {format(
                                 new Date(row.original.achievedAt),
                                 'MMM d, yyyy',
                             )}
                         </span>
                     ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                     ),
                 header: 'Achieved',
                 id: 'achieved',
@@ -455,7 +410,7 @@ export function GoalsView() {
                             </span>
                             <span className="tabular-nums">
                                 {stats.achieved} / {stats.total} goals ·{' '}
-                                <span className="text-emerald-400">
+                                <span className="text-success">
                                     {achievementRate}%
                                 </span>
                             </span>
@@ -468,318 +423,246 @@ export function GoalsView() {
                 </Card>
             )}
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        New goal
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Form {...newGoalForm}>
-                        <form
-                            className="grid grid-cols-2 gap-3 lg:grid-cols-4"
-                            onSubmit={submit}
-                        >
-                            <FormField
-                                control={newGoalForm.control}
-                                name="kind"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Kind
-                                        </FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {GOAL_KIND_VALUES.map((k) => (
-                                                    <SelectItem
-                                                        key={k}
-                                                        value={k}
-                                                    >
-                                                        {KIND_LABEL[k]}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={newGoalForm.control}
-                                name="targetValue"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Target value
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                inputMode="decimal"
-                                                onChange={(event) => {
-                                                    const n = Number(
-                                                        event.target.value,
-                                                    );
-                                                    field.onChange(
-                                                        Number.isFinite(n)
-                                                            ? n
-                                                            : 0,
-                                                    );
-                                                }}
-                                                ref={field.ref}
-                                                step="any"
-                                                type="number"
-                                                value={field.value}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={newGoalForm.control}
-                                name="targetDate"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs text-muted-foreground">
-                                            Target date
-                                        </FormLabel>
-                                        <DatePicker
-                                            className="w-full"
-                                            minDate={startOfDay(new Date())}
-                                            onChange={(d) =>
-                                                field.onChange(
-                                                    d
-                                                        ? format(
-                                                              d,
-                                                              'yyyy-MM-dd',
-                                                          )
-                                                        : null,
-                                                )
-                                            }
-                                            value={
-                                                field.value
-                                                    ? parseISO(field.value)
-                                                    : undefined
-                                            }
-                                        />
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="flex items-end">
-                                <Button
-                                    className="w-full gap-2"
-                                    disabled={create.isPending}
-                                    type="submit"
+            <ToolPanel title="New goal">
+                <form
+                    className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+                    onSubmit={submit}
+                >
+                    <Controller
+                        control={newGoalForm.control}
+                        name="kind"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-kind`}
                                 >
-                                    <Plus className="size-4" /> Create
-                                </Button>
-                            </div>
-                            {create.error?.message && (
-                                <p className="col-span-full mt-1 text-xs text-destructive">
-                                    {create.error.message}
-                                </p>
-                            )}
-                        </form>
-                    </Form>
-                </CardContent>
-            </Card>
+                                    Kind
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-kind`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {GOAL_KIND_VALUES.map((k) => (
+                                            <SelectItem key={k} value={k}>
+                                                {KIND_LABEL[k]}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={newGoalForm.control}
+                        name="targetValue"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-targetValue`}
+                                >
+                                    Target value
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-targetValue`}
+                                    inputMode="decimal"
+                                    onChange={(event) => {
+                                        const n = Number(event.target.value);
+                                        field.onChange(
+                                            Number.isFinite(n) ? n : 0,
+                                        );
+                                    }}
+                                    ref={field.ref}
+                                    step="any"
+                                    type="number"
+                                    value={field.value}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={newGoalForm.control}
+                        name="targetDate"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    className="text-xs text-muted-foreground"
+                                    htmlFor={`${formId}-targetDate`}
+                                >
+                                    Target date
+                                </FieldLabel>
+                                <DatePicker
+                                    className="w-full"
+                                    id={`${formId}-targetDate`}
+                                    minDate={startOfDay(new Date())}
+                                    onChange={(d) =>
+                                        field.onChange(
+                                            d ? format(d, 'yyyy-MM-dd') : null,
+                                        )
+                                    }
+                                    value={
+                                        field.value
+                                            ? parseISO(field.value)
+                                            : undefined
+                                    }
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <div className="flex items-end">
+                        <Button
+                            className="w-full gap-2"
+                            disabled={create.isPending}
+                            type="submit"
+                        >
+                            <Plus className="size-4" /> Create
+                        </Button>
+                    </div>
+                    {create.error?.message && (
+                        <p className="col-span-full mt-1 text-xs text-destructive">
+                            {create.error.message}
+                        </p>
+                    )}
+                </form>
+            </ToolPanel>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
-                <Card className="h-full">
-                    <CardHeader>
-                        <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            Achievement heatmap
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-1 flex-col">
-                        <AchievementHeatmap heatmap={heatmap} />
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center justify-between text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            <span>Target calendar</span>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center gap-3">
-                        <Calendar
-                            mode="single"
-                            modifiers={{
-                                achieved: calendarMarkers.achieved,
-                                targetActive: calendarMarkers.targetActive,
-                                targetMissed: calendarMarkers.targetMissed,
-                            }}
-                            modifiersClassNames={CALENDAR_MODIFIER_CLASS}
-                            month={calendarMonth}
-                            onMonthChange={setCalendarMonth}
-                            selected={undefined}
-                        />
-                        <CalendarLegend />
-                    </CardContent>
-                </Card>
+                <ToolPanel
+                    className="h-full"
+                    contentClassName="flex flex-1 flex-col"
+                    title="Achievement heatmap"
+                >
+                    <AchievementHeatmap heatmap={heatmap} />
+                </ToolPanel>
+                <ToolPanel
+                    contentClassName="flex flex-col items-center gap-3"
+                    title="Target calendar"
+                >
+                    <Calendar
+                        mode="single"
+                        modifiers={{
+                            achieved: calendarMarkers.achieved,
+                            targetActive: calendarMarkers.targetActive,
+                            targetMissed: calendarMarkers.targetMissed,
+                        }}
+                        modifiersClassNames={CALENDAR_MODIFIER_CLASS}
+                        month={calendarMonth}
+                        onMonthChange={setCalendarMonth}
+                        selected={undefined}
+                    />
+                    <CalendarLegend />
+                </ToolPanel>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        <span>All goals</span>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <DataTable<GoalRow>
-                        belowFilter={(table) => (
-                            <ClearFiltersButton
-                                active={hasExtraFilters(table)}
-                                onReset={() => clearExtraFilters(table)}
+            <ToolPanel title="All goals">
+                <DataTable<GoalRow>
+                    belowFilter={(table) => (
+                        <>
+                            <DataTableFacetSelect
+                                column={table.getColumn('kind')}
+                                format={(k) => KIND_LABEL[k as GoalKind]}
+                                label="Kind"
+                                placeholder="All kinds"
                             />
-                        )}
-                        columns={columns}
-                        data={goals}
-                        emptyState={(table) => {
-                            const status =
-                                (table.getColumn('status')?.getFilterValue() as
-                                    GoalStatus | undefined) ??
-                                STATUS_FILTER.ALL;
-                            return (
-                                <EmptyState
-                                    description={
-                                        status === STATUS_FILTER.ALL
-                                            ? 'Set a target so you have something to chase.'
-                                            : `No ${STATUS_LABEL[status].toLowerCase()} goals.`
-                                    }
-                                    icon={Target}
-                                    title="Nothing here yet"
-                                />
-                            );
-                        }}
-                        filterPosition="bottom"
-                        headerActions={(table) => {
-                            const statusColumn = table.getColumn('status');
-                            const statusFacets =
-                                statusColumn?.getFacetedUniqueValues() ??
-                                new Map<string, number>();
-                            const totalCount = statusFacets
-                                .values()
-                                .reduce((sum, n) => sum + n, 0);
-                            const currentStatus =
-                                (statusColumn?.getFilterValue() as
-                                    GoalStatus | undefined) ??
-                                STATUS_FILTER.ALL;
-                            return (
-                                <div className="flex w-full flex-col gap-3">
-                                    <Tabs
-                                        onValueChange={(v) =>
-                                            statusColumn?.setFilterValue(
-                                                v === STATUS_FILTER.ALL
-                                                    ? undefined
-                                                    : v,
-                                            )
-                                        }
-                                        value={currentStatus}
-                                    >
-                                        <TabsList className="flex h-auto w-fit flex-wrap self-start">
-                                            {STATUS_FILTER_VALUES.map((s) => (
-                                                <TabsTrigger key={s} value={s}>
-                                                    <span className="capitalize">
-                                                        {s === STATUS_FILTER.ALL
-                                                            ? 'All'
-                                                            : STATUS_LABEL[s]}
-                                                    </span>
-                                                    <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
-                                                        {s === STATUS_FILTER.ALL
-                                                            ? totalCount
-                                                            : (statusFacets.get(
-                                                                  s,
-                                                              ) ?? 0)}
-                                                    </span>
-                                                </TabsTrigger>
-                                            ))}
-                                        </TabsList>
-                                    </Tabs>
-
-                                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label className="text-xs">
-                                                Kind
-                                            </Label>
-                                            <DataTableFacetSelect
-                                                column={table.getColumn('kind')}
-                                                format={(k) =>
-                                                    KIND_LABEL[k as GoalKind]
-                                                }
-                                                placeholder="All kinds"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label className="text-xs">
-                                                Exercise
-                                            </Label>
-                                            <DataTableFacetSelect
-                                                column={table.getColumn(
-                                                    'exercise',
-                                                )}
-                                                format={(id) =>
-                                                    id === EXERCISE_NONE
-                                                        ? 'Unassigned'
-                                                        : (exerciseNameById.get(
-                                                              id,
-                                                          ) ?? id)
-                                                }
-                                                placeholder="All exercises"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <Label className="text-xs">
-                                                Target date
-                                            </Label>
-                                            <DateRangePicker
-                                                onChange={(range) => {
-                                                    setTargetDateRange(range);
-                                                    table
-                                                        .getColumn('targetDate')
-                                                        ?.setFilterValue(
-                                                            range?.from
-                                                                ? [
-                                                                      startOfDay(
-                                                                          range.from,
-                                                                      ).getTime(),
-                                                                      endOfDay(
-                                                                          range.to ??
-                                                                              range.from,
-                                                                      ).getTime(),
-                                                                  ]
-                                                                : undefined,
-                                                        );
-                                                }}
-                                                placeholder="Any target date"
-                                                value={targetDateRange}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        }}
-                        isLoading={goalsQuery.isLoading}
-                        pageSize={10}
-                        rowClassName={(r) =>
-                            r.status === GOAL_STATUS.ACHIEVED
-                                ? 'bg-emerald-500/5'
-                                : undefined
-                        }
-                        rowId={(r) => r.id}
-                        showFilter
-                    />
-                </CardContent>
-            </Card>
+                            <DataTableFacetSelect
+                                column={table.getColumn('exercise')}
+                                format={(id) =>
+                                    id === EXERCISE_NONE
+                                        ? 'Unassigned'
+                                        : (exerciseNameById.get(id) ?? id)
+                                }
+                                label="Exercise"
+                                placeholder="All exercises"
+                            />
+                            <DataTableDateRange
+                                column={table.getColumn('targetDate')}
+                                label="Target date"
+                                placeholder="Any target date"
+                            />
+                        </>
+                    )}
+                    columns={columns}
+                    data={goals}
+                    emptyState={(table) => {
+                        const status =
+                            (table.getColumn('status')?.getFilterValue() as
+                                GoalStatus | undefined) ?? STATUS_FILTER.ALL;
+                        return (
+                            <EmptyState
+                                description={
+                                    status === STATUS_FILTER.ALL
+                                        ? 'Set a target so you have something to chase.'
+                                        : `No ${STATUS_LABEL[status].toLowerCase()} goals.`
+                                }
+                                icon={Target}
+                                title="Nothing here yet"
+                            />
+                        );
+                    }}
+                    filterPosition="bottom"
+                    headerActions={(table) => {
+                        const statusColumn = table.getColumn('status');
+                        const statusFacets =
+                            statusColumn?.getFacetedUniqueValues() ??
+                            new Map<string, number>();
+                        const totalCount = statusFacets
+                            .values()
+                            .reduce((sum, n) => sum + n, 0);
+                        const currentStatus =
+                            (statusColumn?.getFilterValue() as
+                                GoalStatus | undefined) ?? STATUS_FILTER.ALL;
+                        return (
+                            <Tabs
+                                onValueChange={(v) =>
+                                    statusColumn?.setFilterValue(
+                                        v === STATUS_FILTER.ALL ? undefined : v,
+                                    )
+                                }
+                                value={currentStatus}
+                            >
+                                <TabsList className="flex h-auto w-fit flex-wrap self-start">
+                                    {STATUS_FILTER_VALUES.map((s) => (
+                                        <TabsTrigger key={s} value={s}>
+                                            <span className="capitalize">
+                                                {s === STATUS_FILTER.ALL
+                                                    ? 'All'
+                                                    : STATUS_LABEL[s]}
+                                            </span>
+                                            <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
+                                                {s === STATUS_FILTER.ALL
+                                                    ? totalCount
+                                                    : (statusFacets.get(s) ??
+                                                      0)}
+                                            </span>
+                                        </TabsTrigger>
+                                    ))}
+                                </TabsList>
+                            </Tabs>
+                        );
+                    }}
+                    isLoading={goalsQuery.isLoading}
+                    pageSize={10}
+                    rowClassName={(r) =>
+                        r.status === GOAL_STATUS.ACHIEVED
+                            ? 'bg-success/5'
+                            : undefined
+                    }
+                    rowId={(r) => r.id}
+                    showFilter
+                />
+            </ToolPanel>
         </div>
     );
 }
@@ -801,8 +684,8 @@ const STAT_TONE: Record<
 > = {
     default: 'text-primary',
     destructive: 'text-destructive',
-    success: 'text-emerald-400',
-    warning: 'text-amber-400',
+    success: 'text-success',
+    warning: 'text-warning',
 };
 
 interface CalendarMarkers {
@@ -845,7 +728,9 @@ function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
                                                 <div
                                                     className={cn(
                                                         'aspect-square rounded-sm',
-                                                        HEAT_LEVELS[cell.level],
+                                                        HEAT_LEVEL_CLASS[
+                                                            cell.level
+                                                        ],
                                                     )}
                                                 />
                                             </TooltipTrigger>
@@ -870,7 +755,7 @@ function AchievementHeatmap({ heatmap }: { heatmap: HeatmapGrid }) {
                 </div>
                 <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
                     <span>Less</span>
-                    {HEAT_LEVELS.map((c, index) => (
+                    {HEAT_LEVEL_CLASS.map((c, index) => (
                         <span
                             className={cn('size-3 rounded-sm', c)}
                             key={index}
@@ -950,9 +835,9 @@ function buildHeatmap(goals: GoalRow[]): HeatmapGrid {
 function CalendarLegend() {
     return (
         <div className="flex flex-wrap items-center justify-center gap-3 text-[10px] text-muted-foreground">
-            <LegendDot className="bg-emerald-500/60" label="Achieved" />
-            <LegendDot className="bg-amber-500/60" label="Target upcoming" />
-            <LegendDot className="bg-rose-500/60" label="Target overdue" />
+            <LegendDot className="bg-success/60" label="Achieved" />
+            <LegendDot className="bg-warning/60" label="Target upcoming" />
+            <LegendDot className="bg-destructive/60" label="Target overdue" />
         </div>
     );
 }
@@ -978,21 +863,21 @@ function GoalActions({
                         <IconAction
                             disabled={busy}
                             icon={Check}
-                            iconClass="text-emerald-400"
+                            iconClass="text-success"
                             label="Mark achieved"
                             onClick={() => onAchieve(goal.id)}
                         />
                         <IconAction
                             disabled={busy}
                             icon={Pause}
-                            iconClass="text-amber-400"
+                            iconClass="text-warning"
                             label="Pause"
                             onClick={() => onStatus(goal, GOAL_STATUS.PAUSED)}
                         />
                         <IconAction
                             disabled={busy}
                             icon={Flag}
-                            iconClass="text-rose-400"
+                            iconClass="text-destructive"
                             label="Mark failed"
                             onClick={() => onStatus(goal, GOAL_STATUS.FAILED)}
                         />
@@ -1002,7 +887,7 @@ function GoalActions({
                     <IconAction
                         disabled={busy}
                         icon={Play}
-                        iconClass="text-emerald-400"
+                        iconClass="text-success"
                         label="Resume"
                         onClick={() => onStatus(goal, GOAL_STATUS.ACTIVE)}
                     />
@@ -1017,40 +902,23 @@ function GoalActions({
                         onClick={() => onStatus(goal, GOAL_STATUS.ACTIVE)}
                     />
                 )}
-                <AlertDialog>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    aria-label="Delete goal"
-                                    className="size-8 p-0"
-                                    disabled={busy}
-                                    type="button"
-                                    variant="ghost"
-                                >
-                                    <Trash2 className="size-4 text-destructive" />
-                                </Button>
-                            </AlertDialogTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                    </Tooltip>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete goal?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This goal will be removed permanently.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={() => onDelete(goal.id)}
-                            >
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <ConfirmDialog
+                    confirmLabel="Delete"
+                    description="This goal will be removed permanently."
+                    onConfirm={() => onDelete(goal.id)}
+                    title="Delete goal?"
+                    tooltip="Delete"
+                >
+                    <Button
+                        aria-label="Delete goal"
+                        className="size-8 p-0"
+                        disabled={busy}
+                        type="button"
+                        variant="ghost"
+                    >
+                        <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                </ConfirmDialog>
             </div>
         </TooltipProvider>
     );
@@ -1119,7 +987,7 @@ function StatCard({
                         {label}
                     </span>
                 </div>
-                <p className="mt-2 text-2xl font-bold text-white tabular-nums">
+                <p className="mt-2 text-2xl font-bold text-foreground tabular-nums">
                     {value}
                 </p>
                 {sub && (
@@ -1140,7 +1008,7 @@ function TargetDateCell({
     targetDate: null | string;
 }) {
     if (!targetDate)
-        return <span className="text-xs text-muted-foreground">—</span>;
+        return <span className="text-xs text-muted-foreground">-</span>;
     if (status !== GOAL_STATUS.ACTIVE) {
         return (
             <span className="text-xs text-muted-foreground tabular-nums">
@@ -1153,9 +1021,9 @@ function TargetDateCell({
     const diff = differenceInCalendarDays(date, today);
     const tone =
         diff < 0
-            ? 'text-rose-400'
+            ? 'text-destructive'
             : diff <= 7
-              ? 'text-amber-400'
+              ? 'text-warning'
               : 'text-muted-foreground';
     const label =
         diff === 0

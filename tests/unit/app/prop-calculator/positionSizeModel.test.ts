@@ -1,0 +1,995 @@
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
+
+import { defaultCalculatorState } from '~/app/(app)/prop-calculator/_components/calculatorReducer';
+import {
+    type ExactRiskStop,
+    formatPoints,
+    fundedTierOptions,
+    normalizePositionSizeInput,
+    POSITION_SIZE_INSTRUMENTS,
+    POSITION_SIZE_PHASE_LABELS,
+    positionSizeFirm,
+    positionSizeFor,
+    type PositionSizeInput,
+    PositionSizeOutcome,
+    positionSizePhases,
+    type PositionSizeResult,
+    positionSizeStatusText,
+    siblingInstrumentSeverityText,
+    siblingInstrumentText,
+} from '~/app/(app)/prop-calculator/_components/positionSize/positionSizeModel';
+import { formatGateCurrency } from '~/lib/format';
+import {
+    ALL_FIRMS,
+    ALL_INSTRUMENTS,
+    contractLimitAt,
+    dollars,
+    type Dollars,
+    formatOneContractRisk,
+    fundedStartContractLimit,
+    INSTRUMENTS,
+    InstrumentSymbol,
+    minStopPoints,
+    MismatchSeverity,
+    oneContractRisk,
+    placedFundedRiskAt,
+    type Plan,
+    retryFee as planRetryFee,
+    points,
+    type Points,
+    resolvePositionSizing,
+    TierBasis,
+    TradingPhase,
+    wholeContractCount,
+} from '~/lib/prop-calculator';
+import { RiskDisplayUnit } from '~/lib/prop-calculator/advisor';
+import {
+    ECONOMICS_DISCLOSURE_TEXT,
+    EconomicsDisclosure,
+    feeEquivalentTradeRisk,
+} from '~/lib/prop-calculator/economics';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
+
+import { EM_DASH } from '../../proseDashes';
+
+const ALL_PLANS: readonly Plan[] = ALL_FIRMS.flatMap((firm) => firm.plans);
+const DEFAULT_PLAN = defaultCalculatorState().plan;
+const GRID_RISKS = [
+    0.01, 1, 14.99, 15, 99.99, 100, 149.99, 150, 250, 333.33, 450, 475, 500.5,
+    900, 1234.56, 2500, 10_000,
+];
+const GRID_STOPS = [0.25, 1, 2.5, 5, 7.5, 7.75, 10, 12.25, 25];
+
+interface GridCell {
+    readonly phase: TradingPhase;
+    readonly plan: Plan;
+    readonly result: PositionSizeResult;
+    readonly risk: number;
+    readonly spec: (typeof ALL_INSTRUMENTS)[number];
+    readonly stopPoints: number;
+}
+
+function amountPattern(amount: number): RegExp {
+    const text = formatGateCurrency(amount)
+        .replaceAll('$', String.raw`\$`)
+        .replaceAll('.', String.raw`\.`);
+    return new RegExp(`${text}${String.raw`(?![\d,]|\.\d)`}`);
+}
+
+const GRID_CHUNKS = [0, 1, 2, 3, 4, 5, 6, 7] as const;
+const gridCellsCache = new Map<number, readonly GridCell[]>();
+
+function chunkPlans(chunk: number): readonly Plan[] {
+    return ALL_PLANS.filter(
+        (_, position) => position % GRID_CHUNKS.length === chunk,
+    );
+}
+
+function computeGridCells(chunk: number): readonly GridCell[] {
+    return chunkPlans(chunk).flatMap((plan) =>
+        positionSizePhases(plan).flatMap((phase) =>
+            ALL_INSTRUMENTS.flatMap((spec) =>
+                GRID_STOPS.flatMap((stopPoints) =>
+                    GRID_RISKS.map((risk) => ({
+                        phase,
+                        plan,
+                        result: positionSizeFor(
+                            input({
+                                instrument: spec.symbol,
+                                phase,
+                                plan,
+                                risk,
+                                stopPoints,
+                            }),
+                        ),
+                        risk,
+                        spec,
+                        stopPoints,
+                    })),
+                ),
+            ),
+        ),
+    );
+}
+
+function dollarOutputs(result: PositionSizeResult): Dollars[] {
+    return [
+        result.leftover,
+        result.placedRisk,
+        result.exactRiskStop?.riskAtTickStop ?? null,
+    ].filter((value): value is Dollars => value !== null);
+}
+
+function fundedTierBreakpoints(plan: Plan): number[] {
+    return Object.values(TierBasis).flatMap((basis) =>
+        plan.fundedContractTierBreakpoints(basis, false),
+    );
+}
+
+function gridCells(chunk: number): readonly GridCell[] {
+    const cached = gridCellsCache.get(chunk);
+    if (cached !== undefined) return cached;
+    const computed = computeGridCells(chunk);
+    gridCellsCache.set(chunk, computed);
+    return computed;
+}
+
+function input({
+    risk = 450,
+    stopPoints = 7.5,
+    tierProfit = null,
+    ...overrides
+}: Partial<Omit<PositionSizeInput, 'risk' | 'stopPoints' | 'tierProfit'>> & {
+    risk?: number;
+    stopPoints?: number;
+    tierProfit?: null | number;
+}): PositionSizeInput {
+    return {
+        instrument: InstrumentSymbol.NQ,
+        phase: TradingPhase.Eval,
+        plan: DEFAULT_PLAN,
+        retryFee: dollars(planRetryFee(DEFAULT_PLAN.fees)),
+        risk: dollars(risk),
+        roomDollars: null,
+        stopPoints: points(stopPoints),
+        tierProfit: tierProfit === null ? null : dollars(tierProfit),
+        unit: RiskDisplayUnit.AccountDollars,
+        ...overrides,
+    };
+}
+
+function planWhere(isMatch: (plan: Plan) => boolean): Plan {
+    const plan = ALL_PLANS.find(isMatch);
+    if (plan === undefined) throw new Error('no plan matches');
+    return plan;
+}
+
+function sizing(instrument: InstrumentSymbol, stopPoints: number) {
+    const config = resolvePositionSizing(instrument, stopPoints);
+    if (config === null) throw new Error('invalid sizing');
+    return config;
+}
+
+function startFundedCap(plan: Plan, isMicro: boolean): null | number {
+    return contractLimitAt(
+        plan.contractLimits,
+        TradingPhase.Funded,
+        isMicro,
+        plan.tierProfitContext(plan.initialState()),
+    );
+}
+
+function tierContext(profit: number) {
+    return {
+        peakDayCloseProfit: profit,
+        peakIntradayProfit: profit,
+        profit,
+        sessionOpenProfit: profit,
+    };
+}
+
+function withoutFundedCaps(plan: Plan): Plan {
+    const limits = plan.contractLimits;
+    if (limits === null) throw new Error('plan has no contract limits');
+    const uncapped = plan.withOverrides({
+        contractLimits: { ...limits, fundedMicros: null, fundedMinis: null },
+    });
+    if (
+        startFundedCap(uncapped, false) !== null ||
+        startFundedCap(uncapped, true) !== null
+    ) {
+        throw new Error('funded caps survived the override');
+    }
+    return uncapped;
+}
+
+const TIERED_PLAN = planWhere(
+    (plan) => fundedTierBreakpoints(plan).length > 1 && !plan.isInstantFunded,
+);
+const UNCAPPED_FUNDED_PLAN = withoutFundedCaps(
+    planWhere((plan) => plan.contractLimits !== null && !plan.isInstantFunded),
+);
+const DEFAULT_EVAL_NQ_CAP = contractLimitAt(
+    DEFAULT_PLAN.contractLimits,
+    TradingPhase.Eval,
+    false,
+    DEFAULT_PLAN.tierProfitContext(DEFAULT_PLAN.initialState()),
+);
+const INSTANT_PLAN = planWhere((plan) => plan.isInstantFunded);
+
+describe('positionSizeFor: contracts, leftover and the exact-risk stop (F-26)', () => {
+    it('puts $450 on 3 NQ at a 7.5 point stop with nothing left over and 7.5 points as the exact stop', () => {
+        const result = positionSizeFor(input({}));
+        expect(result.outcome).toBe(PositionSizeOutcome.Placed);
+        expect(result.contracts).toBe(3);
+        expect(result.fittingContracts).toBe(3);
+        expect(result.placedRisk).toBe(450);
+        expect(result.leftover).toBe(0);
+        expect(result.exactRiskStop).toEqual({
+            exactPoints: 7.5,
+            isTickAligned: true,
+            riskAtTickStop: 450,
+            tickPoints: 7.5,
+        });
+        expect(result.refusal).toBeNull();
+    });
+
+    it('puts $475 at 7.5 points on 3 NQ with $25 left over, and rounds the exact stop down to the tick at 7.75 points risking $465', () => {
+        const result = positionSizeFor(input({ risk: 475 }));
+        expect(result.contracts).toBe(3);
+        expect(result.leftover).toBe(25);
+        expect(result.placedRisk).toBe(450);
+        const stop = result.exactRiskStop;
+        expect(stop?.exactPoints).toBeCloseTo(475 / 60, 12);
+        expect(stop?.tickPoints).toBe(7.75);
+        expect(stop?.riskAtTickStop).toBe(465);
+        expect(stop?.isTickAligned).toBe(false);
+    });
+
+    it('shows the exact off-tick stop as a note beside the tick-aligned one', () => {
+        const notes = positionSizeFor(input({ risk: 475 })).notes.join(' ');
+        expect(notes).toContain('7.9167');
+        expect(notes).toContain('7.75');
+        expect(notes).toContain('$465');
+        expect(positionSizeFor(input({})).notes.join(' ')).not.toContain(
+            'rounded down',
+        );
+    });
+
+    it('computes the leftover in whole cents', () => {
+        const result = positionSizeFor(
+            input({
+                instrument: InstrumentSymbol.MNQ,
+                risk: 100.37,
+                stopPoints: 7.5,
+            }),
+        );
+        expect(result.contracts).toBe(6);
+        expect(result.placedRisk).toBe(90);
+        expect(result.leftover).toBe(10.37);
+    });
+
+    it('matches wholeContractCount and oneContractRisk on every instrument, stop and risk of the grid', () => {
+        for (const spec of ALL_INSTRUMENTS) {
+            for (const stopPoints of GRID_STOPS) {
+                for (const risk of GRID_RISKS) {
+                    const result = positionSizeFor(
+                        input({
+                            instrument: spec.symbol,
+                            phase: TradingPhase.Funded,
+                            plan: UNCAPPED_FUNDED_PLAN,
+                            risk,
+                            stopPoints,
+                        }),
+                    );
+                    const config = sizing(spec.symbol, stopPoints);
+                    const fitting = wholeContractCount(risk, config);
+                    expect(result.fittingContracts).toBe(fitting);
+                    expect(result.contracts).toBe(fitting);
+                    const leftoverCents =
+                        Math.round(risk * 100) -
+                        Math.round(fitting * oneContractRisk(config) * 100);
+                    expect(result.leftover).toBe(leftoverCents / 100);
+                    expect(
+                        Number.isSafeInteger(
+                            Math.round((result.leftover ?? 0) * 100),
+                        ),
+                    ).toBe(true);
+                    expect(result.leftover).toBeGreaterThanOrEqual(0);
+                }
+            }
+        }
+    });
+
+    it('never risks more than the entered risk at the tick-aligned stop, and lands within one tick of the exact stop', () => {
+        for (const spec of ALL_INSTRUMENTS) {
+            for (const stopPoints of GRID_STOPS) {
+                for (const risk of GRID_RISKS) {
+                    const result = positionSizeFor(
+                        input({
+                            instrument: spec.symbol,
+                            phase: TradingPhase.Funded,
+                            plan: UNCAPPED_FUNDED_PLAN,
+                            risk,
+                            stopPoints,
+                        }),
+                    );
+                    const stop = result.exactRiskStop;
+                    if (result.contracts === 0) {
+                        expect(stop).toBeNull();
+                        continue;
+                    }
+                    expect(stop).not.toBeNull();
+                    if (stop === null) continue;
+                    expect(stop.exactPoints).toBe(
+                        minStopPoints(risk, result.contracts, spec.pointValue),
+                    );
+                    expect(stop.riskAtTickStop).toBeLessThanOrEqual(risk);
+                    expect(stop.tickPoints).toBeLessThanOrEqual(
+                        stop.exactPoints + 1e-9,
+                    );
+                    expect(stop.tickPoints).toBeGreaterThan(
+                        stop.exactPoints - spec.tickSize,
+                    );
+                    expect(
+                        Number.isSafeInteger(
+                            Math.round(
+                                (stop.tickPoints / spec.tickSize) * 1e6,
+                            ) / 1e6,
+                        ),
+                    ).toBe(true);
+                    expect(stop.riskAtTickStop).toBeCloseTo(
+                        stop.tickPoints * result.contracts * spec.pointValue,
+                        9,
+                    );
+                    expect(stop.tickPoints).toBeGreaterThanOrEqual(
+                        stopPoints - spec.tickSize,
+                    );
+                }
+            }
+        }
+    });
+
+    it('offers every modeled instrument', () => {
+        expect(POSITION_SIZE_INSTRUMENTS.map((spec) => spec.symbol)).toEqual(
+            ALL_INSTRUMENTS.map((spec) => spec.symbol),
+        );
+    });
+});
+
+describe('positionSizeFor: below one contract', () => {
+    it('gives 0 contracts and the one-contract risk, and says the funded engine refuses the risk', () => {
+        const values = input({
+            phase: TradingPhase.Funded,
+            risk: 100,
+        });
+        const result = positionSizeFor(values);
+        const expectedRefusal = simInputsSizingIssue({
+            instrument: InstrumentSymbol.NQ,
+            riskPerTrade: 100,
+            stopPoints: 7.5,
+        });
+        expect(expectedRefusal).not.toBeNull();
+        expect(result.outcome).toBe(
+            PositionSizeOutcome.BelowOneContractRefused,
+        );
+        expect(result.contracts).toBe(0);
+        expect(result.exactRiskStop).toBeNull();
+        expect(result.oneContractRiskText).toBe(
+            formatOneContractRisk(sizing(InstrumentSymbol.NQ, 7.5)),
+        );
+        expect(result.oneContractRiskText).toBe('$150');
+        expect(result.refusal).toBe(expectedRefusal);
+    });
+
+    it('follows the eval ContractCapped sizing: no refusal, and a note that the eval keeps the dollar risk', () => {
+        const result = positionSizeFor(input({ risk: 100 }));
+        expect(result.outcome).toBe(PositionSizeOutcome.BelowOneContractEval);
+        expect(result.contracts).toBe(0);
+        expect(result.refusal).toBeNull();
+        const notes = result.notes.join(' ');
+        expect(notes).toContain('$150');
+        expect(notes).toContain('$100');
+        expect(notes).toMatch(/eval/i);
+        expect(notes).toMatch(/not rounded to whole contracts/);
+    });
+
+    it('treats one cent below one contract as below one contract and exactly one contract as placeable', () => {
+        expect(
+            positionSizeFor(input({ phase: TradingPhase.Funded, risk: 149.99 }))
+                .outcome,
+        ).toBe(PositionSizeOutcome.BelowOneContractRefused);
+        const one = positionSizeFor(
+            input({ phase: TradingPhase.Funded, risk: 150 }),
+        );
+        expect(one.outcome).toBe(PositionSizeOutcome.Placed);
+        expect(one.contracts).toBe(1);
+        expect(one.refusal).toBeNull();
+    });
+});
+
+describe('positionSizeFor: the phase and tier contract cap', () => {
+    it('caps eval contracts at the plan eval limit, flags it and reports the minimum stop at the cap', () => {
+        const cap = contractLimitAt(
+            DEFAULT_PLAN.contractLimits,
+            TradingPhase.Eval,
+            false,
+            DEFAULT_PLAN.tierProfitContext(DEFAULT_PLAN.initialState()),
+        );
+        expect(cap).not.toBeNull();
+        const capCount = cap ?? 0;
+        const risk = (capCount + 2) * 100;
+        const result = positionSizeFor(input({ risk, stopPoints: 5 }));
+        expect(result.cap).toBe(capCount);
+        expect(result.fittingContracts).toBe(capCount + 2);
+        expect(result.contracts).toBe(capCount);
+        expect(result.outcome).toBe(PositionSizeOutcome.Capped);
+        expect(result.minStopAtCap).toBe(minStopPoints(risk, capCount, 20));
+        expect(result.exactRiskStop?.exactPoints).toBe(result.minStopAtCap);
+        expect(result.exactRiskStop?.riskAtTickStop).toBeLessThanOrEqual(risk);
+    });
+
+    it('uses the micro limit for a micro instrument', () => {
+        const limits = DEFAULT_PLAN.contractLimits;
+        const startContext = DEFAULT_PLAN.tierProfitContext(
+            DEFAULT_PLAN.initialState(),
+        );
+        const result = positionSizeFor(
+            input({ instrument: InstrumentSymbol.MNQ }),
+        );
+        expect(result.cap).toBe(
+            contractLimitAt(limits, TradingPhase.Eval, true, startContext),
+        );
+    });
+
+    it('reports the minimum stop at the cap even when the cap does not bind', () => {
+        const result = positionSizeFor(input({}));
+        expect(result.outcome).toBe(PositionSizeOutcome.Placed);
+        expect(result.cap).not.toBeNull();
+        expect(result.minStopAtCap).toBe(
+            minStopPoints(450, result.cap ?? 0, 20),
+        );
+    });
+
+    it('has no cap when the plan has no limit for the phase and instrument', () => {
+        const result = positionSizeFor(
+            input({
+                phase: TradingPhase.Funded,
+                plan: UNCAPPED_FUNDED_PLAN,
+                risk: 100_000,
+                stopPoints: 1,
+            }),
+        );
+        expect(result.cap).toBeNull();
+        expect(result.minStopAtCap).toBeNull();
+        expect(result.outcome).toBe(PositionSizeOutcome.Placed);
+        expect(result.contracts).toBe(5000);
+    });
+
+    it('lists the funded tiers from Plan.fundedContractTierBreakpoints and caps at each tier', () => {
+        const breakpoints = fundedTierBreakpoints(TIERED_PLAN);
+        expect(breakpoints.length).toBeGreaterThan(1);
+        expect(fundedTierOptions(TIERED_PLAN, InstrumentSymbol.NQ)).toEqual(
+            breakpoints,
+        );
+        for (const tierProfit of breakpoints) {
+            const result = positionSizeFor(
+                input({
+                    phase: TradingPhase.Funded,
+                    plan: TIERED_PLAN,
+                    risk: 100_000,
+                    stopPoints: 1,
+                    tierProfit,
+                }),
+            );
+            expect(result.cap).toBe(
+                contractLimitAt(
+                    TIERED_PLAN.contractLimits,
+                    TradingPhase.Funded,
+                    false,
+                    tierContext(tierProfit),
+                ),
+            );
+            expect(result.contracts).toBe(result.cap);
+            expect(result.outcome).toBe(PositionSizeOutcome.Capped);
+        }
+    });
+
+    it('has no tiers on a flat or missing funded limit', () => {
+        expect(fundedTierOptions(DEFAULT_PLAN, InstrumentSymbol.ES)).toEqual(
+            fundedTierBreakpoints(DEFAULT_PLAN),
+        );
+        expect(
+            fundedTierOptions(UNCAPPED_FUNDED_PLAN, InstrumentSymbol.NQ),
+        ).toEqual([]);
+    });
+
+    it('reads the funded tiers through Plan.fundedContractTierBreakpoints for the instrument size', () => {
+        const spy = vi.spyOn(TIERED_PLAN, 'fundedContractTierBreakpoints');
+        try {
+            fundedTierOptions(TIERED_PLAN, InstrumentSymbol.MNQ);
+            expect(spy.mock.calls).toEqual(
+                Object.values(TierBasis).map((basis) => [basis, true]),
+            );
+            spy.mockClear();
+            fundedTierOptions(TIERED_PLAN, InstrumentSymbol.NQ);
+            expect(spy.mock.calls).toEqual(
+                Object.values(TierBasis).map((basis) => [basis, false]),
+            );
+        } finally {
+            spy.mockRestore();
+        }
+    });
+
+    it('tells a capped trader where the stop lands at the cap, never a lower bound to widen from', () => {
+        expect(DEFAULT_EVAL_NQ_CAP).not.toBeNull();
+        const cap = DEFAULT_EVAL_NQ_CAP ?? 0;
+        const tickRisk = cap * 20 * 7.75;
+        const risk = tickRisk + 1;
+        const result = positionSizeFor(input({ risk, stopPoints: 5 }));
+        expect(result.outcome).toBe(PositionSizeOutcome.Capped);
+        expect(result.fittingContracts).toBeGreaterThan(cap);
+        expect(result.exactRiskStop?.tickPoints).toBe(7.75);
+        expect(result.exactRiskStop?.riskAtTickStop).toBe(tickRisk);
+        const notes = result.notes.join(' ');
+        expect(notes).not.toMatch(/at least/);
+        expect(notes).toContain(formatPoints(result.minStopAtCap ?? 0));
+        expect(notes).toContain('7.75 points');
+        expect(notes).toContain(formatGateCurrency(tickRisk));
+        expect(notes).toMatch(/wider stop/);
+        expect(
+            result.notes.filter((note) => note.includes('7.75 points')),
+        ).toHaveLength(1);
+    });
+
+    it('splits the plans into grid chunks that cover every plan exactly once', () => {
+        const chunked = GRID_CHUNKS.flatMap((chunk) => chunkPlans(chunk));
+        expect(chunked).toHaveLength(ALL_PLANS.length);
+        expect(new Set(chunked)).toEqual(new Set(ALL_PLANS));
+    });
+
+    it.each(GRID_CHUNKS)(
+        'never words a binding cap as a minimum stop across the grid, plan chunk %d',
+        (chunk) => {
+            for (const { result } of gridCells(chunk)) {
+                if (result.outcome !== PositionSizeOutcome.Capped) {
+                    continue;
+                }
+                const notes = result.notes.join(' ');
+                expect(notes).not.toMatch(/at least/);
+                const stop = result.exactRiskStop;
+                if (stop === null) continue;
+                expect(notes).toContain(
+                    `${formatPoints(stop.tickPoints)} points`,
+                );
+                expect(notes).toContain(
+                    formatGateCurrency(stop.riskAtTickStop),
+                );
+            }
+        },
+    );
+
+    it.each(GRID_CHUNKS)(
+        'matches placedFundedRiskAt at the funded start tier on every plan, instrument, stop and risk of the grid, plan chunk %d',
+        (chunk) => {
+            const fundedCells = gridCells(chunk).filter(
+                (cell) => cell.phase === TradingPhase.Funded,
+            );
+            expect(fundedCells.length).toBe(
+                chunkPlans(chunk).length *
+                    ALL_INSTRUMENTS.length *
+                    GRID_STOPS.length *
+                    GRID_RISKS.length,
+            );
+            for (const {
+                plan,
+                result,
+                risk,
+                spec,
+                stopPoints,
+            } of fundedCells) {
+                const config = sizing(spec.symbol, stopPoints);
+                const placed = placedFundedRiskAt(risk, config, plan);
+                expect(result.cap).toBe(fundedStartContractLimit(plan, config));
+                expect(result.contracts).toBe(placed.contracts);
+                expect(result.outcome === PositionSizeOutcome.Capped).toBe(
+                    placed.isCapped,
+                );
+                if (!placed.isCapped) {
+                    expect(result.placedRisk).toBe(placed.risk);
+                }
+            }
+        },
+    );
+});
+
+describe('positionSizeFor never converts a contract cap into a dollar suggestion (PD-25)', () => {
+    it.each(GRID_CHUNKS)(
+        "reports a binding cap as contracts and a stop, never as the cap times one contract at today's stop, plan chunk %d",
+        (chunk) => {
+            for (const { result, risk, spec, stopPoints } of gridCells(chunk)) {
+                for (const amount of dollarOutputs(result)) {
+                    expect(amount).toBeLessThanOrEqual(risk);
+                }
+                if (result.outcome !== PositionSizeOutcome.Capped) {
+                    continue;
+                }
+                const capDollars =
+                    (result.cap ?? 0) *
+                    oneContractRisk(sizing(spec.symbol, stopPoints));
+                const cap = result.cap ?? 0;
+                const tickStep = cap * spec.tickValue;
+                const atTick = result.exactRiskStop?.riskAtTickStop ?? null;
+                expect(result.placedRisk).toBeNull();
+                expect(result.leftover).toBeNull();
+                expect(dollarOutputs(result)).toEqual(
+                    atTick === null ? [] : [atTick],
+                );
+                if (atTick !== null) {
+                    expect(atTick).toBeGreaterThan(risk - tickStep - 1e-9);
+                }
+                const notes = result.notes.join(' ');
+                if (capDollars !== atTick && capDollars > 0) {
+                    expect(notes).not.toMatch(amountPattern(capDollars));
+                }
+            }
+        },
+    );
+});
+
+describe('positionSizePhases and normalizePositionSizeInput', () => {
+    it('offers eval and funded on an eval plan and only funded on an instant-funded plan', () => {
+        expect(positionSizePhases(DEFAULT_PLAN)).toEqual([
+            TradingPhase.Eval,
+            TradingPhase.Funded,
+        ]);
+        expect(positionSizePhases(INSTANT_PLAN)).toEqual([TradingPhase.Funded]);
+    });
+
+    it('moves an instant-funded plan to the funded phase', () => {
+        expect(
+            normalizePositionSizeInput(
+                input({ phase: TradingPhase.Eval, plan: INSTANT_PLAN }),
+            ).phase,
+        ).toBe(TradingPhase.Funded);
+    });
+
+    it('keeps a funded tier only when the plan and instrument offer it', () => {
+        const [, second] = fundedTierOptions(TIERED_PLAN, InstrumentSymbol.NQ);
+        expect(second).toBeDefined();
+        const kept = normalizePositionSizeInput(
+            input({
+                phase: TradingPhase.Funded,
+                plan: TIERED_PLAN,
+                tierProfit: second ?? null,
+            }),
+        );
+        expect(kept.tierProfit).toBe(second);
+        expect(
+            normalizePositionSizeInput(
+                input({
+                    phase: TradingPhase.Funded,
+                    plan: TIERED_PLAN,
+                    tierProfit: 123.45,
+                }),
+            ).tierProfit,
+        ).toBeNull();
+        expect(
+            normalizePositionSizeInput(
+                input({
+                    phase: TradingPhase.Eval,
+                    plan: TIERED_PLAN,
+                    tierProfit: second ?? null,
+                }),
+            ).tierProfit,
+        ).toBeNull();
+        expect(
+            normalizePositionSizeInput(
+                input({
+                    phase: TradingPhase.Funded,
+                    plan: UNCAPPED_FUNDED_PLAN,
+                    tierProfit: second ?? null,
+                }),
+            ).tierProfit,
+        ).toBeNull();
+    });
+
+    it('leaves a valid input unchanged', () => {
+        const values = input({ risk: 475 });
+        expect(normalizePositionSizeInput(values)).toEqual(values);
+    });
+
+    it('uses the instrument point value and tick of the INSTRUMENTS table', () => {
+        const result = positionSizeFor(
+            input({
+                instrument: InstrumentSymbol.ES,
+                risk: 500,
+                stopPoints: 5,
+            }),
+        );
+        expect(result.positionSizing.instrument).toBe(
+            INSTRUMENTS[InstrumentSymbol.ES],
+        );
+        expect(result.contracts).toBe(2);
+        expect(result.exactRiskStop?.tickPoints).toBe(5);
+    });
+});
+
+describe('positionSizeStatusText: one live summary sentence', () => {
+    it('summarises a placed trade with its leftover and exact-risk stop', () => {
+        const values = input({ risk: 475 });
+        expect(positionSizeStatusText(values, positionSizeFor(values))).toBe(
+            '3 NQ, $25 left over; the stop for the exact risk is 7.75 points, risking $465.',
+        );
+    });
+
+    it('summarises a capped trade without a leftover', () => {
+        const cap = DEFAULT_EVAL_NQ_CAP ?? 0;
+        const values = input({ risk: cap * 155 + 1, stopPoints: 5 });
+        expect(positionSizeStatusText(values, positionSizeFor(values))).toBe(
+            `${cap} NQ, held to the eval contract limit; the stop for the exact risk is 7.75 points, risking ${formatGateCurrency(cap * 155)}.`,
+        );
+    });
+
+    it('summarises below one contract in eval and in funded', () => {
+        const evalValues = input({ risk: 100 });
+        expect(
+            positionSizeStatusText(evalValues, positionSizeFor(evalValues)),
+        ).toBe('No whole NQ contract fits: one contract risks $150.');
+        const fundedValues = input({ phase: TradingPhase.Funded, risk: 100 });
+        expect(
+            positionSizeStatusText(fundedValues, positionSizeFor(fundedValues)),
+        ).toBe(
+            'No whole NQ contract fits: one contract risks $150, and the funded simulation refuses this risk.',
+        );
+    });
+});
+
+describe('positionSizeFor: fee-equivalent risk and the eval bust line (F-V16)', () => {
+    it('sizes the fee-equivalent risk from feeEquivalentTradeRisk, matching the shared helper exactly', () => {
+        const fee = planRetryFee(DEFAULT_PLAN.fees);
+        const values = input({ retryFee: dollars(fee), risk: 450 });
+        const result = positionSizeFor(values);
+        const expected = feeEquivalentTradeRisk({
+            evalDrawdown: DEFAULT_PLAN.drawdown.amount,
+            retryFee: dollars(fee),
+            risk: dollars(450),
+        }).value;
+        expect(expected).not.toBeNull();
+        expect(result.feeEquivalentRisk).toBeCloseTo(expected ?? 0, 9);
+    });
+
+    it('is null in the funded phase, an eval-only heuristic', () => {
+        const values = input({ phase: TradingPhase.Funded, risk: 450 });
+        expect(positionSizeFor(values).feeEquivalentRisk).toBeNull();
+    });
+
+    it('shows an at-risk-if-busted line in eval, labelled a fresh-eval approximation and never a sum of paid fees', () => {
+        const fee = planRetryFee(DEFAULT_PLAN.fees);
+        const values = input({ retryFee: dollars(fee) });
+        const text = positionSizeFor(values).atRiskIfBustedText;
+        expect(text).not.toBeNull();
+        expect(text).toContain('At risk if busted');
+        expect(text).toContain(formatGateCurrency(dollars(fee)));
+        expect(text).toContain('fresh eval');
+        expect(text).not.toContain(EM_DASH);
+    });
+
+    it.each([
+        RiskDisplayUnit.AccountDollars,
+        RiskDisplayUnit.EvAtStake,
+        RiskDisplayUnit.FeeEquivalent,
+    ])(
+        'always labels the retry fee a retry fee, never the chosen unit (%s)',
+        (unit) => {
+            const values = input({ retryFee: dollars(250), unit });
+            const text = positionSizeFor(values).atRiskIfBustedText;
+            expect(text).toContain('At risk if busted: $250 (retry fee)');
+            expect(text).not.toContain('account dollars');
+            expect(text).not.toContain('fee equivalent');
+            expect(text).not.toContain('EV at stake');
+        },
+    );
+
+    it('carries the near-fresh-eval disclosure with a fee-equivalent figure and none for account dollars', () => {
+        const disclosure =
+            ECONOMICS_DISCLOSURE_TEXT[
+                EconomicsDisclosure.NearFreshEvalApproximation
+            ];
+        expect(
+            positionSizeFor(input({ unit: RiskDisplayUnit.FeeEquivalent }))
+                .riskDisplay.disclosure,
+        ).toBe(disclosure);
+        expect(
+            positionSizeFor(input({ unit: RiskDisplayUnit.AccountDollars }))
+                .riskDisplay.disclosure,
+        ).toBeNull();
+        expect(
+            positionSizeFor(
+                input({
+                    phase: TradingPhase.Funded,
+                    unit: RiskDisplayUnit.FeeEquivalent,
+                }),
+            ).riskDisplay.disclosure,
+        ).toBeNull();
+    });
+
+    it('shows no at-risk-if-busted line in the funded phase', () => {
+        const values = input({ phase: TradingPhase.Funded });
+        expect(positionSizeFor(values).atRiskIfBustedText).toBeNull();
+    });
+
+    it('renders the entered risk through the chosen display unit', () => {
+        const fee = planRetryFee(DEFAULT_PLAN.fees);
+        const dollarsValues = input({ retryFee: dollars(fee), risk: 450 });
+        expect(positionSizeFor(dollarsValues).riskDisplay.text).toBe(
+            formatGateCurrency(dollars(450)),
+        );
+        const feeValues = input({
+            retryFee: dollars(fee),
+            risk: 450,
+            unit: RiskDisplayUnit.FeeEquivalent,
+        });
+        const result = positionSizeFor(feeValues);
+        expect(result.riskDisplay.text).not.toBe(
+            positionSizeFor(dollarsValues).riskDisplay.text,
+        );
+        expect(result.riskDisplay.label).toBe('Fee equivalent');
+    });
+});
+
+describe('positionSizeFor: sibling instrument mismatch (F-V31)', () => {
+    it('flags no mismatch when the sibling risks less than what was placed', () => {
+        const values = input({ instrument: InstrumentSymbol.NQ, risk: 450 });
+        const result = positionSizeFor(values);
+        expect(result.siblingInstrument.severity).toBe(MismatchSeverity.None);
+        expect(siblingInstrumentSeverityText(result)).toBeNull();
+        expect(siblingInstrumentText(result)).toContain('MNQ');
+    });
+
+    it('flags a mismatch that exceeds the planned risk but stays inside the eval cushion', () => {
+        const values = input({
+            instrument: InstrumentSymbol.MNQ,
+            risk: 150,
+            stopPoints: 7.5,
+        });
+        const result = positionSizeFor(values);
+        expect(result.contracts).toBe(10);
+        expect(result.siblingInstrument.siblingRisk).toBe(1500);
+        expect(DEFAULT_PLAN.drawdown.amount).toBeGreaterThanOrEqual(1500);
+        expect(result.siblingInstrument.severity).toBe(
+            MismatchSeverity.ExceedsPlannedRisk,
+        );
+        expect(siblingInstrumentSeverityText(result)).toContain(
+            'more than you intended',
+        );
+        expect(siblingInstrumentText(result)).toContain('NQ');
+    });
+
+    it('flags the more severe room-breaching mismatch once the eval contract cap is hit', () => {
+        const values = input({
+            instrument: InstrumentSymbol.MNQ,
+            risk: 2000,
+            stopPoints: 10,
+        });
+        const result = positionSizeFor(values);
+        expect(result.siblingInstrument.siblingRisk).toBeGreaterThan(
+            DEFAULT_PLAN.drawdown.amount,
+        );
+        expect(result.siblingInstrument.severity).toBe(
+            MismatchSeverity.ExceedsRoom,
+        );
+        const severityText = siblingInstrumentSeverityText(result);
+        expect(severityText).toContain('risk of ruin');
+        expect(severityText).toContain("plan's full drawdown budget");
+        expect(severityText).toContain("not today's remaining cushion");
+    });
+
+    it('judges the mismatch against the room left when it is given', () => {
+        const values = input({
+            instrument: InstrumentSymbol.MNQ,
+            risk: 150,
+            roomDollars: dollars(300),
+            stopPoints: 7.5,
+        });
+        const result = positionSizeFor(values);
+        expect(result.siblingInstrument.siblingRisk).toBe(1500);
+        expect(result.siblingInstrument.severity).toBe(
+            MismatchSeverity.ExceedsRoom,
+        );
+        expect(result.roomDollars).toBe(300);
+        const severityText = siblingInstrumentSeverityText(result);
+        expect(severityText).toContain('room left today');
+        expect(severityText).not.toContain("plan's full drawdown budget");
+    });
+
+    it('does not flag the room when the sibling risk fits inside the room left', () => {
+        const values = input({
+            instrument: InstrumentSymbol.MNQ,
+            risk: 150,
+            roomDollars: dollars(2000),
+            stopPoints: 7.5,
+        });
+        const result = positionSizeFor(values);
+        expect(result.siblingInstrument.severity).toBe(
+            MismatchSeverity.ExceedsPlannedRisk,
+        );
+        expect(siblingInstrumentSeverityText(result)).toContain(
+            'more than you intended',
+        );
+    });
+
+    it('keeps the full-drawdown judgement and wording when no room is given', () => {
+        const values = input({
+            instrument: InstrumentSymbol.MNQ,
+            risk: 150,
+            roomDollars: null,
+            stopPoints: 7.5,
+        });
+        const result = positionSizeFor(values);
+        expect(result.roomDollars).toBeNull();
+        expect(result.siblingInstrument.severity).toBe(
+            MismatchSeverity.ExceedsPlannedRisk,
+        );
+        const tight = input({
+            instrument: InstrumentSymbol.MNQ,
+            risk: 2000,
+            roomDollars: null,
+            stopPoints: 10,
+        });
+        expect(siblingInstrumentSeverityText(positionSizeFor(tight))).toContain(
+            "plan's full drawdown budget",
+        );
+    });
+
+    it('shows no sibling line for an instrument with no modeled sibling', () => {
+        const values = input({ instrument: InstrumentSymbol.ES, risk: 450 });
+        const result = positionSizeFor(values);
+        expect(result.siblingInstrument.sibling).toBeNull();
+        expect(siblingInstrumentText(result)).toBeNull();
+    });
+});
+
+describe('position-size units', () => {
+    it('brands every dollar field as Dollars and every point field as Points', () => {
+        expectTypeOf<PositionSizeInput['risk']>().toEqualTypeOf<Dollars>();
+        expectTypeOf<PositionSizeInput['stopPoints']>().toEqualTypeOf<Points>();
+        expectTypeOf<
+            PositionSizeInput['tierProfit']
+        >().toEqualTypeOf<Dollars | null>();
+        expectTypeOf<
+            PositionSizeResult['leftover']
+        >().toEqualTypeOf<Dollars | null>();
+        expectTypeOf<
+            PositionSizeResult['placedRisk']
+        >().toEqualTypeOf<Dollars | null>();
+        expectTypeOf<
+            PositionSizeResult['minStopAtCap']
+        >().toEqualTypeOf<null | Points>();
+        expectTypeOf<ExactRiskStop['exactPoints']>().toEqualTypeOf<Points>();
+        expectTypeOf<ExactRiskStop['tickPoints']>().toEqualTypeOf<Points>();
+        expectTypeOf<
+            ExactRiskStop['riskAtTickStop']
+        >().toEqualTypeOf<Dollars>();
+        expectTypeOf(fundedTierOptions).returns.toEqualTypeOf<
+            readonly Dollars[]
+        >();
+    });
+});
+
+describe('positionSizeFirm and POSITION_SIZE_PHASE_LABELS', () => {
+    it('finds the firm that offers each plan', () => {
+        for (const firm of ALL_FIRMS) {
+            for (const plan of firm.plans) {
+                expect(positionSizeFirm(plan)).toBe(firm);
+            }
+        }
+    });
+
+    it('labels both phases', () => {
+        expect(POSITION_SIZE_PHASE_LABELS).toEqual({
+            [TradingPhase.Eval]: 'Eval',
+            [TradingPhase.Funded]: 'Funded',
+        });
+    });
+});

@@ -4,10 +4,10 @@ import { Clock, Dumbbell, Flag, Play, Square } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { LogShellSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
+import { RestTimerOverlay } from '~/app/(app)/lifting/_components/shared/RestTimerOverlay';
+import { Button } from '~/components/ui/button';
+import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     UNIT_DISTANCE_VALUES,
@@ -19,7 +19,6 @@ import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-import { RestTimerOverlay } from '../shared/RestTimerOverlay';
 import { AddExerciseSheet } from './AddExerciseSheet';
 import { ExerciseCard } from './ExerciseCard';
 
@@ -64,19 +63,7 @@ export function LogShell({ initialSettings }: LogShellProperties) {
     }, [activeWorkout.data]);
 
     if (activeWorkout.isLoading) {
-        return (
-            <div>
-                <Skeleton className="mb-4 h-16 w-full rounded-2xl" />
-                <div className="flex flex-col gap-4">
-                    {Array.from({ length: 2 }, (_, index) => (
-                        <Skeleton
-                            className="h-48 w-full rounded-2xl"
-                            key={index}
-                        />
-                    ))}
-                </div>
-            </div>
-        );
+        return <LogShellSkeleton />;
     }
 
     const workout = activeWorkout.data;
@@ -84,28 +71,24 @@ export function LogShell({ initialSettings }: LogShellProperties) {
     if (!workout) {
         return (
             <div>
-                <Card className="mx-auto max-w-md">
-                    <CardContent>
-                        <EmptyState
-                            action={
-                                <Button
-                                    className="gap-2"
-                                    disabled={startWorkout.isPending}
-                                    onClick={() => startWorkout.mutate({})}
-                                    type="button"
-                                >
-                                    <Play className="size-4" />
-                                    {startWorkout.isPending
-                                        ? 'Starting…'
-                                        : 'Start workout'}
-                                </Button>
-                            }
-                            description="Start an empty workout and add exercises as you go."
-                            icon={Dumbbell}
-                            title="No active workout"
-                        />
-                    </CardContent>
-                </Card>
+                <EmptyStatePanel
+                    action={
+                        <Button
+                            className="gap-2"
+                            disabled={startWorkout.isPending}
+                            onClick={() => startWorkout.mutate({})}
+                            type="button"
+                        >
+                            <Play className="size-4" />
+                            {startWorkout.isPending
+                                ? 'Starting…'
+                                : 'Start workout'}
+                        </Button>
+                    }
+                    description="Start an empty workout and add exercises as you go."
+                    icon={Dumbbell}
+                    title="No active workout"
+                />
             </div>
         );
     }
@@ -174,7 +157,7 @@ export function LogShell({ initialSettings }: LogShellProperties) {
                 />
             </div>
 
-            <div className="fixed right-0 bottom-4 left-0 z-20 flex justify-center px-4 sm:hidden">
+            <div className="fixed inset-x-0 bottom-4 z-20 flex justify-center px-4 sm:hidden">
                 <Button
                     className={cn(
                         'flex h-12 w-full items-center justify-center gap-2 rounded-full shadow-lg',

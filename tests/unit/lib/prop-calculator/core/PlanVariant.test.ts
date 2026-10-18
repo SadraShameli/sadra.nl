@@ -84,7 +84,7 @@ describe('Plan.withOverrides', () => {
     });
 
     it('flows overridden payoutTiers through payoutFromProfit', () => {
-        expect(basePlan.payoutFromProfit(1000)).toBe(1000);
+        expect(basePlan.payoutFromProfit(1000, 0)).toBe(1000);
 
         const halfShare = basePlan.withOverrides({
             payoutTiers: [
@@ -92,8 +92,8 @@ describe('Plan.withOverrides', () => {
             ],
         });
 
-        expect(halfShare.payoutFromProfit(1000)).toBe(500);
-        expect(basePlan.payoutFromProfit(1000)).toBe(1000);
+        expect(halfShare.payoutFromProfit(1000, 0)).toBe(500);
+        expect(basePlan.payoutFromProfit(1000, 0)).toBe(1000);
     });
 
     it('flows overridden fees through totalCostThroughDay', () => {

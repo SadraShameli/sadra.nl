@@ -1,17 +1,19 @@
 'use client';
 
-import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
-import type { CredentialKind } from '~/lib/accounting/credentials/registry';
+import { z } from 'zod';
 
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
+import type { CredentialDescriptor } from '~/lib/accounting/credentials/index';
+
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
+import { CredentialKind } from '~/lib/accounting/credentials/registry';
 
 import { MetaFieldInput } from './MetaFieldInput';
 
@@ -50,7 +52,9 @@ export function CredentialFormFields({
                 <Label htmlFor="cred-kind">Provider</Label>
                 {kindEditable === true && descriptors && onKindChange ? (
                     <Select
-                        onValueChange={(v) => onKindChange(v as CredentialKind)}
+                        onValueChange={(v) =>
+                            onKindChange(z.enum(CredentialKind).parse(v))
+                        }
                         value={descriptor.id}
                     >
                         <SelectTrigger id="cred-kind">

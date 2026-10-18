@@ -1,0 +1,2 @@
+ALTER TABLE "sadranl_accounting_importer_rule" ALTER COLUMN "max_amount" SET DATA TYPE numeric(14, 2);--> statement-breakpoint
+ALTER TABLE "sadranl_accounting_importer_rule" ALTER COLUMN "min_amount" SET DATA TYPE numeric(14, 2);

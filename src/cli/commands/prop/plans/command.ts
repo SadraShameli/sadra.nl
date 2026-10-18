@@ -1,18 +1,23 @@
 import { defineCommand } from 'citty';
 
 import {
-    describeDll,
-    describeFundedMinis,
-    describeShare,
     planArguments,
     planResolver,
     planVariant,
 } from '~/cli/commands/prop/shared';
 import { ui } from '~/cli/ui';
-import { formatCurrency, formatPercent } from '~/lib/format';
-import { findFirm, type FirmId, TradingPhase } from '~/lib/prop-calculator';
+import {
+    findFirm,
+    type FirmId,
+    type Plan,
+    PLAN_AVAILABILITY_LABEL,
+} from '~/lib/prop-calculator';
+import {
+    describePlanRules,
+    formatPlanRuleLine,
+} from '~/lib/prop-calculator/describe';
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         ...planArguments,
         variants: {
@@ -49,87 +54,9 @@ export default defineCommand({
                         ui.warn(note);
                     }
                 }
-                const consistencyEval = plan.evalConsistencyRule();
-                const consistencyFunded = plan.fundedConsistencyRule();
-                const limits = plan.contractLimits;
-                const displayedDrawdown = plan.isInstantFunded
-                    ? plan.fundedDrawdown
-                    : plan.drawdown;
-
-                ui.note(
-                    `${plan.label}  --firm ${plan.id.firm} --variant ${planVariant(plan)}`,
-                );
-                ui.muted(
-                    [
-                        plan.isInstantFunded
-                            ? '    instant-funded, no evaluation phase'
-                            : `    target ${formatCurrency(plan.profitTarget)}`,
-                        `drawdown ${formatCurrency(displayedDrawdown.amount)} ${displayedDrawdown.kind}`,
-                        displayedDrawdown.lock
-                            ? `locks at +${formatCurrency(displayedDrawdown.lock.atProfit)}`
-                            : 'no lock',
-                        plan.isInstantFunded
-                            ? `min days ${plan.minTradingDays} (unused)`
-                            : `min days ${plan.minTradingDays}`,
-                    ].join(' | '),
-                );
-                ui.muted(
-                    [
-                        `    eval DLL ${plan.isInstantFunded ? 'n/a' : describeDll(plan.evalDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Eval))}`,
-                        `funded DLL ${describeDll(plan.fundedDailyLossLimit, plan.isDailyLossLimitTerminating(TradingPhase.Funded))}`,
-                        `consistency eval ${plan.isInstantFunded ? 'n/a' : describeShare(consistencyEval?.maxBestDayShare)}`,
-                        `funded ${describeShare(consistencyFunded?.maxBestDayShare)}`,
-                    ].join(' | '),
-                );
-                ui.muted(
-                    [
-                        `    contracts ${plan.isInstantFunded ? 'n/a' : limits ? `${limits.evalMinis} mini / ${limits.evalMicros ?? '?'} micro` : 'not recorded'}`,
-                        `funded ${describeFundedMinis(limits?.fundedMinis ?? null)}`,
-                    ].join(' | '),
-                );
-                ui.muted(
-                    [
-                        `    fees eval ${formatCurrency(plan.fees.oneTimeEval)}`,
-                        `activation ${formatCurrency(plan.fees.activation)}`,
-                        `monthly ${formatCurrency(plan.fees.monthlySubscription)}`,
-                        `reset ${formatCurrency(plan.fees.reset)}`,
-                    ].join(' | '),
-                );
-                ui.muted(
-                    [
-                        `    payout split ${formatPercent(plan.payoutTiers[0]?.traderShare ?? 0, 0)}`,
-                        `first ${formatCurrency(plan.minPayoutProfit)}`,
-                        `min request ${formatCurrency(plan.minPayoutRequest)}`,
-                        `qualifying days ${plan.minDaysAfterPassForPayout}`,
-                        plan.minQualifyingDayProfit === null
-                            ? 'any day counts'
-                            : `winning day >= ${formatCurrency(plan.minQualifyingDayProfit)}`,
-                    ].join(' | '),
-                );
-                if (plan.payoutBuffer !== null) {
-                    ui.muted(
-                        `    payout buffer: EOD balance must clear ${formatCurrency(
-                            plan.payoutBuffer.requiredBalance(
-                                plan.accountSize,
-                                plan.fundedDrawdown.amount,
-                            ),
-                        )}`,
-                    );
-                }
-                if (plan.payoutRequestCap !== null) {
-                    ui.muted(
-                        `    per-request cap ${formatCurrency(plan.payoutRequestCap)}`,
-                    );
-                }
-                if (plan.payoutLadder) {
-                    ui.muted(
-                        `    payout ladder [${plan.payoutLadder.steps.join(', ')}] min request ${formatCurrency(plan.payoutLadder.minRequestAmount)}`,
-                    );
-                }
-                if (plan.payoutProfitShare !== null) {
-                    ui.muted(
-                        `    per-request cap ${formatPercent(plan.payoutProfitShare, 0)} of cycle profit`,
-                    );
+                ui.note(planHeadline(plan));
+                for (const line of planRuleLines(plan)) {
+                    ui.muted(line);
                 }
             }
             ui.muted(`\n${plans.length} plan(s)`);
@@ -139,3 +66,18 @@ export default defineCommand({
         }
     },
 });
+
+export default command;
+
+export function planHeadline(plan: Plan): string {
+    const headline = `${plan.label}  --firm ${plan.id.firm} --variant ${planVariant(plan)}`;
+    return plan.isPurchasable
+        ? headline
+        : `${headline}  [${PLAN_AVAILABILITY_LABEL[plan.availability]}]`;
+}
+
+export function planRuleLines(plan: Plan): string[] {
+    return describePlanRules(plan).map(
+        (line) => `    ${formatPlanRuleLine(line)}`,
+    );
+}

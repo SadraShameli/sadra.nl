@@ -10,14 +10,20 @@ import {
     type InstrumentSymbol,
     type Plan,
     type RungSizing,
+    SIM_DEFAULTS,
     type TradingFirm,
 } from '~/lib/prop-calculator';
-import { CALCULATOR_SCALAR_BOUNDS } from '~/lib/schemas/url';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
+import { CALCULATOR_SCALAR_BOUNDS, MAX_LAB_SCENARIOS } from '~/lib/schemas/url';
 
 import { clampInt, clampNumber, clampStateToPlan } from './clamp';
 import {
     type CalculatorState,
+    type LabLinkOutcome,
+    LabLinkStatus,
     type LabScenario,
+    LinkParameter,
+    type LinkParameterOutcomes,
     type PortfolioEntry,
     SizingMode,
 } from './types';
@@ -35,6 +41,17 @@ const DEFAULT_PLAN: Plan = required(
     DEFAULT_FIRM.plans.find((p) => p.accountSize === 50_000),
     'Prop calculator: default $50K plan missing from Apex',
 );
+
+export const DEFAULT_FUNDED_HORIZON_DAYS = 60;
+export const DEFAULT_MAX_EVAL_DAYS = 60;
+
+const NO_LAB_LINK: LabLinkOutcome = { status: LabLinkStatus.Absent };
+
+const NO_LINK_PARAMETERS: LinkParameterOutcomes = {
+    [LinkParameter.DayStop]: NO_LAB_LINK,
+    [LinkParameter.EvalDayPolicy]: NO_LAB_LINK,
+    [LinkParameter.Portfolio]: NO_LAB_LINK,
+};
 
 export enum CalculatorActionType {
     AddLabScenario = 'add-lab-scenario',
@@ -55,12 +72,15 @@ export enum CalculatorActionType {
     SetInstrument = 'set-instrument',
     SetLabScenarios = 'set-lab-scenarios',
     SetLinkActivationDiscount = 'set-link-activation-discount',
+    SetLiveTransferHazard = 'set-live-transfer-hazard',
     SetMaxAttempts = 'set-max-attempts',
     SetMaxEvalDays = 'set-max-eval-days',
     SetMonthlySubscriptionDiscountPercent = 'set-monthly-subscription-discount-percent',
+    SetObjective = 'set-objective',
     SetPayoutRequestSize = 'set-payout-request-size',
     SetPlan = 'set-plan',
     SetPortfolio = 'set-portfolio',
+    SetRebuyLagDays = 'set-rebuy-lag-days',
     SetResetDiscountPercent = 'set-reset-discount-percent',
     SetRetainedCushion = 'set-retained-cushion',
     SetRiskDollars = 'set-risk-dollars',
@@ -70,6 +90,8 @@ export enum CalculatorActionType {
     SetSeed = 'set-seed',
     SetSizingMode = 'set-sizing-mode',
     SetStopPoints = 'set-stop-points',
+    SetTakesFundedReset = 'set-takes-funded-reset',
+    SetTakesOneTimeEarlyWithdrawal = 'set-takes-one-time-early-withdrawal',
     SetTradesPerDay = 'set-trades-per-day',
     SetTrials = 'set-trials',
     SetWinrate = 'set-winrate',
@@ -100,7 +122,16 @@ export type CalculatorAction =
           isLinked: boolean;
           type: CalculatorActionType.SetLinkActivationDiscount;
       }
+    | {
+          isTaken: boolean;
+          type: CalculatorActionType.SetTakesFundedReset;
+      }
+    | {
+          isTaken: boolean;
+          type: CalculatorActionType.SetTakesOneTimeEarlyWithdrawal;
+      }
     | { mode: SizingMode; type: CalculatorActionType.SetSizingMode }
+    | { objective: SizingObjective; type: CalculatorActionType.SetObjective }
     | { plan: Plan; type: CalculatorActionType.SetPlan }
     | {
           policy: DayPolicy | null;
@@ -124,6 +155,7 @@ export type CalculatorAction =
     | { type: CalculatorActionType.SetEvalDiscountPercent; value: number }
     | { type: CalculatorActionType.SetFundedHorizonDays; value: number }
     | { type: CalculatorActionType.SetIdleDayProbability; value: number }
+    | { type: CalculatorActionType.SetLiveTransferHazard; value: number }
     | { type: CalculatorActionType.SetMaxAttempts; value: number }
     | { type: CalculatorActionType.SetMaxEvalDays; value: number }
     | {
@@ -134,6 +166,7 @@ export type CalculatorAction =
           type: CalculatorActionType.SetPayoutRequestSize;
           value: null | number;
       }
+    | { type: CalculatorActionType.SetRebuyLagDays; value: number }
     | { type: CalculatorActionType.SetResetDiscountPercent; value: number }
     | {
           type: CalculatorActionType.SetRetainedCushion;
@@ -200,13 +233,126 @@ export function calculatorReducer(
     state: CalculatorState,
     action: CalculatorAction,
 ): CalculatorState {
+    return keepOptInsOnOfferingPlan(reduceCalculator(state, action));
+}
+
+export function defaultCalculatorState(): CalculatorState {
+    return {
+        activationDiscountPercent: 0,
+        commissionPerRoundTrip: 0,
+        copyAccounts: 1,
+        dayStop: { kind: DayStopRuleKind.None },
+        evalDayPolicy: null,
+        evalDiscountPercent: 0,
+        firm: DEFAULT_FIRM,
+        firmMemory: {},
+        fundedHorizonDays: DEFAULT_FUNDED_HORIZON_DAYS,
+        idleDayProbability: 0,
+        instrument: null,
+        labLink: NO_LAB_LINK,
+        labScenarios: buildDefaultLabScenarios(),
+        linkActivationDiscount: false,
+        linkParameters: NO_LINK_PARAMETERS,
+        liveTransferHazard: 0,
+        maxAttempts: 1,
+        maxEvalDays: DEFAULT_MAX_EVAL_DAYS,
+        monthlySubscriptionDiscountPercent: 0,
+        objective: SizingObjective.MonthlyNet,
+        payoutRequestSize: null,
+        plan: DEFAULT_PLAN,
+        portfolio: [
+            {
+                activationDiscountPercent: 0,
+                count: 20,
+                evalDiscountPercent: 0,
+                firmId: FirmId.Apex,
+                id: 'default-apex-50k-eod',
+                instrument: null,
+                linkActivationDiscount: false,
+                monthlySubscriptionDiscountPercent: 0,
+                planId: {
+                    accountSize: 50_000,
+                    firm: FirmId.Apex,
+                    variant: ApexVariant.Eod,
+                },
+                resetDiscountPercent: 0,
+                stopPoints: null,
+            },
+        ],
+        rebuyLagDays: SIM_DEFAULTS.rebuyLagDays,
+        resetDiscountPercent: 0,
+        retainedCushion: null,
+        riskDollars: 250,
+        riskPercent: 0.5,
+        rrRatio: 2,
+        rungSizing: DEFAULT_RUNG_SIZING,
+        seed: 42,
+        sizingMode: SizingMode.Dollar,
+        stopPoints: null,
+        takesFundedReset: false,
+        takesOneTimeEarlyWithdrawal: false,
+        tradesPerDay: 1,
+        trials: 2000,
+        winrate: 0.4,
+    };
+}
+
+function defaultLabScenario(): LabScenario {
+    return {
+        accounts: 10,
+        correlation: CorrelationMode.Copy,
+        dayStop: { kind: DayStopRuleKind.None },
+        groups: 1,
+        id: freshId(),
+        instrument: null,
+        label: 'New scenario',
+        riskPerTrade: 250,
+        rrRatio: 2,
+        stopPoints: null,
+        tradesPerDay: 1,
+        winrate: 0.4,
+    };
+}
+
+function freshId(): string {
+    return typeof crypto !== 'undefined' &&
+        typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `lab-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function keepOptInsOnOfferingPlan(state: CalculatorState): CalculatorState {
+    const isEarlyWithdrawalKept =
+        state.takesOneTimeEarlyWithdrawal &&
+        state.plan.oneTimeEarlyWithdrawal !== null;
+    const isFundedResetKept =
+        state.takesFundedReset && state.plan.fundedReset !== null;
+    return isEarlyWithdrawalKept === state.takesOneTimeEarlyWithdrawal &&
+        isFundedResetKept === state.takesFundedReset
+        ? state
+        : {
+              ...state,
+              takesFundedReset: isFundedResetKept,
+              takesOneTimeEarlyWithdrawal: isEarlyWithdrawalKept,
+          };
+}
+
+function reduceCalculator(
+    state: CalculatorState,
+    action: CalculatorAction,
+): CalculatorState {
     switch (action.type) {
         case CalculatorActionType.AddLabScenario: {
+            if (state.labScenarios.length >= MAX_LAB_SCENARIOS) return state;
             const last = state.labScenarios.at(-1);
             const base: LabScenario = last
                 ? { ...last, id: freshId(), label: `${last.label} copy` }
                 : defaultLabScenario();
-            return { ...state, labScenarios: [...state.labScenarios, base] };
+            return {
+                ...state,
+                labLink: NO_LAB_LINK,
+                labScenarios: [...state.labScenarios, base],
+            };
         }
         case CalculatorActionType.ApplyState: {
             return clampStateToPlan(action.state);
@@ -214,6 +360,7 @@ export function calculatorReducer(
         case CalculatorActionType.RemoveLabScenario: {
             return {
                 ...state,
+                labLink: NO_LAB_LINK,
                 labScenarios: state.labScenarios.filter(
                     (sc) => sc.id !== action.id,
                 ),
@@ -233,7 +380,11 @@ export function calculatorReducer(
             };
         }
         case CalculatorActionType.ResetLabScenarios: {
-            return { ...state, labScenarios: buildDefaultLabScenarios() };
+            return {
+                ...state,
+                labLink: NO_LAB_LINK,
+                labScenarios: buildDefaultLabScenarios(),
+            };
         }
         case CalculatorActionType.SetActivationDiscountPercent: {
             return {
@@ -273,10 +424,16 @@ export function calculatorReducer(
             };
         }
         case CalculatorActionType.SetDayStop: {
-            return { ...state, dayStop: action.rule };
+            return {
+                ...withLinkParameterCleared(state, LinkParameter.DayStop),
+                dayStop: action.rule,
+            };
         }
         case CalculatorActionType.SetEvalDayPolicy: {
-            return { ...state, evalDayPolicy: action.policy };
+            return {
+                ...withLinkParameterCleared(state, LinkParameter.EvalDayPolicy),
+                evalDayPolicy: action.policy,
+            };
         }
         case CalculatorActionType.SetEvalDiscountPercent: {
             return {
@@ -346,10 +503,25 @@ export function calculatorReducer(
             return { ...state, instrument: action.instrument };
         }
         case CalculatorActionType.SetLabScenarios: {
-            return { ...state, labScenarios: action.entries };
+            return {
+                ...state,
+                labLink: NO_LAB_LINK,
+                labScenarios: action.entries,
+            };
         }
         case CalculatorActionType.SetLinkActivationDiscount: {
             return { ...state, linkActivationDiscount: action.isLinked };
+        }
+        case CalculatorActionType.SetLiveTransferHazard: {
+            return {
+                ...state,
+                liveTransferHazard: clampNumber(
+                    action.value,
+                    CALCULATOR_SCALAR_BOUNDS.lth.min,
+                    CALCULATOR_SCALAR_BOUNDS.lth.max,
+                    state.liveTransferHazard,
+                ),
+            };
         }
         case CalculatorActionType.SetMaxAttempts: {
             return {
@@ -384,6 +556,9 @@ export function calculatorReducer(
                 ),
             };
         }
+        case CalculatorActionType.SetObjective: {
+            return { ...state, objective: action.objective };
+        }
         case CalculatorActionType.SetPayoutRequestSize: {
             return {
                 ...state,
@@ -414,7 +589,21 @@ export function calculatorReducer(
             };
         }
         case CalculatorActionType.SetPortfolio: {
-            return { ...state, portfolio: action.entries };
+            return {
+                ...withLinkParameterCleared(state, LinkParameter.Portfolio),
+                portfolio: action.entries,
+            };
+        }
+        case CalculatorActionType.SetRebuyLagDays: {
+            return {
+                ...state,
+                rebuyLagDays: clampNumber(
+                    action.value,
+                    CALCULATOR_SCALAR_BOUNDS.rebuyLag.min,
+                    CALCULATOR_SCALAR_BOUNDS.rebuyLag.max,
+                    state.rebuyLagDays,
+                ),
+            };
         }
         case CalculatorActionType.SetResetDiscountPercent: {
             return {
@@ -503,6 +692,12 @@ export function calculatorReducer(
                 ),
             };
         }
+        case CalculatorActionType.SetTakesFundedReset: {
+            return { ...state, takesFundedReset: action.isTaken };
+        }
+        case CalculatorActionType.SetTakesOneTimeEarlyWithdrawal: {
+            return { ...state, takesOneTimeEarlyWithdrawal: action.isTaken };
+        }
         case CalculatorActionType.SetTradesPerDay: {
             return {
                 ...state,
@@ -539,6 +734,7 @@ export function calculatorReducer(
         case CalculatorActionType.UpdateLabScenario: {
             return {
                 ...state,
+                labLink: NO_LAB_LINK,
                 labScenarios: state.labScenarios.map((sc) =>
                     sc.id === action.id ? { ...sc, ...action.patch } : sc,
                 ),
@@ -547,80 +743,12 @@ export function calculatorReducer(
     }
 }
 
-export function defaultCalculatorState(): CalculatorState {
+function withLinkParameterCleared(
+    state: CalculatorState,
+    parameter: LinkParameter,
+): CalculatorState {
     return {
-        activationDiscountPercent: 0,
-        commissionPerRoundTrip: 0,
-        copyAccounts: 1,
-        dayStop: { kind: DayStopRuleKind.None },
-        evalDayPolicy: null,
-        evalDiscountPercent: 0,
-        firm: DEFAULT_FIRM,
-        firmMemory: {},
-        fundedHorizonDays: 60,
-        idleDayProbability: 0,
-        instrument: null,
-        labScenarios: buildDefaultLabScenarios(),
-        linkActivationDiscount: false,
-        maxAttempts: 1,
-        maxEvalDays: 60,
-        monthlySubscriptionDiscountPercent: 0,
-        payoutRequestSize: null,
-        plan: DEFAULT_PLAN,
-        portfolio: [
-            {
-                activationDiscountPercent: 0,
-                count: 20,
-                evalDiscountPercent: 0,
-                firmId: FirmId.Apex,
-                id: 'default-apex-50k-eod',
-                instrument: null,
-                linkActivationDiscount: false,
-                monthlySubscriptionDiscountPercent: 0,
-                planId: {
-                    accountSize: 50_000,
-                    firm: FirmId.Apex,
-                    variant: ApexVariant.Eod,
-                },
-                resetDiscountPercent: 0,
-                stopPoints: null,
-            },
-        ],
-        resetDiscountPercent: 0,
-        retainedCushion: null,
-        riskDollars: 250,
-        riskPercent: 0.5,
-        rrRatio: 2,
-        rungSizing: DEFAULT_RUNG_SIZING,
-        seed: 42,
-        sizingMode: SizingMode.Dollar,
-        stopPoints: null,
-        tradesPerDay: 1,
-        trials: 2000,
-        winrate: 0.4,
+        ...state,
+        linkParameters: { ...state.linkParameters, [parameter]: NO_LAB_LINK },
     };
-}
-
-function defaultLabScenario(): LabScenario {
-    return {
-        accounts: 10,
-        correlation: CorrelationMode.Copy,
-        dayStop: { kind: DayStopRuleKind.None },
-        groups: 1,
-        id: freshId(),
-        instrument: null,
-        label: 'New scenario',
-        riskPerTrade: 250,
-        rrRatio: 2,
-        stopPoints: null,
-        tradesPerDay: 1,
-        winrate: 0.4,
-    };
-}
-
-function freshId(): string {
-    return typeof crypto !== 'undefined' &&
-        typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `lab-${Math.random().toString(36).slice(2, 11)}`;
 }

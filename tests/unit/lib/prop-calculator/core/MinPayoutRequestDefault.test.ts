@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { FirmId } from '~/lib/prop-calculator/core';
+import { AlphaFuturesVariant, FirmId } from '~/lib/prop-calculator/core';
 import { findFirm } from '~/lib/prop-calculator/firms';
 import { AlphaFutures } from '~/lib/prop-calculator/firms/alphafutures/AlphaFutures';
 import { TakeProfitTrader } from '~/lib/prop-calculator/firms/tpt/TakeProfitTrader';
 
 describe('Plan.minPayoutRequest defaults to $0, never to minPayoutProfit', () => {
-    it('AlphaFutures plans (the one firm that omits minPayoutRequest) resolve to $0, not their minPayoutProfit value', () => {
+    it('Alpha Futures sets its Payout Policy minimum request explicitly on every plan', () => {
+        const expected = {
+            [AlphaFuturesVariant.Advanced]: 1000,
+            [AlphaFuturesVariant.Standard]: 500,
+            [AlphaFuturesVariant.Zero]: 200,
+        };
         const plans = new AlphaFutures().plans;
+        expect(plans).toHaveLength(3);
         for (const plan of plans) {
-            expect(plan.minPayoutRequest).toBe(0);
-            expect(plan.minPayoutRequest).not.toBe(plan.minPayoutProfit);
+            if (plan.id.firm !== FirmId.AlphaFutures) {
+                throw new Error('expected an Alpha Futures plan id');
+            }
+            expect(plan.minPayoutRequest).toBe(expected[plan.id.variant]);
         }
     });
 
@@ -28,8 +36,16 @@ describe('Plan.minPayoutRequest defaults to $0, never to minPayoutProfit', () =>
         expect(stripped.minPayoutRequest).not.toBe(stripped.minPayoutProfit);
     });
 
-    it('every registered firm sets minPayoutRequest explicitly, except AlphaFutures which deliberately leaves it unset', () => {
+    it('stripping the Alpha Futures minimum via withOverrides falls back to the $0 default', () => {
+        const alpha = new AlphaFutures().plans[0];
+        if (!alpha) throw new Error('Alpha Futures has no plans');
+        expect(
+            alpha.withOverrides({ minPayoutRequest: undefined })
+                .minPayoutRequest,
+        ).toBe(0);
+    });
+
+    it('Take Profit Trader keeps its explicit one-cent minimum request', () => {
         expect(new TakeProfitTrader().plans[0]?.minPayoutRequest).toBe(0.01);
-        expect(new AlphaFutures().plans[0]?.minPayoutRequest).toBe(0);
     });
 });

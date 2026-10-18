@@ -1,9 +1,10 @@
 import { type Metadata } from 'next';
 
-import { cn } from '~/lib/utilities';
+import { AccountingPageFrame } from '~/app/(app)/accounting/_components/AccountingPageFrame';
+import { AccountingSection } from '~/app/(app)/accounting/_components/AccountingSection';
+import { MutationsBrowser } from '~/app/(app)/accounting/_components/MutationsBrowser';
+import { requireRootUser } from '~/lib/auth/guards';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { MutationsBrowser } from '../_components/MutationsBrowser';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },
@@ -11,23 +12,22 @@ export const metadata: Metadata = {
 };
 
 export default function MutationsPage() {
-    void api.accounting.credentials.list.prefetch();
+    return (
+        <AccountingPageFrame
+            className="app-accounting__mutations"
+            section={AccountingSection.Mutations}
+        >
+            <MutationsContent />
+        </AccountingPageFrame>
+    );
+}
 
+async function MutationsContent() {
+    await requireRootUser();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-accounting__mutations',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Recent mutations
-                    </h1>
-                </header>
-                <MutationsBrowser />
-            </main>
+            <MutationsBrowser />
         </HydrateClient>
     );
 }

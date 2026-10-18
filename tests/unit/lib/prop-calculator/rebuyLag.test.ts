@@ -112,14 +112,31 @@ describe('rebuyLagDays adds empty slot time to the monthly-net denominator', () 
         );
     });
 
-    it('(c) the lag changes only expectedMonthlyNet: everything else stays toStrictEqual', () => {
+    it('(c) the lag changes only the two monthly nets', () => {
         const base = simulate(toyInputs());
         const withLag = simulate(toyInputs({ rebuyLagDays: 4 }));
 
-        const { expectedMonthlyNet: baseMonthlyNet, ...baseRest } = base;
-        const { expectedMonthlyNet: lagMonthlyNet, ...lagRest } = withLag;
+        const {
+            estimates: baseEstimates,
+            expectedMonthlyNet: baseMonthlyNet,
+            expectedMonthlyRealizedNet: baseMonthlyRealizedNet,
+            ...baseRest
+        } = base;
+        const {
+            estimates: lagEstimates,
+            expectedMonthlyNet: lagMonthlyNet,
+            expectedMonthlyRealizedNet: lagMonthlyRealizedNet,
+            ...lagRest
+        } = withLag;
         expect(lagRest).toStrictEqual(baseRest);
+        expect({
+            ...lagEstimates,
+            expectedMonthlyNet: baseEstimates.expectedMonthlyNet,
+            expectedMonthlyRealizedNet:
+                baseEstimates.expectedMonthlyRealizedNet,
+        }).toStrictEqual(baseEstimates);
         expect(lagMonthlyNet).not.toBe(baseMonthlyNet);
+        expect(lagMonthlyRealizedNet).not.toBe(baseMonthlyRealizedNet);
     });
 
     it('(d) with maxAttempts 3 and a deterministic eval bust, the lag is charged per attempt', () => {

@@ -1,18 +1,19 @@
+import { evalPhaseCost } from '~/lib/prop-calculator/core/FeeSchedule';
 import {
+    assertNonNegativeSafeInteger,
+    assertPositiveSafeInteger,
     newPhaseStats,
     type PayoutSink,
     runEvalWithRetries,
     runFundedDays,
     TradeTotals,
-} from '../simulator';
+} from '~/lib/prop-calculator/simulator';
+
 import {
     type CardResult,
-    DEFAULT_MAX_PAYOUTS_PER_CARD,
     type EvalToFundedCycleOptions,
     type PayoutEvent,
 } from './types';
-
-const MAX_EVAL_ATTEMPTS_PER_CARD = 25;
 
 class PayoutLog implements PayoutSink {
     readonly events: PayoutEvent[] = [];
@@ -26,26 +27,29 @@ export function runEvalToFundedCycle(
     options: EvalToFundedCycleOptions,
 ): CardResult {
     const {
+        cardDayBudget,
         commission,
         discounts,
         evalDayPolicy,
         fundedDayPolicy,
+        fundedRrRatio,
         idleDayProbability,
         maxEvalDays,
         maxFundedDays,
-        maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
         minRetainedCushion,
+        payoutRequestPolicy,
         payoutRequestSize,
         plan,
         positionSizing,
+        retryAffordabilityCheck,
         rng,
         rrRatio,
         rungSizing,
         winrate,
     } = options;
-    const safeMaxEvalDays = Math.max(1, Math.floor(maxEvalDays));
-    const safeMaxFundedDays = Math.max(0, Math.floor(maxFundedDays));
-    const payoutCap = Math.max(0, Math.floor(maxPayoutsPerCard));
+    assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
+    assertNonNegativeSafeInteger(cardDayBudget, 'cardDayBudget');
+    assertNonNegativeSafeInteger(maxFundedDays, 'maxFundedDays');
 
     const totals = new TradeTotals();
     const retryResult = runEvalWithRetries({
@@ -53,10 +57,11 @@ export function runEvalToFundedCycle(
         dayPolicy: evalDayPolicy,
         discounts,
         idleDayProbability,
-        maxAttempts: MAX_EVAL_ATTEMPTS_PER_CARD,
-        maxEvalDays: safeMaxEvalDays,
+        maxEvalDays,
+        maxTotalEvalDays: cardDayBudget,
         plan,
         positionSizing,
+        retryAffordabilityCheck,
         rng,
         rrRatio,
         rungSizing,
@@ -64,17 +69,23 @@ export function runEvalToFundedCycle(
         totals,
         winrate,
     });
-    const { attemptsUsed, resetFeesPaid } = retryResult;
+    const { attemptsUsed, failedAttemptDays, resetFeesPaid, retryCharges } =
+        retryResult;
     let totalDays = retryResult.daysElapsed;
     const billableEvalDays = retryResult.daysElapsed;
 
     if (retryResult.terminalOutcome !== null) {
         return {
             attemptsUsed,
+            evalCost: evalPhaseCost(
+                plan.fees,
+                { daysToPass: null, failedAttemptDays, resetFeesPaid },
+                discounts,
+            ),
             evalDays: billableEvalDays,
+            evalRetryCharges: retryCharges,
+            fundedResetCharges: [],
             payouts: [],
-            totalCost:
-                plan.feesUntilPass(billableEvalDays, discounts) + resetFeesPaid,
             totalDays,
         };
     }
@@ -88,20 +99,21 @@ export function runEvalToFundedCycle(
     );
     const sink = new PayoutLog();
 
-    const { daysElapsed: fundedDays } = runFundedDays({
+    const { daysElapsed: fundedDays, fundedResets } = runFundedDays({
         commission,
         dayOffsetBase: totalDays,
         dayPolicy: fundedDayPolicy,
+        discounts,
         equityCurve: null,
         idleDayProbability,
-        maxDays: safeMaxFundedDays,
-        maxPayouts: payoutCap,
+        maxDays: maxFundedDays,
         minRetainedCushion,
+        payoutRequestPolicy,
         payoutRequestSize,
         plan,
         positionSizing,
         rng,
-        rrRatio,
+        rrRatio: fundedRrRatio ?? rrRatio,
         rungSizing,
         sink,
         state,
@@ -113,11 +125,19 @@ export function runEvalToFundedCycle(
 
     return {
         attemptsUsed,
+        evalCost: evalPhaseCost(
+            plan.fees,
+            {
+                daysToPass: retryResult.attempt.days,
+                failedAttemptDays,
+                resetFeesPaid,
+            },
+            discounts,
+        ),
         evalDays: billableEvalDays,
+        evalRetryCharges: retryCharges,
+        fundedResetCharges: fundedResets,
         payouts: sink.events,
-        totalCost:
-            plan.totalCostThroughDay(billableEvalDays, discounts) +
-            resetFeesPaid,
         totalDays,
     };
 }

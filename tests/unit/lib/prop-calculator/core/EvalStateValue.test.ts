@@ -1,14 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
     ApexVariant,
     computeEvalStateValue,
     contracts,
+    createInitialState,
+    DailyLossLimitBreachEffect,
     DailyLossLimitKind,
     type DayPolicy,
     DayStopRuleKind,
     dollars,
-    EodTrailingDrawdown,
     FirmId,
     fraction,
     INSTRUMENTS,
@@ -18,11 +19,16 @@ import {
     MffuVariant,
     type Plan,
     points,
+    PolicySizing,
+    TierBasis,
 } from '~/lib/prop-calculator/core';
 import { ApexTraderFunding } from '~/lib/prop-calculator/firms/apex/ApexTraderFunding';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 import { simulate } from '~/lib/prop-calculator/simulator';
+
+import { memoise } from '../../../memoise';
+import { baseBuilderPlan, toyDpConfig, toyPlan } from '../evalStateValueToy';
 
 function apexIntradayPlan(): Plan {
     const plan = new ApexTraderFunding().findPlan({
@@ -31,16 +37,6 @@ function apexIntradayPlan(): Plan {
         variant: ApexVariant.Intraday,
     });
     if (!plan) throw new Error('Apex Intraday 50K plan not found');
-    return plan;
-}
-
-function baseBuilderPlan(): Plan {
-    const plan = new MyFundedFutures().findPlan({
-        accountSize: 50_000,
-        firm: FirmId.Mffu,
-        variant: MffuVariant.Builder,
-    });
-    if (!plan) throw new Error('MFF Builder 50K plan not found');
     return plan;
 }
 
@@ -74,43 +70,12 @@ function rapidEodPlan(): Plan {
     return plan;
 }
 
-function toyDpConfig(
-    plan: Plan,
-    maxEvalDays: number,
-    maxActionDollars: number,
-) {
-    return {
-        actionStepDollars: 50,
-        cushionStepDollars: 50,
-        maxActionDollars,
-        maxEvalDays,
-        plan,
-        profitStepDollars: 50,
-        rrRatio: 2,
-        tradesPerDay: 1,
-        winrate: fraction(0.5),
-    };
-}
-
-function toyPlan(profitTarget: number): Plan {
-    return baseBuilderPlan().withOverrides({
-        accountSize: dollars(1000),
-        consistency: null,
-        contractLimits: undefined,
-        drawdown: new EodTrailingDrawdown({ amount: dollars(100) }),
-        evalDailyLossLimit: { kind: DailyLossLimitKind.None },
-        maxEvalTradingDays: undefined,
-        minTradingDays: 0,
-        profitTarget: dollars(profitTarget),
-    });
-}
-
-describe('computeEvalStateValue backward induction — hand-computable toy cases', () => {
+describe('computeEvalStateValue backward induction, hand-computable toy cases', () => {
     it(
         'accountSize 1000 / drawdown 100 (cushion 100, threshold 900) / ' +
             'profitTarget 50 / one slot / one day: betting $50 at 1:2 either ' +
             'reaches profit 200 (pass) or drops to profit -50 without busting ' +
-            '(cushion 50 > 0), then times out — a terminal-value-only closed ' +
+            '(cushion 50 > 0), then times out, a terminal-value-only closed ' +
             'form (V(pass)=1, V(timeout)=0) collapses to V(initial) = winrate',
         () => {
             const plan = toyPlan(50);
@@ -131,7 +96,7 @@ describe('computeEvalStateValue backward induction — hand-computable toy cases
             'thresholdOffset=0, reached after a day-1 loss) = 0 (no single day-2 ' +
             'trade reaches profit 250 from there), so day 1 betting $50 or $100 ' +
             'both give 0.5*0.5 + 0.5*0 = 0.25, strictly beating the 0 from not ' +
-            'betting on day 1 — V(initial) = 0.25 exactly, threading the real ' +
+            'betting on day 1, V(initial) = 0.25 exactly, threading the real ' +
             'EodTrailingDrawdown ratchet and the bust-vs-timeout distinction ' +
             'through two linked days',
         () => {
@@ -184,10 +149,10 @@ describe('computeEvalStateValue backward induction — hand-computable toy cases
             'day, with contractLimits.evalMinis capped to 1 contract on ES ' +
             '(pointValue $50) at a 1-point stop: the nominal $100 action is ' +
             "capRiskToContractLimit'd down to $50 before resolveTradeRisk " +
-            'ever sees it (resolveContractLimit(..., TradingPhase.Eval, ...) ' +
+            'ever sees it (contractLimitAt(..., TradingPhase.Eval, ...) ' +
             'then capRiskToContractLimit, the literal engine functions, in ' +
             "the engine's own order), so neither win ($100 profit) nor lose " +
-            '(-$50) reaches the $150 target within the one-day cap — ' +
+            '(-$50) reaches the $150 target within the one-day cap, ' +
             "V(initial) = 0, strictly less than the uncapped $100 bet's " +
             'winrate-only V = 0.5, proving the contract-limit cap actually ' +
             "changed the DP's decision, not just that it ran without throwing",
@@ -219,133 +184,197 @@ describe('computeEvalStateValue backward induction — hand-computable toy cases
     );
 });
 
+const RAPID_EOD_MAX_EVAL_DAYS = 6;
+const RAPID_EOD_LONG_MAX_EVAL_DAYS = 20;
+const RAPID_EOD_TRIALS = 6000;
+const RAPID_EOD_RR_RATIO = 2;
+const RAPID_EOD_WINRATE = 0.4;
+const RAPID_EOD_TRADES_PER_DAY = 4;
+const RAPID_EOD_STOP_RULE = { kind: DayStopRuleKind.DayGreen } as const;
+
+const rapidEodDp = memoise(() =>
+    computeEvalStateValue({
+        actionStepDollars: 100,
+        cushionStepDollars: 200,
+        maxEvalDays: RAPID_EOD_MAX_EVAL_DAYS,
+        plan: rapidEodPlan(),
+        profitStepDollars: 1000,
+        rrRatio: RAPID_EOD_RR_RATIO,
+        stopRule: RAPID_EOD_STOP_RULE,
+        tradesPerDay: RAPID_EOD_TRADES_PER_DAY,
+        winrate: fraction(RAPID_EOD_WINRATE),
+    }),
+);
+
+function rapidEodSimulation(
+    evalDayPolicy: DayPolicy,
+    maxEvalDays = RAPID_EOD_MAX_EVAL_DAYS,
+) {
+    return simulate({
+        evalDayPolicy,
+        fundedHorizonDays: 1,
+        maxEvalDays,
+        plan: rapidEodPlan(),
+        riskPerTrade: 250,
+        rrRatio: RAPID_EOD_RR_RATIO,
+        seed: 42,
+        tradesPerDay: RAPID_EOD_TRADES_PER_DAY,
+        trials: RAPID_EOD_TRIALS,
+        winrate: RAPID_EOD_WINRATE,
+    });
+}
+
+const rapidEodDpRun = memoise(() => rapidEodSimulation(rapidEodDp().dayPolicy));
+
+const rapidEodLadderRun = memoise(() =>
+    rapidEodSimulation({
+        ladder: [400, 600, 800, 200],
+        maxLossesPerDay: null,
+        sizing: PolicySizing.ContractCapped,
+        stopRule: RAPID_EOD_STOP_RULE,
+    }),
+);
+
+const rapidEodLongDp = memoise(() =>
+    computeEvalStateValue({
+        actionStepDollars: 200,
+        cushionStepDollars: 400,
+        maxEvalDays: RAPID_EOD_LONG_MAX_EVAL_DAYS,
+        plan: rapidEodPlan(),
+        profitStepDollars: 1000,
+        rrRatio: RAPID_EOD_RR_RATIO,
+        stopRule: RAPID_EOD_STOP_RULE,
+        tradesPerDay: RAPID_EOD_TRADES_PER_DAY,
+        winrate: fraction(RAPID_EOD_WINRATE),
+    }),
+);
+
+const rapidEodLongDpRun = memoise(() =>
+    rapidEodSimulation(
+        rapidEodLongDp().dayPolicy,
+        RAPID_EOD_LONG_MAX_EVAL_DAYS,
+    ),
+);
+
+const rapidEodLongLadderRun = memoise(() =>
+    rapidEodSimulation(
+        {
+            ladder: [400, 600, 800, 200],
+            maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
+            stopRule: RAPID_EOD_STOP_RULE,
+        },
+        RAPID_EOD_LONG_MAX_EVAL_DAYS,
+    ),
+);
+
+function passRateStandardError(rate: number): number {
+    return Math.sqrt((rate * (1 - rate)) / RAPID_EOD_TRIALS);
+}
+
 describe(
-    'computeEvalStateValue vs simulate() — real-plan integration ' +
+    'computeEvalStateValue vs simulate(), real-plan integration ' +
         "(pass-probability level: L1's terminalValueAtPass defaults to 1, " +
         "so V(initial) is a pass-probability functional, not yet L2's " +
-        'dollar-valued expectedNet — that requires wiring V(pass) to ' +
+        'dollar-valued expectedNet, that requires wiring V(pass) to ' +
         "V_funded, which is L2's job per the plan's own sequencing note)",
     () => {
+        beforeAll(() => {
+            rapidEodDp();
+        });
+
         it(
             "a DP-driven run's empirical simulate() pass rate matches the " +
                 "DP's own predicted V(initial state) within Monte Carlo " +
                 'tolerance, for a real registered plan (MFF Rapid EOD 50K, ' +
-                'not a synthetic toy) — a short horizon and coarser grid ' +
-                'steps keep this fast; the toy suite above already proves ' +
-                'the backward induction itself is exact at fine resolution, ' +
-                'so this test only has to prove the DP-to-simulate() wiring ' +
-                'is faithful, which holds at any discretisation',
+                'not a synthetic toy), a short horizon and coarser grid ' +
+                'steps keep this fast (6 eval days, $100 action step, $1,000 ' +
+                'profit step, 6,000 trials, down from 10 days, a $600 ' +
+                'profit step and 20,000 trials); the toy suite above already ' +
+                'proves the backward induction itself is exact at fine ' +
+                'resolution, so this test only has to prove the DP-to-' +
+                'simulate() wiring is faithful, which holds at any ' +
+                'discretisation',
             () => {
-                const plan = rapidEodPlan();
-                const maxEvalDays = 10;
-                const rrRatio = 2;
-                const winrate = 0.4;
-                const tradesPerDay = 4;
-                const stopRule = { kind: DayStopRuleKind.DayGreen } as const;
+                const dp = rapidEodDp();
+                const dpOut = rapidEodDpRun();
 
-                const dp = computeEvalStateValue({
-                    actionStepDollars: 100,
-                    cushionStepDollars: 200,
-                    maxEvalDays,
-                    plan,
-                    profitStepDollars: 600,
-                    rrRatio,
-                    stopRule,
-                    tradesPerDay,
-                    winrate: fraction(winrate),
-                });
-
-                const out = simulate({
-                    evalDayPolicy: dp.dayPolicy,
-                    fundedHorizonDays: 1,
-                    maxEvalDays,
-                    plan,
-                    riskPerTrade: 250,
-                    rrRatio,
-                    seed: 42,
-                    tradesPerDay,
-                    trials: 20_000,
-                    winrate,
-                });
-
-                expect(out.passProbability).toBeCloseTo(dp.initialValue, 1);
+                expect(
+                    Math.abs(dpOut.evalPassProbability - dp.initialValue),
+                ).toBeLessThan(
+                    3 * passRateStandardError(dpOut.evalPassProbability),
+                );
             },
-            120_000,
         );
     },
 );
 
 describe(
-    'L1 validation harness — DP-computed policy vs the current static ' +
+    'L1 validation harness, DP-computed policy vs the current static ' +
         "ladder, both driven through the real simulate(), per the plan's " +
         'own "do not trust the DP math in isolation" requirement (pass-' +
         "rate metric only at this L1 stage; L2's expectedNet comparison " +
         'is a separate, later job)',
     () => {
+        beforeAll(() => {
+            rapidEodDp();
+        });
+
         it(
-            'MFF Rapid EOD 50K, at a 30-day eval cap: the DP beats the ' +
+            'MFF Rapid EOD 50K, at a 6-day eval cap: the DP beats the ' +
                 'documented speed-optimal static ladder ([400, 600, 800, 200], ' +
                 "the same ladder scored in ladderSearch.test.ts's golden " +
-                "values) by well over the plan's own 3-percentage-point " +
-                'adopt threshold, at matched seed/trial count — an explicit ' +
-                'adopt verdict, not an assumed one',
+                "values) by more than the plan's own 3-percentage-point " +
+                'adopt threshold, at matched seed/trial count, an explicit ' +
+                'adopt verdict, not an assumed one (re-pinned from the 30-day ' +
+                'cap, where the ladder passed 0.429 and the DP 0.705 of ' +
+                '20,000 trials, to the 6-day cap with 6,000 trials, so the ' +
+                'solve takes seconds instead of minutes: the ladder passes ' +
+                '0.361 of trials and the DP 0.403, a 4.2-point gap that is ' +
+                'only 1.2 points over the threshold, so the 20-day test below ' +
+                'checks the advantage where it is large)',
             () => {
-                const plan = rapidEodPlan();
-                const maxEvalDays = 30;
-                const rrRatio = 2;
-                const winrate = 0.4;
-                const tradesPerDay = 4;
-                const stopRule = { kind: DayStopRuleKind.DayGreen } as const;
+                const dp = rapidEodDp();
+                const dpOut = rapidEodDpRun();
+                const ladderOut = rapidEodLadderRun();
                 const ADOPT_THRESHOLD_PP = 0.03;
 
-                const staticLadderPolicy: DayPolicy = {
-                    ladder: [400, 600, 800, 200],
-                    maxLossesPerDay: null,
-                    stopRule,
-                };
-
-                const dp = computeEvalStateValue({
-                    actionStepDollars: 100,
-                    cushionStepDollars: 200,
-                    maxEvalDays,
-                    plan,
-                    profitStepDollars: 600,
-                    rrRatio,
-                    stopRule,
-                    tradesPerDay,
-                    winrate: fraction(winrate),
-                });
-
-                const simConfig = {
-                    fundedHorizonDays: 1,
-                    maxEvalDays,
-                    plan,
-                    riskPerTrade: 250,
-                    rrRatio,
-                    seed: 42,
-                    tradesPerDay,
-                    trials: 20_000,
-                    winrate,
-                };
-
-                const ladderOut = simulate({
-                    ...simConfig,
-                    evalDayPolicy: staticLadderPolicy,
-                });
-                const dpOut = simulate({
-                    ...simConfig,
-                    evalDayPolicy: dp.dayPolicy,
-                });
-
-                expect(dpOut.passProbability).toBeCloseTo(dp.initialValue, 1);
-                expect(ladderOut.passProbability).toBeCloseTo(0.429, 2);
-                expect(dpOut.passProbability).toBeCloseTo(0.588, 2);
                 expect(
-                    dpOut.passProbability - ladderOut.passProbability,
+                    Math.abs(dpOut.evalPassProbability - dp.initialValue),
+                ).toBeLessThan(
+                    3 * passRateStandardError(dpOut.evalPassProbability),
+                );
+                expect(ladderOut.evalPassProbability).toBeCloseTo(0.361, 2);
+                expect(dpOut.evalPassProbability).toBeCloseTo(0.403, 2);
+                expect(
+                    dpOut.evalPassProbability - ladderOut.evalPassProbability,
                 ).toBeGreaterThan(ADOPT_THRESHOLD_PP);
             },
-            200_000,
         );
+    },
+);
+
+describe(
+    'L1 validation harness at a 20-day eval cap, where the DP advantage over ' +
+        'the documented ladder is large (a $200 action step, a $400 cushion ' +
+        'step and a $1,000 profit step, 6,000 trials: the DP-driven pass rate ' +
+        'is about 0.60 against 0.43 for the ladder, 17 points; at a 12-day cap ' +
+        'with a $200 action step and a $1,500 profit step the DP did not beat ' +
+        'the ladder, so this grid is part of the claim, and the DP-to-' +
+        'simulate() agreement is left to the 6-day test above)',
+    () => {
+        beforeAll(() => {
+            rapidEodLongDp();
+        });
+
+        it('MFF Rapid EOD 50K: the DP-driven policy beats the documented ladder by more than 10 percentage points at a 20-day cap', () => {
+            const dpOut = rapidEodLongDpRun();
+            const ladderOut = rapidEodLongLadderRun();
+
+            expect(
+                dpOut.evalPassProbability - ladderOut.evalPassProbability,
+            ).toBeGreaterThan(0.1);
+        });
     },
 );
 
@@ -428,12 +457,12 @@ describe('isEvalDpEligible / computeEvalStateValue scope cut', () => {
 
     it(
         'a real, currently idle-limited eval plan (MFF Rapid EOD 50K, ' +
-            'maxConsecutiveIdleDays=7) is DP-eligible — isEvalDpEligible ' +
+            'maxConsecutiveIdleDays=7) is DP-eligible, isEvalDpEligible ' +
             'never excluded on maxConsecutiveIdleDays to begin with (it only ' +
             'checks drawdown kind and the peak-share daily-loss-limit ' +
             'dependency), so this pins idle-limited plans as eligible while ' +
             "confirming the other exclusion categories (Apex's " +
-            'IntradayTrailingDrawdown, peak-share DLL — both covered by the ' +
+            'IntradayTrailingDrawdown, peak-share DLL, both covered by the ' +
             'scope-cut cases above) stay excluded, independent of ' +
             'maxConsecutiveIdleDays',
         () => {
@@ -461,10 +490,13 @@ describe('idle-days DP state dimension', () => {
             '(toyPlan(250), 2-day cap, actionGrid [50,100]) was measured ' +
             'against the unmodified pre-idle-days engine at ' +
             'initialValue=0.25, reachedStateCount=17, risk@0=50 (matching ' +
-            "the existing hand-derived 'two linked days' toy case above) — " +
+            "the existing hand-derived 'two linked days' toy case above), " +
             'asserting those exact, previously-measured figures here pins ' +
             'the post-change engine to produce identical output for every ' +
-            'plan that never sets the field',
+            'plan that never sets the field (N-89 lowered reachedStateCount ' +
+            'from 17 to 12: the DP now solves only the day starts its ' +
+            'within-day search reaches, not every cushion node; the value ' +
+            'and the first risk are unchanged)',
         () => {
             const plan = toyPlan(250).withOverrides({
                 maxConsecutiveIdleDays: undefined,
@@ -474,7 +506,7 @@ describe('idle-days DP state dimension', () => {
             const result = computeEvalStateValue(toyDpConfig(plan, 2, 100));
 
             expect(result.initialValue).toBeCloseTo(0.25, 10);
-            expect(result.reachedStateCount).toBe(17);
+            expect(result.reachedStateCount).toBe(12);
 
             const risk = result.dayPolicy.computeRisk?.(plan.initialState(), 0);
             expect(risk).toBe(50);
@@ -484,30 +516,30 @@ describe('idle-days DP state dimension', () => {
     it(
         'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
             '0 (deliberately already satisfied on its own, so it cannot ' +
-            'itself force any trading — this isolates the idle-days effect ' +
+            'itself force any trading, this isolates the idle-days effect ' +
             'from the separate tradingDays gate covered by its own ' +
             'describe block below) / maxConsecutiveIdleDays 1 / 2-day cap / ' +
             'one $50-at-1:2 slot per day: with minTradingDays 0, idling is ' +
             'a free, guaranteed pass (profit stays 0 >= profitTarget 0) ' +
-            'whenever nothing else forces a trade — proven directly below ' +
+            'whenever nothing else forces a trade, proven directly below ' +
             'by clearing maxConsecutiveIdleDays to null on the identical ' +
             'config (V=1, decided at the very first day close, no need to ' +
             'reach the 2-day cap at all). But maxConsecutiveIdleDays=1 ' +
             'busts on the very first idle day, so the real engine is ' +
-            'forced to trade day 1 instead: hand backward induction — day1 ' +
+            'forced to trade day 1 instead: hand backward induction, day1 ' +
             'win (p=0.5, profit +$100, EodTrailingDrawdown ratchets ' +
             'threshold 900->1000) passes immediately (profit 100 >= 0, ' +
             'V=1); day1 loss (p=0.5, profit -$50, threshold stays 900, ' +
             'cushion 50) is not yet passing (profit -50 < 0) and, since ' +
             'idling day 2 would immediately bust too, is forced to trade ' +
-            'again — day2 win (profit 50 >= 0, V=1) or lose (balance 900 ' +
-            '== threshold 900, V=0), a coin flip — total V(initial) = ' +
+            'again, day2 win (profit 50 >= 0, V=1) or lose (balance 900 ' +
+            '== threshold 900, V=0), a coin flip, total V(initial) = ' +
             '0.5*1 + 0.5*(0.5*1 + 0.5*0) = 0.75, a real bust the old, ' +
             'idle-blind DP would have missed entirely (it would have ' +
             'reported the impossible-in-practice V=1). (This test used to ' +
             'set minTradingDays 2 instead of 0 and relied on the ' +
             'tradingDays-counts-every-calendar-day bug to make its own ' +
-            'idle-blind reference point read V=1 — fixing that bug (see ' +
+            'idle-blind reference point read V=1, fixing that bug (see ' +
             "the 'tradingDays DP state dimension' describe block) made " +
             'minTradingDays 2 force the same two trading days on its own, ' +
             'independent of maxConsecutiveIdleDays, collapsing both arms of ' +
@@ -544,11 +576,11 @@ describe('tradingDays DP state dimension', () => {
     it(
         'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
             '1 / maxConsecutiveIdleDays null / 1-day cap / one $50-at-1:2 ' +
-            "slot: pins tradingDays to simulator/day.ts's real semantics — " +
+            "slot: pins tradingDays to simulator/day.ts's real semantics, " +
             '`state.tradingDays += 1` only `if (isTraded)` (day.ts:186-189), ' +
             'never unconditionally per calendar day. Idling day 0 reaches ' +
             'the 1-day cap having traded zero real days, so tradingDays ' +
-            'stays 0 and minTradingDays 1 is never satisfied — V(idle ' +
+            'stays 0 and minTradingDays 1 is never satisfied, V(idle ' +
             'branch) = 0 (times out, does not pass), even though profit is ' +
             'a trivially-passing 0 and one full calendar day elapsed. The ' +
             'prior bug (`state.tradingDays = day + 1` unconditionally, ' +
@@ -558,7 +590,7 @@ describe('tradingDays DP state dimension', () => {
             "risks the plan's $100 drawdown for a real shot at passing: " +
             'win reaches profit 100 with tradingDays 1, passing ' +
             'immediately (V=1); lose reaches profit -50, fails the profit ' +
-            'target, and the 1-day cap times out (V=0) — so trading is ' +
+            'target, and the 1-day cap times out (V=0), so trading is ' +
             "worth exactly the winrate (0.5), strictly beating idling's 0, " +
             'and the DP must correctly prefer it over the free-looking, ' +
             'actually-dead-end idle action',
@@ -585,10 +617,10 @@ describe('tradingDays DP state dimension', () => {
             'any real trade ever happens), confirming the 0.5 result above ' +
             'comes specifically from the minTradingDays gate rejecting an ' +
             'idle-only day, not from some other difference in this config, ' +
-            'and that the new tradingDays dimension is a true no-op — ' +
+            'and that the new tradingDays dimension is a true no-op, ' +
             'exactly the "collapses to a smaller/no-op range once the cap ' +
             'is reached" pattern already used for idleDays and ' +
-            "payoutRegimeCap — whenever a plan doesn't set minTradingDays",
+            "payoutRegimeCap, whenever a plan doesn't set minTradingDays",
         () => {
             const plan = toyPlan(0).withOverrides({
                 maxConsecutiveIdleDays: undefined,
@@ -610,7 +642,7 @@ describe('elapsedDays DP state dimension', () => {
         'accountSize 1000 / drawdown 100 / profitTarget 0 / minTradingDays ' +
             '1 / maxConsecutiveIdleDays 3 / 2-day cap / one $50-at-1:2 ' +
             "slot: computeRisk's within-day lookup must key off real " +
-            'elapsed calendar days, not off state.tradingDays — the two ' +
+            'elapsed calendar days, not off state.tradingDays, the two ' +
             'diverge the moment a real day passes without a trade (e.g. an ' +
             'idle day forced externally by idleDayProbability, independent ' +
             "of what this day's own policy would have recommended). A " +
@@ -621,8 +653,8 @@ describe('elapsedDays DP state dimension', () => {
             'day left before the 2-day cap and minTradingDays 1 still ' +
             'unmet, idling again guarantees a timeout, exactly the ' +
             "reasoning the 'tradingDays DP state dimension' block above " +
-            'proves for day 0 itself. The bug this pins — computeRisk ' +
-            'substituting state.tradingDays for elapsed days — would ' +
+            'proves for day 0 itself. The bug this pins, computeRisk ' +
+            'substituting state.tradingDays for elapsed days, would ' +
             'instead build a day=0/idleDays=1 lookup key that the backward ' +
             'induction never populates (day 0 only ever has idleDays 0), ' +
             'silently falling back to a phantom "skip" recommendation (0) ' +
@@ -718,4 +750,133 @@ describe('dayCost DP dimension', () => {
             expect(risk).toBe(100);
         },
     );
+});
+
+describe('computeEvalStateValue caps risk at the eval daily loss limit headroom (N-9)', () => {
+    it('never sizes the next trade above the headroom left today', () => {
+        const plan = toyPlan(150).withOverrides({
+            evalDailyLossLimit: {
+                amount: dollars(60),
+                kind: DailyLossLimitKind.Flat,
+            },
+        });
+        const result = computeEvalStateValue({
+            actionStepDollars: 25,
+            cushionStepDollars: 25,
+            maxActionDollars: 100,
+            maxEvalDays: 1,
+            plan,
+            profitStepDollars: 25,
+            rrRatio: 4,
+            tradesPerDay: 2,
+            winrate: fraction(0.5),
+        });
+        const state = plan.initialState();
+        state.balance = 975;
+        state.todayPnL = -25;
+        const risk = result.dayPolicy.computeRisk?.(state, 1) ?? 0;
+        expect(risk).toBeLessThanOrEqual(35 + 1e-9);
+    });
+});
+
+describe('computeEvalStateValue tracks the peak session close for a peak-based eval daily loss limit (N-8)', () => {
+    it('keeps the higher tier after a losing day instead of falling back to the lowest tier', () => {
+        const plan = toyPlan(150).withOverrides({
+            evalDailyLossLimit: {
+                kind: DailyLossLimitKind.Tiered,
+                tierBasis: TierBasis.PeakSessionCloseProfit,
+                tiers: [
+                    {
+                        dailyLossLimit: dollars(30),
+                        maxContracts: contracts(1),
+                        minProfit: 0,
+                    },
+                    {
+                        dailyLossLimit: dollars(1000),
+                        maxContracts: contracts(1),
+                        minProfit: 100,
+                    },
+                ],
+            },
+        });
+        expect(isEvalDpEligible(plan)).toBe(true);
+        const result = computeEvalStateValue({
+            actionStepDollars: 25,
+            cushionStepDollars: 25,
+            maxActionDollars: 100,
+            maxEvalDays: 4,
+            plan,
+            profitStepDollars: 25,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: fraction(0.5),
+        });
+        const state = createInitialState(1000, 1000);
+        state.balance = 1050;
+        state.elapsedDays = 3;
+        state.peakDayCloseProfit = 100;
+        state.tradingDays = 3;
+        expect(result.dayPolicy.computeRisk?.(state, 0)).toBe(50);
+    });
+
+    it('values a terminating limit that tightens once the peak close reaches its tier at the hand-solved 0.375 and agrees with simulate()', () => {
+        const plan = toyPlan(150).withOverrides({
+            evalDailyLossLimit: {
+                kind: DailyLossLimitKind.Tiered,
+                tierBasis: TierBasis.PeakSessionCloseProfit,
+                tiers: [
+                    {
+                        dailyLossLimit: dollars(1000),
+                        maxContracts: contracts(1),
+                        minProfit: 0,
+                    },
+                    {
+                        dailyLossLimit: dollars(40),
+                        maxContracts: contracts(1),
+                        minProfit: 100,
+                    },
+                ],
+            },
+            evalDailyLossLimitBreach: DailyLossLimitBreachEffect.Terminate,
+        });
+        expect(isEvalDpEligible(plan)).toBe(true);
+        const dp = computeEvalStateValue({
+            actionStepDollars: 50,
+            cushionStepDollars: 10,
+            maxActionDollars: 50,
+            maxEvalDays: 3,
+            plan,
+            profitStepDollars: 10,
+            rrRatio: 2,
+            tradesPerDay: 1,
+            winrate: fraction(0.5),
+        });
+        const out = simulate({
+            evalDayPolicy: dp.dayPolicy,
+            fundedHorizonDays: 1,
+            maxEvalDays: 3,
+            plan,
+            riskPerTrade: 50,
+            rrRatio: 2,
+            seed: 42,
+            tradesPerDay: 1,
+            trials: 20_000,
+            winrate: 0.5,
+        });
+        expect(dp.initialValue).toBeCloseTo(0.375, 9);
+        expect(out.evalPassProbability).toBeCloseTo(dp.initialValue, 1);
+    });
+});
+
+describe('computeEvalStateValue error messages use no em dash (WP21b handoff)', () => {
+    it('explains a sequence-dependent stop rule without an em dash', () => {
+        expect(() =>
+            computeEvalStateValue({
+                ...toyDpConfig(toyPlan(150), 1, 50),
+                stopRule: { k: 2, kind: DayStopRuleKind.AfterKLosses },
+            }),
+        ).toThrow(
+            /\(none\/day-green\/after-target\): "after-k-losses" depends/,
+        );
+    });
 });

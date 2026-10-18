@@ -6,6 +6,21 @@ import type { RateProvider } from '~/lib/accounting/rates/provider';
 
 import { EUR_CODE } from '~/lib/accounting/core/currency';
 
+const CENTS_PER_UNIT = 100;
+
+const EUR_AMOUNT_FORMAT = new Intl.NumberFormat('en-US', {
+    currency: 'EUR',
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    style: 'currency',
+});
+
+const EUR_WHOLE_FORMAT = new Intl.NumberFormat('en-US', {
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+    style: 'currency',
+});
+
 export interface ConvertedAmount {
     eur: Eur | null;
     note: string;
@@ -17,8 +32,14 @@ export interface CurrencyAmount {
 }
 
 export type Eur = Dinero<number, 'EUR'>;
+
+export function toCents(amount: number): number {
+    return Math.round(amount * CENTS_PER_UNIT);
+}
 export const Eur = {
     add: (a: Eur, b: Eur): Eur => add(a, b),
+    format: (amount: number): string => EUR_AMOUNT_FORMAT.format(amount),
+    formatWhole: (amount: number): string => EUR_WHOLE_FORMAT.format(amount),
     fromNumber: (n: number): Eur =>
         dinero({ amount: Math.round(n * 10 ** EUR.exponent), currency: EUR }),
     toNumber: (value: Eur): number => Number(toDecimal(value)),

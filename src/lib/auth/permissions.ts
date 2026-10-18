@@ -1,6 +1,8 @@
 import { createAccessControl } from 'better-auth/plugins/access';
 import { adminAc, defaultStatements } from 'better-auth/plugins/admin/access';
 
+import { ROLE } from '~/lib/auth/roles';
+
 const statement = {
     ...defaultStatements,
 } as const;
@@ -25,3 +27,10 @@ export const roles = {
     root: rootRole,
     user: userRole,
 } as const;
+
+export const adminPluginOptions = {
+    ac,
+    adminRoles: [ROLE.ADMIN, ROLE.ROOT],
+    defaultRole: ROLE.USER,
+    roles,
+};

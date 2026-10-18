@@ -1,14 +1,19 @@
 'use client';
 
-import { format, parseISO } from 'date-fns';
 import { useMemo } from 'react';
-import { type DateRange } from 'react-day-picker';
 
+import {
+    MENTAL_FLAG_LABEL,
+    MENTAL_FLAGS,
+    type MentalFlag,
+    OUTCOME_LABEL,
+} from '~/app/(app)/trade-checklist/_components/AssessmentBadges';
 import Eyebrow from '~/components/Eyebrow';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DateRangePicker } from '~/components/ui/DatePicker';
-import { Input } from '~/components/ui/Input';
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/ToggleGroup';
+import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
+import { FilterIsoDateRange } from '~/components/ui/filter-iso-date-range';
+import { Input } from '~/components/ui/input';
+import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group';
 import { OUTCOME_VALUES, SETUP_TYPE_VALUES } from '~/lib/trading/types';
 import { cn } from '~/lib/utilities';
 
@@ -16,9 +21,7 @@ export interface JournalFilterState {
     dateFrom: null | string;
     dateTo: null | string;
     grades: string[];
-    mentalFlags: (
-        'boredomHunt' | 'distracted' | 'hesitation' | 'revengeOrFomo'
-    )[];
+    mentalFlags: MentalFlag[];
     outcomes: string[];
     planIds: string[];
     query: null | string;
@@ -41,16 +44,10 @@ const GRADES = [
     'F',
 ] as const;
 
-const MENTAL_FLAG_OPTIONS: {
-    key: JournalFilterState['mentalFlags'][number];
-    label: string;
-}[] = [
-    { key: 'hesitation', label: 'Hesitation' },
-    { key: 'distracted', label: 'Distracted' },
-    { key: 'revengeOrFomo', label: 'Revenge/FOMO' },
-    { key: 'boredomHunt', label: 'Boredom' },
-];
-
+const MENTAL_FLAG_OPTIONS = MENTAL_FLAGS.map((key) => ({
+    key,
+    label: MENTAL_FLAG_LABEL[key],
+}));
 interface ChipRowProperties<T extends string> {
     label: string;
     onChange: (v: T[]) => void;
@@ -85,15 +82,6 @@ export function JournalFilters({
 
     const planOptions = plans.map((p) => ({ key: p.id, label: p.name }));
 
-    const dateRange: DateRange | undefined = useMemo(() => {
-        return !state.dateFrom && !state.dateTo
-            ? undefined
-            : {
-                  from: state.dateFrom ? parseISO(state.dateFrom) : undefined,
-                  ...(state.dateTo && { to: parseISO(state.dateTo) }),
-              };
-    }, [state.dateFrom, state.dateTo]);
-
     const hasAny =
         state.grades.length > 0 ||
         state.outcomes.length > 0 ||
@@ -113,8 +101,23 @@ export function JournalFilters({
                 'flex flex-col gap-4 rounded-lg border border-border/40 bg-card/60 p-4',
             )}
         >
-            <div className="grid items-center gap-3 md:grid-cols-[1fr_auto]">
+            <div className="flex flex-wrap items-center gap-2">
+                <FilterIsoDateRange
+                    label="Journal date"
+                    onChange={(range) =>
+                        onChange({
+                            ...state,
+                            dateFrom: range.from,
+                            dateTo: range.to,
+                            singleDate: null,
+                        })
+                    }
+                    placeholder="Filter by date"
+                    value={{ from: state.dateFrom, to: state.dateTo }}
+                />
                 <Input
+                    aria-label="Search notes"
+                    className={SEARCH_FIELD_CLASS}
                     onChange={(event) =>
                         onChange({
                             ...state,
@@ -124,22 +127,7 @@ export function JournalFilters({
                     placeholder="Search notes…"
                     value={state.query ?? ''}
                 />
-                <DateRangePicker
-                    onChange={(range) =>
-                        onChange({
-                            ...state,
-                            dateFrom: range?.from
-                                ? format(range.from, 'yyyy-MM-dd')
-                                : null,
-                            dateTo: range?.to
-                                ? format(range.to, 'yyyy-MM-dd')
-                                : null,
-                            singleDate: null,
-                        })
-                    }
-                    placeholder="Filter by date"
-                    value={dateRange}
-                />
+                <ClearFiltersButton active={hasAny} onReset={onClear} />
             </div>
 
             <ChipRow
@@ -154,10 +142,7 @@ export function JournalFilters({
                 onChange={(outcomes) => onChange({ ...state, outcomes })}
                 options={OUTCOME_VALUES.map((o) => ({
                     key: o,
-                    label:
-                        o === 'no-trade'
-                            ? 'Skipped'
-                            : o.charAt(0).toUpperCase() + o.slice(1),
+                    label: OUTCOME_LABEL[o],
                 }))}
                 selected={state.outcomes}
             />
@@ -196,8 +181,6 @@ export function JournalFilters({
                     selected={state.planIds}
                 />
             )}
-
-            <ClearFiltersButton active={hasAny} onReset={onClear} />
         </div>
     );
 }

@@ -3,8 +3,7 @@ import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { RecordingCreatedEmail } from '~/lib/email';
-import { fanOutEvent } from '~/lib/notify';
-import { captureError } from '~/lib/observability/logger';
+import { scheduleFanOut } from '~/lib/notify';
 import { recordingRenameSchema } from '~/lib/schemas/sensor-hub';
 import {
     adminProcedure,
@@ -101,7 +100,7 @@ export const recordingsRouter = createTRPCRouter({
             const { durationSeconds } = applyAudioFilters(buffer);
             if (durationSeconds === null) {
                 throw new Error(
-                    'Could not read WAV header — file may be corrupted or not a PCM WAV.',
+                    'Could not read WAV header; the file may be corrupted or not a PCM WAV.',
                 );
             }
             const fileName = input.fileName ?? getRecordingFileName(new Date());
@@ -128,12 +127,15 @@ export const recordingsRouter = createTRPCRouter({
                 };
             }
 
+            const { buffer: file, durationSeconds } = applyAudioFilters(
+                input.recording,
+            );
             const fileName = getRecordingFileName(new Date());
 
             const q = ctx.db.insert(recording).values({
                 device_id: ctx.device.id,
-                duration_seconds: input.duration_seconds,
-                file: input.recording,
+                duration_seconds: durationSeconds,
+                file,
                 file_name: fileName,
                 location_id: ctx.device.location_id,
             });
@@ -145,22 +147,17 @@ export const recordingsRouter = createTRPCRouter({
                 .where(eq(location.id, ctx.device.location_id))
                 .limit(1);
 
-            void (async () => {
-                try {
-                    await fanOutEvent(
-                        'recording_created',
-                        (to) =>
-                            new RecordingCreatedEmail(to, {
-                                deviceName: ctx.device.name,
-                                durationSeconds: input.duration_seconds,
-                                fileName,
-                                locationName: loc?.name ?? null,
-                            }),
-                    );
-                } catch (error: unknown) {
-                    captureError(error, { tag: 'recording.notify' });
-                }
-            })();
+            scheduleFanOut(
+                'recording_created',
+                (to) =>
+                    new RecordingCreatedEmail(to, {
+                        deviceName: ctx.device.name,
+                        durationSeconds,
+                        fileName,
+                        locationName: loc?.name ?? undefined,
+                    }),
+                'recording.notify',
+            );
 
             return { status: 201 };
         }),
@@ -185,7 +182,7 @@ export const recordingsRouter = createTRPCRouter({
         }),
 
     getRecordings: publicProcedure.query(async ({ ctx }) => {
-        return (await ctx.db.query.recording.findMany({
+        const recordings = await ctx.db.query.recording.findMany({
             columns: {
                 created_at: true,
                 device_id: true,
@@ -193,7 +190,8 @@ export const recordingsRouter = createTRPCRouter({
                 id: true,
                 location_id: true,
             },
-        })) as Result<(typeof recording.$inferSelect)[]>;
+        });
+        return { data: recordings };
     }),
 
     getRecordingsNoFile: publicProcedure.query(async ({ ctx }) => {

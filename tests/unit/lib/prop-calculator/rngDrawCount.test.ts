@@ -10,6 +10,7 @@ import {
     MffuVariant,
     type Plan,
     type PlanId,
+    PolicySizing,
     RungSizing,
     scoreLadder,
 } from '~/lib/prop-calculator/core';
@@ -27,8 +28,8 @@ interface CountedRng {
     rng: Rng;
 }
 
-function countedRng(seed: number): CountedRng {
-    const inner = mulberry32(seed);
+function countedRng(): CountedRng {
+    const inner = mulberry32(42);
     let count = 0;
     return {
         draws: () => count,
@@ -59,7 +60,12 @@ const lucidPro = planFor({
     variant: LucidVariant.Pro,
 });
 
-const DAY_POLICY = flatDayPolicy(400, 2, { kind: DayStopRuleKind.None });
+const DAY_POLICY = flatDayPolicy(
+    400,
+    2,
+    { kind: DayStopRuleKind.None },
+    PolicySizing.ContractCapped,
+);
 
 const EVAL_OPTIONS = {
     commission: dollars(0),
@@ -75,7 +81,7 @@ const EVAL_OPTIONS = {
 
 describe('rng draw counts', () => {
     it('pins the eval-with-retries draw count', () => {
-        const counted = countedRng(42);
+        const counted = countedRng();
         runEvalWithRetries({
             ...EVAL_OPTIONS,
             plan: rapidEod,
@@ -86,12 +92,12 @@ describe('rng draw counts', () => {
     });
 
     it(
-        'pins a full eval-plus-funded draw count -- 142, not the pre-fix 118, ' +
+        'pins a full eval-plus-funded draw count of 142, not the pre-fix 118, ' +
             "now that LucidPro's own unconfirmed maxLifetimePayouts: 5 carryover " +
             'is removed and the 60-day funded horizon no longer concludes early ' +
             'after the 5th payout',
         () => {
-            const counted = countedRng(42);
+            const counted = countedRng();
             const retry = runEvalWithRetries({
                 ...EVAL_OPTIONS,
                 plan: lucidPro,
@@ -105,6 +111,7 @@ describe('rng draw counts', () => {
                 attempt: retry.attempt,
                 commission: dollars(0),
                 dayPolicy: DAY_POLICY,
+                discounts: undefined,
                 fundedHorizonDays: 60,
                 minRetainedCushion: dollars(2000),
                 payoutRequestSize: undefined,
@@ -120,7 +127,7 @@ describe('rng draw counts', () => {
     );
 
     it('pins the account-timeline draw count', () => {
-        const counted = countedRng(42);
+        const counted = countedRng();
         runAccountTimeline({
             dayBudget: 120,
             dayStop: { kind: DayStopRuleKind.None },
@@ -134,18 +141,19 @@ describe('rng draw counts', () => {
             tradesPerDay: 2,
             winrate: 0.5,
         });
-        expect(counted.draws()).toBe(261);
+        expect(counted.draws()).toBe(267);
     });
 
     it('pins the ladder-score draw count', () => {
-        const counted = countedRng(42);
+        const counted = countedRng();
         scoreLadder(
             [400, 600, 800, 200],
             {
+                commission: 0,
                 cushion: 2000,
-                evalPrice: 209,
                 maxDays: 60,
                 plan: rapidEod,
+                positionSizing: null,
                 rrRatio: 2,
                 rungSizing: RungSizing.CapToCushion,
                 seedOffset: 0,
@@ -153,7 +161,7 @@ describe('rng draw counts', () => {
                 stopRule: { kind: DayStopRuleKind.DayGreen },
                 winrate: 0.5,
             },
-            counted.rng,
+            () => counted.rng,
         );
         expect(counted.draws()).toBe(2090);
     });

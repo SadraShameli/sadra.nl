@@ -19,33 +19,19 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import { Progress } from '~/components/ui/Progress';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
-import { Skeleton } from '~/components/ui/Skeleton';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
+import { FilterSelect } from '~/components/ui/filter-select';
+import { Input } from '~/components/ui/input';
+import { Progress } from '~/components/ui/progress';
+import { Skeleton } from '~/components/ui/skeleton';
+import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import {
     PROGRAM_CATEGORY_VALUES,
     type ProgramBlock,
@@ -54,6 +40,7 @@ import {
     type UserProgramStatus,
 } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
+import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 type Enrollment =
@@ -84,8 +71,14 @@ const STATUS_VARIANT: Record<
     paused: 'warning',
 };
 
-export function ProgramsLibrary() {
-    const official = api.lifting.program.listOfficial.useQuery();
+export function ProgramsLibrary({
+    officialPrograms,
+}: {
+    readonly officialPrograms: OfficialProgram[];
+}) {
+    const official = api.lifting.program.listOfficial.useQuery(undefined, {
+        initialData: officialPrograms,
+    });
     const mine = api.lifting.program.listMine.useQuery();
 
     const [search, setSearch] = useState('');
@@ -115,7 +108,7 @@ export function ProgramsLibrary() {
 
     const programsById = useMemo(() => {
         const map = new Map<string, ProgramReference>();
-        const officialPrograms = official.data ?? [];
+        const officialPrograms = official.data;
         const ownedPrograms = mine.data?.owned ?? [];
         for (const p of officialPrograms) map.set(p.id, p);
         for (const p of ownedPrograms) map.set(p.id, p);
@@ -123,7 +116,7 @@ export function ProgramsLibrary() {
     }, [official.data, mine.data?.owned]);
 
     const filtered = useMemo(() => {
-        const rows = official.data ?? [];
+        const rows = official.data;
         const q = debouncedSearch.trim().toLowerCase();
         const out = rows.filter((p) => {
             if (
@@ -156,11 +149,11 @@ export function ProgramsLibrary() {
     );
 
     const isFiltersActive =
-        debouncedSearch.length > 0 || category !== 'all' || days !== 'all';
+        search.length > 0 || category !== 'all' || days !== 'all';
 
     const totalEnrollments = mine.data?.enrollments.length ?? 0;
     const ownedCount = mine.data?.owned.length ?? 0;
-    const officialCount = official.data?.length ?? 0;
+    const officialCount = official.data.length;
 
     return (
         <div className="flex flex-col gap-6">
@@ -181,41 +174,10 @@ export function ProgramsLibrary() {
                 <Skeleton className="h-40 w-full rounded-2xl" />
             ) : (
                 activeEnrollments.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                                Active
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                                {activeEnrollments.map((enrollment) => (
-                                    <ActiveEnrollmentCard
-                                        enrollment={enrollment}
-                                        key={enrollment.id}
-                                        program={programsById.get(
-                                            enrollment.programId,
-                                        )}
-                                    />
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )
-            )}
-
-            {(otherEnrollments.length > 0 ||
-                (mine.data?.owned.length ?? 0) > 0) && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                            Your library
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {otherEnrollments.map((enrollment) => (
-                                <EnrollmentCard
+                    <ToolPanel title="Active">
+                        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                            {activeEnrollments.map((enrollment) => (
+                                <ActiveEnrollmentCard
                                     enrollment={enrollment}
                                     key={enrollment.id}
                                     program={programsById.get(
@@ -223,107 +185,92 @@ export function ProgramsLibrary() {
                                     )}
                                 />
                             ))}
-                            {mine.data?.owned.map((p) => (
-                                <OwnedProgramCard key={p.id} program={p} />
-                            ))}
                         </div>
-                    </CardContent>
-                </Card>
+                    </ToolPanel>
+                )
             )}
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex flex-wrap items-baseline justify-between gap-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        <span>Browse programs</span>
-                        {official.data && (
-                            <span className="text-[10px] font-normal tabular-nums">
-                                {filtered.length} of {official.data.length}
-                            </span>
-                        )}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Search</Label>
-                            <div className="relative">
-                                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    className="pl-8"
-                                    onChange={(event) =>
-                                        setSearch(event.target.value)
-                                    }
-                                    placeholder="Search programs"
-                                    value={search}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Category</Label>
-                            <Select
-                                onValueChange={(v) =>
-                                    setCategory(v as 'all' | ProgramCategory)
-                                }
-                                value={category}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        All categories
-                                    </SelectItem>
-                                    {PROGRAM_CATEGORY_VALUES.map((c) => (
-                                        <SelectItem key={c} value={c}>
-                                            <span className="capitalize">
-                                                {c}
-                                            </span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Frequency</Label>
-                            <Select
-                                onValueChange={(v) => setDays(v as DaysFilter)}
-                                value={days}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        Any frequency
-                                    </SelectItem>
-                                    {DAYS_FILTER_VALUES.filter(
-                                        (d) => d !== 'all',
-                                    ).map((d) => (
-                                        <SelectItem key={d} value={d}>
-                                            {d}× / week
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Sort</Label>
-                            <Select
-                                onValueChange={(v) => setSort(v as SortKey)}
-                                value={sort}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SORT_VALUES.map((s) => (
-                                        <SelectItem key={s} value={s}>
-                                            {SORT_LABEL[s]}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+            {(otherEnrollments.length > 0 ||
+                (mine.data?.owned.length ?? 0) > 0) && (
+                <ToolPanel title="Your library">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {otherEnrollments.map((enrollment) => (
+                            <EnrollmentCard
+                                enrollment={enrollment}
+                                key={enrollment.id}
+                                program={programsById.get(enrollment.programId)}
+                            />
+                        ))}
+                        {mine.data?.owned.map((p) => (
+                            <OwnedProgramCard key={p.id} program={p} />
+                        ))}
+                    </div>
+                </ToolPanel>
+            )}
+
+            <ToolPanel
+                contentClassName="gap-4"
+                description={
+                    <span className="tabular-nums">
+                        {filtered.length} of {officialCount} programs
+                    </span>
+                }
+                title="Browse programs"
+            >
+                <div className="flex flex-wrap items-center gap-2">
+                    <FilterSelect
+                        label="Category"
+                        onValueChange={(v) =>
+                            setCategory(
+                                PROGRAM_CATEGORY_VALUES.find((c) => c === v) ??
+                                    'all',
+                            )
+                        }
+                        options={PROGRAM_CATEGORY_VALUES.map((c) => ({
+                            label: <span className="capitalize">{c}</span>,
+                            value: c,
+                        }))}
+                        placeholder="All categories"
+                        value={category === 'all' ? undefined : category}
+                    />
+                    <FilterSelect
+                        label="Frequency"
+                        onValueChange={(v) =>
+                            setDays(
+                                DAYS_FILTER_VALUES.find((d) => d === v) ??
+                                    'all',
+                            )
+                        }
+                        options={DAYS_FILTER_VALUES.filter(
+                            (d) => d !== 'all',
+                        ).map((d) => ({
+                            label: `${d}× / week`,
+                            value: d,
+                        }))}
+                        placeholder="Any frequency"
+                        value={days === 'all' ? undefined : days}
+                    />
+                    <ToolbarSelect
+                        label="Sort"
+                        onValueChange={(v) => {
+                            const next = SORT_VALUES.find((key) => key === v);
+                            if (next) setSort(next);
+                        }}
+                        options={SORT_VALUES.map((key) => ({
+                            label: SORT_LABEL[key],
+                            value: key,
+                        }))}
+                        value={sort}
+                    />
+                    <div className="relative w-fit">
+                        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-3.5 -translate-y-1/2 text-ink-muted" />
+                        <Input
+                            aria-label="Search programs"
+                            className={cn(SEARCH_FIELD_CLASS, 'pl-9')}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search programs"
+                            value={search}
+                        />
                     </div>
                     <ClearFiltersButton
                         active={isFiltersActive}
@@ -333,44 +280,33 @@ export function ProgramsLibrary() {
                             setDays('all');
                         }}
                     />
+                </div>
 
-                    {official.isLoading && (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {Array.from({ length: 6 }, (_, index) => (
-                                <Skeleton
-                                    className="h-36 w-full rounded-2xl"
-                                    key={index}
-                                />
-                            ))}
-                        </div>
-                    )}
+                {filtered.length === 0 && (
+                    <EmptyState
+                        description={
+                            isFiltersActive
+                                ? 'Try clearing some filters.'
+                                : 'No programs available yet.'
+                        }
+                        icon={Search}
+                        title="No programs match"
+                    />
+                )}
 
-                    {!official.isLoading && filtered.length === 0 && (
-                        <EmptyState
-                            description={
-                                isFiltersActive
-                                    ? 'Try clearing some filters.'
-                                    : 'No programs available yet.'
-                            }
-                            icon={Search}
-                            title="No programs match"
-                        />
-                    )}
-
-                    {!official.isLoading && filtered.length > 0 && (
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-                            {filtered.map((p) => (
-                                <OfficialProgramCard
-                                    enrolled={enrolledProgramIds.has(p.id)}
-                                    inLibrary={ownedNames.has(p.name)}
-                                    key={p.id}
-                                    program={p}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                {filtered.length > 0 && (
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {filtered.map((p) => (
+                            <OfficialProgramCard
+                                enrolled={enrolledProgramIds.has(p.id)}
+                                inLibrary={ownedNames.has(p.name)}
+                                key={p.id}
+                                program={p}
+                            />
+                        ))}
+                    </div>
+                )}
+            </ToolPanel>
         </div>
     );
 }
@@ -393,7 +329,12 @@ function ActiveEnrollmentCard({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Advanced to next day.');
-            await invalidate();
+            await Promise.all([
+                invalidate(),
+                utilities.lifting.program.nextDay.invalidate({
+                    id: enrollment.id,
+                }),
+            ]);
         },
     });
 
@@ -442,7 +383,7 @@ function ActiveEnrollmentCard({
                         </h3>
                         <p className="text-xs text-muted-foreground tabular-nums">
                             Week {enrollment.currentWeek} of{' '}
-                            {program?.lengthWeeks ?? '—'} · Day{' '}
+                            {program?.lengthWeeks ?? '-'} · Day{' '}
                             {enrollment.currentDay}
                         </p>
                     </div>
@@ -471,18 +412,21 @@ function ActiveEnrollmentCard({
                     <Progress value={pct} />
                 </div>
 
-                <button
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                <Button
+                    aria-expanded={previewOpen}
+                    className="self-start"
                     onClick={() => setPreviewOpen((o) => !o)}
+                    size="sm"
                     type="button"
+                    variant="ghost"
                 >
                     {previewOpen ? (
-                        <ChevronUp className="size-3.5" />
+                        <ChevronUp data-icon="inline-start" />
                     ) : (
-                        <ChevronDown className="size-3.5" />
+                        <ChevronDown data-icon="inline-start" />
                     )}
                     {previewOpen ? 'Hide' : 'Preview'} upcoming session
-                </button>
+                </Button>
 
                 {previewOpen && (
                     <div className="rounded-md border border-border/50 bg-muted/20 p-3">
@@ -546,39 +490,21 @@ function ActiveEnrollmentCard({
                     >
                         <Pause className="size-3.5" /> Pause
                     </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button
-                                className="ml-auto gap-1.5 text-destructive"
-                                size="sm"
-                                type="button"
-                                variant="ghost"
-                            >
-                                <Trash2 className="size-3.5" /> Unenroll
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Unenroll from {program?.name ?? 'program'}?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Your progress for this enrollment will be
-                                    removed. You can re-enroll later.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() =>
-                                        unenroll.mutate({ id: enrollment.id })
-                                    }
-                                >
-                                    Unenroll
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <ConfirmDialog
+                        confirmLabel="Unenroll"
+                        description="Your progress for this enrollment will be removed. You can re-enroll later."
+                        onConfirm={() => unenroll.mutate({ id: enrollment.id })}
+                        title={<>Unenroll from {program?.name ?? 'program'}?</>}
+                    >
+                        <Button
+                            className="ml-auto gap-1.5 text-destructive"
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                        >
+                            <Trash2 className="size-3.5" /> Unenroll
+                        </Button>
+                    </ConfirmDialog>
                 </div>
             </CardContent>
         </Card>
@@ -643,7 +569,7 @@ function EnrollmentCard({
                     </span>
                 </div>
                 <h3 className="text-sm font-semibold">
-                    {program?.name ?? '—'}
+                    {program?.name ?? '-'}
                 </h3>
                 <Progress className="h-1.5" value={pct} />
                 <div className="flex flex-wrap gap-2">
@@ -678,10 +604,11 @@ function EnrollmentCard({
                         </Button>
                     )}
                     <Button
-                        className="ml-auto gap-1.5 text-destructive"
+                        aria-label="Unenroll"
+                        className="ml-auto text-destructive"
                         disabled={unenroll.isPending}
                         onClick={() => unenroll.mutate({ id: enrollment.id })}
-                        size="sm"
+                        size="icon-sm"
                         type="button"
                         variant="ghost"
                     >
@@ -779,39 +706,21 @@ function OwnedProgramCard({ program }: { program: OwnedProgram }) {
                             <Pencil className="size-3.5" /> Open
                         </Link>
                     </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button
-                                className="ml-auto gap-1.5 text-destructive"
-                                size="sm"
-                                type="button"
-                                variant="ghost"
-                            >
-                                <Trash2 className="size-3.5" /> Delete
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Delete {program.name}?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This is a custom program. Deleting it
-                                    removes the program and any enrollments.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() =>
-                                        remove.mutate({ id: program.id })
-                                    }
-                                >
-                                    Delete
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                    <ConfirmDialog
+                        confirmLabel="Delete"
+                        description="This is a custom program. Deleting it removes the program and any enrollments."
+                        onConfirm={() => remove.mutate({ id: program.id })}
+                        title={<>Delete {program.name}?</>}
+                    >
+                        <Button
+                            className="ml-auto gap-1.5 text-destructive"
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                        >
+                            <Trash2 className="size-3.5" /> Delete
+                        </Button>
+                    </ConfirmDialog>
                 </div>
             </CardContent>
         </Card>

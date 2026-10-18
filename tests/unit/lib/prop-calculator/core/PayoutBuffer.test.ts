@@ -5,10 +5,7 @@ import {
     FundedNextVariant,
     MffuVariant,
 } from '~/lib/prop-calculator/core';
-import {
-    newFundedCycleTracker,
-    tryFundedPayout,
-} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { newFundedCycleTracker } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { FundedNext } from '~/lib/prop-calculator/firms/fundednext/FundedNext';
 import { MyFundedFutures } from '~/lib/prop-calculator/firms/mffu/MyFundedFutures';
 
@@ -34,13 +31,12 @@ function laterCyclePayout(balance: number) {
     tracker.lastPayoutBalance = state.startingBalance;
     tracker.qualifyingDaysAtLastPayout = 0;
     tracker.payoutsIssued = 1;
-    return tryFundedPayout({
-        maxPayouts: Infinity,
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
         state,
-        tracker,
     });
 }
 
@@ -70,13 +66,12 @@ function requestPayout(balance: number) {
     const tracker = newFundedCycleTracker(state);
     tracker.lastPayoutBalance = state.startingBalance;
     tracker.qualifyingDaysAtLastPayout = 0;
-    return tryFundedPayout({
-        maxPayouts: Infinity,
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
         state,
-        tracker,
     });
 }
 
@@ -105,13 +100,12 @@ describe('FundedNext Rapid Daily buffer', () => {
         tracker.lastPayoutBalance = state.startingBalance;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        tryFundedPayout({
-            maxPayouts: Infinity,
+        tracker.recordSessionClose(state);
+        tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan,
             state,
-            tracker,
         });
 
         expect(state.balance).toBe(BUFFER_LEVEL);
@@ -122,11 +116,11 @@ describe('FundedNext Rapid Daily buffer', () => {
         expect(requestPayout(BUFFER_LEVEL)).toBeNull();
     });
 
-    it("requires $2,600 total cycle profit before the FIRST payout (buffer delta $2,100 + the live-documented '$500 above the buffer' rule), not the pre-fix $500", () => {
-        expect(requestPayout(50_000 + 2599)).toBeNull();
-        const payout = requestPayout(50_000 + 2600);
-        expect(payout?.debited).toBe(500);
-        expect(payout?.traderReceives).toBe(450);
+    it('requires the balance to sit $250 above the buffer before the FIRST payout (current article 17229779: EOD balance at or above the buffer, $500 of cycle profit, $250 minimum), not the superseded $2,600 reading of 15878210', () => {
+        expect(requestPayout(BUFFER_LEVEL + 249)).toBeNull();
+        const payout = requestPayout(BUFFER_LEVEL + 250);
+        expect(payout?.debited).toBe(250);
+        expect(payout?.traderReceives).toBe(225);
     });
 
     it('denies a payout on a later cycle (gated by minPayoutProfitPerCycle) when the room above the buffer is under the $250 minimum', () => {
@@ -187,13 +181,12 @@ function payoutAfterQualifyingDays(qualifyingDaysSincePayout: number) {
     const tracker = newFundedCycleTracker(state);
     tracker.lastPayoutBalance = state.startingBalance;
     tracker.qualifyingDaysAtLastPayout = 0;
-    return tryFundedPayout({
-        maxPayouts: Infinity,
+    tracker.recordSessionClose(state);
+    return tracker.tryPayout({
         minRetainedCushion: 0,
         payoutRequestSize: undefined,
         plan,
         state,
-        tracker,
     });
 }
 
@@ -208,7 +201,7 @@ describe("FundedNext Rapid Pro payout cadence (live-verified: 'every 3 days', di
 
     it(
         'allows the payout once 3 qualifying days have passed, capped to $900 ' +
-            'rather than the full $1000 profit -- LockAtPlanFloor force-locks the ' +
+            'rather than the full $1000 profit: LockAtPlanFloor force-locks the ' +
             'threshold to $50,100 (startingBalance + RAPID_LOCK_OFFSET) as a ' +
             'result of this very payout, and the withdrawal must be sized ' +
             'against that post-lock floor, not the pre-lock $48,000 threshold, ' +

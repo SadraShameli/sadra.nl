@@ -1,42 +1,35 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-    Copy,
-    Cpu,
-    Key,
-    Pencil,
-    Plus,
-    ShieldOff,
-    Sliders,
-    Trash2,
-} from 'lucide-react';
+import { Copy, Cpu, Key, Pencil, Plus, ShieldOff, Sliders } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Checkbox } from '~/components/ui/Checkbox';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+    ProfileIdSelectField,
+    ProfileNumberField,
+    ProfileTextField,
+} from '~/app/(app)/profile/_components/ProfileFormFields';
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
+import {
+    MutedCell,
+    PrimaryCell,
+    profileActionsColumn,
+    ProfileTableEmpty,
+    RowActionButton,
+    RowConfirmAction,
+} from '~/app/(app)/profile/_components/ProfileTable';
+import { CheckboxCard } from '~/components/ToggleCard';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
+    hasActiveTableFilter,
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import {
     Dialog,
     DialogContent,
@@ -44,51 +37,20 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/dialog';
 import {
     type DeviceCreateInput,
     deviceCreateSchema,
-    deviceUpdateSchema,
 } from '~/lib/schemas/sensor-hub';
-import { api } from '~/trpc/react';
+import { api, type RouterOutputs } from '~/trpc/react';
 
-type DeviceRow = {
-    created_at: Date;
-    device_id: number;
-    id: number;
-    location_id: number;
-    loudness_threshold: number;
-    name: string;
-    register_interval: number;
-    token_created_at: Date | null;
-    token_hash: null | string;
-    token_revoked_at: Date | null;
-};
+type DeviceRow = RouterOutputs['device']['listAdmin'][number];
 
-type EditDeviceValues = {
-    location_id: number;
-    loudness_threshold: number;
-    name: string;
-    register_interval: number;
-};
+type LocationOption = { id: number; name: string };
+
+const DeviceColumn = {
+    Location: 'location',
+} as const;
 
 export function DevicesPanel() {
     const utilities = api.useUtils();
@@ -152,12 +114,8 @@ export function DevicesPanel() {
                 accessorKey: 'name',
                 cell: ({ row }) => (
                     <div className="flex flex-col">
-                        <span className="font-medium text-white">
-                            {row.original.name}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                            #{row.original.device_id}
-                        </span>
+                        <PrimaryCell>{row.original.name}</PrimaryCell>
+                        <MutedCell>#{row.original.device_id}</MutedCell>
                     </div>
                 ),
                 header: 'Device',
@@ -165,31 +123,24 @@ export function DevicesPanel() {
             {
                 accessorFn: (row) =>
                     locMap.get(row.location_id) ?? `loc#${row.location_id}`,
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {locMap.get(row.original.location_id) ??
-                            `loc#${row.original.location_id}`}
-                    </span>
+                cell: ({ getValue }) => (
+                    <MutedCell>{String(getValue())}</MutedCell>
                 ),
                 filterFn: DataTableFilterFunction.Equals,
                 header: 'Location',
-                id: 'location',
+                id: DeviceColumn.Location,
             },
             {
                 accessorKey: 'loudness_threshold',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.loudness_threshold}
-                    </span>
+                    <MutedCell>{row.original.loudness_threshold}</MutedCell>
                 ),
                 header: 'Loudness',
             },
             {
                 accessorKey: 'register_interval',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.register_interval}s
-                    </span>
+                    <MutedCell>{row.original.register_interval}s</MutedCell>
                 ),
                 header: 'Interval',
             },
@@ -198,191 +149,146 @@ export function DevicesPanel() {
                     const d = row.original;
                     if (d.token_revoked_at) {
                         return (
-                            <span className="text-xs text-destructive">
+                            <MutedCell className="text-destructive">
                                 revoked
-                            </span>
+                            </MutedCell>
                         );
                     }
-                    return d.token_hash && d.token_created_at ? (
-                        <span className="text-xs text-emerald-400">issued</span>
+                    return d.has_token && d.token_created_at ? (
+                        <MutedCell className="text-success">issued</MutedCell>
                     ) : (
-                        <span className="text-xs text-muted-foreground">
-                            none
-                        </span>
+                        <MutedCell>none</MutedCell>
                     );
                 },
                 header: 'Token',
                 id: 'token',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex justify-end gap-2">
-                        <Button
-                            disabled={
-                                issue.isPending &&
-                                issue.variables.id === row.original.id
-                            }
-                            onClick={() => {
-                                issue.mutate(
-                                    { id: row.original.id },
-                                    {
-                                        onSuccess: ({ token }) =>
-                                            setIssuedToken({
-                                                deviceName: row.original.name,
-                                                token,
-                                            }),
-                                    },
-                                );
-                            }}
-                            size="sm"
-                            title={
-                                row.original.token_hash
-                                    ? 'Rotate token'
-                                    : 'Issue token'
-                            }
-                            variant="outline"
-                        >
-                            <Key className="size-3.5" />
-                        </Button>
-                        {row.original.token_hash &&
-                            !row.original.token_revoked_at && (
-                                <Button
-                                    disabled={revoke.isPending}
-                                    onClick={() =>
-                                        revoke.mutate({ id: row.original.id })
-                                    }
-                                    size="sm"
-                                    title="Revoke token"
-                                    variant="outline"
-                                >
-                                    <ShieldOff className="size-3.5" />
-                                </Button>
-                            )}
-                        <Button
-                            onClick={() =>
-                                setManagingSensorsFor(row.original.id)
-                            }
-                            size="sm"
-                            title="Manage sensors"
-                            variant="outline"
-                        >
-                            <Sliders className="size-3.5" />
-                        </Button>
-                        <Button
-                            onClick={() => setEditing(row.original)}
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline">
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete device &ldquo;{row.original.name}
-                                        &rdquo;?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Fails if readings or recordings
-                                        reference this device.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            del.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            profileActionsColumn<DeviceRow>((device) => (
+                <>
+                    <RowActionButton
+                        disabled={
+                            issue.isPending && issue.variables.id === device.id
+                        }
+                        icon={Key}
+                        label={
+                            device.has_token ? 'Rotate token' : 'Issue token'
+                        }
+                        onClick={() =>
+                            issue.mutate(
+                                { id: device.id },
+                                {
+                                    onSuccess: ({ token }) =>
+                                        setIssuedToken({
+                                            deviceName: device.name,
+                                            token,
+                                        }),
+                                },
+                            )
+                        }
+                    />
+                    {device.has_token && !device.token_revoked_at && (
+                        <RowActionButton
+                            disabled={revoke.isPending}
+                            icon={ShieldOff}
+                            label="Revoke token"
+                            onClick={() => revoke.mutate({ id: device.id })}
+                        />
+                    )}
+                    <RowActionButton
+                        icon={Sliders}
+                        label="Manage sensors"
+                        onClick={() => setManagingSensorsFor(device.id)}
+                    />
+                    <RowActionButton
+                        icon={Pencil}
+                        label="Edit device"
+                        onClick={() => setEditing(device)}
+                    />
+                    <RowConfirmAction
+                        description="Fails if readings or recordings reference this device."
+                        label="Delete device"
+                        onConfirm={() => del.mutate({ id: device.id })}
+                        title={`Delete device “${device.name}”?`}
+                    />
+                </>
+            )),
         ],
         [del, issue, locMap, revoke],
     );
 
+    const newButton = (
+        <DialogTrigger asChild>
+            <Button size="sm">
+                <Plus className="size-4" />
+                New device
+            </Button>
+        </DialogTrigger>
+    );
+
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Devices</CardTitle>
-                <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                    <DialogTrigger asChild>
-                        <Button size="sm">
-                            <Plus className="mr-1 size-4" />
-                            New device
-                        </Button>
-                    </DialogTrigger>
-                    <NewDeviceDialog
-                        locations={locOptions}
-                        onClose={() => setNewOpen(false)}
-                        onSubmit={(v) =>
-                            create.mutate(v, {
-                                onSuccess: () => setNewOpen(false),
-                            })
-                        }
-                        pending={create.isPending}
-                    />
-                </Dialog>
-            </CardHeader>
-            <Separator />
-            <CardContent className="flex flex-col gap-3">
-                <DataTable
-                    columns={columns}
-                    data={allRows}
-                    emptyState={
-                        <EmptyState
-                            description="Register a sensor device to start collecting readings."
-                            icon={Cpu}
-                            title="No devices yet"
-                        />
-                    }
-                    headerActions={(table) => (
-                        <div className="flex w-full flex-wrap items-center gap-2">
-                            <ClearFiltersButton
-                                active={hasActiveColumnFilter(table)}
-                                onReset={() => table.resetColumnFilters()}
+        <>
+            <Dialog onOpenChange={setNewOpen} open={newOpen}>
+                <ProfilePanel
+                    action={newButton}
+                    description="Sensor boards, their tokens and the sensors they carry."
+                    title="Devices"
+                >
+                    <DataTable
+                        columns={columns}
+                        data={allRows}
+                        emptyState={(table) => (
+                            <ProfileTableEmpty
+                                action={newButton}
+                                description="Register a sensor device to start collecting readings."
+                                filtered={hasActiveTableFilter(table)}
+                                icon={Cpu}
+                                noun="devices"
                             />
+                        )}
+                        filterPlaceholder="Search devices…"
+                        headerActions={(table) => (
                             <DataTableFacetSelect
-                                className="w-40"
-                                column={table.getColumn('location')}
+                                column={table.getColumn(DeviceColumn.Location)}
+                                label="Location"
                                 placeholder="All locations"
                             />
-                        </div>
-                    )}
-                    isLoading={devices.isLoading}
-                    rowId={(r) => String(r.id)}
-                    showFilter
+                        )}
+                        isLoading={devices.isLoading}
+                        rowId={(r) => String(r.id)}
+                        showFilter
+                    />
+                </ProfilePanel>
+                <DeviceDialog
+                    initial={null}
+                    locations={locOptions}
+                    onClose={() => setNewOpen(false)}
+                    onSubmit={(v) =>
+                        create.mutate(v, {
+                            onSuccess: () => setNewOpen(false),
+                        })
+                    }
+                    pending={create.isPending}
                 />
-            </CardContent>
+            </Dialog>
 
             <Dialog
                 onOpenChange={(o) => !o && setEditing(null)}
                 open={editing !== null}
             >
                 {editing && (
-                    <EditDeviceDialog
+                    <DeviceDialog
                         initial={editing}
                         locations={locOptions}
                         onClose={() => setEditing(null)}
                         onSubmit={(v) =>
                             update.mutate(
-                                { ...v, id: editing.id },
+                                {
+                                    id: editing.id,
+                                    location_id: v.location_id,
+                                    loudness_threshold: v.loudness_threshold,
+                                    name: v.name,
+                                    register_interval: v.register_interval,
+                                },
                                 { onSuccess: () => setEditing(null) },
                             )
                         }
@@ -415,160 +321,70 @@ export function DevicesPanel() {
                     />
                 )}
             </Dialog>
-        </Card>
+        </>
     );
 }
 
-function EditDeviceDialog({
+function DeviceDialog({
     initial,
     locations,
     onClose,
     onSubmit,
     pending,
 }: {
-    initial: DeviceRow;
-    locations: { id: number; name: string }[];
+    initial: DeviceRow | null;
+    locations: readonly LocationOption[];
     onClose: () => void;
-    onSubmit: (v: EditDeviceValues) => void;
+    onSubmit: (v: DeviceCreateInput) => void;
     pending: boolean;
 }) {
-    const editSchema = deviceUpdateSchema.omit({ id: true });
-    const form = useForm<EditDeviceValues>({
+    const form = useForm<DeviceCreateInput>({
         defaultValues: {
-            location_id: initial.location_id,
-            loudness_threshold: initial.loudness_threshold,
-            name: initial.name,
-            register_interval: initial.register_interval,
+            device_id: initial?.device_id ?? 0,
+            location_id: initial?.location_id ?? locations[0]?.id ?? 0,
+            loudness_threshold: initial?.loudness_threshold ?? 0,
+            name: initial?.name ?? '',
+            register_interval: initial?.register_interval ?? 0,
         },
-        resolver: zodResolver(editSchema),
+        resolver: zodResolver(deviceCreateSchema),
     });
     return (
-        <DialogContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>Edit device</DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 flex flex-col gap-3">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Name</FormLabel>
-                                    <FormControl>
-                                        <Input {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="location_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Location</FormLabel>
-                                    <Select
-                                        onValueChange={(v) =>
-                                            field.onChange(Number(v))
-                                        }
-                                        value={String(field.value)}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {locations.map((l) => (
-                                                <SelectItem
-                                                    key={l.id}
-                                                    value={String(l.id)}
-                                                >
-                                                    {l.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="grid grid-cols-2 gap-3">
-                            <FormField
-                                control={form.control}
-                                name="loudness_threshold"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>
-                                            Loudness threshold
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                inputMode="numeric"
-                                                onChange={(event) => {
-                                                    const n = Number(
-                                                        event.target.value,
-                                                    );
-                                                    field.onChange(
-                                                        Number.isFinite(n)
-                                                            ? n
-                                                            : 0,
-                                                    );
-                                                }}
-                                                ref={field.ref}
-                                                step="1"
-                                                type="number"
-                                                value={field.value}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="register_interval"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Interval (s)</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                inputMode="numeric"
-                                                onChange={(event) => {
-                                                    const n = Number(
-                                                        event.target.value,
-                                                    );
-                                                    field.onChange(
-                                                        Number.isFinite(n)
-                                                            ? n
-                                                            : 0,
-                                                    );
-                                                }}
-                                                ref={field.ref}
-                                                step="1"
-                                                type="number"
-                                                value={field.value}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter className="mt-4">
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button disabled={pending} type="submit">
-                            Save
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
-        </DialogContent>
+        <ProfileFormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={onSubmit}
+            pending={pending}
+            submitLabel={initial ? 'Save' : 'Create'}
+            title={initial ? 'Edit device' : 'New device'}
+        >
+            <ProfileTextField control={form.control} label="Name" name="name" />
+            {initial === null && (
+                <ProfileNumberField
+                    control={form.control}
+                    label="Public device ID"
+                    name="device_id"
+                />
+            )}
+            <ProfileIdSelectField
+                control={form.control}
+                label="Location"
+                name="location_id"
+                options={locations.map((l) => ({ id: l.id, label: l.name }))}
+                placeholder="Pick a location"
+            />
+            <div className="grid grid-cols-2 gap-3">
+                <ProfileNumberField
+                    control={form.control}
+                    label="Loudness threshold"
+                    name="loudness_threshold"
+                />
+                <ProfileNumberField
+                    control={form.control}
+                    label="Interval (s)"
+                    name="register_interval"
+                />
+            </div>
+        </ProfileFormDialog>
     );
 }
 
@@ -648,7 +464,10 @@ function ManageSensorsDialog({
         onError: (error) => toast.error(error.message),
         onSuccess: async () => {
             toast.success('Sensors updated.');
-            await utilities.device.getDevice.invalidate();
+            await Promise.all([
+                utilities.device.getDevice.invalidate(),
+                utilities.sensor.listDeviceMappings.invalidate(),
+            ]);
             onClose();
         },
     });
@@ -669,25 +488,16 @@ function ManageSensorsDialog({
                     Sensors for {device?.name ?? `device #${deviceId}`}
                 </DialogTitle>
             </DialogHeader>
-            <div className="flex max-h-80 flex-col gap-2 overflow-y-auto py-2">
+            <div className="grid max-h-80 gap-2 overflow-y-auto py-2 sm:grid-cols-2">
                 {(allSensors.data ?? []).map((s) => (
-                    <label
-                        className="flex cursor-pointer items-center gap-3 rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-                        htmlFor={`sensor-${s.id}`}
+                    <CheckboxCard
+                        checked={selected.has(s.id)}
+                        description={s.unit}
+                        id={`sensor-${s.id}`}
                         key={s.id}
-                    >
-                        <Checkbox
-                            checked={selected.has(s.id)}
-                            id={`sensor-${s.id}`}
-                            onCheckedChange={() => toggle(s.id)}
-                        />
-                        <span className="flex-1">
-                            {s.name}{' '}
-                            <span className="text-xs text-muted-foreground">
-                                ({s.unit})
-                            </span>
-                        </span>
-                    </label>
+                        label={s.name}
+                        onCheckedChange={() => toggle(s.id)}
+                    />
                 ))}
                 {(allSensors.data ?? []).length === 0 && (
                     <p className="py-2 text-center text-sm text-muted-foreground">
@@ -711,184 +521,6 @@ function ManageSensorsDialog({
                     Save
                 </Button>
             </DialogFooter>
-        </DialogContent>
-    );
-}
-
-function NewDeviceDialog({
-    locations,
-    onClose,
-    onSubmit,
-    pending,
-}: {
-    locations: { id: number; name: string }[];
-    onClose: () => void;
-    onSubmit: (v: DeviceCreateInput) => void;
-    pending: boolean;
-}) {
-    const form = useForm<DeviceCreateInput>({
-        defaultValues: {
-            device_id: 0,
-            location_id: locations[0]?.id ?? 0,
-            loudness_threshold: 0,
-            name: '',
-            register_interval: 0,
-        },
-        resolver: zodResolver(deviceCreateSchema),
-    });
-    return (
-        <DialogContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>New device</DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 flex flex-col gap-3">
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Name</FormLabel>
-                                    <FormControl>
-                                        <Input {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="device_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Public device ID</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            inputMode="numeric"
-                                            onChange={(event) => {
-                                                const n = Number(
-                                                    event.target.value,
-                                                );
-                                                field.onChange(
-                                                    Number.isFinite(n) ? n : 0,
-                                                );
-                                            }}
-                                            ref={field.ref}
-                                            step="1"
-                                            type="number"
-                                            value={field.value}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="location_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Location</FormLabel>
-                                    <Select
-                                        onValueChange={(v) =>
-                                            field.onChange(Number(v))
-                                        }
-                                        value={String(field.value)}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {locations.map((l) => (
-                                                <SelectItem
-                                                    key={l.id}
-                                                    value={String(l.id)}
-                                                >
-                                                    {l.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className="grid grid-cols-2 gap-3">
-                            <FormField
-                                control={form.control}
-                                name="loudness_threshold"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>
-                                            Loudness threshold
-                                        </FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                inputMode="numeric"
-                                                onChange={(event) => {
-                                                    const n = Number(
-                                                        event.target.value,
-                                                    );
-                                                    field.onChange(
-                                                        Number.isFinite(n)
-                                                            ? n
-                                                            : 0,
-                                                    );
-                                                }}
-                                                ref={field.ref}
-                                                step="1"
-                                                type="number"
-                                                value={field.value}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="register_interval"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Interval (s)</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                inputMode="numeric"
-                                                onChange={(event) => {
-                                                    const n = Number(
-                                                        event.target.value,
-                                                    );
-                                                    field.onChange(
-                                                        Number.isFinite(n)
-                                                            ? n
-                                                            : 0,
-                                                    );
-                                                }}
-                                                ref={field.ref}
-                                                step="1"
-                                                type="number"
-                                                value={field.value}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter className="mt-4">
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button disabled={pending} type="submit">
-                            Create
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
         </DialogContent>
     );
 }

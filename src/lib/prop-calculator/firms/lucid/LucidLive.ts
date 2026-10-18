@@ -8,9 +8,9 @@ import {
     type LiveCushionPercent,
     LivePlan,
     PayoutFloorEffect,
+    TierBasis,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt } from '../shared';
+import { lockThresholdAt } from '~/lib/prop-calculator/firms/shared';
 
 export const LUCID_DAILY_LIVE_TRANSITION_PAYOUT_CAP = dollars(15_000);
 
@@ -44,19 +44,37 @@ export function buildLucidLivePlan(
     transitionPayout: Dollars = dollars(0),
 ): LivePlan {
     return new LivePlan({
-        contractLimit: {
-            kind: ContractLimitKind.Tiered,
-            tiers: [
-                { maxContracts: contracts(2), minBalance: dollars(0) },
-                {
-                    maxContracts: contracts(3),
-                    minBalance: CONTRACT_SCALE_TIER_1_PROFIT,
-                },
-                {
-                    maxContracts: contracts(4),
-                    minBalance: CONTRACT_SCALE_TIER_2_PROFIT,
-                },
-            ],
+        contractLimits: {
+            micros: {
+                kind: ContractLimitKind.Tiered,
+                tierBasis: TierBasis.SessionOpenProfit,
+                tiers: [
+                    { maxContracts: contracts(20), minBalance: dollars(0) },
+                    {
+                        maxContracts: contracts(30),
+                        minBalance: CONTRACT_SCALE_TIER_1_PROFIT,
+                    },
+                    {
+                        maxContracts: contracts(40),
+                        minBalance: CONTRACT_SCALE_TIER_2_PROFIT,
+                    },
+                ],
+            },
+            minis: {
+                kind: ContractLimitKind.Tiered,
+                tierBasis: TierBasis.SessionOpenProfit,
+                tiers: [
+                    { maxContracts: contracts(2), minBalance: dollars(0) },
+                    {
+                        maxContracts: contracts(3),
+                        minBalance: CONTRACT_SCALE_TIER_1_PROFIT,
+                    },
+                    {
+                        maxContracts: contracts(4),
+                        minBalance: CONTRACT_SCALE_TIER_2_PROFIT,
+                    },
+                ],
+            },
         },
         cushionPercent,
         label: 'Lucid Live',

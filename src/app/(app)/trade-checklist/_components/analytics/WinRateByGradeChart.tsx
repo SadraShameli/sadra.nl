@@ -3,13 +3,17 @@
 import { useMemo } from 'react';
 import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+} from '~/components/ui/chart';
 import { formatPercent } from '~/lib/format';
 import { type LightAssessment, winRateByGrade } from '~/lib/trading/analytics';
-import { cn } from '~/lib/utilities';
 
 const chartConfig: ChartConfig = {
-    winRate: { color: 'hsl(var(--chart-1))', label: 'Win rate' },
+    winRate: { color: 'var(--chart-1)', label: 'Win rate' },
 };
 
 export function WinRateByGradeChart({
@@ -33,33 +37,23 @@ export function WinRateByGradeChart({
         </div>
     ) : (
         <ChartContainer
-            className={cn(
-                'app-trade-checklist__win-rate-chart',
-                'aspect-16/7 min-h-80 w-full',
-            )}
+            className="app-trade-checklist__win-rate-chart"
             config={chartConfig}
         >
             <BarChart
                 data={data}
                 margin={{ bottom: 36, left: 0, right: 12, top: 20 }}
             >
-                <XAxis
-                    axisLine={false}
-                    dataKey="grade"
-                    tickLine={false}
-                    tickMargin={6}
-                />
+                <XAxis {...CHART_X_AXIS_PROPS} dataKey="grade" />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     domain={[0, 1]}
                     tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
-                    tickLine={false}
-                    width={42}
                 />
                 <Bar dataKey="winRate" isAnimationActive={false}>
                     <LabelList
                         dataKey="count"
-                        fill="hsl(0 0% 70%)"
+                        fill="var(--muted-foreground)"
                         fontSize={11}
                         formatter={(v: unknown) =>
                             typeof v === 'number' ? `n=${v}` : ''
@@ -68,7 +62,7 @@ export function WinRateByGradeChart({
                     />
                     <LabelList
                         dataKey="winRate"
-                        fill="hsl(0 0% 95%)"
+                        fill="var(--foreground)"
                         fontSize={11}
                         formatter={(v: unknown) =>
                             typeof v === 'number' ? formatPercent(v, 0) : ''
@@ -82,7 +76,7 @@ export function WinRateByGradeChart({
 }
 
 function gradeColor(grade: string): string {
-    if (grade.startsWith('A')) return 'hsl(142 71% 45%)';
-    if (grade.startsWith('B')) return 'hsl(45 93% 47%)';
-    return grade.startsWith('C') ? 'hsl(25 95% 53%)' : 'hsl(0 84% 60%)';
+    if (grade.startsWith('A')) return 'var(--success)';
+    if (grade.startsWith('B')) return 'var(--warning)';
+    return grade.startsWith('C') ? 'var(--warning)' : 'var(--destructive)';
 }

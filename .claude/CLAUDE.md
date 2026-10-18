@@ -10,18 +10,29 @@ line.
 
 - **No comments or docstrings.** Ever. Code must read self-explanatory; match
   the style of the file you're in.
+- **No em dashes (`—`) and no double hyphen used as a dash (`word -- word`)**
+  in `src/` or `tests/`: strings, UI text, CLI help, firm notes, error messages,
+  test names. Never add one again. Use a colon, comma, semicolon, parentheses or
+  a full stop. CLI flags (`--fee`), CSS custom properties and code operators are
+  not prose and stay. `tests/unit/proseDashes.test.ts` fails on either.
 - **Domain/class-shaped files use PascalCase** (`AccountState.ts`,
   `TradingFirm.ts`, `FirmComparisonTable.tsx`), even when they export
   functions rather than a class (e.g. `core/DailyLossLimit.ts`,
   `core/PayoutTiers.ts`) — the name describes the concept, not the export
   shape. Utilities, hooks, and route files use camelCase (`useCalculator.ts`,
-  `rng.ts`, `stats.ts`).
+  `rng.ts`, `stats.ts`). Exception: everything in `src/components/ui/` uses
+  shadcn's kebab-case names (`button.tsx`, `alert-dialog.tsx`) so the shadcn
+  CLI can detect, diff and update them.
+- **shadcn first.** Check `bunx --bun shadcn@latest search` before writing UI;
+  add components with the CLI. The current registry imports `cn` from the
+  `cn` package and `Slot` from `radix-ui`; rewrite those to
+  `~/lib/utilities` and the `@radix-ui/react-*` package after adding.
 - **Barrel `index.ts` files re-export a module's public surface** (see
   `lib/prop-calculator/core/index.ts`, `lib/prop-calculator/index.ts`) — add
   new exports there; don't make callers reach into internal files directly.
 - **Import via the `~/` alias** (`~/lib/...`, `~/components/...`,
-  `~/server/...`), never a relative `../../..` chain across a top-level
-  boundary.
+  `~/server/...`, `~/app/...`), never a relative `../` import in `src`: only
+  same-folder `./` imports stay relative (lint enforces it).
 - **Never log or return a raw secret/credential value.** Accounting
   credentials only ever exist as ciphertext (`sealSecret`/`openSecret`) or
   inside a `'server-only'` module.
@@ -62,11 +73,15 @@ line.
 - `bun run typecheck`, `bun run lint`, `bun run stylelint`, `bun run test`
   (Vitest) are backend-side checks — safe to run freely. `bun run check` /
   `bun run verify` chain all of them plus `knip`.
-- **Never run `bun run dev` / `bun run build` / `next dev` / `next build`
-  yourself, and never drive the app with a browser automation tool** — the
-  user runs their own dev server and verifies UI changes themselves. Verify
-  frontend changes by reading and tracing the code.
-- **When verifying by tracing (not running) code:** check that any
+- **Run Vitest from the repo root** (`bunx vitest run tests/unit/...`), never
+  from inside `tests/`: from a subfolder it skips `vitest.config.ts` (the `~/`
+  alias fails) and writes its cache to a nested `node_modules/.vite`.
+- **Verify UI changes in a real browser**: drive the user's running dev
+  server (`localhost:3000`) through the Chrome DevTools MCP or the built-in
+  browser pane, and check both the Day and Night themes. If no dev server is
+  running, start `bun run dev` in the background. Trace the code for logic
+  as well; a screenshot is not a test.
+- **When verifying by tracing code:** check that any
   library/API call you're relying on actually exists and does what its name
   implies — don't assume from the name.
 - **Prop-calculator firm/plan data** (drawdown rules, consistency %, payout

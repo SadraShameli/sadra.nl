@@ -1,10 +1,16 @@
 'use client';
 
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, XAxis, YAxis } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_STROKE_WIDTH,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+    ChartSize,
+} from '~/components/ui/chart';
 import { type SimOutputs } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utilities';
 
 interface Properties {
     maxEvalDays: number;
@@ -13,7 +19,7 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    passRate: { color: 'hsl(142 76% 45%)', label: 'Cumulative pass %' },
+    passRate: { color: 'var(--success)', label: 'Cumulative pass %' },
 };
 
 interface ChartRow {
@@ -42,19 +48,16 @@ export default function PassRateByDayChartView({
 
     return (
         <ChartContainer
-            className={cn(
-                'app-prop-calculator__pass-rate-chart',
-                'aspect-16/7 min-h-125 w-full',
-            )}
+            className="app-prop-calculator__pass-rate-chart"
             config={chartConfig}
+            size={ChartSize.Tall}
         >
             <AreaChart
                 data={data}
                 margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid stroke="#ccc" strokeDasharray="3 3" />
                 <XAxis
-                    axisLine={false}
+                    {...CHART_X_AXIS_PROPS}
                     dataKey="day"
                     label={{
                         fontSize: 11,
@@ -62,15 +65,11 @@ export default function PassRateByDayChartView({
                         position: 'bottom',
                         value: 'Trading day',
                     }}
-                    tickLine={false}
-                    tickMargin={6}
                 />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     domain={[0, 1]}
                     tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
-                    tickLine={false}
-                    width={50}
                 />
                 <Area
                     dataKey="passRate"
@@ -78,7 +77,7 @@ export default function PassRateByDayChartView({
                     fillOpacity={0.18}
                     isAnimationActive={false}
                     stroke="var(--color-passRate)"
-                    strokeWidth={2.5}
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
             </AreaChart>

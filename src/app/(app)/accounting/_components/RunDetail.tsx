@@ -7,15 +7,16 @@ import { toast } from 'sonner';
 
 import type { Booking, LedgerReference } from '~/lib/accounting/core/types';
 
-import { Badge, type BadgeProperties } from '~/components/ui/Badge';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Badge, type BadgeProperties } from '~/components/ui/badge';
+import { Eur } from '~/lib/accounting/core/money';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { type RunStatus } from '~/lib/accounting/runs/types';
-import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
 import { PushPanel } from './PushPanel';
-import { BookingsTable, Tile } from './ResultTables';
+import { BookingsTable, Tile, TileGrid } from './ResultTables';
 
 type RunDetailData = RouterOutputs['accounting']['runs']['get'];
 
@@ -34,14 +35,6 @@ const PUSHABLE_STATUSES: ReadonlySet<RunStatus> = new Set([
     'partial',
     'planned',
 ]);
-
-const formatEur = (n: number) =>
-    new Intl.NumberFormat('en-US', {
-        currency: 'EUR',
-        maximumFractionDigits: 2,
-        minimumFractionDigits: 2,
-        style: 'currency',
-    }).format(n);
 
 export function RunDetail({ initial }: { initial: RunDetailData }) {
     const utilities = api.useUtils();
@@ -127,20 +120,20 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
         <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-3">
                 <Badge variant={STATUS_VARIANT[run.status]}>{run.status}</Badge>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-ink-muted">
                     Created {format(run.createdAt, 'PPp')} · transactions since{' '}
                     {run.startDate} · target {targetLabel}
                 </span>
             </div>
 
             {run.errorMessage && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive-foreground">
-                    <AlertCircle className="mt-0.5 size-3.5" />
-                    <span>{run.errorMessage}</span>
-                </div>
+                <Alert variant="destructive">
+                    <AlertCircle className="size-4" />
+                    <AlertDescription>{run.errorMessage}</AlertDescription>
+                </Alert>
             )}
 
-            <div className={cn('grid grid-cols-2 gap-3 md:grid-cols-4')}>
+            <TileGrid className="grid-cols-2 md:grid-cols-4">
                 <Tile
                     label="Bookings"
                     tone="default"
@@ -149,7 +142,7 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
                 <Tile
                     label="Total"
                     tone="default"
-                    value={formatEur(run.summary.totalEur)}
+                    value={Eur.format(run.summary.totalEur)}
                 />
                 <Tile
                     label="Unknown txns"
@@ -169,44 +162,31 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
                         run.summary.skippedCurrency + run.summary.skippedNoBank
                     ).toString()}
                 />
-            </div>
+            </TileGrid>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">
-                        Bookings ({bookings.length})
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <BookingsTable
-                        bookings={bookings}
-                        credentialId={accountingCredentialId}
-                        ledgerOptions={ledgerOptions}
-                        onEdit={editBooking}
-                        rules={rulesQ.data ?? []}
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel
+                description={`${String(bookings.length)} bookings in this run. Edits are saved as you make them.`}
+                title="Bookings"
+            >
+                <BookingsTable
+                    bookings={bookings}
+                    credentialId={accountingCredentialId}
+                    ledgerOptions={ledgerOptions}
+                    onEdit={editBooking}
+                    rules={rulesQ.data ?? []}
+                />
+            </ToolPanel>
 
             {isPostable && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">
-                            Post to {targetLabel}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <PushPanel
-                            accountingCredentialId={
-                                accountingCredentialId || null
-                            }
-                            bookings={bookings}
-                            onCompleted={(s) => void handlePushCompleted(s)}
-                            runId={run.id}
-                            targetLabel={targetLabel}
-                        />
-                    </CardContent>
-                </Card>
+                <ToolPanel title={`Post to ${targetLabel}`}>
+                    <PushPanel
+                        accountingCredentialId={accountingCredentialId || null}
+                        bookings={bookings}
+                        onCompleted={(s) => void handlePushCompleted(s)}
+                        runId={run.id}
+                        targetLabel={targetLabel}
+                    />
+                </ToolPanel>
             )}
         </div>
     );

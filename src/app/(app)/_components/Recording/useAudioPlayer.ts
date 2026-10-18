@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+} from 'react';
 
 import type { PlaybackSpeed, RecordingSummary } from './types';
 
@@ -204,17 +210,7 @@ export function useAudioPlayer({ recordings }: UseAudioPlayerProperties) {
         }
     }, [safeCurrentIndex, currentRecordingIndex]);
 
-    useEffect(() => {
-        const audioElement = audio.current;
-        return () => {
-            if (!audioElement) {
-                return;
-            }
-
-            audioElement.pause();
-            audioElement.src = '';
-        };
-    }, []);
+    useLayoutEffect(() => pauseAudio, [pauseAudio]);
 
     useEffect(() => {
         function onKeyDown(event: KeyboardEvent) {

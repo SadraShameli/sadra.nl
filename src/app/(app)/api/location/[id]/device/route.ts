@@ -1,16 +1,16 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { idPathParameterSchema, parseRouteParameters } from '~/lib/schemas/api';
-import { api } from '~/trpc/server';
+import { readPublicLocationDevices } from '~/server/iot/IotPublicReads';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> },
+    { params }: RouteContext<'/api/location/[id]/device'>,
 ) {
     const parsed = parseRouteParameters(idPathParameterSchema, await params);
     if (parsed.response) return parsed.response;
 
-    const result = await api.location.getLocationDevices({
+    const result = await readPublicLocationDevices({
         location_id: parsed.data.id,
     });
 

@@ -1,9 +1,10 @@
 import { type Metadata } from 'next';
 
-import { cn } from '~/lib/utilities';
+import { AccountingPageFrame } from '~/app/(app)/accounting/_components/AccountingPageFrame';
+import { AccountingSection } from '~/app/(app)/accounting/_components/AccountingSection';
+import { TransactionsBrowser } from '~/app/(app)/accounting/_components/TransactionsBrowser';
+import { requireRootUser } from '~/lib/auth/guards';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { TransactionsBrowser } from '../_components/TransactionsBrowser';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },
@@ -11,23 +12,22 @@ export const metadata: Metadata = {
 };
 
 export default function TransactionsPage() {
-    void api.accounting.credentials.list.prefetch();
+    return (
+        <AccountingPageFrame
+            className="app-accounting__transactions"
+            section={AccountingSection.Transactions}
+        >
+            <TransactionsContent />
+        </AccountingPageFrame>
+    );
+}
 
+async function TransactionsContent() {
+    await requireRootUser();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-accounting__transactions',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Recent transactions
-                    </h1>
-                </header>
-                <TransactionsBrowser />
-            </main>
+            <TransactionsBrowser />
         </HydrateClient>
     );
 }

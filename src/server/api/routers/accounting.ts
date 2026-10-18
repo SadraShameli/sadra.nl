@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import 'server-only';
 import { z } from 'zod';
 
@@ -9,29 +9,30 @@ import {
     RunId,
     UserId,
 } from '~/lib/accounting/core/ids';
+import { isValidRulePattern } from '~/lib/accounting/core/rules/matcher';
 import { Rule } from '~/lib/accounting/core/rules/rule';
 import { RuleSet } from '~/lib/accounting/core/rules/rule-set';
 import { BOOKING_DIRECTIONS } from '~/lib/accounting/core/types';
+import '~/lib/accounting/credentials/server';
 import {
     CredentialRegistry,
     CredentialRole,
     MetaFieldType,
 } from '~/lib/accounting/credentials/index';
-import '~/lib/accounting/credentials/server';
+import '~/lib/accounting/providers/index';
 import {
     getCredentialTest,
     getFieldOptionsLoader,
 } from '~/lib/accounting/credentials/server';
-import '~/lib/accounting/providers/index';
 import { ProviderRegistry } from '~/lib/accounting/providers/provider';
 import { loadRuleSet } from '~/lib/accounting/rules/load';
 import { accountingRunRepo } from '~/lib/accounting/runs/repo';
+import '~/lib/accounting/sources/index';
 import {
     RUN_SORT_KEYS,
     RUN_STATUSES,
     SORT_DIRECTIONS,
 } from '~/lib/accounting/runs/types';
-import '~/lib/accounting/sources/index';
 import {
     type ApiSource,
     SourceRegistry,
@@ -43,6 +44,7 @@ import {
     credentialCreateSchema,
     credentialIdSchema,
     credentialUpdateSchema,
+    INVALID_RULE_PATTERN,
     ledgerReferenceSchema,
     ruleBacktestSchema,
     ruleCreateSchema,
@@ -310,28 +312,46 @@ export const accountingRouter = createTRPCRouter({
             .input(bankAccountUpsertSchema)
             .mutation(async ({ ctx, input }) => {
                 await loadCredentialOrThrow(input.credentialId, ctx.userId);
-                const q = ctx.db
-                    .insert(accountingBankAccount)
-                    .values({
-                        credentialId: input.credentialId,
-                        currency: input.currency,
-                        ledgerId: input.ledger.id,
-                        ledgerLabel: input.ledger.label,
-                        userId: ctx.userId,
-                    })
-                    .onConflictDoUpdate({
-                        set: {
+                await ctx.db.transaction(async (transaction) => {
+                    await transaction
+                        .insert(accountingBankAccount)
+                        .values({
+                            credentialId: input.credentialId,
+                            currency: input.currency,
                             ledgerId: input.ledger.id,
                             ledgerLabel: input.ledger.label,
-                            updatedAt: new Date(),
-                        },
-                        target: [
-                            accountingBankAccount.userId,
-                            accountingBankAccount.credentialId,
-                            accountingBankAccount.currency,
-                        ],
-                    });
-                await q;
+                            userId: ctx.userId,
+                        })
+                        .onConflictDoUpdate({
+                            set: {
+                                ledgerId: input.ledger.id,
+                                ledgerLabel: input.ledger.label,
+                                updatedAt: new Date(),
+                            },
+                            target: [
+                                accountingBankAccount.userId,
+                                accountingBankAccount.credentialId,
+                                accountingBankAccount.currency,
+                            ],
+                        });
+                    if (input.replacesId === undefined) return;
+                    await transaction
+                        .delete(accountingBankAccount)
+                        .where(
+                            and(
+                                eq(accountingBankAccount.id, input.replacesId),
+                                eq(accountingBankAccount.userId, ctx.userId),
+                                eq(
+                                    accountingBankAccount.credentialId,
+                                    input.credentialId,
+                                ),
+                                ne(
+                                    accountingBankAccount.currency,
+                                    input.currency,
+                                ),
+                            ),
+                        );
+                });
                 return { ok: true };
             }),
     }),
@@ -817,6 +837,36 @@ export const accountingRouter = createTRPCRouter({
         update: rootProcedure
             .input(ruleUpdateSchema)
             .mutation(async ({ ctx, input }) => {
+                if (
+                    input.match !== undefined ||
+                    input.matchType !== undefined
+                ) {
+                    const [stored] = await ctx.db
+                        .select({
+                            match: accountingRule.match,
+                            matchType: accountingRule.matchType,
+                        })
+                        .from(accountingRule)
+                        .where(
+                            and(
+                                eq(accountingRule.id, input.id),
+                                eq(accountingRule.userId, ctx.userId),
+                            ),
+                        )
+                        .limit(1);
+                    if (
+                        stored !== undefined &&
+                        !isValidRulePattern(
+                            input.matchType ?? stored.matchType,
+                            input.match ?? stored.match,
+                        )
+                    ) {
+                        throw new TRPCError({
+                            code: 'BAD_REQUEST',
+                            message: INVALID_RULE_PATTERN,
+                        });
+                    }
+                }
                 const patch: Record<string, unknown> = {
                     updatedAt: new Date(),
                     ...(input.currency !== undefined && {

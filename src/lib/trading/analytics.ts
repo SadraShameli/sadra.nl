@@ -29,6 +29,12 @@ export interface LightAssessment {
     windowId?: null | string;
 }
 
+export const COUNTED_OUTCOMES = [
+    'win',
+    'loss',
+    'breakeven',
+] as const satisfies readonly Outcome[];
+
 export const GRADE_RANK: Record<string, number> = {
     A: 1,
     'A+': 0,
@@ -707,7 +713,7 @@ function emptyImpactBucket(): ImpactBucket {
 }
 
 function isCountedOutcome(o: null | string): o is Outcome {
-    return (['win', 'loss', 'breakeven'] as Array<null | string>).includes(o);
+    return (COUNTED_OUTCOMES as readonly (null | string)[]).includes(o);
 }
 
 function summarizeImpactBucket(b: ImpactBucket): {

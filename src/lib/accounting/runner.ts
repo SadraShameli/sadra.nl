@@ -8,6 +8,7 @@ import type {
     PlanInput,
     PushInput,
 } from '~/lib/accounting/runner-types';
+import type { AccountingRun } from '~/lib/accounting/runs/repo';
 import type { RunOutcome, RunSummary } from '~/lib/accounting/runs/types';
 
 import {
@@ -25,7 +26,10 @@ import {
     type RawTransaction,
 } from '~/lib/accounting/core/types';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
-import { ProviderRegistry } from '~/lib/accounting/providers/provider';
+import {
+    ProviderRegistry,
+    type ProviderSession,
+} from '~/lib/accounting/providers/provider';
 import { EcbRateProvider } from '~/lib/accounting/rates/ecb';
 import { accountingRunRepo } from '~/lib/accounting/runs/repo';
 import '~/lib/accounting/sources/index';
@@ -176,10 +180,18 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
         return;
     }
 
-    const bookingsToPost = run.bookings.filter(
-        (b) => run.outcomes[b.txnId]?.status !== 'posted',
-    );
-    if (bookingsToPost.length === 0) {
+    if (run.accountingCredentialId !== input.accountingCredential.id) {
+        yield {
+            kind: 'log',
+            level: 'error',
+            message:
+                'This run was planned for a different accounting connection. Plan a new run for the active connection.',
+        };
+        yield { kind: 'done' };
+        return;
+    }
+
+    if (unpostedBookings(run).length === 0) {
         yield {
             kind: 'log',
             level: 'warn',
@@ -214,7 +226,20 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
         return;
     }
 
-    await accountingRunRepo.setStatus(input.runId, userId, 'posting');
+    const claimed = await accountingRunRepo.claimForPosting(
+        input.runId,
+        userId,
+    );
+    if (!claimed) {
+        yield {
+            kind: 'log',
+            level: 'error',
+            message: 'This run is already being posted.',
+        };
+        yield { kind: 'done' };
+        return;
+    }
+    const bookingsToPost = unpostedBookings(claimed);
 
     const postStart = Date.now();
     yield {
@@ -224,10 +249,28 @@ export async function* runPush(input: PushInput): AsyncIterable<ImportEvent> {
         status: 'started',
     };
 
-    const session = await provider.openSession({
-        meta: input.accountingCredential.meta,
-        secret: input.accountingCredential.secret,
-    });
+    let session: ProviderSession;
+    try {
+        session = await provider.openSession({
+            meta: input.accountingCredential.meta,
+            secret: input.accountingCredential.secret,
+        });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        await accountingRunRepo.setStatus(
+            input.runId,
+            userId,
+            'failed',
+            `Could not connect to ${descriptor.label}: ${message}`,
+        );
+        yield {
+            kind: 'log',
+            level: 'error',
+            message: `Could not connect to ${descriptor.label}: ${message}`,
+        };
+        yield { kind: 'done' };
+        return;
+    }
     try {
         const outcomes = await Promise.all(
             bookingsToPost.map(async (booking) => {
@@ -437,4 +480,10 @@ function toRunSummary(result: ConversionResult): RunSummary {
         totalEur: Eur.toNumber(total),
         unknownsCount: result.unknowns.length,
     };
+}
+
+function unpostedBookings(run: AccountingRun): AccountingRun['bookings'] {
+    return run.bookings.filter(
+        (booking) => run.outcomes[booking.txnId]?.status !== 'posted',
+    );
 }

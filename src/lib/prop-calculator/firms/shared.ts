@@ -3,5 +3,5 @@ export function lockThresholdAt(offset: number): (start: number) => number {
 }
 
 export function planLabel(accountSize: number, suffix: string): string {
-    return `$${(accountSize / 1000).toFixed(0)}K — ${suffix}`;
+    return `$${(accountSize / 1000).toFixed(0)}K · ${suffix}`;
 }

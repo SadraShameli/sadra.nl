@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { api } from '~/trpc/server';
+import { readPublicSensors } from '~/server/iot/IotPublicReads';
 
 export async function GET() {
-    const result = await api.sensor.getSensors();
+    const result = await readPublicSensors();
 
-    return result.data
-        ? NextResponse.json(result.data, { status: result.status })
-        : NextResponse.json(result, { status: result.status });
+    return NextResponse.json(result.data ?? result, { status: result.status });
 }

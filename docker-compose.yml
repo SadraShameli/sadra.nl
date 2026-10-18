@@ -1,7 +1,8 @@
+name: sadra-nl
+
 services:
     postgres:
         image: postgres:18
-        container_name: sadra-postgres-local
         environment:
             POSTGRES_DB: sadra
             POSTGRES_USER: sadra
@@ -21,7 +22,6 @@ services:
 
     pgadmin:
         image: dpage/pgadmin4:latest
-        container_name: sadra-pgadmin
         environment:
             PGADMIN_DEFAULT_EMAIL: admin@example.com
             PGADMIN_DEFAULT_PASSWORD: admin_password

@@ -1,5 +1,24 @@
+import { z } from 'zod';
+
 import { type AccountState } from './AccountState';
-import { type Fraction0to1 } from './lib/units';
+import { DailyLossLimitBreachEffect } from './DailyLossLimit';
+import {
+    type ContractCount,
+    type Fraction0to1,
+    isAtOrBelowWithinCentTolerance,
+    ONE_CENT,
+} from './lib/units';
+import {
+    isBelowOneContract,
+    type PositionSizingConfig,
+    wholeContractRisk,
+} from './PositionSizing';
+import { TradingPhase } from './TradingPhase';
+
+export enum AffordableRoomKind {
+    BustsAccount = 'bustsAccount',
+    LocksDay = 'locksDay',
+}
 
 export enum DayStopRuleKind {
     AfterKLosses = 'after-k-losses',
@@ -9,21 +28,34 @@ export enum DayStopRuleKind {
     None = 'none',
 }
 
+export enum PolicySizing {
+    ContractCapped = 'contractCapped',
+    WholeContracts = 'wholeContracts',
+}
+
 export enum RungSizing {
     CapToCushion = 'capToCushion',
     SkipIfUnaffordable = 'skipIfUnaffordable',
 }
 
+export interface AffordableRoom {
+    readonly kind: AffordableRoomKind;
+    readonly room: number;
+}
+
+export type ComputeRisk = (
+    state: AccountState,
+    tradeIndexToday: number,
+    fundedCycle?: FundedCycleSnapshot,
+) => number;
+
+export type DailyLossRoom = number & { readonly __brand: 'DailyLossRoom' };
+
 export interface DayPolicy {
-    readonly computeRisk?: (
-        state: AccountState,
-        tradeIndexToday: number,
-        payoutsIssued?: number,
-        cycleBestDayProfit?: number,
-        qualifyingDaysSincePayout?: number,
-    ) => number;
+    readonly computeRisk?: ComputeRisk;
     readonly ladder: readonly number[];
     readonly maxLossesPerDay: null | number;
+    readonly sizing: PolicySizing;
     readonly stopRule: DayStopRule;
 }
 
@@ -34,7 +66,61 @@ export type DayStopRule =
     | { kind: DayStopRuleKind.FirstWin }
     | { kind: DayStopRuleKind.None };
 
+export interface FundedCycleSnapshot {
+    readonly cycleBestDayProfit: number;
+    readonly dayGateProgress: number;
+    readonly fundedResetsUsed: number;
+    readonly lastPayoutBalance: number;
+    readonly payoutsIssued: number;
+}
+
+export interface SizedTrade {
+    readonly rewardRisk: number;
+    readonly risk: number;
+}
+
+export interface WholeContractTradeOptions {
+    readonly intendedRisk: number;
+    readonly maxContracts: ContractCount | null;
+    readonly positionSizing: PositionSizingConfig;
+    readonly room: number;
+    readonly roomKind: AffordableRoomKind;
+    readonly rungSizing: RungSizing;
+}
+
 export const DEFAULT_RUNG_SIZING: RungSizing = RungSizing.CapToCushion;
+
+export const stopLossCountSchema = z.number().int().positive();
+
+export const stopTargetDollarsSchema = z.number().positive();
+
+export const ladderRungSchema = z.number().nonnegative();
+
+export const ladderRungsSchema = z
+    .array(ladderRungSchema)
+    .min(1)
+    .superRefine((rungs, context) => {
+        if (rungs[0] === 0) {
+            context.addIssue({
+                code: 'custom',
+                message: 'the first rung must be > 0 (a $0 rung ends the day)',
+            });
+            return;
+        }
+        const firstZero = rungs.indexOf(0);
+        const revived =
+            firstZero === -1
+                ? -1
+                : rungs.findIndex(
+                      (rung, index) => index > firstZero && rung > 0,
+                  );
+        if (revived !== -1) {
+            context.addIssue({
+                code: 'custom',
+                message: `rung ${revived + 1} follows a $0 rung and would never trade`,
+            });
+        }
+    });
 
 export const PNL_ONLY_STOP_RULE_KINDS: Record<DayStopRuleKind, boolean> = {
     [DayStopRuleKind.AfterKLosses]: false,
@@ -54,21 +140,17 @@ export function canonicaliseLadder(ladder: readonly number[]): number[] {
 }
 
 export function computedDayPolicy(
-    computeRisk: (
-        state: AccountState,
-        tradeIndexToday: number,
-        payoutsIssued?: number,
-        cycleBestDayProfit?: number,
-        qualifyingDaysSincePayout?: number,
-    ) => number,
+    computeRisk: ComputeRisk,
     maxTrades: number,
-    stopRule?: DayStopRule,
+    stopRule: DayStopRule | undefined,
+    sizing: PolicySizing,
 ): DayPolicy {
     const slots = Math.max(1, Math.floor(maxTrades));
     return {
         computeRisk,
         ladder: Array.from({ length: slots }, () => 0),
         maxLossesPerDay: null,
+        sizing,
         stopRule: stopRule ?? { kind: DayStopRuleKind.None },
     };
 }
@@ -76,12 +158,14 @@ export function computedDayPolicy(
 export function flatDayPolicy(
     riskPerTrade: number,
     tradesPerDay: number,
-    stopRule?: DayStopRule,
+    stopRule: DayStopRule | undefined,
+    sizing: PolicySizing,
 ): DayPolicy {
     const slots = Math.max(1, Math.floor(tradesPerDay));
     return {
         ladder: Array.from({ length: slots }, () => riskPerTrade),
         maxLossesPerDay: null,
+        sizing,
         stopRule: stopRule ?? { kind: DayStopRuleKind.None },
     };
 }
@@ -98,6 +182,129 @@ export function ladderSum(ladder: readonly number[]): number {
         total += rung;
     }
     return total;
+}
+
+export function percentCushionDayPolicy(
+    percent: Fraction0to1,
+    maxTrades: number,
+    stopRule: DayStopRule | undefined,
+    sizing: PolicySizing,
+    maxRiskPerTrade?: number,
+): DayPolicy {
+    return computedDayPolicy(
+        maxRiskPerTrade === undefined
+            ? (state) =>
+                  resolveFundedTradeRisk(
+                      state.balance - state.threshold,
+                      percent,
+                  )
+            : (state) =>
+                  Math.min(
+                      resolveFundedTradeRisk(
+                          state.balance - state.threshold,
+                          percent,
+                      ),
+                      maxRiskPerTrade,
+                  ),
+        maxTrades,
+        stopRule,
+        sizing,
+    );
+}
+
+export function placeWholeContractTrade(
+    options: WholeContractTradeOptions,
+): SizedTrade {
+    const {
+        intendedRisk,
+        maxContracts,
+        positionSizing,
+        room,
+        roomKind,
+        rungSizing,
+    } = options;
+    if (
+        roomKind === AffordableRoomKind.LocksDay &&
+        isBelowOneContract(room, positionSizing)
+    ) {
+        return { rewardRisk: 0, risk: 0 };
+    }
+    const placedRisk = wholeContractRisk(
+        rungSizing === RungSizing.CapToCushion
+            ? Math.min(intendedRisk, room)
+            : intendedRisk,
+        positionSizing,
+        maxContracts,
+    );
+    const risk = resolveTradeRisk(placedRisk, room, rungSizing);
+    return { rewardRisk: risk > 0 ? placedRisk : 0, risk };
+}
+
+export function policySizingOf(phase: TradingPhase): PolicySizing {
+    switch (phase) {
+        case TradingPhase.Eval: {
+            return PolicySizing.ContractCapped;
+        }
+        case TradingPhase.Funded: {
+            return PolicySizing.WholeContracts;
+        }
+    }
+}
+
+export function resolveAffordableRisk(
+    cushion: number,
+    dailyLossLimit: null | number,
+    todayPnL: number,
+    commission: number,
+): number {
+    return Math.min(
+        cushion,
+        resolveDailyLossRoom(dailyLossLimit, todayPnL, commission),
+    );
+}
+
+export function resolveAffordableRoom(
+    cushion: number,
+    dailyLossLimit: null | number,
+    todayPnL: number,
+    commission: number,
+    breach: DailyLossLimitBreachEffect,
+): AffordableRoom {
+    return resolveAffordableRoomWithin(
+        cushion,
+        resolveDailyLossRoom(dailyLossLimit, todayPnL, commission),
+        breach,
+    );
+}
+
+export function resolveAffordableRoomWithin(
+    cushion: number,
+    dailyLossRoom: DailyLossRoom,
+    breach: DailyLossLimitBreachEffect,
+): AffordableRoom {
+    const isDayLocking =
+        breach === DailyLossLimitBreachEffect.Lockout &&
+        !isAtOrBelowWithinCentTolerance(cushion, dailyLossRoom);
+    return {
+        kind: isDayLocking
+            ? AffordableRoomKind.LocksDay
+            : AffordableRoomKind.BustsAccount,
+        room: Math.min(cushion, dailyLossRoom),
+    };
+}
+
+export function resolveDailyLossRoom(
+    dailyLossLimit: null | number,
+    todayPnL: number,
+    commission: number,
+): DailyLossRoom {
+    if (dailyLossLimit === null) return Infinity as DailyLossRoom;
+    const lossRoom = dailyLossLimit - commission + todayPnL;
+    return (
+        isAtOrBelowWithinCentTolerance(ONE_CENT, lossRoom)
+            ? lossRoom
+            : Math.min(lossRoom, 0)
+    ) as DailyLossRoom;
 }
 
 export function resolveFundedTradeRisk(

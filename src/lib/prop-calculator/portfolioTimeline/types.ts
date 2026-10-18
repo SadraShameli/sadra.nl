@@ -1,17 +1,21 @@
+import { type DatedCharge } from '~/lib/prop-calculator/core/DatedCharge';
 import {
     type DayPolicy,
     type DayStopRule,
     type RungSizing,
-} from '../core/DayPolicy';
-import { type CouponDiscounts } from '../core/FeeSchedule';
-import { type InstrumentSymbol } from '../core/Instruments';
-import { type Dollars, type Fraction0to1 } from '../core/lib/units';
-import { type Plan } from '../core/Plan';
-import { type PositionSizingConfig } from '../core/PositionSizing';
-import { type Rng } from '../rng';
+} from '~/lib/prop-calculator/core/DayPolicy';
+import { type CouponDiscounts } from '~/lib/prop-calculator/core/FeeSchedule';
+import { type InstrumentSymbol } from '~/lib/prop-calculator/core/Instruments';
+import {
+    type Dollars,
+    type Fraction0to1,
+} from '~/lib/prop-calculator/core/lib/units';
+import { type PayoutRequestPolicy } from '~/lib/prop-calculator/core/PayoutRequestPolicy';
+import { type Plan } from '~/lib/prop-calculator/core/Plan';
+import { type PositionSizingConfig } from '~/lib/prop-calculator/core/PositionSizing';
+import { type Rng } from '~/lib/prop-calculator/rng';
 
-export const DEFAULT_DAY_BUDGET = 252;
-export const DEFAULT_MAX_PAYOUTS_PER_CARD = 6;
+export { TRADING_DAYS_PER_YEAR as DEFAULT_DAY_BUDGET } from '~/lib/prop-calculator/core/constants';
 
 export interface AccountTimelineInputs {
     commissionPerRoundTrip?: number;
@@ -21,10 +25,11 @@ export interface AccountTimelineInputs {
     evalDayPolicy?: DayPolicy;
     fundedDayPolicy?: DayPolicy;
     idleDayProbability?: number;
+    initialPurchaseDiscounts?: CouponDiscounts;
     instrument?: InstrumentSymbol;
     maxEvalDays: number;
-    maxPayoutsPerCard?: number;
     minRetainedCushion?: number;
+    payoutRequestPolicy?: PayoutRequestPolicy;
     payoutRequestSize?: number;
     plan: Plan;
     riskPerTrade: number;
@@ -42,27 +47,72 @@ export interface AccountTimelineResult {
     cumulativeSpend: Float64Array;
 }
 
+export interface BankrollPolicy {
+    maxConcurrentAccounts: null | number;
+    monthlyBudget: Dollars | null;
+    payoutLagDays: number;
+    reinvestFraction: Fraction0to1;
+    roundBudget: Dollars | null;
+    startingBankroll: Dollars;
+}
+
+export interface BankrollTimelineInputs extends Omit<
+    PortfolioTimelineInputs,
+    'accounts'
+> {
+    bankroll: BankrollPolicy;
+    fundedRiskPerTrade?: number;
+    fundedRrRatio?: number;
+    fundedTradesPerDay?: number;
+}
+
+export interface BankrollTimelineResult {
+    cardsBoughtP50: number;
+    cashP10: number[];
+    cashP50: number[];
+    cashP90: number[];
+    cumulativeSpendP10: number[];
+    cumulativeSpendP50: number[];
+    cumulativeSpendP90: number[];
+    days: number[];
+    finalNetP50: number;
+    measuredCycleDays: null | number;
+    pathRuin: Fraction0to1;
+    payoutP10: number[];
+    payoutP50: number[];
+    payoutP90: number[];
+    pFinalNetNegative: Fraction0to1;
+    withdrawnP10: number[];
+    withdrawnP50: number[];
+    withdrawnP90: number[];
+}
+
 export interface CardResult {
     attemptsUsed: number;
+    evalCost: number;
     evalDays: number;
+    evalRetryCharges: readonly DatedCharge[];
+    fundedResetCharges: readonly DatedCharge[];
     payouts: readonly PayoutEvent[];
-    totalCost: number;
     totalDays: number;
 }
 
 export interface EvalToFundedCycleOptions {
+    cardDayBudget: number;
     commission: Dollars;
     discounts: CouponDiscounts | undefined;
     evalDayPolicy: DayPolicy;
     fundedDayPolicy: DayPolicy;
+    fundedRrRatio?: number;
     idleDayProbability?: number;
     maxEvalDays: number;
     maxFundedDays: number;
-    maxPayoutsPerCard?: number;
     minRetainedCushion: Dollars;
+    payoutRequestPolicy?: PayoutRequestPolicy;
     payoutRequestSize: Dollars | undefined;
     plan: Plan;
     positionSizing: null | PositionSizingConfig;
+    retryAffordabilityCheck?: (fee: number, dayOffset: number) => boolean;
     rng: Rng;
     rrRatio: number;
     rungSizing: RungSizing;
@@ -85,8 +135,8 @@ export interface PortfolioTimelineInputs {
     idleDayProbability?: number;
     instrument?: InstrumentSymbol;
     maxEvalDays: number;
-    maxPayoutsPerCard?: number;
     minRetainedCushion?: number;
+    payoutRequestPolicy?: PayoutRequestPolicy;
     payoutRequestSize?: number;
     plan: Plan;
     riskPerTrade: number;
@@ -100,6 +150,7 @@ export interface PortfolioTimelineInputs {
 }
 
 export interface PortfolioTimelineResult {
+    accountsSimulated: number;
     breakEvenMonthValues: number[];
     days: number[];
     netP10: number[];
@@ -109,6 +160,7 @@ export interface PortfolioTimelineResult {
     payoutP50: number[];
     payoutP90: number[];
     pEverCashflowPositive: number;
+    pFinalNetNegative: number;
     spendP10: number[];
     spendP50: number[];
     spendP90: number[];

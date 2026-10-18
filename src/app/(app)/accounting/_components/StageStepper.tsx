@@ -11,7 +11,7 @@ import {
     StepperItem,
     StepperSeparator,
     StepperTitle,
-} from '~/components/ui/Stepper';
+} from '~/components/ui/stepper';
 import { DurationFormat } from '~/lib/lifting/format';
 import { cn } from '~/lib/utilities';
 

@@ -1,5 +1,13 @@
 import { sql } from 'drizzle-orm';
-import { boolean, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+    bigint,
+    boolean,
+    index,
+    integer,
+    text,
+    timestamp,
+    uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 import type { Role } from '~/lib/auth/roles';
 
@@ -31,59 +39,78 @@ export const user = createTable(
     ],
 );
 
-export const session = createTable('session', {
-    createdAt: timestamp('created_at', { withTimezone: true })
-        .default(sql`CURRENT_TIMESTAMP`)
-        .notNull(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    id: text('id').primaryKey(),
-    impersonatedBy: text('impersonated_by'),
-    ipAddress: text('ip_address'),
-    token: text('token').notNull().unique(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-        .default(sql`CURRENT_TIMESTAMP`)
-        .notNull(),
-    userAgent: text('user_agent'),
-    userId: text('user_id')
-        .notNull()
-        .references(() => user.id, { onDelete: 'cascade' }),
-});
+export const session = createTable(
+    'session',
+    {
+        createdAt: timestamp('created_at', { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+        id: text('id').primaryKey(),
+        impersonatedBy: text('impersonated_by'),
+        ipAddress: text('ip_address'),
+        token: text('token').notNull().unique(),
+        updatedAt: timestamp('updated_at', { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        userAgent: text('user_agent'),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
+    },
+    (table) => [index('session_user_id_idx').on(table.userId)],
+);
 
-export const account = createTable('account', {
-    accessToken: text('access_token'),
-    accessTokenExpiresAt: timestamp('access_token_expires_at', {
-        withTimezone: true,
-    }),
-    accountId: text('account_id').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true })
-        .default(sql`CURRENT_TIMESTAMP`)
-        .notNull(),
-    id: text('id').primaryKey(),
-    idToken: text('id_token'),
-    password: text('password'),
-    providerId: text('provider_id').notNull(),
-    refreshToken: text('refresh_token'),
-    refreshTokenExpiresAt: timestamp('refresh_token_expires_at', {
-        withTimezone: true,
-    }),
-    scope: text('scope'),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-        .default(sql`CURRENT_TIMESTAMP`)
-        .notNull(),
-    userId: text('user_id')
-        .notNull()
-        .references(() => user.id, { onDelete: 'cascade' }),
-});
+export const account = createTable(
+    'account',
+    {
+        accessToken: text('access_token'),
+        accessTokenExpiresAt: timestamp('access_token_expires_at', {
+            withTimezone: true,
+        }),
+        accountId: text('account_id').notNull(),
+        createdAt: timestamp('created_at', { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        id: text('id').primaryKey(),
+        idToken: text('id_token'),
+        password: text('password'),
+        providerId: text('provider_id').notNull(),
+        refreshToken: text('refresh_token'),
+        refreshTokenExpiresAt: timestamp('refresh_token_expires_at', {
+            withTimezone: true,
+        }),
+        scope: text('scope'),
+        updatedAt: timestamp('updated_at', { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
+    },
+    (table) => [index('account_user_id_idx').on(table.userId)],
+);
 
-export const verification = createTable('verification', {
-    createdAt: timestamp('created_at', { withTimezone: true })
-        .default(sql`CURRENT_TIMESTAMP`)
-        .notNull(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+export const verification = createTable(
+    'verification',
+    {
+        createdAt: timestamp('created_at', { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+        id: text('id').primaryKey(),
+        identifier: text('identifier').notNull(),
+        updatedAt: timestamp('updated_at', { withTimezone: true })
+            .default(sql`CURRENT_TIMESTAMP`)
+            .notNull(),
+        value: text('value').notNull(),
+    },
+    (table) => [index('verification_identifier_idx').on(table.identifier)],
+);
+
+export const rateLimit = createTable('auth_rate_limit', {
+    count: integer('count').notNull(),
     id: text('id').primaryKey(),
-    identifier: text('identifier').notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-        .default(sql`CURRENT_TIMESTAMP`)
-        .notNull(),
-    value: text('value').notNull(),
+    key: text('key').notNull().unique(),
+    lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 });

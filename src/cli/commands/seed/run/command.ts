@@ -11,7 +11,7 @@ import { SeederRegistry } from '~/server/db/types';
 const isTokenMatch = (name: string, token: string): boolean =>
     name === token || name.startsWith(`${token}:`);
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         interactive: {
             alias: 'i',
@@ -81,9 +81,11 @@ export default defineCommand({
                 }
             }
             const total = ((performance.now() - startedAll) / 1000).toFixed(2);
-            ui.success(`Done — ${selected.length} seeder(s) in ${total}s`);
+            ui.success(`Done: ${selected.length} seeder(s) in ${total}s`);
         } finally {
             await endDb();
         }
     },
 });
+
+export default command;

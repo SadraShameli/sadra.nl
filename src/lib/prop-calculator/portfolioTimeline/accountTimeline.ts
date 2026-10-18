@@ -1,32 +1,50 @@
 import {
+    type DayPolicy,
+    type DayStopRule,
     DayStopRuleKind,
     DEFAULT_RUNG_SIZING,
     flatDayPolicy,
-} from '../core/DayPolicy';
-import { dollars, fraction } from '../core/lib/units';
-import { resolvePositionSizing } from '../core/PositionSizing';
+    policySizingOf,
+} from '~/lib/prop-calculator/core/DayPolicy';
+import { dollars, fraction } from '~/lib/prop-calculator/core/lib/units';
+import { resolvePositionSizing } from '~/lib/prop-calculator/core/PositionSizing';
+import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+import {
+    assertDeclaredSizingMatchesPhase,
+    assertPositiveSafeInteger,
+    SIM_DEFAULTS,
+    simInputsSizingIssue,
+} from '~/lib/prop-calculator/simulator';
+
+import { CardChargeCursor } from './DatedChargeCursor';
 import { runEvalToFundedCycle } from './fundedCycle';
+import {
+    drawFromPayoutBudget,
+    pooledLifetimePayoutBudget,
+    type SharedPayoutBudget,
+} from './SharedPayoutBudget';
 import {
     type AccountTimelineInputs,
     type AccountTimelineResult,
     DEFAULT_DAY_BUDGET,
-    DEFAULT_MAX_PAYOUTS_PER_CARD,
 } from './types';
 
 const MAX_CARDS_PER_TIMELINE = 2000;
 
 export function runAccountTimeline(
     inputs: AccountTimelineInputs,
+    sharedPayoutBudget?: SharedPayoutBudget,
 ): AccountTimelineResult {
     const {
-        commissionPerRoundTrip = 0,
+        commissionPerRoundTrip = SIM_DEFAULTS.commissionPerRoundTrip,
         dayBudget = DEFAULT_DAY_BUDGET,
         discounts,
         idleDayProbability,
+        initialPurchaseDiscounts = discounts,
         instrument,
         maxEvalDays,
-        maxPayoutsPerCard = DEFAULT_MAX_PAYOUTS_PER_CARD,
         minRetainedCushion,
+        payoutRequestPolicy,
         payoutRequestSize,
         plan,
         rng,
@@ -35,6 +53,7 @@ export function runAccountTimeline(
         stopPoints,
         winrate: winrateInput,
     } = inputs;
+    const payoutBudget = resolvePayoutBudget(inputs, sharedPayoutBudget);
     const commission = dollars(commissionPerRoundTrip);
     const cushion = plan.resolveRetainedCushion(minRetainedCushion);
     const positionSizing = resolvePositionSizing(instrument, stopPoints);
@@ -43,41 +62,51 @@ export function runAccountTimeline(
             ? undefined
             : dollars(payoutRequestSize);
     const winrate = fraction(winrateInput);
-    const flatPolicy = flatDayPolicy(
-        inputs.riskPerTrade,
-        inputs.tradesPerDay,
-        inputs.dayStop ?? { kind: DayStopRuleKind.None },
+    const sizingIssue = simInputsSizingIssue({
+        fundedDayPolicy: inputs.fundedDayPolicy,
+        instrument,
+        riskPerTrade: inputs.riskPerTrade,
+        stopPoints,
+    });
+    if (sizingIssue !== null) {
+        throw new Error(`runAccountTimeline: ${sizingIssue}`);
+    }
+    const stopRule = inputs.dayStop ?? { kind: DayStopRuleKind.None };
+    const evalDayPolicy = phaseDayPolicy(inputs, TradingPhase.Eval, stopRule);
+    const fundedDayPolicy = phaseDayPolicy(
+        inputs,
+        TradingPhase.Funded,
+        stopRule,
     );
-    const evalDayPolicy = inputs.evalDayPolicy ?? flatPolicy;
-    const fundedDayPolicy = inputs.fundedDayPolicy ?? flatPolicy;
 
-    const safeDayBudget = Math.max(1, Math.floor(dayBudget));
-    const safeMaxEvalDays = Math.max(1, Math.floor(maxEvalDays));
+    assertPositiveSafeInteger(dayBudget, 'dayBudget');
+    assertPositiveSafeInteger(maxEvalDays, 'maxEvalDays');
 
-    const cumulativeSpend = new Float64Array(safeDayBudget + 1);
-    const cumulativePayout = new Float64Array(safeDayBudget + 1);
-    const cumulativeNet = new Float64Array(safeDayBudget + 1);
+    const cumulativeSpend = new Float64Array(dayBudget + 1);
+    const cumulativePayout = new Float64Array(dayBudget + 1);
+    const cumulativeNet = new Float64Array(dayBudget + 1);
 
     let spendSoFar = 0;
     let payoutSoFar = 0;
     let currentDay = 0;
     let cardsRun = 0;
 
-    while (currentDay < safeDayBudget && cardsRun < MAX_CARDS_PER_TIMELINE) {
+    while (currentDay < dayBudget && cardsRun < MAX_CARDS_PER_TIMELINE) {
         cardsRun += 1;
         const cardStart = currentDay;
-        const remainingDays = safeDayBudget - cardStart;
+        const remainingDays = dayBudget - cardStart;
 
         const card = runEvalToFundedCycle({
+            cardDayBudget: remainingDays,
             commission,
-            discounts,
+            discounts: cardsRun === 1 ? initialPurchaseDiscounts : discounts,
             evalDayPolicy,
             fundedDayPolicy,
             idleDayProbability,
-            maxEvalDays: safeMaxEvalDays,
+            maxEvalDays,
             maxFundedDays: remainingDays,
-            maxPayoutsPerCard,
             minRetainedCushion: cushion,
+            payoutRequestPolicy,
             payoutRequestSize: requestSize,
             plan,
             positionSizing,
@@ -87,25 +116,39 @@ export function runAccountTimeline(
             winrate,
         });
 
+        if (card.totalDays === 0) {
+            throw new Error(
+                `runAccountTimeline: a card used no trading days (${plan.label} allows ${plan.evalDayCap(maxEvalDays)} eval days per attempt), so the timeline cannot advance`,
+            );
+        }
+
         const spendBeforeCard = spendSoFar;
+        const evalRetrySpendTotal = card.evalRetryCharges.reduce(
+            (sum, charge) => sum + charge.fee,
+            0,
+        );
+        const cardCharges = new CardChargeCursor({
+            evalDays: card.evalDays,
+            evalRetryCharges: card.evalRetryCharges,
+            fundedResetCharges: card.fundedResetCharges,
+            spreadEvalCost: card.evalCost - evalRetrySpendTotal,
+        });
         let payoutIndex = 0;
 
         for (
             let d = 1;
-            d <= card.totalDays && cardStart + d <= safeDayBudget;
+            d <= card.totalDays && cardStart + d <= dayBudget;
             d++
         ) {
-            spendSoFar =
-                spendBeforeCard +
-                (card.evalDays > 0
-                    ? (card.totalCost * Math.min(d, card.evalDays)) /
-                      card.evalDays
-                    : card.totalCost);
+            spendSoFar = spendBeforeCard + cardCharges.paidThrough(d);
             while (
                 payoutIndex < card.payouts.length &&
                 card.payouts[payoutIndex]?.dayOffset === d
             ) {
-                payoutSoFar += card.payouts[payoutIndex]?.amount ?? 0;
+                payoutSoFar += drawFromPayoutBudget(
+                    payoutBudget,
+                    card.payouts[payoutIndex]?.amount ?? 0,
+                );
                 payoutIndex += 1;
             }
             const absoluteDay = cardStart + d;
@@ -114,14 +157,54 @@ export function runAccountTimeline(
             cumulativeNet[absoluteDay] = payoutSoFar - spendSoFar;
         }
 
-        currentDay = Math.min(safeDayBudget, cardStart + card.totalDays);
+        currentDay = Math.min(dayBudget, cardStart + card.totalDays);
     }
 
-    for (let d = currentDay + 1; d <= safeDayBudget; d++) {
+    for (let d = currentDay + 1; d <= dayBudget; d++) {
         cumulativeSpend[d] = spendSoFar;
         cumulativePayout[d] = payoutSoFar;
         cumulativeNet[d] = payoutSoFar - spendSoFar;
     }
 
     return { cumulativeNet, cumulativePayout, cumulativeSpend };
+}
+
+function declaredDayPolicy(
+    inputs: AccountTimelineInputs,
+    phase: TradingPhase,
+): DayPolicy | undefined {
+    switch (phase) {
+        case TradingPhase.Eval: {
+            return inputs.evalDayPolicy;
+        }
+        case TradingPhase.Funded: {
+            return inputs.fundedDayPolicy;
+        }
+    }
+}
+
+function phaseDayPolicy(
+    inputs: AccountTimelineInputs,
+    phase: TradingPhase,
+    stopRule: DayStopRule,
+): DayPolicy {
+    const declared = declaredDayPolicy(inputs, phase);
+    if (declared === undefined) {
+        return flatDayPolicy(
+            inputs.riskPerTrade,
+            inputs.tradesPerDay,
+            stopRule,
+            policySizingOf(phase),
+        );
+    }
+    assertDeclaredSizingMatchesPhase(inputs, declared, phase);
+    return declared;
+}
+
+function resolvePayoutBudget(
+    inputs: AccountTimelineInputs,
+    sharedPayoutBudget: SharedPayoutBudget | undefined,
+): null | SharedPayoutBudget {
+    const ownBudget = pooledLifetimePayoutBudget(inputs.plan);
+    return ownBudget === null ? null : (sharedPayoutBudget ?? ownBudget);
 }

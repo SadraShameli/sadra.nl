@@ -3,19 +3,39 @@
 import { useMemo } from 'react';
 
 import Eyebrow from '~/components/Eyebrow';
-import { Card } from '~/components/ui/Card';
-import InfoPopover from '~/components/ui/InfoPopover';
+import { Card } from '~/components/ui/card';
+import InfoPopover from '~/components/ui/info-popover';
+import { Separator } from '~/components/ui/separator';
 import {
     formatCompactCurrency,
     formatCurrency,
     formatPercent,
     formatR,
+    NOT_APPLICABLE,
 } from '~/lib/format';
-import { type SimInputs, type SimOutputs } from '~/lib/prop-calculator';
+import {
+    dollars,
+    resolveCopyAccounts,
+    type SimInputs,
+    type SimOutputs,
+} from '~/lib/prop-calculator';
+import {
+    ECONOMICS_DISCLOSURE_TEXT,
+    EconomicsDisclosure,
+    requiredR,
+} from '~/lib/prop-calculator/economics';
 import { standardDeviation } from '~/lib/prop-calculator/stats';
 import { cn } from '~/lib/utilities';
 
+import { attemptEconomicsCardModel } from './economics/attemptEconomicsModel';
+import {
+    averageTradeSize,
+    type KellyIndex,
+    KellyIndexStatus,
+    kellySizing,
+} from './kellySizing';
 import { panelDescriptions } from './kpiDescriptions';
+import { formatSignedPercent } from './signedPercent';
 import StatCard from './StatCard';
 
 interface StrategyAnalysisProperties {
@@ -27,24 +47,31 @@ export default function StrategyAnalysis({
     baseInputs,
     result,
 }: StrategyAnalysisProperties) {
-    const {
-        copyAccounts = 1,
-        fundedHorizonDays,
-        plan,
-        riskPerTrade,
-        rrRatio,
-        winrate,
-    } = baseInputs;
-    const accounts = Math.max(1, Math.floor(copyAccounts));
+    const { copyAccounts, fundedHorizonDays, plan, rrRatio, winrate } =
+        baseInputs;
+    const accounts = resolveCopyAccounts(copyAccounts);
+    const drawdownAmount = plan.drawdown.amount;
+    const drawdownBasis = `of the ${formatCurrency(drawdownAmount)} eval drawdown`;
+    const averageRiskBasis = `${drawdownBasis}, averaged over eval and funded trades`;
+    const kellyFractionText = (fractionOfDrawdown: number) =>
+        fractionOfDrawdown > 0
+            ? `${formatPercent(fractionOfDrawdown)} (${formatCurrency(fractionOfDrawdown * drawdownAmount)} per trade)`
+            : 'no edge';
+    const kelly = useMemo(
+        () =>
+            kellySizing(baseInputs, {
+                averageRiskPerTrade: result.averageRiskPerTrade,
+                riskBasis: drawdownAmount,
+            }),
+        [baseInputs, drawdownAmount, result.averageRiskPerTrade],
+    );
+    const averageTrade = useMemo(
+        () => averageTradeSize(baseInputs, result),
+        [baseInputs, result],
+    );
     const edge = useMemo(() => {
         const breakEvenWR = 1 / (1 + rrRatio);
         const edgeMargin = winrate - breakEvenWR;
-        const fullKelly =
-            rrRatio > 0 ? (winrate * (rrRatio + 1) - 1) / rrRatio : 0;
-        const halfKelly = fullKelly / 2;
-        const currentRiskPct = (riskPerTrade / plan.accountSize) * 100;
-        const kellyIndex =
-            fullKelly > 0 ? currentRiskPct / (fullKelly * 100) : 0;
 
         const hasEdge = edgeMargin > 0;
         const N = result.tradesPerSuccessfulAttempt;
@@ -60,21 +87,28 @@ export default function StrategyAnalysis({
 
         return {
             breakEvenWR,
-            currentRiskPct,
             edgeMargin,
-            fullKelly,
-            halfKelly,
-            kellyIndex,
             minTrades,
             zScore,
         };
-    }, [
-        winrate,
-        rrRatio,
-        riskPerTrade,
-        plan.accountSize,
-        result.tradesPerSuccessfulAttempt,
-    ]);
+    }, [winrate, rrRatio, result.tradesPerSuccessfulAttempt]);
+
+    const edgeLeverage = useMemo(() => {
+        const model = attemptEconomicsCardModel(result, fundedHorizonDays);
+        return model.economics === null || model.economics.attemptCost <= 0
+            ? null
+            : model.economics.expectedNetPerAttempt.value /
+                  model.economics.attemptCost;
+    }, [result, fundedHorizonDays]);
+
+    const netRToPass = useMemo(() => {
+        if (plan.isInstantFunded) return null;
+        const required = requiredR(
+            dollars(result.profitTarget),
+            dollars(baseInputs.riskPerTrade),
+        );
+        return required.value;
+    }, [plan.isInstantFunded, result.profitTarget, baseInputs.riskPerTrade]);
 
     const ratios = useMemo(() => {
         const {
@@ -176,8 +210,6 @@ export default function StrategyAnalysis({
         const wins = Math.round(tradesPerPass * winrate);
         const losses = tradesPerPass - wins;
         const sumR = result.expectancyR * tradesPerPass;
-        const avgWin = riskPerTrade * rrRatio;
-        const avgLoss = riskPerTrade;
 
         let minBal = Infinity;
         let maxBal = -Infinity;
@@ -189,8 +221,6 @@ export default function StrategyAnalysis({
         if (!Number.isFinite(maxBal)) maxBal = accountSize;
 
         return {
-            avgLoss,
-            avgWin,
             losses,
             maxBal,
             minBal,
@@ -210,8 +240,6 @@ export default function StrategyAnalysis({
         result.tradesPerSuccessfulAttempt,
         result.finalBalances,
         winrate,
-        rrRatio,
-        riskPerTrade,
         accounts,
     ]);
 
@@ -220,42 +248,39 @@ export default function StrategyAnalysis({
         : '∞';
 
     return (
-        <Card
-            className={cn(
-                'app-prop-calculator__strategy-analysis',
-                'px-5 py-5',
-            )}
-        >
-            <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">Strategy Analysis</h3>
-                <InfoPopover title="Strategy analysis">
-                    {panelDescriptions.strategyAnalysis}
-                </InfoPopover>
-            </div>
-
+        <Card className={cn('app-prop-calculator__strategy-analysis', 'p-5')}>
             <div className="flex flex-col gap-6">
                 <section
                     className={cn('app-prop-calculator__strategy-returns')}
                 >
                     <SectionHeader
                         description={panelDescriptions.returnsBreakdown}
-                        title="Returns Breakdown"
+                        title="Returns breakdown"
                     />
                     <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                         <Metric
                             label="Annualized ROI"
-                            sub={`${(breakdown.monthlyPct * 100).toFixed(2)}%/mo · ${(breakdown.weeklyPct * 100).toFixed(2)}%/wk · ${(breakdown.perTradePct * 100).toFixed(3)}%/trade`}
-                            value={`${(breakdown.yearlyPct * 100).toFixed(2)}% / yr`}
+                            sub={`${formatSignedPercent(breakdown.monthlyPct, 2)} a month · ${formatSignedPercent(breakdown.weeklyPct, 2)} a week · ${formatSignedPercent(breakdown.perTradePct, 3)} a trade, before account fees`}
+                            value={`${formatSignedPercent(breakdown.yearlyPct, 2)} a year`}
                             valueClass={
                                 breakdown.yearlyPct > 0
-                                    ? 'text-emerald-400'
-                                    : 'text-rose-400'
+                                    ? 'text-success'
+                                    : 'text-destructive'
                             }
                         />
                         <Metric
                             label="Avg trade size"
                             sub={`${rrRatio.toFixed(2)}:1 reward-to-risk`}
-                            value={`+${formatCurrency(breakdown.avgWin)} / −${formatCurrency(breakdown.avgLoss)}`}
+                            value={
+                                averageTrade === null
+                                    ? NOT_APPLICABLE
+                                    : `+${formatCurrency(averageTrade.win)} / −${formatCurrency(averageTrade.loss)}`
+                            }
+                            valueClass={
+                                averageTrade === null
+                                    ? 'text-muted-foreground'
+                                    : undefined
+                            }
                         />
                         <Metric
                             label="Trades per pass"
@@ -267,7 +292,7 @@ export default function StrategyAnalysis({
                             value={
                                 breakdown.tradesPerPass > 0
                                     ? `${breakdown.tradesPerPass} trades`
-                                    : '—'
+                                    : NOT_APPLICABLE
                             }
                         />
                         <Metric
@@ -276,13 +301,13 @@ export default function StrategyAnalysis({
                             value={
                                 breakdown.tradesPerPass > 0
                                     ? `${breakdown.sumR >= 0 ? '+' : ''}${breakdown.sumR.toFixed(1)}R`
-                                    : '—'
+                                    : NOT_APPLICABLE
                             }
                             valueClass={
                                 breakdown.sumR > 0
-                                    ? 'text-emerald-400'
+                                    ? 'text-success'
                                     : breakdown.sumR < 0
-                                      ? 'text-rose-400'
+                                      ? 'text-destructive'
                                       : undefined
                             }
                         />
@@ -299,7 +324,7 @@ export default function StrategyAnalysis({
                     </div>
                 </section>
 
-                <div className="border-t border-border/40" />
+                <Separator className="bg-border/40" />
 
                 <section
                     className={cn(
@@ -308,7 +333,7 @@ export default function StrategyAnalysis({
                 >
                     <SectionHeader
                         description={panelDescriptions.riskReturn}
-                        title="Risk-Adjusted Returns"
+                        title="Risk-adjusted returns"
                     />
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                         <StatCard
@@ -358,8 +383,8 @@ export default function StrategyAnalysis({
                             value={ratios.recovery.toFixed(2)}
                             valueClassName={
                                 ratios.recovery > 1
-                                    ? 'text-emerald-400'
-                                    : 'text-rose-400'
+                                    ? 'text-success'
+                                    : 'text-destructive'
                             }
                         />
                         <StatCard
@@ -402,16 +427,16 @@ export default function StrategyAnalysis({
                     </div>
                 </section>
 
-                <div className="border-t border-border/40" />
+                <Separator className="bg-border/40" />
 
                 <section className={cn('app-prop-calculator__strategy-edge')}>
                     <SectionHeader
                         description={panelDescriptions.strategyDNA}
                         title="Edge"
                     />
-                    <div className="grid gap-6 sm:grid-cols-3">
+                    <div className="grid gap-6 md:grid-cols-3">
                         <div className="flex flex-col gap-3">
-                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
+                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                                 Expectancy
                             </p>
                             <Metric
@@ -419,8 +444,8 @@ export default function StrategyAnalysis({
                                 value={formatR(result.expectancyR)}
                                 valueClass={
                                     result.expectancyR > 0
-                                        ? 'text-emerald-400'
-                                        : 'text-rose-400'
+                                        ? 'text-success'
+                                        : 'text-destructive'
                                 }
                             />
                             <Metric
@@ -428,8 +453,8 @@ export default function StrategyAnalysis({
                                 value={formatCurrency(result.expectancyDollars)}
                                 valueClass={
                                     result.expectancyDollars > 0
-                                        ? 'text-emerald-400'
-                                        : 'text-rose-400'
+                                        ? 'text-success'
+                                        : 'text-destructive'
                                 }
                             />
                             <Metric
@@ -441,13 +466,42 @@ export default function StrategyAnalysis({
                                 value={`${edge.edgeMargin > 0 ? '+' : ''}${(edge.edgeMargin * 100).toFixed(1)}pp`}
                                 valueClass={
                                     edge.edgeMargin > 0
-                                        ? 'text-emerald-400'
-                                        : 'text-rose-400'
+                                        ? 'text-success'
+                                        : 'text-destructive'
+                                }
+                            />
+                            <Metric
+                                label="Edge leverage"
+                                sub="EV per attempt / attempt cost"
+                                value={
+                                    edgeLeverage === null
+                                        ? NOT_APPLICABLE
+                                        : `${edgeLeverage.toFixed(2)}×`
+                                }
+                                valueClass={
+                                    edgeLeverage === null
+                                        ? 'text-muted-foreground'
+                                        : edgeLeverage > 0
+                                          ? 'text-success'
+                                          : 'text-destructive'
+                                }
+                            />
+                            <Metric
+                                label="Net R to pass"
+                                value={
+                                    netRToPass === null
+                                        ? NOT_APPLICABLE
+                                        : `${netRToPass.toFixed(1)}R`
+                                }
+                                valueClass={
+                                    netRToPass === null
+                                        ? 'text-muted-foreground'
+                                        : undefined
                                 }
                             />
                         </div>
                         <div className="flex flex-col gap-3">
-                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
+                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                                 Edge confidence
                             </p>
                             <Metric
@@ -461,7 +515,7 @@ export default function StrategyAnalysis({
                             {edge.zScore === null ? (
                                 <Metric
                                     label="Z-score"
-                                    value="N/A — no edge"
+                                    value={`${NOT_APPLICABLE}: no edge`}
                                     valueClass="text-muted-foreground"
                                 />
                             ) : (
@@ -486,7 +540,7 @@ export default function StrategyAnalysis({
                                         label="Min trades (95% CI)"
                                         value={
                                             edge.minTrades === null
-                                                ? '—'
+                                                ? NOT_APPLICABLE
                                                 : String(edge.minTrades)
                                         }
                                     />
@@ -494,47 +548,45 @@ export default function StrategyAnalysis({
                             )}
                         </div>
                         <div className="flex flex-col gap-3">
-                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
-                                Kelly sizing
+                            <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                                Kelly (information only)
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                                Size by the documented eval and funded rules:
+                                evals risk the most the plan&apos;s limits
+                                allow, funded accounts risk a fixed amount.{' '}
+                                {
+                                    ECONOMICS_DISCLOSURE_TEXT[
+                                        EconomicsDisclosure.KellyNotPropSizing
+                                    ]
+                                }
+                                .
                             </p>
                             <Metric
                                 label="Full Kelly"
-                                value={
-                                    edge.fullKelly > 0
-                                        ? formatPercent(edge.fullKelly)
-                                        : 'no edge'
-                                }
+                                sub={drawdownBasis}
+                                value={kellyFractionText(kelly.fullKelly)}
                             />
                             <Metric
-                                label="Half Kelly (rec.)"
-                                value={
-                                    edge.halfKelly > 0
-                                        ? formatPercent(edge.halfKelly)
-                                        : 'no edge'
-                                }
+                                label="Half Kelly"
+                                sub={drawdownBasis}
+                                value={kellyFractionText(kelly.halfKelly)}
                             />
                             <Metric
-                                label="Current risk"
-                                value={formatPercent(edge.currentRiskPct / 100)}
+                                label="Average risk"
+                                sub={averageRiskBasis}
+                                value={
+                                    kelly.currentRiskFraction === null
+                                        ? NOT_APPLICABLE
+                                        : formatPercent(
+                                              kelly.currentRiskFraction,
+                                          )
+                                }
                             />
-                            {edge.fullKelly > 0 && (
-                                <div className="flex flex-col gap-0.5">
-                                    <span className="text-[11px] text-muted-foreground">
-                                        Kelly index
-                                    </span>
-                                    <span
-                                        className={cn(
-                                            'font-mono text-sm font-semibold tabular-nums',
-                                            kellyColor(edge.kellyIndex),
-                                        )}
-                                    >
-                                        {edge.kellyIndex.toFixed(2)}×{' '}
-                                        <span className="text-[11px] font-normal">
-                                            ({kellyLabel(edge.kellyIndex)})
-                                        </span>
-                                    </span>
-                                </div>
-                            )}
+                            <KellyIndexMetric
+                                basis={`average risk over full Kelly, both ${drawdownBasis}`}
+                                index={kelly.kellyIndex}
+                            />
                         </div>
                     </div>
                 </section>
@@ -550,27 +602,47 @@ function calmarBench(v: number): string {
 }
 
 function calmarColor(v: number): string {
-    if (v > 3) return 'text-emerald-400';
-    if (v > 2) return 'text-green-400';
-    return v > 1 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 3 || v > 2) return 'text-success';
+    return v > 1 ? 'text-warning' : 'text-destructive';
 }
 
 function gainToPainColor(v: number): string {
-    if (v > 3) return 'text-emerald-400';
-    if (v > 1.5) return 'text-green-400';
-    return v > 1 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 3 || v > 1.5) return 'text-success';
+    return v > 1 ? 'text-warning' : 'text-destructive';
 }
 
-function kellyColor(index: number): string {
-    if (index > 1) return 'text-rose-400';
-    if (index > 0.75) return 'text-amber-400';
-    return index >= 0.25 ? 'text-emerald-400' : 'text-amber-400';
+function KellyIndexMetric({
+    basis,
+    index,
+}: {
+    basis: string;
+    index: KellyIndex;
+}) {
+    switch (index.status) {
+        case KellyIndexStatus.NoEdge: {
+            return <Metric label="Kelly index" value="no edge" />;
+        }
+        case KellyIndexStatus.NotApplicable: {
+            return (
+                <Metric
+                    label="Kelly index"
+                    value={NOT_APPLICABLE}
+                    valueClass="text-muted-foreground"
+                />
+            );
+        }
+        case KellyIndexStatus.Sized: {
+            return (
+                <Metric
+                    label="Kelly index"
+                    sub={basis}
+                    value={`${index.value.toFixed(2)}× full Kelly`}
+                />
+            );
+        }
+    }
 }
-function kellyLabel(index: number): string {
-    if (index > 1) return 'over-betting';
-    if (index > 0.75) return 'high variance';
-    return index >= 0.25 ? 'optimal zone' : 'under-betting';
-}
+
 function Metric({
     label,
     sub,
@@ -605,16 +677,16 @@ function omegaBench(v: number): string {
     return v > 1 ? 'acceptable' : 'losing';
 }
 function omegaColor(v: number): string {
-    if (v > 2) return 'text-emerald-400';
-    return v > 1 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 2) return 'text-success';
+    return v > 1 ? 'text-warning' : 'text-destructive';
 }
 function pfBench(v: number): string {
     if (v > 1.5) return 'healthy';
     return v > 1 ? 'marginal' : 'losing';
 }
 function pfColor(v: number): string {
-    if (v > 1.5) return 'text-emerald-400';
-    return v > 1 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 1.5) return 'text-success';
+    return v > 1 ? 'text-warning' : 'text-destructive';
 }
 function riskAdjustedRatioBench(v: number): string {
     if (v > 2) return 'excellent';
@@ -622,9 +694,8 @@ function riskAdjustedRatioBench(v: number): string {
     return v > 0.5 ? 'acceptable' : 'poor';
 }
 function riskAdjustedRatioColor(v: number): string {
-    if (v > 2) return 'text-emerald-400';
-    if (v > 1) return 'text-green-400';
-    return v > 0.5 ? 'text-amber-400' : 'text-rose-400';
+    if (v > 2 || v > 1) return 'text-success';
+    return v > 0.5 ? 'text-warning' : 'text-destructive';
 }
 function SectionHeader({
     description,
@@ -635,18 +706,18 @@ function SectionHeader({
 }) {
     return (
         <div className="flex items-center gap-2">
-            <Eyebrow as="h4">{title}</Eyebrow>
+            <Eyebrow as="h3">{title}</Eyebrow>
             <InfoPopover title={title}>{description}</InfoPopover>
         </div>
     );
 }
 function ulcerColor(v: number): string {
-    if (v < 3) return 'text-emerald-400';
-    return v < 8 ? 'text-amber-400' : 'text-rose-400';
+    if (v < 3) return 'text-success';
+    return v < 8 ? 'text-warning' : 'text-destructive';
 }
 function zColor(z: number): string {
-    if (z >= 1.645) return 'text-emerald-400';
-    return z >= 1.28 ? 'text-amber-400' : 'text-rose-400';
+    if (z >= 1.645) return 'text-success';
+    return z >= 1.28 ? 'text-warning' : 'text-destructive';
 }
 
 function zLabel(z: number): string {

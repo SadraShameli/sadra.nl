@@ -1,81 +1,52 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-
-import {
-    buildLadderGrid,
-    canonicaliseGrid,
-    type DayStopRule,
-    ladderFrontier,
-    type LadderGridConfig,
-    type LadderScore,
-    type Plan,
-    type RungSizing,
-} from '~/lib/prop-calculator';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import {
     type LadderWorkerRequest,
     LadderWorkerRequestKind,
     type LadderWorkerResponse,
     LadderWorkerResponseKind,
-} from '../_workers/ladderWorkerMessages';
+} from '~/app/(app)/prop-calculator/_workers/ladderWorkerMessages';
+import {
+    buildLadderGrid,
+    canonicaliseGrid,
+    LadderGridError,
+    type LadderGridLabels,
+    type LadderScore,
+    rankLadderScores,
+    resolveCopyAccounts,
+} from '~/lib/prop-calculator';
+
+import {
+    LadderRunPhase,
+    type LadderSearchInputs,
+    type LadderSearchState,
+} from './ladderSearchTypes';
 
 const BLOCK_SIZE = 20;
 const MAX_WORKERS = 16;
 const TOP_N = 25;
 
-export enum LadderRunPhase {
-    Cancelled = 'cancelled',
-    Failed = 'failed',
-    Idle = 'idle',
-    Running = 'running',
-    Succeeded = 'succeeded',
-}
-
-export interface LadderProgress {
-    completed: number;
-    elapsedMs: number;
-    etaMs: null | number;
-    total: number;
-}
-
-export interface LadderSearchInputs {
-    grid: LadderGridConfig;
-    maxDays: number;
-    plan: Plan;
-    rrRatio: number;
-    rungSizing: RungSizing;
-    seed: number;
-    sims: number;
-    stopRule: DayStopRule;
-    winrate: number;
-}
-
-export interface LadderSearchRun {
-    byCost: readonly LadderScore[];
-    byPassRate: readonly LadderScore[];
-    bySpeed: readonly LadderScore[];
-    droppedAliasCount: number;
-    frontier: readonly LadderScore[];
-    gridSize: number;
-    laddersScored: number;
-}
-
-export type LadderSearchState =
-    | { phase: LadderRunPhase.Cancelled; progress: LadderProgress }
-    | { phase: LadderRunPhase.Failed; reason: string }
-    | { phase: LadderRunPhase.Idle }
-    | { phase: LadderRunPhase.Running; progress: LadderProgress }
-    | {
-          phase: LadderRunPhase.Succeeded;
-          progress: LadderProgress;
-          result: LadderSearchRun;
-      };
+const LADDER_GRID_FIELD_LABELS: LadderGridLabels = {
+    lo: 'Min rung',
+    max: 'Max rung',
+    slots: 'Rungs',
+    step: 'Step',
+};
 
 const IDLE: LadderSearchState = { phase: LadderRunPhase.Idle };
 
+export function describeLadderGridFailure(error: unknown): string {
+    if (error instanceof LadderGridError) {
+        return error.describe(LADDER_GRID_FIELD_LABELS);
+    }
+    return error instanceof Error ? error.message : String(error);
+}
+
 export function useLadderSearch() {
     const [state, setState] = useState<LadderSearchState>(IDLE);
+    const [runInputs, setRunInputs] = useState<LadderSearchInputs | null>(null);
     const workersReference = useRef<Worker[]>([]);
     const cancelReference = useRef(false);
     const runIdReference = useRef(0);
@@ -84,13 +55,6 @@ export function useLadderSearch() {
         for (const worker of workersReference.current) worker.terminate();
         workersReference.current = [];
     }, []);
-
-    useEffect(() => {
-        return () => {
-            cancelReference.current = true;
-            teardown();
-        };
-    }, [teardown]);
 
     const cancel = useCallback(() => {
         cancelReference.current = true;
@@ -105,16 +69,33 @@ export function useLadderSearch() {
         );
     }, [teardown]);
 
+    useLayoutEffect(() => cancel, [cancel]);
+
     const run = useCallback(
         (inputs: LadderSearchInputs) => {
             cancelReference.current = false;
             teardown();
             runIdReference.current += 1;
             const runId = runIdReference.current;
+            setRunInputs(inputs);
 
             const cushion = inputs.plan.drawdown.amount;
-            const ladders = canonicaliseGrid(buildLadderGrid(inputs.grid));
-            const gridSize = buildLadderGrid(inputs.grid).length;
+            const discounts = inputs.plan.purchaseDiscounts(
+                inputs.discounts,
+                resolveCopyAccounts(inputs.copyAccounts),
+            );
+            let rawGrid: number[][];
+            try {
+                rawGrid = buildLadderGrid(inputs.grid);
+            } catch (error) {
+                setState({
+                    phase: LadderRunPhase.Failed,
+                    reason: describeLadderGridFailure(error),
+                });
+                return;
+            }
+            const ladders = canonicaliseGrid(rawGrid);
+            const gridSize = rawGrid.length;
             const total = ladders.length;
 
             if (total === 0) {
@@ -154,9 +135,6 @@ export function useLadderSearch() {
             );
 
             const finish = () => {
-                const scorable = scores.filter((score) =>
-                    Number.isFinite(score.expectedDaysToFunded),
-                );
                 setState({
                     phase: LadderRunPhase.Succeeded,
                     progress: {
@@ -166,23 +144,8 @@ export function useLadderSearch() {
                         total,
                     },
                     result: {
-                        byCost: scorable
-                            .toSorted(
-                                (a, b) => a.costPerFunded - b.costPerFunded,
-                            )
-                            .slice(0, TOP_N),
-                        byPassRate: scorable
-                            .toSorted((a, b) => b.passRate - a.passRate)
-                            .slice(0, TOP_N),
-                        bySpeed: scorable
-                            .toSorted(
-                                (a, b) =>
-                                    a.expectedDaysToFunded -
-                                    b.expectedDaysToFunded,
-                            )
-                            .slice(0, TOP_N),
+                        ...rankLadderScores(scores, TOP_N),
                         droppedAliasCount: gridSize - total,
-                        frontier: ladderFrontier(scorable),
                         gridSize,
                         laddersScored: total,
                     },
@@ -196,11 +159,11 @@ export function useLadderSearch() {
                 if (!block) return;
                 nextBlock += 1;
                 const request: LadderWorkerRequest = {
+                    commission: inputs.commission,
                     cushion,
-                    evalPrice:
-                        inputs.plan.fees.oneTimeEval +
-                        inputs.plan.fees.activation,
+                    discounts,
                     firstIndex: block.firstIndex,
+                    instrument: inputs.instrument,
                     kind: LadderWorkerRequestKind.ScoreLadders,
                     ladders: block.ladders,
                     maxDays: inputs.maxDays,
@@ -210,6 +173,7 @@ export function useLadderSearch() {
                     runId,
                     seed: inputs.seed,
                     sims: inputs.sims,
+                    stopPoints: inputs.stopPoints,
                     stopRule: inputs.stopRule,
                     winrate: inputs.winrate,
                 };
@@ -278,5 +242,5 @@ export function useLadderSearch() {
         [teardown],
     );
 
-    return { cancel, run, state };
+    return { cancel, run, runInputs, state };
 }

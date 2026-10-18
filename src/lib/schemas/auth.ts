@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import zxcvbn from 'zxcvbn';
 
 import { ROLE_VALUES } from '~/lib/auth/roles';
+import { callbackUrlSchema } from '~/lib/site/privateRoutes';
 
 export const roleSchema = z.enum(ROLE_VALUES);
 
@@ -18,9 +18,13 @@ export const passwordSchema = z
         message: 'Must contain an uppercase letter',
     })
     .refine((p) => /\d/.test(p), { message: 'Must contain a digit' })
-    .refine((p) => zxcvbn(p).score >= 2, {
-        message: 'Password is too weak or too common',
-    });
+    .refine(
+        async (p) => {
+            const { default: zxcvbn } = await import('zxcvbn');
+            return zxcvbn(p).score >= 2;
+        },
+        { message: 'Password is too weak or too common' },
+    );
 
 export const displayNameSchema = z
     .string()
@@ -28,10 +32,7 @@ export const displayNameSchema = z
     .min(1, 'Name cannot be empty')
     .max(256);
 
-export const callbackUrlSchema = z
-    .string()
-    .max(512)
-    .regex(/^\/(?!\/)/, 'Must be a same-origin path');
+export { callbackUrlSchema } from '~/lib/site/privateRoutes';
 export const optionalCallbackUrlSchema = callbackUrlSchema.optional();
 
 export const loginInputSchema = z.object({
@@ -83,35 +84,33 @@ export const resetPasswordInputSchema = z
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordInputSchema>;
 
-export const updateNameInputSchema = z
-    .object({
-        currentName: z.string(),
-        name: displayNameSchema,
-    })
-    .refine((data) => data.name !== data.currentName.trim(), {
-        message: 'No changes to save',
-        path: ['name'],
-    });
-
-export type UpdateNameInput = z.infer<typeof updateNameInputSchema>;
-
-export const updatePasswordInputSchema = z
+export const updateAccountInputSchema = z
     .object({
         confirm: z.string(),
-        current: z.string().min(1, 'Current password is required').max(256),
-        password: passwordSchema,
+        current: z.string().max(256),
+        email: emailSchema,
+        name: displayNameSchema,
+        password: z.union([z.literal(''), passwordSchema]),
     })
-    .refine((data) => data.password === data.confirm, {
-        message: 'Passwords do not match',
-        path: ['confirm'],
+    .superRefine((data, context) => {
+        if (data.password === '') return;
+        if (data.current === '') {
+            context.addIssue({
+                code: 'custom',
+                message: 'Current password is required',
+                path: ['current'],
+            });
+        }
+        if (data.password !== data.confirm) {
+            context.addIssue({
+                code: 'custom',
+                message: 'Passwords do not match',
+                path: ['confirm'],
+            });
+        }
     });
 
-export type UpdatePasswordInput = z.infer<typeof updatePasswordInputSchema>;
-
-export const updateEmailInputSchema = z.object({
-    email: emailSchema,
-});
-export type UpdateEmailInput = z.infer<typeof updateEmailInputSchema>;
+export type UpdateAccountInput = z.infer<typeof updateAccountInputSchema>;
 
 const adminUserRoleSchema = z.enum(['admin', 'user']);
 

@@ -1,13 +1,16 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
+import { PageTransition } from '~/components/PageTransition';
+import { Alert, AlertDescription } from '~/components/ui/alert';
 import {
     Card,
     CardContent,
     CardFooter,
     CardHeader,
     CardTitle,
-} from '~/components/ui/Card';
+} from '~/components/ui/card';
+import { Skeleton } from '~/components/ui/skeleton';
 import { authErrorSearchSchema } from '~/lib/schemas/url';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -29,46 +32,59 @@ const errorMessages: Record<string, string> = {
         'This sign-in link has expired or already been used. Request a new one.',
 };
 
-export const dynamic = 'force-dynamic';
+const FALLBACK_MESSAGE = 'Something went wrong. Try again.';
 
-export default async function AuthErrorPage({
+type AuthErrorPageProperties = Pick<PageProps<'/auth-error'>, 'searchParams'>;
+
+export default function AuthErrorPage({
     searchParams,
-}: {
-    searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-    const { error } = authErrorSearchSchema.parse(await searchParams);
-    const message =
-        (error && errorMessages[error]) ?? 'Something went wrong. Try again.';
-
+}: AuthErrorPageProperties) {
     return (
-        <div
-            className={cn(
-                'app-auth__page',
-                'flex flex-1 items-center justify-center px-4 pt-20 pb-12',
-            )}
-        >
-            <div className="w-full max-w-sm">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Sign-in problem</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Alert variant="destructive">
-                            <AlertDescription>{message}</AlertDescription>
-                        </Alert>
-                    </CardContent>
-                    <CardFooter className="mt-2 flex flex-col gap-3">
-                        <p className="text-center text-sm text-muted-foreground">
-                            <Link
-                                className="text-foreground underline underline-offset-4 hover:opacity-70"
-                                href={routes.auth.login}
-                            >
-                                Back to sign in
-                            </Link>
-                        </p>
-                    </CardFooter>
-                </Card>
+        <PageTransition>
+            <div
+                className={cn(
+                    'app-auth__page',
+                    'flex flex-1 items-center justify-center px-4 pt-20 pb-12',
+                )}
+            >
+                <div className="w-full max-w-sm">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Sign-in problem</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Alert variant="destructive">
+                                <AlertDescription>
+                                    <Suspense
+                                        fallback={
+                                            <Skeleton className="h-5 w-full" />
+                                        }
+                                    >
+                                        <AuthErrorMessage
+                                            searchParams={searchParams}
+                                        />
+                                    </Suspense>
+                                </AlertDescription>
+                            </Alert>
+                        </CardContent>
+                        <CardFooter className="mt-2 flex flex-col gap-3">
+                            <p className="text-center text-sm text-muted-foreground">
+                                <Link
+                                    className="text-foreground underline underline-offset-4 hover:opacity-70"
+                                    href={routes.auth.login}
+                                >
+                                    Back to sign in
+                                </Link>
+                            </p>
+                        </CardFooter>
+                    </Card>
+                </div>
             </div>
-        </div>
+        </PageTransition>
     );
+}
+
+async function AuthErrorMessage({ searchParams }: AuthErrorPageProperties) {
+    const { error } = authErrorSearchSchema.parse(await searchParams);
+    return (error && errorMessages[error]) ?? FALLBACK_MESSAGE;
 }

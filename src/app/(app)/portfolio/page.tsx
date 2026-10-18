@@ -1,11 +1,13 @@
 import { type Metadata } from 'next';
+import { Suspense } from 'react';
 
-import { isRoot } from '~/lib/auth/roles';
-import { getServerSession } from '~/lib/auth/server';
+import PortfolioHero from '~/app/(app)/_components/Portfolio/PortfolioHero';
+import PortfolioSection from '~/app/(app)/_components/Portfolio/PortfolioSection';
+import RootResumeLink from '~/app/(app)/_components/Portfolio/RootResumeLink';
+import { SectionTone } from '~/app/(app)/_components/SectionShell';
+import { PageTransition } from '~/components/PageTransition';
 import { portfolioContent, siteContent } from '~/lib/site/content';
 import { routes } from '~/lib/site/routes';
-
-import PortfolioContent from '../_components/Portfolio/Portfolio';
 
 export const metadata: Metadata = {
     alternates: { canonical: routes.portfolio },
@@ -19,31 +21,32 @@ export const metadata: Metadata = {
     title: portfolioContent.metaTitle,
 };
 
-export default async function PortfolioPage() {
-    const session = await getServerSession();
-    const canViewResume = isRoot(session?.user.role);
+export const ensureStatic = 'prefetch';
 
+export default function PortfolioPage() {
     return (
-        <main className={`app-portfolio container grid w-full pt-spacing`}>
-            <div className="my-content mx-auto w-full max-w-4xl">
-                <PortfolioContent
-                    canViewResume={canViewResume}
-                    education={portfolioContent.education}
-                    educationSectionTitle={
-                        portfolioContent.educationSectionTitle
-                    }
+        <PageTransition>
+            <main className="app-portfolio">
+                <PortfolioHero
                     email={siteContent.email}
-                    experience={portfolioContent.experience}
-                    experienceSectionTitle={
-                        portfolioContent.experienceSectionTitle
-                    }
-                    heroHeadline={portfolioContent.heroHeadline}
+                    heading={portfolioContent.heroHeading}
+                    headline={portfolioContent.heroHeadline}
                     name={siteContent.manifest.name}
-                    profiles={siteContent.profiles}
-                    projects={portfolioContent.projects}
-                    projectsSectionTitle={portfolioContent.projectsSectionTitle}
+                    resumeLink={
+                        <Suspense fallback={null}>
+                            <RootResumeLink />
+                        </Suspense>
+                    }
+                    sections={portfolioContent.sections}
                 />
-            </div>
-        </main>
+                {portfolioContent.sections.map((section) => (
+                    <PortfolioSection
+                        key={section.id}
+                        section={section}
+                        tone={SectionTone.Alternate}
+                    />
+                ))}
+            </main>
+        </PageTransition>
     );
 }

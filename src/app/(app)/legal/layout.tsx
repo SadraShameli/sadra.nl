@@ -1,11 +1,11 @@
-import { type ReactNode } from 'react';
+import { CapsulePage } from '~/components/CapsulePage';
 
-export default function LegalLayout({ children }: { children: ReactNode }) {
+export const ensureStatic = 'prefetch';
+
+export default function LegalLayout({ children }: LayoutProps<'/legal'>) {
     return (
-        <main className="container mx-auto max-w-3xl px-6 py-16 text-sm leading-relaxed">
-            <div className="prose prose-sm max-w-none prose-invert">
-                {children}
-            </div>
-        </main>
+        <CapsulePage className="prose prose-sm max-w-capsule text-sm/relaxed prose-theme">
+            {children}
+        </CapsulePage>
     );
 }

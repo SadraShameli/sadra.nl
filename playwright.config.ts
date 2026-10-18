@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = Number(process.env.PORT ?? 3000);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 
-export default defineConfig({
+const config = defineConfig({
     forbidOnly: !!process.env.CI,
     fullyParallel: true,
     projects: [
@@ -29,3 +29,5 @@ export default defineConfig({
           },
     workers: process.env.CI ? 1 : undefined,
 });
+
+export default config;

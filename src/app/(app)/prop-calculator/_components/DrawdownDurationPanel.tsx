@@ -2,9 +2,8 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import InfoPopover from '~/components/ui/InfoPopover';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
 import { formatDays, formatPercent } from '~/lib/format';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { mean } from '~/lib/prop-calculator/stats';
@@ -75,48 +74,27 @@ export default function DrawdownDurationPanel({
 
     const underwaterClass =
         m.avgUnderwaterPct < 0.2
-            ? 'text-emerald-400'
+            ? 'text-success'
             : m.avgUnderwaterPct < 0.4
-              ? 'text-amber-400'
-              : 'text-rose-400';
+              ? 'text-warning'
+              : 'text-destructive';
 
     const recoveryClass =
         m.avgRecovery < 3
-            ? 'text-emerald-400'
+            ? 'text-success'
             : m.avgRecovery < 10
-              ? 'text-amber-400'
-              : 'text-rose-400';
+              ? 'text-warning'
+              : 'text-destructive';
 
     const vShapeClass =
         m.vShapePct > 0.6
-            ? 'text-emerald-400'
+            ? 'text-success'
             : m.vShapePct > 0.3
-              ? 'text-amber-400'
-              : 'text-rose-400';
+              ? 'text-warning'
+              : 'text-destructive';
 
     return (
-        <Card
-            className={cn(
-                'app-prop-calculator__drawdown-duration',
-                'px-5 py-5',
-            )}
-        >
-            <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold">
-                    Drawdown Duration & Recovery
-                </h3>
-                <InfoPopover title="Drawdown Duration & Recovery">
-                    Analyses the 50 sampled equity paths to measure how long
-                    drawdown episodes last and how quickly they recover. Time
-                    underwater is the share of trading days spent below a prior
-                    peak. V-shape episodes recover in under 40% of their total
-                    duration — the faster that number, the less psychological
-                    and capital drag the strategy produces. Recovery tax shows
-                    the extra return required to get back to breakeven after
-                    typical drawdowns.
-                </InfoPopover>
-            </div>
-
+        <Card className={cn('app-prop-calculator__drawdown-duration', 'p-5')}>
             <div className="flex flex-col gap-5">
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
                     <StatCard
@@ -143,9 +121,7 @@ export default function DrawdownDurationPanel({
                     <StatCard
                         label="Avg recovery time"
                         sub="from trough to new peak"
-                        value={
-                            m.avgRecovery > 0 ? formatDays(m.avgRecovery) : '—'
-                        }
+                        value={formatDays(m.avgRecovery)}
                         valueClassName={recoveryClass}
                     />
                     <StatCard
@@ -157,7 +133,7 @@ export default function DrawdownDurationPanel({
                 </div>
 
                 <div>
-                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground/70 uppercase">
+                    <p className="mb-2 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                         Recovery tax (loss needs more gain to break even)
                     </p>
                     <RecoveryTaxTable avgDepth={m.avgDepth} />
@@ -259,10 +235,10 @@ function RecoveryTaxTable({ avgDepth }: { avgDepth: number }) {
                         <span
                             className={
                                 r < 0.12
-                                    ? 'text-emerald-400'
+                                    ? 'text-success'
                                     : r < 0.25
-                                      ? 'text-amber-400'
-                                      : 'text-rose-400'
+                                      ? 'text-warning'
+                                      : 'text-destructive'
                             }
                         >
                             {(r * 100).toFixed(1)}% gain required

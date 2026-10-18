@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "prop_rule_violation_user_decision_kind_idx" ON "sadranl_prop_rule_violation" USING btree ("user_id","decision_id","kind") WHERE decision_id IS NOT NULL;

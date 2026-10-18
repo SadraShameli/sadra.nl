@@ -8,28 +8,35 @@ import {
     type LiveCushionPercent,
     LivePlan,
 } from '~/lib/prop-calculator/core';
-
-import { lockThresholdAt } from '../shared';
+import { lockThresholdAt } from '~/lib/prop-calculator/firms/shared';
 
 export const TPT_LIVE_DEFAULT_CUSHION_PERCENT: LiveCushionPercent = {
     postLock: fraction(0.1),
     preLock: fraction(0.05),
 };
 
+const CALENDAR_WEEK_INACTIVITY = { sessionsPerWeek: 5 } as const;
 const DRAWDOWN_AMOUNT = dollars(2000);
-const MAX_CONSECUTIVE_IDLE_DAYS = 7;
 
 const DEVELOPMENT_DRAWDOWN_AMOUNT = dollars(1250);
 const DEVELOPMENT_DAILY_LOSS_LIMIT = dollars(1000);
-const DEVELOPMENT_MAX_CONTRACTS = contracts(2);
+const DEVELOPMENT_MAX_MINI_CONTRACTS = contracts(2);
+const DEVELOPMENT_MAX_MICRO_CONTRACTS = contracts(20);
 
 export function buildTptLiveDevelopmentPlan(
     cushionPercent: LiveCushionPercent = TPT_LIVE_DEFAULT_CUSHION_PERCENT,
 ): LivePlan {
     return new LivePlan({
-        contractLimit: {
-            kind: ContractLimitKind.Flat,
-            maxContracts: DEVELOPMENT_MAX_CONTRACTS,
+        calendarWeekInactivity: CALENDAR_WEEK_INACTIVITY,
+        contractLimits: {
+            micros: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: DEVELOPMENT_MAX_MICRO_CONTRACTS,
+            },
+            minis: {
+                kind: ContractLimitKind.Flat,
+                maxContracts: DEVELOPMENT_MAX_MINI_CONTRACTS,
+            },
         },
         cushionPercent,
         label: 'Take Profit Trader PRO+ Development',
@@ -44,7 +51,7 @@ export function buildTptLiveDevelopmentPlan(
                 lockedThreshold: lockThresholdAt(0),
             },
         }),
-        maxConsecutiveIdleDays: MAX_CONSECUTIVE_IDLE_DAYS,
+        payoutFloor: dollars(0),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],
@@ -56,6 +63,7 @@ export function buildTptLivePlan(
     cushionPercent: LiveCushionPercent = TPT_LIVE_DEFAULT_CUSHION_PERCENT,
 ): LivePlan {
     return new LivePlan({
+        calendarWeekInactivity: CALENDAR_WEEK_INACTIVITY,
         cushionPercent,
         label: 'Take Profit Trader PRO+',
         liveDailyLossLimit: null,
@@ -66,7 +74,7 @@ export function buildTptLivePlan(
                 lockedThreshold: lockThresholdAt(0),
             },
         }),
-        maxConsecutiveIdleDays: MAX_CONSECUTIVE_IDLE_DAYS,
+        payoutFloor: dollars(0),
         payoutTiers: [
             { thresholdProfit: dollars(0), traderShare: fraction(0.9) },
         ],

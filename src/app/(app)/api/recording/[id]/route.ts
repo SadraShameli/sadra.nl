@@ -1,3 +1,5 @@
+import { TRPCError } from '@trpc/server';
+import { getHTTPStatusCodeFromError } from '@trpc/server/http';
 import { type NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 
@@ -7,12 +9,12 @@ import {
     recordingBlobSchema,
     zodErrorResponse,
 } from '~/lib/schemas/api';
-import { applyAudioFilters } from '~/server/helpers/audio';
+import { markIotRecordingsStale } from '~/server/iot/IotPublicReads';
 import { api } from '~/trpc/server';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> },
+    { params }: RouteContext<'/api/recording/[id]'>,
 ) {
     const parsed = parseRouteParameters(idPathParameterSchema, await params);
     if (parsed.response) return parsed.response;
@@ -58,29 +60,30 @@ export async function GET(
 
 export async function POST(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> },
+    { params }: RouteContext<'/api/recording/[id]'>,
 ) {
     const parsed = parseRouteParameters(idPathParameterSchema, await params);
     if (parsed.response) return parsed.response;
 
     try {
         const blob = recordingBlobSchema.parse(await request.blob());
-        const buffer = Buffer.from(await blob.arrayBuffer());
-        const { buffer: normalizedBuffer, durationSeconds } =
-            applyAudioFilters(buffer);
-
         const result = await api.recording.createRecording({
             device: { device_id: parsed.data.id },
-            duration_seconds: durationSeconds,
-            recording: normalizedBuffer,
+            recording: Buffer.from(await blob.arrayBuffer()),
         });
 
-        return result.status == 201
-            ? new NextResponse(null, { status: result.status })
-            : NextResponse.json(result, { status: result.status });
+        if (result.status !== 201) {
+            return NextResponse.json(result, { status: result.status });
+        }
+        markIotRecordingsStale();
+        return new NextResponse(null, { status: result.status });
     } catch (error) {
-        return error instanceof ZodError
-            ? zodErrorResponse(error)
+        if (error instanceof ZodError) return zodErrorResponse(error);
+        return error instanceof TRPCError
+            ? NextResponse.json(
+                  { error: error.message },
+                  { status: getHTTPStatusCodeFromError(error) },
+              )
             : NextResponse.json({ error: String(error) }, { status: 500 });
     }
 }
@@ -103,12 +106,12 @@ function parseRangeHeader(
         end = size - 1;
     } else {
         start = Number(rawStart);
-        end = rawEnd === '' ? size - 1 : Number(rawEnd);
+        end = rawEnd === '' ? size - 1 : Math.min(Number(rawEnd), size - 1);
     }
     return !Number.isFinite(start) ||
         !Number.isFinite(end) ||
         start < 0 ||
-        end >= size ||
+        start >= size ||
         start > end
         ? null
         : { end, start };

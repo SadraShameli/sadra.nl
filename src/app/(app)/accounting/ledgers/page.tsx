@@ -1,9 +1,10 @@
 import { type Metadata } from 'next';
 
-import { cn } from '~/lib/utilities';
+import { AccountingPageFrame } from '~/app/(app)/accounting/_components/AccountingPageFrame';
+import { AccountingSection } from '~/app/(app)/accounting/_components/AccountingSection';
+import { LedgersBrowser } from '~/app/(app)/accounting/_components/LedgersBrowser';
+import { requireRootUser } from '~/lib/auth/guards';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { LedgersBrowser } from '../_components/LedgersBrowser';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },
@@ -11,23 +12,22 @@ export const metadata: Metadata = {
 };
 
 export default function LedgersPage() {
-    void api.accounting.credentials.list.prefetch();
+    return (
+        <AccountingPageFrame
+            className="app-accounting__ledgers"
+            section={AccountingSection.Ledgers}
+        >
+            <LedgersContent />
+        </AccountingPageFrame>
+    );
+}
 
+async function LedgersContent() {
+    await requireRootUser();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-accounting__ledgers',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Ledgers
-                    </h1>
-                </header>
-                <LedgersBrowser />
-            </main>
+            <LedgersBrowser />
         </HydrateClient>
     );
 }

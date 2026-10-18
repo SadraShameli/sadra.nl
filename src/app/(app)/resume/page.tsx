@@ -1,14 +1,19 @@
-import { notFound } from 'next/navigation';
+import { type Instant } from 'next';
 
-import { isRoot } from '~/lib/auth/roles';
-import { getServerSession } from '~/lib/auth/server';
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { CapsulePage } from '~/components/CapsulePage';
+import { PageTransition } from '~/components/PageTransition';
+import { requireRootUser } from '~/lib/auth/guards';
+import { siteContent } from '~/lib/site/content';
 import {
     coverLetters,
     defaultResumeVariantKey,
     resumeVariants,
-} from '~/lib/site/content';
+} from '~/lib/site/resume';
 
 import ResumeCard from './_components/ResumeCard';
+
+export const instant: Instant = false;
 
 const resumes = [
     {
@@ -19,8 +24,7 @@ const resumes = [
 ];
 
 export default async function ResumePage() {
-    const session = await getServerSession();
-    if (!session?.user.id || !isRoot(session.user.role)) notFound();
+    await requireRootUser();
 
     const variantOptions = Object.values(resumeVariants).map((variant) => ({
         key: variant.key,
@@ -32,18 +36,15 @@ export default async function ResumePage() {
     }));
 
     return (
-        <main className="container grid w-full pt-spacing pb-24">
-            <div className="mx-auto w-full max-w-4xl">
-                <header>
-                    <h1 className="font-orbitron text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                        Resume
-                    </h1>
-                    <p className="mt-3 text-base text-neutral-400">
-                        Formatted as a PDF, view inline or download.
-                    </p>
-                </header>
+        <PageTransition>
+            <CapsulePage>
+                <ToolPageHeader
+                    eyebrow={siteContent.manifest.name}
+                    lead="Formatted as a PDF, view inline or download."
+                    title="Resume"
+                />
 
-                <div className="mt-12 flex flex-col gap-4">
+                <div className="flex flex-col gap-4">
                     {resumes.map((resume) => (
                         <ResumeCard
                             coverOptions={coverOptions}
@@ -54,7 +55,7 @@ export default async function ResumePage() {
                         />
                     ))}
                 </div>
-            </div>
-        </main>
+            </CapsulePage>
+        </PageTransition>
     );
 }

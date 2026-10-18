@@ -27,14 +27,14 @@ describe('drawdown is tracked per phase, totals per trial', () => {
 
         const evalStats = newPhaseStats(state.startingBalance, totals, streak);
         state.balance = 53_400;
-        evalStats.recordTrade(true, 3400, state.balance);
+        evalStats.recordTrade(true, 3400, state.balance, 1700);
         expect(totals.maxDrawdown).toBe(0);
 
         plan.beginFundedPhase(state);
         const fundedStats = newPhaseStats(state.balance, totals, streak);
 
         state.balance -= 300;
-        fundedStats.recordTrade(false, -300, state.balance);
+        fundedStats.recordTrade(false, -300, state.balance, 300);
 
         expect(totals.maxDrawdown).toBe(300);
     });
@@ -46,12 +46,12 @@ describe('drawdown is tracked per phase, totals per trial', () => {
         const streak = new LossStreak(totals);
 
         const evalStats = newPhaseStats(state.startingBalance, totals, streak);
-        evalStats.recordTrade(true, 600, 50_600);
-        evalStats.recordTrade(false, -300, 50_300);
+        evalStats.recordTrade(true, 600, 50_600, 300);
+        evalStats.recordTrade(false, -300, 50_300, 300);
 
         plan.beginFundedPhase(state);
         const fundedStats = newPhaseStats(state.balance, totals, streak);
-        fundedStats.recordTrade(false, -200, 49_800);
+        fundedStats.recordTrade(false, -200, 49_800, 200);
 
         expect(totals.tradesTaken).toBe(3);
         expect(totals.grossWins).toBe(600);
@@ -67,12 +67,12 @@ describe('drawdown is tracked per phase, totals per trial', () => {
         const streak = new LossStreak(totals);
 
         const evalStats = newPhaseStats(state.startingBalance, totals, streak);
-        evalStats.recordTrade(false, -100, 49_900);
-        evalStats.recordTrade(false, -100, 49_800);
+        evalStats.recordTrade(false, -100, 49_900, 100);
+        evalStats.recordTrade(false, -100, 49_800, 100);
 
         plan.beginFundedPhase(state);
         const fundedStats = newPhaseStats(state.balance, totals, streak);
-        fundedStats.recordTrade(false, -100, 49_900);
+        fundedStats.recordTrade(false, -100, 49_900, 100);
 
         expect(totals.maxLosingStreak).toBe(3);
     });
@@ -86,5 +86,31 @@ describe('drawdown is tracked per phase, totals per trial', () => {
         totals.advanceMaxLosingStreak(4);
         totals.advanceMaxLosingStreak(1);
         expect(totals.maxLosingStreak).toBe(4);
+    });
+});
+
+describe('realized risk is totalled per trade', () => {
+    it('adds the risk of every recorded trade, win or loss', () => {
+        const totals = new TradeTotals();
+        const stats = newPhaseStats(50_000, totals, new LossStreak(totals));
+
+        stats.recordTrade(true, 500, 50_500, 250);
+        stats.recordTrade(false, -250, 50_250, 250);
+
+        expect(totals.risked).toBe(500);
+        expect(totals.tradesTaken).toBe(2);
+    });
+
+    it('totals unequal ladder risks across phases', () => {
+        const totals = new TradeTotals();
+        const streak = new LossStreak(totals);
+        const evalStats = newPhaseStats(50_000, totals, streak);
+        const fundedStats = newPhaseStats(50_000, totals, streak);
+
+        evalStats.recordTrade(true, 800, 50_800, 400);
+        evalStats.recordTrade(false, -600, 50_200, 600);
+        fundedStats.recordTrade(true, 500, 50_700, 250);
+
+        expect(totals.risked).toBe(1250);
     });
 });

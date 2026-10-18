@@ -4,17 +4,18 @@ import { Download, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useId, useState } from 'react';
 
-import type { ResumeVariantKey } from '~/lib/site/content';
+import type { ResumeVariantKey } from '~/lib/site/resume';
 
-import { Button } from '~/components/ui/Button';
-import { Label } from '~/components/ui/Label';
+import { Button } from '~/components/ui/button';
+import { Label } from '~/components/ui/label';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
+import { Separator } from '~/components/ui/separator';
 import { routes, withQuery } from '~/lib/site/routes';
 
 type CoverOption = { key: string; label: string };
@@ -62,11 +63,11 @@ export default function ResumeCard({
             <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
                 {resume.title}
             </p>
-            <p className="mt-1 text-base font-semibold text-white">
+            <p className="mt-1 text-base font-semibold text-foreground">
                 {resume.role}
             </p>
 
-            <div className="my-5 border-t border-border" />
+            <Separator className="my-5" />
 
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">

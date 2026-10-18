@@ -2,20 +2,42 @@
 
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import InfoPopover from '~/components/ui/InfoPopover';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import InfoPopover from '~/components/ui/info-popover';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '~/components/ui/tooltip';
 import { formatCompactCurrency, formatPercent } from '~/lib/format';
 import { type SimInputs, simulate } from '~/lib/prop-calculator';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
+import { ComputationId } from './ComputationId';
 import { panelDescriptions } from './kpiDescriptions';
 import { simInputsCacheKey, SimInputsKeyField } from './simInputsCacheKey';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
 enum SensitivityMetric {
+    EvalPass = 'eval-pass',
+    EvPerAttempt = 'ev-per-attempt',
+    FundedSurvival = 'funded-survive',
     MonthlyNet = 'net',
-    Pass = 'pass',
+}
+
+const EV_PER_ATTEMPT_DESCRIPTION =
+    'Expected value per attempt (pass probability x funded value over the funded horizon, minus attempt cost) across the same winrate x reward-to-risk grid, labelled per attempt: it ignores how long an attempt takes and is not the ranking objective. Pairs with the monthly net heatmap to spot where a small per-attempt edge still compounds into a strong monthly result.';
+
+export interface Cell {
+    evalPass: number;
+    evPerAttempt: number;
+    fundedSurvival: number;
+    monthlyNet: number;
+    rr: number;
+    winrate: number;
 }
 
 interface HeatmapRow {
@@ -28,11 +50,15 @@ const RR_RATIOS = [1, 1.5, 2, 2.5, 3, 3.5, 4] as const;
 const DEBOUNCE_MS = 700;
 const MAX_TRIALS = 300;
 
-interface Cell {
-    monthlyNet: number;
-    pass: number;
-    rr: number;
-    winrate: number;
+interface HeatmapCardProperties {
+    cells: Cell[];
+    currentRR: number;
+    currentWinrate: number;
+    description: string;
+    legend: string;
+    metric: SensitivityMetric;
+    pending: boolean;
+    title: string;
 }
 
 interface HeatmapCellsProperties {
@@ -53,7 +79,9 @@ export default function SensitivityHeatmap({
     currentRR,
     currentWinrate,
 }: SensitivityHeatmapProperties) {
-    const { cells, pending } = useSensitivityGrid(baseInputs);
+    const { cells, error, pending } = useSensitivityGrid(baseInputs);
+
+    if (error !== null) return <SimulationFailureNotice message={error} />;
 
     return (
         <div
@@ -62,62 +90,46 @@ export default function SensitivityHeatmap({
                 'grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]',
             )}
         >
-            <Card
-                className={cn(
-                    'app-prop-calculator__sensitivity-pass',
-                    'min-w-0 px-5 py-4',
-                )}
-            >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold">
-                            Pass% sensitivity
-                        </h3>
-                        <InfoPopover title="Pass% sensitivity">
-                            {panelDescriptions.sensitivityPass}
-                        </InfoPopover>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                        {pending
-                            ? 'computing…'
-                            : 'red = unlikely, green = robust'}
-                    </span>
-                </div>
-                <HeatmapCells
-                    cells={cells}
-                    currentRR={currentRR}
-                    currentWinrate={currentWinrate}
-                    metric={SensitivityMetric.Pass}
-                />
-            </Card>
-            <Card
-                className={cn(
-                    'app-prop-calculator__sensitivity-net',
-                    'min-w-0 px-5 py-4',
-                )}
-            >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold">
-                            Monthly net sensitivity
-                        </h3>
-                        <InfoPopover title="Monthly net sensitivity">
-                            {panelDescriptions.sensitivityNet}
-                        </InfoPopover>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                        {pending
-                            ? 'computing…'
-                            : 'red = losing $, green = profit'}
-                    </span>
-                </div>
-                <HeatmapCells
-                    cells={cells}
-                    currentRR={currentRR}
-                    currentWinrate={currentWinrate}
-                    metric={SensitivityMetric.MonthlyNet}
-                />
-            </Card>
+            <HeatmapCard
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                description={panelDescriptions.sensitivityPass}
+                legend="red = unlikely, green = robust"
+                metric={SensitivityMetric.EvalPass}
+                pending={pending}
+                title="Eval pass sensitivity"
+            />
+            <HeatmapCard
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                description={panelDescriptions.sensitivityFundedSurvival}
+                legend="red = unlikely, green = robust"
+                metric={SensitivityMetric.FundedSurvival}
+                pending={pending}
+                title="Funded survive sensitivity"
+            />
+            <HeatmapCard
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                description={panelDescriptions.sensitivityNet}
+                legend="red = losing $, green = profit"
+                metric={SensitivityMetric.MonthlyNet}
+                pending={pending}
+                title="Monthly net sensitivity"
+            />
+            <HeatmapCard
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                description={EV_PER_ATTEMPT_DESCRIPTION}
+                legend="red = losing $, green = profit; per attempt"
+                metric={SensitivityMetric.EvPerAttempt}
+                pending={pending}
+                title="EV per attempt sensitivity"
+            />
         </div>
     );
 }
@@ -128,23 +140,97 @@ function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
     });
 }
 
+function cellClassName(
+    cell: Cell,
+    metric: SensitivityMetric,
+    maxAbs: number,
+): string {
+    switch (metric) {
+        case SensitivityMetric.EvalPass: {
+            return colorForPass(cell.evalPass);
+        }
+        case SensitivityMetric.EvPerAttempt: {
+            return colorForNet(cell.evPerAttempt, maxAbs);
+        }
+        case SensitivityMetric.FundedSurvival: {
+            return colorForPass(cell.fundedSurvival);
+        }
+        case SensitivityMetric.MonthlyNet: {
+            return colorForNet(cell.monthlyNet, maxAbs);
+        }
+    }
+}
+
+function cellDisplay(cell: Cell, metric: SensitivityMetric): string {
+    switch (metric) {
+        case SensitivityMetric.EvalPass: {
+            return formatPercent(cell.evalPass, 0);
+        }
+        case SensitivityMetric.EvPerAttempt: {
+            return formatCompactCurrency(cell.evPerAttempt);
+        }
+        case SensitivityMetric.FundedSurvival: {
+            return formatPercent(cell.fundedSurvival, 0);
+        }
+        case SensitivityMetric.MonthlyNet: {
+            return formatCompactCurrency(cell.monthlyNet);
+        }
+    }
+}
+
 function colorForNet(net: number, maxAbs: number): string {
     if (maxAbs <= 0) return 'bg-muted/30';
     const ratio = Math.max(-1, Math.min(1, net / maxAbs));
-    if (ratio >= 0.6) return 'bg-emerald-500/70';
-    if (ratio >= 0.3) return 'bg-emerald-500/45';
-    if (ratio > 0.05) return 'bg-emerald-500/25';
+    if (ratio >= 0.6) return 'bg-success/70';
+    if (ratio >= 0.3) return 'bg-success/45';
+    if (ratio > 0.05) return 'bg-success/25';
     if (ratio >= -0.05) return 'bg-muted/30';
-    if (ratio >= -0.3) return 'bg-rose-500/30';
-    return ratio >= -0.6 ? 'bg-rose-500/45' : 'bg-rose-500/65';
+    if (ratio >= -0.3) return 'bg-destructive/30';
+    return ratio >= -0.6 ? 'bg-destructive/45' : 'bg-destructive/65';
 }
 
 function colorForPass(pass: number): string {
-    if (pass >= 0.8) return 'bg-emerald-500/70';
-    if (pass >= 0.65) return 'bg-emerald-500/45';
-    if (pass >= 0.5) return 'bg-yellow-500/45';
-    if (pass >= 0.35) return 'bg-yellow-500/30';
-    return pass >= 0.2 ? 'bg-rose-500/40' : 'bg-rose-500/60';
+    if (pass >= 0.8) return 'bg-success/70';
+    if (pass >= 0.65) return 'bg-success/45';
+    if (pass >= 0.5) return 'bg-warning/45';
+    if (pass >= 0.35) return 'bg-warning/30';
+    return pass >= 0.2 ? 'bg-destructive/40' : 'bg-destructive/60';
+}
+
+function HeatmapCard({
+    cells,
+    currentRR,
+    currentWinrate,
+    description,
+    legend,
+    metric,
+    pending,
+    title,
+}: HeatmapCardProperties) {
+    return (
+        <Card
+            className={cn(
+                `app-prop-calculator__sensitivity-${metric}`,
+                'min-w-0 px-5 py-4',
+            )}
+        >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold">{title}</h3>
+                    <InfoPopover title={title}>{description}</InfoPopover>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                    {pending ? 'computing…' : legend}
+                </span>
+            </div>
+            <HeatmapCells
+                cells={cells}
+                currentRR={currentRR}
+                currentWinrate={currentWinrate}
+                metric={metric}
+            />
+        </Card>
+    );
 }
 
 function HeatmapCells({
@@ -154,10 +240,19 @@ function HeatmapCells({
     metric,
 }: HeatmapCellsProperties) {
     const maxAbs = useMemo(() => {
-        if (metric !== SensitivityMetric.MonthlyNet) return 0;
+        if (
+            metric !== SensitivityMetric.MonthlyNet &&
+            metric !== SensitivityMetric.EvPerAttempt
+        ) {
+            return 0;
+        }
+        const valueOf =
+            metric === SensitivityMetric.MonthlyNet
+                ? (c: Cell) => c.monthlyNet
+                : (c: Cell) => c.evPerAttempt;
         let m = 0;
         for (const c of cells) {
-            const abs = Math.abs(c.monthlyNet);
+            const abs = Math.abs(valueOf(c));
             if (abs > m) m = abs;
         }
         return m;
@@ -198,30 +293,31 @@ function HeatmapCells({
                         row.original.winrate === closestWinrate &&
                         rr === closestRR;
                     const colorClass = cell
-                        ? metric === SensitivityMetric.Pass
-                            ? colorForPass(cell.pass)
-                            : colorForNet(cell.monthlyNet, maxAbs)
+                        ? cellClassName(cell, metric, maxAbs)
                         : '';
-                    const display = cell
-                        ? metric === SensitivityMetric.Pass
-                            ? formatPercent(cell.pass, 0)
-                            : formatCompactCurrency(cell.monthlyNet)
-                        : '';
+                    const display = cell ? cellDisplay(cell, metric) : '';
                     const tooltip = cell
-                        ? `winrate ${formatPercent(row.original.winrate, 0)} · RR ${rr}:1\npass ${formatPercent(cell.pass)}\nmonthly net $${cell.monthlyNet.toFixed(0)}`
+                        ? `winrate ${formatPercent(row.original.winrate, 0)} · RR ${rr}:1\neval pass ${formatPercent(cell.evalPass)}\nfunded survive ${formatPercent(cell.fundedSurvival)}\nmonthly net $${cell.monthlyNet.toFixed(0)}\nEV per attempt $${cell.evPerAttempt.toFixed(0)}`
                         : '';
+                    if (!cell) return <span className="flex h-9 w-12" />;
                     return (
-                        <span
-                            className={cn(
-                                'flex h-9 w-14 items-center justify-center rounded-sm text-foreground transition-colors',
-                                colorClass,
-                                isCurrent &&
-                                    'outline-2 -outline-offset-2 outline-primary',
-                            )}
-                            title={tooltip}
-                        >
-                            {display}
-                        </span>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span
+                                    className={cn(
+                                        'flex h-9 w-12 items-center justify-center rounded-sm text-foreground transition-colors',
+                                        colorClass,
+                                        isCurrent &&
+                                            'outline-2 -outline-offset-2 outline-primary',
+                                    )}
+                                >
+                                    {display}
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="whitespace-pre-line">
+                                {tooltip}
+                            </TooltipContent>
+                        </Tooltip>
                     );
                 },
                 header: () => <span className="block text-center">{rr}:1</span>,
@@ -252,10 +348,16 @@ function nearest<T extends number>(target: number, options: readonly T[]): T {
 
 function useSensitivityGrid(baseInputs: SimInputs): {
     cells: Cell[];
+    error: null | string;
     pending: boolean;
 } {
     const key = buildCacheKey(baseInputs);
-    const { pending, result: cells } = useDebouncedComputation<Cell[]>(
+    const {
+        error,
+        pending,
+        result: cells,
+    } = useDebouncedComputation(
+        ComputationId.Sensitivity,
         key,
         DEBOUNCE_MS,
         () => {
@@ -270,8 +372,10 @@ function useSensitivityGrid(baseInputs: SimInputs): {
                         winrate,
                     });
                     out.push({
+                        evalPass: result.evalPassProbability,
+                        evPerAttempt: result.expectedNetPerAttempt,
+                        fundedSurvival: result.fundedSurvivalProbability,
                         monthlyNet: result.expectedMonthlyNet,
-                        pass: result.passProbability,
                         rr,
                         winrate,
                     });
@@ -280,7 +384,8 @@ function useSensitivityGrid(baseInputs: SimInputs): {
             return out;
         },
         [],
+        simInputsSizingIssue(baseInputs),
     );
 
-    return { cells, pending };
+    return { cells, error, pending };
 }

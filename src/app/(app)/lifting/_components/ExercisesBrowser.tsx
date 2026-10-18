@@ -1,23 +1,20 @@
 'use client';
 
-import { ChevronRight, Dumbbell, Search } from 'lucide-react';
+import { ChevronRight, Dumbbell } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Checkbox } from '~/components/ui/Checkbox';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent } from '~/components/ui/card';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-    hasActiveColumnFilter,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterToggle } from '~/components/ui/filter-toggle';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
 
@@ -56,7 +53,7 @@ export function ExercisesBrowser() {
                 accessorKey: 'name',
                 cell: ({ row }) => (
                     <Link
-                        className="font-medium text-white hover:underline"
+                        className="font-medium text-foreground hover:underline"
                         href={routes.lifting.exercise(row.original.slug)}
                     >
                         {row.original.name}
@@ -124,97 +121,53 @@ export function ExercisesBrowser() {
                 <StatCard label="Built-in" value={stats.builtin.toString()} />
             </section>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        Library
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Search</Label>
-                        <div className="relative">
-                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                className="pl-9"
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
-                                }
-                                placeholder="Search exercises…"
-                                value={search}
-                            />
-                        </div>
-                    </div>
-
-                    <DataTable<ExerciseRow>
-                        columns={columns}
-                        data={allRows}
-                        emptyState={
-                            <EmptyState
-                                description="Try a different search or clear the filters."
-                                icon={Dumbbell}
-                                title="No exercises match"
-                            />
-                        }
-                        headerActions={(table) => {
-                            const sourceColumn = table.getColumn('source');
-                            return (
-                                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto]">
-                                    <div className="flex flex-col gap-1.5">
-                                        <Label className="text-xs">
-                                            Muscle
-                                        </Label>
-                                        <DataTableFacetSelect
-                                            column={table.getColumn(
-                                                'primaryMuscle',
-                                            )}
-                                            placeholder="All muscles"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1.5">
-                                        <Label className="text-xs">
-                                            Equipment
-                                        </Label>
-                                        <DataTableFacetSelect
-                                            column={table.getColumn(
-                                                'equipment',
-                                            )}
-                                            placeholder="All gear"
-                                        />
-                                    </div>
-                                    <label
-                                        className="flex h-8 cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 text-xs whitespace-nowrap"
-                                        htmlFor="exercises-custom-only"
-                                    >
-                                        <Checkbox
-                                            checked={
-                                                sourceColumn?.getFilterValue() ===
-                                                1
-                                            }
-                                            id="exercises-custom-only"
-                                            onCheckedChange={(v) =>
-                                                sourceColumn?.setFilterValue(
-                                                    v === true ? 1 : undefined,
-                                                )
-                                            }
-                                        />
-                                        Custom only
-                                    </label>
-                                    <ClearFiltersButton
-                                        active={hasActiveColumnFilter(table)}
-                                        onReset={() =>
-                                            table.resetColumnFilters()
-                                        }
-                                    />
-                                </div>
-                            );
-                        }}
-                        isLoading={exercises.isLoading}
-                        pageSize={25}
-                        rowId={(r) => r.id}
-                    />
-                </CardContent>
-            </Card>
+            <ToolPanel contentClassName="flex flex-col gap-4" title="Library">
+                <DataTable<ExerciseRow>
+                    columns={columns}
+                    data={allRows}
+                    emptyState={
+                        <EmptyState
+                            description="Try a different search or clear the filters."
+                            icon={Dumbbell}
+                            title="No exercises match"
+                        />
+                    }
+                    filterPlaceholder="Search exercises"
+                    headerActions={(table) => {
+                        const sourceColumn = table.getColumn('source');
+                        return (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <DataTableFacetSelect
+                                    column={table.getColumn('primaryMuscle')}
+                                    label="Muscle"
+                                    placeholder="All muscles"
+                                />
+                                <DataTableFacetSelect
+                                    column={table.getColumn('equipment')}
+                                    label="Equipment"
+                                    placeholder="All gear"
+                                />
+                                <FilterToggle
+                                    isPressed={
+                                        sourceColumn?.getFilterValue() === 1
+                                    }
+                                    label="Custom only"
+                                    onPressedChange={(pressed) =>
+                                        sourceColumn?.setFilterValue(
+                                            pressed ? 1 : undefined,
+                                        )
+                                    }
+                                />
+                            </div>
+                        );
+                    }}
+                    isLoading={exercises.isLoading}
+                    pageSize={25}
+                    rowId={(r) => r.id}
+                    search={{ onChange: setSearch, value: search }}
+                    showFilter
+                />
+            </ToolPanel>
         </div>
     );
 }

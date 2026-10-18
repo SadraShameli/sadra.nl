@@ -1,6 +1,9 @@
 import { type Metadata } from 'next';
 
-import { Card } from '~/components/ui/Card';
+import { ToolPageHeader } from '~/app/(app)/_components/ToolPageHeader';
+import { CapsulePage } from '~/components/CapsulePage';
+import { PageTransition } from '~/components/PageTransition';
+import { Card } from '~/components/ui/card';
 
 import { ContactForm } from './ContactForm';
 
@@ -9,16 +12,21 @@ export const metadata: Metadata = {
     title: 'Contact',
 };
 
+export const ensureStatic = 'prefetch';
+
 export default function ContactPage() {
     return (
-        <main className="container mx-auto max-w-xl px-6 py-16">
-            <h1 className="mb-3 text-3xl font-semibold">Get in touch</h1>
-            <p className="mb-8 text-sm text-muted-foreground">
-                Drop a line — for collaborations, questions or just a hello.
-            </p>
-            <Card className="p-6">
-                <ContactForm />
-            </Card>
-        </main>
+        <PageTransition>
+            <CapsulePage>
+                <ToolPageHeader
+                    eyebrow="Contact"
+                    lead="Drop a line for collaborations, questions or just a hello."
+                    title="Get in touch"
+                />
+                <Card className="p-6">
+                    <ContactForm />
+                </Card>
+            </CapsulePage>
+        </PageTransition>
     );
 }

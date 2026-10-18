@@ -5,7 +5,7 @@ export enum RoiBasis {
 
 export interface Roi {
     readonly basis: RoiBasis;
-    readonly value: number;
+    readonly value: null | number;
 }
 
 export const ROI_BASIS_LABEL: Record<RoiBasis, string> = {
@@ -16,13 +16,13 @@ export const ROI_BASIS_LABEL: Record<RoiBasis, string> = {
 export function annualisedRoiOnCost(monthlyNet: number, cost: number): Roi {
     return {
         basis: RoiBasis.AnnualisedOnCost,
-        value: cost > 0 ? (monthlyNet * 12) / cost : 0,
+        value: cost > 0 ? (monthlyNet * 12) / cost : null,
     };
 }
 
 export function totalRoiOnCost(net: number, cost: number): Roi {
     return {
         basis: RoiBasis.TotalOnCost,
-        value: cost > 0 ? net / cost : 0,
+        value: cost > 0 ? net / cost : null,
     };
 }

@@ -119,7 +119,7 @@ export class PrSyncService {
             await q;
         }
 
-        const allIds = ordered.map((s) => s.id);
+        const allIds = setsQuery.map((s) => s.id);
         if (allIds.length > 0) {
             await this.database
                 .update(liftingSet)

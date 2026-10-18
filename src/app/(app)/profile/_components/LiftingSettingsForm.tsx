@@ -1,31 +1,29 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { X } from 'lucide-react';
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Save, X } from 'lucide-react';
+import { useId, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { badgeVariants } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Button } from '~/components/ui/button';
 import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
+    Field,
+    FieldError,
+    FieldLabel,
+    FieldLegend,
+    FieldSet,
+} from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
+} from '~/components/ui/select';
+import { Separator } from '~/components/ui/separator';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
     settingsFormSchema,
@@ -41,6 +39,8 @@ import {
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
+import { ProfilePanel } from './ProfilePanel';
+
 type Settings = RouterOutputs['lifting']['settings']['get'];
 
 export function LiftingSettingsForm({ initial }: { initial: Settings }) {
@@ -52,55 +52,62 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
         },
     });
 
+    const [saved, setSaved] = useState<SettingsFormValues>(() =>
+        settingsFormValuesOf(initial),
+    );
+
     const form = useForm<SettingsFormValues>({
-        defaultValues: {
-            availablePlatesKg: [...initial.availablePlatesKg],
-            barWeightKg: initial.barWeightKg,
-            defaultRestSeconds: initial.defaultRestSeconds,
-            unitDistance: initial.unitDistance,
-            unitLength: initial.unitLength,
-            unitWeight: initial.unitWeight,
-            weekStart: initial.weekStart,
-        },
+        defaultValues: settingsFormValuesOf(initial),
         resolver: zodResolver(settingsFormSchema),
     });
 
     const [plateDraft, setPlateDraft] = useState('');
+    const formId = useId();
 
-    const unitWeight = form.watch('unitWeight');
-    const availablePlatesKg = form.watch('availablePlatesKg');
+    const unitWeight = useWatch({ control: form.control, name: 'unitWeight' });
+    const availablePlatesKg = useWatch({
+        control: form.control,
+        name: 'availablePlatesKg',
+    });
 
     const onSubmit = form.handleSubmit((values) => {
         const isPlatesChanged =
             values.availablePlatesKg.length !==
-                initial.availablePlatesKg.length ||
+                saved.availablePlatesKg.length ||
             values.availablePlatesKg.some(
-                (p, index) => p !== initial.availablePlatesKg[index],
+                (p, index) => p !== saved.availablePlatesKg[index],
             );
         const diff: UpdateSettingsInput = {
-            ...(values.barWeightKg !== initial.barWeightKg && {
+            ...(values.barWeightKg !== saved.barWeightKg && {
                 barWeightKg: values.barWeightKg,
             }),
-            ...(values.defaultRestSeconds !== initial.defaultRestSeconds && {
+            ...(values.defaultRestSeconds !== saved.defaultRestSeconds && {
                 defaultRestSeconds: values.defaultRestSeconds,
             }),
-            ...(values.unitDistance !== initial.unitDistance && {
+            ...(values.unitDistance !== saved.unitDistance && {
                 unitDistance: values.unitDistance,
             }),
-            ...(values.unitLength !== initial.unitLength && {
+            ...(values.unitLength !== saved.unitLength && {
                 unitLength: values.unitLength,
             }),
-            ...(values.unitWeight !== initial.unitWeight && {
+            ...(values.unitWeight !== saved.unitWeight && {
                 unitWeight: values.unitWeight,
             }),
-            ...(values.weekStart !== initial.weekStart && {
+            ...(values.weekStart !== saved.weekStart && {
                 weekStart: values.weekStart,
             }),
             ...(isPlatesChanged && {
                 availablePlatesKg: [...values.availablePlatesKg],
             }),
         };
-        update.mutate(diff);
+        update.mutate(diff, {
+            onSuccess: () => {
+                setSaved({
+                    ...values,
+                    availablePlatesKg: [...values.availablePlatesKg],
+                });
+            },
+        });
     });
 
     const addPlate = () => {
@@ -124,24 +131,45 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
     };
 
     return (
-        <Form {...form}>
-            <form className="flex flex-col gap-8" onSubmit={onSubmit}>
-                <Section title="Units">
-                    <FormField
+        <ProfilePanel
+            action={
+                <Button
+                    disabled={update.isPending}
+                    form={formId}
+                    size="sm"
+                    type="submit"
+                >
+                    <Save className="size-4" />
+                    {update.isPending ? 'Saving…' : 'Save'}
+                </Button>
+            }
+            description="Units, bar and plates, and rest defaults used across the lifting tools."
+            title="Settings"
+        >
+            <form
+                className="flex flex-col gap-8"
+                id={formId}
+                onSubmit={onSubmit}
+            >
+                <Section className="grid-cols-3 md:grid-cols-3" title="Units">
+                    <Controller
                         control={form.control}
                         name="unitWeight"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Weight</FormLabel>
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-unitWeight`}>
+                                    Weight
+                                </FieldLabel>
                                 <Select
                                     onValueChange={field.onChange}
                                     value={field.value}
                                 >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-unitWeight`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         {UNIT_WEIGHT_VALUES.map((v) => (
                                             <SelectItem key={v} value={v}>
@@ -150,25 +178,28 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <FormMessage />
-                            </FormItem>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
                         )}
                     />
-                    <FormField
+                    <Controller
                         control={form.control}
                         name="unitDistance"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Distance</FormLabel>
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-unitDistance`}>
+                                    Distance
+                                </FieldLabel>
                                 <Select
                                     onValueChange={field.onChange}
                                     value={field.value}
                                 >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-unitDistance`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         {UNIT_DISTANCE_VALUES.map((v) => (
                                             <SelectItem key={v} value={v}>
@@ -177,25 +208,28 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <FormMessage />
-                            </FormItem>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
                         )}
                     />
-                    <FormField
+                    <Controller
                         control={form.control}
                         name="unitLength"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Length</FormLabel>
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-unitLength`}>
+                                    Length
+                                </FieldLabel>
                                 <Select
                                     onValueChange={field.onChange}
                                     value={field.value}
                                 >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-unitLength`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         {UNIT_LENGTH_VALUES.map((v) => (
                                             <SelectItem key={v} value={v}>
@@ -204,47 +238,49 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <FormMessage />
-                            </FormItem>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
                         )}
                     />
                 </Section>
 
+                <Separator />
+
                 <Section title="Bar and plates">
-                    <FormField
+                    <Controller
                         control={form.control}
                         name="barWeightKg"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Bar weight ({unitWeight})</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        inputMode="decimal"
-                                        onChange={(event) => {
-                                            const raw = Number(
-                                                event.target.value,
-                                            );
-                                            const asKg = Number.isFinite(raw)
-                                                ? WeightUnit.fromDisplay(
-                                                      raw,
-                                                      unitWeight,
-                                                  )
-                                                : 0;
-                                            field.onChange(asKg);
-                                        }}
-                                        ref={field.ref}
-                                        step="any"
-                                        type="number"
-                                        value={Number(
-                                            WeightUnit.toDisplay(
-                                                field.value,
-                                                unitWeight,
-                                            ).toFixed(2),
-                                        )}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-barWeightKg`}>
+                                    Bar weight ({unitWeight})
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-barWeightKg`}
+                                    inputMode="decimal"
+                                    onChange={(event) => {
+                                        const raw = Number(event.target.value);
+                                        const asKg = Number.isFinite(raw)
+                                            ? WeightUnit.fromDisplay(
+                                                  raw,
+                                                  unitWeight,
+                                              )
+                                            : 0;
+                                        field.onChange(asKg);
+                                    }}
+                                    ref={field.ref}
+                                    step="any"
+                                    type="number"
+                                    value={Number(
+                                        WeightUnit.toDisplay(
+                                            field.value,
+                                            unitWeight,
+                                        ).toFixed(2),
+                                    )}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
                         )}
                     />
                     <div className="flex flex-col gap-2">
@@ -285,71 +321,77 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                     ),
                                 );
                                 return (
-                                    <button
+                                    <Button
                                         aria-label={`Remove ${display} ${unitWeight} plate`}
-                                        className={cn(
-                                            badgeVariants({
-                                                variant: 'outline',
-                                            }),
-                                            'cursor-pointer gap-1 tabular-nums hover:border-destructive hover:bg-destructive hover:text-destructive-foreground',
-                                        )}
+                                        className="tabular-nums"
                                         key={`${p}-${index}`}
                                         onClick={() => removePlate(index)}
+                                        size="sm"
                                         type="button"
+                                        variant="outline"
                                     >
                                         {display}
-                                        <X className="size-3 opacity-60" />
-                                    </button>
+                                        <X data-icon="inline-end" />
+                                    </Button>
                                 );
                             })}
                         </div>
                     </div>
                 </Section>
 
+                <Separator />
+
                 <Section title="Rest and week">
-                    <FormField
+                    <Controller
                         control={form.control}
                         name="defaultRestSeconds"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Default rest (seconds)</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        inputMode="numeric"
-                                        min={0}
-                                        onChange={(event) => {
-                                            const n = Math.trunc(
-                                                Number(event.target.value),
-                                            );
-                                            field.onChange(
-                                                Number.isFinite(n) ? n : 0,
-                                            );
-                                        }}
-                                        ref={field.ref}
-                                        step="1"
-                                        type="number"
-                                        value={field.value}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel
+                                    htmlFor={`${formId}-defaultRestSeconds`}
+                                >
+                                    Default rest (seconds)
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    id={`${formId}-defaultRestSeconds`}
+                                    inputMode="numeric"
+                                    min={0}
+                                    onChange={(event) => {
+                                        const n = Math.trunc(
+                                            Number(event.target.value),
+                                        );
+                                        field.onChange(
+                                            Number.isFinite(n) ? n : 0,
+                                        );
+                                    }}
+                                    ref={field.ref}
+                                    step="1"
+                                    type="number"
+                                    value={field.value}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
                         )}
                     />
-                    <FormField
+                    <Controller
                         control={form.control}
                         name="weekStart"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Week starts on</FormLabel>
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-weekStart`}>
+                                    Week starts on
+                                </FieldLabel>
                                 <Select
                                     onValueChange={field.onChange}
                                     value={field.value}
                                 >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                    </FormControl>
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-weekStart`}
+                                    >
+                                        <SelectValue />
+                                    </SelectTrigger>
                                     <SelectContent>
                                         {WEEK_START_VALUES.map((v) => (
                                             <SelectItem key={v} value={v}>
@@ -360,41 +402,48 @@ export function LiftingSettingsForm({ initial }: { initial: Settings }) {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <FormMessage />
-                            </FormItem>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
                         )}
                     />
                 </Section>
-
-                <div className="flex items-center justify-end gap-3">
-                    <Button disabled={update.isPending} type="submit">
-                        {update.isPending ? 'Saving…' : 'Save'}
-                    </Button>
-                </div>
             </form>
-        </Form>
+        </ProfilePanel>
     );
 }
 
 function Section({
     children,
+    className,
     title,
 }: {
     children: React.ReactNode;
+    className?: string;
     title: string;
 }) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                    {title}
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    {children}
-                </div>
-            </CardContent>
-        </Card>
+        <FieldSet className="gap-0">
+            <FieldLegend variant="label">{title}</FieldLegend>
+            <div
+                className={cn(
+                    'grid grid-cols-1 gap-5 md:grid-cols-2',
+                    className,
+                )}
+            >
+                {children}
+            </div>
+        </FieldSet>
     );
+}
+
+function settingsFormValuesOf(settings: Settings): SettingsFormValues {
+    return {
+        availablePlatesKg: [...settings.availablePlatesKg],
+        barWeightKg: settings.barWeightKg,
+        defaultRestSeconds: settings.defaultRestSeconds,
+        unitDistance: settings.unitDistance,
+        unitLength: settings.unitLength,
+        unitWeight: settings.unitWeight,
+        weekStart: settings.weekStart,
+    };
 }

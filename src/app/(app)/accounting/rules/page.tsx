@@ -1,9 +1,10 @@
 import { type Metadata } from 'next';
 
-import { cn } from '~/lib/utilities';
+import { AccountingPageFrame } from '~/app/(app)/accounting/_components/AccountingPageFrame';
+import { AccountingSection } from '~/app/(app)/accounting/_components/AccountingSection';
+import { RulesManager } from '~/app/(app)/accounting/_components/RulesManager';
+import { requireRootUser } from '~/lib/auth/guards';
 import { api, HydrateClient } from '~/trpc/server';
-
-import { RulesManager } from '../_components/RulesManager';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },
@@ -11,23 +12,22 @@ export const metadata: Metadata = {
 };
 
 export default function RulesPage() {
-    void api.accounting.credentials.list.prefetch();
+    return (
+        <AccountingPageFrame
+            className="app-accounting__rules"
+            section={AccountingSection.Rules}
+        >
+            <RulesContent />
+        </AccountingPageFrame>
+    );
+}
 
+async function RulesContent() {
+    await requireRootUser();
+    await api.accounting.credentials.list.prefetch();
     return (
         <HydrateClient>
-            <main
-                className={cn(
-                    'app-accounting__rules',
-                    'container pt-spacing pb-24',
-                )}
-            >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Booking rules
-                    </h1>
-                </header>
-                <RulesManager />
-            </main>
+            <RulesManager />
         </HydrateClient>
     );
 }

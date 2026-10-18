@@ -4,15 +4,8 @@ import pg from 'pg';
 
 import { environment } from '~/environment';
 
-import * as relationsModule from './relations';
-import * as accountingSchema from './schemas/accounting';
-import * as authSchema from './schemas/auth';
-import * as schema from './schemas/iot';
-import * as liftingSchema from './schemas/lifting';
-import * as mainSchema from './schemas/main';
-import * as notificationSchema from './schemas/notification';
-import * as observabilitySchema from './schemas/observability';
-import * as tradingSchema from './schemas/trading';
+import { databaseConnectionString, databaseTls } from './DatabaseConnection';
+import { databaseSchema } from './databaseSchema';
 
 export {
     accountingBankAccount,
@@ -37,6 +30,7 @@ export {
 } from './schemas/lifting';
 export { notificationPreference } from './schemas/notification';
 export { rateLimitBucket } from './schemas/observability';
+export { siteShowcase } from './schemas/site';
 export {
     dailyPreparations,
     tradeAssessments,
@@ -49,40 +43,19 @@ const globalForDatabase = globalThis as unknown as {
 
 const PLACEHOLDER_DB_URL = 'postgres://placeholder@localhost:5432/placeholder';
 
-function buildConnectionString(raw: string): string {
-    const url = new URL(raw);
-    url.searchParams.delete('uselibpqcompat');
-    url.searchParams.delete('sslmode');
-    return url.href;
-}
-
-function shouldUseSsl(raw: string): boolean {
-    try {
-        const url = new URL(raw);
-        const sslmode = url.searchParams.get('sslmode');
-        return (
-            sslmode !== 'disable' &&
-            !['127.0.0.1', '::1', 'localhost'].includes(url.hostname)
-        );
-    } catch {
-        return true;
-    }
-}
-
 const databaseUrl = environment.DATABASE_URL;
 const pool =
     globalForDatabase.pool ??
     new pg.Pool({
         connectionString: databaseUrl
-            ? buildConnectionString(databaseUrl)
+            ? databaseConnectionString(databaseUrl)
             : PLACEHOLDER_DB_URL,
         connectionTimeoutMillis: 5000,
         idleTimeoutMillis: 30_000,
+        keepAlive: true,
         max: 20,
-        ssl:
-            databaseUrl && shouldUseSsl(databaseUrl)
-                ? { rejectUnauthorized: false }
-                : false,
+        maxLifetimeSeconds: 60,
+        ssl: databaseUrl ? databaseTls(databaseUrl) : false,
         statement_timeout: 15_000,
     });
 
@@ -100,19 +73,7 @@ if (isPoolLifecycleAttached && environment.NODE_ENV !== 'production') {
     globalForDatabase.pool = pool;
 }
 
-const database = drizzle(pool, {
-    schema: {
-        ...mainSchema,
-        ...schema,
-        ...authSchema,
-        ...tradingSchema,
-        ...notificationSchema,
-        ...observabilitySchema,
-        ...accountingSchema,
-        ...liftingSchema,
-        ...relationsModule,
-    },
-});
+const database = drizzle(pool, { schema: databaseSchema });
 export { database as db };
 
 async function endDatabase() {

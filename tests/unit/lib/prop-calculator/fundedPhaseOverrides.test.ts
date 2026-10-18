@@ -67,8 +67,21 @@ describe('funded-phase flat parameter overrides', () => {
 
     it('changes simulated funded-phase outcomes when fundedRiskPerTrade differs from riskPerTrade', () => {
         const baseline = simulate(baseInputs());
+        const sameAsEval = simulate(baseInputs({ fundedRiskPerTrade: 400 }));
         const overridden = simulate(baseInputs({ fundedRiskPerTrade: 4000 }));
+        expect(sameAsEval).toStrictEqual(baseline);
         expect(overridden.expectedNet).not.toBe(baseline.expectedNet);
-        expect(overridden.maxDrawdownP50).not.toBe(baseline.maxDrawdownP50);
+        expect(overridden.averageRiskPerTrade).toBeGreaterThan(
+            baseline.averageRiskPerTrade * 2,
+        );
+        expect(overridden.fundedBustProbability).toBeGreaterThan(
+            baseline.fundedBustProbability * 2,
+        );
+        expect(overridden.expectedGrossPayout).toBeLessThan(
+            baseline.expectedGrossPayout,
+        );
+        expect(overridden.maxDrawdownP95).toBeGreaterThan(
+            baseline.maxDrawdownP95 * 2,
+        );
     });
 });

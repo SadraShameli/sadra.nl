@@ -1,33 +1,45 @@
 import { describe, expect, it } from 'vitest';
 
+import * as core from '~/lib/prop-calculator/core';
 import {
+    type AccountState,
+    contractLimitAt,
     ContractLimitKind,
     type ContractLimits,
+    contractLimitTierBreakpoints,
     contracts,
     DayStopRuleKind,
     dollars,
+    evalContractLimit,
     fraction,
+    fundedContractLimit,
     INSTRUMENTS,
     InstrumentSymbol,
+    maxContractsAt,
     type Plan,
     points,
+    PolicySizing,
     RungSizing,
+    TierBasis,
+    tierContextFromProfits,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
 import {
     capRiskToContractLimit,
     type PositionSizingConfig,
-    resolveContractLimit,
     resolvePositionSizing,
+    wholeContractCount,
 } from '~/lib/prop-calculator/core/PositionSizing';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
-import { type Rng } from '~/lib/prop-calculator/rng';
 import { runDay } from '~/lib/prop-calculator/simulator/day';
 import {
     LossStreak,
     newPhaseStats,
     TradeTotals,
 } from '~/lib/prop-calculator/simulator/PhaseStats';
+
+import { freshFundedCycle } from '../dayRunOptions';
+import { scriptedRng } from '../scriptedRng';
 
 const NQ: PositionSizingConfig = {
     instrument: INSTRUMENTS[InstrumentSymbol.NQ],
@@ -44,8 +56,19 @@ const FROZEN_TIER_LIMITS: ContractLimits = {
     evalMinis: contracts(7),
     fundedMicros: null,
     fundedMinis: {
-        isEffectiveNextSession: true,
         kind: ContractLimitKind.Tiered,
+        tierBasis: TierBasis.SessionOpenProfit,
+        tiers: SCALING_TIERS,
+    },
+};
+
+const CUMULATIVE_TIER_LIMITS: ContractLimits = {
+    evalMicros: contracts(70),
+    evalMinis: contracts(7),
+    fundedMicros: null,
+    fundedMinis: {
+        kind: ContractLimitKind.Tiered,
+        tierBasis: TierBasis.PeakSessionCloseProfit,
         tiers: SCALING_TIERS,
     },
 };
@@ -96,8 +119,10 @@ function runFundedDays(options: {
             dayPolicy: {
                 ladder: Array.from({ length: TRADES_PER_DAY }, () => RUNG_RISK),
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
+            fundedCycle: freshFundedCycle(plan, state),
             phase: TradingPhase.Funded,
             plan,
             positionSizing: NQ,
@@ -112,14 +137,30 @@ function runFundedDays(options: {
     return state.balance - state.startingBalance;
 }
 
-function scriptedRng(draws: readonly number[]): Rng {
-    let index = 0;
-    return () => {
-        const draw = draws[index];
-        if (draw === undefined) throw new Error('scripted rng exhausted');
-        index += 1;
-        return draw;
-    };
+function runSingleTradeDay(
+    plan: Plan,
+    state: AccountState,
+    draw: number,
+): void {
+    runDay({
+        commission: dollars(0),
+        dayPolicy: {
+            ladder: [RUNG_RISK],
+            maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
+            stopRule: { kind: DayStopRuleKind.None },
+        },
+        fundedCycle: freshFundedCycle(plan, state),
+        phase: TradingPhase.Funded,
+        plan,
+        positionSizing: NQ,
+        rng: scriptedRng([draw]),
+        rrRatio: 2,
+        rungSizing: RungSizing.CapToCushion,
+        state,
+        stats: freshStats(state.startingBalance),
+        winrate: fraction(0.5),
+    });
 }
 
 describe('resolvePositionSizing', () => {
@@ -177,7 +218,213 @@ describe('capRiskToContractLimit', () => {
     });
 });
 
-describe('resolveContractLimit', () => {
+describe('wholeContractRisk', () => {
+    const MNQ: PositionSizingConfig = {
+        instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+        stopPoints: points(10),
+    };
+
+    it('rounds an intended risk below one micro up to one micro (MNQ at 10 points is $20 a contract)', () => {
+        expect(core.wholeContractRisk(12.5, MNQ, contracts(40))).toBe(20);
+    });
+
+    it('rounds an intended risk down to whole micros', () => {
+        expect(core.wholeContractRisk(59, MNQ, contracts(40))).toBe(40);
+    });
+
+    it('caps an intended risk at the contract limit', () => {
+        expect(core.wholeContractRisk(1e12, MNQ, contracts(40))).toBe(800);
+    });
+
+    it.each([12.5, 59, 1234.5, 1e6])(
+        'rounds %d down to whole micros with at least one micro when there is no contract limit',
+        (intended) => {
+            expect(core.wholeContractRisk(intended, MNQ, null)).toBe(
+                Math.max(1, Math.floor(intended / 20)) * 20,
+            );
+        },
+    );
+
+    it('gives 0 when the contract limit is zero', () => {
+        expect(core.wholeContractRisk(500, MNQ, contracts(0))).toBe(0);
+    });
+
+    it('gives 0 when no risk is intended', () => {
+        expect(core.wholeContractRisk(0, MNQ, contracts(40))).toBe(0);
+    });
+
+    it('rounds an NQ risk below one contract up to one contract ($200 at 10 points)', () => {
+        expect(core.wholeContractRisk(150, NQ, contracts(4))).toBe(200);
+    });
+
+    it('caps an NQ risk at the mini contract limit', () => {
+        expect(core.wholeContractRisk(1e6, NQ, contracts(4))).toBe(800);
+    });
+
+    it('is a no-op when the instrument/stop pair implies zero risk per contract', () => {
+        const degenerate: PositionSizingConfig = {
+            instrument: { ...NQ.instrument, pointValue: 0 },
+            stopPoints: points(10),
+        };
+        expect(core.wholeContractRisk(150, degenerate, contracts(4))).toBe(150);
+    });
+
+    it('places 3 micros for $73.80 at an MNQ 12.3 point stop, where 73.8 / 24.6 is 2.9999999999999996 in floating point (N-71, T33)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+            stopPoints: points(12.3),
+        };
+        expect(core.wholeContractRisk(73.8, sizing, null)).toBe(73.8);
+    });
+
+    it('never places more than the intended risk when 3 x 24.6 comes out as 73.80000000000001 in floating point (N-71)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+            stopPoints: points(12.3),
+        };
+        expect(3 * core.oneContractRisk(sizing)).toBeGreaterThan(73.8);
+        expect(core.wholeContractRisk(73.8, sizing, null)).toBeLessThanOrEqual(
+            73.8,
+        );
+    });
+
+    it('places 3 MNQ under SkipIfUnaffordable when the room is exactly 3 contracts at a 12.3 point stop, instead of skipping on a float overshoot (N-71)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+            stopPoints: points(12.3),
+        };
+        expect(
+            core.placeWholeContractTrade({
+                intendedRisk: 73.8,
+                maxContracts: null,
+                positionSizing: sizing,
+                room: 73.8,
+                roomKind: core.AffordableRoomKind.BustsAccount,
+                rungSizing: RungSizing.SkipIfUnaffordable,
+            }),
+        ).toStrictEqual({ rewardRisk: 73.8, risk: 73.8 });
+    });
+
+    it('places one MNQ at a 12.3 point stop when a day-locking room is one contract up to float drift, and nothing when it is a cent short (N-74)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+            stopPoints: points(12.3),
+        };
+        const oneMicro = core.oneContractRisk(sizing);
+        const lockingTrade = (room: number) =>
+            core.placeWholeContractTrade({
+                intendedRisk: 73.8,
+                maxContracts: null,
+                positionSizing: sizing,
+                room,
+                roomKind: core.AffordableRoomKind.LocksDay,
+                rungSizing: RungSizing.CapToCushion,
+            });
+        expect(lockingTrade(oneMicro - 1e-9).risk).toBeCloseTo(oneMicro, 6);
+        expect(lockingTrade(oneMicro - 0.01)).toStrictEqual({
+            rewardRisk: 0,
+            risk: 0,
+        });
+        expect(
+            core.placeWholeContractTrade({
+                intendedRisk: 73.8,
+                maxContracts: null,
+                positionSizing: sizing,
+                room: oneMicro - 0.01,
+                roomKind: core.AffordableRoomKind.BustsAccount,
+                rungSizing: RungSizing.CapToCushion,
+            }),
+        ).toStrictEqual({ rewardRisk: oneMicro, risk: oneMicro - 0.01 });
+    });
+
+    it('counts one ES contract for $55 at a 1.1 point stop, where one contract is $55.00000000000001 in floating point, and none for $54.99 (N-71)', () => {
+        const sizing: PositionSizingConfig = {
+            instrument: INSTRUMENTS[InstrumentSymbol.ES],
+            stopPoints: points(1.1),
+        };
+        expect(core.oneContractRisk(sizing)).toBeGreaterThan(55);
+        expect(wholeContractCount(55, sizing)).toBe(1);
+        expect(wholeContractCount(54.99, sizing)).toBe(0);
+        expect(core.wholeContractRisk(55, sizing, null)).toBe(55);
+    });
+
+    it.each([0, -5])(
+        'counts no contracts for an intended risk of %d',
+        (intended) => {
+            expect(wholeContractCount(intended, MNQ)).toBe(0);
+        },
+    );
+
+    const NEAR_EXACT_CASES = [
+        InstrumentSymbol.MNQ,
+        InstrumentSymbol.NQ,
+        InstrumentSymbol.ES,
+    ].flatMap((symbol) =>
+        [12.3, 12.25, 10.1, 7.75, 3.3, 0.7].flatMap((stop) =>
+            Array.from({ length: 12 }, (_, index) => ({
+                count: index + 1,
+                stop,
+                symbol,
+            })),
+        ),
+    );
+
+    it.each(NEAR_EXACT_CASES)(
+        'places exactly $count $symbol at a $stop point stop when the intended risk is that many contracts in whole cents',
+        ({ count, stop, symbol }) => {
+            const sizing: PositionSizingConfig = {
+                instrument: INSTRUMENTS[symbol],
+                stopPoints: points(stop),
+            };
+            const perContract = core.oneContractRisk(sizing);
+            const intended = Number((count * perContract).toFixed(2));
+            const placed = core.wholeContractRisk(intended, sizing, null);
+            expect(placed).toBe(Math.min(count * perContract, intended));
+            expect(placed).toBeLessThanOrEqual(intended);
+            expect(wholeContractCount(intended, sizing)).toBe(count);
+        },
+    );
+
+    it.each(NEAR_EXACT_CASES.filter(({ count }) => count > 1))(
+        'places $count - 1 $symbol at a $stop point stop when the intended risk is one cent short of $count contracts',
+        ({ count, stop, symbol }) => {
+            const sizing: PositionSizingConfig = {
+                instrument: INSTRUMENTS[symbol],
+                stopPoints: points(stop),
+            };
+            const perContract = core.oneContractRisk(sizing);
+            const intended = Number((count * perContract - 0.01).toFixed(2));
+            expect(core.wholeContractRisk(intended, sizing, null)).toBe(
+                (count - 1) * perContract,
+            );
+        },
+    );
+
+    it.each([
+        { count: 49, cushion: 2800, percent: 0.35, stop: 10 },
+        { count: 10, cushion: 700, percent: 0.35, stop: 12.25 },
+        { count: 3, cushion: 738, percent: 0.1, stop: 12.3 },
+    ])(
+        'places $count micros for $percent of a $cushion cushion at an MNQ $stop point stop, an exact multiple the percent reaches one float step short of',
+        ({ count, cushion, percent, stop }) => {
+            const sizing: PositionSizingConfig = {
+                instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+                stopPoints: points(stop),
+            };
+            const perContract = core.oneContractRisk(sizing);
+            const intended = core.resolveFundedTradeRisk(
+                cushion,
+                fraction(percent),
+            );
+            const placed = core.wholeContractRisk(intended, sizing, null);
+            expect(placed).toBe(Math.min(count * perContract, intended));
+            expect(placed).toBeLessThanOrEqual(intended);
+            expect(wholeContractCount(intended, sizing)).toBe(count);
+        },
+    );
+});
+
+describe('evalContractLimit', () => {
     const topstep = new TopStep();
     const plan = topstep.plans[0];
     if (!plan) throw new Error('No TopStep plan registered');
@@ -185,35 +432,155 @@ describe('resolveContractLimit', () => {
     if (!limits) throw new Error('TopStep plan has no contractLimits');
 
     it('returns null when the plan has no contract limits', () => {
-        expect(
-            resolveContractLimit(null, TradingPhase.Eval, false, 0),
-        ).toBeNull();
+        expect(evalContractLimit(null, false)).toBeNull();
+        expect(evalContractLimit(null, true)).toBeNull();
     });
 
-    it('reads the flat eval cap directly, ignoring accountProfit', () => {
-        expect(resolveContractLimit(limits, TradingPhase.Eval, false, 0)).toBe(
-            limits.evalMinis,
-        );
-        expect(
-            resolveContractLimit(limits, TradingPhase.Eval, false, 999_999),
-        ).toBe(limits.evalMinis);
+    it('reads the flat eval cap for minis and micros, with no profit argument to misread', () => {
+        expect(evalContractLimit(limits, false)).toBe(limits.evalMinis);
+        expect(evalContractLimit(limits, true)).toBe(limits.evalMicros);
     });
+
+    it('agrees with contractLimitAt in the eval phase for any tier context', () => {
+        for (const context of [
+            tierContextFromProfits(0),
+            tierContextFromProfits(999_999, 0, 999_999),
+        ]) {
+            expect(evalContractLimit(FROZEN_TIER_LIMITS, false)).toBe(
+                contractLimitAt(
+                    FROZEN_TIER_LIMITS,
+                    TradingPhase.Eval,
+                    false,
+                    context,
+                ),
+            );
+            expect(evalContractLimit(FROZEN_TIER_LIMITS, true)).toBe(
+                contractLimitAt(
+                    FROZEN_TIER_LIMITS,
+                    TradingPhase.Eval,
+                    true,
+                    context,
+                ),
+            );
+        }
+    });
+
+    it('is the only eval sizing entry point: the barrel no longer offers resolveContractLimit, whose phase argument let a funded trade reach a runtime throw', () => {
+        expect(Object.keys(core)).toContain('evalContractLimit');
+        expect(Object.keys(core)).not.toContain('resolveContractLimit');
+    });
+});
+
+describe('fundedContractLimit', () => {
+    const MIXED_FUNDED_LIMITS: ContractLimits = {
+        evalMicros: contracts(70),
+        evalMinis: contracts(7),
+        fundedMicros: {
+            kind: ContractLimitKind.Flat,
+            maxContracts: contracts(5),
+        },
+        fundedMinis: {
+            kind: ContractLimitKind.Tiered,
+            tiers: SCALING_TIERS,
+        },
+    };
+
+    it('returns null when the plan has no contract limits', () => {
+        expect(fundedContractLimit(null, false)).toBeNull();
+        expect(fundedContractLimit(null, true)).toBeNull();
+    });
+
+    it('selects the funded mini limit for a mini instrument and the funded micro limit for a micro instrument', () => {
+        expect(fundedContractLimit(MIXED_FUNDED_LIMITS, false)).toBe(
+            MIXED_FUNDED_LIMITS.fundedMinis,
+        );
+        expect(fundedContractLimit(MIXED_FUNDED_LIMITS, true)).toBe(
+            MIXED_FUNDED_LIMITS.fundedMicros,
+        );
+    });
+
+    it('returns null for a contract class with no funded limit', () => {
+        expect(fundedContractLimit(FROZEN_TIER_LIMITS, true)).toBeNull();
+        expect(fundedContractLimit(FROZEN_TIER_LIMITS, false)).toBe(
+            FROZEN_TIER_LIMITS.fundedMinis,
+        );
+    });
+
+    it('is the selection contractLimitAt and Plan.fundedContractTierBreakpoints use in the funded phase', () => {
+        const plan = fundedTieredPlan(MIXED_FUNDED_LIMITS);
+        for (const isMicro of [false, true]) {
+            const selected = fundedContractLimit(MIXED_FUNDED_LIMITS, isMicro);
+            for (const context of [
+                tierContextFromProfits(0),
+                tierContextFromProfits(300, 300, 300),
+            ]) {
+                expect(
+                    contractLimitAt(
+                        MIXED_FUNDED_LIMITS,
+                        TradingPhase.Funded,
+                        isMicro,
+                        context,
+                    ),
+                ).toBe(maxContractsAt(selected, context));
+            }
+            expect(
+                plan.fundedContractTierBreakpoints(
+                    TierBasis.LiveProfit,
+                    isMicro,
+                ),
+            ).toEqual(
+                contractLimitTierBreakpoints(selected, TierBasis.LiveProfit),
+            );
+        }
+    });
+
+    it('is exported from the core barrel', () => {
+        expect(Object.keys(core)).toContain('fundedContractLimit');
+    });
+});
+
+describe('contractLimitAt with a TopStep funded tier', () => {
+    const topstep = new TopStep();
+    const plan = topstep.plans[0];
+    if (!plan) throw new Error('No TopStep plan registered');
+    const limits = plan.contractLimits;
+    if (!limits) throw new Error('TopStep plan has no contractLimits');
 
     it("resolves TopStep's funded tier by accountProfit (profit since funded), matching their $0-based XFA balance display", () => {
         expect(
-            resolveContractLimit(limits, TradingPhase.Funded, false, 0),
+            contractLimitAt(
+                limits,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(0),
+            ),
         ).toBe(2);
         expect(
-            resolveContractLimit(limits, TradingPhase.Funded, false, 1500),
+            contractLimitAt(
+                limits,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(1500),
+            ),
         ).toBe(3);
         expect(
-            resolveContractLimit(limits, TradingPhase.Funded, false, 2000),
+            contractLimitAt(
+                limits,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(2000),
+            ),
         ).toBe(5);
     });
 
     it('would silently put every fresh funded account in the top tier if raw state.balance (which starts at accountSize) were passed instead of accountProfit - callers must pass accountProfit(state)', () => {
         expect(
-            resolveContractLimit(limits, TradingPhase.Funded, false, 50_000),
+            contractLimitAt(
+                limits,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(50_000),
+            ),
         ).toBe(5);
     });
 });
@@ -233,8 +600,10 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
             dayPolicy: {
                 ladder: [2000],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
+            fundedCycle: freshFundedCycle(plan, state),
             phase: TradingPhase.Funded,
             plan,
             positionSizing: NQ,
@@ -264,8 +633,10 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
             dayPolicy: {
                 ladder: [1000],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
+            fundedCycle: freshFundedCycle(plan, state),
             phase: TradingPhase.Funded,
             plan,
             positionSizing: NQ,
@@ -281,88 +652,82 @@ describe('runDay: position sizing actually caps a trade in the simulated day loo
     });
 });
 
-describe('resolveContractLimit with a day-start-frozen funded tier (isEffectiveNextSession)', () => {
+describe('contractLimitAt with a day-start-frozen funded tier (SessionOpenProfit)', () => {
     it('ignores accountProfitAtSessionStart for a plan that has not opted in, keying the funded tier on live profit exactly as before', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 LIVE_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                500,
-                0,
+                tierContextFromProfits(500, 0),
             ),
         ).toBe(5);
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 LIVE_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                0,
-                500,
+                tierContextFromProfits(0, 500),
             ),
         ).toBe(1);
     });
 
     it('caps an opted-in plan at the day-start tier when live profit has already crossed up into a higher one', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                500,
-                0,
+                tierContextFromProfits(500, 0),
             ),
         ).toBe(1);
     });
 
     it('keeps an opted-in plan on the day-start tier when live profit has fallen out of it, so a losing day does not shrink the cap mid-session', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                0,
-                500,
+                tierContextFromProfits(0, 500),
             ),
         ).toBe(5);
     });
 
-    it('falls back to live profit when the fifth argument is omitted, keeping every existing four-argument call site identical', () => {
+    it('falls back to live profit when the tier context omits the session-open profit', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                500,
+                tierContextFromProfits(500),
             ),
         ).toBe(5);
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Funded,
                 false,
-                0,
+                tierContextFromProfits(0),
             ),
         ).toBe(1);
     });
 
-    it('ignores both profit arguments in the eval phase, which reads its flat cap directly and has no tier to freeze', () => {
+    it('reads the flat eval cap in the eval phase, which has no tier to freeze', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Eval,
                 false,
-                0,
-                999_999,
+                tierContextFromProfits(0, 999_999),
             ),
         ).toBe(7);
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 FROZEN_TIER_LIMITS,
                 TradingPhase.Eval,
                 true,
-                999_999,
-                0,
+                tierContextFromProfits(999_999, 0),
             ),
         ).toBe(70);
     });
@@ -422,5 +787,72 @@ describe('runDay: an opted-in tiered funded cap is resolved once per calendar da
                 winrate: 1,
             }),
         ).toBe(4800);
+    });
+});
+
+describe('contractLimitAt with a cumulative funded tier (PeakSessionCloseProfit)', () => {
+    it('keeps the higher tier a prior session close reached, even after the profit fell back below it', () => {
+        expect(
+            contractLimitAt(
+                CUMULATIVE_TIER_LIMITS,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(0, 0, 500),
+            ),
+        ).toBe(5);
+    });
+
+    it('stays on the base tier when no session close has reached the next breakpoint', () => {
+        expect(
+            contractLimitAt(
+                CUMULATIVE_TIER_LIMITS,
+                TradingPhase.Funded,
+                false,
+                tierContextFromProfits(0, 0, 200),
+            ),
+        ).toBe(1);
+    });
+
+    it('ignores the peak in the eval phase, which reads its flat cap directly', () => {
+        expect(
+            contractLimitAt(
+                CUMULATIVE_TIER_LIMITS,
+                TradingPhase.Eval,
+                false,
+                tierContextFromProfits(0, 0, 999_999),
+            ),
+        ).toBe(7);
+    });
+});
+
+describe('runDay: a cumulative funded tier holds after a pullback', () => {
+    it('sizes the day after a withdrawal off the tier the prior session close reached (5 NQ contracts, a $1000 loss), not the 1-contract tier the lower opening profit would give', () => {
+        const plan = fundedTieredPlan(CUMULATIVE_TIER_LIMITS);
+        const state = plan.initialState();
+        plan.beginFundedPhase(state);
+
+        runSingleTradeDay(plan, state, 0.01);
+        expect(state.balance - state.startingBalance).toBe(400);
+        expect(state.peakDayCloseProfit).toBe(400);
+
+        state.balance -= 400;
+        runSingleTradeDay(plan, state, 0.99);
+
+        expect(state.balance - state.startingBalance).toBe(-1000);
+    });
+});
+
+describe('oneContractRisk', () => {
+    it('is $20 for one MNQ micro at a 10 point stop', () => {
+        expect(
+            core.oneContractRisk({
+                instrument: INSTRUMENTS[InstrumentSymbol.MNQ],
+                stopPoints: points(10),
+            }),
+        ).toBe(20);
+    });
+
+    it('is $200 for one NQ mini at a 10 point stop', () => {
+        expect(core.oneContractRisk(NQ)).toBe(200);
     });
 });

@@ -1,6 +1,6 @@
 import type { BookingDirection } from '~/lib/accounting/core/types';
 
-import { Badge } from '~/components/ui/Badge';
+import { Badge } from '~/components/ui/badge';
 
 export function DirectionBadge({ direction }: { direction: BookingDirection }) {
     return (

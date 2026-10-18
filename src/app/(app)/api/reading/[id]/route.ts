@@ -5,14 +5,12 @@ import { api } from '~/trpc/server';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> },
+    { params }: RouteContext<'/api/reading/[id]'>,
 ) {
     const parsed = parseRouteParameters(idPathParameterSchema, await params);
     if (parsed.response) return parsed.response;
 
     const result = await api.reading.getReading({ id: parsed.data.id });
 
-    return result.data
-        ? NextResponse.json(result.data, { status: result.status })
-        : NextResponse.json(result, { status: result.status });
+    return NextResponse.json(result.data ?? result, { status: result.status });
 }

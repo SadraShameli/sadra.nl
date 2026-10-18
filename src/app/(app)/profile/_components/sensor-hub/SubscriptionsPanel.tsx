@@ -1,21 +1,36 @@
 'use client';
 
-import { Activity, AlertTriangle, Bell, Cpu, MapPin, Mic } from 'lucide-react';
+import {
+    Activity,
+    AlertTriangle,
+    Cpu,
+    type LucideIcon,
+    MapPin,
+    Mic,
+} from 'lucide-react';
+import { useMemo } from 'react';
 import { toast } from 'sonner';
 
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Separator } from '~/components/ui/Separator';
-import { Switch } from '~/components/ui/Switch';
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
+import {
+    MutedCell,
+    PrimaryCell,
+} from '~/app/(app)/profile/_components/ProfileTable';
+import {
+    DataTable,
+    DataTableAlign,
+    type DataTableColumn,
+} from '~/components/ui/data-table';
+import { Switch } from '~/components/ui/switch';
 import { EVENT_LABELS, EVENT_TYPES, type EventType } from '~/lib/notify/types';
-import { cn } from '~/lib/utilities';
 import { api } from '~/trpc/react';
 
-const ICONS: Record<EventType, React.ReactNode> = {
-    device_created: <Cpu className="size-4" />,
-    location_created: <MapPin className="size-4" />,
-    loudness_alert: <AlertTriangle className="size-4" />,
-    reading_created: <Activity className="size-4" />,
-    recording_created: <Mic className="size-4" />,
+const ICONS: Record<EventType, LucideIcon> = {
+    device_created: Cpu,
+    location_created: MapPin,
+    loudness_alert: AlertTriangle,
+    reading_created: Activity,
+    recording_created: Mic,
 };
 
 const DESCRIPTIONS: Record<EventType, string> = {
@@ -25,6 +40,8 @@ const DESCRIPTIONS: Record<EventType, string> = {
     reading_created: 'When any sensor reading is recorded.',
     recording_created: 'When a new audio recording is uploaded.',
 };
+
+type SubscriptionRow = { enabled: boolean; eventType: EventType };
 
 export function SubscriptionsPanel() {
     const utilities = api.useUtils();
@@ -42,58 +59,79 @@ export function SubscriptionsPanel() {
         },
     });
 
+    const rows = useMemo<SubscriptionRow[]>(
+        () =>
+            EVENT_TYPES.map((eventType) => ({
+                enabled: prefs.data?.[eventType] ?? false,
+                eventType,
+            })),
+        [prefs.data],
+    );
+
+    const columns = useMemo<DataTableColumn<SubscriptionRow>[]>(
+        () => [
+            {
+                accessorFn: (row) => EVENT_LABELS[row.eventType],
+                cell: ({ row }) => {
+                    const Icon = ICONS[row.original.eventType];
+                    return (
+                        <span className="flex items-center gap-2">
+                            <Icon className="size-4 text-muted-foreground" />
+                            <PrimaryCell>
+                                {EVENT_LABELS[row.original.eventType]}
+                            </PrimaryCell>
+                        </span>
+                    );
+                },
+                header: 'Event',
+                id: 'event',
+            },
+            {
+                cell: ({ row }) => (
+                    <MutedCell>
+                        {DESCRIPTIONS[row.original.eventType]}
+                    </MutedCell>
+                ),
+                enableSorting: false,
+                header: 'Sent',
+                id: 'description',
+            },
+            {
+                cell: ({ row }) => (
+                    <Switch
+                        aria-label={`Email me ${EVENT_LABELS[row.original.eventType]}`}
+                        checked={row.original.enabled}
+                        disabled={notificationPrefMutation.isPending}
+                        onCheckedChange={(enabled) =>
+                            notificationPrefMutation.mutate({
+                                enabled,
+                                eventType: row.original.eventType,
+                            })
+                        }
+                    />
+                ),
+                enableSorting: false,
+                header: 'Email',
+                id: 'email',
+                meta: { align: DataTableAlign.End },
+            },
+        ],
+        [notificationPrefMutation],
+    );
+
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Bell className="size-4" />
-                    Email subscriptions
-                </CardTitle>
-            </CardHeader>
-            <Separator />
-            <CardContent className="flex flex-col gap-1.5">
-                {prefs.isLoading && (
-                    <p className="py-4 text-center text-sm text-muted-foreground">
-                        Loading…
-                    </p>
-                )}
-                {!prefs.isLoading &&
-                    EVENT_TYPES.map((eventType) => {
-                        const isEnabled = prefs.data?.[eventType] ?? false;
-                        return (
-                            <div
-                                className={cn(
-                                    'flex items-center gap-3 rounded-lg border border-border/60 bg-background p-3',
-                                )}
-                                key={eventType}
-                            >
-                                <div className="rounded-md bg-white/5 p-2 text-muted-foreground">
-                                    {ICONS[eventType]}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-white">
-                                        {EVENT_LABELS[eventType]}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {DESCRIPTIONS[eventType]}
-                                    </p>
-                                </div>
-                                <Switch
-                                    checked={isEnabled}
-                                    disabled={
-                                        notificationPrefMutation.isPending
-                                    }
-                                    onCheckedChange={(v) =>
-                                        notificationPrefMutation.mutate({
-                                            enabled: v,
-                                            eventType,
-                                        })
-                                    }
-                                />
-                            </div>
-                        );
-                    })}
-            </CardContent>
-        </Card>
+        <ProfilePanel
+            description="Choose which Sensor Hub events send you an email."
+            title="Email subscriptions"
+        >
+            <DataTable
+                columns={columns}
+                data={rows}
+                isLoading={prefs.isLoading}
+                pageSize={null}
+                rowId={(r) => r.eventType}
+                skeletonRows={EVENT_TYPES.length}
+            />
+        </ProfilePanel>
     );
 }

@@ -1,47 +1,13 @@
 /* stylelint-disable no-invalid-position-declaration */
 @import 'tailwindcss/utilities' layer(utilities);
 
-@utility bg-gradient-indigo {
-    @apply bg-linear-to-br from-indigo-50 to-indigo-400 bg-clip-text text-transparent;
-}
-
-@utility bg-gradient-emerald {
-    @apply bg-linear-to-br from-emerald-50 to-emerald-900 bg-clip-text text-transparent;
-}
-
-@utility bg-gradient-purple-anim {
-    background: linear-gradient(
-        to right,
-        var(--color-purple-400),
-        var(--color-white),
-        var(--color-purple-400),
-        var(--color-white)
-    );
-    background-size: 300% 300%;
-
-    @apply animate-gradient bg-clip-text text-transparent;
-}
-
-@utility bg-gradient-emerald-anim {
-    background: linear-gradient(
-        to right,
-        var(--color-emerald-700),
-        var(--color-white),
-        var(--color-emerald-700),
-        var(--color-white)
-    );
-    background-size: 300% 300%;
-
-    @apply animate-gradient bg-clip-text text-transparent;
-}
-
 @utility bg-gradient-neutral-anim {
     background: linear-gradient(
         to right,
-        var(--color-neutral-400),
-        var(--color-white),
-        var(--color-neutral-400),
-        var(--color-white)
+        var(--muted-foreground),
+        var(--foreground),
+        var(--muted-foreground),
+        var(--foreground)
     );
     background-size: 300% 300%;
 
@@ -49,110 +15,110 @@
 }
 
 @utility shimmer {
-    @apply relative isolate overflow-hidden rounded-xl opacity-50 shadow-xl shadow-black/5 transition-opacity duration-500 ease-in-out before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_3s_infinite] before:border-t before:border-b before:border-neutral-100/10 before:bg-linear-to-r before:from-transparent before:via-neutral-100/10 before:to-transparent;
+    @apply relative isolate overflow-hidden transition-opacity duration-500 ease-in-out before:pointer-events-none before:absolute before:inset-0 before:animate-[shimmer_2s_ease-in-out_infinite] before:bg-linear-to-r before:from-transparent before:via-foreground/10 before:to-transparent before:opacity-0 before:transition-opacity before:duration-500 data-[loading=true]:opacity-60 data-[loading=true]:before:opacity-100;
 }
 
 @utility pt-spacing {
-    padding-top: var(--spacing-64);
+    padding-top: --spacing(16);
 
     @media (min-width: 1024px) {
-        padding-top: var(--spacing-96);
+        padding-top: --spacing(24);
     }
 }
 
 @utility pb-spacing {
-    padding-bottom: var(--spacing-64);
+    padding-bottom: --spacing(16);
 
     @media (min-width: 1024px) {
-        padding-bottom: var(--spacing-96);
+        padding-bottom: --spacing(24);
     }
 }
 
 @utility py-spacing {
-    padding-bottom: var(--spacing-64);
-    padding-top: var(--spacing-64);
+    padding-bottom: --spacing(16);
+    padding-top: --spacing(16);
 
     @media (min-width: 1024px) {
-        padding-bottom: var(--spacing-96);
-        padding-top: var(--spacing-96);
+        padding-bottom: --spacing(24);
+        padding-top: --spacing(24);
     }
 }
 
 @utility pt-spacing-inner {
-    padding-top: var(--spacing-32);
+    padding-top: --spacing(8);
 
     @media (min-width: 1024px) {
-        padding-top: var(--spacing-64);
+        padding-top: --spacing(16);
     }
 }
 
 @utility pb-spacing-inner {
-    padding-bottom: var(--spacing-32);
+    padding-bottom: --spacing(8);
 
     @media (min-width: 1024px) {
-        padding-bottom: var(--spacing-64);
+        padding-bottom: --spacing(16);
     }
 }
 
 @utility py-spacing-inner {
-    padding-bottom: var(--spacing-32);
-    padding-top: var(--spacing-32);
+    padding-bottom: --spacing(8);
+    padding-top: --spacing(8);
 
     @media (min-width: 1024px) {
-        padding-bottom: var(--spacing-64);
-        padding-top: var(--spacing-64);
+        padding-bottom: --spacing(16);
+        padding-top: --spacing(16);
     }
 }
 
 @utility mt-spacing {
-    margin-top: var(--spacing-64);
+    margin-top: --spacing(16);
 
     @media (min-width: 1024px) {
-        margin-top: var(--spacing-96);
+        margin-top: --spacing(24);
     }
 }
 
 @utility mb-spacing {
-    margin-bottom: var(--spacing-64);
+    margin-bottom: --spacing(16);
 
     @media (min-width: 1024px) {
-        margin-bottom: var(--spacing-96);
+        margin-bottom: --spacing(24);
     }
 }
 
 @utility my-spacing {
-    margin-bottom: var(--spacing-64);
-    margin-top: var(--spacing-64);
+    margin-bottom: --spacing(16);
+    margin-top: --spacing(16);
 
     @media (min-width: 1024px) {
-        margin-bottom: var(--spacing-96);
-        margin-top: var(--spacing-96);
+        margin-bottom: --spacing(24);
+        margin-top: --spacing(24);
     }
 }
 
 @utility mt-spacing-inner {
-    margin-top: var(--spacing-32);
+    margin-top: --spacing(8);
 
     @media (min-width: 1024px) {
-        margin-top: var(--spacing-64);
+        margin-top: --spacing(16);
     }
 }
 
 @utility mb-spacing-inner {
-    margin-bottom: var(--spacing-32);
+    margin-bottom: --spacing(8);
 
     @media (min-width: 1024px) {
-        margin-bottom: var(--spacing-64);
+        margin-bottom: --spacing(16);
     }
 }
 
 @utility my-spacing-inner {
-    margin-bottom: var(--spacing-32);
-    margin-top: var(--spacing-32);
+    margin-bottom: --spacing(8);
+    margin-top: --spacing(8);
 
     @media (min-width: 1024px) {
-        margin-bottom: var(--spacing-64);
-        margin-top: var(--spacing-64);
+        margin-bottom: --spacing(16);
+        margin-top: --spacing(16);
     }
 }
 
@@ -172,4 +138,177 @@
     @media (min-width: 1400px) {
         max-width: 1400px;
     }
+}
+
+@utility type-display-hero {
+    font-family: var(--font-serif);
+    font-size: clamp(60px, 9.6vw, 150px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 0.92;
+}
+
+@utility type-display-closing {
+    font-family: var(--font-serif);
+    font-size: clamp(96px, 15vw, 232px);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    line-height: 0.86;
+}
+
+@utility type-display-section {
+    font-family: var(--font-serif);
+    font-size: clamp(48px, 6.2vw, 92px);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+}
+
+@utility type-display-page {
+    font-family: var(--font-serif);
+    font-size: clamp(36px, 4.4vw, 56px);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1;
+}
+
+@utility type-display-title {
+    font-family: var(--font-serif);
+    font-size: clamp(30px, 3.4vw, 46px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+@utility type-display-figure {
+    font-family: var(--font-serif);
+    font-size: 42px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+@utility type-display-stat {
+    font-family: var(--font-serif);
+    font-size: 64px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+@utility type-display-item {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+@utility type-display-caption {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-style: italic;
+    font-weight: 400;
+    line-height: 1.3;
+}
+
+@utility type-lead {
+    font-family: var(--font-sans);
+    font-size: 20px;
+    font-weight: 300;
+    line-height: 1.55;
+    text-wrap: pretty;
+}
+
+@utility type-body {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 300;
+    line-height: 1.6;
+    text-wrap: pretty;
+}
+
+@utility type-small {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 1.5;
+}
+
+@utility type-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    line-height: 1.4;
+    text-transform: uppercase;
+}
+
+@utility type-ticker {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    line-height: 1.2;
+}
+
+@utility type-micro {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    line-height: 1.4;
+    text-transform: uppercase;
+}
+
+@utility hatch {
+    background: repeating-linear-gradient(
+        135deg,
+        var(--hatch-a) 0 14px,
+        var(--hatch-b) 14px 28px
+    );
+}
+
+@utility money-hidden {
+    filter: var(--money-blur);
+}
+
+@utility outline-word {
+    color: transparent;
+    -webkit-text-stroke: 1px var(--line-camel);
+}
+
+@utility focus-camel {
+    &:focus-visible {
+        outline: 2px solid var(--camel);
+        outline-offset: 3px;
+    }
+}
+
+@utility chart-well {
+    background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size:
+        100% 56px,
+        8.333% 100%;
+}
+
+@utility mesh-dots {
+    background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
+    background-size: 25px 25px;
+    opacity: 0.6;
+}
+
+@utility glass {
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    background-color: var(--capsule);
+    border-color: var(--line);
+    box-shadow: var(--shadow-capsule);
+}
+
+@utility selected-pill {
+    background-color: var(--camel);
+    color: var(--on-camel);
 }

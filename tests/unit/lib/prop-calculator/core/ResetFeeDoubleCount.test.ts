@@ -6,28 +6,20 @@ import {
     flatDayPolicy,
     fraction,
     percent,
+    PolicySizing,
     RungSizing,
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
-import { type Rng } from '~/lib/prop-calculator/rng';
 import {
     runEvalWithRetries,
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 import { simulateTrial } from '~/lib/prop-calculator/simulator/trial';
 
-const firm = new TopStep();
+import { scriptedRng } from '../scriptedRng';
 
-function scriptedRng(draws: readonly number[]): Rng {
-    let index = 0;
-    return () => {
-        const draw = draws[index];
-        if (draw === undefined) throw new Error('scripted rng exhausted');
-        index += 1;
-        return draw;
-    };
-}
+const firm = new TopStep();
 
 function standardStandardPlan() {
     const plan = firm.findPlan({
@@ -39,9 +31,14 @@ function standardStandardPlan() {
     return plan;
 }
 
-const BUST_THEN_PASS_POLICY = flatDayPolicy(150, 1, {
-    kind: DayStopRuleKind.None,
-});
+const BUST_THEN_PASS_POLICY = flatDayPolicy(
+    150,
+    1,
+    {
+        kind: DayStopRuleKind.None,
+    },
+    PolicySizing.ContractCapped,
+);
 
 const LOSING_DAYS_TO_BUST = 14;
 const WINNING_DAYS_TO_PASS = 10;

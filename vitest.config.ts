@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
+const config = defineConfig({
     resolve: {
         alias: {
             'server-only': new URL(
@@ -20,9 +20,29 @@ export default defineConfig({
             provider: 'v8',
             reporter: ['text', 'html'],
         },
-        environment: 'node',
         exclude: ['**/node_modules/**', '**/.next/**', 'tests/e2e/**'],
-        include: ['tests/unit/**/*.test.ts'],
-        isolate: false,
+        projects: [
+            {
+                extends: true,
+                test: {
+                    environment: 'node',
+                    include: ['tests/unit/**/*.test.ts'],
+                    isolate: true,
+                    name: 'unit',
+                },
+            },
+            {
+                extends: true,
+                test: {
+                    environment: 'happy-dom',
+                    include: ['tests/unit/**/*.dom.test.tsx'],
+                    isolate: true,
+                    name: 'dom',
+                },
+            },
+        ],
+        reporters: ['minimal'],
     },
 });
+
+export default config;

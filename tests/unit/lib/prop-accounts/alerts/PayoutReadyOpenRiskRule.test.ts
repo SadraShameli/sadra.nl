@@ -1,0 +1,451 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+    AlertKind,
+    AlertSeverity,
+    PayoutReadyOpenRiskRule,
+} from '~/lib/prop-accounts/alerts';
+import {
+    AccountStage,
+    formatUsdCents,
+    usdCents,
+    usdCentsFromDollars,
+} from '~/lib/prop-accounts/core';
+import { dollars } from '~/lib/prop-calculator';
+import {
+    createSizingAdvisor,
+    DEFAULT_RULEBOOK,
+    NO_PERSONAL_CAPS,
+    type RulebookParameters,
+} from '~/lib/prop-calculator/advisor';
+
+import {
+    evalReconstructed,
+    fundedReconstructed,
+    mffProPlan,
+    reconstructedEntry,
+} from '../reconstructionFixtures';
+import {
+    accountFor,
+    alertsOf,
+    personalPoliciesFor,
+    WEDNESDAY,
+} from './alertFixtures';
+
+const rule = new PayoutReadyOpenRiskRule();
+
+function decisionFor(
+    accountId: string,
+    acceptedRiskCents: number,
+    actualRiskCents: null | number,
+    decidedOn = WEDNESDAY,
+    createdAt = new Date('2026-09-23T10:00:00Z'),
+    id = `decision-${accountId}-${createdAt.toISOString()}`,
+) {
+    return {
+        acceptedRiskCents: usdCents(acceptedRiskCents),
+        accountId,
+        actualRiskCents:
+            actualRiskCents === null ? null : usdCents(actualRiskCents),
+        createdAt,
+        decidedOn,
+        id,
+    };
+}
+
+function documentedRungCents(): number {
+    const { funded } = eligibleFunded();
+    const rung = createSizingAdvisor(funded, {
+        rulebook: DEFAULT_RULEBOOK,
+        snapshotAsOf: WEDNESDAY,
+        substate: null,
+        today: WEDNESDAY,
+    }).documented()?.rungs[0];
+    if (rung === undefined) throw new Error('expected a documented rung');
+    return usdCentsFromDollars(rung.risk);
+}
+
+function eligibleFunded() {
+    const plan = mffProPlan();
+    const funded = fundedReconstructed(plan, {
+        balance: plan.accountSize + 20_000,
+        cumulativePayout: 0,
+        cycleBestDayProfit: 20_000,
+        lastPayoutBalance: plan.accountSize,
+        payoutsIssued: 1,
+    });
+    if (funded.fundedTracker === null) throw new Error('expected a tracker');
+    funded.fundedTracker.sessionDaysSinceAnchor = 999;
+    return { funded, plan };
+}
+
+function rulebookWithThreshold(cents: null | number): RulebookParameters {
+    return {
+        ...DEFAULT_RULEBOOK,
+        alerts: {
+            ...DEFAULT_RULEBOOK.alerts,
+            payoutReadyRiskAboveRungCents:
+                cents === null ? null : usdCents(cents),
+        },
+    };
+}
+
+function setup(asOf = WEDNESDAY) {
+    const { funded, plan } = eligibleFunded();
+    const account = accountFor(
+        { firmId: plan.id.firm, plan },
+        { stage: AccountStage.Funded },
+    );
+    return {
+        account,
+        entry: reconstructedEntry(account.id, plan, funded, { asOf }),
+    };
+}
+
+describe('PayoutReadyOpenRiskRule', () => {
+    it('has a documented rung above zero for the fixture', () => {
+        expect(documentedRungCents()).toBeGreaterThan(0);
+    });
+
+    it('is off entirely when payoutReadyRiskAboveRungCents is null', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions: [decisionFor(account.id, rung * 5, rung * 5)],
+                rulebook: rulebookWithThreshold(null),
+            }),
+        ).toEqual([]);
+    });
+
+    it('never fires on an eligible account trading exactly the documented rung', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions: [decisionFor(account.id, rung, rung)],
+                rulebook: rulebookWithThreshold(1),
+            }),
+        ).toEqual([]);
+    });
+
+    it('warns when the recorded risk is above the rung by more than the threshold', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        const alerts = alertsOf(rule, {
+            accounts: [account],
+            accountStates: [entry],
+            decisions: [decisionFor(account.id, rung, rung + 10_000)],
+            rulebook: rulebookWithThreshold(5000),
+        });
+        expect(alerts).toHaveLength(1);
+        const [alert] = alerts;
+        expect(alert?.kind).toBe(AlertKind.PayoutReadyOpenRisk);
+        expect(alert?.severity).toBe(AlertSeverity.Warning);
+        expect(alert?.message).toContain('payout');
+        expect(alert?.message).toContain('$100');
+        expect(alert?.message).toContain(
+            `above the documented rung of ${formatUsdCents(usdCents(rung))}`,
+        );
+        expect(alert?.message).not.toContain('personal');
+    });
+
+    it('is silent when the excess equals the threshold and fires one cent above it', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions: [decisionFor(account.id, rung, rung + 5000)],
+                rulebook: rulebookWithThreshold(5000),
+            }),
+        ).toEqual([]);
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions: [decisionFor(account.id, rung, rung + 5001)],
+                rulebook: rulebookWithThreshold(5000),
+            }),
+        ).toHaveLength(1);
+    });
+
+    it('uses the accepted risk when no actual risk was recorded', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions: [decisionFor(account.id, rung + 10_000, null)],
+                rulebook: rulebookWithThreshold(5000),
+            }),
+        ).toHaveLength(1);
+    });
+
+    it('prefers the actual risk over the accepted risk', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions: [decisionFor(account.id, rung + 10_000, rung)],
+                rulebook: rulebookWithThreshold(5000),
+            }),
+        ).toEqual([]);
+    });
+
+    it('judges the newest decision of the day whatever order the list arrives in', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        const older = decisionFor(
+            account.id,
+            rung,
+            rung + 10_000,
+            WEDNESDAY,
+            new Date('2026-09-23T09:00:00Z'),
+        );
+        const newer = decisionFor(
+            account.id,
+            rung,
+            rung,
+            WEDNESDAY,
+            new Date('2026-09-23T11:00:00Z'),
+        );
+        for (const decisions of [
+            [older, newer],
+            [newer, older],
+        ]) {
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toEqual([]);
+        }
+        const flipped = [
+            decisionFor(
+                account.id,
+                rung,
+                rung,
+                WEDNESDAY,
+                new Date('2026-09-23T09:00:00Z'),
+            ),
+            decisionFor(
+                account.id,
+                rung,
+                rung + 10_000,
+                WEDNESDAY,
+                new Date('2026-09-23T11:00:00Z'),
+            ),
+        ];
+        for (const decisions of [flipped, flipped.toReversed()]) {
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toHaveLength(1);
+        }
+    });
+
+    it('breaks a tie on the creation time by the id', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        const sameTime = new Date('2026-09-23T10:00:00Z');
+        const low = decisionFor(
+            account.id,
+            rung,
+            rung + 10_000,
+            WEDNESDAY,
+            sameTime,
+            'a',
+        );
+        const high = decisionFor(
+            account.id,
+            rung,
+            rung,
+            WEDNESDAY,
+            sameTime,
+            'b',
+        );
+        for (const decisions of [
+            [low, high],
+            [high, low],
+        ]) {
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toEqual([]);
+        }
+    });
+
+    it('is silent when the account is not payout-eligible per the readiness board', () => {
+        const plan = mffProPlan();
+        const fresh = fundedReconstructed(plan, {
+            balance: plan.accountSize + 20_000,
+        });
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Funded },
+        );
+        const rung = documentedRungCents();
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [reconstructedEntry(account.id, plan, fresh)],
+                decisions: [decisionFor(account.id, rung * 5, rung * 5)],
+                rulebook: rulebookWithThreshold(1),
+            }),
+        ).toEqual([]);
+    });
+
+    it('is silent for an eval account', () => {
+        const plan = mffProPlan();
+        const account = accountFor(
+            { firmId: plan.id.firm, plan },
+            { stage: AccountStage.Eval },
+        );
+        const evalEntry = reconstructedEntry(
+            account.id,
+            plan,
+            evalReconstructed(plan),
+        );
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [evalEntry],
+                decisions: [decisionFor(account.id, 500_000, 500_000)],
+                rulebook: rulebookWithThreshold(1),
+            }),
+        ).toEqual([]);
+    });
+
+    it('ignores a decision from another day, another account or none at all', () => {
+        const { account, entry } = setup();
+        const rung = documentedRungCents();
+        const other = accountFor(
+            { firmId: mffProPlan().id.firm, plan: mffProPlan() },
+            { stage: AccountStage.Funded },
+        );
+        for (const decisions of [
+            [decisionFor(account.id, rung * 5, rung * 5, '2026-09-22')],
+            [decisionFor(other.id, rung * 5, rung * 5)],
+            [],
+        ]) {
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(1),
+                }),
+            ).toEqual([]);
+        }
+    });
+
+    it('is silent on a stale snapshot rather than judging against an outdated rung', () => {
+        const { account, entry } = setup('2026-08-01');
+        const rung = documentedRungCents();
+        expect(
+            alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions: [decisionFor(account.id, rung * 5, rung * 5)],
+                rulebook: rulebookWithThreshold(1),
+            }),
+        ).toEqual([]);
+    });
+
+    describe('an account with personal payout rules', () => {
+        it('is silent when the personal retained cushion makes the readiness board blocked', () => {
+            const { account, entry } = setup();
+            const rung = documentedRungCents();
+            const decisions = [decisionFor(account.id, rung + 10_000, null)];
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toHaveLength(1);
+            const personalPolicies = personalPoliciesFor(account, {
+                retainedCushionRequest: dollars(30_000),
+            });
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    personalPolicies,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toEqual([]);
+        });
+
+        it('judges the recorded risk against the rung under the personal risk cap', () => {
+            const { account, entry } = setup();
+            const rung = documentedRungCents();
+            const decisions = [decisionFor(account.id, rung, rung)];
+            expect(
+                alertsOf(rule, {
+                    accounts: [account],
+                    accountStates: [entry],
+                    decisions,
+                    rulebook: rulebookWithThreshold(5000),
+                }),
+            ).toEqual([]);
+            const personalPolicies = personalPoliciesFor(account, {
+                personalCaps: {
+                    ...NO_PERSONAL_CAPS,
+                    maxRiskPerTrade: dollars(10),
+                },
+            });
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions,
+                personalPolicies,
+                rulebook: rulebookWithThreshold(5000),
+            });
+            expect(alerts).toHaveLength(1);
+            expect(alerts[0]?.message).toContain(
+                `your personal rung of ${formatUsdCents(usdCents(1000))} (documented rung ${formatUsdCents(usdCents(rung))})`,
+            );
+            expect(alerts[0]?.message).not.toContain(
+                `above the documented rung of ${formatUsdCents(usdCents(1000))}`,
+            );
+        });
+
+        it('still fires when the personal override and cushion leave the board eligible', () => {
+            const { account, entry } = setup();
+            const rung = documentedRungCents();
+            const alerts = alertsOf(rule, {
+                accounts: [account],
+                accountStates: [entry],
+                decisions: [decisionFor(account.id, rung + 10_000, null)],
+                personalPolicies: personalPoliciesFor(account, {
+                    payoutRequestOverride: dollars(2000),
+                    retainedCushionRequest: dollars(3000),
+                }),
+                rulebook: rulebookWithThreshold(5000),
+            });
+            expect(alerts).toHaveLength(1);
+        });
+    });
+});

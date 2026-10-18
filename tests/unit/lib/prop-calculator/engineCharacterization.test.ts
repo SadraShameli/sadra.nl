@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ApexVariant,
+    DayStopRuleKind,
     FirmId,
+    LucidVariant,
     MffuVariant,
     type Plan,
     type PlanId,
+    PolicySizing,
     RungSizing,
     TopStepVariant,
 } from '~/lib/prop-calculator/core';
@@ -26,6 +29,7 @@ interface Characterization {
 type PinnedKey =
     | 'bustProbability'
     | 'daysToPassP50'
+    | 'evalPassProbability'
     | 'expectancyDollars'
     | 'expectedDaysToPass'
     | 'expectedFirstPayoutDay'
@@ -35,9 +39,9 @@ type PinnedKey =
     | 'expectedTotalCost'
     | 'finalBalanceP50'
     | 'fundedBustProbability'
+    | 'fundedSurvivalProbability'
     | 'maxDrawdownP50'
     | 'maxLosingStreakP95'
-    | 'passProbability'
     | 'profitFactor'
     | 'timeoutProbability';
 
@@ -46,18 +50,19 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.185,
             daysToPassP50: 11,
+            evalPassProbability: 0.815,
             expectancyDollars: 197.3361417420394,
             expectedDaysToPass: 12.122699386503067,
-            expectedFirstPayoutDay: 0,
+            expectedFirstPayoutDay: 19.223076923076924,
             expectedGrossPayout: 10_270.8,
             expectedMonthlyNet: 5196.699458927693,
             expectedNet: 10_061.8,
             expectedTotalCost: 209,
             finalBalanceP50: 50_100,
             fundedBustProbability: 0.815,
+            fundedSurvivalProbability: 0,
             maxDrawdownP50: 3900,
             maxLosingStreakP95: 7,
-            passProbability: 0,
             profitFactor: 1.9827235145307582,
             timeoutProbability: 0,
         },
@@ -72,18 +77,19 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.2,
             daysToPassP50: 6,
+            evalPassProbability: 0.8,
             expectancyDollars: 197.5919651500484,
             expectedDaysToPass: 6.85,
-            expectedFirstPayoutDay: 15.217054263565892,
+            expectedFirstPayoutDay: 15.20863309352518,
             expectedGrossPayout: 8475,
-            expectedMonthlyNet: 3959.2182410423457,
-            expectedNet: 7813.8,
-            expectedTotalCost: 661.2,
+            expectedMonthlyNet: 3958.8128845457836,
+            expectedNet: 7813,
+            expectedTotalCost: 662,
             finalBalanceP50: 55_700,
             fundedBustProbability: 0.155,
+            fundedSurvivalProbability: 0.645,
             maxDrawdownP50: 3500,
             maxLosingStreakP95: 9,
-            passProbability: 0.645,
             profitFactor: 1.9844456502079941,
             timeoutProbability: 0,
         },
@@ -98,18 +104,19 @@ const CASES: readonly Characterization[] = [
         expected: {
             bustProbability: 0.2,
             daysToPassP50: 5.5,
+            evalPassProbability: 0.8,
             expectancyDollars: 196.76692858215304,
             expectedDaysToPass: 6.975,
-            expectedFirstPayoutDay: 14.053571428571429,
+            expectedFirstPayoutDay: 13.920634920634921,
             expectedGrossPayout: 30_206.7,
-            expectedMonthlyNet: 4343.868408772749,
+            expectedMonthlyNet: 4258.425104993001,
             expectedNet: 30_038.5,
             expectedTotalCost: 168.2,
             finalBalanceP50: 80_200,
             fundedBustProbability: 0.24,
+            fundedSurvivalProbability: 0.56,
             maxDrawdownP50: 4400,
             maxLosingStreakP95: 11,
-            passProbability: 0.56,
             profitFactor: 1.9785617097534265,
             timeoutProbability: 0,
         },
@@ -122,21 +129,22 @@ const CASES: readonly Characterization[] = [
     },
     {
         expected: {
-            bustProbability: 0.17,
+            bustProbability: 0.175,
             daysToPassP50: 6,
-            expectancyDollars: 200.52468399713808,
-            expectedDaysToPass: 6.771084337349397,
-            expectedFirstPayoutDay: 0,
-            expectedGrossPayout: 7932.8,
-            expectedMonthlyNet: 5055.917597106462,
-            expectedNet: 7654.9,
-            expectedTotalCost: 277.9,
+            evalPassProbability: 0.825,
+            expectancyDollars: 200,
+            expectedDaysToPass: 7.290909090909091,
+            expectedFirstPayoutDay: 12.507352941176471,
+            expectedGrossPayout: 7864,
+            expectedMonthlyNet: 4956.346243583761,
+            expectedNet: 7586.75,
+            expectedTotalCost: 277.25,
             finalBalanceP50: 50_000,
-            fundedBustProbability: 0.83,
+            fundedBustProbability: 0.825,
+            fundedSurvivalProbability: 0,
             maxDrawdownP50: 3600,
             maxLosingStreakP95: 6,
-            passProbability: 0,
-            profitFactor: 2.003500954805856,
+            profitFactor: 2,
             timeoutProbability: 0,
         },
         id: { accountSize: 50_000, firm: FirmId.Tpt },
@@ -168,6 +176,11 @@ function run(id: PlanId): SimOutputs {
     });
 }
 
+const TOPSTEP_XFA_PRE_T32 = {
+    expectedHorizonCredit: 991.2,
+    expectedMonthlyNet: 4343.868408772749,
+} as const;
+
 describe.each(CASES)('engine characterization: $label', (characterization) => {
     const out = run(characterization.id);
 
@@ -178,6 +191,63 @@ describe.each(CASES)('engine characterization: $label', (characterization) => {
         })),
     )('pins $key', ({ key, value }) => {
         expect(out[key]).toBe(value);
+    });
+});
+
+describe('engine characterization: TopStep Standard XFA monthly net moved only by the capped horizon credit (T32)', () => {
+    const out = run({
+        accountSize: 50_000,
+        firm: FirmId.TopStep,
+        variant: TopStepVariant.StandardStandard,
+    });
+
+    it('keeps the $30,038.50 per-cycle net and cuts the credit from the $991.20 whole balance above the floor to $380.85, one request under the no-ladder pool limit', () => {
+        expect(out.expectedNet).toBe(30_038.5);
+        expect(out.expectedHorizonCredit).toBe(380.85);
+        expect(out.expectedHorizonCredit).toBeLessThan(
+            TOPSTEP_XFA_PRE_T32.expectedHorizonCredit,
+        );
+    });
+
+    it('scales per-cycle net plus credit to a month by the same slot factor as before T32, so the $4,343.87 to $4,258.43 monthly move is the credit alone', () => {
+        expect(
+            out.expectedMonthlyNet /
+                (out.expectedNet + out.expectedHorizonCredit),
+        ).toBeCloseTo(
+            TOPSTEP_XFA_PRE_T32.expectedMonthlyNet /
+                (out.expectedNet + TOPSTEP_XFA_PRE_T32.expectedHorizonCredit),
+            12,
+        );
+    });
+});
+
+const TPT_PRE_N79 = {
+    bustProbability: 0.17,
+    evalPassProbability: 0.83,
+    expectedGrossPayout: 7932.8,
+    expectedNet: 7654.9,
+} as const;
+
+describe('engine characterization: TPT Test to PRO eval pass rate moved by Rule 5s real consistency boundary (N-79)', () => {
+    const out = run({ accountSize: 50_000, firm: FirmId.Tpt });
+
+    it('drops the small-sample eval pass rate from 0.83 to 0.825 (bust rate up from 0.17 to 0.175): a violated eval no longer passes merely by reaching 2x the fixed profit target, only once net P/L exceeds 2x that trials own best day', () => {
+        expect(out.evalPassProbability).toBe(0.825);
+        expect(out.evalPassProbability).toBeLessThan(
+            TPT_PRE_N79.evalPassProbability,
+        );
+        expect(out.bustProbability).toBeGreaterThan(
+            TPT_PRE_N79.bustProbability,
+        );
+    });
+
+    it('cuts gross payout and net accordingly, since fewer of the 200 trials reach a funded payout', () => {
+        expect(out.expectedGrossPayout).toBe(7864);
+        expect(out.expectedGrossPayout).toBeLessThan(
+            TPT_PRE_N79.expectedGrossPayout,
+        );
+        expect(out.expectedNet).toBe(7586.75);
+        expect(out.expectedNet).toBeLessThan(TPT_PRE_N79.expectedNet);
     });
 });
 
@@ -209,5 +279,71 @@ describe('engine characterization: MFFU Rapid EOD portfolio (2 accounts, indepen
 
     it('pins expectedNet', () => {
         expect(out.expectedNet).toBe(20_710.4);
+    });
+});
+
+function lucidDailyEodFlatThousand(payoutRequestSize?: number): SimOutputs {
+    const dayGreen = { kind: DayStopRuleKind.DayGreen } as const;
+    return simulate({
+        commissionPerRoundTrip: 0,
+        dayStop: dayGreen,
+        evalDayPolicy: {
+            ladder: [800, 400, 800, 400],
+            maxLossesPerDay: null,
+            sizing: PolicySizing.ContractCapped,
+            stopRule: dayGreen,
+        },
+        fundedHorizonDays: 252,
+        fundedRiskPerTrade: 1000,
+        idleDayProbability: 0,
+        maxAttempts: 1,
+        maxEvalDays: 150,
+        minRetainedCushion: 2000,
+        payoutRequestSize,
+        plan: planFor({
+            accountSize: 50_000,
+            firm: FirmId.Lucid,
+            variant: LucidVariant.DailyEod,
+        }),
+        rebuyLagDays: 0,
+        riskPerTrade: 800,
+        rrRatio: 2,
+        seed: 42,
+        tradesPerDay: 4,
+        trials: 400,
+        winrate: 0.4,
+    });
+}
+
+describe('engine characterization: Lucid Daily EOD flat $1000 funded, request-all against a capped $500 request (N-72)', () => {
+    const requestAll = lucidDailyEodFlatThousand();
+    const requestTwoThousand = lucidDailyEodFlatThousand(2000);
+    const requestFiveHundred = lucidDailyEodFlatThousand(500);
+
+    it('drains every account back to the barrier on request-all, so no account survives and no credit is booked', () => {
+        expect(requestAll.evalPassProbability).toBeGreaterThan(0);
+        expect(requestAll.fundedSurvivalProbability).toBe(0);
+        expect(requestAll.expectedHorizonCredit).toBe(0);
+    });
+
+    it('gives the same outputs with a $2,000 request as with no request size, since a day-green day at 2R never lifts the balance more than $2,000 above the barrier', () => {
+        expect(requestTwoThousand).toStrictEqual(requestAll);
+    });
+
+    it('lets a $500 request keep profit in the account, so some accounts survive, with a credit-free monthly below request-all', () => {
+        expect(requestFiveHundred.fundedSurvivalProbability).toBeGreaterThan(0);
+        expect(requestFiveHundred.expectedMonthlyRealizedNet).toBeLessThan(
+            requestAll.expectedMonthlyRealizedNet,
+        );
+    });
+
+    it('books no credit for a $500 request either, since a daily payout empties the cycle-profit pool that caps one more request (T32)', () => {
+        expect(requestFiveHundred.expectedHorizonCredit).toBe(0);
+        expect(requestFiveHundred.expectedMonthlyNet).toBe(
+            requestFiveHundred.expectedMonthlyRealizedNet,
+        );
+        expect(requestFiveHundred.expectedMonthlyNet).toBeLessThan(
+            requestAll.expectedMonthlyNet,
+        );
     });
 });

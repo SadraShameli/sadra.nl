@@ -1,4 +1,3 @@
-import { createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
 import {
@@ -16,11 +15,6 @@ import {
     SETUP_TYPE_VALUES,
     WEIGHT_CATEGORY_VALUES,
 } from '~/lib/trading/types';
-import {
-    dailyPreparations,
-    tradeAssessments,
-    tradingPlans,
-} from '~/server/db/schemas/trading';
 
 export const accountTypeSchema = z.enum(ACCOUNT_TYPE_VALUES);
 export const biasDirectionSchema = z.enum(BIAS_DIRECTION_VALUES);
@@ -181,22 +175,6 @@ export const assessmentResultSchema = z.object({
 
 export type AssessmentResult = z.infer<typeof assessmentResultSchema>;
 
-export const tradingPlanRowSchema = createSelectSchema(tradingPlans, {
-    config: tradingPlanConfigSchema,
-});
-
-export type TradingPlanRow = z.infer<typeof tradingPlanRowSchema>;
-
-export const tradeAssessmentRowSchema = createSelectSchema(tradeAssessments, {
-    answers: answersSchema,
-    executionDeviations: z.array(executionDeviationSchema).nullable(),
-    outcome: outcomeSchema.nullable(),
-    planSnapshot: tradingPlanConfigSchema,
-    result: assessmentResultSchema,
-});
-
-export type TradeAssessmentRow = z.infer<typeof tradeAssessmentRowSchema>;
-
 export const planIdSchema = z.uuid();
 
 export const tradingPlanCreationSchema = z.object({
@@ -265,12 +243,6 @@ export const prepChecksSchema = z.object({
 });
 
 export type PrepChecksParsed = z.infer<typeof prepChecksSchema>;
-
-export const dailyPreparationRowSchema = createSelectSchema(dailyPreparations, {
-    checks: prepChecksSchema,
-});
-
-export type DailyPreparationRow = z.infer<typeof dailyPreparationRowSchema>;
 
 const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
 

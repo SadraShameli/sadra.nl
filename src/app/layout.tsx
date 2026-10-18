@@ -2,34 +2,44 @@ import '~/styles/styles.css';
 
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { GeistSans } from 'geist/font/sans';
 import { type Metadata, type Viewport } from 'next';
+import { ThemeProvider } from 'next-themes';
+import { Suspense } from 'react';
 
-import GridBackground from '~/components/ui/GridBg';
-import { Toaster } from '~/components/ui/Sonner';
-import { orbitron } from '~/fonts';
-import { getServerSession } from '~/lib/auth/server';
+import { MeshBackground } from '~/components/MeshBackground';
+import { Toaster } from '~/components/ui/sonner';
+import { bodoniModa, hankenGrotesk, jetBrainsMono } from '~/fonts';
 import { siteContent } from '~/lib/site/content';
+import { SITE_NAME } from '~/lib/site/siteName';
+import { THEME_BACKGROUND_COLOR } from '~/lib/site/themeColor';
 import { getPublicSiteOrigin } from '~/lib/site/url';
+import { DEFAULT_COLOR_MODE } from '~/lib/theme';
 import { cn } from '~/lib/utilities';
 import { TRPCReactProvider } from '~/trpc/react';
 
+import { AccountLink } from './(app)/_components/AccountLink';
 import Footer from './(app)/_components/Footer';
+import { MAIN_CONTENT_ID } from './(app)/_components/mainContent';
 import Navbar from './(app)/_components/Navbar';
+import {
+    RootAccountingGroup,
+    RootResumeGroup,
+} from './(app)/_components/navigation/RootNavigationGroups';
+import { NavMenuId } from './(app)/_components/navigation/siteNavigation';
+import { SessionAccountLink } from './(app)/_components/SessionAccountLink';
 
 export const viewport: Viewport = {
-    themeColor: '#000',
+    themeColor: THEME_BACKGROUND_COLOR,
 };
 
 const siteOrigin = getPublicSiteOrigin();
 
 export const metadata: Metadata = {
     description: siteContent.metaDescription,
-    icons: { icon: '/favicon.ico' },
     metadataBase: new URL(siteOrigin),
     openGraph: {
         description: siteContent.metaDescription,
-        siteName: 'sadra.nl',
+        siteName: SITE_NAME,
         title: siteContent.metaTitle,
         type: 'website',
     },
@@ -44,36 +54,59 @@ export const metadata: Metadata = {
     },
 };
 
-export default async function RootLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    const session = await getServerSession();
-
+export default function RootLayout({ children }: LayoutProps<'/'>) {
     return (
         <html
-            className="dark scroll-smooth antialiased"
+            className={cn(
+                'scroll-smooth antialiased',
+                bodoniModa.variable,
+                hankenGrotesk.variable,
+                jetBrainsMono.variable,
+            )}
             data-scroll-behavior="smooth"
             lang="en"
+            suppressHydrationWarning
         >
-            <body
-                className={cn(
-                    'app-shell',
-                    'flex min-h-screen flex-col',
-                    orbitron.variable,
-                    GeistSans.variable,
-                )}
-            >
-                <TRPCReactProvider>
-                    <Navbar session={session} />
-                    <GridBackground />
-                    <div className="flex flex-1 flex-col" id="main-content">
-                        {children}
-                    </div>
-                    <Footer />
-                </TRPCReactProvider>
-                <Toaster position="bottom-center" richColors />
+            <body className={cn('app-shell', 'flex min-h-screen flex-col')}>
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme={DEFAULT_COLOR_MODE}
+                    disableTransitionOnChange
+                    enableSystem={false}
+                >
+                    <MeshBackground />
+                    <TRPCReactProvider>
+                        <Navbar
+                            accountLink={
+                                <Suspense
+                                    fallback={<AccountLink signedIn={false} />}
+                                >
+                                    <SessionAccountLink />
+                                </Suspense>
+                            }
+                            menuExtras={{
+                                [NavMenuId.Portfolio]: (
+                                    <Suspense fallback={null}>
+                                        <RootResumeGroup />
+                                    </Suspense>
+                                ),
+                                [NavMenuId.Tools]: (
+                                    <Suspense fallback={null}>
+                                        <RootAccountingGroup />
+                                    </Suspense>
+                                ),
+                            }}
+                        />
+                        <div
+                            className="flex flex-1 flex-col"
+                            id={MAIN_CONTENT_ID}
+                        >
+                            {children}
+                        </div>
+                        <Footer />
+                    </TRPCReactProvider>
+                    <Toaster position="bottom-center" richColors />
+                </ThemeProvider>
                 <Analytics />
                 <SpeedInsights />
             </body>

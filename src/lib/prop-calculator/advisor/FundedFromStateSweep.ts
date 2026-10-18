@@ -1,0 +1,193 @@
+import {
+    type AccountState,
+    type FundedCycleSeed,
+    type FundedCycleTracker,
+    PayoutDayGateBasis,
+    type Plan,
+} from '~/lib/prop-calculator/core';
+import {
+    buildFundedCandidates,
+    FundedCandidateBuildKind,
+    type FundedCandidateOptions,
+    type FundedCandidateRefusalDetail,
+    survivorCount,
+} from '~/lib/prop-calculator/optimize';
+import {
+    type FromStateSimInputs,
+    type FromStateSimOutputs,
+    type FundedSimStart,
+    type SimInputs,
+    simulateFromState,
+} from '~/lib/prop-calculator/simulator';
+
+import { type AdviceSource } from './AdviceSource';
+import {
+    liveTransferAssumptionOf,
+    type LiveTransferHazardAssumption,
+} from './Assumption';
+import {
+    type EngineOptimumRefusal,
+    EngineOptimumRefusalKind,
+    type EngineOptimumRefusedRow,
+    EngineOptimumRowKind,
+    type FundedWinnerPolicy,
+} from './EngineOptimum';
+import { applyEnginePolicy } from './EnginePolicyBuilder';
+import { fundedWinnerPolicyOf } from './FundedWinnerPolicy';
+import { applyPersonalDayLimits, type EnginePolicy } from './policy';
+
+export enum FundedFromStateOptimumResultKind {
+    NoCandidates = 'no-candidates',
+    Optimum = 'optimum',
+}
+
+export interface FundedFromStateNoCandidatesResult {
+    readonly kind: FundedFromStateOptimumResultKind.NoCandidates;
+    readonly refusal: FundedCandidateRefusalDetail;
+}
+
+export interface FundedFromStateOptimum {
+    readonly fromStateExpectedCash: number;
+    readonly fromStateExpectedCashStandardError: null | number;
+    readonly fromStateExpectedRealizedCash: number;
+    readonly fromStateExpectedRealizedCashStandardError: null | number;
+    readonly label: string;
+    readonly liveTransfer?: LiveTransferHazardAssumption;
+    readonly policy: FundedWinnerPolicy;
+    readonly rows: readonly FundedFromStateRow[];
+    readonly survivors: number;
+}
+
+export interface FundedFromStateOptimumFoundResult {
+    readonly kind: FundedFromStateOptimumResultKind.Optimum;
+    readonly optimum: FundedFromStateOptimum;
+}
+
+export interface FundedFromStatePlacedRow {
+    readonly kind: EngineOptimumRowKind.Placed;
+    readonly label: string;
+    readonly out: FromStateSimOutputs;
+}
+
+export type FundedFromStateRow =
+    EngineOptimumRefusedRow | FundedFromStatePlacedRow;
+
+export interface FundedFromStateSweepRequest {
+    readonly base: Omit<SimInputs, 'plan'>;
+    readonly candidates: Omit<FundedCandidateOptions, 'plan'>;
+    readonly policy: EnginePolicy;
+    readonly source: AdviceSource.FundedSweepFromState;
+    readonly start: FundedSimStart;
+}
+
+export type FundedFromStateSweepResult =
+    FundedFromStateNoCandidatesResult | FundedFromStateOptimumFoundResult;
+
+export function fundedCycleSeedFromTracker(
+    plan: Plan,
+    state: AccountState,
+    tracker: FundedCycleTracker,
+): FundedCycleSeed {
+    return {
+        calendarDayGateProgress:
+            plan.payoutDayGateBasis ===
+            PayoutDayGateBasis.CalendarDaysSinceFirstTradeOrPayout
+                ? tracker.dayGateProgress(plan, state)
+                : 0,
+        cumulativePayout: tracker.cumulativePayout,
+        cycleBestDayProfit: tracker.cycleBestDayProfit,
+        fundedResetsUsed: tracker.fundedResetsUsed,
+        lastPayoutBalance: tracker.lastPayoutBalance,
+        payoutsIssued: tracker.payoutsIssued,
+        qualifyingDaysAtLastPayout: tracker.qualifyingDaysAtLastPayout,
+    };
+}
+
+export function runFundedFromStateSweep(
+    plan: Plan,
+    request: FundedFromStateSweepRequest,
+): FundedFromStateSweepResult {
+    const build = buildFundedCandidates({ ...request.candidates, plan });
+    if (build.kind === FundedCandidateBuildKind.Refused) {
+        return {
+            kind: FundedFromStateOptimumResultKind.NoCandidates,
+            refusal: build.refusal,
+        };
+    }
+
+    const inputsByRow = new Map<FundedFromStatePlacedRow, FromStateSimInputs>();
+    const placedRows: FundedFromStatePlacedRow[] = build.candidates.map(
+        (candidate): FundedFromStatePlacedRow => {
+            const inputs = applyEnginePolicyFromState(plan, request.policy, {
+                ...request.base,
+                plan,
+                start: request.start,
+                ...candidate.overrides,
+            });
+            const row: FundedFromStatePlacedRow = {
+                kind: EngineOptimumRowKind.Placed,
+                label: candidate.label,
+                out: simulateFromState(inputs),
+            };
+            inputsByRow.set(row, inputs);
+            return row;
+        },
+    );
+    const refusedRows: EngineOptimumRefusedRow[] =
+        build.flatsBelowOneContract.map((dollar): EngineOptimumRefusedRow => ({
+            kind: EngineOptimumRowKind.Refused,
+            label: `flat $${dollar}`,
+            reason: flatBelowOneContractRefusal(dollar),
+        }));
+
+    const ranked = placedRows.toSorted(
+        (a, b) => b.out.fromStateExpectedCash - a.out.fromStateExpectedCash,
+    );
+    const winner = ranked[0];
+    if (winner === undefined) {
+        throw new Error(
+            'runFundedFromStateSweep: buildFundedCandidates returned a built result with no candidates',
+        );
+    }
+
+    const winnerInputs = inputsByRow.get(winner);
+    const liveTransfer =
+        winnerInputs === undefined
+            ? undefined
+            : liveTransferAssumptionOf(
+                  winnerInputs,
+                  winner.out.liveTransferProbability,
+              );
+    const optimum: FundedFromStateOptimum = {
+        fromStateExpectedCash: winner.out.fromStateExpectedCash,
+        fromStateExpectedCashStandardError:
+            winner.out.estimates.fromStateExpectedCash.standardError,
+        fromStateExpectedRealizedCash: winner.out.fromStateExpectedRealizedCash,
+        fromStateExpectedRealizedCashStandardError:
+            winner.out.estimates.fromStateExpectedRealizedCash.standardError,
+        label: winner.label,
+        ...(liveTransfer !== undefined && { liveTransfer }),
+        policy: fundedWinnerPolicyOf(build.candidates, winner.label),
+        rows: [...ranked, ...refusedRows],
+        survivors: survivorCount(winner.out, request.base.trials),
+    };
+    return { kind: FundedFromStateOptimumResultKind.Optimum, optimum };
+}
+
+function applyEnginePolicyFromState(
+    plan: Plan,
+    policy: EnginePolicy,
+    base: FromStateSimInputs,
+): FromStateSimInputs {
+    return {
+        ...applyPersonalDayLimits(
+            policy,
+            applyEnginePolicy(plan, policy, base),
+        ),
+        start: base.start,
+    };
+}
+
+function flatBelowOneContractRefusal(dollar: number): EngineOptimumRefusal {
+    return { dollar, kind: EngineOptimumRefusalKind.FlatBelowOneContract };
+}

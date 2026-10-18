@@ -1,5 +1,6 @@
 'use client';
 
+import { type Route } from 'next';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -9,13 +10,13 @@ const CHARS = String.raw`!<>-\/[]{}=+*^?#@$%`;
 
 interface Properties {
     className?: string;
-    href?: string;
+    href?: Route;
     text: string;
     trigger?: number;
 }
 
 export default function GlitchBrand({
-    className = 'font-orbitron text-lg font-semibold tracking-widest text-white',
+    className = 'font-serif text-lg font-medium tracking-widest text-foreground',
     href = '/',
     text,
     trigger = 0,

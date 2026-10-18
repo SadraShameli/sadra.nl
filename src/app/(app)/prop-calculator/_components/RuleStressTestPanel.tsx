@@ -3,41 +3,34 @@
 import { TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Card } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { formatCurrency, formatPercent } from '~/lib/format';
+import { Card } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { formatCurrency, formatPercent, NOT_APPLICABLE } from '~/lib/format';
 import {
-    DailyLossLimitKind,
-    dollars,
-    fraction,
-    type Plan,
-    scaleDailyLossLimit,
     type SimInputs,
     type SimOutputs,
     simulate,
 } from '~/lib/prop-calculator';
+import { simInputsSizingIssue } from '~/lib/prop-calculator/simulator';
 import { cn } from '~/lib/utilities';
 
 import RuleStressBarChartView from './charts/RuleStressBarChartView';
+import { ComputationId } from './ComputationId';
+import { buildStressScenarios } from './ruleStressScenarios';
+import { formatSignedPercent } from './signedPercent';
 import { simInputsCacheKey } from './simInputsCacheKey';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { useDebouncedComputation } from './useDebouncedSimulation';
 
-interface RuleStressTestPanelProperties {
-    baseInputs: SimInputs;
-}
-
-interface ScenarioRow {
+export interface ScenarioRow {
     isNoOp: boolean;
     label: string;
     out: SimOutputs;
 }
 
-interface StressScenario {
-    isNoOp: boolean;
-    label: string;
-    plan: Plan;
+interface RuleStressTestPanelProperties {
+    baseInputs: SimInputs;
 }
 
 const MAX_TRIALS = 500;
@@ -47,7 +40,12 @@ export default function RuleStressTestPanel({
     baseInputs,
 }: RuleStressTestPanelProperties) {
     const key = buildCacheKey(baseInputs);
-    const { pending, result: rows } = useDebouncedComputation<ScenarioRow[]>(
+    const {
+        error,
+        pending,
+        result: rows,
+    } = useDebouncedComputation(
+        ComputationId.RuleStress,
         key,
         DEBOUNCE_MS,
         () => {
@@ -60,6 +58,7 @@ export default function RuleStressTestPanel({
             }));
         },
         [],
+        simInputsSizingIssue(baseInputs),
     );
 
     const baseline = rows[0] ?? null;
@@ -83,9 +82,9 @@ export default function RuleStressTestPanel({
                             {row.original.label}
                         </span>
                         {row.original.isNoOp && (
-                            <span className="flex items-center gap-1 text-[10px] text-amber-400">
+                            <span className="flex items-center gap-1 text-[10px] text-warning">
                                 <TriangleAlert className="size-3" />
-                                no DLL on this plan — no effect
+                                no DLL on this plan, so no effect
                             </span>
                         )}
                     </div>
@@ -105,7 +104,7 @@ export default function RuleStressTestPanel({
                     r.out.expectedMonthlyNet -
                     (baseline?.out.expectedMonthlyNet ?? 0),
                 cell: ({ row }) => {
-                    if (!baseline) return '—';
+                    if (!baseline) return NOT_APPLICABLE;
                     const delta =
                         row.original.out.expectedMonthlyNet -
                         baseline.out.expectedMonthlyNet;
@@ -122,7 +121,7 @@ export default function RuleStressTestPanel({
                 accessorFn: (r) => pctDelta(r.out.expectedMonthlyNet, baseline),
                 cell: ({ row }) => {
                     if (!baseline || baseline.out.expectedMonthlyNet === 0) {
-                        return '—';
+                        return NOT_APPLICABLE;
                     }
                     const pct = pctDelta(
                         row.original.out.expectedMonthlyNet,
@@ -138,11 +137,18 @@ export default function RuleStressTestPanel({
                 id: 'deltaPercent',
             },
             {
-                accessorFn: (r) => r.out.passProbability,
+                accessorFn: (r) => r.out.evalPassProbability,
                 cell: ({ row }) =>
-                    formatPercent(row.original.out.passProbability),
-                header: 'Pass%',
-                id: 'pass',
+                    formatPercent(row.original.out.evalPassProbability),
+                header: 'Eval pass',
+                id: 'evalPass',
+            },
+            {
+                accessorFn: (r) => r.out.fundedSurvivalProbability,
+                cell: ({ row }) =>
+                    formatPercent(row.original.out.fundedSurvivalProbability),
+                header: 'Funded survive',
+                id: 'fundedSurvive',
             },
             {
                 accessorFn: (r) => r.out.bustProbability,
@@ -159,38 +165,21 @@ export default function RuleStressTestPanel({
         <Card
             className={cn('app-prop-calculator__rule-stress-test', 'px-5 py-4')}
         >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold">Rule stress test</h3>
-                    <InfoPopover title="Rule stress test">
-                        Prop firms tighten their rules over time. This runs your
-                        current setup against 4 hypothetical tightenings —
-                        daily-loss-limit halved, payout ladder cut 20%, safety
-                        net raised 50%, and the qualifying-day profit bar raised
-                        40% — using the same seed and trial count as the
-                        baseline for a like-for-like comparison. Note that
-                        because a funded-phase rule change can shift how many
-                        days a given trial runs before busting or closing out
-                        its payout ladder, later trials can still draw a
-                        different random path than the baseline once the two
-                        diverge — so treat differences as directionally
-                        informative, not a pure noise-free A/B test. Shows how
-                        resilient your edge is if the firm changes the rules on
-                        you.
-                    </InfoPopover>
-                </div>
-                {pending && (
-                    <span className="text-xs text-muted-foreground">
-                        computing…
-                    </span>
-                )}
-            </div>
+            {pending && (
+                <p className="self-end text-xs text-muted-foreground">
+                    computing…
+                </p>
+            )}
 
             {rows.length === 0 ? (
-                <EmptyState
-                    description="Adjust your inputs to see how your edge holds up against tighter rules."
-                    title="No data yet"
-                />
+                error === null ? (
+                    <EmptyState
+                        description="Adjust your inputs to see how your edge holds up against tighter rules."
+                        title="No data yet"
+                    />
+                ) : (
+                    <SimulationFailureNotice message={error} />
+                )
             ) : (
                 <div className="flex flex-col gap-4">
                     <RuleStressBarChartView rows={chartRows} />
@@ -211,105 +200,14 @@ function buildCacheKey(inputs: Omit<SimInputs, 'riskPerTrade'>): string {
     return simInputsCacheKey(inputs);
 }
 
-function buildDllHalvedScenario(basePlan: Plan): StressScenario {
-    const isNoOp =
-        basePlan.evalDailyLossLimit.kind === DailyLossLimitKind.None &&
-        basePlan.fundedDailyLossLimit.kind === DailyLossLimitKind.None;
-    return {
-        isNoOp,
-        label: 'DLL ×0.5',
-        plan: basePlan.withOverrides({
-            evalDailyLossLimit: scaleDailyLossLimit(
-                basePlan.evalDailyLossLimit,
-                fraction(0.5),
-            ),
-            fundedDailyLossLimit: scaleDailyLossLimit(
-                basePlan.fundedDailyLossLimit,
-                fraction(0.5),
-            ),
-        }),
-    };
-}
-
-function buildLadderCutScenario(basePlan: Plan): StressScenario {
-    if (basePlan.payoutLadder) {
-        const ladder = basePlan.payoutLadder;
-        return {
-            isNoOp: false,
-            label: 'Payout ladder −20%',
-            plan: basePlan.withOverrides({
-                payoutLadder: {
-                    ...ladder,
-                    steps: ladder.steps.map((step) => step * 0.8),
-                },
-            }),
-        };
-    }
-    return {
-        isNoOp: false,
-        label: 'Payout share −20%',
-        plan: basePlan.withOverrides({
-            payoutTiers: basePlan.payoutTiers.map((tier) => ({
-                ...tier,
-                traderShare: fraction(tier.traderShare * 0.8),
-            })),
-        }),
-    };
-}
-
-function buildQualifyingBarScenario(basePlan: Plan): StressScenario {
-    return basePlan.minQualifyingDayProfit === null
-        ? {
-              isNoOp: false,
-              label: 'Profit target +40% (proxy)',
-              plan: basePlan.withOverrides({
-                  profitTarget: dollars(basePlan.profitTarget * 1.4),
-              }),
-          }
-        : {
-              isNoOp: false,
-              label: 'Qualifying bar +40%',
-              plan: basePlan.withOverrides({
-                  minQualifyingDayProfit: dollars(
-                      basePlan.minQualifyingDayProfit * 1.4,
-                  ),
-              }),
-          };
-}
-
-function buildSafetyNetScenario(basePlan: Plan): StressScenario {
-    return {
-        isNoOp: false,
-        label: 'Safety net ×1.5',
-        plan: basePlan.withOverrides({
-            minPayoutProfit: dollars(basePlan.minPayoutProfit * 1.5),
-        }),
-    };
-}
-
-function buildStressScenarios(basePlan: Plan): StressScenario[] {
-    return [
-        { isNoOp: false, label: 'Baseline', plan: basePlan },
-        buildDllHalvedScenario(basePlan),
-        buildLadderCutScenario(basePlan),
-        buildSafetyNetScenario(basePlan),
-        buildQualifyingBarScenario(basePlan),
-    ];
-}
-
 function deltaClass(delta: number): string {
     if (Math.abs(delta) < 1e-9) return 'text-muted-foreground';
-    return delta > 0 ? 'text-emerald-400' : 'text-rose-400';
+    return delta > 0 ? 'text-success' : 'text-destructive';
 }
 
 function formatSignedCurrency(n: number): string {
     const sign = n > 0 ? '+' : '';
     return `${sign}${formatCurrency(n)}`;
-}
-
-function formatSignedPercent(p: number): string {
-    const sign = p > 0 ? '+' : '';
-    return `${sign}${formatPercent(p)}`;
 }
 
 function pctDelta(value: number, baseline: null | ScenarioRow): number {

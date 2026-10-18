@@ -1,0 +1,103 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+import { CALCULATOR_FIELD_LABELS } from '~/app/(app)/prop-calculator/_components/calculatorFieldLabels';
+import { calculatorFieldLabelOf } from '~/app/(app)/prop-calculator/_components/value/valueCardsModel';
+
+const SOURCE_ROOT = path.resolve(import.meta.dirname, '../../../../src');
+
+const LABEL_MODULE =
+    'app/(app)/prop-calculator/_components/calculatorFieldLabels.ts';
+
+function sourceFiles(directory: string): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const full = path.join(directory, entry.name);
+        if (entry.isDirectory()) return sourceFiles(full);
+        return /\.tsx?$/.test(entry.name) ? full : [];
+    });
+}
+
+describe('calculator field labels (PT-67b step 5)', () => {
+    it('keeps the labels the calculator inputs show', () => {
+        expect(CALCULATOR_FIELD_LABELS.payoutRequestOverride).toBe(
+            'Payout request size ($)',
+        );
+        expect(CALCULATOR_FIELD_LABELS.retainedCushionRequest).toBe(
+            'Retained cushion on payout ($)',
+        );
+        expect(CALCULATOR_FIELD_LABELS.instrument).toBe(
+            'Instrument (contract-limit enforcement)',
+        );
+        expect(CALCULATOR_FIELD_LABELS.stopPoints).toBe(
+            'Stop distance (points)',
+        );
+        expect(CALCULATOR_FIELD_LABELS.rebuyLagDays).toBe(
+            'Rebuy lag (trading days)',
+        );
+    });
+
+    it('renders the rebuy lag label of the visible input from the shared labels', () => {
+        const form = readFileSync(
+            path.join(
+                SOURCE_ROOT,
+                'app/(app)/prop-calculator/_components/CalculatorInputsForm.tsx',
+            ),
+            'utf8',
+        );
+        expect(
+            /htmlFor="rebuy-lag-days"\s*>\s*\{CALCULATOR_FIELD_LABELS\.rebuyLagDays\}\s*<\/FieldLabel>/.test(
+                form,
+            ),
+        ).toBe(true);
+        expect(form).not.toContain(CALCULATOR_FIELD_LABELS.rebuyLagDays);
+    });
+
+    it('renders the funded horizon label of the visible input from the shared labels', () => {
+        const form = readFileSync(
+            path.join(
+                SOURCE_ROOT,
+                'app/(app)/prop-calculator/_components/CalculatorInputsForm.tsx',
+            ),
+            'utf8',
+        );
+        expect(form).toMatch(
+            /import \{ CALCULATOR_FIELD_LABELS \} from '(~\/app\/\(app\)\/prop-calculator\/_components|\.)\/calculatorFieldLabels';/,
+        );
+        expect(
+            /htmlFor="funded-horizon-days"\s*>\s*\{CALCULATOR_FIELD_LABELS\.fundedHorizonDays\}\s*<\/FieldLabel>/.test(
+                form,
+            ),
+        ).toBe(true);
+        expect(form).not.toContain(CALCULATOR_FIELD_LABELS.fundedHorizonDays);
+    });
+
+    it('names the calculator fields in the value refusal text from the same labels', () => {
+        expect(calculatorFieldLabelOf(['payoutRequestOverride'])).toBe(
+            CALCULATOR_FIELD_LABELS.payoutRequestOverride,
+        );
+        expect(calculatorFieldLabelOf(['retainedCushionRequest'])).toBe(
+            CALCULATOR_FIELD_LABELS.retainedCushionRequest,
+        );
+    });
+
+    it('spells the payout request, retained cushion, instrument, funded horizon and rebuy lag labels in one source file only', () => {
+        const files = sourceFiles(SOURCE_ROOT).map((file) => ({
+            file: path.relative(SOURCE_ROOT, file).split(path.sep).join('/'),
+            text: readFileSync(file, 'utf8'),
+        }));
+        for (const label of [
+            CALCULATOR_FIELD_LABELS.payoutRequestOverride,
+            CALCULATOR_FIELD_LABELS.retainedCushionRequest,
+            CALCULATOR_FIELD_LABELS.instrument,
+            CALCULATOR_FIELD_LABELS.fundedHorizonDays,
+            CALCULATOR_FIELD_LABELS.rebuyLagDays,
+        ]) {
+            expect(
+                files
+                    .filter(({ text }) => text.includes(label))
+                    .map(({ file }) => file),
+            ).toEqual([LABEL_MODULE]);
+        }
+    });
+});

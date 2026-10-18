@@ -1,7 +1,12 @@
 /// <reference lib="webworker" />
 
-import { findFirm, scoreLadder } from '~/lib/prop-calculator';
-import { deriveSubSeed, mulberry32 } from '~/lib/prop-calculator/rng';
+import {
+    findFirm,
+    type LadderScoreConfig,
+    ladderTrialStreams,
+    resolvePositionSizing,
+    scoreLadder,
+} from '~/lib/prop-calculator';
 
 import {
     type LadderWorkerRequest,
@@ -32,11 +37,16 @@ self.addEventListener('message', (event: MessageEvent<LadderWorkerRequest>) => {
             return;
         }
 
-        const config = {
+        const config: LadderScoreConfig = {
+            commission: request.commission,
             cushion: request.cushion,
-            evalPrice: request.evalPrice,
+            discounts: request.discounts,
             maxDays: request.maxDays,
             plan,
+            positionSizing: resolvePositionSizing(
+                request.instrument,
+                request.stopPoints,
+            ),
             rrRatio: request.rrRatio,
             rungSizing: request.rungSizing,
             seedOffset: 0,
@@ -45,14 +55,9 @@ self.addEventListener('message', (event: MessageEvent<LadderWorkerRequest>) => {
             winrate: request.winrate,
         };
 
-        const scores = request.ladders.map((ladder, offset) =>
-            scoreLadder(
-                ladder,
-                config,
-                mulberry32(
-                    deriveSubSeed(request.seed, request.firstIndex + offset, 0),
-                ),
-            ),
+        const trialRng = ladderTrialStreams(request.seed);
+        const scores = request.ladders.map((ladder) =>
+            scoreLadder(ladder, config, trialRng),
         );
 
         const response: LadderWorkerResponse = {

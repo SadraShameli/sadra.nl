@@ -23,6 +23,7 @@ import type {
     TradingPlanConfig,
 } from '~/lib/trading/types';
 
+import { user } from './auth';
 import { createTable } from './main';
 
 export const tradingPlans = createTable(
@@ -39,7 +40,9 @@ export const tradingPlans = createTable(
         updatedAt: timestamp('updated_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
     },
     (t) => [index('trading_plan_user_sort_idx').on(t.userId, t.sortOrder)],
 );
@@ -73,7 +76,9 @@ export const tradeAssessments = createTable(
             .notNull(),
         result: jsonb('result').$type<AssessmentResult>().notNull(),
         score: real('score').notNull(),
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
     },
     (table) => [
         index('trade_assessment_user_created_idx').on(
@@ -98,7 +103,9 @@ export const dailyPreparations = createTable(
         updatedAt: timestamp('updated_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
             .notNull(),
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
     },
     (table) => [
         uniqueIndex('daily_prep_user_date_idx').on(table.userId, table.date),

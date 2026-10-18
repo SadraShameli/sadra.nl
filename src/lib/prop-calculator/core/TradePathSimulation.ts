@@ -57,7 +57,7 @@ export function calibrateStepProbability(
     let hi = 1;
     for (let index = 0; index < 100; index++) {
         const mid = (lo + hi) / 2;
-        if (stepUpProbabilityToWinChance(mid, a, b) < winrate) {
+        if (winProbabilityFrom(mid, a, b) < winrate) {
             lo = mid;
         } else {
             hi = mid;
@@ -110,25 +110,99 @@ export function simulateTradePath(
         }
     }
 
-    const distanceToWin = b - position;
-    const distanceToLoss = position + a;
-    const outcome: 'loss' | 'win' =
-        distanceToWin <= distanceToLoss ? 'win' : 'loss';
+    return resolveTruncatedPath(
+        p,
+        a,
+        b,
+        position,
+        maxPosition,
+        stepsPerR,
+        rrRatio,
+        rng,
+        maxSteps,
+    );
+}
 
+function lossProbabilityFrom(
+    p: number,
+    distanceToLoss: number,
+    distanceToWin: number,
+): number {
+    return winProbabilityFrom(1 - p, distanceToWin, distanceToLoss);
+}
+
+function resolveTruncatedPath(
+    p: number,
+    a: number,
+    b: number,
+    position: number,
+    maxPosition: number,
+    stepsPerR: number,
+    rrRatio: number,
+    rng: () => number,
+    steps: number,
+): TradePathResult {
+    const winChance = winProbabilityFrom(p, position + a, b - position);
+    if (!(Number.isFinite(winChance) && winChance >= 0 && winChance <= 1)) {
+        throw new Error(
+            `simulateTradePath: truncated path win chance must be in [0, 1], got ${winChance} (p ${p}, position ${position}, barriers -${a}/+${b})`,
+        );
+    }
+    if (rng() < winChance) {
+        return { outcome: 'win', peakR: rrRatio, steps };
+    }
     return {
-        outcome,
+        outcome: 'loss',
         peakR:
-            outcome === 'win' ? rrRatio : Math.min(maxPosition, b) / stepsPerR,
-        steps: maxSteps,
+            sampleLosingPeak(p, a, b, position, maxPosition, rng) / stepsPerR,
+        steps,
     };
 }
 
-function stepUpProbabilityToWinChance(p: number, a: number, b: number): number {
-    if (p === 0.5) return a / (a + b);
+function sampleLosingPeak(
+    p: number,
+    a: number,
+    b: number,
+    position: number,
+    maxPosition: number,
+    rng: () => number,
+): number {
+    const draw = rng();
+    const lossChance = lossProbabilityFrom(p, position + a, b - position);
+    const survival = (peak: number): number =>
+        (winProbabilityFrom(p, position + a, peak - position) *
+            lossProbabilityFrom(p, peak + a, b - peak)) /
+        lossChance;
+
+    let lo = maxPosition;
+    let hi = b - 1;
+    while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        if (survival(mid) > draw) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    return lo;
+}
+
+function winProbabilityFrom(
+    p: number,
+    distanceToLoss: number,
+    distanceToWin: number,
+): number {
+    if (p === 0.5) return distanceToLoss / (distanceToLoss + distanceToWin);
     if (p > 0.5) {
         const r = (1 - p) / p;
-        return (1 - r ** a) / (1 - r ** (a + b));
+        return (
+            (1 - r ** distanceToLoss) /
+            (1 - r ** (distanceToLoss + distanceToWin))
+        );
     }
     const s = p / (1 - p);
-    return ((s ** a - 1) * s ** b) / (s ** (a + b) - 1);
+    return (
+        ((s ** distanceToLoss - 1) * s ** distanceToWin) /
+        (s ** (distanceToLoss + distanceToWin) - 1)
+    );
 }

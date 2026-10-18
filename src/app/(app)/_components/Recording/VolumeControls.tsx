@@ -1,10 +1,11 @@
 import { ListEnd, Volume, Volume1, Volume2 } from 'lucide-react';
 
-import { Button } from '~/components/ui/Button';
-import { Slider } from '~/components/ui/Slider';
+import { Button } from '~/components/ui/button';
+import { Slider } from '~/components/ui/slider';
 import { cn } from '~/lib/utilities';
 
 import { SpeedControl } from './SpeedControl';
+import { RECORDER_TOGGLE_ON_CLASS } from './toggleStyles';
 import { type PlaybackSpeed } from './types';
 
 interface VolumeControlsProperties {
@@ -32,7 +33,7 @@ export function VolumeControls({
         <div
             className={cn(
                 'app-recording__volume-controls',
-                'flex items-center justify-between gap-x-3 text-neutral-400',
+                'flex items-center justify-between gap-x-3 text-muted-foreground',
             )}
         >
             <SpeedControl
@@ -44,9 +45,10 @@ export function VolumeControls({
             <div className="flex flex-1 items-center justify-end gap-x-2">
                 <Button
                     aria-label="Auto Play"
+                    aria-pressed={isAutoPlay}
                     className={cn(
-                        'app-recording__autoplay size-8 rounded-full p-0 text-neutral-400 transition hover:bg-white/5 hover:text-foreground',
-                        isAutoPlay && 'text-foreground',
+                        'app-recording__autoplay size-11 p-0 text-ink-muted hover:bg-surface-high hover:text-ink',
+                        isAutoPlay && RECORDER_TOGGLE_ON_CLASS,
                     )}
                     data-state={isAutoPlay ? 'on' : 'off'}
                     disabled={!hasRecordings}
@@ -59,7 +61,7 @@ export function VolumeControls({
 
                 <Button
                     aria-label="Volume"
-                    className="app-recording__mute size-8 rounded-full p-0 text-neutral-400 transition hover:bg-white/5 hover:text-foreground"
+                    className="app-recording__mute size-11 p-0 text-ink-muted hover:bg-surface-high hover:text-ink"
                     data-state={volume === 0 ? 'muted' : 'on'}
                     disabled={!hasRecordings}
                     onClick={onMute}
@@ -67,7 +69,7 @@ export function VolumeControls({
                     variant="ghost"
                 >
                     {volume === 0 ? (
-                        <Volume className="size-4 text-foreground" />
+                        <Volume className="size-4 text-ink" />
                     ) : volume >= 0.6 ? (
                         <Volume2 className="size-4" />
                     ) : (

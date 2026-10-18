@@ -20,7 +20,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
     Check,
-    ClipboardList,
     Copy,
     Edit3,
     ExternalLink,
@@ -29,28 +28,26 @@ import {
     Plus,
     Trash2,
 } from 'lucide-react';
-import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import {
+    useEffect,
+    useMemo,
+    useOptimistic,
+    useRef,
+    useState,
+    useTransition,
+} from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import type { TradingPlanRow } from '~/lib/trading/types';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { DefaultTradingPlanSetup } from '~/app/(app)/trade-checklist/_components/DefaultTradingPlanSetup';
+import { BlockableLink } from '~/components/NavigationBlocker';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     Dialog,
     DialogContent,
@@ -58,16 +55,15 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/dialog';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
+import { Separator } from '~/components/ui/separator';
 import {
     type TradingPlanCreateInput,
     tradingPlanCreateSchema,
 } from '~/lib/schemas/sensor-hub';
-import { routes } from '~/lib/site/routes';
+import { routes, sameOriginRoute } from '~/lib/site/routes';
 import {
     cloneTradingPlan,
     createTradingPlan,
@@ -87,6 +83,8 @@ const PLAN_TOAST_MESSAGES: Record<string, string> = {
     plan_saved: 'Plan saved.',
 };
 
+type PlanListChange = (plans: TradingPlanRow[]) => TradingPlanRow[];
+
 const PLAN_TOAST_ERRORS: Record<string, string> = {
     plan_last_remaining: 'You must keep at least one trading plan.',
     plan_name_required: 'Plan name is required.',
@@ -97,7 +95,10 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParameters = useSearchParams();
-    const [orderedPlans, setOrderedPlans] = useState(plans);
+    const [displayedPlans, applyOptimisticChange] = useOptimistic(
+        plans,
+        (current: TradingPlanRow[], change: PlanListChange) => change(current),
+    );
     const [editingId, setEditingId] = useState<null | string>(() => {
         const fromUrl = searchParameters.get('plan');
         return fromUrl && plans.some((p) => p.id === fromUrl)
@@ -112,10 +113,6 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     const [creating, startCreate] = useTransition();
     const [pendingActionId, setPendingActionId] = useState<null | string>(null);
     const [pending, startPlanAction] = useTransition();
-
-    useEffect(() => {
-        setOrderedPlans(plans);
-    }, [plans]);
 
     const toastedReference = useRef<null | string>(null);
 
@@ -137,14 +134,14 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
         if (successMessage) sp.delete('success');
         if (errorMessage) sp.delete('error');
         const query = sp.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, {
+        router.replace(sameOriginRoute(pathname, query), {
             scroll: false,
         });
     }, [searchParameters, router, pathname]);
 
     const editing = useMemo(
-        () => orderedPlans.find((p) => p.id === editingId) ?? null,
-        [orderedPlans, editingId],
+        () => displayedPlans.find((p) => p.id === editingId) ?? null,
+        [displayedPlans, editingId],
     );
 
     const editorReference = useRef<HTMLDivElement | null>(null);
@@ -167,14 +164,17 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     const onDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
-        const oldIndex = orderedPlans.findIndex((p) => p.id === active.id);
-        const newIndex = orderedPlans.findIndex((p) => p.id === over.id);
+        const oldIndex = displayedPlans.findIndex((p) => p.id === active.id);
+        const newIndex = displayedPlans.findIndex((p) => p.id === over.id);
         if (oldIndex === -1 || newIndex === -1) return;
-        const next = arrayMove(orderedPlans, oldIndex, newIndex);
-        setOrderedPlans(next);
+        const orderedIds = arrayMove(displayedPlans, oldIndex, newIndex).map(
+            (p) => p.id,
+        );
         startPlanAction(async () => {
-            await reorderTradingPlans({ orderedIds: next.map((p) => p.id) });
-            router.refresh();
+            applyOptimisticChange((current) =>
+                reorderPlans(current, orderedIds),
+            );
+            await reorderTradingPlans({ orderedIds });
         });
     };
 
@@ -188,8 +188,8 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
     const setActive = (planId: string) => {
         setPendingActionId(planId);
         startPlanAction(async () => {
+            applyOptimisticChange((current) => activatePlan(current, planId));
             await setActiveTradingPlan({ planId });
-            router.refresh();
         });
     };
 
@@ -216,10 +216,10 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                     <CardTitle>Your trading plans</CardTitle>
                     <div className="flex flex-wrap items-center gap-2">
                         <Button asChild size="sm" variant="outline">
-                            <Link href={routes.tradeChecklist.index}>
+                            <BlockableLink href={routes.tradeChecklist.index}>
                                 Run checklist
                                 <ExternalLink className="ml-1 size-3.5" />
-                            </Link>
+                            </BlockableLink>
                         </Button>
                         <Button
                             onClick={() => setNewDialogOpen(true)}
@@ -232,12 +232,8 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                 </CardHeader>
                 <Separator />
                 <CardContent>
-                    {orderedPlans.length === 0 ? (
-                        <EmptyState
-                            description="Create your first one."
-                            icon={ClipboardList}
-                            title="No plans yet"
-                        />
+                    {displayedPlans.length === 0 ? (
+                        <DefaultTradingPlanSetup />
                     ) : (
                         <DndContext
                             collisionDetection={closestCenter}
@@ -246,13 +242,15 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                             sensors={sensors}
                         >
                             <SortableContext
-                                items={orderedPlans.map((p) => p.id)}
+                                items={displayedPlans.map((p) => p.id)}
                                 strategy={verticalListSortingStrategy}
                             >
                                 <div className="flex flex-col gap-1.5">
-                                    {orderedPlans.map((p) => (
+                                    {displayedPlans.map((p) => (
                                         <SortablePlanRow
-                                            canDelete={orderedPlans.length > 1}
+                                            canDelete={
+                                                displayedPlans.length > 1
+                                            }
                                             editingId={editingId}
                                             key={p.id}
                                             onActivate={setActive}
@@ -294,7 +292,7 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                         <DialogHeader>
                             <DialogTitle>New trading plan</DialogTitle>
                             <DialogDescription>
-                                Starts from the default config — you can tune it
+                                Starts from the default config; you can tune it
                                 after.
                             </DialogDescription>
                         </DialogHeader>
@@ -330,6 +328,25 @@ export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+function activatePlan(
+    plans: TradingPlanRow[],
+    planId: string,
+): TradingPlanRow[] {
+    return plans.map((plan) => ({ ...plan, isActive: plan.id === planId }));
+}
+
+function reorderPlans(
+    plans: TradingPlanRow[],
+    orderedIds: string[],
+): TradingPlanRow[] {
+    const position = new Map(orderedIds.map((id, index) => [id, index]));
+    return plans.toSorted(
+        (a, b) =>
+            (position.get(a.id) ?? plans.length) -
+            (position.get(b.id) ?? plans.length),
     );
 }
 
@@ -394,7 +411,7 @@ function SortablePlanRow({
                 </Button>
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-medium text-white">
+                        <span className="truncate font-medium text-foreground">
                             {plan.name}
                         </span>
                         {plan.isActive && (
@@ -427,44 +444,29 @@ function SortablePlanRow({
                     </Button>
                 )}
                 <Button
+                    aria-label={`Duplicate ${plan.name}`}
                     disabled={pending && pendingActionId === plan.id}
                     onClick={() => onClone(plan.id)}
-                    size="sm"
+                    size="icon-sm"
                     variant="outline"
                 >
                     <Copy className="size-3.5" />
                 </Button>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button
-                            disabled={!canDelete}
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Trash2 className="size-3.5" />
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>
-                                Delete &ldquo;{plan.name}&rdquo;?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Saved assessments referencing this plan keep
-                                their snapshotted config — only the plan
-                                template is removed.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                onClick={() => onDelete(plan.id)}
-                            >
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <ConfirmDialog
+                    confirmLabel="Delete"
+                    description="Saved assessments referencing this plan keep their snapshotted config. Only the plan template is removed."
+                    onConfirm={() => onDelete(plan.id)}
+                    title={<>Delete &ldquo;{plan.name}&rdquo;?</>}
+                >
+                    <Button
+                        aria-label={`Delete ${plan.name}`}
+                        disabled={!canDelete}
+                        size="icon-sm"
+                        variant="outline"
+                    >
+                        <Trash2 className="size-3.5" />
+                    </Button>
+                </ConfirmDialog>
             </div>
         </div>
     );

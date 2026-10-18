@@ -1,10 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
     boolean,
-    doublePrecision,
     index,
     integer,
     jsonb,
+    numeric,
     text,
     timestamp,
     uniqueIndex,
@@ -90,8 +90,16 @@ export const accountingRule = createTable(
             .$type<MatchType>()
             .default('contains')
             .notNull(),
-        maxAmount: doublePrecision('max_amount'),
-        minAmount: doublePrecision('min_amount'),
+        maxAmount: numeric('max_amount', {
+            mode: 'number',
+            precision: 14,
+            scale: 2,
+        }),
+        minAmount: numeric('min_amount', {
+            mode: 'number',
+            precision: 14,
+            scale: 2,
+        }),
         sortOrder: integer('sort_order').default(0).notNull(),
         updatedAt: timestamp('updated_at', { withTimezone: true })
             .default(sql`CURRENT_TIMESTAMP`)
@@ -140,6 +148,7 @@ export const accountingBankAccount = createTable(
         uniqueIndex(
             'accounting_importer_bank_account_user_credential_currency_idx',
         ).on(t.userId, t.credentialId, t.currency),
+        index('accounting_bank_account_credential_id_idx').on(t.credentialId),
     ],
 );
 
@@ -178,6 +187,9 @@ export const accountingRun = createTable(
         index('accounting_importer_run_user_created_at_idx').on(
             t.userId,
             t.createdAt,
+        ),
+        index('accounting_run_accounting_credential_id_idx').on(
+            t.accountingCredentialId,
         ),
     ],
 );

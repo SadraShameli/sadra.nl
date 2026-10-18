@@ -9,6 +9,7 @@ import {
     type RungSizing,
     type TradingFirm,
 } from '~/lib/prop-calculator';
+import { type SizingObjective } from '~/lib/prop-calculator/advisor';
 
 export enum ChartType {
     DaysToPassHistogram = 'days-to-pass-hist',
@@ -16,6 +17,23 @@ export enum ChartType {
     Equity = 'equity',
     FinalBalanceHistogram = 'final-balance-hist',
     PassRate = 'pass-rate',
+}
+
+export enum LabLinkStatus {
+    Absent = 'absent',
+    Accepted = 'accepted',
+    Rejected = 'rejected',
+}
+
+export enum LinkParameter {
+    DayStop = 'ds',
+    EvalDayPolicy = 'dp',
+    Portfolio = 'pf',
+}
+
+export enum PageStateBlob {
+    LabScenarios = 'lab-scenarios',
+    Portfolio = 'portfolio',
 }
 
 export enum SizingMode {
@@ -35,14 +53,19 @@ export interface CalculatorState {
     fundedHorizonDays: number;
     idleDayProbability: number;
     instrument: InstrumentSymbol | null;
+    labLink: LabLinkOutcome;
     labScenarios: LabScenario[];
     linkActivationDiscount: boolean;
+    linkParameters: LinkParameterOutcomes;
+    liveTransferHazard: number;
     maxAttempts: number;
     maxEvalDays: number;
     monthlySubscriptionDiscountPercent: number;
+    objective: SizingObjective;
     payoutRequestSize: null | number;
     plan: Plan;
     portfolio: PortfolioEntry[];
+    rebuyLagDays: number;
     resetDiscountPercent: number;
     retainedCushion: null | number;
     riskDollars: number;
@@ -52,6 +75,8 @@ export interface CalculatorState {
     seed: number;
     sizingMode: SizingMode;
     stopPoints: null | number;
+    takesFundedReset: boolean;
+    takesOneTimeEarlyWithdrawal: boolean;
     tradesPerDay: number;
     trials: number;
     winrate: number;
@@ -63,6 +88,10 @@ export interface FirmMemoryEntry {
     copyAccounts: number;
     planId: PlanId;
 }
+
+export type LabLinkOutcome =
+    | { issue: string; status: LabLinkStatus.Rejected }
+    | { status: LabLinkStatus.Absent | LabLinkStatus.Accepted };
 
 export interface LabScenario {
     accounts: number;
@@ -78,6 +107,10 @@ export interface LabScenario {
     tradesPerDay: number;
     winrate: number;
 }
+
+export type LinkParameterOutcomes = Readonly<
+    Record<LinkParameter, LabLinkOutcome>
+>;
 
 export interface PortfolioEntry {
     activationDiscountPercent: number;

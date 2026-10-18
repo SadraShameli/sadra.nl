@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty';
 
-export default defineCommand({
+const group = defineCommand({
     meta: {
         description: 'Accounting / bookkeeping utilities',
         name: 'accounting',
@@ -16,3 +16,5 @@ export default defineCommand({
         },
     },
 });
+
+export default group;

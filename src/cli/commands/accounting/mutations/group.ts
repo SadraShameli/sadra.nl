@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty';
 
-export default defineCommand({
+const group = defineCommand({
     meta: {
         description: 'List, inspect, and manually create eBoekhouden mutations',
         name: 'mutations',
@@ -24,3 +24,5 @@ export default defineCommand({
         },
     },
 });
+
+export default group;

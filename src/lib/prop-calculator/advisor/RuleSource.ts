@@ -1,0 +1,33 @@
+export enum RuleSource {
+    EvalLadder = 'THE OPTIMAL EVAL LADDER',
+    GeneralDerivation = 'General derivation for any plan',
+    HardRule1 = 'Hard Rule 1',
+    HardRule2 = 'Hard Rule 2',
+    HardRule3 = 'Hard Rule 3',
+    HardRule4 = 'Hard Rule 4',
+    HardRule5 = 'Hard Rule 5',
+    HardRule6 = 'Hard Rule 6',
+    HardRule7 = 'Hard Rule 7',
+    HardRule8 = 'Hard Rule 8',
+    HisNumbers = 'HIS NUMBERS',
+    LiveSizing = 'Live account (NOT replaceable)',
+    PayoutSize = 'PAYOUT SIZING',
+    ReassessmentCadence = 'Reassessment cadence',
+}
+
+export const RULE_SOURCE_LABEL: Readonly<Record<RuleSource, string>> = {
+    [RuleSource.EvalLadder]: 'your evaluation ladder',
+    [RuleSource.GeneralDerivation]: 'the general sizing derivation',
+    [RuleSource.HardRule1]: 'your exit rule (take profit or stop only)',
+    [RuleSource.HardRule2]: 'your standard minimum cushion',
+    [RuleSource.HardRule3]: 'your eval sizing rule',
+    [RuleSource.HardRule4]: 'your daily profit cap rule',
+    [RuleSource.HardRule5]: 'your fixed funded risk',
+    [RuleSource.HardRule6]: 'your one-trade-per-window rule',
+    [RuleSource.HardRule7]: 'your stay-funded rule',
+    [RuleSource.HardRule8]: 'your funded monthly-net goal',
+    [RuleSource.HisNumbers]: 'your tested edge',
+    [RuleSource.LiveSizing]: 'your live account sizing',
+    [RuleSource.PayoutSize]: 'your payout sizing',
+    [RuleSource.ReassessmentCadence]: 'your reassessment cadence',
+};

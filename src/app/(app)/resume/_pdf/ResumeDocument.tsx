@@ -12,10 +12,8 @@ import {
     View,
 } from '@react-pdf/renderer';
 
-import {
-    type PortfolioSectionView,
-    type ResumeLanguage,
-} from '~/lib/site/content';
+import { type PortfolioSectionView } from '~/lib/site/content';
+import { type ResumeLanguage } from '~/lib/site/resume';
 
 import { styles } from './styles';
 
@@ -27,7 +25,7 @@ export interface ResumeDocumentProperties {
     hobbies: string[];
     languages: ResumeLanguage[];
     links: { title: string; url: string }[];
-    profilePictureSrc: string;
+    profilePicture: ResumeProfilePicture;
     projects: PortfolioSectionView[];
     research: PortfolioSectionView[];
     showCover: boolean;
@@ -42,6 +40,11 @@ interface ResumeBasics {
     title: string;
 }
 
+interface ResumeProfilePicture {
+    readonly data: Buffer;
+    readonly format: 'jpg';
+}
+
 export function ResumeDocument({
     basics,
     cover,
@@ -50,7 +53,7 @@ export function ResumeDocument({
     hobbies,
     languages,
     links,
-    profilePictureSrc,
+    profilePicture,
     projects,
     research,
     showCover,
@@ -103,7 +106,7 @@ export function ResumeDocument({
                 <Header
                     basics={basics}
                     hideSummary={isRenderCover}
-                    profilePictureSrc={profilePictureSrc}
+                    profilePicture={profilePicture}
                 />
 
                 {isRenderCover ? (
@@ -282,16 +285,16 @@ function EntryMeta({ entry }: { entry: PortfolioSectionView }) {
 function Header({
     basics,
     hideSummary,
-    profilePictureSrc,
+    profilePicture,
 }: {
     basics: ResumeBasics;
     hideSummary: boolean;
-    profilePictureSrc: string;
+    profilePicture: ResumeProfilePicture;
 }) {
     return (
         <View style={styles.header}>
             <View style={styles.headerLabel}>
-                <Image src={profilePictureSrc} style={styles.profileImage} />
+                <Image src={profilePicture} style={styles.profileImage} />
             </View>
             <View style={styles.headerContent}>
                 <View style={styles.meta}>

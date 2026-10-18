@@ -3,29 +3,21 @@
 import { ChevronDown, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '~/components/ui/AlertDialog';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { PlateVisualizer } from '~/app/(app)/lifting/_components/shared/PlateVisualizer';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from '~/components/ui/DropDown';
+} from '~/components/ui/dropdown-menu';
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
-} from '~/components/ui/Tooltip';
+} from '~/components/ui/tooltip';
 import { WeightUnit } from '~/lib/lifting/format';
 import {
     SET_TYPE_VALUES,
@@ -36,7 +28,6 @@ import {
 import { cn } from '~/lib/utilities';
 import { api, type RouterOutputs } from '~/trpc/react';
 
-import { PlateVisualizer } from '../shared/PlateVisualizer';
 import { SetRow, type SetRowData } from './SetRow';
 
 interface ExerciseCardProperties {
@@ -73,6 +64,9 @@ export function ExerciseCard({
         onSuccess: invalidate,
     });
     const updateSet = api.lifting.set.update.useMutation({
+        onSuccess: invalidate,
+    });
+    const completeSet = api.lifting.set.complete.useMutation({
         onSuccess: invalidate,
     });
     const workoutSetDeletion = api.lifting.set.delete.useMutation({
@@ -123,6 +117,10 @@ export function ExerciseCard({
                 type: 'working',
                 weightKg: values.weightKg,
             });
+            const isPending =
+                wex.sets.find((candidate) => candidate.id === id)
+                    ?.completedAt === null;
+            if (isPending) await completeSet.mutateAsync({ id });
             onRequestRest(targetRestSeconds);
         } catch {
             return;
@@ -143,12 +141,12 @@ export function ExerciseCard({
                         <p className="text-xs text-muted-foreground tabular-nums">
                             Last set:{' '}
                             {lastSet.weightKg === null
-                                ? '—'
+                                ? '-'
                                 : WeightUnit.format(
                                       lastSet.weightKg,
                                       unitWeight,
                                   )}{' '}
-                            × {lastSet.reps ?? '—'}
+                            × {lastSet.reps ?? '-'}
                         </p>
                     )}
                 </div>
@@ -201,35 +199,23 @@ export function ExerciseCard({
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <AlertDialog
+                    <ConfirmDialog
+                        confirmLabel="Remove"
+                        description={
+                            <>
+                                {wex.exercise.name} and all logged sets
+                                underneath it will be removed from this workout.
+                            </>
+                        }
+                        onConfirm={() =>
+                            exerciseRemoval.mutate({
+                                id: wex.id,
+                            })
+                        }
                         onOpenChange={setRemoveOpen}
                         open={isRemoveDialogOpen}
-                    >
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Remove exercise?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    {wex.exercise.name} and all logged sets
-                                    underneath it will be removed from this
-                                    workout.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() =>
-                                        exerciseRemoval.mutate({
-                                            id: wex.id,
-                                        })
-                                    }
-                                >
-                                    Remove
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                        title="Remove exercise?"
+                    />
                 </div>
             </CardHeader>
 
@@ -263,7 +249,10 @@ export function ExerciseCard({
                         return (
                             <li key={s.id}>
                                 <SetRow
-                                    busy={updateSet.isPending}
+                                    busy={
+                                        updateSet.isPending ||
+                                        completeSet.isPending
+                                    }
                                     onComplete={handleCompleteSet}
                                     onDelete={(id) =>
                                         workoutSetDeletion.mutate({ id })

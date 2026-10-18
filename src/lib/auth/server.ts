@@ -4,11 +4,27 @@ import { nextCookies } from 'better-auth/next-js';
 import { admin, magicLink } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
+import { cache } from 'react';
 
 import { environment } from '~/environment';
-import { ac, roles } from '~/lib/auth/permissions';
-import { ROLE, ROOT_EMAIL } from '~/lib/auth/roles';
+import { authAccountOptions } from '~/lib/auth/accountOptions';
+import { authAuditHooks } from '~/lib/auth/AuditTrail';
+import { authLogger } from '~/lib/auth/authLogger';
+import { authBackgroundTasks } from '~/lib/auth/backgroundTasks';
+import { authEmailAndPasswordOptions } from '~/lib/auth/emailAndPasswordOptions';
+import { EMAIL_LINK_LIFETIME_SECONDS, EmailLink } from '~/lib/auth/EmailLink';
+import { adminPluginOptions } from '~/lib/auth/permissions';
 import {
+    authIpAddressOptions,
+    authRateLimitOptions,
+} from '~/lib/auth/rateLimitOptions';
+import { enforceRoleHierarchy } from '~/lib/auth/RoleHierarchy';
+import { ROLE, ROOT_EMAIL } from '~/lib/auth/roles';
+import { authUserOptions } from '~/lib/auth/userOptions';
+import {
+    AccountDeletionEmail,
+    EmailChangeConfirmationEmail,
     EmailVerificationEmail,
     MagicLinkEmail,
     mailer,
@@ -24,23 +40,22 @@ const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const SESSION_UPDATE_INTERVAL_SECONDS = 60 * 60;
 
 export const auth = betterAuth({
-    account: {
-        accountLinking: {
-            enabled: true,
-            requireLocalEmailVerified: true,
-            trustedProviders: ['google', 'github'],
-        },
-    },
+    account: authAccountOptions,
     advanced: {
+        backgroundTasks: authBackgroundTasks,
         cookies: {
             session_token: { attributes: { sameSite: 'strict', secure: true } },
         },
+        ipAddress: authIpAddressOptions,
         useSecureCookies: environment.NODE_ENV === 'production',
     },
     baseURL: environment.NEXT_PUBLIC_SERVER_URL,
     database: drizzleAdapter(db, { provider: 'pg' }),
     databaseHooks: {
+        account: authAuditHooks.account,
+        session: authAuditHooks.session,
         user: {
+            ...authAuditHooks.user,
             create: {
                 after: async (createdUser) => {
                     if (createdUser.email.toLowerCase() === ROOT_EMAIL) {
@@ -49,7 +64,7 @@ export const auth = betterAuth({
                             .set({ role: ROLE.ROOT })
                             .where(eq(userTable.id, createdUser.id));
                     }
-                    void (async () => {
+                    after(async () => {
                         try {
                             await mailer.send(
                                 new SignUpNotificationEmail(
@@ -60,49 +75,39 @@ export const auth = betterAuth({
                             );
                         } catch (error: unknown) {
                             captureError(error, {
-                                fields: { email: createdUser.email },
+                                fields: { userId: createdUser.id },
                                 tag: 'auth.signup.notify',
                             });
                         }
-                    })();
+                    });
                 },
             },
         },
     },
-    emailAndPassword: {
-        enabled: true,
-        minPasswordLength: 12,
-        requireEmailVerification: true,
-        sendResetPassword: async ({ url, user }) => {
-            await mailer.send(new PasswordResetEmail(user.email, url));
-        },
-    },
+    emailAndPassword: authEmailAndPasswordOptions(async (to, url) => {
+        await mailer.send(new PasswordResetEmail(to, url));
+    }),
     emailVerification: {
         autoSignInAfterVerification: true,
+        expiresIn: EMAIL_LINK_LIFETIME_SECONDS[EmailLink.Verification],
         sendOnSignUp: true,
         sendVerificationEmail: async ({ url, user }) => {
             await mailer.send(new EmailVerificationEmail(user.email, url));
         },
     },
+    hooks: { before: enforceRoleHierarchy },
+    logger: authLogger,
     plugins: [
         magicLink({
+            expiresIn: EMAIL_LINK_LIFETIME_SECONDS[EmailLink.SignIn],
             sendMagicLink: async ({ email, url }) => {
                 await mailer.send(new MagicLinkEmail(email, url));
             },
         }),
-        admin({
-            ac,
-            adminRoles: [ROLE.ADMIN, ROLE.ROOT],
-            defaultRole: ROLE.USER,
-            roles,
-        }),
+        admin(adminPluginOptions),
         nextCookies(),
     ],
-    rateLimit: {
-        enabled: environment.NODE_ENV === 'production',
-        max: 30,
-        window: 15 * 60,
-    },
+    rateLimit: authRateLimitOptions(environment.NODE_ENV === 'production'),
     secret: environment.AUTH_SECRET,
     session: {
         cookieCache: { enabled: false },
@@ -126,9 +131,20 @@ export const auth = betterAuth({
             }),
     },
     trustedOrigins: [getPublicSiteOrigin()],
+    user: authUserOptions({
+        confirmAccountDeletion: async (to, url) => {
+            await mailer.send(new AccountDeletionEmail(to, url));
+        },
+        confirmEmailChange: async (to, newEmail, url) => {
+            await mailer.send(
+                new EmailChangeConfirmationEmail(to, newEmail, url),
+            );
+        },
+    }),
 });
 
 export type Session = typeof auth.$Infer.Session;
 
-export const getServerSession = async () =>
-    auth.api.getSession({ headers: await headers() });
+export const getServerSession = cache(async () =>
+    auth.api.getSession({ headers: await headers() }),
+);

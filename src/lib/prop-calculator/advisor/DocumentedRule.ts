@@ -1,0 +1,343 @@
+import { type z } from 'zod';
+
+import {
+    capRiskToRemainingDailyLoss,
+    type Dollars,
+    dollars,
+    floorToWholeCents,
+    INSTRUMENTS,
+    isAtOrBelowWithinCentTolerance,
+    minStopPoints,
+    ONE_CENT,
+    points,
+    type Points,
+    shouldStopDay,
+} from '~/lib/prop-calculator/core';
+
+import {
+    DayStopReason,
+    type DocumentedRung,
+    type DocumentedSizing,
+    type NextTrade,
+    NextTradeKind,
+    NO_COMMISSION,
+    type PlannedRisk,
+    SizingAssumption,
+    SizingConstraint,
+    type SizingTerms,
+} from './DocumentedSizing';
+import { floorToPlaceableUnit } from './PlaceableMinimum';
+import { type EvalSizingMode, type RulebookParameters } from './Rulebook';
+import {
+    dailyLossRoom,
+    type DayProgress,
+    dayProgressSchema,
+    profitCeiling,
+    type RuleContext,
+    tighterOf,
+} from './RuleContext';
+import { assertSizingInvariant, assertTradeInvariant } from './SizingInvariant';
+import { SizingStage } from './SizingStage';
+
+export interface DocumentedDayPlan<TContext> {
+    readonly context: TContext;
+    readonly sizing: DocumentedSizing;
+}
+
+export const SHARED_ASSUMPTIONS: readonly SizingAssumption[] = [
+    SizingAssumption.NoCommission,
+    SizingAssumption.RungsAssumeEarlierLosses,
+    SizingAssumption.WinsAddNoLossRoom,
+];
+
+export abstract class RulebookRule<TContext> {
+    protected constructor(
+        readonly rulebook: RulebookParameters,
+        protected readonly contextSchema: z.ZodType<TContext>,
+    ) {}
+}
+
+export abstract class DocumentedRule<
+    TContext extends RuleContext = RuleContext,
+> extends RulebookRule<TContext> {
+    protected constructor(
+        rulebook: RulebookParameters,
+        contextSchema: z.ZodType<TContext>,
+    ) {
+        super(rulebook, contextSchema);
+    }
+
+    nextTrade(context: TContext, day: DayProgress): NextTrade {
+        return this.nextTradeIn(this.planDay(context), day);
+    }
+
+    nextTradeIn(
+        plan: DocumentedDayPlan<TContext>,
+        day: DayProgress,
+    ): NextTrade {
+        const progress = dayProgressSchema.parse(day);
+        const trade = this.tradeAfter(plan.context, progress, plan.sizing);
+        assertTradeInvariant(trade, plan.sizing, plan.context, progress);
+        return trade;
+    }
+
+    planDay(context: TContext): DocumentedDayPlan<TContext> {
+        const parsed = this.sizingContext(this.contextSchema.parse(context));
+        const sizing = this.sizeWithin(parsed);
+        assertSizingInvariant(sizing, parsed);
+        return { context: parsed, sizing };
+    }
+
+    size(context: TContext): DocumentedSizing {
+        return this.planDay(context).sizing;
+    }
+
+    protected sizingContext(context: TContext): TContext {
+        return context;
+    }
+
+    protected tradeAfter(
+        context: TContext,
+        day: DayProgress,
+        sizing: DocumentedSizing,
+    ): NextTrade {
+        return resolveNextTrade(
+            context,
+            sizing,
+            day,
+            this.plannedRisk(context, day, sizing),
+        );
+    }
+
+    protected abstract plannedRisk(
+        context: TContext,
+        day: DayProgress,
+        sizing: DocumentedSizing,
+    ): null | PlannedRisk;
+
+    protected abstract sizeWithin(context: TContext): DocumentedSizing;
+}
+
+export abstract class FlatRiskRule<
+    TContext extends RuleContext,
+> extends DocumentedRule<TContext> {
+    private walkAllLosses(
+        context: TContext,
+        terms: SizingTerms,
+        sequence: RungSequence,
+    ): NextTrade {
+        const day = sequence.allLossDay();
+        return resolveNextTrade(
+            context,
+            terms,
+            day,
+            this.flatRisk(context, day.runningLoss),
+        );
+    }
+
+    protected plannedRisk(context: TContext, day: DayProgress): PlannedRisk {
+        return this.flatRisk(context, day.runningLoss);
+    }
+
+    protected sizeWithin(context: TContext): DocumentedSizing {
+        const terms = this.terms(context);
+        const sequence = new RungSequence();
+        if (context.cushion <= 0) {
+            sequence.note(SizingConstraint.NoCushion);
+            return sequence.toSizing(context, terms);
+        }
+        let trade = this.walkAllLosses(context, terms, sequence);
+        while (trade.kind === NextTradeKind.Trade) {
+            sequence.add(trade.rung);
+            trade = this.walkAllLosses(context, terms, sequence);
+        }
+        for (const constraint of trade.cappedBy) sequence.note(constraint);
+        return sequence.toSizing(context, terms);
+    }
+
+    protected abstract flatRisk(
+        context: TContext,
+        runningLoss: Dollars,
+    ): PlannedRisk;
+
+    protected abstract terms(context: TContext): SizingTerms;
+}
+
+export class RungSequence {
+    private readonly constraints = new Set<SizingConstraint>();
+
+    private readonly rungs: DocumentedRung[] = [];
+
+    runningLoss = dollars(0);
+
+    private minStopPointsAtCap(context: RuleContext): null | Points {
+        if (
+            this.rungs.length === 0 ||
+            context.contractLimit === null ||
+            context.instrument === null
+        ) {
+            return null;
+        }
+        const largestRisk = Math.max(...this.rungs.map((rung) => rung.risk));
+        const stop = minStopPoints(
+            largestRisk,
+            context.contractLimit,
+            INSTRUMENTS[context.instrument].pointValue,
+        );
+        return stop === null ? null : points(stop);
+    }
+
+    get lastRisk(): number {
+        return this.rungs.at(-1)?.risk ?? 0;
+    }
+
+    add(rung: DocumentedRung): void {
+        this.rungs.push(rung);
+        for (const constraint of rung.cappedBy) this.note(constraint);
+        this.runningLoss = rung.runningLossAfter;
+    }
+
+    allLossDay(): DayProgress {
+        const runningLoss: number = this.runningLoss;
+        return {
+            dayPnL: dollars(-runningLoss),
+            losses: this.rungs.length,
+            runningLoss: this.runningLoss,
+            wins: 0,
+        };
+    }
+
+    note(constraint: SizingConstraint): void {
+        this.constraints.add(constraint);
+    }
+
+    toSizing(context: RuleContext, terms: SizingTerms): DocumentedSizing {
+        return {
+            ...terms,
+            constraints: [...this.constraints],
+            minStopPointsAtCap: this.minStopPointsAtCap(context),
+            rungs: [...this.rungs],
+        };
+    }
+}
+
+export function assertEvalMode(
+    rulebook: RulebookParameters,
+    mode: EvalSizingMode,
+    ruleName: string,
+): void {
+    if (rulebook.eval.mode !== mode) {
+        throw new Error(
+            `${ruleName} sizes the ${mode} eval mode, but this rulebook selects ${rulebook.eval.mode}; build the rule with createDocumentedRule`,
+        );
+    }
+}
+
+export function documentedRung(
+    risk: number,
+    runningLossBefore: number,
+    rewardMultiple: number,
+    cappedBy: readonly SizingConstraint[],
+): DocumentedRung {
+    return {
+        cappedBy: [...new Set(cappedBy)],
+        risk: dollars(risk),
+        runningLossAfter: dollars(floorToWholeCents(runningLossBefore + risk)),
+        runningLossBefore: dollars(runningLossBefore),
+        takeProfit: dollars(floorToWholeCents(risk * rewardMultiple)),
+    };
+}
+
+export function resolveNextTrade(
+    context: RuleContext,
+    terms: SizingTerms,
+    day: DayProgress,
+    planned: null | PlannedRisk,
+): NextTrade {
+    const maxTrades =
+        context.personalCaps.maxTradesPerDay === null
+            ? terms.maxTrades
+            : Math.min(terms.maxTrades, context.personalCaps.maxTradesPerDay);
+    if (day.wins + day.losses >= maxTrades) {
+        return stopFor(DayStopReason.MaxTrades, []);
+    }
+    if (shouldStopDay(terms.stopRule, day.wins > 0, day.losses, day.dayPnL)) {
+        return stopFor(DayStopReason.StopRule, []);
+    }
+    const ceiling = tighterOf(
+        terms.profitCeiling,
+        context.personalCaps.dailyProfitCap,
+        SizingConstraint.PersonalCap,
+    );
+    const ceilingRoom =
+        ceiling === null
+            ? Infinity
+            : (ceiling.amount - day.dayPnL) / terms.rewardMultiple;
+    const isFlatRungPlacedAsPlanned =
+        context.stage === SizingStage.Funded && profitCeiling(context) !== null;
+    const ceilingMinimum =
+        isFlatRungPlacedAsPlanned &&
+        planned !== null &&
+        isAtOrBelowWithinCentTolerance(planned.amount, ceilingRoom)
+            ? ONE_CENT
+            : context.placeableMinimum;
+    if (ceiling !== null && ceilingRoom < ceilingMinimum) {
+        return stopFor(DayStopReason.CeilingReached, [ceiling.constraint]);
+    }
+    const runningLoss: number = day.runningLoss;
+    const cappedBy = new Set(planned?.cappedBy);
+    let risk: number = planned?.amount ?? Infinity;
+    const capAt = (limit: number, constraint: SizingConstraint): void => {
+        if (isAtOrBelowWithinCentTolerance(risk, limit)) return;
+        cappedBy.add(constraint);
+        risk = Math.max(0, limit);
+    };
+    if (context.personalCaps.maxRiskPerTrade !== null) {
+        capAt(
+            context.personalCaps.maxRiskPerTrade,
+            SizingConstraint.PersonalCap,
+        );
+    }
+    capAt(context.cushion - runningLoss, SizingConstraint.CushionCap);
+    const room = dailyLossRoom(context);
+    if (room !== null) {
+        capAt(
+            capRiskToRemainingDailyLoss(
+                risk,
+                room.amount,
+                -runningLoss,
+                NO_COMMISSION,
+            ),
+            room.constraint,
+        );
+    }
+    if (ceiling !== null) {
+        const riskBeforeCeiling = risk;
+        capAt(ceilingRoom, ceiling.constraint);
+        if (risk < riskBeforeCeiling && context.placeableMinimum > ONE_CENT) {
+            risk = floorToPlaceableUnit(risk, context.placeableMinimum);
+        }
+    }
+    const placed = floorToWholeCents(risk);
+    const isStandingFlatRung = isFlatRungPlacedAsPlanned && cappedBy.size === 0;
+    const placeableMinimum = isStandingFlatRung
+        ? ONE_CENT
+        : context.placeableMinimum;
+    if (placed < placeableMinimum) {
+        return stopFor(DayStopReason.NoLossRoom, [...cappedBy]);
+    }
+    if (planned === null) return stopFor(DayStopReason.LadderExhausted, []);
+    return {
+        kind: NextTradeKind.Trade,
+        rung: documentedRung(placed, day.runningLoss, terms.rewardMultiple, [
+            ...cappedBy,
+        ]),
+    };
+}
+
+function stopFor(
+    reason: DayStopReason,
+    cappedBy: readonly SizingConstraint[],
+): NextTrade {
+    return { cappedBy, kind: NextTradeKind.Stop, reason };
+}

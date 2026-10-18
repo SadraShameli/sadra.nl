@@ -1,15 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import {
-    ArrowRight,
-    BookmarkCheck,
-    CheckCircle2,
-    RotateCcw,
-    Save,
-    Sparkles,
-    XCircle,
-} from 'lucide-react';
+import { BookmarkCheck, RotateCcw, Save } from 'lucide-react';
 import { useMemo, useState, useTransition } from 'react';
 
 import type {
@@ -18,35 +10,29 @@ import type {
     Grade,
     Recommendation,
     TradeAssessmentRow,
-    TradingPlanRow,
+    TradingPlanConfig,
 } from '~/lib/trading/types';
 
+import { gradeTextClass } from '~/app/(app)/trade-checklist/_components/GradeTone';
 import Eyebrow from '~/components/Eyebrow';
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/Alert';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Progress } from '~/components/ui/Progress';
-import { Separator } from '~/components/ui/Separator';
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { Progress } from '~/components/ui/progress';
+import { Separator } from '~/components/ui/separator';
 import { saveAssessment } from '~/lib/trading/actions';
 import { WEIGHT_CATEGORIES } from '~/lib/trading/defaults';
 import { cn } from '~/lib/utilities';
 
 import { OutcomeDialog } from './OutcomeDialog';
+import { ReasonListPanel } from './ReasonListPanel';
 
-const gradeColor: Record<Grade, string> = {
-    A: 'text-emerald-400',
-    'A+': 'text-emerald-400',
-    'A-': 'text-emerald-300',
-    B: 'text-amber-300',
-    'B+': 'text-emerald-300',
-    'B-': 'text-amber-300',
-    C: 'text-orange-400',
-    'C+': 'text-amber-400',
-    'C-': 'text-orange-400',
-    D: 'text-rose-500',
-    F: 'text-rose-500',
-};
+export interface ReportPlan {
+    readonly config: TradingPlanConfig;
+    readonly id: null | string;
+    readonly name: string;
+}
 
 const recoMeta: Record<
     Recommendation,
@@ -81,7 +67,7 @@ export function AnalysisReport({
     history: TradeAssessmentRow[];
     onRestart: () => void;
     onSaved: (id: string) => void;
-    plan: TradingPlanRow;
+    plan: ReportPlan;
     result: AssessmentResult;
     savedId: null | string;
 }) {
@@ -134,7 +120,7 @@ export function AnalysisReport({
                     <div className="flex flex-col items-center justify-center">
                         <motion.div
                             animate={{ opacity: 1, scale: 1 }}
-                            className={`font-orbitron text-[6rem] leading-none font-bold tracking-tight ${gradeColor[result.grade]}`}
+                            className={`font-serif text-[6rem] leading-none font-medium tracking-tight ${gradeTextClass(result.grade)}`}
                             initial={{ opacity: 0, scale: 0.6 }}
                             transition={{ stiffness: 200, type: 'spring' }}
                         >
@@ -153,7 +139,7 @@ export function AnalysisReport({
                             >
                                 {reco.label}
                             </Badge>
-                            <h2 className="mt-3 text-2xl font-semibold text-white">
+                            <h2 className="mt-3 text-2xl font-semibold text-foreground">
                                 {recommendationHeadline(
                                     result.recommendation,
                                     recommendedDollars,
@@ -248,7 +234,7 @@ export function AnalysisReport({
                                 key={key}
                             >
                                 <div className="flex items-baseline justify-between">
-                                    <p className="text-sm font-medium text-white">
+                                    <p className="text-sm font-medium text-foreground">
                                         {label}
                                     </p>
                                     <p className="font-mono text-xs text-muted-foreground">
@@ -266,98 +252,26 @@ export function AnalysisReport({
             </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
-                <Card className="border-l-4 border-l-emerald-500">
-                    <CardHeader className="flex flex-row items-center justify-start gap-2">
-                        <CheckCircle2 className="size-4 text-emerald-500" />
-                        <CardTitle className="text-base">
-                            Why to take it
-                        </CardTitle>
-                    </CardHeader>
-                    <Separator />
-                    <CardContent>
-                        {result.strengths.length > 0 ? (
-                            <ul
-                                className={cn(
-                                    'app-trade-checklist__strengths-list',
-                                    'flex flex-col gap-2 text-sm',
-                                )}
-                            >
-                                {result.strengths.map((s, index) => (
-                                    <li
-                                        className="flex items-start gap-2"
-                                        key={index}
-                                    >
-                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-emerald-500" />
-                                        <span>{s}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">
-                                No clear strengths identified.
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
+                <ReasonListPanel
+                    className="app-trade-checklist__strengths"
+                    emptyText="No clear strengths identified."
+                    items={result.strengths}
+                    title="Why to take it"
+                />
 
-                <Card className="border-l-4 border-l-rose-500">
-                    <CardHeader className="flex flex-row items-center justify-start gap-2">
-                        <XCircle className="size-4 text-rose-500" />
-                        <CardTitle className="text-base">
-                            Why to skip it
-                        </CardTitle>
-                    </CardHeader>
-                    <Separator />
-                    <CardContent>
-                        {result.weaknesses.length > 0 ? (
-                            <ul
-                                className={cn(
-                                    'app-trade-checklist__weaknesses-list',
-                                    'flex flex-col gap-2 text-sm',
-                                )}
-                            >
-                                {result.weaknesses.map((w, index) => (
-                                    <li
-                                        className="flex items-start gap-2"
-                                        key={index}
-                                    >
-                                        <ArrowRight className="mt-0.5 size-4 shrink-0 text-rose-500" />
-                                        <span>{w}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">
-                                No significant weaknesses detected.
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
+                <ReasonListPanel
+                    className="app-trade-checklist__weaknesses"
+                    emptyText="No significant weaknesses detected."
+                    items={result.weaknesses}
+                    title="Why to skip it"
+                />
             </div>
 
             {result.improvements.length > 0 && (
-                <Card className="border-l-4 border-l-sky-500">
-                    <CardHeader className="flex flex-row items-center justify-start gap-2">
-                        <Sparkles className="size-4 text-sky-500" />
-                        <CardTitle className="text-base">
-                            How to upgrade this setup
-                        </CardTitle>
-                    </CardHeader>
-                    <Separator />
-                    <CardContent>
-                        <ul className="flex flex-col gap-2 text-sm">
-                            {result.improvements.map((imp, index) => (
-                                <li
-                                    className="flex items-start gap-2"
-                                    key={index}
-                                >
-                                    <ArrowRight className="mt-0.5 size-4 shrink-0 text-sky-400" />
-                                    <span>{imp}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </CardContent>
-                </Card>
+                <ReasonListPanel
+                    items={result.improvements}
+                    title="How to upgrade this setup"
+                />
             )}
 
             <Card>
@@ -409,18 +323,15 @@ export function AnalysisReport({
 
             <div className="flex flex-wrap items-center justify-end gap-2 pt-4">
                 <Button onClick={onRestart} variant="ghost">
-                    <RotateCcw className="mr-1 size-4" />
+                    <RotateCcw data-icon="inline-start" />
                     Restart
                 </Button>
                 {savedId ? (
                     <>
-                        <Badge
-                            className="font-mono text-xs"
-                            variant="secondary"
-                        >
-                            <BookmarkCheck className="mr-1 size-3" />
+                        <Button disabled variant="outline">
+                            <BookmarkCheck data-icon="inline-start" />
                             Saved
-                        </Badge>
+                        </Button>
                         <Button onClick={() => setOutcomeOpen(true)}>
                             Record outcome
                         </Button>
@@ -432,7 +343,7 @@ export function AnalysisReport({
                             onClick={() => persist()}
                             variant="outline"
                         >
-                            <Save className="mr-1 size-4" />
+                            <Save data-icon="inline-start" />
                             Save assessment
                         </Button>
                         <Button
@@ -450,6 +361,7 @@ export function AnalysisReport({
                     assessmentId={savedId}
                     onOpenChange={setOutcomeOpen}
                     open={outcomeOpen}
+                    saved={history.find((row) => row.id === savedId) ?? null}
                 />
             )}
         </motion.div>
@@ -480,12 +392,12 @@ function recommendationHeadline(
 ): string {
     switch (rec) {
         case 'hard-skip': {
-            return 'Hard skip — do not trade.';
+            return 'Hard skip: do not trade.';
         }
         case 'marginal': {
             return sized === 0
                 ? 'Sit this one out.'
-                : `Marginal setup — consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
+                : `Marginal setup: consider reduced size ($${sized.toLocaleString()} vs $${base.toLocaleString()} standard).`;
         }
         case 'skip': {
             return 'Skip this setup.';
@@ -510,10 +422,10 @@ function Stat({
 }) {
     const color =
         tone === 'good'
-            ? 'text-emerald-500'
+            ? 'text-success'
             : tone === 'bad'
-              ? 'text-rose-500'
-              : 'text-white';
+              ? 'text-destructive'
+              : 'text-foreground';
 
     return (
         <div className="rounded-lg border border-border/60 p-3">

@@ -1,0 +1,2236 @@
+import { act, type ReactNode } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import {
+    ComputationCache,
+    initialFor,
+} from '~/app/(app)/prop-calculator/_components/computationCache';
+import { ComputationId } from '~/app/(app)/prop-calculator/_components/ComputationId';
+import {
+    PAST_PAYOUTS_NOT_COUNTED_TEXT,
+    PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
+} from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerModel';
+import { decodePayoutPlannerUrlState } from '~/app/(app)/prop-calculator/_components/payoutPlanner/payoutPlannerUrlState';
+import { ComputationCacheContext } from '~/app/(app)/prop-calculator/_components/useDebouncedSimulation';
+import {
+    IDLE_WORKER_TASK,
+    reduceWorkerTask,
+    type WorkerTaskEvent,
+    WorkerTaskEventKind,
+    type WorkerTaskState,
+} from '~/app/(app)/prop-calculator/_components/workerTaskState';
+import {
+    payoutOutlookCacheKey,
+    type PayoutOutlookRequest,
+    type PayoutOutlookResult,
+    payoutSweepCacheKey,
+    type PayoutSweepRequest,
+    type PayoutSweepResult,
+} from '~/app/(app)/prop-calculator/_workers/payoutSweepWorkerMessages';
+import { payoutStakeViewOf } from '~/app/(app)/prop-calculator/accounts/_components/advice/adviceValueModel';
+import { formatGateCurrency } from '~/lib/format';
+import {
+    ALL_FIRMS,
+    CumulativeAmountTrigger,
+    dollars,
+    effectivePayoutRequest,
+    type Fraction0to1,
+    PolicySourceKind,
+    PolicyVerification,
+} from '~/lib/prop-calculator';
+import {
+    AccountReconstruction,
+    AccountReconstructionError,
+    AdviceSource,
+    AssumptionBias,
+    AssumptionKind,
+    assumptionKindText,
+    assumptionText,
+    buildEnginePolicy,
+    type CumulativePayoutTriggerAssumption,
+    DEFAULT_RULEBOOK,
+    liveTransferAssumptionLines,
+    liveTransferAssumptionOf,
+    PayoutSizeSweepObjective,
+    type PayoutSizeSweepOptimum,
+    PayoutSizeSweepResultKind,
+    type PayoutSizeSweepRow,
+    type PersonalPayoutOverrideWarning,
+    personalPayoutOverrideWarningText,
+    ReconstructionErrorReason,
+    RetainedCushionBasis,
+    type RulebookParameters,
+    runPayoutSizeSweep,
+    StartBasis,
+} from '~/lib/prop-calculator/advisor';
+import {
+    type PayoutStakeComparisonResult,
+    ValueResultKind,
+    ValueUnavailableReason,
+} from '~/lib/prop-calculator/advisor/value';
+import {
+    LiveTransferContinuationKind,
+    liveTransferSentLiveText,
+} from '~/lib/prop-calculator/simulator';
+import { PayoutPlannerUrlParameter } from '~/lib/schemas/payoutPlannerUrlParameter';
+
+type AnyEvent = WorkerTaskEvent<never, unknown>;
+type AnyRequest = PayoutOutlookRequest | PayoutSweepRequest;
+
+interface FakeInstance {
+    dispatch: (event: AnyEvent) => void;
+    runId: number;
+}
+
+interface RulebookQueryState {
+    data: RulebookParameters | undefined;
+    isError: boolean;
+}
+
+interface SessionState {
+    data: null | { user: { id: string } };
+    error: Error | null;
+    isPending: boolean;
+}
+
+const fakeWorker = vi.hoisted(() => ({
+    latest: {} as Record<'outlook' | 'sweep', FakeInstance | undefined>,
+    outlookRequests: [] as unknown[],
+    sweepRequests: [] as unknown[],
+}));
+
+const searchState = vi.hoisted(() => ({ query: '' }));
+
+const sessionState = vi.hoisted((): { current: SessionState } => ({
+    current: { data: null, error: null, isPending: false },
+}));
+
+const rulebookQueryState = vi.hoisted((): { current: RulebookQueryState } => ({
+    current: { data: undefined, isError: false },
+}));
+
+vi.mock('next/navigation', () => ({
+    useSearchParams: () => new URLSearchParams(searchState.query),
+}));
+
+vi.mock('~/lib/auth/client', () => ({
+    useSession: () => sessionState.current,
+}));
+
+vi.mock('~/trpc/react', () => ({
+    api: {
+        propAccounts: {
+            rulebook: {
+                get: { useQuery: () => rulebookQueryState.current },
+            },
+        },
+    },
+}));
+
+vi.mock('~/app/(app)/prop-calculator/_components/ToolPageHeading', () => ({
+    ToolPageHeading: renderNothing,
+}));
+
+vi.mock('~/app/(app)/prop-calculator/_components/FirmPlanPicker', () => ({
+    default: renderNothing,
+}));
+
+vi.mock('~/app/(app)/prop-calculator/_components/useWorkerTask', async () => {
+    const React = await import('react');
+    return {
+        useWorkerTask: () => {
+            const [state, dispatch] = React.useReducer<
+                WorkerTaskState<never, unknown>,
+                [WorkerTaskEvent<never, unknown>]
+            >(reduceWorkerTask, IDLE_WORKER_TASK);
+            const instanceReference = React.useRef({
+                dispatch,
+                runId: 0,
+            });
+            const run = React.useCallback((request: AnyRequest) => {
+                const instance = instanceReference.current;
+                instance.runId += 1;
+                if ('balance' in request) {
+                    fakeWorker.outlookRequests.push(request);
+                    fakeWorker.latest.outlook = instance;
+                } else {
+                    fakeWorker.sweepRequests.push(request);
+                    fakeWorker.latest.sweep = instance;
+                }
+                dispatch({
+                    kind: WorkerTaskEventKind.Start,
+                    runId: instance.runId,
+                });
+            }, []);
+            const cancel = React.useCallback(() => {
+                dispatch({ kind: WorkerTaskEventKind.Cancel });
+            }, []);
+            return { cancel, run, state };
+        },
+    };
+});
+
+const { PayoutPlannerView } =
+    await import('~/app/(app)/prop-calculator/(tools)/payout-planner/PayoutPlannerView');
+
+const BASE_OPTIMUM = buildBaseOptimum();
+const FIX_FIELD_TEXT = 'Fix the highlighted field to see the readiness.';
+const SKELETON = '.animate-pulse';
+const SETTLE_MS = 1000;
+const READY_QUERY = [
+    `${PayoutPlannerUrlParameter.Plan}=tpt-50000`,
+    `${PayoutPlannerUrlParameter.QualifyingDays}=10`,
+    `${PayoutPlannerUrlParameter.Balance}=54000`,
+    `${PayoutPlannerUrlParameter.Peak}=54000`,
+].join('&');
+const FIRM_MINIMUM_QUERY = [
+    `${PayoutPlannerUrlParameter.Plan}=alphafutures-50000-advanced`,
+    `${PayoutPlannerUrlParameter.QualifyingDays}=10`,
+    `${PayoutPlannerUrlParameter.Balance}=54000`,
+    `${PayoutPlannerUrlParameter.Peak}=54000`,
+].join('&');
+const FUNDED_CONSISTENCY_QUERY = [
+    `${PayoutPlannerUrlParameter.QualifyingDays}=5`,
+    `${PayoutPlannerUrlParameter.Balance}=52000`,
+].join('&');
+const SIGNED_IN: SessionState = {
+    data: { user: { id: 'user-1' } },
+    error: null,
+    isPending: false,
+};
+
+function buildBaseOptimum(): PayoutSizeSweepOptimum {
+    const { plan } = decodePayoutPlannerUrlState(new URLSearchParams());
+    const { policy } = buildEnginePolicy({
+        fundedHorizonDays: 60,
+        plan,
+        rulebook: DEFAULT_RULEBOOK,
+    });
+    const result = runPayoutSizeSweep(plan, {
+        personalOverrideRequest: null,
+        source: AdviceSource.PayoutSizeSweep,
+        spec: {
+            enginePolicy: policy,
+            rulebook: DEFAULT_RULEBOOK,
+            run: { maxEvalDays: 150, seed: 1, trials: 20 },
+        },
+    });
+    if (result.kind !== PayoutSizeSweepResultKind.Optimum) {
+        throw new Error('the fixture sweep must find an optimum');
+    }
+    return result.optimum;
+}
+
+function documentedRow(): PayoutSizeSweepRow {
+    const { plan } = decodePayoutPlannerUrlState(new URLSearchParams());
+    const size = effectivePayoutRequest(
+        plan,
+        DEFAULT_RULEBOOK.payout.requestCents / 100,
+    );
+    const row = BASE_OPTIMUM.rows.find(
+        (candidate) => candidate.requestSize === size,
+    );
+    if (row === undefined) throw new Error('no documented row in the sweep');
+    return row;
+}
+
+function finish(kind: 'outlook' | 'sweep', result: unknown) {
+    const instance = fakeWorker.latest[kind];
+    if (instance === undefined) throw new Error(`no ${kind} run`);
+    act(() => {
+        instance.dispatch({
+            kind: WorkerTaskEventKind.Done,
+            result,
+            runId: instance.runId,
+        });
+    });
+}
+
+const PRICED_TRIGGER: CumulativePayoutTriggerAssumption = {
+    amount: 100_000,
+    bias: AssumptionBias.Neutral,
+    continuation: LiveTransferContinuationKind.NotModeled,
+    kind: AssumptionKind.CumulativePayoutTriggerPriced,
+    notes: [],
+    source: {
+        fetchedOn: '2026-09-01',
+        quote: 'a synthetic test quote',
+        url: 'https://example.test/policy',
+    },
+};
+
+function fromStateRowWithoutStandardErrors(
+    row: PayoutSizeSweepRow,
+): PayoutSizeSweepRow {
+    return {
+        ...row,
+        kind: StartBasis.FromState,
+        out: {
+            ...row.out,
+            estimates: {
+                ...row.out.estimates,
+                fromStateExpectedCash: { standardError: null, value: 1234 },
+                fromStateExpectedRealizedCash: {
+                    standardError: null,
+                    value: 567,
+                },
+            },
+            fromStateExpectedCash: 1234,
+            fromStateExpectedRealizedCash: 567,
+            fromStateWindowDays: 60,
+        },
+    } as unknown as PayoutSizeSweepRow;
+}
+
+function hazardAssumption() {
+    const { plan } = decodePayoutPlannerUrlState(new URLSearchParams());
+    const assumption = liveTransferAssumptionOf(
+        {
+            instrument: undefined,
+            liveTransferHazard: 0.3 as Fraction0to1,
+            plan,
+            stopPoints: undefined,
+        },
+        0.41,
+    );
+    if (assumption === undefined) {
+        throw new Error('expected a priced assumption');
+    }
+    return assumption;
+}
+
+function inputById(container: HTMLElement, id: string): HTMLInputElement {
+    const node = container.querySelector<HTMLInputElement>(`#${id}`);
+    if (node === null) throw new Error(`no input #${id}`);
+    return node;
+}
+
+function lastOutlookRequest(): PayoutOutlookRequest {
+    const request = fakeWorker.outlookRequests.at(-1);
+    if (request === undefined) throw new Error('the outlook never ran');
+    return request as PayoutOutlookRequest;
+}
+
+function lastSweepRequest(): PayoutSweepRequest {
+    const request = fakeWorker.sweepRequests.at(-1);
+    if (request === undefined) throw new Error('the sweep never ran');
+    return request as PayoutSweepRequest;
+}
+
+function occurrences(text: string, needle: string): number {
+    return text.split(needle).length - 1;
+}
+
+function outlookResult(
+    stakeComparison: PayoutOutlookResult['stakeComparison'] = null,
+): PayoutOutlookResult {
+    return {
+        projection: {
+            accountLostBeforeFirstPayoutProbability: 0.25,
+            accountLostBeforeFirstPayoutStandardError: 0.01,
+            alreadyEligible: false,
+            expectedCalendarDaysToFirstPayout: {
+                standardError: 0.5,
+                value: 12.3,
+            },
+            expectedResetFeeBeforeFirstPayout: { standardError: 0, value: 0 },
+            expectedSessionDaysToFirstPayout: { standardError: 0, value: 9 },
+            firstPayoutCausedBreachProbability: null,
+            firstPayoutCausedBreachStandardError: null,
+            payingTrials: 100,
+            trials: 200,
+        },
+        stakeComparison,
+    };
+}
+
+function renderNothing(): null {
+    return null;
+}
+
+function rowWith(
+    row: PayoutSizeSweepRow,
+    patch: { bust?: number; requestSize?: number },
+): PayoutSizeSweepRow {
+    return {
+        ...row,
+        out: {
+            ...row.out,
+            fundedBustProbability: patch.bust ?? row.out.fundedBustProbability,
+        },
+        requestSize: patch.requestSize ?? row.requestSize,
+    } as PayoutSizeSweepRow;
+}
+
+function rowWithMonthlyNet(
+    row: PayoutSizeSweepRow,
+    patch: {
+        requestSize?: number;
+        standardError: null | number;
+        value: number;
+    },
+): PayoutSizeSweepRow {
+    return {
+        ...row,
+        out: {
+            ...row.out,
+            estimates: {
+                ...row.out.estimates,
+                expectedMonthlyNet: {
+                    standardError: patch.standardError,
+                    value: patch.value,
+                },
+            },
+            expectedMonthlyNet: patch.value,
+        },
+        requestSize: patch.requestSize ?? row.requestSize,
+    } as PayoutSizeSweepRow;
+}
+
+function rulebookWithRequest(requestCents: number): RulebookParameters {
+    return {
+        ...DEFAULT_RULEBOOK,
+        payout: { ...DEFAULT_RULEBOOK.payout, requestCents },
+    };
+}
+
+function setInputValue(input: HTMLInputElement, value: string) {
+    Reflect.set(HTMLInputElement.prototype, 'value', value, input);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function settle() {
+    act(() => {
+        vi.advanceTimersByTime(SETTLE_MS);
+    });
+}
+
+function stakeComparison(
+    requestNowValue: number,
+    continueValue: number,
+    standardError: number,
+): PayoutStakeComparisonResult {
+    return {
+        continueNow: {
+            creditFree: { standardError, value: continueValue },
+            creditInclusive: { standardError, value: continueValue },
+            kind: ValueResultKind.Value,
+            seed: 1,
+            trials: 100,
+        },
+        kind: ValueResultKind.PayoutStake,
+        reducedRiskWhatIf: null,
+        requestedAmount: 500,
+        requestNow: {
+            creditFree: { standardError, value: requestNowValue },
+            creditInclusive: { standardError, value: requestNowValue },
+            kind: ValueResultKind.Value,
+            seed: 1,
+            trials: 100,
+        },
+        traderReceivesNow: 400,
+    };
+}
+
+function stubVerifiedTrigger() {
+    for (const firm of ALL_FIRMS) {
+        vi.spyOn(firm.accountPolicy, 'liveTriggersFor').mockReturnValue([
+            new CumulativeAmountTrigger(dollars(20_000), {
+                fetchedOn: '2026-09-26',
+                quote: 'quote',
+                sourceKind: PolicySourceKind.LiveFetch,
+                url: 'https://example.invalid/rule',
+                verification: PolicyVerification.Confirmed,
+            }),
+        ]);
+    }
+}
+
+function sweepResult(patch: Partial<PayoutSizeSweepOptimum> = {}) {
+    return {
+        kind: PayoutSizeSweepResultKind.Optimum,
+        optimum: {
+            ...BASE_OPTIMUM,
+            objective: PayoutSizeSweepObjective.CreditInclusiveMonthlyNet,
+            ...patch,
+        },
+    } satisfies PayoutSweepResult;
+}
+
+function sweepResultWithOverride(
+    bust?: number,
+    warning: null | PersonalPayoutOverrideWarning = null,
+) {
+    return sweepResult({
+        personalOverride: {
+            row: rowWith(documentedRow(), { bust, requestSize: 6000 }),
+            warning,
+        },
+    });
+}
+
+function withCache(cache: ComputationCache): ReactNode {
+    return (
+        <ComputationCacheContext.Provider value={cache}>
+            <PayoutPlannerView />
+        </ComputationCacheContext.Provider>
+    );
+}
+
+describe('PayoutPlannerView (PT-31e)', () => {
+    let container: HTMLDivElement;
+    let root: Root;
+
+    function render(node: ReactNode) {
+        act(() => {
+            root.render(node);
+        });
+    }
+
+    function sectionOf(heading: string): HTMLElement {
+        const section = [...container.querySelectorAll('section')].find(
+            (candidate) =>
+                candidate.querySelector('h2')?.textContent === heading,
+        );
+        if (section === undefined) throw new Error(`no section ${heading}`);
+        return section;
+    }
+
+    function bodyRows(): HTMLTableRowElement[] {
+        return [
+            ...sectionOf('Payout-size sweep').querySelectorAll(
+                ':scope tbody tr',
+            ),
+        ] as HTMLTableRowElement[];
+    }
+
+    function loadRulebook(rulebook: RulebookParameters) {
+        rulebookQueryState.current = { data: rulebook, isError: false };
+        render(<PayoutPlannerView />);
+        settle();
+    }
+
+    it('keeps its phone column inside the screen, so a wide table scrolls in its own container', () => {
+        render(<PayoutPlannerView />);
+        const layout = container.querySelector(
+            '.app-prop-calculator__payout-planner',
+        );
+        expect(layout?.classList.contains('grid-cols-[minmax(0,1fr)]')).toBe(
+            true,
+        );
+    });
+
+    function renderSweepOptimum(patch: {
+        documentedStandardError: null | number;
+        documentedValue: number;
+        winnerStandardError: null | number;
+        winnerValue: number;
+    }) {
+        render(<PayoutPlannerView />);
+        const documented = documentedRow();
+        const other = BASE_OPTIMUM.rows.find(
+            (row) => row.requestSize !== documented.requestSize,
+        );
+        if (other === undefined) throw new Error('no second sweep row');
+        const rows = BASE_OPTIMUM.rows.map((row) =>
+            row.requestSize === documented.requestSize
+                ? rowWithMonthlyNet(row, {
+                      standardError: patch.documentedStandardError,
+                      value: patch.documentedValue,
+                  })
+                : row,
+        );
+        const winner = rowWithMonthlyNet(other, {
+            standardError: patch.winnerStandardError,
+            value: patch.winnerValue,
+        });
+        finish('sweep', sweepResult({ rows, winner }));
+        return sectionOf('Payout-size sweep').textContent;
+    }
+
+    function typeInto(id: string, value: string) {
+        act(() => {
+            setInputValue(inputById(container, id), value);
+        });
+    }
+
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+        searchState.query = '';
+        sessionState.current = { data: null, error: null, isPending: false };
+        rulebookQueryState.current = { data: undefined, isError: false };
+        fakeWorker.latest = { outlook: undefined, sweep: undefined };
+        fakeWorker.outlookRequests = [];
+        fakeWorker.sweepRequests = [];
+        container = document.createElement('div');
+        document.body.append(container);
+        root = createRoot(container);
+    });
+
+    afterEach(() => {
+        act(() => {
+            root.unmount();
+        });
+        container.remove();
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+        vi.useRealTimers();
+    });
+
+    describe('input gating', () => {
+        it('shows the readiness result and the path while every field is valid', () => {
+            render(<PayoutPlannerView />);
+
+            expect(container.textContent).not.toContain(FIX_FIELD_TEXT);
+            expect(
+                sectionOf('Path to payout').querySelectorAll('li').length,
+            ).toBeGreaterThan(0);
+        });
+
+        it('replaces the readiness and the path to payout with the fix-the-field text for an invalid balance', () => {
+            render(<PayoutPlannerView />);
+
+            typeInto('payout-planner-balance', '0');
+
+            expect(sectionOf('Readiness').textContent).toContain(
+                FIX_FIELD_TEXT,
+            );
+            expect(sectionOf('Path to payout').textContent).toContain(
+                FIX_FIELD_TEXT,
+            );
+            expect(
+                sectionOf('Path to payout').querySelectorAll('li'),
+            ).toHaveLength(0);
+            expect(
+                inputById(container, 'payout-planner-balance').getAttribute(
+                    'aria-invalid',
+                ),
+            ).toBe('true');
+        });
+
+        it('restores the result once the invalid field is corrected', () => {
+            render(<PayoutPlannerView />);
+
+            typeInto('payout-planner-balance', '0');
+            typeInto('payout-planner-balance', '51000');
+
+            expect(container.textContent).not.toContain(FIX_FIELD_TEXT);
+            expect(
+                sectionOf('Path to payout').querySelectorAll('li').length,
+            ).toBeGreaterThan(0);
+        });
+
+        it('replaces the sweep and its override note with the fix-the-field text for an invalid request size, and keeps the sweep for an invalid balance', () => {
+            searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
+            render(<PayoutPlannerView />);
+            finish('sweep', sweepResultWithOverride());
+            expect(sectionOf('Payout-size sweep').textContent).toContain(
+                'Your entered size: $6,000',
+            );
+
+            typeInto('payout-planner-balance', '0');
+            expect(sectionOf('Payout-size sweep').textContent).toContain(
+                'Your entered size: $6,000',
+            );
+
+            typeInto('payout-planner-request', '0');
+            expect(sectionOf('Payout-size sweep').textContent).toContain(
+                FIX_FIELD_TEXT,
+            );
+            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+                'Your entered size',
+            );
+        });
+    });
+
+    describe('rulebook gating', () => {
+        const LOADING_TEXT = 'Loading your rulebook.';
+        const FAILED_TEXT =
+            'Your rulebook could not be loaded, so no payout figures are shown.';
+
+        it('runs no worker and shows a loading state while the session is pending', () => {
+            sessionState.current = {
+                data: null,
+                error: null,
+                isPending: true,
+            };
+
+            render(<PayoutPlannerView />);
+            settle();
+
+            expect(fakeWorker.sweepRequests).toHaveLength(0);
+            expect(fakeWorker.outlookRequests).toHaveLength(0);
+            expect(sectionOf('Readiness').textContent).toContain(LOADING_TEXT);
+            expect(sectionOf('Path to payout').textContent).toContain(
+                LOADING_TEXT,
+            );
+            expect(sectionOf('Payout-size sweep').textContent).toContain(
+                LOADING_TEXT,
+            );
+        });
+
+        it('runs no worker and shows a loading state while a signed-in rulebook query is pending, then runs on the personal rulebook', () => {
+            sessionState.current = SIGNED_IN;
+
+            render(<PayoutPlannerView />);
+            settle();
+
+            expect(fakeWorker.sweepRequests).toHaveLength(0);
+            expect(fakeWorker.outlookRequests).toHaveLength(0);
+            expect(sectionOf('Readiness').textContent).toContain(LOADING_TEXT);
+
+            const personal = {
+                ...DEFAULT_RULEBOOK,
+                strategy: { ...DEFAULT_RULEBOOK.strategy, winrate: 0.55 },
+            };
+            rulebookQueryState.current = { data: personal, isError: false };
+            render(<PayoutPlannerView />);
+            settle();
+
+            expect(lastSweepRequest().spec.rulebook.strategy.winrate).toBe(
+                0.55,
+            );
+            expect(lastOutlookRequest().spec.rulebook.strategy.winrate).toBe(
+                0.55,
+            );
+            expect(container.textContent).not.toContain(LOADING_TEXT);
+        });
+
+        it('runs no worker and names the failure when the signed-in rulebook query fails', () => {
+            sessionState.current = SIGNED_IN;
+            rulebookQueryState.current = { data: undefined, isError: true };
+
+            render(<PayoutPlannerView />);
+            settle();
+
+            expect(fakeWorker.sweepRequests).toHaveLength(0);
+            expect(fakeWorker.outlookRequests).toHaveLength(0);
+            expect(sectionOf('Readiness').textContent).toContain(FAILED_TEXT);
+            expect(sectionOf('Payout-size sweep').textContent).toContain(
+                FAILED_TEXT,
+            );
+        });
+
+        it('runs no worker and names the failure when the session cannot be read', () => {
+            sessionState.current = {
+                data: null,
+                error: new Error('no session'),
+                isPending: false,
+            };
+
+            render(<PayoutPlannerView />);
+            settle();
+
+            expect(fakeWorker.sweepRequests).toHaveLength(0);
+            expect(sectionOf('Readiness').textContent).toContain(FAILED_TEXT);
+        });
+
+        it('uses the default rulebook for a signed-out user without waiting', () => {
+            render(<PayoutPlannerView />);
+
+            expect(lastSweepRequest().spec.rulebook).toEqual(DEFAULT_RULEBOOK);
+        });
+    });
+
+    describe('payout readiness result', () => {
+        it('headlines the effective request with its net after the split, the retained cushion and its source, and demotes the maximum withdrawable', () => {
+            searchState.query = READY_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness');
+            expect(readiness.querySelector('.text-2xl')?.textContent).toBe(
+                '$500',
+            );
+            expect(readiness.textContent).toContain(
+                'Net after the payout split on $500',
+            );
+            expect(readiness.textContent).toContain('$400');
+            expect(readiness.textContent).toContain(
+                "Minimum cushion kept: $2,000 (your rulebook's retained cushion)",
+            );
+            expect(readiness.textContent).toContain(
+                'Maximum withdrawable above the cushion: $2,000',
+            );
+            expect(readiness.textContent).toContain(
+                'not a recommendation: draining it is the mid-size danger zone',
+            );
+        });
+
+        it('says under the cushion that the peak is assumed when it is blank on a trailing-drawdown plan', () => {
+            searchState.query = READY_QUERY.replace(
+                `&${PayoutPlannerUrlParameter.Peak}=54000`,
+                '',
+            );
+
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness').textContent;
+            expect(readiness).toContain('Minimum cushion kept');
+            expect(readiness).toContain(
+                'No peak balance was entered, so the current balance is assumed to be the peak',
+            );
+        });
+
+        it('does not say the peak is assumed in the readiness once it is entered', () => {
+            searchState.query = READY_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            expect(sectionOf('Readiness').textContent).not.toContain(
+                'No peak balance was entered',
+            );
+        });
+
+        it('says the standard minimum cushion is waived when the rulebook keeps a smaller cushion', () => {
+            searchState.query = READY_QUERY;
+            rulebookQueryState.current = {
+                data: {
+                    ...DEFAULT_RULEBOOK,
+                    payout: {
+                        ...DEFAULT_RULEBOOK.payout,
+                        allowBelowHardRule2: true,
+                        retainedCushionCents: 50_000,
+                    },
+                },
+                isError: false,
+            };
+            sessionState.current = SIGNED_IN;
+
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness').textContent;
+            expect(readiness).toContain('Minimum cushion kept: $500');
+            expect(readiness).toContain(
+                'below the standard minimum cushion of $2,000 kept after a payout: your rulebook waives it',
+            );
+            expect(readiness).not.toContain('Hard Rule');
+        });
+
+        it('says nothing about a waived minimum cushion when the cushion meets the minimum', () => {
+            searchState.query = READY_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            expect(sectionOf('Readiness').textContent).not.toContain(
+                'your rulebook waives it',
+            );
+        });
+
+        it('headlines the firm minimum, not the entered size, when the plan minimum is higher', () => {
+            searchState.query = FIRM_MINIMUM_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness');
+            expect(readiness.querySelector('.text-2xl')?.textContent).toBe(
+                '$1,000',
+            );
+            expect(readiness.textContent).toContain(
+                'firm minimum $1,000 is above your $500 request',
+            );
+            expect(readiness.textContent).toContain(
+                'Net after the payout split on $1,000',
+            );
+        });
+
+        it('states the day gate wait for an account that has not met it', () => {
+            render(<PayoutPlannerView />);
+
+            expect(sectionOf('Readiness').textContent).toContain(
+                'wait: 5 qualifying days',
+            );
+        });
+
+        it('does not claim that no profit or time can reach a funded-consistency block', () => {
+            searchState.query = FUNDED_CONSISTENCY_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness').textContent;
+            expect(readiness).toContain(
+                'the funded consistency rule is currently violated',
+            );
+            expect(readiness).toContain('no closed-form estimate');
+            expect(readiness).not.toContain(
+                'no further profit or time reaches this payout',
+            );
+        });
+    });
+
+    describe('payout path list', () => {
+        it('lists one line per path step of the readiness model', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+
+            const items = [
+                ...sectionOf('Path to payout').querySelectorAll('li'),
+            ];
+
+            expect(items.length).toBeGreaterThan(0);
+            expect(items.map((item) => item.textContent)).toContain(
+                'cleared: the day gate since the last pass or payout is met',
+            );
+        });
+    });
+
+    describe('outlook section', () => {
+        it('shows a skeleton while the outlook worker runs, then the projection', () => {
+            render(<PayoutPlannerView />);
+            expect(
+                sectionOf('Path to payout').querySelector(SKELETON),
+            ).not.toBeNull();
+
+            finish('outlook', outlookResult());
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(
+                sectionOf('Path to payout').querySelector(SKELETON),
+            ).toBeNull();
+            expect(text).toContain('Expected days to the next payout');
+            expect(text).toContain('12.3 days (±0.5)');
+            expect(text).toContain('P(account lost before the next payout)');
+            expect(text).not.toContain('before the first payout');
+            expect(text).toContain('25.0% (±1.0%)');
+        });
+
+        it('says eligible now for an already-eligible projection and prints no zero days (PT-68c, F-V18)', () => {
+            render(<PayoutPlannerView />);
+            const base = outlookResult();
+            finish('outlook', {
+                ...base,
+                projection: {
+                    ...base.projection,
+                    accountLostBeforeFirstPayoutProbability: 0,
+                    accountLostBeforeFirstPayoutStandardError: 0,
+                    alreadyEligible: true,
+                    expectedCalendarDaysToFirstPayout: {
+                        standardError: 0,
+                        value: 0,
+                    },
+                    payingTrials: 200,
+                },
+            });
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain('Expected days to the next payout');
+            expect(text).toContain('Eligible now');
+            expect(text).not.toContain('0.0 days');
+            expect(text).not.toContain('(±0.0)');
+        });
+
+        it('attributes an already-eligible projection to the eligibility check, with no simulated trial count and no zero loss figure', () => {
+            render(<PayoutPlannerView />);
+            const base = outlookResult();
+            finish('outlook', {
+                ...base,
+                projection: {
+                    ...base.projection,
+                    accountLostBeforeFirstPayoutProbability: 0,
+                    accountLostBeforeFirstPayoutStandardError: 0,
+                    alreadyEligible: true,
+                    expectedCalendarDaysToFirstPayout: {
+                        standardError: 0,
+                        value: 0,
+                    },
+                    payingTrials: 200,
+                    trials: 200,
+                },
+            });
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain("the engine's payout eligibility check");
+            expect(text).toContain('no trials were simulated');
+            expect(text).not.toContain('trials reached a payout');
+            expect(text).not.toContain(
+                'P(account lost before the next payout)',
+            );
+        });
+
+        it('says the projected days are the mean over the trials that paid', () => {
+            render(<PayoutPlannerView />);
+            finish('outlook', outlookResult());
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain(
+                'Expected days to the next payout among the trials that paid',
+            );
+        });
+
+        it('says no simulated trial reached a payout instead of printing zero days (PT-68c, F-V18)', () => {
+            render(<PayoutPlannerView />);
+            const base = outlookResult();
+            finish('outlook', {
+                ...base,
+                projection: {
+                    ...base.projection,
+                    expectedCalendarDaysToFirstPayout: {
+                        standardError: null,
+                        value: 0,
+                    },
+                    payingTrials: 0,
+                },
+            });
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain(
+                'No simulated trial reached a payout within the horizon',
+            );
+            expect(text).not.toContain('0.0 days');
+        });
+
+        it('shows how many trials reached a payout next to the projected days (PT-68c)', () => {
+            render(<PayoutPlannerView />);
+            finish('outlook', outlookResult());
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain('12.3 days (±0.5)');
+            expect(text).toContain(
+                '100 of 200 trials reached a payout (50.0%)',
+            );
+        });
+
+        it('shows the worker failure reason instead of a skeleton', () => {
+            render(<PayoutPlannerView />);
+            const instance = fakeWorker.latest.outlook;
+            if (instance === undefined) throw new Error('no outlook run');
+
+            act(() => {
+                instance.dispatch({
+                    kind: WorkerTaskEventKind.Failed,
+                    reason: 'The background worker failed.',
+                    runId: instance.runId,
+                });
+            });
+
+            expect(sectionOf('Path to payout').textContent).toContain(
+                'The background worker failed.',
+            );
+        });
+
+        it('shows the requested amount, the gap with its standard error and a within-noise label for the stake comparison', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+
+            finish('outlook', outlookResult(stakeComparison(1500, 1450, 80)));
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain('Request now vs continue trading');
+            expect(text).toContain('Requested now: $500 (you receive $400');
+            expect(text).toContain('Request now: $1,500 (±$80)');
+            expect(text).toContain('Continue: $1,450 (±$80)');
+            expect(text).toContain(
+                'Difference (request now minus continue): $50 (±$113.14)',
+            );
+            expect(text).toContain('within simulation noise');
+        });
+
+        it('labels a gap beyond the noise', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+
+            finish('outlook', outlookResult(stakeComparison(2500, 1000, 50)));
+
+            expect(sectionOf('Path to payout').textContent).toContain(
+                'beyond simulation noise',
+            );
+        });
+
+        it('explains a not-modeled stake comparison instead of hiding it', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+
+            finish(
+                'outlook',
+                outlookResult({
+                    kind: ValueResultKind.NotModeled,
+                    reason: ValueUnavailableReason.LiveNotModeled,
+                }),
+            );
+
+            expect(sectionOf('Path to payout').textContent).toContain(
+                'Request now vs continue trading is not modeled for a live account.',
+            );
+        });
+    });
+
+    describe('payout-size sweep and the personal-override note', () => {
+        it('states that the sweep is a fresh account, not the account entered above, and shows its simulation basis', () => {
+            render(<PayoutPlannerView />);
+            finish('sweep', sweepResult());
+
+            const text = sectionOf('Payout-size sweep').textContent;
+            expect(text).toContain(
+                'Simulated from a fresh account at your rulebook strategy',
+            );
+            expect(text).toContain(
+                'does not use the balance, peak or payouts taken entered above',
+            );
+            expect(text).toContain('Engine optimum, not advice');
+        });
+
+        it('marks the documented rule row and the engine optimum row separately', () => {
+            render(<PayoutPlannerView />);
+            const documented = documentedRow();
+            const winner = rowWith(
+                BASE_OPTIMUM.rows.find(
+                    (row) => row.requestSize !== documented.requestSize,
+                ) ?? documented,
+                {},
+            );
+            finish('sweep', sweepResult({ winner }));
+
+            const rows = [
+                ...sectionOf('Payout-size sweep').querySelectorAll(
+                    ':scope tbody tr',
+                ),
+            ];
+            const documentedText = rows.find((row) =>
+                row.textContent.includes('Documented rule'),
+            )?.textContent;
+            const winnerText = rows.find((row) =>
+                row.textContent.includes('Engine optimum'),
+            )?.textContent;
+            expect(documentedText).toContain(
+                formatGateCurrency(documented.requestSize),
+            );
+            expect(winnerText).toContain(
+                formatGateCurrency(winner.requestSize),
+            );
+            expect(documentedText).not.toBe(winnerText);
+        });
+
+        it('explains an engine optimum that differs from the documented rule, with both bust probabilities', () => {
+            render(<PayoutPlannerView />);
+            const documented = documentedRow();
+            const other = BASE_OPTIMUM.rows.find(
+                (row) => row.requestSize !== documented.requestSize,
+            );
+            if (other === undefined) throw new Error('no second sweep row');
+            const winner = rowWith(other, { bust: 0.9 });
+            finish(
+                'sweep',
+                sweepResult({
+                    creditSensitive: true,
+                    winner,
+                }),
+            );
+
+            const text = sectionOf('Payout-size sweep').textContent;
+            expect(text).toContain(
+                `Engine optimum: ${formatGateCurrency(winner.requestSize)}`,
+            );
+            expect(text).toContain('90.0% bust probability');
+            expect(text).toContain('at the documented size');
+            expect(text).toContain(
+                'The credit-free ranking prefers a different size',
+            );
+            expect(text).toContain(
+                'has a higher bust probability than the documented rule',
+            );
+        });
+
+        it('warns about the mid-size danger zone when the optimum is a mid-size request', () => {
+            render(<PayoutPlannerView />);
+            const documented = documentedRow();
+            const winner = rowWith(documented, { requestSize: 1500 });
+            finish('sweep', sweepResult({ winner }));
+
+            expect(sectionOf('Payout-size sweep').textContent).toContain(
+                'Mid-size requests ($1,000 to $2,000)',
+            );
+        });
+
+        it('does not warn when the optimum is the documented rule', () => {
+            render(<PayoutPlannerView />);
+            finish('sweep', sweepResult({ winner: documentedRow() }));
+
+            const text = sectionOf('Payout-size sweep').textContent;
+            expect(text).toContain(
+                'The engine optimum is the documented request size.',
+            );
+            expect(text).not.toContain('Mid-size requests');
+            expect(text).not.toContain('higher bust probability');
+        });
+
+        it('shows the firm-minimum note on a row that merged sizes up to the minimum', () => {
+            render(<PayoutPlannerView />);
+            const documented = documentedRow();
+            const merged: PayoutSizeSweepRow = {
+                ...documented,
+                firmMinimumAboveRequest: {
+                    minimum: documented.requestSize,
+                    requested: 500,
+                },
+                requestedSizes: [500, 750],
+            };
+            finish(
+                'sweep',
+                sweepResult({
+                    rows: BASE_OPTIMUM.rows.map((row) =>
+                        row.requestSize === documented.requestSize
+                            ? merged
+                            : row,
+                    ),
+                    winner: merged,
+                }),
+            );
+
+            const text = sectionOf('Payout-size sweep').textContent;
+            expect(text).toContain(
+                `firm minimum ${formatGateCurrency(documented.requestSize)} is above the $500 size`,
+            );
+            expect(text).toContain('covers $500, $750');
+        });
+
+        it('shows the personal-override note with the safe-band warning when the entry differs from the documented size', () => {
+            searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
+            render(<PayoutPlannerView />);
+            expect(
+                sectionOf('Payout-size sweep').querySelector(SKELETON),
+            ).not.toBeNull();
+
+            finish(
+                'sweep',
+                sweepResultWithOverride(0.6, {
+                    horizonDays: 252,
+                    optimumBustProbability: 0.2,
+                    optimumMonthlyNet: 400,
+                    optimumRequestSize: 1000,
+                    overrideBustProbability: 0.6,
+                    overrideMonthlyNet: 300,
+                    overrideRequestSize: 6000,
+                    retainedCushion: 2000,
+                    retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+                    startBasis: StartBasis.Fresh,
+                }),
+            );
+
+            const text = sectionOf('Payout-size sweep').textContent;
+            expect(text).toContain('Your entered size: $6,000');
+            expect(text).toContain('Outside the safe band');
+            expect(text).toContain('bust probability 60.0% against 20.0%');
+        });
+
+        it('omits the override note when the sweep has no personal override', () => {
+            searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
+            render(<PayoutPlannerView />);
+
+            finish('sweep', sweepResult({ personalOverride: null }));
+
+            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+                'Your entered size',
+            );
+        });
+
+        it('omits the override note when the entry equals the documented size', () => {
+            render(<PayoutPlannerView />);
+
+            finish(
+                'sweep',
+                sweepResult({
+                    personalOverride: {
+                        row: documentedRow(),
+                        warning: null,
+                    },
+                }),
+            );
+
+            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+                'Your entered size',
+            );
+        });
+
+        it('prints the entered size and the firm minimum that raised it', () => {
+            searchState.query = [
+                FIRM_MINIMUM_QUERY,
+                `${PayoutPlannerUrlParameter.RequestSize}=750`,
+            ].join('&');
+            render(<PayoutPlannerView />);
+            const override: PayoutSizeSweepRow = {
+                ...documentedRow(),
+                firmMinimumAboveRequest: { minimum: 1000, requested: 750 },
+                requestedSizes: [750],
+                requestSize: 1000,
+            };
+
+            finish(
+                'sweep',
+                sweepResult({
+                    personalOverride: { row: override, warning: null },
+                }),
+            );
+
+            const text = sectionOf('Payout-size sweep').textContent;
+            expect(text).toContain('Your entered size: $750');
+            expect(text).toContain('effective $1,000');
+            expect(text).toContain(
+                'firm minimum $1,000 is above your $750 entry',
+            );
+        });
+    });
+
+    describe('standard errors in the sweep table (PT-98, F-30, F-123)', () => {
+        const ESTIMATE_COLUMNS = [1, 2, 3] as const;
+
+        it('prints a plus-minus standard error in the credit-inclusive, credit-free and bust columns of every row, including the documented row and the winner', () => {
+            render(<PayoutPlannerView />);
+            const documented = documentedRow();
+            const winner =
+                BASE_OPTIMUM.rows.find(
+                    (row) => row.requestSize !== documented.requestSize,
+                ) ?? documented;
+            finish('sweep', sweepResult({ winner }));
+
+            const rows = bodyRows();
+            expect(rows).toHaveLength(BASE_OPTIMUM.rows.length);
+            expect(
+                rows.some((row) => row.textContent.includes('Documented rule')),
+            ).toBe(true);
+            expect(
+                rows.some((row) => row.textContent.includes('Engine optimum')),
+            ).toBe(true);
+            for (const row of rows) {
+                for (const column of ESTIMATE_COLUMNS) {
+                    expect(row.cells[column]?.textContent).toContain('±');
+                }
+            }
+        });
+
+        it('prints each standard error in the unit of its column', () => {
+            render(<PayoutPlannerView />);
+            finish('sweep', sweepResult());
+
+            const documented = documentedRow();
+            if (documented.kind !== StartBasis.Fresh) {
+                throw new Error('expected a fresh sweep row');
+            }
+            const row = bodyRows().find((candidate) =>
+                candidate.textContent.includes('Documented rule'),
+            );
+            const { estimates } = documented.out;
+            expect(row?.cells[1]?.textContent).toContain(
+                `±${formatGateCurrency(estimates.expectedMonthlyNet.standardError)}`,
+            );
+            expect(row?.cells[2]?.textContent).toContain(
+                `±${formatGateCurrency(estimates.expectedMonthlyRealizedNet.standardError)}`,
+            );
+            expect(row?.cells[3]?.textContent).toContain(
+                `±${(estimates.fundedBustProbability.standardError * 100).toFixed(1)}%`,
+            );
+        });
+
+        it('says in the headers that the figures carry a standard error', () => {
+            render(<PayoutPlannerView />);
+            finish('sweep', sweepResult());
+
+            const headers = [
+                ...sectionOf('Payout-size sweep').querySelectorAll(
+                    ':scope thead th',
+                ),
+            ].map((header) => header.textContent);
+            for (const column of ESTIMATE_COLUMNS) {
+                expect(headers[column]).toContain('± SE');
+            }
+        });
+
+        it('prints no plus-minus for a null standard error and keeps it for the others', () => {
+            render(<PayoutPlannerView />);
+            const documented = documentedRow();
+            const rows = BASE_OPTIMUM.rows.map((row) =>
+                row.requestSize === documented.requestSize
+                    ? fromStateRowWithoutStandardErrors(row)
+                    : row,
+            );
+            finish('sweep', sweepResult({ rows }));
+
+            const row = bodyRows().find((candidate) =>
+                candidate.textContent.includes('Documented rule'),
+            );
+            expect(row?.cells[1]?.textContent).toContain(
+                formatGateCurrency(1234),
+            );
+            expect(row?.cells[1]?.textContent).not.toContain('±');
+            expect(row?.cells[2]?.textContent).toContain(
+                formatGateCurrency(567),
+            );
+            expect(row?.cells[2]?.textContent).not.toContain('±');
+            expect(row?.cells[3]?.textContent).toContain('±');
+        });
+    });
+
+    describe('the engine optimum against the documented size carries its noise (PT-98, F-123)', () => {
+        const WITHIN_NOISE_TEXT =
+            'The engine optimum is within simulation noise of the documented size: treat the two as the same size.';
+
+        it('says a winner within the combined standard errors of the documented size is the same size', () => {
+            const text = renderSweepOptimum({
+                documentedStandardError: 100,
+                documentedValue: 1000,
+                winnerStandardError: 100,
+                winnerValue: 1050,
+            });
+
+            expect(text).toContain(WITHIN_NOISE_TEXT);
+        });
+
+        it('says no such thing when the winner leads by more than the noise', () => {
+            const text = renderSweepOptimum({
+                documentedStandardError: 100,
+                documentedValue: 1000,
+                winnerStandardError: 100,
+                winnerValue: 5000,
+            });
+
+            expect(text).not.toContain(WITHIN_NOISE_TEXT);
+            expect(text).not.toContain('within simulation noise');
+        });
+
+        it('makes no noise claim when a standard error is unknown', () => {
+            const text = renderSweepOptimum({
+                documentedStandardError: null,
+                documentedValue: 1000,
+                winnerStandardError: 100,
+                winnerValue: 1050,
+            });
+
+            expect(text).not.toContain('within simulation noise');
+        });
+
+        it('prints the credit-inclusive label and the standard error of both figures in the optimum sentence', () => {
+            const text = renderSweepOptimum({
+                documentedStandardError: 111,
+                documentedValue: 1000,
+                winnerStandardError: 222,
+                winnerValue: 5000,
+            });
+
+            expect(text).toContain(
+                `${formatGateCurrency(5000)} (±${formatGateCurrency(222)}) a month credit-inclusive`,
+            );
+            expect(text).toContain(
+                `${formatGateCurrency(1000)} (±${formatGateCurrency(111)}) a month credit-inclusive`,
+            );
+        });
+    });
+
+    describe('the starting request follows the rulebook (PT-98, F-30)', () => {
+        const REQUEST_ID = 'payout-planner-request';
+
+        it('starts a signed-in user at the rulebook request of $750, in the field and in the sweep', () => {
+            sessionState.current = SIGNED_IN;
+            render(<PayoutPlannerView />);
+            loadRulebook(rulebookWithRequest(75_000));
+
+            expect(inputById(container, REQUEST_ID).value).toBe('750');
+            expect(lastSweepRequest().personalOverrideRequest).toBe(750);
+        });
+
+        it('starts an anonymous user at the default rulebook request of $500', () => {
+            render(<PayoutPlannerView />);
+
+            expect(inputById(container, REQUEST_ID).value).toBe('500');
+            expect(lastSweepRequest().personalOverrideRequest).toBe(500);
+        });
+
+        it('lets a request typed in the URL win over the rulebook request', () => {
+            sessionState.current = SIGNED_IN;
+            searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=900`;
+            render(<PayoutPlannerView />);
+            loadRulebook(rulebookWithRequest(75_000));
+
+            expect(inputById(container, REQUEST_ID).value).toBe('900');
+            expect(lastSweepRequest().personalOverrideRequest).toBe(900);
+        });
+
+        it('keeps a request the user typed before the rulebook finished loading', () => {
+            sessionState.current = SIGNED_IN;
+            render(<PayoutPlannerView />);
+            typeInto(REQUEST_ID, '640');
+            loadRulebook(rulebookWithRequest(75_000));
+
+            expect(inputById(container, REQUEST_ID).value).toBe('640');
+        });
+
+        it('keeps typing after the rulebook loaded without resetting the field', () => {
+            sessionState.current = SIGNED_IN;
+            render(<PayoutPlannerView />);
+            loadRulebook(rulebookWithRequest(75_000));
+            typeInto(REQUEST_ID, '820');
+            settle();
+
+            expect(inputById(container, REQUEST_ID).value).toBe('820');
+            expect(lastSweepRequest().personalOverrideRequest).toBe(820);
+        });
+
+        it('is not stuck on the fix-the-field notice when the request was emptied before the rulebook loaded', () => {
+            sessionState.current = SIGNED_IN;
+            render(<PayoutPlannerView />);
+            typeInto(REQUEST_ID, '');
+            loadRulebook(rulebookWithRequest(75_000));
+
+            expect(inputById(container, REQUEST_ID).value).toBe('750');
+            expect(sectionOf('Readiness').textContent).not.toContain(
+                FIX_FIELD_TEXT,
+            );
+            expect(sectionOf('Path to payout').textContent).not.toContain(
+                FIX_FIELD_TEXT,
+            );
+            expect(lastSweepRequest().personalOverrideRequest).toBe(750);
+        });
+
+        it('is not stuck on the fix-the-field notice when a refetch changes the rulebook request under an emptied field', () => {
+            sessionState.current = SIGNED_IN;
+            render(<PayoutPlannerView />);
+            loadRulebook(rulebookWithRequest(75_000));
+            typeInto(REQUEST_ID, '');
+            expect(sectionOf('Readiness').textContent).toContain(
+                FIX_FIELD_TEXT,
+            );
+            loadRulebook(rulebookWithRequest(80_000));
+
+            expect(inputById(container, REQUEST_ID).value).toBe('800');
+            expect(sectionOf('Readiness').textContent).not.toContain(
+                FIX_FIELD_TEXT,
+            );
+            expect(lastSweepRequest().personalOverrideRequest).toBe(800);
+        });
+
+        it('keeps the same request field, and so its focus, when the rulebook loads after the user typed a request', () => {
+            sessionState.current = SIGNED_IN;
+            render(<PayoutPlannerView />);
+            typeInto(REQUEST_ID, '640');
+            const field = inputById(container, REQUEST_ID);
+            loadRulebook(rulebookWithRequest(75_000));
+
+            expect(inputById(container, REQUEST_ID)).toBe(field);
+            expect(field.value).toBe('640');
+        });
+
+        it('keeps the same request field when a refetch changes the rulebook request after the user typed one', () => {
+            sessionState.current = SIGNED_IN;
+            render(<PayoutPlannerView />);
+            loadRulebook(rulebookWithRequest(75_000));
+            typeInto(REQUEST_ID, '820');
+            const field = inputById(container, REQUEST_ID);
+            loadRulebook(rulebookWithRequest(80_000));
+
+            expect(inputById(container, REQUEST_ID)).toBe(field);
+            expect(field.value).toBe('820');
+            expect(lastSweepRequest().personalOverrideRequest).toBe(820);
+        });
+    });
+
+    describe('a snapshot that cannot be rebuilt (PT-98, F-30)', () => {
+        it('shows the reason as a notice in the readiness and the path sections instead of crashing, and runs no outlook', () => {
+            const reason = 'an EOD trailing drawdown needs the highest balance';
+            vi.spyOn(AccountReconstruction, 'rebuild').mockImplementation(
+                () => {
+                    throw new AccountReconstructionError(
+                        ReconstructionErrorReason.EodPeakRequired,
+                        reason,
+                    );
+                },
+            );
+            searchState.query = READY_QUERY;
+
+            render(<PayoutPlannerView />);
+            settle();
+
+            expect(sectionOf('Readiness').textContent).toContain(reason);
+            expect(sectionOf('Path to payout').textContent).toContain(
+                'Fix the snapshot above to see the path to payout.',
+            );
+            expect(fakeWorker.outlookRequests).toHaveLength(0);
+        });
+    });
+
+    describe('assumptions and simulation basis', () => {
+        it('lists the optimistic assumptions the engine policy carries', () => {
+            render(<PayoutPlannerView />);
+
+            const text = container.textContent;
+            expect(text).toContain(
+                assumptionKindText(AssumptionKind.LiveTriggersNotChecked),
+            );
+            expect(text).toContain(
+                assumptionKindText(AssumptionKind.RebuyLagAssumed),
+            );
+        });
+
+        it('shows the funded strategy, the trials, the seed and the horizon behind the numbers', () => {
+            render(<PayoutPlannerView />);
+
+            const text = container.textContent;
+            expect(text).toContain('win rate 40.0%');
+            expect(text).toContain('reward-to-risk 2');
+            expect(text).toContain('2000 trials');
+            expect(text).toContain('seed 42');
+        });
+
+        it('flags a blank peak balance on a trailing-drawdown plan as assuming the balance is the peak', () => {
+            render(<PayoutPlannerView />);
+
+            expect(container.textContent).toContain(
+                'No peak balance was entered, so the current balance is assumed to be the peak',
+            );
+        });
+
+        it('does not flag the peak once it is entered', () => {
+            searchState.query = `${PayoutPlannerUrlParameter.Peak}=52000`;
+
+            render(<PayoutPlannerView />);
+
+            expect(container.textContent).not.toContain(
+                'No peak balance was entered',
+            );
+        });
+    });
+
+    describe('request debounce', () => {
+        it('starts one run per pause, not one per keystroke', () => {
+            render(<PayoutPlannerView />);
+            const sweepRuns = fakeWorker.sweepRequests.length;
+            const outlookRuns = fakeWorker.outlookRequests.length;
+
+            typeInto('payout-planner-balance', '50100');
+            typeInto('payout-planner-balance', '50200');
+            typeInto('payout-planner-balance', '50300');
+
+            expect(fakeWorker.outlookRequests).toHaveLength(outlookRuns);
+
+            settle();
+
+            expect(fakeWorker.outlookRequests).toHaveLength(outlookRuns + 1);
+            expect(lastOutlookRequest().balance).toBe(50_300);
+            expect(fakeWorker.sweepRequests).toHaveLength(sweepRuns);
+        });
+
+        it('shows a skeleton, not the previous result, while the new request waits', () => {
+            render(<PayoutPlannerView />);
+            finish('outlook', outlookResult());
+
+            typeInto('payout-planner-balance', '50100');
+
+            expect(
+                sectionOf('Path to payout').querySelector(SKELETON),
+            ).not.toBeNull();
+            expect(sectionOf('Path to payout').textContent).not.toContain(
+                '12.3 days',
+            );
+        });
+
+        it('does not show the failure of the previous request for the next one', () => {
+            render(<PayoutPlannerView />);
+            const instance = fakeWorker.latest.sweep;
+            if (instance === undefined) throw new Error('no sweep run');
+            act(() => {
+                instance.dispatch({
+                    kind: WorkerTaskEventKind.Failed,
+                    reason: 'The background worker failed.',
+                    runId: instance.runId,
+                });
+            });
+            expect(sectionOf('Payout-size sweep').textContent).toContain(
+                'The background worker failed.',
+            );
+
+            typeInto('payout-planner-request', '750');
+
+            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+                'The background worker failed.',
+            );
+            expect(
+                sectionOf('Payout-size sweep').querySelector(SKELETON),
+            ).not.toBeNull();
+        });
+    });
+
+    describe('shared computation cache', () => {
+        it('stores the sweep and the outlook results under their request keys', () => {
+            const cache = new ComputationCache();
+            render(withCache(cache));
+            const sweepKey = payoutSweepCacheKey(lastSweepRequest());
+            const outlookKey = payoutOutlookCacheKey(lastOutlookRequest());
+
+            finish('sweep', sweepResult());
+            finish('outlook', outlookResult());
+
+            expect(
+                initialFor(ComputationId.PayoutSweep, sweepKey, cache)
+                    .shouldCompute,
+            ).toBe(false);
+            expect(
+                initialFor(ComputationId.PayoutOutlook, outlookKey, cache)
+                    .shouldCompute,
+            ).toBe(false);
+        });
+
+        it('shows both results after navigating away and back without running the workers again', () => {
+            searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
+            const cache = new ComputationCache();
+            render(withCache(cache));
+            finish('sweep', sweepResultWithOverride());
+            finish('outlook', outlookResult());
+            act(() => {
+                root.unmount();
+            });
+            root = createRoot(container);
+            const sweepRuns = fakeWorker.sweepRequests.length;
+            const outlookRuns = fakeWorker.outlookRequests.length;
+
+            render(withCache(cache));
+            settle();
+
+            expect(fakeWorker.sweepRequests).toHaveLength(sweepRuns);
+            expect(fakeWorker.outlookRequests).toHaveLength(outlookRuns);
+            expect(sectionOf('Payout-size sweep').textContent).toContain(
+                'Your entered size: $6,000',
+            );
+            expect(sectionOf('Path to payout').textContent).toContain(
+                '12.3 days',
+            );
+            expect(container.querySelector(SKELETON)).toBeNull();
+        });
+
+        it('does not show a cached result under a different request', () => {
+            searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
+            const cache = new ComputationCache();
+            render(withCache(cache));
+            finish('sweep', sweepResultWithOverride());
+            finish('outlook', outlookResult());
+            const sweepRuns = fakeWorker.sweepRequests.length;
+
+            typeInto('payout-planner-request', '750');
+            settle();
+
+            expect(fakeWorker.sweepRequests).toHaveLength(sweepRuns + 1);
+            expect(lastSweepRequest().personalOverrideRequest).toBe(750);
+            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+                'Your entered size',
+            );
+            expect(
+                sectionOf('Payout-size sweep').querySelector(SKELETON),
+            ).not.toBeNull();
+        });
+
+        it('caches a finished result only under the key of the run that produced it', () => {
+            const cache = new ComputationCache();
+            render(withCache(cache));
+            const firstKey = payoutSweepCacheKey(lastSweepRequest());
+            typeInto('payout-planner-request', '750');
+            settle();
+            const secondKey = payoutSweepCacheKey(lastSweepRequest());
+            expect(secondKey).not.toBe(firstKey);
+
+            finish('sweep', sweepResult());
+
+            expect(
+                initialFor(ComputationId.PayoutSweep, firstKey, cache)
+                    .shouldCompute,
+            ).toBe(true);
+            expect(
+                initialFor(ComputationId.PayoutSweep, secondKey, cache)
+                    .shouldCompute,
+            ).toBe(false);
+        });
+
+        it('keeps a private cache when no provider is mounted, so a rerender does not rerun the workers', () => {
+            searchState.query = `${PayoutPlannerUrlParameter.Balance}=51000`;
+            render(<PayoutPlannerView />);
+            finish('sweep', sweepResult());
+            finish('outlook', outlookResult());
+            const sweepRuns = fakeWorker.sweepRequests.length;
+            const outlookRuns = fakeWorker.outlookRequests.length;
+
+            render(<PayoutPlannerView />);
+            settle();
+
+            expect(fakeWorker.sweepRequests).toHaveLength(sweepRuns);
+            expect(fakeWorker.outlookRequests).toHaveLength(outlookRuns);
+        });
+
+        it('reruns both workers and drops the old results when the personal rulebook changes only its strategy', () => {
+            sessionState.current = SIGNED_IN;
+            rulebookQueryState.current = {
+                data: DEFAULT_RULEBOOK,
+                isError: false,
+            };
+            const cache = new ComputationCache();
+            render(withCache(cache));
+            settle();
+            finish('sweep', sweepResult());
+            finish('outlook', outlookResult());
+            expect(sectionOf('Path to payout').textContent).toContain(
+                '12.3 days',
+            );
+            const sweepRuns = fakeWorker.sweepRequests.length;
+            const outlookRuns = fakeWorker.outlookRequests.length;
+
+            rulebookQueryState.current = {
+                data: {
+                    ...DEFAULT_RULEBOOK,
+                    strategy: { ...DEFAULT_RULEBOOK.strategy, winrate: 0.55 },
+                },
+                isError: false,
+            };
+            render(withCache(cache));
+            settle();
+
+            expect(fakeWorker.sweepRequests).toHaveLength(sweepRuns + 1);
+            expect(fakeWorker.outlookRequests).toHaveLength(outlookRuns + 1);
+            expect(lastSweepRequest().spec.rulebook.strategy.winrate).toBe(
+                0.55,
+            );
+            expect(sectionOf('Path to payout').textContent).not.toContain(
+                '12.3 days',
+            );
+            expect(
+                sectionOf('Payout-size sweep').querySelector(SKELETON),
+            ).not.toBeNull();
+        });
+
+        it('reruns the workers when the personal rulebook changes only its funded risk', () => {
+            sessionState.current = SIGNED_IN;
+            rulebookQueryState.current = {
+                data: DEFAULT_RULEBOOK,
+                isError: false,
+            };
+            const cache = new ComputationCache();
+            render(withCache(cache));
+            settle();
+            finish('sweep', sweepResult());
+            finish('outlook', outlookResult());
+            const sweepRuns = fakeWorker.sweepRequests.length;
+
+            rulebookQueryState.current = {
+                data: {
+                    ...DEFAULT_RULEBOOK,
+                    funded: { ...DEFAULT_RULEBOOK.funded, riskCents: 40_000 },
+                },
+                isError: false,
+            };
+            render(withCache(cache));
+            settle();
+
+            expect(fakeWorker.sweepRequests).toHaveLength(sweepRuns + 1);
+            expect(lastSweepRequest().spec.rulebook.funded.riskCents).toBe(
+                40_000,
+            );
+        });
+    });
+
+    describe('payout ceiling to stay simulated (PT-73, F-V26)', () => {
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        it('says nothing about a ceiling while the firm has no verified trigger', () => {
+            searchState.query = READY_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            expect(sectionOf('Readiness').textContent).not.toContain(
+                'simulations send an account live',
+            );
+        });
+
+        it('names the verified cumulative payout trigger in the readiness, with its source', () => {
+            stubVerifiedTrigger();
+            searchState.query = READY_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness').textContent;
+            expect(readiness).toContain('simulations send an account live');
+            expect(readiness).toContain('$20,000');
+            expect(readiness).toContain('https://example.invalid/rule');
+        });
+
+        it('names it on a blocked readiness too', () => {
+            stubVerifiedTrigger();
+
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness').textContent;
+            expect(readiness).toContain('wait: 5 qualifying days');
+            expect(readiness).toContain('simulations send an account live');
+        });
+    });
+
+    describe('every figure priced with the rulebook live-transfer hazard says so (PT-73d)', () => {
+        it('names the hazard under the payout-size sweep when the sweep priced one', () => {
+            render(<PayoutPlannerView />);
+
+            finish('sweep', sweepResult({ liveTransfer: hazardAssumption() }));
+
+            const text = sectionOf('Payout-size sweep').textContent;
+            expect(text).toContain(assumptionText(hazardAssumption()));
+            expect(text).toContain('30.0% per paid payout');
+            expect(text).toContain('your assumption, not a firm rule');
+        });
+
+        it('says nothing about a transfer under a sweep that priced no hazard', () => {
+            render(<PayoutPlannerView />);
+
+            finish('sweep', sweepResult());
+
+            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+                'Live transfer',
+            );
+        });
+
+        it('names the hazard beside the request-now versus continue comparison', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+            const comparison = stakeComparison(1500, 1450, 80);
+
+            finish(
+                'outlook',
+                outlookResult({
+                    ...comparison,
+                    continueNow: {
+                        ...comparison.continueNow,
+                        liveTransfer: hazardAssumption(),
+                    },
+                }),
+            );
+
+            const text = sectionOf('Path to payout').textContent;
+            const continueLines = liveTransferAssumptionLines({
+                ...hazardAssumption(),
+                sentLiveShare: null,
+            });
+            for (const line of continueLines) {
+                expect(text).toContain(line);
+            }
+            expect(text).toContain(
+                `Continuing: ${liveTransferSentLiveText(0.41)}`,
+            );
+        });
+
+        it('labels the displayed share as the continue-now run and says the request-now figure prices its own transfer chance with its own share sent live', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+            const comparison = stakeComparison(1500, 1450, 80);
+
+            finish(
+                'outlook',
+                outlookResult({
+                    ...comparison,
+                    continueNow: {
+                        ...comparison.continueNow,
+                        liveTransfer: hazardAssumption(),
+                    },
+                    requestNow: {
+                        ...comparison.requestNow,
+                        liveTransfer: {
+                            ...hazardAssumption(),
+                            sentLiveShare: 0.58,
+                        },
+                    },
+                }),
+            );
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain(
+                `Continuing: ${liveTransferSentLiveText(0.41)}`,
+            );
+            expect(text).toContain(
+                "The request-now figure prices the requested payout's own transfer chance at this hazard.",
+            );
+            expect(text).toContain(
+                `Request now: ${liveTransferSentLiveText(0.58)}`,
+            );
+            expect(text).not.toContain('one transfer chance fewer');
+        });
+
+        it('prints the request-now live-trial cap line the continue run does not carry, as the advice banner does (PT-63e)', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+            const comparison = stakeComparison(1500, 1450, 80);
+            const capLine =
+                'Request now: a live trial caps the payouts that can be requested before the account must go live.';
+            const priced = {
+                ...comparison,
+                continueNow: {
+                    ...comparison.continueNow,
+                    liveTransfer: hazardAssumption(),
+                },
+                requestNow: {
+                    ...comparison.requestNow,
+                    liveTransfer: {
+                        ...hazardAssumption(),
+                        notes: [...hazardAssumption().notes, capLine],
+                        sentLiveShare: 0.58,
+                    },
+                },
+            };
+
+            finish('outlook', outlookResult(priced));
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain(capLine);
+            expect(occurrences(text, capLine)).toBe(1);
+            const bannerNotes = payoutStakeViewOf(priced).liveTransferNotes;
+            for (const note of bannerNotes) {
+                expect(text).toContain(note);
+            }
+        });
+
+        it('prints no cap line when the request-now run adds no note of its own', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+            const comparison = stakeComparison(1500, 1450, 80);
+
+            finish(
+                'outlook',
+                outlookResult({
+                    ...comparison,
+                    continueNow: {
+                        ...comparison.continueNow,
+                        liveTransfer: hazardAssumption(),
+                    },
+                    requestNow: {
+                        ...comparison.requestNow,
+                        liveTransfer: hazardAssumption(),
+                    },
+                }),
+            );
+
+            expect(sectionOf('Path to payout').textContent).not.toContain(
+                'a live trial caps',
+            );
+        });
+
+        it('adds neither the continue-share label nor the request-now note when no hazard was priced', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+
+            finish('outlook', outlookResult(stakeComparison(1500, 1450, 80)));
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).not.toContain('continue run');
+            expect(text).not.toContain('transfer chance');
+        });
+
+        it('gives each sweep size its own share sent live and says the engine optimum is chosen at the hazard', () => {
+            render(<PayoutPlannerView />);
+
+            finish('sweep', sweepResult({ liveTransfer: hazardAssumption() }));
+
+            const section = sectionOf('Payout-size sweep');
+            const headers = [...section.querySelectorAll('th')].map(
+                (header) => header.textContent,
+            );
+            expect(headers).toContain('Sent live');
+            const bodyRow = section.querySelector(':scope tbody tr');
+            expect(bodyRow?.querySelectorAll(':scope > td')).toHaveLength(
+                headers.length,
+            );
+            expect(section.textContent).toContain(
+                "The engine optimum row is chosen at this hazard: a smaller request size means more paid payouts and so more transfer chances. The share of runs sent live above is the engine optimum row's.",
+            );
+        });
+
+        it('shows no sent-live column and no ranking note under a sweep that priced no hazard', () => {
+            render(<PayoutPlannerView />);
+
+            finish('sweep', sweepResult());
+
+            const section = sectionOf('Payout-size sweep');
+            expect(
+                [...section.querySelectorAll('th')].map(
+                    (header) => header.textContent,
+                ),
+            ).not.toContain('Sent live');
+            expect(section.textContent).not.toContain('chosen at this hazard');
+        });
+
+        it('names the sweep table and scopes its column headers', () => {
+            render(<PayoutPlannerView />);
+
+            finish('sweep', sweepResult());
+
+            const table = sectionOf('Payout-size sweep').querySelector('table');
+            expect(table?.querySelector('caption')?.textContent).toBe(
+                'Payout-size sweep: simulated request sizes with their monthly net and bust probability',
+            );
+            const headers = [...(table?.querySelectorAll('th') ?? [])];
+            expect(headers.length).toBeGreaterThan(0);
+            for (const header of headers) {
+                expect(header.getAttribute('scope')).toBe('col');
+            }
+        });
+
+        it('says nothing about a transfer beside a comparison that priced no hazard', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+
+            finish('outlook', outlookResult(stakeComparison(1500, 1450, 80)));
+
+            expect(sectionOf('Path to payout').textContent).not.toContain(
+                'Live transfer',
+            );
+        });
+    });
+
+    describe('every figure that prices a confirmed cumulative trigger says so (PT-36r, F-145)', () => {
+        it('names the trigger under the payout-size sweep when the sweep priced one', () => {
+            render(<PayoutPlannerView />);
+
+            finish(
+                'sweep',
+                sweepResult({ cumulativePayoutTrigger: PRICED_TRIGGER }),
+            );
+
+            expect(sectionOf('Payout-size sweep').textContent).toContain(
+                assumptionText(PRICED_TRIGGER),
+            );
+        });
+
+        it('gives each sweep size its own share sent live and says the engine optimum is chosen with the trigger in force', () => {
+            render(<PayoutPlannerView />);
+
+            finish(
+                'sweep',
+                sweepResult({ cumulativePayoutTrigger: PRICED_TRIGGER }),
+            );
+
+            const section = sectionOf('Payout-size sweep');
+            const headers = [...section.querySelectorAll('th')].map(
+                (header) => header.textContent,
+            );
+            expect(headers).toContain('Sent live');
+            const bodyRow = section.querySelector(':scope tbody tr');
+            expect(bodyRow?.querySelectorAll(':scope > td')).toHaveLength(
+                headers.length,
+            );
+            expect(section.textContent).toContain(
+                "The engine optimum row is chosen with this trigger in force: the request size changes how fast payouts add up to the cumulative amount, so each size sends a different share of runs live. The sent-live column shows each size's share.",
+            );
+        });
+
+        it('shows no sent-live column and no trigger ranking note under a sweep that priced none', () => {
+            render(<PayoutPlannerView />);
+
+            finish('sweep', sweepResult());
+
+            const section = sectionOf('Payout-size sweep');
+            expect(
+                [...section.querySelectorAll('th')].map(
+                    (header) => header.textContent,
+                ),
+            ).not.toContain('Sent live');
+            expect(section.textContent).not.toContain('trigger in force');
+        });
+
+        it('says nothing about a trigger under a sweep that priced none', () => {
+            render(<PayoutPlannerView />);
+
+            finish('sweep', sweepResult());
+
+            expect(sectionOf('Payout-size sweep').textContent).not.toContain(
+                'confirmed trigger',
+            );
+        });
+
+        it('names the trigger and the uncounted past payouts beside the projection of a not-yet-eligible account', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+
+            finish('outlook', {
+                ...outlookResult(),
+                cumulativePayoutTrigger: PRICED_TRIGGER,
+                pastPayoutsNote: PAST_PAYOUTS_NOT_COUNTED_TEXT,
+            });
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(text).toContain(assumptionText(PRICED_TRIGGER));
+            expect(text).toContain(PAST_PAYOUTS_NOT_COUNTED_TEXT);
+        });
+
+        it('prints the trigger once when the stake comparison priced it too', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+            const comparison = stakeComparison(1500, 1450, 80);
+
+            finish('outlook', {
+                ...outlookResult({
+                    ...comparison,
+                    continueNow: {
+                        ...comparison.continueNow,
+                        cumulativePayoutTrigger: PRICED_TRIGGER,
+                    },
+                }),
+                cumulativePayoutTrigger: PRICED_TRIGGER,
+                pastPayoutsNote: PAST_PAYOUTS_NOT_COUNTED_TEXT,
+            });
+
+            const text = sectionOf('Path to payout').textContent;
+            expect(occurrences(text, assumptionText(PRICED_TRIGGER))).toBe(1);
+        });
+
+        it('says nothing about a trigger beside an outlook that priced none', () => {
+            searchState.query = READY_QUERY;
+            render(<PayoutPlannerView />);
+
+            finish('outlook', outlookResult(stakeComparison(1500, 1450, 80)));
+
+            expect(sectionOf('Path to payout').textContent).not.toContain(
+                'confirmed trigger',
+            );
+        });
+    });
+
+    describe('the live triggers note reaches the readiness (PT-36g leftover)', () => {
+        afterEach(() => {
+            vi.restoreAllMocks();
+        });
+
+        it('renders the note on a ready result', () => {
+            searchState.query = READY_QUERY;
+
+            render(<PayoutPlannerView />);
+
+            expect(sectionOf('Readiness').textContent).toContain(
+                PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT,
+            );
+        });
+
+        it('renders the note on a blocked result', () => {
+            render(<PayoutPlannerView />);
+
+            const readiness = sectionOf('Readiness').textContent;
+            expect(readiness).toContain('wait: 5 qualifying days');
+            expect(readiness).toContain(PLANNER_LIVE_TRIGGERS_NOT_CHECKED_TEXT);
+        });
+    });
+
+    describe('the outside-the-safe-band paragraph prints the one warning text (PT-19i LOW b)', () => {
+        it('prints personalPayoutOverrideWarningText with both request sizes and the credit-inclusive monthly net', () => {
+            searchState.query = `${PayoutPlannerUrlParameter.RequestSize}=6000`;
+            render(<PayoutPlannerView />);
+            const warning = {
+                horizonDays: 252,
+                optimumBustProbability: 0.2,
+                optimumMonthlyNet: 400,
+                optimumRequestSize: 1000,
+                overrideBustProbability: 0.6,
+                overrideMonthlyNet: 300,
+                overrideRequestSize: 6000,
+                retainedCushion: 2000,
+                retainedCushionBasis: RetainedCushionBasis.RulebookSize,
+                startBasis: StartBasis.Fresh,
+            };
+
+            finish('sweep', sweepResultWithOverride(0.6, warning));
+
+            const text = sectionOf('Payout-size sweep').textContent;
+            expect(text).toContain(personalPayoutOverrideWarningText(warning));
+            expect(text).toContain('credit-inclusive monthly net');
+        });
+    });
+});

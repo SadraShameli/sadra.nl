@@ -1,7 +1,7 @@
 'use client';
 
-import { Card } from '~/components/ui/Card';
-import InfoPopover from '~/components/ui/InfoPopover';
+import { Card } from '~/components/ui/card';
+import InfoPopover from '~/components/ui/info-popover';
 import { type SimOutputs } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
@@ -59,8 +59,8 @@ export default function ChartPanel({
     totalTrials,
 }: ChartPanelProperties) {
     return (
-        <Card className={cn('app-prop-calculator__chart-panel', 'px-6 py-6')}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <Card className={cn('app-prop-calculator__chart-panel', 'p-6')}>
+            <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
                         {TITLES[chartType]}
@@ -69,7 +69,7 @@ export default function ChartPanel({
                         {DESCRIPTIONS[chartType]}
                     </InfoPopover>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
                     <span className="text-xs text-muted-foreground">
                         {SUBTITLES[chartType](result)}
                     </span>

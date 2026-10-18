@@ -1,6 +1,7 @@
+import type { Route } from 'next';
 import type { StaticImageData } from 'next/image';
 
-import type { GalleryItem } from '~/app/(app)/_components/GallerySection';
+import { type UrlObject } from 'node:url';
 
 import BSPImage from '~/assets/images/bsp.jpeg';
 import DiplomaImage from '~/assets/images/diploma.jpg';
@@ -11,48 +12,159 @@ import SpainPoolImage from '~/assets/images/gallery/spain-pool.jpg';
 import MinomarktImage from '~/assets/images/minomarkt.jpeg';
 import NobearsImage from '~/assets/images/nobears.jpg';
 import ProjectAIImage from '~/assets/images/projectai.jpg';
-import SadraImage from '~/assets/images/sadra.jpg';
 import SensorHubImage from '~/assets/images/units.jpg';
+
+import { routes } from './routes';
+
+export enum HeroMode {
+    Developer = 'developer',
+    Trader = 'trader',
+}
+
+export enum PortfolioSectionId {
+    Education = 'education',
+    Experience = 'experience',
+    Projects = 'projects',
+}
+
+export enum SensorMetric {
+    Humidity = 'humidity',
+    Loudness = 'loudness',
+    Temperature = 'temperature',
+}
+
+export enum ToolTicker {
+    Checklist = '$CHKL',
+    Lifting = '$LIFT',
+    Portfolio = '$PORT',
+    PropCalculator = '$PROP',
+}
+
+export interface CaptionedPhoto {
+    readonly alt: string;
+    readonly caption: string;
+    readonly image: StaticImageData;
+    readonly tag: string;
+}
+
+export interface EmphasisHeading {
+    readonly after?: string;
+    readonly before?: string;
+    readonly emphasis: string;
+    readonly stacked?: boolean;
+}
+
+export type ExternalUrl = `https://${string}`;
+
+export interface HeroModeCopy {
+    readonly punctuation: string;
+    readonly word: string;
+}
+
+export interface LoopingVideo {
+    readonly poster: string;
+    readonly src: string;
+}
+
+export interface PortfolioSection {
+    readonly entries: readonly PortfolioSectionView[];
+    readonly eyebrow: string;
+    readonly heading: EmphasisHeading;
+    readonly id: PortfolioSectionId;
+    readonly number: string;
+}
 
 export type PortfolioSectionView = {
     date: string;
     highlights?: string[];
     imageUrl?: string;
-    location?: { title: string; url?: null | string };
+    location?: { title: string; url?: ExternalUrl | null };
     role?: null | string;
     skills?: string[];
     summary?: null | string;
     title: string;
-    url?: null | string;
+    url?: ExternalUrl | null;
 };
 
+export interface SensorMetricCopy {
+    readonly label: string;
+    readonly metric: SensorMetric;
+    readonly unit: string;
+}
+
+export interface SiteTool {
+    readonly description: string;
+    readonly href: Route;
+    readonly shortTitle: string;
+    readonly sparkline: string;
+    readonly ticker: ToolTicker;
+    readonly title: string;
+}
+
 type HomepageData = {
-    aboutSectionTitle: string;
-    ctaLabel: string;
-    gallery: GalleryItem[];
-    heroImage: StaticImageData;
-    heroSubtitle: string;
-    heroTitle: string;
-    readingsDescription: string;
-    readingsTitle: string;
-    recordingDecorVideo: string;
-    recordingsDescription: string;
-    recordingsTitle: string;
-    sensorHubDescription: string;
-    sensorHubTitle: string;
-    sensorHubVideo: string;
+    readonly about: {
+        readonly gallery: readonly CaptionedPhoto[];
+        readonly heading: EmphasisHeading;
+        readonly spotifyEmbedUrl: ExternalUrl;
+        readonly spotifyLabel: string;
+    };
+    readonly closing: {
+        readonly body: string;
+        readonly contactLabel: string;
+        readonly directMessageLabel: string;
+        readonly eyebrow: string;
+        readonly heading: EmphasisHeading;
+        readonly madeBy: string;
+        readonly marquee: readonly string[];
+    };
+    readonly hero: {
+        readonly garage: {
+            readonly alt: string;
+            readonly caption: string;
+            readonly tag: string;
+        };
+        readonly modes: Readonly<Record<HeroMode, HeroModeCopy>>;
+        readonly payout: {
+            readonly date: string;
+            readonly firm: string;
+        };
+        readonly profitAndLoss: {
+            readonly label: string;
+        };
+    };
+    readonly live: {
+        readonly body: string;
+        readonly heading: EmphasisHeading;
+    };
+    readonly recordings: {
+        readonly body: string;
+        readonly decorChip: string;
+        readonly decorVideo: LoopingVideo;
+        readonly heading: EmphasisHeading;
+    };
+    readonly sensorHub: {
+        readonly body: string;
+        readonly heading: EmphasisHeading;
+        readonly linkLabel: string;
+        readonly metrics: readonly SensorMetricCopy[];
+        readonly video: LoopingVideo;
+        readonly videoChip: string;
+    };
+    readonly tools: {
+        readonly body: string;
+        readonly heading: EmphasisHeading;
+    };
 };
 
 type PortfolioData = {
     education: PortfolioSectionView[];
-    educationSectionTitle: string;
     experience: PortfolioSectionView[];
-    experienceSectionTitle: string;
+    heroHeading: EmphasisHeading;
     heroHeadline: string;
     metaDescription: string;
     metaTitle: string;
     projects: PortfolioSectionView[];
-    projectsSectionTitle: string;
+    sections: readonly PortfolioSection[];
 };
 
 type SiteData = {
@@ -60,9 +172,12 @@ type SiteData = {
     manifest: SiteManifest;
     metaDescription: string;
     metaTitle: string;
-    navBrand: string;
     profiles: SocialProfile[];
-    socialLinks: { platform: string; url: string }[];
+    socialLinks: {
+        platform: string;
+        title: string;
+        url: ExternalUrl;
+    }[];
 };
 
 type SiteManifest = {
@@ -74,8 +189,12 @@ type SiteManifest = {
 type SocialProfile = {
     platform: string;
     title: string;
-    url: string;
+    url: ExternalUrl;
 };
+
+export function portfolioSectionHref(id: PortfolioSectionId): UrlObject {
+    return { hash: id, pathname: routes.portfolio };
+}
 
 export const siteContent: SiteData = {
     email: 'sadra.shameli1@gmail.com',
@@ -86,7 +205,6 @@ export const siteContent: SiteData = {
     },
     metaDescription: 'Daytrader, developer',
     metaTitle: 'Sadra Shameli',
-    navBrand: 'sadra',
     profiles: [
         {
             platform: 'youtube',
@@ -110,100 +228,169 @@ export const siteContent: SiteData = {
         },
     ],
     socialLinks: [
-        { platform: 'instagram', url: 'https://instagram.com/sadra_shml' },
-        { platform: 'youtube', url: 'https://youtube.com/@sadrashameli' },
+        {
+            platform: 'instagram',
+            title: 'Instagram',
+            url: 'https://instagram.com/sadra_shml',
+        },
+        {
+            platform: 'youtube',
+            title: 'YouTube',
+            url: 'https://youtube.com/@sadrashameli',
+        },
     ],
 };
+
+export function siteToolTitle(ticker: ToolTicker): string {
+    const tool = siteTools.find((entry) => entry.ticker === ticker);
+    if (tool === undefined) {
+        throw new Error(`No site tool is registered for ${ticker}`);
+    }
+    return tool.title;
+}
+
+export const siteTools: readonly SiteTool[] = [
+    {
+        description: 'Run the numbers on a challenge before you pay for it.',
+        href: routes.propCalculator.index,
+        shortTitle: 'Prop calculator',
+        sparkline: '0,38 20,34 40,36 60,26 80,30 100,18 120,22 140,12 160,8',
+        ticker: ToolTicker.PropCalculator,
+        title: 'Prop firm calculator',
+    },
+    {
+        description:
+            'Every rule ticked off before an entry. No checklist, no trade.',
+        href: routes.tradeChecklist.index,
+        shortTitle: 'Trade checklist',
+        sparkline: '0,30 20,28 40,30 60,24 80,24 100,20 120,18 140,16 160,14',
+        ticker: ToolTicker.Checklist,
+        title: 'Trade checklist',
+    },
+    {
+        description:
+            'Sets, reps and progress from the gym, logged in one place.',
+        href: routes.lifting.index,
+        shortTitle: 'Lifting tracker',
+        sparkline: '0,42 20,40 40,36 60,36 80,28 100,26 120,18 140,16 160,6',
+        ticker: ToolTicker.Lifting,
+        title: 'Lifting tracker',
+    },
+    {
+        description: 'My trading portfolio, laid out in the open.',
+        href: routes.portfolio,
+        shortTitle: 'Portfolio',
+        sparkline: '0,20 20,30 40,24 60,34 80,22 100,26 120,14 140,20 160,10',
+        ticker: ToolTicker.Portfolio,
+        title: 'Portfolio',
+    },
+];
 
 export const homepageContent: HomepageData = {
-    aboutSectionTitle: 'More about me',
-    ctaLabel: 'Portfolio',
-    gallery: [
-        { alt: 'Spain Pool', src: SpainPoolImage.src },
-        { alt: 'Spain Church', src: SpainChurchImage.src },
-        { alt: 'Porsche', src: PorscheImage.src },
-        { alt: 'PC Setup', src: SetupImage.src },
-    ] as GalleryItem[],
-    heroImage: SadraImage,
-    heroSubtitle: 'Daytrader, developer',
-    heroTitle: 'Sadra Shameli',
-    readingsDescription:
-        'Ever been curious about the temperature, humidity and loudness levels at various locations in real time?',
-    readingsTitle: 'Live readings',
-    recordingDecorVideo: '/headphone.mp4',
-    recordingsDescription:
-        'Here you will find a list of noise recordings made by the Sensor Hub devices, which are placed at various locations in the Netherlands.',
-    recordingsTitle: 'Noise recordings',
-    sensorHubDescription:
-        'Devices made by me, designed to record and register various climate telemetry and noise pollution data.',
-    sensorHubTitle: 'This is Sensor Hub',
-    sensorHubVideo: '/sensorUnit.mp4',
+    about: {
+        gallery: [
+            {
+                alt: 'A pool in Spain',
+                caption: 'The pool',
+                image: SpainPoolImage,
+                tag: 'Spain',
+            },
+            {
+                alt: 'A church in Spain',
+                caption: 'The church',
+                image: SpainChurchImage,
+                tag: 'Spain',
+            },
+            {
+                alt: 'The Porsche in the garage',
+                caption: 'The Porsche',
+                image: PorscheImage,
+                tag: 'Garage',
+            },
+            {
+                alt: 'The desk setup with trading screens',
+                caption: 'The setup',
+                image: SetupImage,
+                tag: 'Desk',
+            },
+        ],
+        heading: { before: 'More', emphasis: 'about me.' },
+        spotifyEmbedUrl:
+            'https://open.spotify.com/embed/track/74Jja0PIrdXE0aK0a6hxPN?utm_source=generator&theme=0',
+        spotifyLabel: 'On repeat',
+    },
+    closing: {
+        body: 'Markets keep hours. I don’t. A question about a tool, a spot for a Sensor Hub, or just something to say.',
+        contactLabel: 'Get in touch',
+        directMessageLabel: 'Send a DM',
+        eyebrow: 'After the bell',
+        heading: { before: 'Let’s', emphasis: 'talk.', stacked: true },
+        madeBy: 'Designed and built by me in the Netherlands',
+        marquee: ['Daytrader', 'Developer'],
+    },
+    hero: {
+        garage: {
+            alt: 'A line drawing of a modern hypercar under a spotlight',
+            caption: 'The garage',
+            tag: 'No. 01',
+        },
+        modes: {
+            [HeroMode.Developer]: {
+                punctuation: '.',
+                word: 'developer',
+            },
+            [HeroMode.Trader]: {
+                punctuation: ',',
+                word: 'Daytrader',
+            },
+        },
+        payout: {
+            date: '[ Date ]',
+            firm: '[ Prop firm ]',
+        },
+        profitAndLoss: {
+            label: 'Today’s P&L',
+        },
+    },
+    live: {
+        body: 'Ever been curious about the temperature, humidity and loudness at different spots in real time?',
+        heading: { before: 'Live', emphasis: 'readings' },
+    },
+    recordings: {
+        body: 'Recorded by Sensor Hub devices placed at locations across the Netherlands. Put your headphones on.',
+        decorChip: 'Headphones on',
+        decorVideo: {
+            poster: '/headphone-poster.jpg',
+            src: '/headphone.mp4',
+        },
+        heading: { before: 'Noise', emphasis: 'recordings.', stacked: true },
+    },
+    sensorHub: {
+        body: 'Devices made by me, designed to record and register climate telemetry and noise pollution data.',
+        heading: { before: 'This is', emphasis: 'Sensor Hub.', stacked: true },
+        linkLabel: 'See the live readings',
+        metrics: [
+            {
+                label: 'Temperature',
+                metric: SensorMetric.Temperature,
+                unit: '°C',
+            },
+            { label: 'Humidity', metric: SensorMetric.Humidity, unit: '%RH' },
+            { label: 'Loudness', metric: SensorMetric.Loudness, unit: 'dB' },
+        ],
+        video: {
+            poster: '/sensorUnit-poster.png',
+            src: '/sensorUnit.mp4',
+        },
+        videoChip: 'Unit 01 · Handmade',
+    },
+    tools: {
+        body: 'Tools I built because I needed them: for the trading day, the gym and the portfolio.',
+        heading: { before: 'The', emphasis: 'toolkit' },
+    },
 };
 
-export type CoverLetter = {
-    body: string;
-    key: string;
-    label: string;
-};
-
-export type ResumeVariant = {
-    experience: PortfolioSectionView[];
-    key: ResumeVariantKey;
-    label: string;
-    projects: PortfolioSectionView[];
-    role: string;
-    summary: string;
-};
-
-export type { ResumeLanguage };
-
-export type ResumeVariantKey = 'fullstack' | 'quant';
-
-type ResumeBasicsData = {
-    birth: string;
-    hobbies: string[];
-    languages: ResumeLanguage[];
-    links: { title: string; url: string }[];
-    location: string;
-    phone: string;
-};
-
-type ResumeLanguage = {
-    fluency: string;
-    title: string;
-};
-
-const tradingYears = Math.floor(
-    (Date.now() - new Date('2023-03-01').getTime()) /
-        (1000 * 60 * 60 * 24 * 365.25),
-);
-
-export const resumeContent: ResumeBasicsData = {
-    birth: 'Dec 2003',
-    hobbies: [
-        'Robotics',
-        'Photography',
-        'Guitar',
-        'Cars',
-        'Trading',
-        'Programming',
-    ],
-    languages: [
-        { fluency: 'Professional Proficiency', title: 'English' },
-        { fluency: 'Professional Proficiency', title: 'Dutch' },
-        { fluency: 'Native speaker', title: 'Persian' },
-    ],
-    links: [
-        { title: 'sadra.nl', url: 'https://sadra.nl' },
-        { title: 'Github', url: 'https://github.com/sadrashameli' },
-        { title: 'Youtube', url: 'https://youtube.com/@sadrashameli' },
-        { title: 'Linkedin', url: 'https://linkedin.com/in/sadrashameli' },
-    ],
-    location: 'Rijswijk, The Netherlands',
-    phone: '+31 685156033',
-};
-
-const experienceNobears: PortfolioSectionView = {
+export const experienceNobears: PortfolioSectionView = {
     date: 'Jun 2024 - Present',
     highlights: [
         'Designed reusable component library and faster development processes and tools, saving roughly 1-2 days of work on every new project',
@@ -230,7 +417,7 @@ const experienceNobears: PortfolioSectionView = {
     url: 'https://www.nobears.com',
 };
 
-const experienceBSP: PortfolioSectionView = {
+export const experienceBSP: PortfolioSectionView = {
     date: 'Dec 2021 - Jun 2023 · 1 yr 6 mo',
     highlights: [
         'Set up the Azure DevOps CI/CD pipeline the team continues to ship with',
@@ -248,7 +435,7 @@ const experienceBSP: PortfolioSectionView = {
     url: 'https://bluestarplanning.com',
 };
 
-const projectTradingBot: PortfolioSectionView = {
+export const projectTradingBot: PortfolioSectionView = {
     date: 'Sep 2025 - Present',
     highlights: [
         'Running 4 uncorrelated strategies across multiple tickers and timeframes to maximize time and asset diversification for increased ROI and Sharpe',
@@ -276,7 +463,7 @@ const projectTradingBot: PortfolioSectionView = {
     url: 'https://github.com/SadraShameli/TradingBot',
 };
 
-const projectSadraNl: PortfolioSectionView = {
+export const projectSadraNl: PortfolioSectionView = {
     date: 'Mar 2024 - Present',
     highlights: [
         'Trading toolkit covering prop-firm sizing, pre-trade checklists, and a trading journal',
@@ -302,7 +489,7 @@ const projectSadraNl: PortfolioSectionView = {
     url: 'https://sadra.nl',
 };
 
-const projectMinoMarkt: PortfolioSectionView = {
+export const projectMinoMarkt: PortfolioSectionView = {
     date: 'Nov 2024 - Present',
     highlights: [
         'Custom WooCommerce storefront covering online ordering and in-store pickup',
@@ -333,7 +520,7 @@ const projectMinoMarkt: PortfolioSectionView = {
     url: 'https://minomarkt.nl',
 };
 
-const projectSensorHub: PortfolioSectionView = {
+export const projectSensorHub: PortfolioSectionView = {
     date: 'Feb 2024 - Present',
     highlights: [
         '3 devices currently streaming temperature, humidity, air pressure and loudness data to sadra.nl across the Netherlands',
@@ -351,7 +538,7 @@ const projectSensorHub: PortfolioSectionView = {
     url: 'https://github.com/SadraShameli/SensorHub',
 };
 
-const projectProjectAI: PortfolioSectionView = {
+export const projectProjectAI: PortfolioSectionView = {
     date: 'Sep 2022 - Dec 2022',
     highlights: [
         'Autonomous driving via TensorFlow on-device inference, navigating a course and avoiding obstacles with no cloud dependency',
@@ -369,114 +556,62 @@ const projectProjectAI: PortfolioSectionView = {
     url: 'https://github.com/SadraShameli/ProjectAI',
 };
 
-export const resumeVariants: Record<ResumeVariantKey, ResumeVariant> = {
-    fullstack: {
-        experience: [experienceNobears, experienceBSP],
-        key: 'fullstack',
-        label: 'Full-stack developer',
-        projects: [
-            projectTradingBot,
-            projectSadraNl,
-            projectMinoMarkt,
-            projectSensorHub,
-            projectProjectAI,
-        ],
-        role: 'Full-stack developer',
-        summary: `Full-stack developer with 4 years of experience shipping production WordPress and Next.js platforms for Dutch agencies. Looking to bring this end-to-end technical ownership and architectural discipline to a product-focused engineering team.`,
-    },
-    quant: {
-        experience: [experienceNobears, experienceBSP],
-        key: 'quant',
-        label: 'Trading engineer',
-        projects: [
-            projectTradingBot,
-            projectSadraNl,
-            projectMinoMarkt,
-            projectSensorHub,
-            projectProjectAI,
-        ],
-        role: 'Trading engineer',
-        summary: `Software engineer and futures trader with ${tradingYears}+ years in NQ futures and multiple prop firm payouts in the last year. Currently running my own capital through a modular Python trading framework I built. Looking to bring this combination of trading discipline and engineering ownership.`,
-    },
-};
-
-export const defaultResumeVariantKey: ResumeVariantKey = 'fullstack';
-
-export const coverLetters: CoverLetter[] = [
+const portfolioEducation: PortfolioSectionView[] = [
     {
-        body: `Dear hiring team,
-
-I have ${tradingYears}+ years of focused trading experience in NQ futures, including multiple payouts from futures prop firms in the last year. To automate what works, I have spent the past year building a modular quantitative trading framework from scratch. My main focus has been preventing overfitting, and building this system taught me firsthand that the difference between a theoretical strategy and one that actually survives the market is entirely in the engineering underneath it.
-
-Since September 2025, I have been running my own capital through this system, trading four uncorrelated strategies across different assets and timeframes for maximum diversification. I built a strict object oriented architecture to be able to easily add more features, structured as discrete layers: a data layer with multiple persistent storage backends, a cache layer on the hot paths for maximum performance with support for memory and Redis, a broker layer behind a unified API, an optimisation layer, real time risk management, and a notification and communication layer for live alerts.
-
-Because execution speed and throughput are critical, I am deeply focused on micro performance optimizations. The system is designed to be highly concurrent, heavily utilizing multi processing and threading to ensure the pipeline never bottlenecks. For position scoring, the engine leverages PyTorch, backed by strict walk forward cross validation, Monte Carlo analysis, and automated risk management.
-
-Alongside my trading engine, I bring four years of experience in C++, Python, SQL, TypeScript, React, Next.js, Tailwind, and WordPress. Whether I am shipping websites in my current role at Nobears Rotterdam or building firmware to dashboard stacks at my previous IoT startup, I am highly comfortable with complex exchange APIs, latency sensitive code, and owning a project end to end.
-
-The combination of my trading experience, trading bot, professional experience and the ability to learn very quickly positions me perfectly to collaborate across your teams. I would welcome the chance to talk about how I can contribute to the team. My code and projects can be found at <strong>https://sadra.nl</strong> and <strong>https://github.com/SadraShameli</strong>.
-
-Kind regards,
-Sadra Shameli`,
-        key: 'flowtraders',
-        label: 'Flow Traders — Digital Assets Trader',
-    },
-    {
-        body: `Rijswijk, 21 juni 2024
-
-Betref: Banner Developer bij Coolblue
-
-Geachte heer/mevrouw,
-
-Deze week kwam ik op Linkedin uw vacature tegen voor Banner Developer bij Coolblue. De vacature sprak mij direct aan, aangezien deze perfect aansluit bij mijn passie voor webontwikkeling. Hierdoor besloot ik om deze motivatiebrief te schrijven. Ik leg u graag uit wat mij zo aanspreekt in deze functie en hoe ik een toegevoegde waarde kan zijn voor Coolblue.
-
-Als een kandidaat met ervaring in full-stack development met Typescript, React.js en TailwindCSS op zakelijk niveau, heb ik vol vertrouwen dat ik uitstekend zou passen in deze rol.
-
-Tijdens mijn werkperiode bij Blue Star Planning B.V. was ik verantwoordelijk voor een full-stack project waarbij ik IoT-devices ontwierp. Daarnaast ontwikkelde ik een backend met ASP.NET en Entity Framework om de data te kunnen verwerken en opslaan. Vervolgens had ik een frontend gemaakt met Typescript, React.js en TailwindCSS voor het weergeven van de data.
-
-Voor een persoonlijk project heb ik de backend volledig gemigreerd naar Next.js en Drizzle, aangezien dit kosteneffectiever was. Het project kunt u terugvinden op mijn website: https://sadra.nl
-
-Verder kunt u mijn GitHub profiel bekijken om meer te weten over mijn projecten en mijn programmeerstijl: https://github.com/sadrashameli
-
-Ik kijk graag uit naar de volgende stappen in het sollicitatieproces en een kennismakingsgesprek.
-
-Hartelijk dank voor uw tijd en aandacht.
-
-Met vriendelijke groet,
-Sadra Shameli`,
-        key: 'coolblue',
-        label: 'Coolblue — Banner Developer',
+        date: 'Sep 2020 - Aug 2023',
+        imageUrl: DiplomaImage.src,
+        location: {
+            title: 'Delft, The Netherlands',
+        },
+        role: 'VWO - Nature and Technology',
+        title: 'Grotius College',
+        url: 'https://www.grotiuscollege.nl',
     },
 ];
 
-export const defaultCoverLetterKey = coverLetters[0]?.key ?? '';
+const portfolioExperience: PortfolioSectionView[] = [
+    experienceNobears,
+    experienceBSP,
+];
+
+const portfolioProjects: PortfolioSectionView[] = [
+    projectTradingBot,
+    projectSadraNl,
+    projectMinoMarkt,
+    projectSensorHub,
+    projectProjectAI,
+];
 
 export const portfolioContent: PortfolioData = {
-    education: [
-        {
-            date: 'Sep 2020 - Aug 2023',
-            imageUrl: DiplomaImage.src,
-            location: {
-                title: 'Delft, The Netherlands',
-            },
-            role: 'VWO - Nature and Technology',
-            title: 'Grotius College',
-            url: 'https://www.grotiuscollege.nl',
-        },
-    ] as PortfolioSectionView[],
-    educationSectionTitle: 'Education',
-    experience: [experienceNobears, experienceBSP],
-    experienceSectionTitle: 'Work experience',
+    education: portfolioEducation,
+    experience: portfolioExperience,
+    heroHeading: { before: 'Selected', emphasis: 'work' },
     heroHeadline:
         'Full-stack developer and futures daytrader, building high-end WordPress sites and trading tools.',
     metaDescription: 'Daytrader, developer',
     metaTitle: 'Sadra Shameli',
-    projects: [
-        projectTradingBot,
-        projectSadraNl,
-        projectMinoMarkt,
-        projectSensorHub,
-        projectProjectAI,
+    projects: portfolioProjects,
+    sections: [
+        {
+            entries: portfolioExperience,
+            eyebrow: 'Experience',
+            heading: { before: 'Work', emphasis: 'experience' },
+            id: PortfolioSectionId.Experience,
+            number: '01',
+        },
+        {
+            entries: portfolioProjects,
+            eyebrow: 'Projects',
+            heading: { before: 'Recent', emphasis: 'projects' },
+            id: PortfolioSectionId.Projects,
+            number: '02',
+        },
+        {
+            entries: portfolioEducation,
+            eyebrow: 'Education',
+            heading: { emphasis: 'Education' },
+            id: PortfolioSectionId.Education,
+            number: '03',
+        },
     ],
-    projectsSectionTitle: 'Recent projects',
 };

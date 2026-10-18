@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type { CreateMutationRequestPayload } from '~/lib/accounting/providers/eboekhouden/schemas';
 import type {
     ProviderLedger,
@@ -6,7 +8,7 @@ import type {
 
 import {
     MUTATION_TYPE_LABEL,
-    type MutationType,
+    MutationType,
 } from '~/lib/accounting/providers/eboekhouden/enums';
 
 export function formatLedger(ledger: ProviderLedger): string {
@@ -77,6 +79,6 @@ function formatEur(amount: number): string {
 
 function typeLabel(type: string): string {
     return Object.hasOwn(MUTATION_TYPE_LABEL, type)
-        ? MUTATION_TYPE_LABEL[type as MutationType]
+        ? MUTATION_TYPE_LABEL[z.enum(MutationType).parse(type)]
         : type;
 }

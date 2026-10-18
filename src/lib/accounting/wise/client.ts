@@ -216,9 +216,10 @@ export class WiseClient {
 }
 
 function isPositiveAmount(s: null | string | undefined): boolean {
-    return s
-        ? s.includes('<positive>') || s.trimStart().startsWith('+')
-        : false;
+    return (
+        s?.includes('<positive>') === true ||
+        s?.trimStart().startsWith('+') === true
+    );
 }
 
 function parseAmount(s: null | string | undefined): [number, string] | null {

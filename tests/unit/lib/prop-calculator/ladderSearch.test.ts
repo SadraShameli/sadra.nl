@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    createInitialState,
     DailyLossLimitBreachEffect,
     DailyLossLimitKind,
     DayStopRuleKind,
     dollars,
     DrawdownKind,
+    EodTrailingDrawdown,
     FirmId,
     flatDayPolicy,
     fraction,
     FtmoFuturesVariant,
     ladderFrontier,
     MffuVariant,
+    PolicySizing,
     RungSizing,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
@@ -21,6 +24,7 @@ import {
     enumerateDay,
     type LadderScore,
     type LadderScoreConfig,
+    ladderTrialStreams,
     runLadderSearch,
     scoreLadder,
 } from '~/lib/prop-calculator/core/LadderSearch';
@@ -36,6 +40,8 @@ import {
     TradeTotals,
 } from '~/lib/prop-calculator/simulator';
 
+import { memoise } from '../../memoise';
+
 function freshStats(startingBalance: number) {
     const totals = new TradeTotals();
     return newPhaseStats(startingBalance, totals, new LossStreak(totals));
@@ -45,16 +51,27 @@ const firm = new MyFundedFutures();
 
 function config(): LadderScoreConfig {
     return {
+        commission: 0,
         cushion: 2000,
-        evalPrice: 104.5,
         maxDays: 150,
         plan: rapidEod(),
+        positionSizing: null,
         rrRatio: 2,
         rungSizing: RungSizing.CapToCushion,
         seedOffset: 0,
         sims: 20_000,
         stopRule: { kind: DayStopRuleKind.DayGreen },
         winrate: 0.4,
+    };
+}
+
+function eodDayStart(cushion: number) {
+    return {
+        commission: 0,
+        contractLimit: null,
+        dayStart: createInitialState(50_000, 50_000 - cushion),
+        drawdown: new EodTrailingDrawdown({ amount: dollars(2000) }),
+        positionSizing: null,
     };
 }
 
@@ -85,11 +102,12 @@ describe('MFF Rapid EOD 50K plan parameters', () => {
 describe('enumerateDay', () => {
     it('produces a proper probability distribution', () => {
         const distribution = enumerateDay({
-            cushion: 2000,
+            ...eodDayStart(2000),
             dailyLossLimit: null,
             dayPolicy: {
                 ladder: [400, 600, 800, 200],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.DayGreen },
             },
             rrRatio: 2,
@@ -112,11 +130,12 @@ describe('enumerateDay', () => {
         ]) {
             expect(ladder.reduce((a, b) => a + b, 0)).toBe(2000);
             const distribution = enumerateDay({
-                cushion: 2000,
+                ...eodDayStart(2000),
                 dailyLossLimit: null,
                 dayPolicy: {
                     ladder,
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { kind: DayStopRuleKind.DayGreen },
                 },
                 rrRatio: 2,
@@ -132,11 +151,12 @@ describe('enumerateDay', () => {
 
     it('never risks more than the remaining cushion on any path', () => {
         const distribution = enumerateDay({
-            cushion: 2000,
+            ...eodDayStart(2000),
             dailyLossLimit: null,
             dayPolicy: {
                 ladder: [400, 600, 900, 1400],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.DayGreen },
             },
             rrRatio: 2,
@@ -150,11 +170,12 @@ describe('enumerateDay', () => {
 
     it('skips unaffordable rungs entirely under skipIfUnaffordable', () => {
         const capped = enumerateDay({
-            cushion: 1000,
+            ...eodDayStart(1000),
             dailyLossLimit: null,
             dayPolicy: {
                 ladder: [400, 900],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             rrRatio: 2,
@@ -162,11 +183,12 @@ describe('enumerateDay', () => {
             winrate: 0.4,
         });
         const skipped = enumerateDay({
-            cushion: 1000,
+            ...eodDayStart(1000),
             dailyLossLimit: null,
             dayPolicy: {
                 ladder: [400, 900],
                 maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
                 stopRule: { kind: DayStopRuleKind.None },
             },
             rrRatio: 2,
@@ -175,6 +197,97 @@ describe('enumerateDay', () => {
         });
         expect(Math.min(...capped.outcomes.map((o) => o.worstPnL))).toBe(-1000);
         expect(Math.min(...skipped.outcomes.map((o) => o.worstPnL))).toBe(-400);
+    });
+
+    it('sizes a rung so its loss plus commission stays inside the daily loss limit (N-56)', () => {
+        const distribution = enumerateDay({
+            ...eodDayStart(2000),
+            commission: 5,
+            dailyLossLimit: 500,
+            dayPolicy: {
+                ladder: [1000],
+                maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
+                stopRule: { kind: DayStopRuleKind.None },
+            },
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            winrate: 0.4,
+        });
+        expect(
+            distribution.outcomes.map((outcome) => outcome.tradePnLs),
+        ).toStrictEqual([[985], [-500]]);
+    });
+
+    it('subtracts the round-trip commission from every trade', () => {
+        const distribution = enumerateDay({
+            ...eodDayStart(2000),
+            commission: 5,
+            dailyLossLimit: null,
+            dayPolicy: {
+                ladder: [400, 600],
+                maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
+                stopRule: { kind: DayStopRuleKind.None },
+            },
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            winrate: 0.4,
+        });
+        expect(
+            distribution.outcomes.map((outcome) => outcome.tradePnLs),
+        ).toStrictEqual([
+            [795, 1195],
+            [795, -605],
+            [-405, 1195],
+            [-405, -605],
+        ]);
+        expect(
+            distribution.outcomes.map((outcome) => outcome.finalPnL),
+        ).toStrictEqual([1990, 190, 790, -1010]);
+    });
+});
+
+describe('scoreLadder charges commission as the simulator does', () => {
+    it('matches the simulator eval pass rate at a $40 round trip, below the commission-free rate', () => {
+        const ladder = [400, 600, 500];
+        const withCommission = scoreLadder(
+            ladder,
+            { ...config(), commission: 40 },
+            ladderTrialStreams(42),
+        );
+        const withoutCommission = scoreLadder(
+            ladder,
+            config(),
+            ladderTrialStreams(42),
+        );
+        const sim = simulate({
+            commissionPerRoundTrip: 40,
+            dayStop: { kind: DayStopRuleKind.DayGreen },
+            evalDayPolicy: {
+                ladder,
+                maxLossesPerDay: null,
+                sizing: PolicySizing.ContractCapped,
+                stopRule: { kind: DayStopRuleKind.DayGreen },
+            },
+            fundedHorizonDays: 1,
+            maxAttempts: 1,
+            maxEvalDays: 150,
+            plan: rapidEod(),
+            riskPerTrade: 400,
+            rrRatio: 2,
+            rungSizing: RungSizing.CapToCushion,
+            seed: 42,
+            tradesPerDay: ladder.length,
+            trials: 20_000,
+            winrate: 0.4,
+        });
+        expect(
+            Math.abs(withCommission.passRate - sim.evalPassProbability),
+        ).toBeLessThan(0.02);
+        expect(withCommission.passRate).toBeLessThan(
+            withoutCommission.passRate - 0.02,
+        );
     });
 });
 
@@ -193,7 +306,11 @@ describe('scoreLadder golden values (MFF Rapid EOD 50K, 40% WR, 1:2 R:R)', () =>
 
     for (const { days, ladder, pass } of cases) {
         it(`scores ${JSON.stringify(ladder)} near ${(pass * 100).toFixed(1)}% / ${days}d`, () => {
-            const score = scoreLadder(ladder, config(), mulberry32(90_210));
+            const score = scoreLadder(
+                ladder,
+                config(),
+                ladderTrialStreams(90_210),
+            );
             expect(score.passRate).toBeCloseTo(pass, 1);
             expect(score.expectedDaysToFunded).toBeGreaterThan(days * 0.85);
             expect(score.expectedDaysToFunded).toBeLessThan(days * 1.15);
@@ -204,12 +321,12 @@ describe('scoreLadder golden values (MFF Rapid EOD 50K, 40% WR, 1:2 R:R)', () =>
         const fast = scoreLadder(
             [400, 600, 800, 200],
             config(),
-            mulberry32(90_210),
+            ladderTrialStreams(90_210),
         );
         const safe = scoreLadder(
             [100, 100, 100, 100],
             config(),
-            mulberry32(90_210),
+            ladderTrialStreams(90_210),
         );
         expect(fast.expectedDaysToFunded).toBeLessThan(
             safe.expectedDaysToFunded,
@@ -220,7 +337,7 @@ describe('scoreLadder golden values (MFF Rapid EOD 50K, 40% WR, 1:2 R:R)', () =>
 });
 
 describe(
-    'scoreLadder carries real cushion across days — regression: a fixed ' +
+    'scoreLadder carries real cushion across days, regression: a fixed ' +
         "per-day cushion assumption (reusing day 1's full $2,000 room on " +
         'every later day regardless of losses already taken) silently ' +
         'overstated pass rate for any ladder whose own sum is well under ' +
@@ -233,7 +350,7 @@ describe(
                 "under the $2,000 cushion) matches simulate()'s real, day-to-" +
                 'day eval-phase pass rate within Monte Carlo tolerance (scoreLadder ' +
                 'never models the funded phase, so it is compared against ' +
-                "simulate()'s eval-only survival rate, not its full passProbability " +
+                "simulate()'s evalPassProbability, not its fundedSurvivalProbability " +
                 'which also gates on surviving the funded horizon), not the ' +
                 'inflated ~53% a fixed-$2,000-every-day model reports',
             () => {
@@ -243,7 +360,7 @@ describe(
                 const score = scoreLadder(
                     ladder,
                     { ...config(), sims: 50_000 },
-                    mulberry32(90_210),
+                    ladderTrialStreams(90_210),
                 );
 
                 const out: SimOutputs = simulate({
@@ -254,6 +371,7 @@ describe(
                     evalDayPolicy: {
                         ladder,
                         maxLossesPerDay: null,
+                        sizing: PolicySizing.ContractCapped,
                         stopRule: { kind: DayStopRuleKind.DayGreen },
                     },
                     fundedHorizonDays: 1,
@@ -270,8 +388,7 @@ describe(
                     winrate: 0.4,
                 });
 
-                const evalPassRate =
-                    1 - out.bustProbability - out.timeoutProbability;
+                const evalPassRate = out.evalPassProbability;
                 expect(score.passRate).toBeCloseTo(evalPassRate, 1);
                 expect(score.passRate).toBeLessThan(0.5);
             },
@@ -336,6 +453,7 @@ describe('cushion cap invariant', () => {
                 dayPolicy: {
                     ladder: [400, 600, 900, 1400],
                     maxLossesPerDay: null,
+                    sizing: PolicySizing.ContractCapped,
                     stopRule: { kind: DayStopRuleKind.DayGreen },
                 },
                 phase: TradingPhase.Eval,
@@ -358,9 +476,14 @@ describe('cushion cap invariant', () => {
         const stats = freshStats(state.startingBalance);
         runDay({
             commission: dollars(0),
-            dayPolicy: flatDayPolicy(999_999, 1, {
-                kind: DayStopRuleKind.None,
-            }),
+            dayPolicy: flatDayPolicy(
+                999_999,
+                1,
+                {
+                    kind: DayStopRuleKind.None,
+                },
+                PolicySizing.ContractCapped,
+            ),
             phase: TradingPhase.Eval,
             plan,
             positionSizing: null,
@@ -416,11 +539,14 @@ describe('grid search bounding', () => {
 function score(overrides: Partial<LadderScore>): LadderScore {
     return {
         costPerFunded: 0,
+        costPerFundedStandardError: 0,
         expectedDaysToFunded: 0,
+        expectedDaysToFundedStandardError: 0,
         ladder: [],
         meanDaysOnFail: 0,
         meanDaysOnPass: 0,
         passRate: 1,
+        passRateStandardError: 0,
         ...overrides,
     };
 }
@@ -443,26 +569,27 @@ describe('ladderFrontier', () => {
 });
 
 describe('runLadderSearch', () => {
-    it('rediscovers the documented speed-optimal ladder from a full grid', () => {
+    it('rediscovers the documented speed-optimal ladder prefix from a $200-step grid of 340 ladders (the $100-step grid of 4,680 ladders at 20,000 sims took 400 s; this grid scores 1,000 sims a ladder)', () => {
         const result = runLadderSearch({
-            grid: { lo: 100, max: 800, slots: 4, step: 100 },
-            score: { ...config(), sims: 20_000 },
+            grid: { lo: 200, max: 800, slots: 4, step: 200 },
+            score: { ...config(), sims: 1000 },
             seed: 90_210,
             topN: 5,
         });
 
         const winner = result.bySpeed[0];
         if (!winner) throw new Error('no speed winner');
+        expect(result.gridSize).toBe(340);
         expect(winner.ladder.slice(0, 3)).toEqual([400, 600, 800]);
         expect(winner.expectedDaysToFunded).toBeGreaterThan(8);
-        expect(winner.expectedDaysToFunded).toBeLessThan(8.6);
-        expect(result.byCost[0]?.ladder).toEqual([100, 100, 100, 100]);
-    }, 90_000);
+        expect(winner.expectedDaysToFunded).toBeLessThan(9);
+        expect(new Set(result.byCost[0]?.ladder)).toEqual(new Set([200]));
+    });
 
     it('reports zero dropped aliases for a grid-search grid, since buildLadderGrid never emits a raw ladder with a literal <=0 rung (aliasing only ever collapses that exact case)', () => {
         const result = runLadderSearch({
-            grid: { lo: 100, max: 800, slots: 4, step: 100 },
-            score: { ...config(), sims: 200 },
+            grid: { lo: 200, max: 800, slots: 4, step: 200 },
+            score: { ...config(), sims: 100 },
             seed: 90_210,
         });
         expect(result.gridSize).toBe(result.laddersScored);
@@ -471,10 +598,11 @@ describe('runLadderSearch', () => {
 
     it('returns a frontier that is strictly improving on both axes', () => {
         const result = runLadderSearch({
-            grid: { lo: 100, max: 600, slots: 3, step: 100 },
+            grid: { lo: 200, max: 600, slots: 3, step: 200 },
             score: { ...config(), sims: 1000 },
             seed: 90_210,
         });
+        expect(result.frontier.length).toBeGreaterThan(1);
         for (let index = 1; index < result.frontier.length; index++) {
             const previous = result.frontier[index - 1];
             const current = result.frontier[index];
@@ -486,7 +614,7 @@ describe('runLadderSearch', () => {
         }
     });
 
-    it('gives every ladder an independent RNG stream', () => {
+    it('scores each distinct ladder exactly once', () => {
         const result = runLadderSearch({
             grid: { lo: 300, max: 300, slots: 2, step: 100 },
             score: { ...config(), sims: 3000 },
@@ -502,11 +630,12 @@ describe('runLadderSearch', () => {
 const aggressiveLadder = {
     ladder: [400, 600, 800, 200],
     maxLossesPerDay: null,
+    sizing: PolicySizing.ContractCapped,
     stopRule: { kind: DayStopRuleKind.DayGreen as const },
 };
 
 function condFundedBust(out: SimOutputs): number {
-    const reachedFunded = out.passProbability + out.fundedBustProbability;
+    const reachedFunded = out.evalPassProbability;
     return out.fundedBustProbability / reachedFunded;
 }
 
@@ -527,33 +656,41 @@ function runPhaseSim(overrides: Partial<Parameters<typeof simulate>[0]>) {
     });
 }
 
+const phaseRuns = {
+    bothPhases: memoise(() =>
+        runPhaseSim({
+            evalDayPolicy: aggressiveLadder,
+            fundedDayPolicy: aggressiveLadder,
+        }),
+    ),
+    evalLadder: memoise(() => runPhaseSim({ evalDayPolicy: aggressiveLadder })),
+    flat: memoise(() => runPhaseSim({})),
+};
+
 describe('eval and funded day policies are independent', () => {
     it('leaves the funded phase on flat risk when only an eval ladder is set', () => {
-        const flat = runPhaseSim({});
-        const evalLadder = runPhaseSim({ evalDayPolicy: aggressiveLadder });
-
-        expect(condFundedBust(evalLadder)).toBeCloseTo(condFundedBust(flat), 2);
+        expect(condFundedBust(phaseRuns.evalLadder())).toBeCloseTo(
+            condFundedBust(phaseRuns.flat()),
+            2,
+        );
     });
 
     it('does not collapse the pass rate the way a funded-phase ladder does', () => {
-        const evalOnly = runPhaseSim({ evalDayPolicy: aggressiveLadder });
-        const bothPhases = runPhaseSim({
-            evalDayPolicy: aggressiveLadder,
-            fundedDayPolicy: aggressiveLadder,
-        });
+        const evalOnly = phaseRuns.evalLadder();
+        const bothPhases = phaseRuns.bothPhases();
 
         expect(condFundedBust(bothPhases)).toBeGreaterThan(
             condFundedBust(evalOnly) + 0.2,
         );
-        expect(evalOnly.passProbability).toBeGreaterThan(
-            bothPhases.passProbability * 10,
+        expect(evalOnly.fundedSurvivalProbability).toBeGreaterThan(
+            bothPhases.fundedSurvivalProbability * 10,
         );
     });
 
     it('changes the eval phase without touching funded risk', () => {
-        const flat = runPhaseSim({});
-        const evalLadder = runPhaseSim({ evalDayPolicy: aggressiveLadder });
-        expect(evalLadder.daysToPassP50).not.toBe(flat.daysToPassP50);
+        expect(phaseRuns.evalLadder().daysToPassP50).not.toBe(
+            phaseRuns.flat().daysToPassP50,
+        );
     });
 });
 
@@ -571,13 +708,13 @@ describe('scoreLadder honours a terminating daily loss limit', () => {
         scoreLadder(
             ladder,
             { ...config(), plan, stopRule: { kind: DayStopRuleKind.None } },
-            mulberry32(90_210),
+            ladderTrialStreams(90_210),
         );
 
     it(
         'a ladder whose rungs sum past the limit scores strictly worse under a ' +
             'hard limit than under an identical soft one, because reaching the ' +
-            'limit ends the account instead of ending the day — without this the ' +
+            'limit ends the account instead of ending the day, without this the ' +
             'ladder optimizer would keep recommending account-killing ladders ' +
             'that the simulator on the same screen reports as fatal',
         () => {
@@ -623,10 +760,11 @@ describe('scoreLadder folds the monthly subscription into costPerFunded', () => 
             const score = scoreLadder(
                 [500, 800, 700],
                 {
+                    commission: 0,
                     cushion: plan.drawdown.amount,
-                    evalPrice: plan.fees.activation + plan.fees.oneTimeEval,
                     maxDays: 150,
                     plan,
+                    positionSizing: null,
                     rrRatio: 2,
                     rungSizing: RungSizing.CapToCushion,
                     seedOffset: 0,
@@ -634,7 +772,7 @@ describe('scoreLadder folds the monthly subscription into costPerFunded', () => 
                     stopRule: { kind: DayStopRuleKind.DayGreen },
                     winrate: 0.4,
                 },
-                mulberry32(90_210),
+                ladderTrialStreams(90_210),
             );
 
             expect(score.passRate).toBeGreaterThan(0);

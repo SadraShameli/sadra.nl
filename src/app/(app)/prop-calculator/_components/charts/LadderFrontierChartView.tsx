@@ -1,18 +1,24 @@
 'use client';
 
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
+import { Line, LineChart, XAxis, YAxis } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_STROKE_WIDTH,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+    ChartSize,
+} from '~/components/ui/chart';
 import { formatCurrency } from '~/lib/format';
 import { type LadderScore } from '~/lib/prop-calculator';
-import { cn } from '~/lib/utilities';
 
 interface Properties {
     frontier: readonly LadderScore[];
 }
 
 const chartConfig: ChartConfig = {
-    frontier: { color: 'hsl(142 76% 45%)', label: 'Efficient frontier' },
+    frontier: { color: 'var(--success)', label: 'Efficient frontier' },
 };
 
 export default function LadderFrontierChartView({ frontier }: Properties) {
@@ -24,34 +30,30 @@ export default function LadderFrontierChartView({ frontier }: Properties) {
 
     return data.length === 0 ? null : (
         <ChartContainer
-            className={cn(
-                'app-prop-calculator__ladder-frontier',
-                'aspect-auto h-[260px] w-full',
-            )}
+            className="app-prop-calculator__ladder-frontier"
             config={chartConfig}
+            size={ChartSize.Compact}
         >
             <LineChart accessibilityLayer data={data}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
+                    {...CHART_X_AXIS_PROPS}
                     dataKey="days"
                     label={{
                         offset: -4,
                         position: 'insideBottom',
                         value: 'Expected days to funded',
                     }}
-                    tickLine={false}
                     type="number"
                 />
                 <YAxis
+                    {...CHART_Y_AXIS_PROPS}
                     tickFormatter={(value: number) => formatCurrency(value)}
-                    tickLine={false}
-                    width={72}
                 />
                 <Line
                     dataKey="cost"
                     dot={{ r: 3 }}
                     stroke="var(--color-frontier)"
-                    strokeWidth={2}
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="stepAfter"
                 />
             </LineChart>

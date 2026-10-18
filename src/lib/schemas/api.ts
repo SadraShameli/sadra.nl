@@ -1,5 +1,10 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z, type ZodError } from 'zod';
+
+import {
+    READINGS_PAGE_DEFAULT_LIMIT,
+    READINGS_PAGE_MAX_LIMIT,
+} from '~/lib/schemas/sensor';
 
 export const positiveIntIdSchema = z.coerce.number().int().positive();
 
@@ -10,6 +15,16 @@ export const idPathParameterSchema = z.object({
 export const idSensorPathParameterSchema = z.object({
     id: positiveIntIdSchema,
     sensor_id: positiveIntIdSchema,
+});
+
+export const readingsPageQuerySchema = z.object({
+    cursor: positiveIntIdSchema.optional(),
+    limit: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(READINGS_PAGE_MAX_LIMIT)
+        .default(READINGS_PAGE_DEFAULT_LIMIT),
 });
 
 export const MAX_RECORDING_BYTES = 25 * 1024 * 1024;
@@ -31,6 +46,16 @@ export function parseRouteParameters<T extends z.ZodType>(
     return result.success
         ? { data: result.data }
         : { response: zodErrorResponse(result.error) };
+}
+
+export function parseSearchParameters<T extends z.ZodType>(
+    schema: T,
+    request: NextRequest,
+): ReturnType<typeof parseRouteParameters<T>> {
+    return parseRouteParameters(
+        schema,
+        Object.fromEntries(request.nextUrl.searchParams),
+    );
 }
 
 export function zodErrorResponse(error: ZodError): NextResponse {

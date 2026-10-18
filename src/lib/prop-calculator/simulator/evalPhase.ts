@@ -1,11 +1,14 @@
-import { resetFactor } from '../core/FeeSchedule';
-import { TradingPhase } from '../core/TradingPhase';
+import { type DatedCharge } from '~/lib/prop-calculator/core/DatedCharge';
+import { recordBestDay } from '~/lib/prop-calculator/core/TradingDayLedger';
+import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+
 import { runDay } from './day';
 import { LossStreak, newPhaseStats } from './PhaseStats';
 import {
     type AttemptOutcome,
     type EvalAttemptOptions,
     type EvalAttemptResult,
+    type EvalDayRunOptions,
     type EvalWithRetriesOptions,
     type EvalWithRetriesResult,
 } from './types';
@@ -23,10 +26,11 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
         rrRatio,
         rungSizing,
         shouldCaptureEquity,
+        start,
         totals,
         winrate,
     } = options;
-    const state = plan.initialState();
+    const state = start ? { ...start.state } : plan.initialState();
     const streak = new LossStreak(totals);
     const stats = newPhaseStats(state.startingBalance, totals, streak);
     const equityCurve: null | number[] = shouldCaptureEquity
@@ -49,8 +53,8 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
     let days = 0;
     let outcome: AttemptOutcome = 'timed-out';
 
-    const dayCap = plan.evalDayCap(maxEvalDays);
-    const dayOptions = {
+    const dayCap = start ? start.dayCap : plan.evalDayCap(maxEvalDays);
+    const dayOptions: EvalDayRunOptions = {
         commission,
         dayPolicy,
         idleDayProbability,
@@ -68,9 +72,7 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
     for (let day = 0; day < dayCap; day++) {
         const { busted, closedForInactivity: idleClosure } = runDay(dayOptions);
         days += 1;
-        if (state.todayPnL > state.bestDayProfit) {
-            state.bestDayProfit = state.todayPnL;
-        }
+        recordBestDay(state);
         if (equityCurve) equityCurve.push(state.balance);
 
         if (busted) {
@@ -96,7 +98,9 @@ export function runEvalAttempt(options: EvalAttemptOptions): EvalAttemptResult {
 }
 
 export function runEvalWithRetries(
-    options: EvalWithRetriesOptions,
+    options: EvalWithRetriesOptions & {
+        retryAffordabilityCheck?: (fee: number, dayOffset: number) => boolean;
+    },
 ): EvalWithRetriesResult {
     const {
         commission,
@@ -106,18 +110,28 @@ export function runEvalWithRetries(
         intradayPathStepsPerR,
         maxAttempts,
         maxEvalDays,
+        maxTotalEvalDays,
         plan,
         positionSizing,
+        retryAffordabilityCheck,
         rng,
         rrRatio,
         rungSizing,
         shouldCaptureEquity,
+        start,
         totals,
         winrate,
     } = options;
+    if (maxAttempts === undefined && maxTotalEvalDays === undefined) {
+        throw new Error(
+            'runEvalWithRetries needs maxAttempts or maxTotalEvalDays to bound its retries',
+        );
+    }
     let daysElapsed = 0;
     let attemptsUsed = 0;
     let resetFeesPaid = 0;
+    const failedAttemptDays: number[] = [];
+    const retryCharges: DatedCharge[] = [];
 
     for (;;) {
         attemptsUsed += 1;
@@ -133,6 +147,7 @@ export function runEvalWithRetries(
             rrRatio,
             rungSizing,
             shouldCaptureEquity,
+            start: attemptsUsed === 1 ? start : undefined,
             totals,
             winrate,
         });
@@ -143,21 +158,39 @@ export function runEvalWithRetries(
                 attempt,
                 attemptsUsed,
                 daysElapsed,
+                failedAttemptDays,
                 resetFeesPaid,
+                retryCharges,
                 terminalOutcome: null,
             };
         }
 
-        if (attempt.outcome === 'busted' && attemptsUsed < maxAttempts) {
-            resetFeesPaid += plan.fees.reset * resetFactor(discounts);
-            continue;
+        failedAttemptDays.push(attempt.days);
+
+        const isWithinAttemptCap =
+            maxAttempts === undefined || attemptsUsed < maxAttempts;
+        const isWithinDayBudget =
+            maxTotalEvalDays === undefined ||
+            (attempt.days > 0 && daysElapsed < maxTotalEvalDays);
+        if (isWithinAttemptCap && isWithinDayBudget) {
+            const fee = plan.retryFee(discounts);
+            const isAffordable =
+                retryAffordabilityCheck === undefined ||
+                retryAffordabilityCheck(fee, daysElapsed);
+            if (isAffordable) {
+                resetFeesPaid += fee;
+                retryCharges.push({ dayOffset: daysElapsed, fee });
+                continue;
+            }
         }
 
         return {
             attempt,
             attemptsUsed,
             daysElapsed,
+            failedAttemptDays,
             resetFeesPaid,
+            retryCharges,
             terminalOutcome:
                 attempt.outcome === 'busted' ? 'busted' : 'timed-out',
         };

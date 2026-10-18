@@ -3,7 +3,10 @@ import { z } from 'zod';
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { isoDateSchema } from '~/lib/accounting/core/date';
 import { LedgerId } from '~/lib/accounting/core/ids';
-import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
+import {
+    isValidRulePattern,
+    MATCH_TYPES,
+} from '~/lib/accounting/core/rules/matcher';
 import { BOOKING_DIRECTIONS } from '~/lib/accounting/core/types';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { CredentialKind } from '~/lib/accounting/credentials/registry';
@@ -23,6 +26,10 @@ function hasValidDateRange(v: {
 }): boolean {
     return v.dateFrom == null || v.dateTo == null || v.dateFrom <= v.dateTo;
 }
+
+const SMALLEST_RULE_AMOUNT = 0.01;
+
+const ruleAmountSchema = z.number().positive().multipleOf(SMALLEST_RULE_AMOUNT);
 
 export const credentialKindSchema = z
     .enum(CredentialKind)
@@ -85,6 +92,8 @@ export const runPushRequestSchema = z.object({
     runId: z.uuid(),
 });
 
+export const INVALID_RULE_PATTERN = 'Match is not a valid regular expression';
+
 export const ruleCreateSchema = z
     .object({
         credentialId: z.uuid(),
@@ -96,8 +105,8 @@ export const ruleCreateSchema = z
         ledger: ledgerReferenceSchema,
         match: z.string().min(1).max(256),
         matchType: z.enum(MATCH_TYPES).optional(),
-        maxAmount: z.number().positive().nullable().optional(),
-        minAmount: z.number().positive().nullable().optional(),
+        maxAmount: ruleAmountSchema.nullable().optional(),
+        minAmount: ruleAmountSchema.nullable().optional(),
         taxCode: z.string().min(1).max(32),
     })
     .refine(hasValidAmountRange, {
@@ -107,7 +116,12 @@ export const ruleCreateSchema = z
     .refine(hasValidDateRange, {
         error: 'Date-from must not be after date-to',
         path: ['dateFrom'],
-    });
+    })
+    .refine(
+        (input) =>
+            isValidRulePattern(input.matchType ?? 'contains', input.match),
+        { error: INVALID_RULE_PATTERN, path: ['match'] },
+    );
 export type RuleCreateInput = z.infer<typeof ruleCreateSchema>;
 
 export const ruleUpdateSchema = z
@@ -121,8 +135,8 @@ export const ruleUpdateSchema = z
         ledger: ledgerReferenceSchema.optional(),
         match: z.string().min(1).max(256).optional(),
         matchType: z.enum(MATCH_TYPES).optional(),
-        maxAmount: z.number().positive().nullable().optional(),
-        minAmount: z.number().positive().nullable().optional(),
+        maxAmount: ruleAmountSchema.nullable().optional(),
+        minAmount: ruleAmountSchema.nullable().optional(),
         taxCode: z.string().min(1).max(32).optional(),
     })
     .refine(hasValidAmountRange, {
@@ -151,8 +165,8 @@ export const ruleBacktestSchema = z
         from: isoDateSchema,
         match: z.string().min(1).max(256),
         matchType: z.enum(MATCH_TYPES).optional(),
-        maxAmount: z.number().positive().optional(),
-        minAmount: z.number().positive().optional(),
+        maxAmount: ruleAmountSchema.optional(),
+        minAmount: ruleAmountSchema.optional(),
         to: isoDateSchema,
     })
     .refine(hasValidAmountRange, {
@@ -169,5 +183,6 @@ export const bankAccountUpsertSchema = z.object({
     credentialId: z.uuid(),
     currency: currencyCodeSchema,
     ledger: ledgerReferenceSchema,
+    replacesId: z.uuid().optional(),
 });
 export type BankAccountUpsertInput = z.infer<typeof bankAccountUpsertSchema>;

@@ -1,16 +1,20 @@
-import { Heading, Text } from '@react-email/components';
-import { render } from '@react-email/render';
+import type { ReactElement } from 'react';
 
-import { EmailMessage } from '../message';
-import { BaseEmail } from '../templates/base';
+import { Heading, Text } from '@react-email/components';
+
+import {
+    NotificationEmail,
+    notificationSettingsUrl,
+} from '~/lib/email/NotificationEmail';
+import { BaseEmail } from '~/lib/email/templates/base';
 
 interface DeviceCreatedTemplateProperties {
     deviceId: number;
     deviceName: string;
-    locationName: null | string;
+    locationName?: string;
 }
 
-export class DeviceCreatedEmail extends EmailMessage {
+export class DeviceCreatedEmail extends NotificationEmail {
     readonly subject = 'New device';
     readonly to: string;
 
@@ -22,38 +26,37 @@ export class DeviceCreatedEmail extends EmailMessage {
         this.to = to;
     }
 
-    async render(): Promise<string> {
-        return render(<DeviceCreatedTemplate {...this.parameters} />);
+    protected content(): ReactElement {
+        return <DeviceCreatedTemplate {...this.parameters} />;
     }
 }
 
 function DeviceCreatedTemplate({
     deviceId,
     deviceName,
-    locationName,
+    locationName = '-',
 }: DeviceCreatedTemplateProperties) {
     return (
-        <BaseEmail preview={`New device registered: ${deviceName}`}>
-            <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
+        <BaseEmail
+            notificationSettingsUrl={notificationSettingsUrl()}
+            preview={`New device registered: ${deviceName}`}
+        >
+            <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
                 New device registered
             </Heading>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 Name
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {deviceName}
-            </Text>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="m-0 text-sm/snug text-ink-soft">{deviceName}</Text>
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 Device ID
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {deviceId}
-            </Text>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="m-0 text-sm/snug text-ink-soft">{deviceId}</Text>
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 Location
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {locationName ?? '—'}
+            <Text className="m-0 text-sm/snug text-ink-soft">
+                {locationName}
             </Text>
         </BaseEmail>
     );

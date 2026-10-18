@@ -5,7 +5,7 @@ import { formatMutationSummary } from '~/cli/commands/accounting/mutations/forma
 import { ui } from '~/cli/ui';
 import { endDb } from '~/server/db';
 
-export default defineCommand({
+const command = defineCommand({
     args: {
         credential: {
             description: 'Accounting credential id or label to use',
@@ -60,3 +60,5 @@ export default defineCommand({
         }
     },
 });
+
+export default command;

@@ -2,52 +2,77 @@
 
 import { Tag } from 'lucide-react';
 import { useMemo } from 'react';
+import { z } from 'zod';
 
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent } from '~/components/ui/Card';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import InfoPopover from '~/components/ui/InfoPopover';
-import { Input } from '~/components/ui/Input';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { Field, FieldGroup, FieldLabel } from '~/components/ui/field';
+import InfoPopover from '~/components/ui/info-popover';
+import { Input } from '~/components/ui/input';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from '~/components/ui/Popover';
+} from '~/components/ui/popover';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Skeleton } from '~/components/ui/Skeleton';
-import { TableCell, TableRow } from '~/components/ui/Table';
-import { Toggle } from '~/components/ui/Toggle';
+} from '~/components/ui/select';
+import { Skeleton } from '~/components/ui/skeleton';
+import { TableCell, TableRow } from '~/components/ui/table';
+import { Toggle } from '~/components/ui/toggle';
 import {
     formatCompactCurrency,
     formatCurrency,
     formatDays,
+    formatOptionalPercent,
     formatPercent,
+    NOT_APPLICABLE,
 } from '~/lib/format';
 import {
     ALL_INSTRUMENTS,
     annualisedRoiOnCost,
-    type InstrumentSymbol,
+    InstrumentSymbol,
     parseFirmId,
-    percent,
     type Plan,
+    type PlanOptIns,
     type Roi,
+    ROI_BASIS_LABEL,
     serializePlanId,
     type SimInputs,
     type SimOutputs,
     simulate,
     type TradingFirm,
+    withPlanOptIns,
 } from '~/lib/prop-calculator';
 import { cn } from '~/lib/utilities';
 
+import { ComputationId } from './ComputationId';
+import { toCouponDiscounts } from './couponDiscounts';
+import {
+    describeActivationFee,
+    describeEvalFee,
+    describeMonthlySubscriptionFee,
+    purchaseCouponDiscounts,
+} from './feePreview';
+import { KPI_ACCENT_TEXT_CLASS, KpiAccent, roiAccent } from './kpiAccent';
 import { panelDescriptions } from './kpiDescriptions';
+import { PercentInput } from './PercentInput';
+import { portfolioCacheKey } from './portfolioCacheKey';
+import { describeResetFee, hasResetOption } from './retryDescription';
+import { partitionBySizing, type SizingRefusal } from './simulationFailure';
+import { SimulationFailureNotice } from './SimulationFailureNotice';
 import { type PortfolioEntry } from './types';
 import { useDebouncedComputation } from './useDebouncedSimulation';
+
+export interface SimmedEntry {
+    entry: PortfolioEntry;
+    out: SimOutputs;
+}
 
 interface PortfolioPanelProperties {
     baseInputs: Omit<SimInputs, 'plan'>;
@@ -55,6 +80,7 @@ interface PortfolioPanelProperties {
     currentPlan: Plan;
     firms: readonly TradingFirm[];
     onPortfolioChange: (entries: PortfolioEntry[]) => void;
+    planOptIns: PlanOptIns;
     portfolio: PortfolioEntry[];
 }
 
@@ -63,11 +89,6 @@ interface PortfolioTableRow {
     firm: TradingFirm;
     plan: Plan;
     sim: SimmedEntry | undefined;
-}
-
-interface SimmedEntry {
-    entry: PortfolioEntry;
-    out: SimOutputs;
 }
 
 const DEBOUNCE_MS = 600;
@@ -80,37 +101,31 @@ export default function PortfolioPanel({
     currentPlan,
     firms,
     onPortfolioChange,
+    planOptIns,
     portfolio,
 }: PortfolioPanelProperties) {
-    const key = buildCacheKey(baseInputs, portfolio);
-    const computation = useDebouncedComputation<SimmedEntry[]>(
+    const key = portfolioCacheKey(baseInputs, portfolio, planOptIns);
+    const sizing = partitionBySizing(portfolio, (entry) => ({
+        ...baseInputs,
+        ...entryPositionSizing(baseInputs, entry),
+    }));
+    const computation = useDebouncedComputation(
+        ComputationId.Planner,
         key,
         DEBOUNCE_MS,
         () => {
             const trials = Math.min(MAX_TRIALS, baseInputs.trials);
             const results: SimmedEntry[] = [];
-            for (const entry of portfolio) {
+            for (const entry of sizing.accepted) {
                 const firm = firms.find((f) => f.id === entry.firmId);
                 const plan = firm?.findPlan(entry.planId);
                 if (!plan) continue;
                 const out = simulate({
                     ...baseInputs,
                     copyAccounts: entry.count,
-                    discounts: {
-                        activationPercent: percent(
-                            entry.linkActivationDiscount
-                                ? entry.evalDiscountPercent
-                                : entry.activationDiscountPercent,
-                        ),
-                        evalPercent: percent(entry.evalDiscountPercent),
-                        monthlySubscriptionPercent: percent(
-                            entry.monthlySubscriptionDiscountPercent,
-                        ),
-                        resetPercent: percent(entry.resetDiscountPercent),
-                    },
-                    instrument: entry.instrument ?? baseInputs.instrument,
-                    plan,
-                    stopPoints: entry.stopPoints ?? baseInputs.stopPoints,
+                    discounts: toCouponDiscounts(entry),
+                    ...entryPositionSizing(baseInputs, entry),
+                    plan: withPlanOptIns(plan, planOptIns),
                     trials,
                 });
                 results.push({ entry, out });
@@ -136,13 +151,13 @@ export default function PortfolioPanel({
             (s, { entry, out }) => s + out.accountSize * entry.count,
             0,
         );
-        const totalAccounts = portfolio.reduce(
-            (s, entry) => s + entry.count,
+        const totalAccounts = simmed.reduce(
+            (s, { entry }) => s + entry.count,
             0,
         );
         const roi = annualisedRoiOnCost(monthlyNet, totalCost);
         return { monthlyNet, roi, totalAccounts, totalCost, totalFunding };
-    }, [simmed, portfolio]);
+    }, [simmed]);
 
     function addEntry() {
         onPortfolioChange([
@@ -183,9 +198,9 @@ export default function PortfolioPanel({
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold">
-                        Multi-firm portfolio
+                        Multi-firm planner
                     </h3>
-                    <InfoPopover title="Multi-firm portfolio">
+                    <InfoPopover title="Multi-firm planner">
                         {panelDescriptions.portfolio}
                     </InfoPopover>
                 </div>
@@ -225,15 +240,26 @@ export default function PortfolioPanel({
                 </p>
             ) : (
                 <div className="flex flex-col gap-4">
+                    {sizing.refused.map((refusal) => (
+                        <SimulationFailureNotice
+                            key={refusal.item.id}
+                            message={describeRefusedEntry(firms, refusal)}
+                        />
+                    ))}
+                    <SimulationFailureNotice message={computation.error} />
                     {totals && (
                         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
                             <SummaryCard
+                                accent={
+                                    totals.monthlyNet > 0
+                                        ? KpiAccent.Positive
+                                        : KpiAccent.Negative
+                                }
                                 info={{
                                     body: "Expected $ profit per month across all portfolio accounts after fees. Each row's expected monthly net × its account count, summed. Averaged over pass and bust outcomes.",
                                     title: 'Combined monthly net',
                                 }}
                                 label="Combined monthly net"
-                                positive={totals.monthlyNet > 0}
                                 value={formatCurrency(totals.monthlyNet)}
                             />
                             <SummaryCard
@@ -248,7 +274,7 @@ export default function PortfolioPanel({
                             />
                             <SummaryCard
                                 info={{
-                                    body: "Average all-in evaluation fees you'll pay per cycle across all accounts — eval, activation, monthly subs, and resets — weighted by account count. This is your expected outlay before any payout.",
+                                    body: "Average all-in evaluation fees you'll pay per cycle across all accounts (eval, activation, monthly subs, and resets), weighted by account count. This is your expected outlay before any payout.",
                                     title: 'Total eval cost',
                                 }}
                                 label="Total eval cost"
@@ -256,21 +282,13 @@ export default function PortfolioPanel({
                             />
                             <SummaryCard
                                 info={{
-                                    body: "Sum of account counts across all portfolio rows. Each row's count represents how many parallel funded accounts of that firm/plan you are running.",
+                                    body: "Sum of account counts across the simulated portfolio rows, the same rows as the net and cost totals: a row that is not simulated is not counted. Each row's count represents how many parallel funded accounts of that firm/plan you are running.",
                                     title: 'Total accounts',
                                 }}
                                 label="Total accounts"
                                 value={String(totals.totalAccounts)}
                             />
-                            <SummaryCard
-                                info={{
-                                    body: 'Annualised net profit divided by total eval cost, expressed as a percentage. = (combined monthly net × 12) ÷ total eval cost. Above 0 % means the portfolio is expected to be net profitable over the year, after fees.',
-                                    title: 'Annual ROI on fees',
-                                }}
-                                label="Annual ROI on fees"
-                                positive={totals.roi.value > 0}
-                                value={formatPercent(totals.roi.value)}
-                            />
+                            <PortfolioRoiCard roi={totals.roi} />
                         </div>
                     )}
                     <PortfolioTable
@@ -287,6 +305,21 @@ export default function PortfolioPanel({
                 </div>
             )}
         </Card>
+    );
+}
+
+export function PortfolioRoiCard({ roi }: { roi: Roi }) {
+    return (
+        <SummaryCard
+            accent={roiAccent(roi)}
+            info={{
+                body: 'Annualised net profit divided by total eval cost, expressed as a percentage. = (combined monthly net × 12) ÷ total eval cost. Above 0 % means the portfolio is expected to be net profitable over the year, after fees. Shows n/a when the total eval cost is $0, since a return on no outlay has no ratio.',
+                title: ROI_BASIS_LABEL[roi.basis],
+            }}
+            label={ROI_BASIS_LABEL[roi.basis]}
+            sub="monthly net × 12 ÷ total eval cost"
+            value={formatOptionalPercent(roi.value)}
+        />
     );
 }
 
@@ -345,44 +378,6 @@ function AccountsCell({
     );
 }
 
-function buildCacheKey(
-    baseInputs: Omit<SimInputs, 'plan'>,
-    portfolio: PortfolioEntry[],
-): string {
-    return JSON.stringify({
-        attempts: baseInputs.maxAttempts ?? 1,
-        commission: baseInputs.commissionPerRoundTrip ?? 0,
-        dayStop: baseInputs.dayStop,
-        evalDayPolicy: baseInputs.evalDayPolicy ?? null,
-        fundedHorizonDays: baseInputs.fundedHorizonDays,
-        idleDayProbability: baseInputs.idleDayProbability ?? 0,
-        instrument: baseInputs.instrument ?? null,
-        maxEvalDays: baseInputs.maxEvalDays,
-        minRetainedCushion: baseInputs.minRetainedCushion ?? null,
-        payoutRequestSize: baseInputs.payoutRequestSize ?? null,
-        portfolio: portfolio.map((entry) => ({
-            actDiscount: entry.activationDiscountPercent,
-            count: entry.count,
-            evalDiscount: entry.evalDiscountPercent,
-            firmId: entry.firmId,
-            instrument: entry.instrument,
-            linkAct: entry.linkActivationDiscount,
-            msubDiscount: entry.monthlySubscriptionDiscountPercent,
-            planId: entry.planId,
-            resetDiscount: entry.resetDiscountPercent,
-            stopPoints: entry.stopPoints,
-        })),
-        risk: baseInputs.riskPerTrade,
-        rr: baseInputs.rrRatio,
-        rungSizing: baseInputs.rungSizing ?? null,
-        seed: baseInputs.seed,
-        stopPoints: baseInputs.stopPoints ?? null,
-        tpd: baseInputs.tradesPerDay,
-        trials: baseInputs.trials,
-        winrate: baseInputs.winrate,
-    });
-}
-
 function ComputedCell({
     children,
     className,
@@ -398,7 +393,7 @@ function ComputedCell({
         return pending ? (
             <Skeleton className="h-4 w-12" />
         ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground">{NOT_APPLICABLE}</span>
         );
     }
     return <span className={className}>{children(sim.out)}</span>;
@@ -420,13 +415,7 @@ function CouponCell({
         effectiveActDiscount > 0 ||
         entry.monthlySubscriptionDiscountPercent > 0 ||
         entry.resetDiscountPercent > 0;
-    const evalAfter =
-        plan.fees.oneTimeEval * (1 - entry.evalDiscountPercent / 100);
-    const actAfter = plan.fees.activation * (1 - effectiveActDiscount / 100);
-    const monthlySubscriptionAfter =
-        plan.fees.monthlySubscription *
-        (1 - entry.monthlySubscriptionDiscountPercent / 100);
-    const resetAfter = plan.fees.reset * (1 - entry.resetDiscountPercent / 100);
+    const purchaseDiscounts = purchaseCouponDiscounts(plan, entry, entry.count);
     return (
         <Popover>
             <PopoverTrigger asChild>
@@ -440,100 +429,72 @@ function CouponCell({
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-80">
-                <div className="flex flex-col gap-3">
-                    <p className="text-xs font-semibold">Coupon discounts</p>
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs text-muted-foreground"
-                                htmlFor={`eval-discount-${entry.id}`}
-                            >
+                <FieldGroup className="gap-4">
+                    <p className="text-sm font-semibold">Coupon discounts</p>
+                    <Field data-disabled={plan.fees.oneTimeEval === 0}>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel htmlFor={`eval-discount-${entry.id}`}>
                                 Eval fee discount
-                            </label>
+                            </FieldLabel>
                             {plan.fees.oneTimeEval > 0 && (
-                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                    {entry.evalDiscountPercent > 0
-                                        ? `${formatCompactCurrency(plan.fees.oneTimeEval)} → ${formatCompactCurrency(evalAfter)}`
-                                        : formatCompactCurrency(
-                                              plan.fees.oneTimeEval,
-                                          )}
+                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                    {describeEvalFee(
+                                        plan.fees,
+                                        purchaseDiscounts,
+                                    )}
                                 </span>
                             )}
                         </div>
-                        <div className="relative">
-                            <Input
-                                className="pr-7"
-                                disabled={plan.fees.oneTimeEval === 0}
-                                id={`eval-discount-${entry.id}`}
-                                max={100}
-                                min={0}
-                                onChange={(event) =>
-                                    onUpdate(entry.id, {
-                                        evalDiscountPercent: Number(
-                                            event.target.value,
-                                        ),
-                                    })
-                                }
-                                step={1}
-                                type="number"
-                                value={entry.evalDiscountPercent || ''}
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                %
-                            </span>
-                        </div>
-                    </div>
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs text-muted-foreground"
+                        <PercentInput
+                            id={`eval-discount-${entry.id}`}
+                            isDisabled={plan.fees.oneTimeEval === 0}
+                            onChange={(evalDiscountPercent) =>
+                                onUpdate(entry.id, { evalDiscountPercent })
+                            }
+                            value={entry.evalDiscountPercent}
+                        />
+                    </Field>
+                    <Field
+                        data-disabled={
+                            plan.fees.activation === 0 ||
+                            entry.linkActivationDiscount
+                        }
+                    >
+                        <div className="flex items-center justify-between">
+                            <FieldLabel
                                 htmlFor={`activation-discount-${entry.id}`}
                             >
                                 Activation fee discount
-                            </label>
+                            </FieldLabel>
                             {plan.fees.activation > 0 && (
-                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                    {effectiveActDiscount > 0
-                                        ? `${formatCompactCurrency(plan.fees.activation)} → ${formatCompactCurrency(actAfter)}`
-                                        : formatCompactCurrency(
-                                              plan.fees.activation,
-                                          )}
+                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                    {describeActivationFee(
+                                        plan.fees,
+                                        purchaseDiscounts,
+                                    )}
                                 </span>
                             )}
                         </div>
                         <div className="flex items-stretch gap-2">
-                            <div className="relative flex-1">
-                                <Input
-                                    className="pr-7"
-                                    disabled={
-                                        plan.fees.activation === 0 ||
-                                        entry.linkActivationDiscount
-                                    }
-                                    id={`activation-discount-${entry.id}`}
-                                    max={100}
-                                    min={0}
-                                    onChange={(event) =>
-                                        onUpdate(entry.id, {
-                                            activationDiscountPercent: Number(
-                                                event.target.value,
-                                            ),
-                                        })
-                                    }
-                                    step={1}
-                                    type="number"
-                                    value={
-                                        (entry.linkActivationDiscount
-                                            ? entry.evalDiscountPercent
-                                            : entry.activationDiscountPercent) ||
-                                        ''
-                                    }
-                                />
-                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                    %
-                                </span>
-                            </div>
+                            <PercentInput
+                                id={`activation-discount-${entry.id}`}
+                                isDisabled={
+                                    plan.fees.activation === 0 ||
+                                    entry.linkActivationDiscount
+                                }
+                                onChange={(activationDiscountPercent) =>
+                                    onUpdate(entry.id, {
+                                        activationDiscountPercent,
+                                    })
+                                }
+                                value={
+                                    entry.linkActivationDiscount
+                                        ? entry.evalDiscountPercent
+                                        : entry.activationDiscountPercent
+                                }
+                            />
                             <Toggle
-                                className="text-xs whitespace-nowrap"
+                                className="whitespace-nowrap"
                                 disabled={plan.fees.activation === 0}
                                 onPressedChange={(isLinked: boolean) =>
                                     onUpdate(entry.id, {
@@ -547,95 +508,55 @@ function CouponCell({
                                 Match eval
                             </Toggle>
                         </div>
-                    </div>
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs text-muted-foreground"
+                    </Field>
+                    <Field data-disabled={plan.fees.monthlySubscription === 0}>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel
                                 htmlFor={`monthly-subscription-discount-${entry.id}`}
                             >
                                 Monthly subscription discount
-                            </label>
+                            </FieldLabel>
                             {plan.fees.monthlySubscription > 0 && (
-                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                    {entry.monthlySubscriptionDiscountPercent >
-                                    0
-                                        ? `${formatCompactCurrency(plan.fees.monthlySubscription)} → ${formatCompactCurrency(monthlySubscriptionAfter)}`
-                                        : formatCompactCurrency(
-                                              plan.fees.monthlySubscription,
-                                          )}
+                                <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                    {describeMonthlySubscriptionFee(
+                                        plan.fees,
+                                        purchaseDiscounts,
+                                    )}
                                 </span>
                             )}
                         </div>
-                        <div className="relative">
-                            <Input
-                                className="pr-7"
-                                disabled={plan.fees.monthlySubscription === 0}
-                                id={`monthly-subscription-discount-${entry.id}`}
-                                max={100}
-                                min={0}
-                                onChange={(event) =>
-                                    onUpdate(entry.id, {
-                                        monthlySubscriptionDiscountPercent:
-                                            Number(event.target.value),
-                                    })
-                                }
-                                step={1}
-                                type="number"
-                                value={
-                                    entry.monthlySubscriptionDiscountPercent ||
-                                    ''
-                                }
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                %
-                            </span>
-                        </div>
-                    </div>
-                    <div>
-                        <div className="mb-1 flex items-center justify-between">
-                            <label
-                                className="text-xs text-muted-foreground"
-                                htmlFor={`reset-discount-${entry.id}`}
-                            >
+                        <PercentInput
+                            id={`monthly-subscription-discount-${entry.id}`}
+                            isDisabled={plan.fees.monthlySubscription === 0}
+                            onChange={(monthlySubscriptionDiscountPercent) =>
+                                onUpdate(entry.id, {
+                                    monthlySubscriptionDiscountPercent,
+                                })
+                            }
+                            value={entry.monthlySubscriptionDiscountPercent}
+                        />
+                    </Field>
+                    <Field data-disabled={!hasResetOption(plan.fees)}>
+                        <div className="flex items-center justify-between">
+                            <FieldLabel htmlFor={`reset-discount-${entry.id}`}>
                                 Reset fee discount
-                            </label>
-                            {plan.fees.reset > 0 && (
-                                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                                    {entry.resetDiscountPercent > 0
-                                        ? `${formatCompactCurrency(plan.fees.reset)} → ${formatCompactCurrency(resetAfter)}`
-                                        : formatCompactCurrency(
-                                              plan.fees.reset,
-                                          )}
-                                </span>
-                            )}
-                        </div>
-                        <div className="relative">
-                            <Input
-                                className="pr-7"
-                                disabled={plan.fees.reset === 0}
-                                id={`reset-discount-${entry.id}`}
-                                max={100}
-                                min={0}
-                                onChange={(event) =>
-                                    onUpdate(entry.id, {
-                                        resetDiscountPercent: Number(
-                                            event.target.value,
-                                        ),
-                                    })
-                                }
-                                step={1}
-                                type="number"
-                                value={entry.resetDiscountPercent || ''}
-                            />
-                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
-                                %
+                            </FieldLabel>
+                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                                {describeResetFee(plan.fees, purchaseDiscounts)}
                             </span>
                         </div>
-                    </div>
+                        <PercentInput
+                            id={`reset-discount-${entry.id}`}
+                            isDisabled={!hasResetOption(plan.fees)}
+                            onChange={(resetDiscountPercent) =>
+                                onUpdate(entry.id, { resetDiscountPercent })
+                            }
+                            value={entry.resetDiscountPercent}
+                        />
+                    </Field>
                     {hasCoupon && (
                         <Button
-                            className="h-auto justify-start p-0 text-[11px] text-muted-foreground hover:text-foreground"
+                            className="w-fit px-0"
                             onClick={() =>
                                 onUpdate(entry.id, {
                                     activationDiscountPercent: 0,
@@ -647,15 +568,37 @@ function CouponCell({
                             }
                             size="sm"
                             type="button"
-                            variant="ghost"
+                            variant="link"
                         >
                             Reset discounts
                         </Button>
                     )}
-                </div>
+                </FieldGroup>
             </PopoverContent>
         </Popover>
     );
+}
+
+function describeRefusedEntry(
+    firms: readonly TradingFirm[],
+    refusal: SizingRefusal<PortfolioEntry>,
+): string {
+    const firm = firms.find((f) => f.id === refusal.item.firmId);
+    const plan = firm?.findPlan(refusal.item.planId);
+    const label = [firm?.displayName, plan?.label]
+        .filter((part) => part !== undefined)
+        .join(' ');
+    return `Not simulated and left out of the totals, ${label}: ${refusal.issue}`;
+}
+
+function entryPositionSizing(
+    baseInputs: Omit<SimInputs, 'plan'>,
+    entry: PortfolioEntry,
+): Pick<SimInputs, 'instrument' | 'stopPoints'> {
+    return {
+        instrument: entry.instrument ?? baseInputs.instrument,
+        stopPoints: entry.stopPoints ?? baseInputs.stopPoints,
+    };
 }
 
 function FirmCell({
@@ -711,9 +654,7 @@ function PlanCell({
     row: PortfolioTableRow;
 }) {
     function handlePlanChange(serialized: string) {
-        const found = firm.plans.find(
-            (p) => serializePlanId(p.id) === serialized,
-        );
+        const found = firm.findPlanBySerial(serialized);
         if (!found) return;
         onUpdate(row.entry.id, {
             count: Math.min(row.entry.count, firm.maxFundedAccounts(found)),
@@ -838,14 +779,24 @@ function PortfolioTable({
                 id: 'sizing',
             },
             {
-                accessorFn: (r) => r.sim?.out.passProbability ?? -1,
+                accessorFn: (r) => r.sim?.out.evalPassProbability ?? -1,
                 cell: ({ row }) => (
                     <ComputedCell pending={pending} sim={row.original.sim}>
-                        {(out) => formatPercent(out.passProbability)}
+                        {(out) => formatPercent(out.evalPassProbability)}
                     </ComputedCell>
                 ),
-                header: 'Pass%',
-                id: 'pass',
+                header: 'Eval pass',
+                id: 'evalPass',
+            },
+            {
+                accessorFn: (r) => r.sim?.out.fundedSurvivalProbability ?? -1,
+                cell: ({ row }) => (
+                    <ComputedCell pending={pending} sim={row.original.sim}>
+                        {(out) => formatPercent(out.fundedSurvivalProbability)}
+                    </ComputedCell>
+                ),
+                header: 'Funded survive',
+                id: 'fundedSurvive',
             },
             {
                 accessorFn: (r) => r.sim?.out.daysToPassP50 ?? Infinity,
@@ -867,8 +818,8 @@ function PortfolioTable({
                         className={
                             row.original.sim
                                 ? row.original.sim.out.expectedMonthlyNet >= 0
-                                    ? 'text-emerald-400'
-                                    : 'text-rose-400'
+                                    ? 'text-success'
+                                    : 'text-destructive'
                                 : undefined
                         }
                         pending={pending}
@@ -1015,32 +966,26 @@ function PositionSizingCell({
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-64">
-                <div className="flex flex-col gap-3">
-                    <p className="text-xs font-semibold">
+                <FieldGroup className="gap-4">
+                    <p className="text-sm font-semibold">
                         Contract-limit sizing
                     </p>
-                    <div>
-                        <label
-                            className="mb-1 block text-xs text-muted-foreground"
-                            htmlFor={`sizing-instrument-${entry.id}`}
-                        >
+                    <Field>
+                        <FieldLabel htmlFor={`sizing-instrument-${entry.id}`}>
                             Instrument
-                        </label>
+                        </FieldLabel>
                         <Select
                             onValueChange={(v) =>
                                 onUpdate(entry.id, {
                                     instrument:
                                         v === 'global'
                                             ? null
-                                            : (v as InstrumentSymbol),
+                                            : z.enum(InstrumentSymbol).parse(v),
                                 })
                             }
                             value={entry.instrument ?? 'global'}
                         >
-                            <SelectTrigger
-                                className="h-7 w-full text-xs"
-                                id={`sizing-instrument-${entry.id}`}
-                            >
+                            <SelectTrigger id={`sizing-instrument-${entry.id}`}>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1057,15 +1002,12 @@ function PositionSizingCell({
                                 ))}
                             </SelectContent>
                         </Select>
-                    </div>
+                    </Field>
                     {hasOverride && (
-                        <div>
-                            <label
-                                className="mb-1 block text-xs text-muted-foreground"
-                                htmlFor={`sizing-stop-${entry.id}`}
-                            >
+                        <Field>
+                            <FieldLabel htmlFor={`sizing-stop-${entry.id}`}>
                                 Stop distance (points)
-                            </label>
+                            </FieldLabel>
                             <Input
                                 id={`sizing-stop-${entry.id}`}
                                 min={0.25}
@@ -1080,11 +1022,11 @@ function PositionSizingCell({
                                 type="number"
                                 value={entry.stopPoints ?? ''}
                             />
-                        </div>
+                        </Field>
                     )}
                     {hasOverride && (
                         <Button
-                            className="h-auto justify-start p-0 text-[11px] text-muted-foreground hover:text-foreground"
+                            className="w-fit px-0"
                             onClick={() =>
                                 onUpdate(entry.id, {
                                     instrument: null,
@@ -1093,26 +1035,28 @@ function PositionSizingCell({
                             }
                             size="sm"
                             type="button"
-                            variant="ghost"
+                            variant="link"
                         >
                             Use global setting
                         </Button>
                     )}
-                </div>
+                </FieldGroup>
             </PopoverContent>
         </Popover>
     );
 }
 
 function SummaryCard({
+    accent = KpiAccent.Neutral,
     info,
     label,
-    positive,
+    sub,
     value,
 }: {
+    accent?: KpiAccent;
     info?: { body: string; title: string };
     label: string;
-    positive?: boolean;
+    sub?: string;
     value: string;
 }) {
     return (
@@ -1129,15 +1073,14 @@ function SummaryCard({
                 <p
                     className={cn(
                         'font-mono text-sm font-semibold',
-                        positive === true
-                            ? 'text-emerald-400'
-                            : positive === false
-                              ? 'text-rose-400'
-                              : 'text-foreground',
+                        KPI_ACCENT_TEXT_CLASS[accent],
                     )}
                 >
                     {value}
                 </p>
+                {sub !== undefined && (
+                    <p className="text-[10px] text-muted-foreground">{sub}</p>
+                )}
             </CardContent>
         </Card>
     );

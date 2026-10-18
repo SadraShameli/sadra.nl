@@ -6,7 +6,11 @@ import type {
     PortfolioEntry,
 } from '~/app/(app)/prop-calculator/_components/types';
 
-import { SizingMode } from '~/app/(app)/prop-calculator/_components/types';
+import {
+    LabLinkStatus,
+    LinkParameter,
+    SizingMode,
+} from '~/app/(app)/prop-calculator/_components/types';
 import {
     decodeState,
     encodeState,
@@ -19,7 +23,12 @@ import {
     InstrumentSymbol,
     RungSizing,
 } from '~/lib/prop-calculator';
+import { SizingObjective } from '~/lib/prop-calculator/advisor';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
+import {
+    CalculatorUrlParameter,
+    OBJECTIVE_URL_PARAMETER,
+} from '~/lib/schemas/url';
 
 function apexEod() {
     const firm = ALL_FIRMS.find((f) => f.id === FirmId.Apex);
@@ -47,14 +56,23 @@ function fallbackState(): CalculatorState {
         fundedHorizonDays: 60,
         idleDayProbability: 0,
         instrument: null,
+        labLink: { status: LabLinkStatus.Absent },
         labScenarios: [],
         linkActivationDiscount: false,
+        linkParameters: {
+            [LinkParameter.DayStop]: { status: LabLinkStatus.Absent },
+            [LinkParameter.EvalDayPolicy]: { status: LabLinkStatus.Absent },
+            [LinkParameter.Portfolio]: { status: LabLinkStatus.Absent },
+        },
+        liveTransferHazard: 0,
         maxAttempts: 1,
         maxEvalDays: 60,
         monthlySubscriptionDiscountPercent: 0,
+        objective: SizingObjective.MonthlyNet,
         payoutRequestSize: null,
         plan,
         portfolio: [],
+        rebuyLagDays: 0,
         resetDiscountPercent: 0,
         retainedCushion: null,
         riskDollars: 250,
@@ -64,6 +82,8 @@ function fallbackState(): CalculatorState {
         seed: 42,
         sizingMode: SizingMode.Dollar,
         stopPoints: null,
+        takesFundedReset: false,
+        takesOneTimeEarlyWithdrawal: false,
         tradesPerDay: 1,
         trials: 2000,
         winrate: 0.4,
@@ -187,6 +207,43 @@ describe('instrument/stopPoints round-trip through the URL (contract-limit enfor
     });
 });
 
+describe('rebuyLagDays round-trip through the URL (PT-111, F-76)', () => {
+    it('round-trips a lag of 2.5 trading days through encode then decode', () => {
+        const state = { ...fallbackState(), rebuyLagDays: 2.5 };
+        const encoded = encodeState(state);
+        expect(encoded.get(CalculatorUrlParameter.RebuyLagDays)).toBe('2.5');
+        expect(
+            decodeState(encoded, ALL_FIRMS, fallbackState()).rebuyLagDays,
+        ).toBe(2.5);
+    });
+
+    it('omits the key from the URL while the lag is zero', () => {
+        expect(
+            encodeState(fallbackState()).has(
+                CalculatorUrlParameter.RebuyLagDays,
+            ),
+        ).toBe(false);
+    });
+
+    it('decodes a link without the key to 0, so old links keep their meaning', () => {
+        const withLag = { ...fallbackState(), rebuyLagDays: 3 };
+        const old = encodeState(withLag);
+        old.delete(CalculatorUrlParameter.RebuyLagDays);
+        expect(decodeState(old, ALL_FIRMS, withLag).rebuyLagDays).toBe(0);
+    });
+
+    it('falls back to 0 for a negative or unreadable lag', () => {
+        for (const raw of ['-2', 'soon']) {
+            const parameters = encodeState(fallbackState());
+            parameters.set(CalculatorUrlParameter.RebuyLagDays, raw);
+            expect(
+                decodeState(parameters, ALL_FIRMS, fallbackState())
+                    .rebuyLagDays,
+            ).toBe(0);
+        }
+    });
+});
+
 describe('retainedCushion round-trip through the URL (E14 revisit)', () => {
     it('omits rc from the URL when retainedCushion is unset (null means "use plan default")', () => {
         const parameters = encodeState(fallbackState());
@@ -263,6 +320,78 @@ describe('per-surface contract-limit enforcement round-trips through the "lab"/"
         expect(decoded.labScenarios[0]?.instrument).toBe(InstrumentSymbol.MNQ);
         expect(decoded.labScenarios[0]?.stopPoints).toBe(8);
     });
+
+    it.each([0, -300])(
+        'drops a shared lab blob whose scenario risks %s per trade and keeps the fallback scenarios',
+        (riskPerTrade) => {
+            const { firm, plan } = apexEod();
+            const scenario: LabScenario = {
+                accounts: 1,
+                correlation: CorrelationMode.Copy,
+                dayStop: { kind: DayStopRuleKind.None },
+                groups: 1,
+                id: 'sc-1',
+                instrument: null,
+                label: 'Test',
+                riskPerTrade,
+                rrRatio: 2,
+                stopPoints: null,
+                tradesPerDay: 2,
+                winrate: 0.5,
+            };
+            const parameters = encodeState({
+                ...fallbackState(),
+                firm,
+                labScenarios: [scenario],
+                plan,
+            });
+            expect(parameters.has('lab')).toBe(true);
+
+            const decoded = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+            expect(decoded.labScenarios).toStrictEqual([]);
+        },
+    );
+
+    it.each<Partial<LabScenario>>([
+        { winrate: 1.5 },
+        { winrate: 0 },
+        { rrRatio: -1 },
+        { rrRatio: 0 },
+        { tradesPerDay: 0 },
+        { tradesPerDay: 2.5 },
+    ])(
+        'drops a shared lab blob whose scenario carries %j and keeps the fallback scenarios',
+        (override) => {
+            const { firm, plan } = apexEod();
+            const scenario: LabScenario = {
+                accounts: 1,
+                correlation: CorrelationMode.Copy,
+                dayStop: { kind: DayStopRuleKind.None },
+                groups: 1,
+                id: 'sc-1',
+                instrument: null,
+                label: 'Test',
+                riskPerTrade: 300,
+                rrRatio: 2,
+                stopPoints: null,
+                tradesPerDay: 2,
+                winrate: 0.5,
+                ...override,
+            };
+            const parameters = encodeState({
+                ...fallbackState(),
+                firm,
+                labScenarios: [scenario],
+                plan,
+            });
+            expect(parameters.has('lab')).toBe(true);
+
+            const decoded = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+            expect(decoded.labScenarios).toStrictEqual([]);
+        },
+    );
 
     it('round-trips a Portfolio entry carrying its own instrument + stopPoints override', () => {
         const { firm, plan } = apexEod();
@@ -454,5 +583,137 @@ describe('rungSizing round-trip through the URL (H4)', () => {
         const state = decodeState(parameters, ALL_FIRMS, fallbackState());
 
         expect(state.rungSizing).toBe(RungSizing.CapToCushion);
+    });
+});
+
+describe('idleDayProbability round-trip through the URL (PT-11j)', () => {
+    it('survives a share link: encode then decode keeps the idle-day probability', () => {
+        const state: CalculatorState = {
+            ...fallbackState(),
+            idleDayProbability: 0.25,
+        };
+
+        const decoded = decodeState(
+            encodeState(state),
+            ALL_FIRMS,
+            fallbackState(),
+        );
+
+        expect(decoded.idleDayProbability).toBe(0.25);
+    });
+
+    it('writes the idle-day probability under the CalculatorUrlParameter key only', () => {
+        const parameters = encodeState({
+            ...fallbackState(),
+            idleDayProbability: 0.1,
+        });
+
+        expect(parameters.get(CalculatorUrlParameter.IdleDayProbability)).toBe(
+            '0.100',
+        );
+        expect(
+            parameters.has(CalculatorUrlParameter.LegacyIdleDayProbability),
+        ).toBe(false);
+    });
+
+    it('still decodes an old link that carries the legacy idp key', () => {
+        const { firm, plan } = apexEod();
+        const parameters = new URLSearchParams({
+            firm: firm.id,
+            idp: '0.300',
+            plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        });
+
+        const state = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(state.idleDayProbability).toBe(0.3);
+    });
+
+    it('decodes a link that carries the idle key', () => {
+        const { firm, plan } = apexEod();
+        const parameters = new URLSearchParams({
+            firm: firm.id,
+            idle: '0.4',
+            plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        });
+
+        const state = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(state.idleDayProbability).toBe(0.4);
+    });
+
+    it('prefers the idle key when a link carries both keys', () => {
+        const { firm, plan } = apexEod();
+        const parameters = new URLSearchParams({
+            firm: firm.id,
+            idle: '0.2',
+            idp: '0.7',
+            plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        });
+
+        const state = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(state.idleDayProbability).toBe(0.2);
+    });
+
+    it('falls back to the schema default on an out-of-range legacy idp value', () => {
+        const { firm, plan } = apexEod();
+        const parameters = new URLSearchParams({
+            firm: firm.id,
+            idp: '5',
+            plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        });
+
+        const state = decodeState(parameters, ALL_FIRMS, fallbackState());
+
+        expect(state.idleDayProbability).toBe(0);
+    });
+});
+
+function linkFor(extra: Record<string, string>): URLSearchParams {
+    const { firm, plan } = apexEod();
+    return new URLSearchParams({
+        firm: firm.id,
+        plan: `${FirmId.Apex}-${plan.id.accountSize}-${ApexVariant.Eod}`,
+        ...extra,
+    });
+}
+
+describe('objective round-trip through the URL (PT-63, F-V15)', () => {
+    it('names the key obj', () => {
+        expect(OBJECTIVE_URL_PARAMETER).toBe('obj');
+    });
+
+    it.each([SizingObjective.CycleCash, SizingObjective.RuinFirst])(
+        'survives a share link for %s',
+        (objective) => {
+            const encoded = encodeState({ ...fallbackState(), objective });
+            expect(encoded.get(OBJECTIVE_URL_PARAMETER)).toBe(objective);
+            expect(
+                decodeState(encoded, ALL_FIRMS, fallbackState()).objective,
+            ).toBe(objective);
+        },
+    );
+
+    it('leaves the key out for MonthlyNet, so existing links keep their exact query', () => {
+        const encoded = encodeState(fallbackState());
+        expect(encoded.has(OBJECTIVE_URL_PARAMETER)).toBe(false);
+    });
+
+    it('decodes an old link with no objective key to MonthlyNet', () => {
+        const state = decodeState(linkFor({}), ALL_FIRMS, {
+            ...fallbackState(),
+            objective: SizingObjective.CycleCash,
+        });
+        expect(state.objective).toBe(SizingObjective.MonthlyNet);
+    });
+
+    it('decodes an unknown objective value to MonthlyNet instead of failing', () => {
+        const state = decodeState(
+            linkFor({ [OBJECTIVE_URL_PARAMETER]: 'fastest' }),
+            ALL_FIRMS,
+            fallbackState(),
+        );
+        expect(state.objective).toBe(SizingObjective.MonthlyNet);
     });
 });

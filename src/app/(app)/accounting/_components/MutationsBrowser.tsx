@@ -6,19 +6,12 @@ import { type DateRange } from 'react-day-picker';
 
 import type { ExternalId, LedgerId } from '~/lib/accounting/core/ids';
 
-import { Badge } from '~/components/ui/Badge';
-import { Card, CardContent } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { DateRangePicker } from '~/components/ui/DatePicker';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { Badge } from '~/components/ui/badge';
+import { Card, CardContent } from '~/components/ui/card';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { FilterDateRange } from '~/components/ui/filter-date-range';
+import { FilterSelect } from '~/components/ui/filter-select';
 import { MutationType } from '~/lib/accounting/providers/eboekhouden/enums';
 import { api } from '~/trpc/react';
 
@@ -143,14 +136,14 @@ export function MutationsBrowser() {
             },
             {
                 accessorKey: 'description',
-                cell: ({ row }) => row.original.description ?? '—',
+                cell: ({ row }) => row.original.description ?? '-',
                 header: 'Description',
             },
             {
                 accessorKey: 'paymentReference',
                 cell: ({ row }) => (
                     <span className="font-mono text-xs text-muted-foreground">
-                        {row.original.paymentReference ?? '—'}
+                        {row.original.paymentReference ?? '-'}
                     </span>
                 ),
                 header: 'Reference',
@@ -190,20 +183,35 @@ export function MutationsBrowser() {
                                 />
                             }
                             filterPlaceholder="Search mutations…"
+                            hasExternalFilters={hasFilters}
                             headerActions={
-                                <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:flex-wrap md:items-center">
-                                    <ClearFiltersButton
-                                        active={hasFilters}
-                                        className="hidden md:flex"
-                                        onReset={reset}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <FilterSelect
+                                        label="Type"
+                                        onValueChange={(v) => {
+                                            setTypeFilter(v ?? ALL);
+                                            setOffset(0);
+                                        }}
+                                        options={typeOptions.map((code) => ({
+                                            label:
+                                                (
+                                                    MUTATION_TYPE_LABEL as Record<
+                                                        string,
+                                                        string
+                                                    >
+                                                )[code] ?? code,
+                                            value: code,
+                                        }))}
+                                        placeholder="All types"
+                                        value={
+                                            typeFilter === ALL
+                                                ? undefined
+                                                : typeFilter
+                                        }
                                     />
-                                    <ActiveConnectionNote
-                                        credential={accounting}
-                                        roleNoun="accounting credential"
-                                    />
-                                    <DateRangePicker
+                                    <FilterDateRange
                                         align="end"
-                                        className="h-8 w-fit shrink-0 text-xs"
+                                        label="Mutation date"
                                         onChange={(r) => {
                                             setDateRange(r);
                                             setOffset(0);
@@ -211,44 +219,11 @@ export function MutationsBrowser() {
                                         placeholder="Any date"
                                         value={dateRange}
                                     />
-                                    <Select
-                                        onValueChange={(v) => {
-                                            setTypeFilter(v);
-                                            setOffset(0);
-                                        }}
-                                        value={typeFilter}
-                                    >
-                                        <SelectTrigger className="h-8 w-48 text-xs">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={ALL}>
-                                                All types
-                                            </SelectItem>
-                                            {typeOptions.map((code) => (
-                                                <SelectItem
-                                                    key={code}
-                                                    value={code}
-                                                >
-                                                    {(
-                                                        MUTATION_TYPE_LABEL as Record<
-                                                            string,
-                                                            string
-                                                        >
-                                                    )[code] ?? code}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <ClearFiltersButton
-                                        active={hasFilters}
-                                        className="md:hidden"
-                                        onReset={reset}
-                                    />
                                 </div>
                             }
                             initialSorting={[{ desc: true, id: 'date' }]}
                             isLoading={!!credentialId && mutationsQ.isPending}
+                            onResetFilters={reset}
                             rowId={(r) => r.externalId}
                             serverPagination={{
                                 hasNextPage: rows.length === PAGE_SIZE,
@@ -259,6 +234,14 @@ export function MutationsBrowser() {
                                 pageSize: PAGE_SIZE,
                             }}
                             showFilter
+                            toolbarEnd={
+                                <>
+                                    <ActiveConnectionNote
+                                        credential={accounting}
+                                        roleNoun="accounting credential"
+                                    />
+                                </>
+                            }
                         />
                     </div>
                 )}

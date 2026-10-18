@@ -3,7 +3,11 @@
 import { useMemo } from 'react';
 import { Pie, PieChart } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    type ChartConfig,
+    ChartContainer,
+    ChartSize,
+} from '~/components/ui/chart';
 import {
     type LightAssessment,
     outcomeDistribution,
@@ -11,10 +15,10 @@ import {
 import { cn } from '~/lib/utilities';
 
 const COLORS: Record<string, string> = {
-    breakeven: 'hsl(45 93% 47%)',
-    loss: 'hsl(0 84% 60%)',
-    'no-trade': 'hsl(0 0% 50%)',
-    win: 'hsl(142 71% 45%)',
+    breakeven: 'var(--warning)',
+    loss: 'var(--destructive)',
+    'no-trade': 'var(--muted-foreground)',
+    win: 'var(--success)',
 };
 
 const LABELS: Record<string, string> = {
@@ -55,7 +59,11 @@ export function OutcomeDonut({
                 'flex flex-col items-center gap-4',
             )}
         >
-            <ChartContainer className="size-56 shrink-0" config={chartConfig}>
+            <ChartContainer
+                className="size-64 shrink-0"
+                config={chartConfig}
+                size={ChartSize.Compact}
+            >
                 <PieChart>
                     <Pie
                         cx="50%"

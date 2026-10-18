@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { FirmId } from '~/lib/prop-calculator/core';
-import { findLivePlanBuilder } from '~/lib/prop-calculator/firms';
+import { dollars, FirmId } from '~/lib/prop-calculator/core';
+import {
+    findLivePlanBuilder,
+    findLiveTransitionPlanBuilder,
+    LUCID_LIVE_DEFAULT_CUSHION_PERCENT,
+} from '~/lib/prop-calculator/firms';
 
 const MODELED_LIVE_FIRMS = [
     FirmId.AlphaFutures,
@@ -29,5 +33,25 @@ describe('findLivePlanBuilder', () => {
         for (const id of unmodeledFirms) {
             expect(findLivePlanBuilder(id)).toBeUndefined();
         }
+    });
+});
+
+describe('findLiveTransitionPlanBuilder (N-54)', () => {
+    it('resolves the Lucid Daily live builder, which pays the one-off transition credit', () => {
+        const build = findLiveTransitionPlanBuilder(FirmId.Lucid);
+        if (!build) throw new Error('Lucid has no transition builder');
+
+        expect(
+            build(LUCID_LIVE_DEFAULT_CUSHION_PERCENT, dollars(1000))
+                .transitionPayout,
+        ).toBe(1000);
+    });
+
+    it('resolves a transition builder for Lucid only', () => {
+        const withCredit = Object.values(FirmId).filter(
+            (id) => findLiveTransitionPlanBuilder(id) !== undefined,
+        );
+
+        expect(withCredit).toStrictEqual([FirmId.Lucid]);
     });
 });

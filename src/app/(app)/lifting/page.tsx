@@ -1,8 +1,10 @@
 import { type Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
-import { getServerSession } from '~/lib/auth/server';
-import { routes } from '~/lib/site/routes';
+import { LiftingPageHeader } from '~/app/(app)/lifting/_components/LiftingPageHeader';
+import { TodayHeroSkeleton } from '~/app/(app)/lifting/_components/LiftingSkeletons';
+import { PageTransition } from '~/components/PageTransition';
+import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
 import { api, HydrateClient } from '~/trpc/server';
 
@@ -14,30 +16,33 @@ export const metadata: Metadata = {
     title: 'Lifting',
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function LiftingTodayPage() {
-    const session = await getServerSession();
-    if (!session?.user.id) redirect(routes.auth.login);
-    void api.lifting.settings.get.prefetch();
+export default function LiftingTodayPage() {
     return (
-        <HydrateClient>
+        <PageTransition>
             <main
                 className={cn(
                     'app-lifting__today',
                     'container pt-spacing pb-24',
                 )}
             >
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                        Lifting
-                    </h1>
-                    <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-                        A no-friction workout tracker.
-                    </p>
-                </header>
-                <TodayHero />
+                <LiftingPageHeader
+                    description="A no-friction workout tracker."
+                    title="Lifting"
+                />
+                <Suspense fallback={<TodayHeroSkeleton />}>
+                    <LiftingTodayContent />
+                </Suspense>
             </main>
+        </PageTransition>
+    );
+}
+
+async function LiftingTodayContent() {
+    await requireSessionUser();
+    await api.lifting.settings.get.prefetch();
+    return (
+        <HydrateClient>
+            <TodayHero />
         </HydrateClient>
     );
 }

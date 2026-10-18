@@ -10,7 +10,6 @@ import {
     type Plan,
     type PlanInit,
     TradingPhase,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { ALL_FIRMS } from '~/lib/prop-calculator/firms';
 
@@ -28,6 +27,7 @@ function fullyQualifiedFundedAccount(
         plan.minDaysAfterPassForPayout +
         (plan.minDaysAfterPassForPayoutPerCycle ?? 0) +
         10;
+    tracker.sessionDaysSinceAnchor = state.qualifyingDays;
     return { state, tracker };
 }
 
@@ -107,13 +107,12 @@ describe.each(ALL_PLANS)(
                 plan,
                 plan.fundedDrawdown.amount * 10,
             );
-            const payout = tryFundedPayout({
-                maxPayouts: Infinity,
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: plan.defaultRetainedCushion(),
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             });
             if (payout === null) return;
             expect(plan.isBust(state, TradingPhase.Funded)).toBe(false);
@@ -129,7 +128,7 @@ describe.each(ALL_PLANS)(
                 expect(floor).toBeGreaterThan(state.threshold);
             });
         } else {
-            it('payoutBalanceFloor equals the bust threshold exactly, since this plan models no retained cushion at all -- protection against a self-bust payout must come from its own payout caps, tested separately by the never-self-busts case above', () => {
+            it('payoutBalanceFloor equals the bust threshold exactly, since this plan models no retained cushion at all, so protection against a self-bust payout must come from its own payout caps, tested separately by the never-self-busts case above', () => {
                 const { state } = fullyQualifiedFundedAccount(plan, 0);
                 const floor = plan.payoutBalanceFloor(
                     state,
@@ -149,13 +148,12 @@ describe.each(ALL_PLANS)(
                 plan,
                 plan.fundedDrawdown.amount * 10,
             );
-            const payout = tryFundedPayout({
-                maxPayouts: Infinity,
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: plan.defaultRetainedCushion(),
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             });
             expect(payout).not.toBeNull();
             expect(payout?.debited).toBeGreaterThan(0);
@@ -167,9 +165,13 @@ describe.each(ALL_PLANS)(
 describe.each(ALL_PLANS)(
     '$label: payoutFromProfit is monotone non-decreasing and never exceeds its input',
     (plan) => {
-        const thresholds = plan.payoutTiers
-            .map((tier) => tier.thresholdProfit)
+        const thresholds = plan.payoutSplit.schedule
+            .flatMap((entry) => entry.tiers.map((tier) => tier.thresholdProfit))
             .toSorted((a, b) => a - b);
+        const payoutIndices = Array.from(
+            { length: plan.payoutSplit.stationaryFromPayoutIndex + 1 },
+            (_, index) => index,
+        );
         const grid = [
             0,
             ...thresholds.flatMap((t) => [
@@ -181,22 +183,26 @@ describe.each(ALL_PLANS)(
             plan.fundedDrawdown.amount * 20,
         ].toSorted((a, b) => a - b);
 
-        it('non-decreasing across every declared tier boundary', () => {
-            let previous = -Infinity;
-            for (const profit of grid) {
-                const payout = plan.payoutFromProfit(profit);
-                expect(payout).toBeGreaterThanOrEqual(previous - 1e-9);
-                expect(payout).toBeGreaterThanOrEqual(0);
-                previous = payout;
+        it('non-decreasing across every declared tier boundary at every payout index', () => {
+            for (const payoutIndex of payoutIndices) {
+                let previous = -Infinity;
+                for (const profit of grid) {
+                    const payout = plan.payoutFromProfit(profit, payoutIndex);
+                    expect(payout).toBeGreaterThanOrEqual(previous - 1e-9);
+                    expect(payout).toBeGreaterThanOrEqual(0);
+                    previous = payout;
+                }
             }
         });
 
-        it('never exceeds the profit passed in', () => {
-            for (const profit of grid) {
-                if (profit <= 0) continue;
-                expect(plan.payoutFromProfit(profit)).toBeLessThanOrEqual(
-                    profit + 1e-9,
-                );
+        it('never exceeds the profit passed in at any payout index', () => {
+            for (const payoutIndex of payoutIndices) {
+                for (const profit of grid) {
+                    if (profit <= 0) continue;
+                    expect(
+                        plan.payoutFromProfit(profit, payoutIndex),
+                    ).toBeLessThanOrEqual(profit + 1e-9);
+                }
             }
         });
     },
@@ -246,6 +252,7 @@ describe.each(ALL_PLANS)(
             );
             const newFundedValue = fundedIdle === null ? 5 : fundedIdle + 1;
             const twin = plan.withOverrides({
+                calendarWeekInactivity: undefined,
                 evalMaxConsecutiveIdleDays: evalIdle,
                 maxConsecutiveIdleDays: newFundedValue,
             });
@@ -260,11 +267,13 @@ describe.each(ALL_PLANS)(
 );
 
 describe.each(
-    ALL_PLANS.filter((plan) => plan.fundedDrawdown.lock !== undefined),
+    ALL_PLANS.filter(
+        (plan) => (plan.fundedDrawdown.lock?.atProfit ?? null) !== null,
+    ),
 )(
     '$label: the natural (onDayClose/onTrade) lock trigger always snaps the ' +
         'threshold to exactly the documented locked value, even when the ' +
-        'same call’s ratchet already carried it higher -- confirmed against ' +
+        'same call’s ratchet already carried it higher, confirmed against ' +
         "DrawdownTransitions.test.ts's own synthetic case " +
         "('locks at the documented floor even when the qualifying day " +
         "overshoots the trigger'); forceLock's separate never-lower guard " +
@@ -275,7 +284,8 @@ describe.each(
     (plan) => {
         it('locks at exactly lockedThreshold(accountSize), not at the higher ratcheted value', () => {
             const lock = plan.fundedDrawdown.lock;
-            if (!lock) return;
+            const trigger = lock?.atProfit ?? null;
+            if (!lock || trigger === null) return;
             const start = plan.accountSize;
             const amount = plan.fundedDrawdown.amount;
             const targetLockedThreshold = lock.lockedThreshold(start);
@@ -283,10 +293,8 @@ describe.each(
             const overshootMargin =
                 Math.abs(targetLockedThreshold - start) + amount + 1000;
             const overshootBalance =
-                Math.max(
-                    start + lock.atProfit,
-                    targetLockedThreshold + amount,
-                ) + overshootMargin;
+                Math.max(start + trigger, targetLockedThreshold + amount) +
+                overshootMargin;
             const ratchetedThreshold = overshootBalance - amount;
             if (ratchetedThreshold <= targetLockedThreshold) return;
 

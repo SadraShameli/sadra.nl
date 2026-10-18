@@ -2,55 +2,38 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2, Users } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
 import {
     DataTable,
     type DataTableColumn,
     DataTableFilterFunction,
-} from '~/components/ui/DataTable';
-import { DataTableFacetSelect } from '~/components/ui/DataTableFacetSelect';
+} from '~/components/ui/data-table';
+import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import {
     Dialog,
     DialogContent,
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+} from '~/components/ui/dialog';
+import { EmptyState } from '~/components/ui/empty-state';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '~/components/ui/Select';
-import { Separator } from '~/components/ui/Separator';
+} from '~/components/ui/select';
+import { Separator } from '~/components/ui/separator';
 import { authClient } from '~/lib/auth/client';
 import { type Role } from '~/lib/auth/roles';
 import {
@@ -152,7 +135,7 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
             {
                 accessorKey: 'name',
                 cell: ({ row }) => (
-                    <span className="font-medium text-white">
+                    <span className="font-medium text-foreground">
                         {row.original.name}
                     </span>
                 ),
@@ -219,41 +202,21 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                                 </Select>
                             )}
                             {canDelete && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button
-                                            aria-label="Delete user"
-                                            disabled={pending}
-                                            size="sm"
-                                            variant="outline"
-                                        >
-                                            <Trash2 className="size-3.5" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>
-                                                Delete &ldquo;{u.name}&rdquo;?
-                                            </AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Removes the user and all their
-                                                data permanently.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>
-                                                Cancel
-                                            </AlertDialogCancel>
-                                            <AlertDialogAction
-                                                onClick={() =>
-                                                    void onDelete(u.id)
-                                                }
-                                            >
-                                                Delete
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
+                                <ConfirmDialog
+                                    confirmLabel="Delete"
+                                    description="Removes the user and all their data permanently."
+                                    onConfirm={() => void onDelete(u.id)}
+                                    title={<>Delete &ldquo;{u.name}&rdquo;?</>}
+                                >
+                                    <Button
+                                        aria-label="Delete user"
+                                        disabled={pending}
+                                        size="icon-sm"
+                                        variant="outline"
+                                    >
+                                        <Trash2 className="size-3.5" />
+                                    </Button>
+                                </ConfirmDialog>
                             )}
                         </div>
                     );
@@ -287,7 +250,6 @@ export function AccountManagement({ callerRole }: { callerRole: Role }) {
                     emptyState={<EmptyState icon={Users} title="No users" />}
                     headerActions={(table) => (
                         <DataTableFacetSelect
-                            className="w-32"
                             column={table.getColumn('role')}
                             placeholder="All roles"
                         />
@@ -326,6 +288,7 @@ function CreateUserDialog({
         mode: 'onTouched',
         resolver: zodResolver(adminUserCreateInputSchema),
     });
+    const formId = useId();
 
     useEffect(() => {
         if (!open) {
@@ -348,97 +311,103 @@ function CreateUserDialog({
                 <DialogHeader>
                     <DialogTitle>Create user</DialogTitle>
                 </DialogHeader>
-                <Form {...form}>
-                    <form className="flex flex-col gap-4" onSubmit={submit}>
-                        <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Name</FormLabel>
-                                    <FormControl>
-                                        <Input autoComplete="off" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Email</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            autoComplete="off"
-                                            type="email"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="password"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Password</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            autoComplete="new-password"
-                                            type="password"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="role"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Role</FormLabel>
-                                    <Select
-                                        onValueChange={field.onChange}
-                                        value={field.value}
+                <form className="flex flex-col gap-4" onSubmit={submit}>
+                    <Controller
+                        control={form.control}
+                        name="name"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-name`}>
+                                    Name
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    autoComplete="off"
+                                    id={`${formId}-name`}
+                                    {...field}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="email"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-email`}>
+                                    Email
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    autoComplete="off"
+                                    id={`${formId}-email`}
+                                    type="email"
+                                    {...field}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="password"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-password`}>
+                                    Password
+                                </FieldLabel>
+                                <Input
+                                    aria-invalid={fieldState.invalid}
+                                    autoComplete="new-password"
+                                    id={`${formId}-password`}
+                                    type="password"
+                                    {...field}
+                                />
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <Controller
+                        control={form.control}
+                        name="role"
+                        render={({ field, fieldState }) => (
+                            <Field data-invalid={fieldState.invalid}>
+                                <FieldLabel htmlFor={`${formId}-role`}>
+                                    Role
+                                </FieldLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                >
+                                    <SelectTrigger
+                                        aria-invalid={fieldState.invalid}
+                                        id={`${formId}-role`}
                                     >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="user">
-                                                user
-                                            </SelectItem>
-                                            <SelectItem value="admin">
-                                                admin
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <DialogFooter>
-                            <Button
-                                onClick={onClose}
-                                type="button"
-                                variant="ghost"
-                            >
-                                Cancel
-                            </Button>
-                            <Button disabled={pending} type="submit">
-                                {pending ? 'Creating…' : 'Create'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="user">
+                                            user
+                                        </SelectItem>
+                                        <SelectItem value="admin">
+                                            admin
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FieldError errors={[fieldState.error]} />
+                            </Field>
+                        )}
+                    />
+                    <DialogFooter>
+                        <Button onClick={onClose} type="button" variant="ghost">
+                            Cancel
+                        </Button>
+                        <Button disabled={pending} type="submit">
+                            {pending ? 'Creating…' : 'Create'}
+                        </Button>
+                    </DialogFooter>
+                </form>
             </DialogContent>
         </Dialog>
     );

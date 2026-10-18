@@ -1,8 +1,9 @@
-import { Heading, Hr, Text } from '@react-email/components';
-import { render } from '@react-email/render';
+import type { ReactElement } from 'react';
 
-import { EmailMessage } from '../message';
-import { BaseEmail } from '../templates/base';
+import { Heading, Hr, Text } from '@react-email/components';
+
+import { EmailMessage } from '~/lib/email/message';
+import { BaseEmail } from '~/lib/email/templates/base';
 
 interface ContactFormTemplateProperties {
     email: string;
@@ -23,18 +24,18 @@ export class ContactFormEmail extends EmailMessage {
         private readonly message: string,
     ) {
         super();
-        this.subject = `Contact form — ${name}`;
+        this.subject = `Contact form: ${name}`;
         this.to = to;
     }
 
-    async render(): Promise<string> {
-        return render(
+    protected content(): ReactElement {
+        return (
             <ContactFormTemplate
                 email={this.senderEmail}
                 ip={this.ip}
                 message={this.message}
                 name={this.name}
-            />,
+            />
         );
     }
 }
@@ -47,26 +48,24 @@ function ContactFormTemplate({
 }: ContactFormTemplateProperties) {
     return (
         <BaseEmail preview={`Contact from ${name}`}>
-            <Heading className="m-0 mb-4 text-xl font-semibold text-neutral-900">
+            <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
                 New message
             </Heading>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 From
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
+            <Text className="m-0 text-sm/snug text-ink-soft">
                 {name} &lt;{email}&gt;
             </Text>
-            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="mt-4 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 IP
             </Text>
-            <Text className="m-0 text-sm leading-snug text-neutral-700">
-                {ip}
-            </Text>
-            <Hr className="my-5 border-neutral-200" />
-            <Text className="mt-0 mb-0.5 text-[11px] font-semibold tracking-wide text-neutral-500 uppercase">
+            <Text className="m-0 text-sm/snug text-ink-soft">{ip}</Text>
+            <Hr className="my-5 border-line" />
+            <Text className="mt-0 mb-0.5 text-[11px] font-semibold tracking-wide text-ink-muted uppercase">
                 Message
             </Text>
-            <Text className="m-0 text-sm leading-6 whitespace-pre-wrap text-neutral-700">
+            <Text className="m-0 text-sm/6 whitespace-pre-wrap text-ink-soft">
                 {message}
             </Text>
         </BaseEmail>

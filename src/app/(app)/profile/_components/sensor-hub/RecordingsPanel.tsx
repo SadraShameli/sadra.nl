@@ -1,57 +1,38 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AudioLines, Download, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { AudioLines, Download, Pencil, Plus } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 
+import { ProfileFormDialog } from '~/app/(app)/profile/_components/ProfileFormDialog';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { ClearFiltersButton } from '~/components/ui/ClearFiltersButton';
+    ProfileIdSelectField,
+    ProfileTextField,
+} from '~/app/(app)/profile/_components/ProfileFormFields';
+import { ProfilePanel } from '~/app/(app)/profile/_components/ProfilePanel';
+import {
+    MutedCell,
+    PrimaryCell,
+    profileActionsColumn,
+    ProfileDateCell,
+    ProfileDatePrecision,
+    ProfileTableEmpty,
+    RowActionButton,
+    RowActionLink,
+    RowConfirmAction,
+} from '~/app/(app)/profile/_components/ProfileTable';
+import { Button } from '~/components/ui/button';
 import {
     DataTable,
     type DataTableColumn,
     dataTableExpanderColumn,
-} from '~/components/ui/DataTable';
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '~/components/ui/Dialog';
-import { EmptyState } from '~/components/ui/EmptyState';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
-import { Separator } from '~/components/ui/Separator';
+    hasActiveTableFilter,
+} from '~/components/ui/data-table';
+import { Dialog, DialogTrigger } from '~/components/ui/dialog';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { FilePicker } from '~/components/ui/file-picker';
 import { DurationFormat } from '~/lib/lifting/format';
 import {
     type RecordingCreateAdminInput,
@@ -62,7 +43,7 @@ import {
 import { apiRoutes } from '~/lib/site/routes';
 import { api } from '~/trpc/react';
 
-const ALL = '__all__';
+import { SensorHubScopeFilters, useSensorHubScope } from './SensorHubScope';
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
@@ -80,19 +61,12 @@ export function RecordingsPanel() {
     const locations = api.location.listAdmin.useQuery();
     const devices = api.device.listAdmin.useQuery();
 
-    const [locFilter, setLocFilter] = useState(ALL);
-    const [developmentFilter, setDevelopmentFilter] = useState(ALL);
-    const hasFilters = locFilter !== ALL || developmentFilter !== ALL;
-    const resetFilters = () => {
-        setLocFilter(ALL);
-        setDevelopmentFilter(ALL);
-    };
+    const scope = useSensorHubScope();
 
     const recordings = api.recording.listAdmin.useQuery({
-        device_id:
-            developmentFilter === ALL ? undefined : Number(developmentFilter),
+        device_id: scope.scope.deviceId,
         limit: 200,
-        location_id: locFilter === ALL ? undefined : Number(locFilter),
+        location_id: scope.scope.locationId,
     });
 
     const del = api.recording.delete.useMutation({
@@ -136,20 +110,15 @@ export function RecordingsPanel() {
             {
                 accessorKey: 'file_name',
                 cell: ({ row }) => (
-                    <span className="font-medium text-foreground">
-                        {row.original.file_name}
-                    </span>
+                    <PrimaryCell>{row.original.file_name}</PrimaryCell>
                 ),
                 header: 'File',
             },
             {
                 accessorFn: (row) =>
                     locMap.get(row.location_id) ?? `loc#${row.location_id}`,
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {locMap.get(row.original.location_id) ??
-                            `loc#${row.original.location_id}`}
-                    </span>
+                cell: ({ getValue }) => (
+                    <MutedCell>{String(getValue())}</MutedCell>
                 ),
                 header: 'Location',
                 id: 'location',
@@ -157,11 +126,8 @@ export function RecordingsPanel() {
             {
                 accessorFn: (row) =>
                     deviceMap.get(row.device_id) ?? `device#${row.device_id}`,
-                cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {deviceMap.get(row.original.device_id) ??
-                            `device#${row.original.device_id}`}
-                    </span>
+                cell: ({ getValue }) => (
+                    <MutedCell>{String(getValue())}</MutedCell>
                 ),
                 header: 'Device',
                 id: 'device',
@@ -169,191 +135,129 @@ export function RecordingsPanel() {
             {
                 accessorKey: 'duration_seconds',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground tabular-nums">
+                    <MutedCell>
                         {row.original.duration_seconds == null
-                            ? '—'
+                            ? '-'
                             : DurationFormat.seconds(
                                   row.original.duration_seconds,
                               )}
-                    </span>
+                    </MutedCell>
                 ),
                 header: 'Duration',
             },
             {
                 accessorKey: 'created_at',
                 cell: ({ row }) => (
-                    <span className="text-xs text-muted-foreground">
-                        {new Date(row.original.created_at).toLocaleString()}
-                    </span>
+                    <ProfileDateCell
+                        precision={ProfileDatePrecision.Minute}
+                        value={row.original.created_at}
+                    />
                 ),
                 header: 'Recorded',
             },
-            {
-                cell: ({ row }) => (
-                    <div className="flex justify-end gap-2">
-                        <Button asChild size="sm" variant="outline">
-                            <a
-                                download={row.original.file_name}
-                                href={apiRoutes.recording(row.original.id)}
-                                title="Download"
-                            >
-                                <Download className="size-3.5" />
-                            </a>
-                        </Button>
-                        <Button
-                            onClick={() => setRenaming(row.original)}
-                            size="sm"
-                            title="Rename"
-                            variant="outline"
-                        >
-                            <Pencil className="size-3.5" />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="outline">
-                                    <Trash2 className="size-3.5" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Delete &ldquo;{row.original.file_name}
-                                        &rdquo;?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        The audio file is removed from the
-                                        database.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            del.mutate({
-                                                id: row.original.id,
-                                            })
-                                        }
-                                    >
-                                        Delete
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                ),
-                header: () => <span className="sr-only">Actions</span>,
-                id: 'actions',
-            },
+            profileActionsColumn<RecordingRow>((recording) => (
+                <>
+                    <RowActionLink
+                        download={recording.file_name}
+                        href={apiRoutes.recording(recording.id)}
+                        icon={Download}
+                        label="Download recording"
+                    />
+                    <RowActionButton
+                        icon={Pencil}
+                        label="Rename recording"
+                        onClick={() => setRenaming(recording)}
+                    />
+                    <RowConfirmAction
+                        description="The audio file is removed from the database."
+                        label="Delete recording"
+                        onConfirm={() => del.mutate({ id: recording.id })}
+                        title={`Delete “${recording.file_name}”?`}
+                    />
+                </>
+            )),
         ],
         [del, deviceMap, locMap],
     );
 
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Recordings</CardTitle>
-                <Dialog onOpenChange={setNewOpen} open={newOpen}>
-                    <DialogTrigger asChild>
-                        <Button size="sm">
-                            <Plus className="mr-1 size-4" />
-                            New recording
-                        </Button>
-                    </DialogTrigger>
-                    <NewRecordingDialog
-                        devices={(devices.data ?? []).map((d) => ({
-                            id: d.id,
-                            name: d.name,
-                        }))}
-                        onClose={() => setNewOpen(false)}
-                        onSubmit={(v) =>
-                            recordingCreateMutation.mutate(v, {
-                                onSuccess: () => setNewOpen(false),
-                            })
-                        }
-                        pending={recordingCreateMutation.isPending}
-                    />
-                </Dialog>
-            </CardHeader>
-            <Separator />
-            <CardContent className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-2">
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Location</Label>
-                        <Select onValueChange={setLocFilter} value={locFilter}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>All</SelectItem>
-                                {(locations.data ?? []).map((l) => (
-                                    <SelectItem key={l.id} value={String(l.id)}>
-                                        {l.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                        <Label className="text-xs">Device</Label>
-                        <Select
-                            onValueChange={setDevelopmentFilter}
-                            value={developmentFilter}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={ALL}>All</SelectItem>
-                                {(devices.data ?? []).map((d) => (
-                                    <SelectItem key={d.id} value={String(d.id)}>
-                                        {d.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
+    const newButton = (
+        <DialogTrigger asChild>
+            <Button size="sm">
+                <Plus className="size-4" />
+                New recording
+            </Button>
+        </DialogTrigger>
+    );
 
-                <DataTable
-                    columns={columns}
-                    data={rows}
-                    emptyState={
-                        <EmptyState
-                            description="Adjust the filters or record a new clip."
-                            icon={AudioLines}
-                            title="No recordings"
-                        />
+    return (
+        <>
+            <Dialog onOpenChange={setNewOpen} open={newOpen}>
+                <ProfilePanel
+                    action={newButton}
+                    description="Audio clips uploaded by devices. Expand a row to play it."
+                    title="Recordings"
+                >
+                    <DataTable
+                        columns={columns}
+                        data={rows}
+                        emptyState={(table) => (
+                            <ProfileTableEmpty
+                                action={newButton}
+                                description="Recordings appear here as devices upload them."
+                                filtered={
+                                    scope.isActive ||
+                                    hasActiveTableFilter(table)
+                                }
+                                icon={AudioLines}
+                                noun="recordings"
+                            />
+                        )}
+                        filterPlaceholder="Search recordings…"
+                        getRowCanExpand={() => true}
+                        hasExternalFilters={scope.isActive}
+                        headerActions={
+                            <SensorHubScopeFilters
+                                controller={scope}
+                                devices={devices.data ?? []}
+                                locations={locations.data ?? []}
+                            />
+                        }
+                        isLoading={recordings.isLoading}
+                        onResetFilters={scope.reset}
+                        pageSize={20}
+                        renderExpanded={(row) => (
+                            <div className="flex flex-col gap-2 bg-background p-3">
+                                <p className="text-xs text-muted-foreground">
+                                    Playing: {row.original.file_name}
+                                </p>
+                                <audio
+                                    className="w-full"
+                                    controls
+                                    preload="none"
+                                    src={apiRoutes.recording(row.original.id)}
+                                >
+                                    <track kind="captions" />
+                                </audio>
+                            </div>
+                        )}
+                        rowId={(r) => String(r.id)}
+                        showFilter
+                    />
+                </ProfilePanel>
+                <NewRecordingDialog
+                    devices={(devices.data ?? []).map((d) => ({
+                        id: d.id,
+                        label: d.name,
+                    }))}
+                    onClose={() => setNewOpen(false)}
+                    onSubmit={(v) =>
+                        recordingCreateMutation.mutate(v, {
+                            onSuccess: () => setNewOpen(false),
+                        })
                     }
-                    getRowCanExpand={() => true}
-                    headerActions={
-                        <ClearFiltersButton
-                            active={hasFilters}
-                            onReset={resetFilters}
-                        />
-                    }
-                    isLoading={recordings.isLoading}
-                    pageSize={20}
-                    renderExpanded={(row) => (
-                        <div className="flex flex-col gap-2 bg-background p-3">
-                            <p className="text-xs text-muted-foreground">
-                                Playing: {row.original.file_name}
-                            </p>
-                            <audio
-                                className="w-full"
-                                controls
-                                preload="none"
-                                src={apiRoutes.recording(row.original.id)}
-                            >
-                                <track kind="captions" />
-                            </audio>
-                        </div>
-                    )}
-                    rowId={(r) => String(r.id)}
-                    showFilter
+                    pending={recordingCreateMutation.isPending}
                 />
-            </CardContent>
+            </Dialog>
 
             <Dialog
                 onOpenChange={(o) => !o && setRenaming(null)}
@@ -372,7 +276,7 @@ export function RecordingsPanel() {
                     />
                 )}
             </Dialog>
-        </Card>
+        </>
     );
 }
 
@@ -382,7 +286,7 @@ function NewRecordingDialog({
     onSubmit,
     pending,
 }: {
-    devices: { id: number; name: string }[];
+    devices: { id: number; label: string }[];
     onClose: () => void;
     onSubmit: (v: RecordingCreateAdminInput) => void;
     pending: boolean;
@@ -393,6 +297,7 @@ function NewRecordingDialog({
         defaultValues: { deviceId: 0, fileBase64: '', fileName: '' },
         resolver: zodResolver(recordingCreateAdminSchema),
     });
+    const formId = useId();
 
     const handleFile = (file: File) => {
         const isWav =
@@ -428,90 +333,49 @@ function NewRecordingDialog({
         fileReader.readAsDataURL(file);
     };
 
-    const fileName = form.watch('fileName');
+    const fileName = useWatch({ control: form.control, name: 'fileName' });
 
     return (
-        <DialogContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>New recording</DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4 flex flex-col gap-3">
-                        <FormField
-                            control={form.control}
-                            name="deviceId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Device</FormLabel>
-                                    <Select
-                                        onValueChange={(v) =>
-                                            field.onChange(Number(v))
-                                        }
-                                        value={
-                                            field.value
-                                                ? String(field.value)
-                                                : ''
-                                        }
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Pick a device" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {devices.map((d) => (
-                                                <SelectItem
-                                                    key={d.id}
-                                                    value={String(d.id)}
-                                                >
-                                                    {d.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
+        <ProfileFormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={onSubmit}
+            pending={pending}
+            submitDisabled={reading}
+            submitLabel="Create"
+            title="New recording"
+        >
+            <ProfileIdSelectField
+                control={form.control}
+                label="Device"
+                name="deviceId"
+                options={devices}
+                placeholder="Pick a device"
+            />
+            <Controller
+                control={form.control}
+                name="fileBase64"
+                render={({ fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-fileBase64`}>
+                            WAV file (max 10 MB)
+                        </FieldLabel>
+                        <FilePicker
+                            accept=".wav,audio/wav,audio/x-wav"
+                            aria-invalid={fieldState.invalid}
+                            fileName={
+                                fileName && reading
+                                    ? `Reading ${fileName}…`
+                                    : fileName || null
+                            }
+                            id={`${formId}-fileBase64`}
+                            onFile={handleFile}
                         />
-                        <FormField
-                            control={form.control}
-                            name="fileBase64"
-                            render={() => (
-                                <FormItem>
-                                    <FormLabel>WAV file (max 10 MB)</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            accept=".wav,audio/wav,audio/x-wav"
-                                            onChange={(event) => {
-                                                const file =
-                                                    event.target.files?.[0];
-                                                if (file) handleFile(file);
-                                            }}
-                                            type="file"
-                                        />
-                                    </FormControl>
-                                    {fileName && (
-                                        <p className="text-[11px] text-muted-foreground">
-                                            {fileName}
-                                        </p>
-                                    )}
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                    <DialogFooter className="mt-4">
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button disabled={pending || reading} type="submit">
-                            {reading ? 'Reading…' : 'Create'}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
-        </DialogContent>
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+        </ProfileFormDialog>
     );
 }
 
@@ -531,35 +395,19 @@ function RenameDialog({
         resolver: zodResolver(recordingRenameSchema),
     });
     return (
-        <DialogContent>
-            <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                        <DialogTitle>Rename recording</DialogTitle>
-                    </DialogHeader>
-                    <FormField
-                        control={form.control}
-                        name="file_name"
-                        render={({ field }) => (
-                            <FormItem className="mt-4">
-                                <FormLabel>File name</FormLabel>
-                                <FormControl>
-                                    <Input {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <DialogFooter className="mt-4">
-                        <Button onClick={onClose} type="button" variant="ghost">
-                            Cancel
-                        </Button>
-                        <Button disabled={pending} type="submit">
-                            Save
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
-        </DialogContent>
+        <ProfileFormDialog
+            form={form}
+            onCancel={onClose}
+            onSubmit={onSubmit}
+            pending={pending}
+            submitLabel="Save"
+            title="Rename recording"
+        >
+            <ProfileTextField
+                control={form.control}
+                label="File name"
+                name="file_name"
+            />
+        </ProfileFormDialog>
     );
 }

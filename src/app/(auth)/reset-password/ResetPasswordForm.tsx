@@ -2,20 +2,13 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
-import { useForm } from 'react-hook-form';
+import { useId, useState, useTransition } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 
-import { Alert, AlertDescription } from '~/components/ui/Alert';
-import { Button } from '~/components/ui/Button';
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from '~/components/ui/Form';
-import { Input } from '~/components/ui/Input';
+import { Alert, AlertDescription } from '~/components/ui/alert';
+import { Button } from '~/components/ui/button';
+import { Field, FieldError, FieldLabel } from '~/components/ui/field';
+import { Input } from '~/components/ui/input';
 import { authClient } from '~/lib/auth/client';
 import {
     type ResetPasswordInput,
@@ -32,6 +25,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         mode: 'onTouched',
         resolver: zodResolver(resetPasswordInputSchema),
     });
+    const formId = useId();
 
     const onSubmit = (data: ResetPasswordInput) => {
         setTopError(null);
@@ -51,61 +45,59 @@ export function ResetPasswordForm({ token }: { token: string }) {
     };
 
     return (
-        <Form {...form}>
-            <form
-                className={`app-auth__reset-form flex flex-col gap-3`}
-                method="post"
-                onSubmit={form.handleSubmit(onSubmit)}
-            >
-                {topError && (
-                    <Alert variant="destructive">
-                        <AlertDescription>{topError}</AlertDescription>
-                    </Alert>
+        <form
+            className={`app-auth__reset-form flex flex-col gap-3`}
+            method="post"
+            onSubmit={form.handleSubmit(onSubmit)}
+        >
+            {topError && (
+                <Alert variant="destructive">
+                    <AlertDescription>{topError}</AlertDescription>
+                </Alert>
+            )}
+            <Controller
+                control={form.control}
+                name="password"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-password`}>
+                            New password
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="new-password"
+                            id={`${formId}-password`}
+                            placeholder="••••••••"
+                            type="password"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
                 )}
-                <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>New password</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="new-password"
-                                    placeholder="••••••••"
-                                    type="password"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="confirm"
-                    render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Confirm password</FormLabel>
-                            <FormControl>
-                                <Input
-                                    autoComplete="new-password"
-                                    placeholder="••••••••"
-                                    type="password"
-                                    {...field}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <Button
-                    className="mt-7 w-full"
-                    disabled={pending}
-                    type="submit"
-                >
-                    {pending ? 'Resetting…' : 'Reset password'}
-                </Button>
-            </form>
-        </Form>
+            />
+            <Controller
+                control={form.control}
+                name="confirm"
+                render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor={`${formId}-confirm`}>
+                            Confirm password
+                        </FieldLabel>
+                        <Input
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="new-password"
+                            id={`${formId}-confirm`}
+                            placeholder="••••••••"
+                            type="password"
+                            {...field}
+                        />
+                        <FieldError errors={[fieldState.error]} />
+                    </Field>
+                )}
+            />
+            <Button className="mt-7 w-full" disabled={pending} type="submit">
+                {pending ? 'Resetting…' : 'Reset password'}
+            </Button>
+        </form>
     );
 }

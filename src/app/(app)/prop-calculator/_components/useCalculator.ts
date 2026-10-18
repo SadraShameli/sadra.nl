@@ -1,20 +1,40 @@
 'use client';
 
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import {
+    type Dispatch,
+    useCallback,
+    useEffect,
+    useMemo,
+    useReducer,
+    useRef,
+    useState,
+} from 'react';
+import { z } from 'zod';
 
 import {
     ALL_FIRMS,
     type DayPolicy,
     type DayStopRule,
     type InstrumentSymbol,
-    percent,
     type Plan,
+    type PlanOptIns,
     type RungSizing,
     type SimInputs,
     type SimOutputs,
-    simulate,
     type TradingFirm,
 } from '~/lib/prop-calculator';
+import {
+    type BankrollParameters,
+    SizingObjective,
+} from '~/lib/prop-calculator/advisor';
+import { chooseObjective } from '~/lib/prop-calculator/advisor/actions';
+import {
+    CalculatorUrlParameter,
+    OBJECTIVE_URL_PARAMETER,
+} from '~/lib/schemas/url';
+import { legacySectionTarget } from '~/lib/site/legacyCalculatorLinks';
+import { parseSameOriginRoute } from '~/lib/site/routes';
 
 import {
     type CalculatorAction,
@@ -22,35 +42,55 @@ import {
     calculatorReducer,
     defaultCalculatorState,
 } from './calculatorReducer';
-import { riskPercentToDollars } from './riskConversion';
+import { buildSimInputs } from './calculatorSimInputs';
+import {
+    isLegacyHashSettled,
+    type LegacyHashReplacement,
+    legacyHashReplacement,
+    nextUrl,
+    stillPendingLegacyHash,
+} from './calculatorUrlSync';
+import { writeLastToolQuery } from './lastToolQuery';
+import { watchLegacyFragmentScroll } from './legacyFragmentScroll';
+import { isCalculatorInputsPath } from './toolCatalog';
+import { tradingInputBounds } from './tradingInputBounds';
 import {
     type CalculatorState,
     type LabScenario,
+    LinkParameter,
     type PortfolioEntry,
-    SizingMode,
+    type SizingMode,
 } from './types';
-import { decodeState, encodeState } from './urlState';
+import {
+    decodeState,
+    encodeState,
+    type EncodeStateOptions,
+    ObjectiveUrlMode,
+    withSharedLab,
+} from './urlState';
 import { useDebouncedValue } from './useDebouncedSimulation';
 
-const SIM_DEBOUNCE_MS = 180;
+export { buildSimInputs } from './calculatorSimInputs';
 
-export interface PinnedScenario {
-    result: SimOutputs;
-    state: CalculatorState;
+export const SIM_DEBOUNCE_MS = 180;
+
+const objectiveInLinkSchema = z.enum(SizingObjective);
+
+export enum ObjectiveOrigin {
+    Automatic = 'automatic',
+    Chosen = 'chosen',
+    Default = 'default',
+    Link = 'link',
 }
 
-export interface UseCalculatorReturn {
+export interface CalculatorActions {
     addLabScenario: () => void;
     applyState: (next: CalculatorState) => void;
-    firms: typeof ALL_FIRMS;
-    isPending: boolean;
-    pinned: null | PinnedScenario;
-    pinScenario: () => void;
+    dispatch: Dispatch<CalculatorAction>;
     removeLabScenario: (id: string) => void;
     reset: () => void;
     resetCoupon: () => void;
     resetLabScenarios: () => void;
-    result: SimOutputs;
     setActivationDiscountPercent: (n: number) => void;
     setCommissionPerRoundTrip: (n: number) => void;
     setCopyAccounts: (n: number) => void;
@@ -63,12 +103,15 @@ export interface UseCalculatorReturn {
     setInstrument: (instrument: InstrumentSymbol | null) => void;
     setLabScenarios: (entries: LabScenario[]) => void;
     setLinkActivationDiscount: (isLinked: boolean) => void;
+    setLiveTransferHazard: (n: number) => void;
     setMaxAttempts: (n: number) => void;
     setMaxEvalDays: (n: number) => void;
     setMonthlySubscriptionDiscountPercent: (n: number) => void;
+    setObjective: (objective: SizingObjective) => void;
     setPayoutRequestSize: (n: null | number) => void;
     setPlan: (plan: Plan) => void;
     setPortfolio: (entries: PortfolioEntry[]) => void;
+    setRebuyLagDays: (n: number) => void;
     setResetDiscountPercent: (n: number) => void;
     setRetainedCushion: (n: null | number) => void;
     setRiskDollars: (n: number) => void;
@@ -78,240 +121,549 @@ export interface UseCalculatorReturn {
     setSeed: (n: number) => void;
     setSizingMode: (m: SizingMode) => void;
     setStopPoints: (n: number) => void;
+    setTakesFundedReset: (isTaken: boolean) => void;
+    setTakesOneTimeEarlyWithdrawal: (isTaken: boolean) => void;
     setTradesPerDay: (n: number) => void;
     setTrials: (n: number) => void;
     setWinrate: (n: number) => void;
-    simInputs: SimInputs;
-    state: CalculatorState;
-    unpinScenario: () => void;
     updateLabScenario: (id: string, patch: Partial<LabScenario>) => void;
 }
 
-export function useCalculator(): UseCalculatorReturn {
-    const [state, dispatch] = useReducer(
-        calculatorReducer,
-        undefined,
-        defaultCalculatorState,
-    );
-    const [pinned, setPinned] = useState<null | PinnedScenario>(null);
-    const hydratedReference = useRef(false);
-    const skipNextWriteReference = useRef(true);
+export interface PinnedScenario {
+    result: SimOutputs;
+}
 
-    useEffect(() => {
-        if (hydratedReference.current) return;
-        hydratedReference.current = true;
-        if (typeof window === 'undefined') return;
-        const parameters = new URLSearchParams(window.location.search);
-        if (!parameters.has('firm')) return;
-        try {
-            const next = decodeState(
-                parameters,
-                ALL_FIRMS,
-                defaultCalculatorState(),
-            );
-            skipNextWriteReference.current = true;
-            dispatch({ state: next, type: CalculatorActionType.ApplyState });
-        } catch {
-            return;
-        }
-    }, []);
+export interface SignedInAutomaticObjectiveInputs {
+    availableCents: null | number;
+    bankroll: BankrollParameters;
+}
 
-    useEffect(() => {
-        if (skipNextWriteReference.current) {
-            skipNextWriteReference.current = false;
-            return;
-        }
-        if (typeof window === 'undefined') return;
-        const parameters = encodeState(state).toString();
-        const next = `${window.location.pathname}?${parameters}${window.location.hash}`;
-        if (
-            next !==
-            window.location.pathname +
-                window.location.search +
-                window.location.hash
-        ) {
-            window.history.replaceState(null, '', next);
-        }
-    }, [state]);
+export interface SignedInObjectiveInputs extends SignedInAutomaticObjectiveInputs {
+    hasLinkObjective: boolean;
+    isObjectiveChanged: boolean;
+}
 
-    const riskPerTrade = useMemo(
-        () =>
-            state.sizingMode === SizingMode.Dollar
-                ? state.riskDollars
-                : riskPercentToDollars(
-                      state.riskPercent,
-                      state.plan.accountSize,
-                  ),
-        [state.sizingMode, state.riskDollars, state.riskPercent, state.plan],
-    );
+export interface UseCalculatorReturn {
+    actions: CalculatorActions;
+    applyAutomaticObjective: (objective: SizingObjective) => void;
+    debouncedQuery: string;
+    encodeOptions: EncodeStateOptions;
+    hasLinkObjective: boolean;
+    legacyHashSettled: boolean;
+    mounted: boolean;
+    objectiveOrigin: ObjectiveOrigin;
+    planOptIns: PlanOptIns;
+    rememberAutomaticObjective: (objective: null | SizingObjective) => void;
+    simInputs: SimInputs;
+    state: CalculatorState;
+}
 
-    const effectiveActivationDiscount: number = state.linkActivationDiscount
-        ? state.evalDiscountPercent
-        : state.activationDiscountPercent;
+interface MountState {
+    mounted: boolean;
+    pendingLegacyHash: LegacyHashReplacement | null;
+}
 
-    const simInputs = useMemo(
-        () => ({
-            commissionPerRoundTrip: state.commissionPerRoundTrip,
-            copyAccounts: state.copyAccounts,
-            dayStop: state.dayStop,
-            discounts: {
-                activationPercent: percent(effectiveActivationDiscount),
-                evalPercent: percent(state.evalDiscountPercent),
-                monthlySubscriptionPercent: percent(
-                    state.monthlySubscriptionDiscountPercent,
-                ),
-                resetPercent: percent(state.resetDiscountPercent),
-            },
-            evalDayPolicy: state.evalDayPolicy ?? undefined,
-            fundedHorizonDays: state.fundedHorizonDays,
-            idleDayProbability: state.idleDayProbability,
-            instrument: state.instrument ?? undefined,
-            maxAttempts: state.maxAttempts,
-            maxEvalDays: state.maxEvalDays,
-            minRetainedCushion: state.retainedCushion ?? undefined,
-            payoutRequestSize: state.payoutRequestSize ?? undefined,
-            plan: state.plan,
-            riskPerTrade,
-            rrRatio: state.rrRatio,
-            rungSizing: state.rungSizing,
-            seed: state.seed,
-            stopPoints: state.stopPoints ?? undefined,
-            tradesPerDay: state.tradesPerDay,
-            trials: state.trials,
-            winrate: state.winrate,
-        }),
-        [
-            state.plan,
-            state.winrate,
-            state.rrRatio,
-            riskPerTrade,
-            state.tradesPerDay,
-            state.maxEvalDays,
-            state.fundedHorizonDays,
-            state.trials,
-            state.seed,
-            state.evalDiscountPercent,
-            effectiveActivationDiscount,
-            state.monthlySubscriptionDiscountPercent,
-            state.resetDiscountPercent,
-            state.commissionPerRoundTrip,
-            state.maxAttempts,
-            state.copyAccounts,
-            state.dayStop,
-            state.evalDayPolicy,
-            state.instrument,
-            state.stopPoints,
-            state.retainedCushion,
-            state.idleDayProbability,
-            state.payoutRequestSize,
-            state.rungSizing,
-        ],
-    );
+interface ObjectiveOriginState {
+    automaticObjective: null | SizingObjective;
+    origin: ObjectiveOrigin;
+}
 
-    const debouncedInputs = useDebouncedValue(simInputs, SIM_DEBOUNCE_MS);
-    const result = useMemo(() => simulate(debouncedInputs), [debouncedInputs]);
-    const isPending = simInputs !== debouncedInputs;
-
-    const act = (action: CalculatorAction) => dispatch(action);
-
+export function createCalculatorActions(
+    dispatch: Dispatch<CalculatorAction>,
+): CalculatorActions {
     return {
         addLabScenario: () =>
-            act({ type: CalculatorActionType.AddLabScenario }),
+            dispatch({ type: CalculatorActionType.AddLabScenario }),
         applyState: (next) =>
-            act({ state: next, type: CalculatorActionType.ApplyState }),
-        firms: ALL_FIRMS,
-        isPending,
-        pinned,
-        pinScenario: () => setPinned({ result, state }),
+            dispatch({ state: next, type: CalculatorActionType.ApplyState }),
+        dispatch,
         removeLabScenario: (id) =>
-            act({ id, type: CalculatorActionType.RemoveLabScenario }),
-        reset: () => act({ type: CalculatorActionType.Reset }),
-        resetCoupon: () => act({ type: CalculatorActionType.ResetCoupon }),
+            dispatch({ id, type: CalculatorActionType.RemoveLabScenario }),
+        reset: () => dispatch({ type: CalculatorActionType.Reset }),
+        resetCoupon: () => dispatch({ type: CalculatorActionType.ResetCoupon }),
         resetLabScenarios: () =>
-            act({ type: CalculatorActionType.ResetLabScenarios }),
-        result,
+            dispatch({ type: CalculatorActionType.ResetLabScenarios }),
         setActivationDiscountPercent: (n) =>
-            act({
+            dispatch({
                 type: CalculatorActionType.SetActivationDiscountPercent,
                 value: n,
             }),
         setCommissionPerRoundTrip: (n) =>
-            act({
+            dispatch({
                 type: CalculatorActionType.SetCommissionPerRoundTrip,
                 value: n,
             }),
         setCopyAccounts: (n) =>
-            act({ type: CalculatorActionType.SetCopyAccounts, value: n }),
+            dispatch({ type: CalculatorActionType.SetCopyAccounts, value: n }),
         setDayStop: (rule) =>
-            act({ rule, type: CalculatorActionType.SetDayStop }),
+            dispatch({ rule, type: CalculatorActionType.SetDayStop }),
         setEvalDayPolicy: (policy) =>
-            act({ policy, type: CalculatorActionType.SetEvalDayPolicy }),
+            dispatch({ policy, type: CalculatorActionType.SetEvalDayPolicy }),
         setEvalDiscountPercent: (n) =>
-            act({
+            dispatch({
                 type: CalculatorActionType.SetEvalDiscountPercent,
                 value: n,
             }),
-        setFirm: (firm) => act({ firm, type: CalculatorActionType.SetFirm }),
+        setFirm: (firm) =>
+            dispatch({ firm, type: CalculatorActionType.SetFirm }),
         setFundedHorizonDays: (n) =>
-            act({
+            dispatch({
                 type: CalculatorActionType.SetFundedHorizonDays,
-                value: n,
+                value: Math.min(n, tradingInputBounds().fundedHorizonDays.max),
             }),
         setIdleDayProbability: (n) =>
-            act({ type: CalculatorActionType.SetIdleDayProbability, value: n }),
+            dispatch({
+                type: CalculatorActionType.SetIdleDayProbability,
+                value: n,
+            }),
         setInstrument: (instrument) =>
-            act({ instrument, type: CalculatorActionType.SetInstrument }),
+            dispatch({ instrument, type: CalculatorActionType.SetInstrument }),
         setLabScenarios: (entries) =>
-            act({ entries, type: CalculatorActionType.SetLabScenarios }),
+            dispatch({ entries, type: CalculatorActionType.SetLabScenarios }),
         setLinkActivationDiscount: (isLinked) =>
-            act({
+            dispatch({
                 isLinked,
                 type: CalculatorActionType.SetLinkActivationDiscount,
             }),
+        setLiveTransferHazard: (n) =>
+            dispatch({
+                type: CalculatorActionType.SetLiveTransferHazard,
+                value: n,
+            }),
         setMaxAttempts: (n) =>
-            act({ type: CalculatorActionType.SetMaxAttempts, value: n }),
+            dispatch({ type: CalculatorActionType.SetMaxAttempts, value: n }),
         setMaxEvalDays: (n) =>
-            act({ type: CalculatorActionType.SetMaxEvalDays, value: n }),
+            dispatch({ type: CalculatorActionType.SetMaxEvalDays, value: n }),
         setMonthlySubscriptionDiscountPercent: (n) =>
-            act({
+            dispatch({
                 type: CalculatorActionType.SetMonthlySubscriptionDiscountPercent,
                 value: n,
             }),
+        setObjective: (objective) =>
+            dispatch({
+                objective,
+                type: CalculatorActionType.SetObjective,
+            }),
         setPayoutRequestSize: (n) =>
-            act({ type: CalculatorActionType.SetPayoutRequestSize, value: n }),
-        setPlan: (plan) => act({ plan, type: CalculatorActionType.SetPlan }),
+            dispatch({
+                type: CalculatorActionType.SetPayoutRequestSize,
+                value: n,
+            }),
+        setPlan: (plan) =>
+            dispatch({ plan, type: CalculatorActionType.SetPlan }),
         setPortfolio: (entries) =>
-            act({ entries, type: CalculatorActionType.SetPortfolio }),
+            dispatch({ entries, type: CalculatorActionType.SetPortfolio }),
+        setRebuyLagDays: (n) =>
+            dispatch({ type: CalculatorActionType.SetRebuyLagDays, value: n }),
         setResetDiscountPercent: (n) =>
-            act({
+            dispatch({
                 type: CalculatorActionType.SetResetDiscountPercent,
                 value: n,
             }),
         setRetainedCushion: (n) =>
-            act({ type: CalculatorActionType.SetRetainedCushion, value: n }),
+            dispatch({
+                type: CalculatorActionType.SetRetainedCushion,
+                value: n,
+            }),
         setRiskDollars: (n) =>
-            act({ type: CalculatorActionType.SetRiskDollars, value: n }),
+            dispatch({ type: CalculatorActionType.SetRiskDollars, value: n }),
         setRiskPercent: (n) =>
-            act({ type: CalculatorActionType.SetRiskPercent, value: n }),
+            dispatch({ type: CalculatorActionType.SetRiskPercent, value: n }),
         setRrRatio: (n) =>
-            act({ type: CalculatorActionType.SetRrRatio, value: n }),
+            dispatch({ type: CalculatorActionType.SetRrRatio, value: n }),
         setRungSizing: (mode) =>
-            act({ type: CalculatorActionType.SetRungSizing, value: mode }),
-        setSeed: (n) => act({ type: CalculatorActionType.SetSeed, value: n }),
+            dispatch({ type: CalculatorActionType.SetRungSizing, value: mode }),
+        setSeed: (n) =>
+            dispatch({ type: CalculatorActionType.SetSeed, value: n }),
         setSizingMode: (mode) =>
-            act({ mode, type: CalculatorActionType.SetSizingMode }),
+            dispatch({ mode, type: CalculatorActionType.SetSizingMode }),
         setStopPoints: (n) =>
-            act({ type: CalculatorActionType.SetStopPoints, value: n }),
+            dispatch({ type: CalculatorActionType.SetStopPoints, value: n }),
+        setTakesFundedReset: (isTaken) =>
+            dispatch({
+                isTaken,
+                type: CalculatorActionType.SetTakesFundedReset,
+            }),
+        setTakesOneTimeEarlyWithdrawal: (isTaken) =>
+            dispatch({
+                isTaken,
+                type: CalculatorActionType.SetTakesOneTimeEarlyWithdrawal,
+            }),
         setTradesPerDay: (n) =>
-            act({ type: CalculatorActionType.SetTradesPerDay, value: n }),
+            dispatch({ type: CalculatorActionType.SetTradesPerDay, value: n }),
         setTrials: (n) =>
-            act({ type: CalculatorActionType.SetTrials, value: n }),
+            dispatch({ type: CalculatorActionType.SetTrials, value: n }),
         setWinrate: (n) =>
-            act({ type: CalculatorActionType.SetWinrate, value: n }),
+            dispatch({ type: CalculatorActionType.SetWinrate, value: n }),
+        updateLabScenario: (id, patch) =>
+            dispatch({
+                id,
+                patch,
+                type: CalculatorActionType.UpdateLabScenario,
+            }),
+    };
+}
+
+export function initialStateFromSearch(
+    search: string,
+    decode: typeof decodeState = decodeState,
+): CalculatorState {
+    const parameters = new URLSearchParams(search);
+    const defaults = defaultCalculatorState();
+    if (!parameters.has(CalculatorUrlParameter.Firm)) {
+        try {
+            return withSharedLinkParameters(defaults, parameters, decode);
+        } catch {
+            return withSharedLab(defaults, parameters);
+        }
+    }
+    try {
+        return decode(parameters, ALL_FIRMS, defaults);
+    } catch {
+        return withSharedLab(defaults, parameters);
+    }
+}
+
+export function isObjectiveInSearch(search: string): boolean {
+    return objectiveInLinkSchema.safeParse(
+        new URLSearchParams(search).get(OBJECTIVE_URL_PARAMETER) ?? undefined,
+    ).success;
+}
+
+export function objectiveUrlModeOf(origin: ObjectiveOrigin): ObjectiveUrlMode {
+    switch (origin) {
+        case ObjectiveOrigin.Automatic: {
+            return ObjectiveUrlMode.Omitted;
+        }
+        case ObjectiveOrigin.Chosen:
+        case ObjectiveOrigin.Link: {
+            return ObjectiveUrlMode.Explicit;
+        }
+        case ObjectiveOrigin.Default: {
+            return ObjectiveUrlMode.Natural;
+        }
+    }
+}
+
+export function pinScenario(result: SimOutputs): PinnedScenario {
+    return { result };
+}
+
+export function signedInAutomaticObjective(
+    inputs: SignedInAutomaticObjectiveInputs,
+): null | SizingObjective {
+    const chosen = chooseObjective(inputs.availableCents, inputs.bankroll);
+    return chosen === SizingObjective.MonthlyNet ? null : chosen;
+}
+
+export function signedInDefaultObjective(
+    inputs: SignedInObjectiveInputs,
+): null | SizingObjective {
+    return inputs.hasLinkObjective || inputs.isObjectiveChanged
+        ? null
+        : signedInAutomaticObjective(inputs);
+}
+
+export function useCalculator(): UseCalculatorReturn {
+    const searchParameters = useSearchParams();
+    const pathname = usePathname();
+    const router = useRouter();
+    const [state, dispatch] = useReducer(
+        calculatorReducer,
+        searchParameters.toString(),
+        initialStateFromSearch,
+    );
+    const [mount, setMount] = useState<MountState>({
+        mounted: false,
+        pendingLegacyHash: null,
+    });
+    const hasMountedReference = useRef(false);
+    const [hasLinkObjective] = useState(() =>
+        isObjectiveInSearch(searchParameters.toString()),
+    );
+    const [originState, setOriginState] = useState<ObjectiveOriginState>(
+        () => ({
+            automaticObjective: null,
+            origin: hasLinkObjective
+                ? ObjectiveOrigin.Link
+                : ObjectiveOrigin.Default,
+        }),
+    );
+    const objectiveOrigin =
+        originState.origin === ObjectiveOrigin.Automatic &&
+        state.objective !== originState.automaticObjective
+            ? ObjectiveOrigin.Chosen
+            : originState.origin;
+    const encodeOptions = useMemo<EncodeStateOptions>(
+        () => ({ objectiveUrl: objectiveUrlModeOf(objectiveOrigin) }),
+        [objectiveOrigin],
+    );
+    const automaticObjectiveReference = useRef<null | SizingObjective>(null);
+    const trackedDispatch = useCallback<Dispatch<CalculatorAction>>(
+        (action) => {
+            if (action.type === CalculatorActionType.SetObjective) {
+                setOriginState({
+                    automaticObjective: null,
+                    origin: ObjectiveOrigin.Chosen,
+                });
+            }
+            if (action.type === CalculatorActionType.Reset) {
+                const automatic = automaticObjectiveReference.current;
+                setOriginState({
+                    automaticObjective: automatic,
+                    origin:
+                        automatic === null
+                            ? ObjectiveOrigin.Default
+                            : ObjectiveOrigin.Automatic,
+                });
+                dispatch(action);
+                if (automatic !== null) {
+                    dispatch({
+                        objective: automatic,
+                        type: CalculatorActionType.SetObjective,
+                    });
+                }
+                return;
+            }
+            dispatch(action);
+        },
+        [],
+    );
+    const applyAutomaticObjective = useCallback(
+        (objective: SizingObjective) => {
+            automaticObjectiveReference.current = objective;
+            setOriginState({
+                automaticObjective: objective,
+                origin: ObjectiveOrigin.Automatic,
+            });
+            dispatch({ objective, type: CalculatorActionType.SetObjective });
+        },
+        [],
+    );
+    const rememberAutomaticObjective = useCallback(
+        (objective: null | SizingObjective) => {
+            automaticObjectiveReference.current = objective;
+        },
+        [],
+    );
+    const hasSettledLegacyHash = isLegacyHashSettled(
+        mount.mounted,
+        mount.pendingLegacyHash,
+        pathname,
+    );
+
+    useEffect(() => {
+        if (hasMountedReference.current) return;
+        hasMountedReference.current = true;
+        const { hash } = window.location;
+        const fragmentTarget = legacySectionTarget(hash);
+        if (fragmentTarget !== null)
+            watchLegacyFragmentScroll(
+                fragmentTarget.fragment,
+                fragmentTarget.route,
+            );
+        const pendingLegacyHash = legacyHashReplacement(
+            state,
+            pathname,
+            hash,
+            encodeOptions,
+        );
+        if (pendingLegacyHash !== null)
+            router.replace(parseSameOriginRoute(pendingLegacyHash.target));
+        setMount({ mounted: true, pendingLegacyHash });
+    }, [encodeOptions, pathname, router, state]);
+
+    useEffect(() => {
+        const pendingLegacyHash = stillPendingLegacyHash(
+            mount.pendingLegacyHash,
+            pathname,
+        );
+        if (pendingLegacyHash === mount.pendingLegacyHash) return;
+        setMount({ mounted: true, pendingLegacyHash });
+    }, [mount.pendingLegacyHash, pathname]);
+
+    useEffect(() => {
+        if (!hasSettledLegacyHash || !isCalculatorInputsPath(pathname)) return;
+        const url = nextUrl(
+            state,
+            pathname,
+            searchParameters.toString(),
+            window.location.hash,
+            encodeOptions,
+        );
+        if (url !== null) window.history.replaceState(null, '', url);
+        writeLastToolQuery(encodeState(state, encodeOptions).toString());
+    }, [
+        encodeOptions,
+        hasSettledLegacyHash,
+        pathname,
+        searchParameters,
+        state,
+    ]);
+
+    const {
+        activationDiscountPercent,
+        commissionPerRoundTrip,
+        copyAccounts,
+        dayStop,
+        evalDayPolicy,
+        evalDiscountPercent,
+        fundedHorizonDays,
+        idleDayProbability,
+        instrument,
+        linkActivationDiscount,
+        maxAttempts,
+        maxEvalDays,
+        monthlySubscriptionDiscountPercent,
+        payoutRequestSize,
+        plan,
+        rebuyLagDays,
+        resetDiscountPercent,
+        retainedCushion,
+        riskDollars,
+        riskPercent,
+        rrRatio,
+        rungSizing,
+        seed,
+        sizingMode,
+        stopPoints,
+        takesFundedReset,
+        takesOneTimeEarlyWithdrawal,
+        tradesPerDay,
+        trials,
+        winrate,
+    } = state;
+
+    const planOptIns = useMemo<PlanOptIns>(
+        () => ({ takesFundedReset, takesOneTimeEarlyWithdrawal }),
+        [takesFundedReset, takesOneTimeEarlyWithdrawal],
+    );
+
+    const simInputs = useMemo(
+        () =>
+            buildSimInputs({
+                activationDiscountPercent,
+                commissionPerRoundTrip,
+                copyAccounts,
+                dayStop,
+                evalDayPolicy,
+                evalDiscountPercent,
+                fundedHorizonDays,
+                idleDayProbability,
+                instrument,
+                linkActivationDiscount,
+                maxAttempts,
+                maxEvalDays,
+                monthlySubscriptionDiscountPercent,
+                payoutRequestSize,
+                plan,
+                rebuyLagDays,
+                resetDiscountPercent,
+                retainedCushion,
+                riskDollars,
+                riskPercent,
+                rrRatio,
+                rungSizing,
+                seed,
+                sizingMode,
+                stopPoints,
+                takesFundedReset,
+                takesOneTimeEarlyWithdrawal,
+                tradesPerDay,
+                trials,
+                winrate,
+            }),
+        [
+            activationDiscountPercent,
+            commissionPerRoundTrip,
+            copyAccounts,
+            dayStop,
+            evalDayPolicy,
+            evalDiscountPercent,
+            fundedHorizonDays,
+            idleDayProbability,
+            instrument,
+            linkActivationDiscount,
+            maxAttempts,
+            maxEvalDays,
+            monthlySubscriptionDiscountPercent,
+            payoutRequestSize,
+            plan,
+            rebuyLagDays,
+            resetDiscountPercent,
+            retainedCushion,
+            riskDollars,
+            riskPercent,
+            rrRatio,
+            rungSizing,
+            seed,
+            sizingMode,
+            stopPoints,
+            takesFundedReset,
+            takesOneTimeEarlyWithdrawal,
+            tradesPerDay,
+            trials,
+            winrate,
+        ],
+    );
+
+    const query = useMemo(
+        () => encodeState(state, encodeOptions).toString(),
+        [encodeOptions, state],
+    );
+    const debouncedQuery = useDebouncedValue(query, SIM_DEBOUNCE_MS);
+    const actions = useMemo(
+        () => createCalculatorActions(trackedDispatch),
+        [trackedDispatch],
+    );
+
+    return {
+        actions,
+        applyAutomaticObjective,
+        debouncedQuery,
+        encodeOptions,
+        hasLinkObjective,
+        legacyHashSettled: hasSettledLegacyHash,
+        mounted: mount.mounted,
+        objectiveOrigin,
+        planOptIns,
+        rememberAutomaticObjective,
         simInputs,
         state,
-        unpinScenario: () => setPinned(null),
-        updateLabScenario: (id, patch) =>
-            act({ id, patch, type: CalculatorActionType.UpdateLabScenario }),
     };
+}
+
+function sharedLinkParameterField(
+    parameter: LinkParameter,
+): 'dayStop' | 'evalDayPolicy' | 'portfolio' {
+    switch (parameter) {
+        case LinkParameter.DayStop: {
+            return 'dayStop';
+        }
+        case LinkParameter.EvalDayPolicy: {
+            return 'evalDayPolicy';
+        }
+        case LinkParameter.Portfolio: {
+            return 'portfolio';
+        }
+    }
+}
+
+const SHARED_LINK_FIELDS = [
+    'labLink',
+    'labScenarios',
+    'linkParameters',
+    ...Object.values(LinkParameter).map(sharedLinkParameterField),
+] satisfies readonly (keyof CalculatorState)[];
+
+function withSharedLinkParameters(
+    defaults: CalculatorState,
+    parameters: URLSearchParams,
+    decode: typeof decodeState,
+): CalculatorState {
+    const decoded = decode(parameters, ALL_FIRMS, defaults);
+    const shared = Object.fromEntries(
+        SHARED_LINK_FIELDS.map((field) => [field, decoded[field]]),
+    ) as Pick<CalculatorState, (typeof SHARED_LINK_FIELDS)[number]>;
+    return { ...defaults, ...shared };
 }

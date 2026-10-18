@@ -6,8 +6,8 @@ import {
     FirmId,
     newFundedCycleTracker,
     type Plan,
+    PlanAvailability,
     TopStepVariant,
-    tryFundedPayout,
 } from '~/lib/prop-calculator/core';
 import { TopStep } from '~/lib/prop-calculator/firms/topstep/TopStep';
 
@@ -106,13 +106,12 @@ describe('TopStep DLL add-on variants (live-verified 2026-09-21 against help.top
             state.balance = plan.accountSize + bigProfit;
             state.qualifyingDays = plan.minDaysAfterPassForPayout;
 
-            const payout = tryFundedPayout({
-                maxPayouts: Infinity,
+            tracker.recordSessionClose(state);
+            const payout = tracker.tryPayout({
                 minRetainedCushion: 0,
                 payoutRequestSize: undefined,
                 plan,
                 state,
-                tracker,
             });
 
             expect(payout).not.toBeNull();
@@ -123,5 +122,13 @@ describe('TopStep DLL add-on variants (live-verified 2026-09-21 against help.top
         expect(dll.payoutRequestCap).toBeGreaterThan(
             base.payoutRequestCap ?? 0,
         );
+    });
+});
+
+describe('TopStep Pro Account availability (R1-34, live-confirmed 2026-09-23 on help.topstep.com: Risk-team call-up only)', () => {
+    it('is call-up only and not purchasable', () => {
+        const plan = variant(TopStepVariant.ProAccount);
+        expect(plan.availability).toBe(PlanAvailability.CallUpOnly);
+        expect(plan.isPurchasable).toBe(false);
     });
 });

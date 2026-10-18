@@ -14,32 +14,19 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '~/components/ui/AlertDialog';
-import { Badge } from '~/components/ui/Badge';
-import { Button } from '~/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/Card';
-import { Checkbox } from '~/components/ui/Checkbox';
-import { DataTable, type DataTableColumn } from '~/components/ui/DataTable';
-import { EmptyState } from '~/components/ui/EmptyState';
-import { Input } from '~/components/ui/Input';
-import { Label } from '~/components/ui/Label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '~/components/ui/Select';
+import { ToolPageTitle } from '~/app/(app)/_components/ToolPageHeader';
+import { ToolPanel } from '~/components/ToolPanel';
+import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
+import { ClearFiltersButton } from '~/components/ui/clear-filters-button';
+import { ConfirmDialog } from '~/components/ui/confirm-dialog';
+import { DataTable, type DataTableColumn } from '~/components/ui/data-table';
+import { EmptyState } from '~/components/ui/empty-state';
+import { SEARCH_FIELD_CLASS } from '~/components/ui/filter-control';
+import { FilterSelect } from '~/components/ui/filter-select';
+import { FilterToggle } from '~/components/ui/filter-toggle';
+import { Input } from '~/components/ui/input';
 import { DistanceUnit, DurationFormat, WeightUnit } from '~/lib/lifting/format';
 import { routes } from '~/lib/site/routes';
 import { api, type RouterOutputs } from '~/trpc/react';
@@ -140,7 +127,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 cell: ({ row }) => (
                     <span className="font-semibold tabular-nums">
                         {row.original.weightKg === null
-                            ? '—'
+                            ? '-'
                             : WeightUnit.format(
                                   row.original.weightKg,
                                   unitWeight,
@@ -153,7 +140,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 accessorKey: 'reps',
                 cell: ({ row }) => (
                     <span className="font-semibold tabular-nums">
-                        × {row.original.reps ?? '—'}
+                        × {row.original.reps ?? '-'}
                     </span>
                 ),
                 header: 'Reps',
@@ -162,7 +149,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 accessorKey: 'rpe',
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.rpe ?? '—'}
+                        {row.original.rpe ?? '-'}
                     </span>
                 ),
                 header: 'RPE',
@@ -171,7 +158,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 accessorKey: 'rir',
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.rir ?? '—'}
+                        {row.original.rir ?? '-'}
                     </span>
                 ),
                 header: 'RIR',
@@ -180,7 +167,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 accessorKey: 'tempo',
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
-                        {row.original.tempo ?? '—'}
+                        {row.original.tempo ?? '-'}
                     </span>
                 ),
                 enableSorting: false,
@@ -191,7 +178,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
                         {row.original.distanceM === null
-                            ? '—'
+                            ? '-'
                             : `${DistanceUnit.toDisplay(
                                   row.original.distanceM,
                                   unitDistance,
@@ -207,7 +194,7 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                 cell: ({ row }) => (
                     <span className="text-xs text-muted-foreground tabular-nums">
                         {row.original.durationS === null
-                            ? '—'
+                            ? '-'
                             : DurationFormat.seconds(row.original.durationS)}
                     </span>
                 ),
@@ -255,9 +242,9 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                             'EEEE · MMMM d, y · HH:mm',
                         )}
                     </p>
-                    <h1 className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                    <ToolPageTitle className="mt-1">
                         {w.name ?? 'Workout'}
-                    </h1>
+                    </ToolPageTitle>
                     <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                         {durationSeconds !== null && (
                             <span className="inline-flex items-center gap-1 tabular-nums">
@@ -283,38 +270,28 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                     )}
                 </div>
 
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button
-                            aria-label="Delete workout"
-                            className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
-                            type="button"
-                            variant="outline"
-                        >
-                            <Trash2 className="size-4" />
-                            <span className="hidden sm:inline">Delete</span>
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete workout?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                &ldquo;{w.name ?? 'Workout'}&rdquo; and all its
-                                sets will be permanently removed. This cannot be
-                                undone.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                                disabled={remove.isPending}
-                                onClick={() => remove.mutate({ id: w.id })}
-                            >
-                                Delete
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                <ConfirmDialog
+                    confirmLabel="Delete"
+                    description={
+                        <>
+                            &ldquo;{w.name ?? 'Workout'}&rdquo; and all its sets
+                            will be permanently removed. This cannot be undone.
+                        </>
+                    }
+                    isPending={remove.isPending}
+                    onConfirm={() => remove.mutate({ id: w.id })}
+                    title="Delete workout?"
+                >
+                    <Button
+                        aria-label="Delete workout"
+                        className="shrink-0 gap-2 text-muted-foreground hover:text-destructive"
+                        type="button"
+                        variant="outline"
+                    >
+                        <Trash2 className="size-4" />
+                        <span className="hidden sm:inline">Delete</span>
+                    </Button>
+                </ConfirmDialog>
             </header>
 
             <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -328,114 +305,86 @@ export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
                     value={
                         stats.volumeKg > 0
                             ? WeightUnit.format(stats.volumeKg, unitWeight)
-                            : '—'
+                            : '-'
                     }
                 />
                 <StatCard label="PRs" value={stats.prs.toString()} />
             </section>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                        Exercises
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                    <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_2fr_auto_auto]">
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Exercise</Label>
-                            <Select
-                                onValueChange={setExerciseFilter}
-                                value={exerciseFilter}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={FILTER_ALL}>
-                                        All exercises
-                                    </SelectItem>
-                                    {exercises.map((wex) => (
-                                        <SelectItem key={wex.id} value={wex.id}>
-                                            {wex.exercise.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs">Search</Label>
-                            <Input
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
-                                }
-                                placeholder="Search exercise name…"
-                                value={search}
-                            />
-                        </div>
-                        <label
-                            className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 text-xs whitespace-nowrap"
-                            htmlFor="workout-pr-only"
-                        >
-                            <Checkbox
-                                checked={prOnly}
-                                id="workout-pr-only"
-                                onCheckedChange={(v) => setPrOnly(v === true)}
-                            />
-                            PRs only
-                        </label>
-                        <Button
-                            disabled={!hasFilters}
-                            onClick={reset}
-                            type="button"
-                            variant="outline"
-                        >
-                            Reset
-                        </Button>
-                    </div>
+            <ToolPanel contentClassName="flex flex-col gap-4" title="Exercises">
+                <div className="flex flex-wrap items-center gap-2">
+                    <FilterSelect
+                        label="Exercise"
+                        onValueChange={(v) =>
+                            setExerciseFilter(v ?? FILTER_ALL)
+                        }
+                        options={exercises.map((wex) => ({
+                            label: wex.exercise.name,
+                            value: wex.id,
+                        }))}
+                        placeholder="All exercises"
+                        value={
+                            exerciseFilter === FILTER_ALL
+                                ? undefined
+                                : exerciseFilter
+                        }
+                    />
+                    <FilterToggle
+                        isPressed={prOnly}
+                        label="PRs only"
+                        onPressedChange={setPrOnly}
+                    />
+                    <Input
+                        aria-label="Search exercise name"
+                        className={SEARCH_FIELD_CLASS}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Search exercise name…"
+                        value={search}
+                    />
+                    <ClearFiltersButton active={hasFilters} onReset={reset} />
+                </div>
 
-                    {filteredExercises.length === 0 ? (
-                        <EmptyState
-                            description={
-                                hasFilters
-                                    ? 'Try widening the filters.'
-                                    : 'This workout has no exercises logged.'
-                            }
-                            icon={Layers}
-                            title="No exercises"
-                        />
-                    ) : (
-                        <ul className="flex flex-col gap-4">
-                            {filteredExercises.map((wex) => (
-                                <li key={wex.id}>
-                                    <Card className="gap-2 py-4">
-                                        <CardHeader>
-                                            <CardTitle className="text-base">
-                                                {wex.exercise.name}
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <DataTable
-                                                columns={workoutSetColumns}
-                                                data={wex.sets}
-                                                emptyState={
-                                                    <EmptyState
-                                                        description="This exercise has no sets recorded."
-                                                        icon={Layers}
-                                                        title="No sets logged"
-                                                    />
-                                                }
-                                                pageSize={null}
-                                                rowId={(s) => s.id}
-                                            />
-                                        </CardContent>
-                                    </Card>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </CardContent>
-            </Card>
+                {filteredExercises.length === 0 ? (
+                    <EmptyState
+                        description={
+                            hasFilters
+                                ? 'Try widening the filters.'
+                                : 'This workout has no exercises logged.'
+                        }
+                        icon={Layers}
+                        title="No exercises"
+                    />
+                ) : (
+                    <ul className="flex flex-col gap-4">
+                        {filteredExercises.map((wex) => (
+                            <li key={wex.id}>
+                                <Card className="gap-2 py-4">
+                                    <CardHeader>
+                                        <CardTitle className="text-base">
+                                            {wex.exercise.name}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <DataTable
+                                            columns={workoutSetColumns}
+                                            data={wex.sets}
+                                            emptyState={
+                                                <EmptyState
+                                                    description="This exercise has no sets recorded."
+                                                    icon={Layers}
+                                                    title="No sets logged"
+                                                />
+                                            }
+                                            pageSize={null}
+                                            rowId={(s) => s.id}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </ToolPanel>
         </div>
     );
 }

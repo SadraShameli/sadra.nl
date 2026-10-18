@@ -2,7 +2,6 @@
 
 import {
     Area,
-    CartesianGrid,
     ComposedChart,
     Line,
     ReferenceLine,
@@ -10,11 +9,18 @@ import {
     YAxis,
 } from 'recharts';
 
-import { type ChartConfig, ChartContainer } from '~/components/ui/Chart';
+import {
+    CHART_REFERENCE_LINE_PROPS,
+    CHART_STROKE_WIDTH,
+    CHART_X_AXIS_PROPS,
+    CHART_Y_AXIS_PROPS,
+    type ChartConfig,
+    ChartContainer,
+    ChartSize,
+} from '~/components/ui/chart';
 import { formatCompactCurrency } from '~/lib/format';
 import { TRADING_DAYS_PER_MONTH } from '~/lib/prop-calculator';
 import { type PortfolioTimelineResult } from '~/lib/prop-calculator/portfolioTimeline';
-import { cn } from '~/lib/utilities';
 
 interface ChartRow {
     low: number;
@@ -28,8 +34,11 @@ interface Properties {
 }
 
 const chartConfig: ChartConfig = {
-    band: { color: 'hsl(142 76% 45% / 0.18)', label: 'P10–P90' },
-    median: { color: 'hsl(142 76% 45%)', label: 'Median net' },
+    band: {
+        color: 'color-mix(in oklab, var(--success) 18%, transparent)',
+        label: 'P10–P90',
+    },
+    median: { color: 'var(--success)', label: 'Median net' },
 };
 
 export default function CashFlowBandChartView({ result }: Properties) {
@@ -45,23 +54,16 @@ export default function CashFlowBandChartView({ result }: Properties) {
 
     return (
         <ChartContainer
-            className={cn(
-                'app-prop-calculator__cash-flow-band-chart',
-                'aspect-16/7 min-h-125 w-full',
-            )}
+            className="app-prop-calculator__cash-flow-band-chart"
             config={chartConfig}
+            size={ChartSize.Tall}
         >
             <ComposedChart
                 data={data}
                 margin={{ bottom: 28, left: 0, right: 12, top: 10 }}
             >
-                <CartesianGrid
-                    opacity={0.2}
-                    stroke="#ccc"
-                    strokeDasharray="3 3"
-                />
                 <XAxis
-                    axisLine={false}
+                    {...CHART_X_AXIS_PROPS}
                     dataKey="month"
                     label={{
                         fontSize: 11,
@@ -70,24 +72,20 @@ export default function CashFlowBandChartView({ result }: Properties) {
                         value: 'Months',
                     }}
                     tickFormatter={(v: number) => `${v}mo`}
-                    tickLine={false}
-                    tickMargin={6}
                 />
                 <YAxis
-                    axisLine={false}
+                    {...CHART_Y_AXIS_PROPS}
                     tickFormatter={(v: number) => formatCompactCurrency(v)}
-                    tickLine={false}
-                    width={60}
                 />
                 <ReferenceLine
+                    {...CHART_REFERENCE_LINE_PROPS}
                     label={{
-                        fill: 'hsl(0 0% 70%)',
+                        fill: 'var(--muted-foreground)',
                         fontSize: 11,
-                        position: 'right',
+                        position: 'insideBottomLeft',
                         value: 'Break-even',
                     }}
-                    stroke="hsl(0 0% 70%)"
-                    strokeDasharray="4 4"
+                    stroke="var(--muted-foreground)"
                     y={0}
                 />
                 <Area
@@ -100,7 +98,7 @@ export default function CashFlowBandChartView({ result }: Properties) {
                 />
                 <Area
                     dataKey="range"
-                    fill="hsl(142 76% 45%)"
+                    fill="var(--success)"
                     fillOpacity={0.18}
                     isAnimationActive={false}
                     legendType="none"
@@ -111,8 +109,8 @@ export default function CashFlowBandChartView({ result }: Properties) {
                     dataKey="net50"
                     dot={false}
                     isAnimationActive={false}
-                    stroke="hsl(142 76% 45%)"
-                    strokeWidth={2.5}
+                    stroke="var(--success)"
+                    strokeWidth={CHART_STROKE_WIDTH}
                     type="monotone"
                 />
             </ComposedChart>

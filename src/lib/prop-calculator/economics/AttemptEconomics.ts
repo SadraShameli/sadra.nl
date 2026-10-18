@@ -1,0 +1,272 @@
+import {
+    dollars,
+    type Dollars,
+    fraction,
+    type Fraction0to1,
+} from '~/lib/prop-calculator/core';
+import {
+    type SimEstimates,
+    type SimOutputs,
+} from '~/lib/prop-calculator/simulator';
+
+import {
+    type EconomicsEstimate,
+    EconomicsReason,
+    isNonNegativeAmount,
+    isProbability,
+    missingQuantity,
+    type Quantity,
+    quantityOf,
+} from './EdgeMath';
+
+export enum AccountBasis {
+    CopyGroup = 'copy-group',
+}
+
+export enum NetBasis {
+    CreditFree = 'credit-free',
+}
+
+export interface AttemptEconomics {
+    attemptCost: Dollars;
+    breakevenPassRate: Quantity<Fraction0to1>;
+    expectedNetPerAttempt: Dollars;
+    fundedValue: Dollars;
+    fundedValueToAttemptCost: Quantity<FundedValueToAttemptCost>;
+    passMargin: Quantity<number>;
+    passProbability: Fraction0to1;
+}
+
+export interface AttemptEconomicsInputs {
+    attemptCost: Dollars;
+    fundedValue: Dollars;
+    passProbability: Fraction0to1;
+}
+
+export interface FundedValueInputs {
+    averagePayout: Dollars;
+    payoutProbabilityGivenFunded: Fraction0to1;
+    payoutsPerPaidFunded: number;
+}
+
+export interface FundedValueToAttemptCost {
+    label: string;
+    netText: string;
+    netToOne: number;
+    ratio: number;
+    ratioText: string;
+}
+
+export interface RunAttemptEconomics extends Omit<
+    AttemptEconomics,
+    'expectedNetPerAttempt'
+> {
+    accountBasis: AccountBasis;
+    attemptCostStandardError: number;
+    basis: NetBasis;
+    copyAccounts: number;
+    expectedNetPerAttempt: EconomicsEstimate<Dollars>;
+    fundedHorizonDays: number;
+    fundedValueWithLiveTransfer: Dollars;
+    liveTransferCashPerAttempt: Dollars;
+    passProbabilityStandardError: number;
+}
+
+export type RunAttemptOutputs = Pick<
+    SimOutputs,
+    | 'attemptPassProbability'
+    | 'copyAccounts'
+    | 'costPerAttempt'
+    | 'expectedAttempts'
+    | 'expectedLiveTransferCash'
+    | 'expectedNetPerAttempt'
+    | 'expectedPayoutPerFundedAccount'
+> & {
+    estimates: Pick<
+        SimEstimates,
+        'attemptPassProbability' | 'costPerAttempt' | 'expectedNetPerAttempt'
+    >;
+};
+
+export function attemptEconomics(
+    inputs: AttemptEconomicsInputs,
+): Quantity<AttemptEconomics> {
+    const expectedNetPerAttempt = expectedNetPerAttemptOf(inputs);
+    if (expectedNetPerAttempt.value === null) return expectedNetPerAttempt;
+    const { attemptCost, fundedValue, passProbability } = inputs;
+    const breakevenPassRate = breakevenPassRateOf(attemptCost, fundedValue);
+    return quantityOf({
+        attemptCost,
+        breakevenPassRate,
+        expectedNetPerAttempt: expectedNetPerAttempt.value,
+        fundedValue,
+        fundedValueToAttemptCost: fundedValueToAttemptCostOf(
+            attemptCost,
+            fundedValue,
+        ),
+        passMargin:
+            breakevenPassRate.value === null
+                ? breakevenPassRate
+                : quantityOf(passProbability - breakevenPassRate.value),
+        passProbability,
+    });
+}
+
+export function attemptEconomicsOfRun(
+    outputs: RunAttemptOutputs,
+    fundedHorizonDays: number,
+): Quantity<RunAttemptEconomics> {
+    const { copyAccounts, estimates } = outputs;
+    if (
+        !isNonNegativeAmount(fundedHorizonDays) ||
+        !Number.isSafeInteger(copyAccounts) ||
+        copyAccounts < 1 ||
+        !Number.isFinite(outputs.expectedNetPerAttempt)
+    ) {
+        return missingQuantity(EconomicsReason.InvalidInput);
+    }
+    const liveTransferCashPerAttempt = liveTransferCashPerAttemptOf(outputs);
+    if (liveTransferCashPerAttempt === null) {
+        return missingQuantity(EconomicsReason.InvalidInput);
+    }
+    const decomposition = attemptEconomics({
+        attemptCost: dollars(outputs.costPerAttempt),
+        fundedValue: dollars(
+            outputs.expectedPayoutPerFundedAccount * copyAccounts,
+        ),
+        passProbability: fraction(outputs.attemptPassProbability),
+    });
+    if (decomposition.value === null) return decomposition;
+    const fundedValueWithLiveTransfer = fundedValueWithLiveTransferOf(
+        decomposition.value,
+        liveTransferCashPerAttempt,
+    );
+    if (fundedValueWithLiveTransfer === null) {
+        return missingQuantity(EconomicsReason.InvalidInput);
+    }
+    const breakevenPassRate = breakevenPassRateOf(
+        decomposition.value.attemptCost,
+        fundedValueWithLiveTransfer,
+    );
+    return quantityOf({
+        ...decomposition.value,
+        accountBasis: AccountBasis.CopyGroup,
+        attemptCostStandardError: estimates.costPerAttempt.standardError,
+        basis: NetBasis.CreditFree,
+        breakevenPassRate,
+        copyAccounts,
+        expectedNetPerAttempt: {
+            standardError: estimates.expectedNetPerAttempt.standardError,
+            value: dollars(outputs.expectedNetPerAttempt),
+        },
+        fundedHorizonDays,
+        fundedValueToAttemptCost: fundedValueToAttemptCostOf(
+            decomposition.value.attemptCost,
+            fundedValueWithLiveTransfer,
+        ),
+        fundedValueWithLiveTransfer,
+        liveTransferCashPerAttempt,
+        passMargin:
+            breakevenPassRate.value === null
+                ? breakevenPassRate
+                : quantityOf(
+                      decomposition.value.passProbability -
+                          breakevenPassRate.value,
+                  ),
+        passProbabilityStandardError:
+            estimates.attemptPassProbability.standardError,
+    });
+}
+
+export function expectedNetPerAttemptOf(
+    inputs: AttemptEconomicsInputs,
+): Quantity<Dollars> {
+    const { attemptCost, fundedValue, passProbability } = inputs;
+    return isNonNegativeAmount(attemptCost) &&
+        isNonNegativeAmount(fundedValue) &&
+        isProbability(passProbability)
+        ? quantityOf(dollars(passProbability * fundedValue - attemptCost))
+        : missingQuantity(EconomicsReason.InvalidInput);
+}
+
+export function fundedValueFrom(inputs: FundedValueInputs): Quantity<Dollars> {
+    const {
+        averagePayout,
+        payoutProbabilityGivenFunded,
+        payoutsPerPaidFunded,
+    } = inputs;
+    return isNonNegativeAmount(averagePayout) &&
+        isProbability(payoutProbabilityGivenFunded) &&
+        isNonNegativeAmount(payoutsPerPaidFunded)
+        ? quantityOf(
+              dollars(
+                  payoutProbabilityGivenFunded *
+                      payoutsPerPaidFunded *
+                      averagePayout,
+              ),
+          )
+        : missingQuantity(EconomicsReason.InvalidInput);
+}
+
+export function fundedValueToAttemptCostLabel(netToOne: number): string {
+    return `funded value / attempt cost; net ${ratioToOneText(netToOne)}`;
+}
+
+function breakevenPassRateOf(
+    attemptCost: Dollars,
+    fundedValue: Dollars,
+): Quantity<Fraction0to1> {
+    if (fundedValue <= 0) {
+        return missingQuantity(EconomicsReason.NoFundedValue);
+    }
+    const rate = attemptCost / fundedValue;
+    return rate > 1
+        ? missingQuantity(EconomicsReason.Unreachable)
+        : quantityOf(fraction(rate));
+}
+
+function fundedValueToAttemptCostOf(
+    attemptCost: Dollars,
+    fundedValue: Dollars,
+): Quantity<FundedValueToAttemptCost> {
+    if (attemptCost <= 0) {
+        return missingQuantity(EconomicsReason.ZeroAttemptCost);
+    }
+    const ratio = fundedValue / attemptCost;
+    const netToOne = ratio - 1;
+    return quantityOf({
+        label: fundedValueToAttemptCostLabel(netToOne),
+        netText: ratioToOneText(netToOne),
+        netToOne,
+        ratio,
+        ratioText: ratioToOneText(ratio),
+    });
+}
+
+function fundedValueWithLiveTransferOf(
+    decomposition: AttemptEconomics,
+    liveTransferCashPerAttempt: Dollars,
+): Dollars | null {
+    if (liveTransferCashPerAttempt === 0) return decomposition.fundedValue;
+    return decomposition.passProbability > 0
+        ? dollars(
+              decomposition.fundedValue +
+                  liveTransferCashPerAttempt / decomposition.passProbability,
+          )
+        : null;
+}
+
+function liveTransferCashPerAttemptOf(
+    outputs: RunAttemptOutputs,
+): Dollars | null {
+    const { expectedAttempts, expectedLiveTransferCash } = outputs;
+    if (!Number.isFinite(expectedLiveTransferCash)) return null;
+    if (expectedLiveTransferCash === 0) return dollars(0);
+    return Number.isFinite(expectedAttempts) && expectedAttempts > 0
+        ? dollars(expectedLiveTransferCash / expectedAttempts)
+        : null;
+}
+
+function ratioToOneText(ratio: number): string {
+    return `${ratio.toLocaleString('en-US', { maximumFractionDigits: 2 })}:1`;
+}

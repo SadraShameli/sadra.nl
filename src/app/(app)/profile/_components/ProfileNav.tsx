@@ -1,21 +1,23 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import {
     Dumbbell,
+    LayoutTemplate,
     LineChart,
     LogOut,
     type LucideIcon,
     Radio,
-    Receipt,
     User,
     Users,
 } from 'lucide-react';
+import { type Route } from 'next';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 
-import { Avatar, AvatarFallback } from '~/components/ui/Avatar';
-import { Button } from '~/components/ui/Button';
+import { Avatar, AvatarFallback } from '~/components/ui/avatar';
+import { Button } from '~/components/ui/button';
+import { Separator } from '~/components/ui/separator';
 import { authClient } from '~/lib/auth/client';
 import { profileTabUrl, routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
@@ -23,10 +25,10 @@ import { cn } from '~/lib/utilities';
 import type { ProfileTabValue } from './profileTabs';
 
 type NavItem = {
-    href: string;
+    href: Route;
     icon: LucideIcon;
     label: string;
-    tab?: ProfileTabValue;
+    tab: ProfileTabValue;
 };
 
 const ACCOUNT_ITEM: NavItem = {
@@ -59,10 +61,11 @@ const LIFTING_ITEM: NavItem = {
     label: 'Lifting',
     tab: 'lifting',
 };
-const ACCOUNTING_ITEM: NavItem = {
-    href: routes.accounting.index,
-    icon: Receipt,
-    label: 'Accounting',
+const CONTENTS_ITEM: NavItem = {
+    href: profileTabUrl('contents'),
+    icon: LayoutTemplate,
+    label: 'Contents',
+    tab: 'contents',
 };
 
 interface ProfileNavProperties {
@@ -80,53 +83,54 @@ export function ProfileNav({
     isRoot,
     name,
 }: ProfileNavProperties) {
-    const router = useRouter();
+    const queryClient = useQueryClient();
     const [pending, startTransition] = useTransition();
     const items: NavItem[] = [
         ACCOUNT_ITEM,
         ...(isAdmin ? [USERS_ITEM, SENSOR_HUB_ITEM] : []),
         TRADING_PLAN_ITEM,
         LIFTING_ITEM,
-        ...(isRoot ? [ACCOUNTING_ITEM] : []),
+        ...(isRoot ? [CONTENTS_ITEM] : []),
     ];
     const initial = ((name ?? email)[0] ?? '?').toUpperCase();
 
     return (
-        <div className="flex flex-col gap-4 px-4 md:gap-6 md:px-2">
-            <div className="flex items-center gap-3 rounded-xl bg-white/3 px-3 py-3">
-                <Avatar className="size-10 rounded-full">
-                    <AvatarFallback className="rounded-full bg-primary/15 font-semibold text-primary">
+        <div className="flex flex-col gap-5 px-4 md:px-2">
+            <div className="flex flex-col items-start gap-4 px-3 pt-2">
+                <Avatar className="size-14">
+                    <AvatarFallback className="selected-pill font-serif text-2xl">
                         {initial}
                     </AvatarFallback>
                 </Avatar>
-                <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">
+                <div className="flex w-full min-w-0 flex-col gap-1">
+                    <p className="m-0 truncate type-display-item text-ink">
                         {name ?? 'Unnamed'}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="m-0 truncate text-sm text-ink-muted">
                         {email}
                     </p>
                 </div>
             </div>
 
+            <Separator />
+
             <nav className="flex flex-col gap-1">
                 {items.map((item) => {
-                    const isActive =
-                        item.tab !== undefined && activeTab === item.tab;
+                    const isActive = activeTab === item.tab;
                     return (
                         <Button
                             asChild
                             className={cn(
-                                'w-full justify-start gap-2 px-3!',
-                                isActive
-                                    ? 'bg-primary/15 text-foreground hover:bg-primary/20'
-                                    : 'text-muted-foreground hover:bg-white/3 hover:text-foreground',
+                                'w-full justify-start gap-2.5 px-3!',
+                                isActive && 'bg-surface-high text-ink',
                             )}
                             key={item.href}
-                            size="sm"
-                            variant="ghost"
+                            variant="capsule"
                         >
-                            <Link href={item.href}>
+                            <Link
+                                aria-current={isActive ? 'page' : undefined}
+                                href={item.href}
+                            >
                                 <item.icon className="size-4 shrink-0" />
                                 <span className="whitespace-nowrap">
                                     {item.label}
@@ -137,19 +141,20 @@ export function ProfileNav({
                 })}
             </nav>
 
-            <div className="border-t pt-3">
+            <Separator />
+
+            <div>
                 <Button
-                    className="w-full justify-start gap-2 px-3! text-muted-foreground hover:bg-white/3 hover:text-foreground"
+                    className="w-full justify-start gap-2.5 px-3!"
                     disabled={pending}
                     onClick={() =>
                         startTransition(async () => {
                             await authClient.signOut();
-                            router.push(routes.home);
-                            router.refresh();
+                            queryClient.clear();
+                            window.location.assign(routes.home);
                         })
                     }
-                    size="sm"
-                    variant="ghost"
+                    variant="capsule"
                 >
                     <LogOut className="size-4 shrink-0" />
                     <span>{pending ? 'Signing out…' : 'Sign out'}</span>

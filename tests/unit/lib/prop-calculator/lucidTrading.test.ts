@@ -1,22 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    contractLimitAt,
     ContractLimitKind,
     DailyLossLimitKind,
     DailyLossLimitShape,
     describeDailyLossLimit,
     DrawdownKind,
+    evalContractLimit,
     FirmId,
     LucidVariant,
     maxContractsAt,
-    resolveContractLimit,
+    PayoutEvaluationKind,
+    PayoutGate,
+    PlanAvailability,
     resolveDailyLossLimit,
+    tierContextFromProfits,
     TradingPhase,
 } from '~/lib/prop-calculator/core';
-import {
-    newFundedCycleTracker,
-    tryFundedPayout,
-} from '~/lib/prop-calculator/core/FundedPayoutCycle';
+import { newFundedCycleTracker } from '~/lib/prop-calculator/core/FundedPayoutCycle';
 import { LucidTrading } from '~/lib/prop-calculator/firms/lucid/LucidTrading';
 
 const lucid = new LucidTrading();
@@ -54,13 +56,12 @@ describe('LucidPro recurring per-cycle profit goal (support.lucidtrading.com Luc
         tracker.lastPayoutBalance = state.balance - 200;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
-            maxPayouts: Infinity,
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: pro,
             state,
-            tracker,
         });
 
         expect(payout).toBeNull();
@@ -77,17 +78,90 @@ describe('LucidPro recurring per-cycle profit goal (support.lucidtrading.com Luc
         tracker.lastPayoutBalance = state.balance - 500;
         tracker.qualifyingDaysAtLastPayout = 0;
 
-        const payout = tryFundedPayout({
-            maxPayouts: Infinity,
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: pro,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
         expect(payout?.debited).toBe(2500);
+    });
+});
+
+describe("LucidPro first-payout gate (N-83, support.lucidtrading.com 12890092 LucidPro Payouts, re-fetched 2026-09-26: 'There is no fixed payout window, you may request a payout any day after meeting all eligibility criteria')", () => {
+    const proNoDll = lucidPlan(LucidVariant.ProNoDll);
+
+    function evaluateFirstPayout(
+        plan: typeof pro,
+        qualifyingDays: number,
+        bestDayProfit: number,
+    ) {
+        const state = plan.initialState();
+        const tracker = newFundedCycleTracker(state);
+        state.balance = state.startingBalance + 7000;
+        state.qualifyingDays = qualifyingDays;
+        tracker.cycleBestDayProfit = bestDayProfit;
+        return tracker.evaluatePayout({
+            minRetainedCushion: 0,
+            payoutRequestSize: undefined,
+            plan,
+            state,
+        });
+    }
+
+    it.each([
+        ['Pro', pro],
+        ['ProNoDll', proNoDll],
+    ])(
+        '%s has no day gate before the first payout, like LucidDirect',
+        (_, plan) => {
+            expect(plan.minDaysAfterPassForPayout).toBe(0);
+            expect(plan.minDaysAfterPassForPayoutPerCycle).toBeNull();
+        },
+    );
+
+    it.each([
+        ['Pro', 0, pro],
+        ['Pro', 2, pro],
+        ['ProNoDll', 0, proNoDll],
+        ['ProNoDll', 2, proNoDll],
+    ])(
+        '%s is eligible for a 2000 dollar first payout at %i qualifying days with 7000 dollars of cycle profit and a 2600 dollar (37 percent) best day',
+        (_, qualifyingDays, plan) => {
+            const evaluation = evaluateFirstPayout(plan, qualifyingDays, 2600);
+
+            expect(evaluation).toMatchObject({
+                debited: 2000,
+                kind: PayoutEvaluationKind.Eligible,
+            });
+        },
+    );
+
+    it.each([
+        ['Pro', pro],
+        ['ProNoDll', proNoDll],
+    ])(
+        '%s still blocks the first payout on the 40 percent funded consistency rule when a 3000 dollar best day is 43 percent of 7000 dollars of cycle profit',
+        (_, plan) => {
+            expect(evaluateFirstPayout(plan, 0, 3000)).toEqual({
+                gate: PayoutGate.FundedConsistency,
+                kind: PayoutEvaluationKind.Blocked,
+            });
+        },
+    );
+
+    it("records the 2026-09-14 checkout field 'Days to Payout: 3' as superseded by article 12890092", () => {
+        const note = lucid.notes.find((candidate) =>
+            candidate.startsWith("LucidPro's minDaysAfterPassForPayout"),
+        );
+
+        expect(note).toContain('12890092');
+        expect(note).toContain('There is no fixed payout window');
+        expect(note).toContain('superseded');
+        expect(note).not.toContain('Corrected to 3');
     });
 });
 
@@ -107,13 +181,12 @@ describe("LucidFlex net-positive profit requirement applies to every cycle, firs
         tracker.qualifyingDaysAtLastPayout = 0;
         tracker.lastPayoutBalance = state.balance;
 
-        const payout = tryFundedPayout({
-            maxPayouts: Infinity,
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: flex,
             state,
-            tracker,
         });
 
         expect(payout).toBeNull();
@@ -129,13 +202,12 @@ describe("LucidFlex net-positive profit requirement applies to every cycle, firs
         tracker.qualifyingDaysAtLastPayout = 0;
         tracker.lastPayoutBalance = state.balance - 1200;
 
-        const payout = tryFundedPayout({
-            maxPayouts: Infinity,
+        tracker.recordSessionClose(state);
+        const payout = tracker.tryPayout({
             minRetainedCushion: 0,
             payoutRequestSize: undefined,
             plan: flex,
             state,
-            tracker,
         });
 
         expect(payout).not.toBeNull();
@@ -156,12 +228,12 @@ describe("LucidFlex funded contract limit scales with simulated profit, unlike t
                 'expected a tiered funded contract limit for LucidFlex',
             );
         }
-        expect(maxContractsAt(funded, 0)).toBe(2);
-        expect(maxContractsAt(funded, 999)).toBe(2);
-        expect(maxContractsAt(funded, 1000)).toBe(3);
-        expect(maxContractsAt(funded, 1999)).toBe(3);
-        expect(maxContractsAt(funded, 2000)).toBe(4);
-        expect(maxContractsAt(funded, 10_000)).toBe(4);
+        expect(maxContractsAt(funded, tierContextFromProfits(0))).toBe(2);
+        expect(maxContractsAt(funded, tierContextFromProfits(999))).toBe(2);
+        expect(maxContractsAt(funded, tierContextFromProfits(1000))).toBe(3);
+        expect(maxContractsAt(funded, tierContextFromProfits(1999))).toBe(3);
+        expect(maxContractsAt(funded, tierContextFromProfits(2000))).toBe(4);
+        expect(maxContractsAt(funded, tierContextFromProfits(10_000))).toBe(4);
 
         const fundedMicros = flex.contractLimits?.fundedMicros;
         if (fundedMicros?.kind !== ContractLimitKind.Tiered) {
@@ -169,27 +241,24 @@ describe("LucidFlex funded contract limit scales with simulated profit, unlike t
                 'expected a tiered funded micro contract limit for LucidFlex',
             );
         }
-        expect(maxContractsAt(fundedMicros, 0)).toBe(20);
-        expect(maxContractsAt(fundedMicros, 2000)).toBe(40);
+        expect(maxContractsAt(fundedMicros, tierContextFromProfits(0))).toBe(
+            20,
+        );
+        expect(maxContractsAt(fundedMicros, tierContextFromProfits(2000))).toBe(
+            40,
+        );
     });
 
     it('resolves via accountProfit (simulated profit), not raw balance, matching the TopStep tiered-limit convention', () => {
         expect(
-            resolveContractLimit(
+            contractLimitAt(
                 flex.contractLimits,
                 TradingPhase.Funded,
                 false,
-                1500,
+                tierContextFromProfits(1500),
             ),
         ).toBe(3);
-        expect(
-            resolveContractLimit(
-                flex.contractLimits,
-                TradingPhase.Eval,
-                false,
-                1500,
-            ),
-        ).toBe(4);
+        expect(evalContractLimit(flex.contractLimits, false)).toBe(4);
     });
 });
 
@@ -203,7 +272,7 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
         ).toStrictEqual({ kind: DailyLossLimitShape.None });
     });
 
-    it("ProNoDll has no funded DLL at all, even once the drawdown floor locks -- pro.md's own Sim Funded table states the Off configuration's Daily Loss Limit as 'Off: none' with no post-lock-scaling clause, unlike the On configuration which keeps Pro's 60%-of-peak LucidScale DLL", () => {
+    it("ProNoDll has no funded DLL at all, even once the drawdown floor locks: pro.md's own Sim Funded table states the Off configuration's Daily Loss Limit as 'Off: none' with no post-lock-scaling clause, unlike the On configuration which keeps Pro's 60%-of-peak LucidScale DLL", () => {
         expect(
             describeDailyLossLimit(proNoDll.fundedDailyLossLimit),
         ).toStrictEqual({ kind: DailyLossLimitShape.None });
@@ -211,22 +280,27 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
             resolveDailyLossLimit(proNoDll.fundedDailyLossLimit, {
                 isThresholdLocked: false,
                 peakDayCloseProfit: 4000,
+                peakIntradayProfit: null,
                 profit: 4000,
+                sessionOpenProfit: 4000,
             }),
         ).toBeNull();
         expect(
             resolveDailyLossLimit(proNoDll.fundedDailyLossLimit, {
                 isThresholdLocked: true,
                 peakDayCloseProfit: 4000,
+                peakIntradayProfit: null,
                 profit: 4000,
+                sessionOpenProfit: 4000,
             }),
         ).toBeNull();
     });
 
-    it('ProNoDll (DLL off) costs $20 more than Pro (DLL on) but shares every other rule', () => {
-        expect(pro.fees.oneTimeEval).toBe(172);
+    it('ProNoDll (DLL off, +$20 add-on) costs $25 more than Pro (DLL on, -$5 promo) on both eval and reset but shares every other rule', () => {
+        expect(pro.fees.oneTimeEval).toBe(167);
         expect(proNoDll.fees.oneTimeEval).toBe(192);
-        expect(proNoDll.fees.reset).toBe(pro.fees.reset);
+        expect(pro.fees.reset).toBe(115);
+        expect(proNoDll.fees.reset).toBe(140);
         expect(proNoDll.profitTarget).toBe(pro.profitTarget);
         expect(proNoDll.drawdown.amount).toBe(pro.drawdown.amount);
         expect(proNoDll.minDaysAfterPassForPayout).toBe(
@@ -243,17 +317,18 @@ describe("LucidPro/LucidFlex purchasable Daily Loss Limit toggle (live-verified 
         ).toStrictEqual({ amount: 1200, kind: DailyLossLimitShape.Fixed });
     });
 
-    it('FlexDll has no LucidScale scaling component, unlike Pro/ProNoDll -- the funded DLL inherits the same flat $1,200 rule the whole time', () => {
+    it('FlexDll has no LucidScale scaling component, unlike Pro/ProNoDll; the funded DLL inherits the same flat $1,200 rule the whole time', () => {
         expect(flexDll.fundedDailyLossLimit.kind).toBe(DailyLossLimitKind.Flat);
         expect(
             describeDailyLossLimit(flexDll.fundedDailyLossLimit),
         ).toStrictEqual({ amount: 1200, kind: DailyLossLimitShape.Fixed });
     });
 
-    it('FlexDll (DLL on) costs $10 less than Flex (DLL off) but shares every other rule', () => {
-        expect(flexDll.fees.oneTimeEval).toBe(136);
+    it('FlexDll (DLL on, -$5 promo) costs $15 less than Flex (DLL off, +$10 add-on) on both eval and reset but shares every other rule', () => {
+        expect(flexDll.fees.oneTimeEval).toBe(131);
         expect(flex.fees.oneTimeEval).toBe(146);
-        expect(flexDll.fees.reset).toBe(flex.fees.reset);
+        expect(flexDll.fees.reset).toBe(90);
+        expect(flex.fees.reset).toBe(105);
         expect(flexDll.profitTarget).toBe(flex.profitTarget);
         expect(flexDll.drawdown.amount).toBe(flex.drawdown.amount);
         expect(flexDll.minDaysAfterPassForPayout).toBe(
@@ -295,16 +370,16 @@ describe('LucidDaily (live-verified 2026-09-14 from lucidtrading.com plan-card m
         }
     });
 
-    it('EOD and Intraday are separately priced base products, and the DLL toggle costs $20 more when turned OFF', () => {
-        expect(dailyEodDll.fees.oneTimeEval).toBe(165);
-        expect(dailyEodDll.fees.reset).toBe(115);
+    it('EOD and Intraday are separately priced base products; the DLL ON promo takes $5 off and the OFF add-on adds $20, on eval and reset alike', () => {
+        expect(dailyEodDll.fees.oneTimeEval).toBe(160);
+        expect(dailyEodDll.fees.reset).toBe(110);
         expect(dailyEod.fees.oneTimeEval).toBe(185);
-        expect(dailyEod.fees.reset).toBe(115);
+        expect(dailyEod.fees.reset).toBe(135);
 
-        expect(dailyIntradayDll.fees.oneTimeEval).toBe(136);
-        expect(dailyIntradayDll.fees.reset).toBe(95);
+        expect(dailyIntradayDll.fees.oneTimeEval).toBe(131);
+        expect(dailyIntradayDll.fees.reset).toBe(90);
         expect(dailyIntraday.fees.oneTimeEval).toBe(156);
-        expect(dailyIntraday.fees.reset).toBe(95);
+        expect(dailyIntraday.fees.reset).toBe(115);
     });
 
     it('has a $0.01 recurring per-cycle profit floor and a $2,100-above-start payout buffer, matching LucidFlex and LucidPro rather than no floor at all', () => {
@@ -394,5 +469,22 @@ describe('Every Lucid plan now carries the live-confirmed 4 mini / 40 micro cont
             }
             expect(plan.contractLimits).not.toBeNull();
         }
+    });
+});
+
+describe('LucidMaxx availability (N-11, live-confirmed 2026-09-23 on support.lucidtrading.com LucidMaxx Overview: invited by the Lucid risk team, no public purchase option)', () => {
+    it('is call-up only and not purchasable', () => {
+        const plan = lucidPlan(LucidVariant.Maxx);
+        expect(plan.availability).toBe(PlanAvailability.CallUpOnly);
+        expect(plan.isPurchasable).toBe(false);
+    });
+
+    it('leaves every other Lucid plan purchasable', () => {
+        const others = lucid.plans.filter(
+            (plan) =>
+                'variant' in plan.id && plan.id.variant !== LucidVariant.Maxx,
+        );
+        expect(others.length).toBeGreaterThan(0);
+        expect(others.every((plan) => plan.isPurchasable)).toBe(true);
     });
 });
