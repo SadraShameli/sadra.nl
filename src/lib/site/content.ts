@@ -356,7 +356,7 @@ export const homepageContent: HomepageData = {
                 tag: 'Desk',
             },
         ],
-        heading: { before: 'More', emphasis: 'about me.' },
+        heading: { before: 'Who I am', emphasis: ', and some photography' },
         spotifyEmbedUrl:
             'https://open.spotify.com/embed/track/0BxE4FqsDD1Ot4YuBXwAPp?theme=0',
         spotifyLabel: 'On repeat',
@@ -395,7 +395,7 @@ export const homepageContent: HomepageData = {
         },
     },
     live: {
-        body: 'Ever been curious about the temperature, humidity and loudness at different spots in real time?',
+        body: 'Ever been curious about the temperature, humidity and loudness at different spots measured by Sensor Hub in real time?',
         heading: { before: 'Live', emphasis: 'readings' },
     },
     metaTitle: `${SITE_OWNER_NAME} | Daytrader & Developer`,

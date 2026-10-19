@@ -68,10 +68,10 @@ export default function RecordingSection({
         <div
             className={cn(
                 'app-recording',
-                'flex flex-wrap items-stretch gap-4',
+                'grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2',
             )}
         >
-            <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-5 rounded-xl border border-line bg-surface p-6 sm:p-7">
+            <div className="flex min-w-0 flex-col gap-5 rounded-xl border border-line bg-surface p-6 sm:p-7">
                 <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 flex-1 flex-col gap-2.5">
                         <p className="m-0 type-micro text-camel">Now playing</p>
@@ -194,7 +194,7 @@ export default function RecordingSection({
                 )}
             </div>
 
-            <div className="relative aspect-4/3 min-w-0 flex-[1_1_340px] overflow-hidden rounded-xl border border-line bg-media-black lg:aspect-auto">
+            <div className="relative aspect-square min-w-0 overflow-hidden rounded-xl border border-line bg-media-black lg:aspect-auto">
                 <AutoplayVideo
                     className={cn(
                         'app-recording__video',
