@@ -127,11 +127,6 @@ export const indexableRoutes: readonly string[] = [
     routes.contact,
     routes.legal.privacy,
     routes.legal.terms,
-    routes.tradeChecklist.index,
-    routes.tradeChecklist.journal,
-    routes.tradeChecklist.prep,
-    routes.tradeChecklist.calendar,
-    routes.tradeChecklist.analytics,
 ];
 
 export const disallowedCrawlPaths: readonly string[] = [
@@ -141,6 +136,7 @@ export const disallowedCrawlPaths: readonly string[] = [
     routes.accounting.index,
     routes.lifting.index,
     routes.propCalculator.accounts.index,
+    routes.tradeChecklist.index,
 ];
 
 export type PathWithQuery<P extends string> = `${P}?${string}` | P;

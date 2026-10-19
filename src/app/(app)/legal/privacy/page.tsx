@@ -5,12 +5,15 @@ import { LegalSection } from '~/app/(app)/legal/_components/LegalSection';
 import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
 import { formatDisplayDate } from '~/lib/format';
+import { buildPublicPageMetadata } from '~/lib/site/metadata';
 import { routes } from '~/lib/site/routes';
+import { SITE_NAME } from '~/lib/site/siteName';
 
-export const metadata: Metadata = {
-    description: 'How sadra.nl handles personal data.',
+export const metadata: Metadata = buildPublicPageMetadata({
+    canonical: routes.legal.privacy,
+    description: `How ${SITE_NAME} handles personal data.`,
     title: 'Privacy policy',
-};
+});
 
 export default function PrivacyPage() {
     const updated = '2026-05-20';

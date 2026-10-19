@@ -78,6 +78,8 @@ export function VolumeControls({
                 </Button>
 
                 <Slider
+                    aria-label="Playback volume"
+                    aria-valuetext={`${Math.round(volume * 100)}%`}
                     className={cn(
                         'app-recording__volume-slider',
                         'w-24 sm:w-28',

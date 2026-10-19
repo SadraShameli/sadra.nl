@@ -16,6 +16,7 @@ export const environment = createEnv({
         AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
         AUTH_SECRET: process.env.AUTH_SECRET,
         DATABASE_URL: process.env.DATABASE_URL,
+        EMAIL_FROM: process.env.EMAIL_FROM,
         LETTERMINT_PROJECT_TOKEN: process.env.LETTERMINT_PROJECT_TOKEN,
         LOG_LEVEL: process.env.LOG_LEVEL,
         NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -35,6 +36,7 @@ export const environment = createEnv({
         AUTH_GOOGLE_SECRET: z.string().min(1).optional(),
         AUTH_SECRET: z.string().min(32),
         DATABASE_URL: z.url(),
+        EMAIL_FROM: z.email().optional(),
         LETTERMINT_PROJECT_TOKEN: z.string().min(1),
         LOG_LEVEL: z
             .enum(['debug', 'error', 'fatal', 'info', 'trace', 'warn'])

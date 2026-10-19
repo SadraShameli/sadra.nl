@@ -36,7 +36,7 @@ export const BRAND_APPLE_ICON: BrandIconSpec = {
     size: BRAND_APPLE_ICON_SIZE,
 };
 
-export const BRAND_CARD_ALT = `${siteContent.metaTitle}: ${siteContent.metaDescription}`;
+export const BRAND_CARD_ALT = `${siteContent.metaTitle}: ${siteContent.manifest.description}`;
 
 enum BrandColor {
     Background = '#000000',
@@ -96,7 +96,7 @@ export async function brandCardImage(): Promise<ImageResponse> {
                         fontSize: 44,
                     }}
                 >
-                    {siteContent.metaDescription}
+                    {siteContent.manifest.description}
                 </div>
             </div>
         </div>,

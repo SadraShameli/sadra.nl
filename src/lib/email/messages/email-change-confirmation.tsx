@@ -5,9 +5,10 @@ import { Button, Heading, Text } from '@react-email/components';
 import { EmailLink, emailLinkLifetimeText } from '~/lib/auth/EmailLink';
 import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
+import { SITE_NAME } from '~/lib/site/siteName';
 
 export class EmailChangeConfirmationEmail extends EmailMessage {
-    readonly subject = 'Confirm your new sadra.nl email address';
+    readonly subject = `Confirm your new ${SITE_NAME} email address`;
     readonly to: string;
 
     constructor(
@@ -37,7 +38,9 @@ function EmailChangeConfirmationTemplate({
     url: string;
 }) {
     return (
-        <BaseEmail preview="Approve the email change on your sadra.nl account">
+        <BaseEmail
+            preview={`Approve the email change on your ${SITE_NAME} account`}
+        >
             <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
                 Approve your email change
             </Heading>

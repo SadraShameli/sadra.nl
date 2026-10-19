@@ -5,6 +5,7 @@ import { Button, Heading, Text } from '@react-email/components';
 import { EmailLink, emailLinkLifetimeText } from '~/lib/auth/EmailLink';
 import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
+import { SITE_NAME } from '~/lib/site/siteName';
 
 export class EmailVerificationEmail extends EmailMessage {
     readonly subject = 'Verify your email';
@@ -25,7 +26,7 @@ export class EmailVerificationEmail extends EmailMessage {
 
 function EmailVerificationTemplate({ url }: { url: string }) {
     return (
-        <BaseEmail preview="Verify your email address for sadra.nl">
+        <BaseEmail preview={`Verify your email address for ${SITE_NAME}`}>
             <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
                 Verify your email
             </Heading>

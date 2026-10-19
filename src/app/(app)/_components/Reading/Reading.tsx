@@ -110,8 +110,10 @@ export default function ReadingSection() {
             )}
         >
             <Tabs
-                onValueChange={(value) => setChosenSensor(value)}
-                value={activeSensor ?? ''}
+                onValueChange={(value) =>
+                    setChosenSensor(decodeURIComponent(value))
+                }
+                value={sensorTabValue(activeSensor ?? '')}
             >
                 <div className="flex flex-wrap items-center gap-2.5 border-b border-line-faint p-4">
                     <ToolbarSelect
@@ -207,7 +209,7 @@ export default function ReadingSection() {
                             {sensors.map((sensor) => (
                                 <TabsTrigger
                                     key={sensor.name}
-                                    value={sensor.name}
+                                    value={sensorTabValue(sensor.name)}
                                 >
                                     {sensor.name}
                                 </TabsTrigger>
@@ -224,7 +226,7 @@ export default function ReadingSection() {
                         <TabsContent
                             className="mt-0"
                             key={reading.sensor.name}
-                            value={reading.sensor.name}
+                            value={sensorTabValue(reading.sensor.name)}
                         >
                             <StatStrip
                                 className="m-6 mb-0"
@@ -340,4 +342,8 @@ function ReadingFigure({
             <span className="text-2xl text-ink-muted italic"> {unit}</span>
         </>
     );
+}
+
+function sensorTabValue(name: string): string {
+    return encodeURIComponent(name);
 }

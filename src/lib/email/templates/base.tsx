@@ -12,6 +12,9 @@ import {
     Text,
 } from '@react-email/components';
 
+import { SITE_NAME } from '~/lib/site/siteName';
+import { getPublicSiteOrigin } from '~/lib/site/url';
+
 import { EMAIL_COLORS, EMAIL_FONT_FAMILIES } from './EmailPalette';
 
 const EMAIL_TAILWIND_CONFIG = {
@@ -38,6 +41,7 @@ export function BaseEmail({
     preview,
 }: BaseEmailProperties) {
     const year = new Date().getFullYear();
+    const siteOrigin = getPublicSiteOrigin();
 
     return (
         <Html lang="en">
@@ -49,9 +53,9 @@ export function BaseEmail({
                         <Section className="rounded-t-xl border border-b-0 border-solid border-line bg-surface px-9 pt-8 pb-2">
                             <Link
                                 className="font-serif text-2xl font-medium text-ink no-underline"
-                                href="https://sadra.nl"
+                                href={siteOrigin}
                             >
-                                sadra<span className="text-camel">.</span>nl
+                                {SITE_NAME}
                             </Link>
                         </Section>
                         <Section className="rounded-b-xl border border-t-0 border-solid border-line bg-surface px-9 pt-6 pb-10">
@@ -65,9 +69,9 @@ export function BaseEmail({
                         <Text className="m-0 mt-1 text-center text-xs text-ink-muted">
                             <Link
                                 className="text-ink-muted underline"
-                                href="https://sadra.nl"
+                                href={siteOrigin}
                             >
-                                sadra.nl
+                                {SITE_NAME}
                             </Link>
                         </Text>
                         {notificationSettingsUrl === undefined ? null : (

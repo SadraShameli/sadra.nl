@@ -3,13 +3,20 @@ import 'server-only';
 import {
     experienceBSP,
     experienceNobears,
+    experienceTrading,
     type PortfolioSectionView,
     projectMinoMarkt,
     projectProjectAI,
     projectSadraNl,
     projectSensorHub,
     projectTradingBot,
+    siteContent,
 } from '~/lib/site/content';
+import { SITE_NAME } from '~/lib/site/siteName';
+import { getPublicSiteOrigin } from '~/lib/site/url';
+
+const publicSiteOrigin = getPublicSiteOrigin();
+const CODE_PROFILE_URL = 'https://github.com/sadrashameli';
 
 export type CoverLetter = {
     body: string;
@@ -65,10 +72,9 @@ export const resumeContent: ResumeBasicsData = {
         { fluency: 'Native speaker', title: 'Persian' },
     ],
     links: [
-        { title: 'sadra.nl', url: 'https://sadra.nl' },
-        { title: 'Github', url: 'https://github.com/sadrashameli' },
-        { title: 'Youtube', url: 'https://youtube.com/@sadrashameli' },
-        { title: 'Linkedin', url: 'https://linkedin.com/in/sadrashameli' },
+        { title: SITE_NAME, url: publicSiteOrigin },
+        { title: 'GitHub', url: CODE_PROFILE_URL },
+        { title: 'LinkedIn', url: 'https://linkedin.com/in/sadrashameli' },
     ],
     location: 'Rijswijk, The Netherlands',
     phone: '+31 685156033',
@@ -78,78 +84,39 @@ export const resumeVariants: Record<ResumeVariantKey, ResumeVariant> = {
     fullstack: {
         experience: [experienceNobears, experienceBSP],
         key: 'fullstack',
-        label: 'Full-stack developer',
-        projects: [
-            projectTradingBot,
-            projectSadraNl,
-            projectMinoMarkt,
-            projectSensorHub,
-            projectProjectAI,
-        ],
-        role: 'Full-stack developer',
-        summary: `Full-stack developer with 4 years of experience shipping production WordPress and Next.js platforms for Dutch agencies. Looking to bring this end-to-end technical ownership and architectural discipline to a product-focused engineering team.`,
+        label: 'Developer',
+        projects: [projectMinoMarkt, projectSensorHub, projectProjectAI],
+        role: 'Developer',
+        summary:
+            'Developer delivering production applications and data platforms. Take projects from system design through implementation, automated testing, deployment and continued maintenance, with professional experience building software for Dutch agency clients.',
     },
     quant: {
-        experience: [experienceNobears, experienceBSP],
+        experience: [experienceTrading, experienceNobears, experienceBSP],
         key: 'quant',
-        label: 'Trading engineer',
-        projects: [
-            projectTradingBot,
-            projectSadraNl,
-            projectMinoMarkt,
-            projectSensorHub,
-            projectProjectAI,
-        ],
-        role: 'Trading engineer',
-        summary: `Software engineer and futures trader with ${tradingYears}+ years in NQ futures and multiple prop firm payouts in the last year. Currently running my own capital through a modular Python trading framework I built. Looking to bring this combination of trading discipline and engineering ownership.`,
+        label: 'Daytrader & developer',
+        projects: [projectTradingBot, projectSadraNl, projectSensorHub],
+        role: 'Daytrader & developer',
+        summary: `Futures daytrader and developer with ${tradingYears}+ years focused on NQ futures. Build and operate trading frameworks for backtesting, strategy validation, live execution and risk management, backed by professional experience delivering production applications.`,
     },
 };
 
-export const defaultResumeVariantKey: ResumeVariantKey = 'fullstack';
+export const defaultResumeVariantKey: ResumeVariantKey = 'quant';
 
 export const coverLetters: CoverLetter[] = [
     {
         body: `Dear hiring team,
 
-I have ${tradingYears}+ years of focused trading experience in NQ futures, including multiple payouts from futures prop firms in the last year. To automate what works, I have spent the past year building a modular quantitative trading framework from scratch. My main focus has been preventing overfitting, and building this system taught me firsthand that the difference between a theoretical strategy and one that actually survives the market is entirely in the engineering underneath it.
+My background combines NQ futures daytrading with the development and operation of trading frameworks. I have ${tradingYears}+ years of trading experience, including multiple payouts from futures prop firms, and I trade my own capital. I am looking for a trading or trading-development role where I can contribute practical market experience and take ownership of the software used to research and execute strategies.
 
-Since September 2025, I have been running my own capital through this system, trading four uncorrelated strategies across different assets and timeframes for maximum diversification. I built a strict object oriented architecture to be able to easily add more features, structured as discrete layers: a data layer with multiple persistent storage backends, a cache layer on the hot paths for maximum performance with support for memory and Redis, a broker layer behind a unified API, an optimisation layer, real time risk management, and a notification and communication layer for live alerts.
+I build and operate modular trading frameworks that run many independent strategies across assets and timeframes. The approach combines small edges that compound over time, with backtesting and validation to test for overfitting. The frameworks cover market data, broker connectivity, live and paper trading, and real-time risk management. Drawdown limits and adaptive position sizing are part of the execution pipeline. I use walk-forward testing and Monte Carlo analysis to examine strategy robustness, alongside Bayesian optimisation and PyTorch for position scoring.
 
-Because execution speed and throughput are critical, I am deeply focused on micro performance optimizations. The system is designed to be highly concurrent, heavily utilizing multi processing and threading to ensure the pipeline never bottlenecks. For position scoring, the engine leverages PyTorch, backed by strict walk forward cross validation, Monte Carlo analysis, and automated risk management.
+I also bring professional development experience. At Nobears, I build and maintain 15+ production platforms for Dutch clients and have created reusable components and tools that save roughly one to two days on new projects. At Blue Star Planning, I designed connected devices and developed the platform that processed their telemetry, including the team's deployment pipeline. These roles gave me experience taking applications from implementation through deployment and continued maintenance.
 
-Alongside my trading engine, I bring four years of experience in C++, Python, SQL, TypeScript, React, Next.js, Tailwind, and WordPress. Whether I am shipping websites in my current role at Nobears Rotterdam or building firmware to dashboard stacks at my previous IoT startup, I am highly comfortable with complex exchange APIs, latency sensitive code, and owning a project end to end.
-
-The combination of my trading experience, trading bot, professional experience and the ability to learn very quickly positions me perfectly to collaborate across your teams. I would welcome the chance to talk about how I can contribute to the team. My code and projects can be found at <strong>https://sadra.nl</strong> and <strong>https://github.com/SadraShameli</strong>.
+I would value a conversation about how this combination of trading and development could contribute to your team. I can walk through my frameworks, their validation processes and the decisions behind their architecture. My projects are available at <strong>${publicSiteOrigin}</strong>, with code at <strong>${CODE_PROFILE_URL}</strong>.
 
 Kind regards,
-Sadra Shameli`,
-        key: 'flowtraders',
-        label: 'Flow Traders, Digital Assets Trader',
-    },
-    {
-        body: `Rijswijk, 21 juni 2024
-
-Betref: Banner Developer bij Coolblue
-
-Geachte heer/mevrouw,
-
-Deze week kwam ik op Linkedin uw vacature tegen voor Banner Developer bij Coolblue. De vacature sprak mij direct aan, aangezien deze perfect aansluit bij mijn passie voor webontwikkeling. Hierdoor besloot ik om deze motivatiebrief te schrijven. Ik leg u graag uit wat mij zo aanspreekt in deze functie en hoe ik een toegevoegde waarde kan zijn voor Coolblue.
-
-Als een kandidaat met ervaring in full-stack development met Typescript, React.js en TailwindCSS op zakelijk niveau, heb ik vol vertrouwen dat ik uitstekend zou passen in deze rol.
-
-Tijdens mijn werkperiode bij Blue Star Planning B.V. was ik verantwoordelijk voor een full-stack project waarbij ik IoT-devices ontwierp. Daarnaast ontwikkelde ik een backend met ASP.NET en Entity Framework om de data te kunnen verwerken en opslaan. Vervolgens had ik een frontend gemaakt met Typescript, React.js en TailwindCSS voor het weergeven van de data.
-
-Voor een persoonlijk project heb ik de backend volledig gemigreerd naar Next.js en Drizzle, aangezien dit kosteneffectiever was. Het project kunt u terugvinden op mijn website: https://sadra.nl
-
-Verder kunt u mijn GitHub profiel bekijken om meer te weten over mijn projecten en mijn programmeerstijl: https://github.com/sadrashameli
-
-Ik kijk graag uit naar de volgende stappen in het sollicitatieproces en een kennismakingsgesprek.
-
-Hartelijk dank voor uw tijd en aandacht.
-
-Met vriendelijke groet,
-Sadra Shameli`,
-        key: 'coolblue',
-        label: 'Coolblue, Banner Developer',
+${siteContent.manifest.name}`,
+        key: 'trading',
+        label: 'Trading & trading-development roles',
     },
 ];

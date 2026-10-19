@@ -2,6 +2,7 @@ import { readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { isPrivatePath } from '~/lib/site/privateRoutes';
 import {
     apiRoutes,
     disallowedCrawlPaths,
@@ -169,6 +170,10 @@ describe('indexableRoutes', () => {
         expect(new Set(indexableRoutes).size).toBe(indexableRoutes.length);
     });
 
+    it('excludes every authenticated route', () => {
+        expect(indexableRoutes.filter(isPrivatePath)).toEqual([]);
+    });
+
     it('lists only routes that resolve to a page', () => {
         const pages = pageRoutes();
         expect(indexableRoutes.filter((route) => !pages.has(route))).toEqual(
@@ -182,6 +187,7 @@ describe('disallowedCrawlPaths', () => {
         expect(disallowedCrawlPaths).toContain('/api/');
         expect(disallowedCrawlPaths).toContain(routes.profile);
         expect(disallowedCrawlPaths).toContain(routes.auth.error);
+        expect(disallowedCrawlPaths).toContain(routes.tradeChecklist.index);
     });
 });
 

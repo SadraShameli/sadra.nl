@@ -10,7 +10,6 @@ import { MeshBackground } from '~/components/MeshBackground';
 import { Toaster } from '~/components/ui/sonner';
 import { bodoniModa, hankenGrotesk, jetBrainsMono } from '~/fonts';
 import { siteContent } from '~/lib/site/content';
-import { SITE_NAME } from '~/lib/site/siteName';
 import { THEME_BACKGROUND_COLOR } from '~/lib/site/themeColor';
 import { getPublicSiteOrigin } from '~/lib/site/url';
 import { DEFAULT_COLOR_MODE } from '~/lib/theme';
@@ -39,7 +38,7 @@ export const metadata: Metadata = {
     metadataBase: new URL(siteOrigin),
     openGraph: {
         description: siteContent.metaDescription,
-        siteName: SITE_NAME,
+        siteName: siteContent.manifest.name,
         title: siteContent.metaTitle,
         type: 'website',
     },

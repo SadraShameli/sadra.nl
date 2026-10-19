@@ -5,16 +5,22 @@ import { type UrlObject } from 'node:url';
 
 import BSPImage from '~/assets/images/bsp.jpeg';
 import DiplomaImage from '~/assets/images/diploma.jpg';
+import CoastalSunsetImage from '~/assets/images/gallery/coastal-sunset.jpg';
+import EveningLoungeImage from '~/assets/images/gallery/evening-lounge.jpg';
 import PorscheImage from '~/assets/images/gallery/porsche.jpg';
+import RooftopTerraceImage from '~/assets/images/gallery/rooftop-terrace.jpg';
 import SetupImage from '~/assets/images/gallery/setup.jpg';
 import SpainChurchImage from '~/assets/images/gallery/spain-church.jpg';
 import SpainPoolImage from '~/assets/images/gallery/spain-pool.jpg';
+import SunnyBenchImage from '~/assets/images/gallery/sunny-bench.jpg';
 import MinomarktImage from '~/assets/images/minomarkt.jpeg';
 import NobearsImage from '~/assets/images/nobears.jpg';
 import ProjectAIImage from '~/assets/images/projectai.jpg';
 import SensorHubImage from '~/assets/images/units.jpg';
 
 import { routes } from './routes';
+import { SITE_NAME } from './siteName';
+import { getPublicSiteOrigin, type PublicSiteOrigin } from './url';
 
 export enum HeroMode {
     Developer = 'developer',
@@ -83,7 +89,7 @@ export type PortfolioSectionView = {
     skills?: string[];
     summary?: null | string;
     title: string;
-    url?: ExternalUrl | null;
+    url?: ExternalUrl | null | PublicSiteOrigin;
 };
 
 export interface SensorMetricCopy {
@@ -136,6 +142,7 @@ type HomepageData = {
         readonly body: string;
         readonly heading: EmphasisHeading;
     };
+    readonly metaTitle: string;
     readonly recordings: {
         readonly body: string;
         readonly decorChip: string;
@@ -196,15 +203,17 @@ export function portfolioSectionHref(id: PortfolioSectionId): UrlObject {
     return { hash: id, pathname: routes.portfolio };
 }
 
+const SITE_OWNER_NAME = 'Sadra Shameli';
+
 export const siteContent: SiteData = {
     email: 'sadra.shameli1@gmail.com',
     manifest: {
         description: 'Daytrader, developer',
-        name: 'Sadra Shameli',
+        name: SITE_OWNER_NAME,
         shortName: 'Sadra',
     },
-    metaDescription: 'Daytrader, developer',
-    metaTitle: 'Sadra Shameli',
+    metaDescription: `${SITE_OWNER_NAME} is a futures daytrader and developer in the Netherlands. Explore his trading tools, prop firm calculators and personal projects.`,
+    metaTitle: SITE_OWNER_NAME,
     profiles: [
         {
             platform: 'youtube',
@@ -299,6 +308,30 @@ export const homepageContent: HomepageData = {
     about: {
         gallery: [
             {
+                alt: 'Sitting on a wooden bench in the sunshine',
+                caption: 'A moment in the sun',
+                image: SunnyBenchImage,
+                tag: 'Outdoors',
+            },
+            {
+                alt: 'Sitting on a rooftop terrace overlooking the city and mountains',
+                caption: 'Rooftop drinks',
+                image: RooftopTerraceImage,
+                tag: 'Rooftop',
+            },
+            {
+                alt: 'Watching the sunset over the coast from a terrace',
+                caption: 'Sunset by the sea',
+                image: CoastalSunsetImage,
+                tag: 'Coast',
+            },
+            {
+                alt: 'Relaxing on a lounge sofa with drinks in the evening',
+                caption: 'An evening out',
+                image: EveningLoungeImage,
+                tag: 'Evening',
+            },
+            {
                 alt: 'A pool in Spain',
                 caption: 'The pool',
                 image: SpainPoolImage,
@@ -365,11 +398,12 @@ export const homepageContent: HomepageData = {
         body: 'Ever been curious about the temperature, humidity and loudness at different spots in real time?',
         heading: { before: 'Live', emphasis: 'readings' },
     },
+    metaTitle: `${SITE_OWNER_NAME} | Daytrader & Developer`,
     recordings: {
         body: 'Recorded by Sensor Hub devices placed at locations across the Netherlands. Put your headphones on.',
         decorChip: 'Headphones on',
         decorVideo: {
-            poster: '/headphone-poster.jpg',
+            poster: '/headphone-poster.webp',
             src: '/headphone.mp4',
         },
         heading: { before: 'Noise', emphasis: 'recordings.', stacked: true },
@@ -388,7 +422,7 @@ export const homepageContent: HomepageData = {
             { label: 'Loudness', metric: SensorMetric.Loudness, unit: 'dB' },
         ],
         video: {
-            poster: '/sensorUnit-poster.png',
+            poster: '/sensorUnit-poster.webp',
             src: '/sensorUnit.mp4',
         },
         videoChip: 'Unit 01 · Handmade',
@@ -402,17 +436,17 @@ export const homepageContent: HomepageData = {
 export const experienceNobears: PortfolioSectionView = {
     date: 'Jun 2024 - Present',
     highlights: [
-        'Designed reusable component library and faster development processes and tools, saving roughly 1-2 days of work on every new project',
+        'Build and maintain 15+ production websites and platforms for Dutch agency clients',
+        'Created reusable components and development tools that save roughly 1-2 days on each new project',
     ],
     imageUrl: NobearsImage.src,
     location: {
         title: 'Rotterdam, The Netherlands',
         url: 'https://www.google.com/maps?um=1&ie=UTF-8&fb=1&gl=nl&sa=X&geocode=Kc3CLHCYNMRHMSJcUppE2IGX&daddr=Goudsesingel+164,+3011+KD+Rotterdam',
     },
-    role: 'Full-stack developer',
+    role: 'Developer',
     skills: [
         'PHP',
-        'WordPress',
         'Twig',
         'TypeScript',
         'React',
@@ -421,7 +455,8 @@ export const experienceNobears: PortfolioSectionView = {
         'Redis',
         'Docker',
     ],
-    summary: `Full-stack developer building custom WordPress sites and platforms, shipping and maintaining 15+ WordPress platforms for Bram Ladage, Geleidehond, Topbrands, Van der Lelie, PlatformACCT and more.`,
+    summary:
+        'Develop and maintain production applications for clients including Bram Ladage, Geleidehond, Topbrands, Van der Lelie and PlatformACCT.',
     title: 'Nobears',
     url: 'https://www.nobears.com',
 };
@@ -429,17 +464,18 @@ export const experienceNobears: PortfolioSectionView = {
 export const experienceBSP: PortfolioSectionView = {
     date: 'Dec 2021 - Jun 2023 · 1 yr 6 mo',
     highlights: [
-        'Set up the Azure DevOps CI/CD pipeline the team continues to ship with',
+        'Designed 3D-printed IoT devices and built an ASP.NET platform to collect, process and display their telemetry',
+        "Set up the team's Azure DevOps pipeline for continuous integration and deployment",
     ],
     imageUrl: BSPImage.src,
     location: {
         title: 'Rotterdam, The Netherlands',
         url: 'https://goo.gl/maps/v9asMxGqgKwcvwQw5',
     },
-    role: 'Full-stack developer',
+    role: 'Developer',
     skills: ['React', 'TypeScript', 'Next.js', 'ASP.NET', 'SQL', 'C++'],
     summary:
-        'Built a full-stack telemetry registering and displaying platform. Designed 3D-printed IoT devices, with a backend that processes the incoming data, and a frontend for visualisation purposes.',
+        'Developed connected devices and the software used to process and visualise their sensor data.',
     title: 'Blue Star Planning',
     url: 'https://bluestarplanning.com',
 };
@@ -447,11 +483,10 @@ export const experienceBSP: PortfolioSectionView = {
 export const projectTradingBot: PortfolioSectionView = {
     date: 'Sep 2025 - Present',
     highlights: [
-        'Running 4 uncorrelated strategies across multiple tickers and timeframes to maximize time and asset diversification for increased ROI and Sharpe',
-        'Real-time risk management with drawdown kill switches and adaptive sizing',
-        'Strict OOP architecture across layers such as live and paper trader, data source, broker api, cache, notifications, ai optimisation and real-time risk management engine',
-        'PyTorch-driven position scoring with chained validators tuned via Bayesian optimisation with strict walk-forward and Monte Carlo validation built around preventing overfitting',
-        'Multiprocess, highly concurrent execution pipeline keeping the trading loop very fast with heavy focus on speed',
+        'Built a modular Python framework for live and paper trading, with separate data, broker and risk-management components',
+        'Operate many independent strategies across assets and timeframes, built around small edges that compound over time and backtested to avoid overfitting',
+        'Validate strategies with walk-forward testing and Monte Carlo analysis, using Bayesian optimisation and PyTorch for position scoring',
+        'Use multiprocessing and caching to support concurrent data processing and execution',
     ],
     location: {
         title: 'Rijswijk, The Netherlands',
@@ -467,19 +502,32 @@ export const projectTradingBot: PortfolioSectionView = {
         'Docker',
     ],
     summary:
-        'Production-grade systematic trading bot, operating autonomously across multiple tickers and timeframes',
+        'A systematic trading framework used to research strategies and operate live trading across assets and timeframes.',
     title: 'TradingBot',
     url: 'https://github.com/SadraShameli/TradingBot',
+};
+
+export const experienceTrading: PortfolioSectionView = {
+    date: 'Mar 2023 - Present',
+    highlights: [
+        'Trade NQ futures, with multiple payouts from futures prop firms',
+        'Operate many independent strategies across assets and timeframes, combining small compounding edges with backtesting and validation against overfitting',
+    ],
+    location: { title: 'Rijswijk, The Netherlands' },
+    role: 'Futures daytrader',
+    skills: ['NQ futures', 'Risk management', 'Strategy research', 'Python'],
+    summary:
+        'Independent futures daytrader with experience in prop-firm evaluations, funded trading and trading my own capital.',
+    title: 'Independent trading',
+    url: projectTradingBot.url,
 };
 
 export const projectSadraNl: PortfolioSectionView = {
     date: 'Mar 2024 - Present',
     highlights: [
-        'Trading toolkit covering prop-firm sizing, pre-trade checklists, and a trading journal',
-        'Backend and frontend for the Sensor Hub IoT devices, handling configuration, telemetry ingestion, noise recording storage and display',
-        'End-to-end type safety from database to UI via tRPC, Zod schema and Drizzle ORM, with Better Auth for sessions and Sentry for production observability',
-        'Strict CI with Vitest unit tests and Playwright end-to-end suite catching regressions before every deploy',
-        'Multiple integrated apps sharing one auth, API and design system: resume generator, portfolio, trade journal, prop calculator, accounting importer',
+        'Built futures prop-firm tools for Monte Carlo simulation, position sizing and payout planning',
+        'Integrated a trading journal, pre-trade checklists and account tools behind a shared typed API and permissions model',
+        'Maintain automated checks with Vitest and Playwright across application behaviour and trading-rule logic',
     ],
     location: { title: 'Rijswijk, The Netherlands' },
     role: 'Personal site & trading toolkit',
@@ -493,9 +541,9 @@ export const projectSadraNl: PortfolioSectionView = {
         'Sentry',
     ],
     summary:
-        'Full-stack personal site and trading toolkit hosting my portfolio, resume generator, prop-firm calculator, trade checklist and accounting importer. Also serves as the backend for <strong>Sensor Hub</strong> IoT devices.',
-    title: 'sadra.nl',
-    url: 'https://sadra.nl',
+        'Personal site and trading toolkit hosting my portfolio, resume generator, prop-firm calculator, trade checklist and accounting importer. Also serves as the platform for <strong>Sensor Hub</strong> IoT devices.',
+    title: SITE_NAME,
+    url: getPublicSiteOrigin(),
 };
 
 export const projectMinoMarkt: PortfolioSectionView = {
@@ -504,7 +552,7 @@ export const projectMinoMarkt: PortfolioSectionView = {
         'Custom WooCommerce storefront covering online ordering and in-store pickup',
         'Loyalty program, subscriptions, wishlist, and refund workflows',
         'Strict OOP PHP backend with full type safety and enum usage, with twig based components and blocks.',
-        'Customer-facing front end in Bootstrap and TypeScript with Google Maps store locator and live store availability',
+        'Customer application in Bootstrap and TypeScript with Google Maps store locator and live store availability',
     ],
     imageUrl: MinomarktImage.src,
     location: {
@@ -514,7 +562,6 @@ export const projectMinoMarkt: PortfolioSectionView = {
     role: 'Persian markt & grill',
     skills: [
         'PHP',
-        'WordPress',
         'WooCommerce',
         'Twig',
         'TypeScript',
@@ -524,7 +571,7 @@ export const projectMinoMarkt: PortfolioSectionView = {
         'Docker',
     ],
     summary:
-        'Full-stack WordPress storefront for <strong>Mino Markt & Grill</strong> in Alkmaar, with a custom WooCommerce theme covering loyalty, subscriptions, refunds and order pickup.',
+        'Custom storefront for <strong>Mino Markt & Grill</strong> in Alkmaar, covering loyalty, subscriptions, refunds and order pickup.',
     title: 'Mino Markt',
     url: 'https://minomarkt.nl',
 };
@@ -532,17 +579,14 @@ export const projectMinoMarkt: PortfolioSectionView = {
 export const projectSensorHub: PortfolioSectionView = {
     date: 'Feb 2024 - Present',
     highlights: [
-        '3 devices currently streaming temperature, humidity, air pressure and loudness data to sadra.nl across the Netherlands',
-        'Modular OOP C++ firmware for ESP32 with one task per peripheral communicating through lock-free queues, so sensing, networking and storage run truly in parallel',
-        'Sub-100 ms boot in release through multithreading and tight task lifecycles, with heavy focus on performance and reliability',
-        'Failsafe layer persisting the last 25 runtime failures for post-mortem analysis, plus encrypted on-device storage keyed off the device MAC',
+        'Deployed three ESP32 telemetry devices across the Netherlands, streaming environmental readings to a shared platform',
+        'Built concurrent C++ firmware with boot times below 100 ms in release builds and persistent failure diagnostics',
     ],
     imageUrl: SensorHubImage.src,
     location: { title: 'Rotterdam, The Netherlands' },
     role: 'IoT telemetry devices',
     skills: ['C++', 'ESP32', 'IoT', '3D Printing'],
-    summary:
-        'Self-designed IoT telemetry devices, 3 currently deployed across the Netherlands, continuously streaming temperature, humidity, air pressure and loudness data back to sadra.nl.',
+    summary: `Self-designed IoT telemetry devices, 3 currently deployed across the Netherlands, continuously streaming temperature, humidity, air pressure and loudness data back to ${SITE_NAME}.`,
     title: 'Sensor Hub',
     url: 'https://github.com/SadraShameli/SensorHub',
 };
@@ -579,6 +623,7 @@ const portfolioEducation: PortfolioSectionView[] = [
 ];
 
 const portfolioExperience: PortfolioSectionView[] = [
+    experienceTrading,
     experienceNobears,
     experienceBSP,
 ];
@@ -596,9 +641,9 @@ export const portfolioContent: PortfolioData = {
     experience: portfolioExperience,
     heroHeading: { before: 'Selected', emphasis: 'work' },
     heroHeadline:
-        'Full-stack developer and futures daytrader, building high-end WordPress sites and trading tools.',
-    metaDescription: 'Daytrader, developer',
-    metaTitle: 'Sadra Shameli',
+        'Futures daytrader and developer, focused on the markets and building tools for trading, strategy analysis and risk management.',
+    metaDescription: `${SITE_OWNER_NAME} is a futures daytrader and developer. Explore his trading frameworks, prop firm calculators and tools for analysis and risk management.`,
+    metaTitle: 'Portfolio',
     projects: portfolioProjects,
     sections: [
         {

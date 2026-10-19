@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { Toggle } from '~/components/ui/toggle';
-import { HeroMode, homepageContent } from '~/lib/site/content';
+import { HeroMode, homepageContent, siteContent } from '~/lib/site/content';
 import { cn } from '~/lib/utilities';
 
 import { CandleBackdrop, SignalBackdrop } from './HeroBackdrop';
@@ -37,6 +37,9 @@ export function HeroIntro() {
 
             <div className="relative flex min-w-0 flex-[999_1_640px] flex-col gap-12">
                 <h1 className="m-0 flex flex-col items-start type-display-hero">
+                    <span className="mb-5 type-eyebrow text-ink-muted">
+                        {siteContent.manifest.name}
+                    </span>
                     {HERO_MODES.map((entry) => (
                         <HeroWord
                             isActive={entry === mode}

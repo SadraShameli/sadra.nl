@@ -24,16 +24,16 @@ const cvShow: Record<
     | 'projectSummaries',
     boolean
 > = {
-    education: false,
+    education: true,
     hobbies: false,
-    languages: false,
+    languages: true,
     projectLocations: false,
     projectSummaries: false,
 };
 
 const RESUME_AVATAR_PATH = path.join(
     process.cwd(),
-    'src/assets/images/sadra-avatar.jpg',
+    'src/assets/images/sadra-portrait.jpg',
 );
 
 export async function GET(

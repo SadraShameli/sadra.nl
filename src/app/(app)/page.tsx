@@ -5,6 +5,7 @@ import { SectionTone } from '~/app/(app)/_components/SectionShell';
 import { PageTransition } from '~/components/PageTransition';
 import { homepageContent, siteContent } from '~/lib/site/content';
 import { HomeSectionId } from '~/lib/site/homeSections';
+import { buildPublicPageMetadata } from '~/lib/site/metadata';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
@@ -22,23 +23,12 @@ import ReadingSection from './_components/Reading/Reading';
 import ReadingSkeleton from './_components/Reading/ReadingSkeleton';
 import RecordingSection from './_components/Recording/Recording';
 
-export const metadata: Metadata = {
-    alternates: { canonical: routes.home },
+export const metadata: Metadata = buildPublicPageMetadata({
+    absoluteTitle: true,
+    canonical: routes.home,
     description: siteContent.metaDescription,
-    openGraph: {
-        description: siteContent.metaDescription,
-        siteName: 'sadra.nl',
-        title: siteContent.metaTitle,
-        type: 'website',
-        url: routes.home,
-    },
-    title: siteContent.metaTitle,
-    twitter: {
-        card: 'summary_large_image',
-        description: siteContent.metaDescription,
-        title: siteContent.metaTitle,
-    },
-};
+    title: homepageContent.metaTitle,
+});
 
 export const ensureStatic = 'prefetch';
 

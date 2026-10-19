@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 const resumes = [
     {
         name: 'sadra',
-        role: 'Full-stack developer & trader',
+        role: siteContent.manifest.description,
     },
 ];
 

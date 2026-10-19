@@ -11,6 +11,7 @@ import {
     Text,
     View,
 } from '@react-pdf/renderer';
+import { type ComponentType } from 'react';
 
 import { type PortfolioSectionView } from '~/lib/site/content';
 import { type ResumeLanguage } from '~/lib/site/resume';
@@ -59,12 +60,13 @@ export function ResumeDocument({
     showCover,
 }: ResumeDocumentProperties) {
     const isRenderCover = showCover && Boolean(cover?.length);
+    const documentLabel = isRenderCover ? 'Cover letter' : 'Resume';
 
     return (
         <Document
             author={basics.title}
-            subject="Resume"
-            title={`${basics.title} - Resume`}
+            subject={documentLabel}
+            title={`${basics.title} - ${documentLabel}`}
         >
             <Page size="A4" style={styles.page} wrap>
                 <View fixed style={styles.gradientBg}>
@@ -136,47 +138,33 @@ export function ResumeDocument({
                         )}
 
                         {experience.length > 0 && (
-                            <Section title="Experience" wrap={true}>
-                                {experience.map((entry) => (
-                                    <Entry
-                                        entry={entry}
-                                        key={`${entry.title}-${entry.date}`}
-                                    />
-                                ))}
-                            </Section>
+                            <EntrySections
+                                entries={experience}
+                                title="Experience"
+                            />
                         )}
 
                         {research.length > 0 && (
-                            <Section title="Research">
-                                {research.map((entry) => (
-                                    <ResearchEntry
-                                        entry={entry}
-                                        key={`${entry.title}-${entry.date}`}
-                                    />
-                                ))}
-                            </Section>
+                            <EntrySections
+                                component={ResearchEntry}
+                                entries={research}
+                                title="Research"
+                            />
                         )}
 
                         {projects.length > 0 && (
-                            <Section title="Projects">
-                                {projects.map((entry) => (
-                                    <Entry
-                                        entry={entry}
-                                        key={`${entry.title}-${entry.date}`}
-                                    />
-                                ))}
-                            </Section>
+                            <EntrySections
+                                entries={projects}
+                                title="Projects"
+                            />
                         )}
 
                         {education.length > 0 && (
-                            <Section title="Education">
-                                {education.map((entry) => (
-                                    <EducationEntry
-                                        entry={entry}
-                                        key={`${entry.title}-${entry.date}`}
-                                    />
-                                ))}
-                            </Section>
+                            <EntrySections
+                                component={EducationEntry}
+                                entries={education}
+                                title="Education"
+                            />
                         )}
 
                         {languages.length > 0 && (
@@ -280,6 +268,26 @@ function EntryMeta({ entry }: { entry: PortfolioSectionView }) {
             )}
         </>
     );
+}
+
+function EntrySections({
+    component: EntryComponent = Entry,
+    entries,
+    title,
+}: {
+    component?: ComponentType<{ entry: PortfolioSectionView }>;
+    entries: readonly PortfolioSectionView[];
+    title: string;
+}) {
+    return entries.map((entry, index) => (
+        <Section
+            key={`${entry.title}-${entry.date}`}
+            title={index === 0 ? title : ''}
+            wrap={false}
+        >
+            <EntryComponent entry={entry} />
+        </Section>
+    ));
 }
 
 function Header({

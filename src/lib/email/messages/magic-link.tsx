@@ -5,9 +5,10 @@ import { Button, Heading, Text } from '@react-email/components';
 import { EmailLink, emailLinkLifetimeText } from '~/lib/auth/EmailLink';
 import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
+import { SITE_NAME } from '~/lib/site/siteName';
 
 export class MagicLinkEmail extends EmailMessage {
-    readonly subject = 'Sign in to sadra.nl';
+    readonly subject = `Sign in to ${SITE_NAME}`;
     readonly to: string;
 
     constructor(
@@ -25,9 +26,9 @@ export class MagicLinkEmail extends EmailMessage {
 
 function MagicLinkTemplate({ url }: { url: string }) {
     return (
-        <BaseEmail preview="Your sign-in link for sadra.nl">
+        <BaseEmail preview={`Your sign-in link for ${SITE_NAME}`}>
             <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
-                Sign in to sadra.nl
+                Sign in to {SITE_NAME}
             </Heading>
             <Text className="mt-0 mb-6 text-sm/6 text-ink-soft">
                 {`Click the button below to sign in. This link expires in ${emailLinkLifetimeText(EmailLink.SignIn)}.`}

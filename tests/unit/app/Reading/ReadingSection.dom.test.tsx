@@ -61,6 +61,21 @@ beforeEach(() => {
 });
 
 describe('ReadingSection', () => {
+    it('keeps sensor tab references valid when sensor names contain spaces', () => {
+        const container = document.createElement('div');
+        container.innerHTML = renderToString(<ReadingSection />);
+        const tab = container.querySelector('[role="tab"]');
+        expect(tab?.textContent).toBe('Air Pressure');
+        const controlledId = tab?.getAttribute('aria-controls');
+        if (!controlledId)
+            throw new Error('The sensor tab has no controlled panel');
+        expect(controlledId).not.toMatch(/\s/);
+        const panel = container.querySelector(
+            `[id="${CSS.escape(controlledId)}"]`,
+        );
+        expect(panel?.getAttribute('aria-labelledby')).toBe(tab?.id);
+    });
+
     it('renders the sensor tabs and stat tiles on the first render, so nothing blanks out while effects catch up', () => {
         const html = renderToString(<ReadingSection />);
 

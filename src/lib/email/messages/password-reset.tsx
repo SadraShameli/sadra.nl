@@ -4,6 +4,7 @@ import { Button, Heading, Text } from '@react-email/components';
 
 import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
+import { SITE_NAME } from '~/lib/site/siteName';
 
 export class PasswordResetEmail extends EmailMessage {
     readonly subject = 'Reset your password';
@@ -24,7 +25,7 @@ export class PasswordResetEmail extends EmailMessage {
 
 function PasswordResetTemplate({ url }: { url: string }) {
     return (
-        <BaseEmail preview="Reset your password on sadra.nl">
+        <BaseEmail preview={`Reset your password on ${SITE_NAME}`}>
             <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
                 Reset your password
             </Heading>

@@ -18,6 +18,8 @@ export function ProgressBar({
     return (
         <div className={cn('app-recording__progress', 'flex flex-col gap-1.5')}>
             <Slider
+                aria-label="Playback position"
+                aria-valuetext={`${DurationFormat.seconds(time)} of ${DurationFormat.seconds(duration)}`}
                 className={cn('app-recording__progress-slider', 'w-full')}
                 defaultValue={[0]}
                 disabled={!hasRecordings}

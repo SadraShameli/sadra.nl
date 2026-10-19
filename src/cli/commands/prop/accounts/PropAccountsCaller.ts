@@ -1,5 +1,6 @@
 import { type UserRow } from '~/cli/commands/prop/userByEmail';
 import { type Session } from '~/lib/auth/server';
+import { SITE_NAME } from '~/lib/site/siteName';
 import { createCaller } from '~/server/api/root';
 import { type ContextType } from '~/server/api/trpc';
 
@@ -20,7 +21,7 @@ export function propAccountsCallerFor(
             ipAddress: null,
             token: 'cli',
             updatedAt: now,
-            userAgent: 'sadra.nl cli',
+            userAgent: `${SITE_NAME} cli`,
             userId: owner.id,
         },
         user: owner,

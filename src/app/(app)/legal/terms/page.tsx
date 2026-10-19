@@ -3,11 +3,15 @@ import { type Metadata } from 'next';
 import { LegalSection } from '~/app/(app)/legal/_components/LegalSection';
 import { PageHeader } from '~/components/PageHeader';
 import { PageTransition } from '~/components/PageTransition';
+import { buildPublicPageMetadata } from '~/lib/site/metadata';
+import { routes } from '~/lib/site/routes';
+import { SITE_NAME } from '~/lib/site/siteName';
 
-export const metadata: Metadata = {
-    description: 'Terms of use for sadra.nl.',
+export const metadata: Metadata = buildPublicPageMetadata({
+    canonical: routes.legal.terms,
+    description: `Terms of use for ${SITE_NAME}.`,
     title: 'Terms of use',
-};
+});
 
 export default function TermsPage() {
     return (
@@ -17,7 +21,7 @@ export default function TermsPage() {
 
                 <LegalSection title="Personal use">
                     <p>
-                        sadra.nl is a personal site. The Trade Checklist and
+                        {SITE_NAME} is a personal site. The Trade Checklist and
                         Prop Calculator are offered as analytical tools for
                         personal research; they are not financial advice. Any
                         decision you make from the output of these tools is your

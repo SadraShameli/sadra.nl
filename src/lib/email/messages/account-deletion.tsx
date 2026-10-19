@@ -5,9 +5,10 @@ import { Button, Heading, Text } from '@react-email/components';
 import { EmailLink, emailLinkLifetimeText } from '~/lib/auth/EmailLink';
 import { EmailMessage } from '~/lib/email/message';
 import { BaseEmail } from '~/lib/email/templates/base';
+import { SITE_NAME } from '~/lib/site/siteName';
 
 export class AccountDeletionEmail extends EmailMessage {
-    readonly subject = 'Confirm deleting your sadra.nl account';
+    readonly subject = `Confirm deleting your ${SITE_NAME} account`;
     readonly to: string;
 
     constructor(
@@ -25,7 +26,7 @@ export class AccountDeletionEmail extends EmailMessage {
 
 function AccountDeletionTemplate({ url }: { url: string }) {
     return (
-        <BaseEmail preview="Confirm deleting your sadra.nl account">
+        <BaseEmail preview={`Confirm deleting your ${SITE_NAME} account`}>
             <Heading className="m-0 mb-4 font-serif text-3xl font-medium text-ink">
                 Delete your account
             </Heading>

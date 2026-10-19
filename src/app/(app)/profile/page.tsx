@@ -36,7 +36,7 @@ import { TradingPlanTab } from './_components/TradingPlanTab';
 export const metadata: Metadata = {
     description: 'Manage your account, sessions and trading plan.',
     robots: { follow: false, index: false },
-    title: 'Profile · sadra.nl',
+    title: 'Profile',
 };
 
 const TAB_TITLES: Record<ProfileTabValue, string> = {

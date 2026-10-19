@@ -1,7 +1,12 @@
 import type { EmailMessage } from './message';
 import type { EmailProvider } from './provider';
 
-const EMAIL_FROM = 'noreply@sadra.nl';
+const rawSender = process.env.EMAIL_FROM;
+const configuredSender = rawSender?.trim();
+const EMAIL_FROM =
+    configuredSender === undefined || configuredSender === ''
+        ? 'noreply@sadra.nl'
+        : configuredSender;
 
 export class Mailer {
     constructor(private readonly provider: EmailProvider) {}

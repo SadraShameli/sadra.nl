@@ -6,25 +6,16 @@ import PortfolioSection from '~/app/(app)/_components/Portfolio/PortfolioSection
 import RootResumeLink from '~/app/(app)/_components/Portfolio/RootResumeLink';
 import { SectionTone } from '~/app/(app)/_components/SectionShell';
 import { PageTransition } from '~/components/PageTransition';
-import {
-    portfolioContent,
-    siteContent,
-    siteToolTitle,
-    ToolTicker,
-} from '~/lib/site/content';
+import { portfolioContent, siteContent } from '~/lib/site/content';
+import { buildPublicPageMetadata } from '~/lib/site/metadata';
 import { routes } from '~/lib/site/routes';
 
-export const metadata: Metadata = {
-    alternates: { canonical: routes.portfolio },
+export const metadata: Metadata = buildPublicPageMetadata({
+    canonical: routes.portfolio,
     description: portfolioContent.metaDescription,
-    openGraph: {
-        description: portfolioContent.metaDescription,
-        title: portfolioContent.metaTitle,
-        type: 'profile',
-        url: routes.portfolio,
-    },
-    title: siteToolTitle(ToolTicker.Portfolio),
-};
+    profile: true,
+    title: portfolioContent.metaTitle,
+});
 
 export const ensureStatic = 'prefetch';
 

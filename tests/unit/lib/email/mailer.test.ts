@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { Mailer } from '~/lib/email/mailer';
 import { DeviceCreatedEmail } from '~/lib/email/messages/device-created';
@@ -9,6 +9,11 @@ vi.mock('~/lib/observability/logger', () => ({ captureError: vi.fn() }));
 
 const RESET_URL = 'https://sadra.nl/reset-password/abc123';
 
+afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+});
+
 class RecordingProvider extends EmailProvider {
     readonly sent: EmailSendArguments[] = [];
 
@@ -18,6 +23,28 @@ class RecordingProvider extends EmailProvider {
 }
 
 describe('Mailer', () => {
+    it('uses a changed public domain and an independently configured sender', async () => {
+        vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://trader.example');
+        vi.stubEnv('EMAIL_FROM', 'notifications@mailer.example');
+        vi.resetModules();
+        const { Mailer: ConfiguredMailer } = await import('~/lib/email/mailer');
+        const { PasswordResetEmail: ConfiguredPasswordResetEmail } =
+            await import('~/lib/email/messages/password-reset');
+        const provider = new RecordingProvider();
+
+        await new ConfiguredMailer(provider).send(
+            new ConfiguredPasswordResetEmail(
+                'jane@example.com',
+                'https://trader.example/reset-password/abc123',
+            ),
+        );
+
+        const [sent] = provider.sent;
+        expect(sent?.html).toContain('href="https://trader.example"');
+        expect(sent?.html).not.toContain('sadra.nl');
+        expect(sent?.from).toBe('notifications@mailer.example');
+    });
+
     it('sends a plain-text part next to the HTML', async () => {
         const provider = new RecordingProvider();
 
