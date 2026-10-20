@@ -80,23 +80,70 @@ describe('the navbar items', () => {
         ]);
     });
 
-    it('makes Sensor Hub a direct link to the home Sensor Hub section', () => {
-        expect(navItem(NavMenuId.SensorHub)).toEqual({
+    it('makes Sensor Hub a group menu linked to its portfolio tab and device sections', () => {
+        expect(navItem(NavMenuId.SensorHub)).toMatchObject({
+            groups: [
+                {
+                    href: '/?project=sensor-hub#portfolio',
+                    links: [
+                        {
+                            href: {
+                                hash: HomeSectionId.SensorHub,
+                                pathname: routes.home,
+                            },
+                            label: 'Device overview',
+                        },
+                        {
+                            href: {
+                                hash: HomeSectionId.Readings,
+                                pathname: routes.home,
+                            },
+                            label: 'Live readings',
+                        },
+                        {
+                            href: {
+                                hash: HomeSectionId.Recordings,
+                                pathname: routes.home,
+                            },
+                            label: 'Recordings',
+                        },
+                    ],
+                },
+            ],
             id: NavMenuId.SensorHub,
-            kind: NavItemKind.HomeSection,
+            kind: NavItemKind.Groups,
             label: homeSection(HomeSectionId.SensorHub).indexLabel,
-            section: HomeSectionId.SensorHub,
         });
     });
 
-    it('keeps Portfolio and About as small group menus', () => {
-        for (const id of [NavMenuId.Portfolio, NavMenuId.About]) {
+    it('keeps Sensor Hub, Portfolio and About as small group menus', () => {
+        for (const id of [
+            NavMenuId.SensorHub,
+            NavMenuId.Portfolio,
+            NavMenuId.About,
+        ]) {
             const item = navItem(id);
             expect(item.kind).toBe(NavItemKind.Groups);
             if (item.kind !== NavItemKind.Groups) continue;
             expect(item.groups).toHaveLength(1);
             expect(item.groups[0]?.links.length).toBeGreaterThan(0);
         }
+    });
+
+    it('links the homepage showcase while keeping the full portfolio destinations', () => {
+        const item = navItem(NavMenuId.Portfolio);
+        expect(item.kind).toBe(NavItemKind.Groups);
+        if (item.kind !== NavItemKind.Groups) {
+            throw new Error('Portfolio is not a group menu');
+        }
+        expect(item.groups[0]?.href).toBe(routes.portfolio);
+        expect(item.groups[0]?.links).toContainEqual({
+            href: { hash: HomeSectionId.Portfolio, pathname: routes.home },
+            label: 'Selected work',
+        });
+        expect(HOME_SECTION_MENU[HomeSectionId.Portfolio]).toBe(
+            NavMenuId.Portfolio,
+        );
     });
 });
 

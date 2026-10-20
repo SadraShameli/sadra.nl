@@ -22,7 +22,6 @@ import {
     NavigationMenu,
     NavigationMenuContent,
     NavigationMenuItem,
-    NavigationMenuLink,
     NavigationMenuList,
     NavigationMenuTrigger,
 } from '~/components/ui/navigation-menu';
@@ -33,7 +32,6 @@ import {
     PopoverTrigger,
 } from '~/components/ui/popover';
 import { siteContent } from '~/lib/site/content';
-import { homeSectionHref } from '~/lib/site/homeSections';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 
@@ -45,8 +43,6 @@ import {
 import {
     HOME_SECTION_MENU,
     NAV_ITEMS,
-    type NavHomeSectionLink,
-    NavItemKind,
     navMenuForPath,
     type NavMenuId,
 } from './navigation/siteNavigation';
@@ -91,33 +87,6 @@ export default function Navbar(properties: NavbarProperties) {
 function CapsuleDivider() {
     return (
         <span aria-hidden className="mx-1.5 hidden h-6 w-px bg-line md:block" />
-    );
-}
-
-function DesktopHomeSectionLink({
-    isCurrent,
-    item,
-    onNavigate,
-    reference,
-}: {
-    readonly isCurrent: boolean;
-    readonly item: NavHomeSectionLink;
-    readonly onNavigate: () => void;
-    readonly reference: (element: HTMLElement | null) => void;
-}) {
-    return (
-        <NavigationMenuItem>
-            <NavigationMenuLink asChild>
-                <Link
-                    aria-current={isCurrent ? 'location' : undefined}
-                    href={homeSectionHref(item.section)}
-                    onClick={onNavigate}
-                    ref={reference}
-                >
-                    {item.label}
-                </Link>
-            </NavigationMenuLink>
-        </NavigationMenuItem>
     );
 }
 
@@ -215,54 +184,35 @@ function NavbarView({
                                     {siteContent.manifest.shortName}
                                 </span>
                                 <NavigationMenuList className="hidden md:flex">
-                                    {NAV_ITEMS.map((item) =>
-                                        item.kind ===
-                                        NavItemKind.HomeSection ? (
-                                            <DesktopHomeSectionLink
-                                                isCurrent={
-                                                    activeItem !== null &&
+                                    {NAV_ITEMS.map((item) => (
+                                        <NavigationMenuItem
+                                            key={item.id}
+                                            value={item.id}
+                                        >
+                                            <NavigationMenuTrigger
+                                                aria-current={
                                                     highlight === item.id
+                                                        ? 'location'
+                                                        : undefined
                                                 }
-                                                item={item}
-                                                key={item.id}
-                                                onNavigate={() =>
-                                                    pin(item.section)
-                                                }
-                                                reference={registerItem(
-                                                    item.id,
-                                                )}
-                                            />
-                                        ) : (
-                                            <NavigationMenuItem
-                                                key={item.id}
-                                                value={item.id}
+                                                ref={registerItem(item.id)}
                                             >
-                                                <NavigationMenuTrigger
-                                                    ref={registerItem(item.id)}
-                                                >
-                                                    {item.label}
-                                                </NavigationMenuTrigger>
-                                                <NavigationMenuContent
-                                                    onClick={(event) => {
-                                                        if (
-                                                            isLinkClick(event)
-                                                        ) {
-                                                            changeMenu(
-                                                                CLOSED_MENU,
-                                                            );
-                                                        }
-                                                    }}
-                                                >
-                                                    <DesktopMenuPanel
-                                                        extra={
-                                                            menuExtras[item.id]
-                                                        }
-                                                        menu={item}
-                                                    />
-                                                </NavigationMenuContent>
-                                            </NavigationMenuItem>
-                                        ),
-                                    )}
+                                                {item.label}
+                                            </NavigationMenuTrigger>
+                                            <NavigationMenuContent
+                                                onClick={(event) => {
+                                                    if (isLinkClick(event)) {
+                                                        changeMenu(CLOSED_MENU);
+                                                    }
+                                                }}
+                                            >
+                                                <DesktopMenuPanel
+                                                    extra={menuExtras[item.id]}
+                                                    menu={item}
+                                                />
+                                            </NavigationMenuContent>
+                                        </NavigationMenuItem>
+                                    ))}
                                 </NavigationMenuList>
                             </div>
 
@@ -312,47 +262,26 @@ function NavbarView({
                                     sideOffset={12}
                                 >
                                     <Accordion collapsible type="single">
-                                        {NAV_ITEMS.map((item) =>
-                                            item.kind ===
-                                            NavItemKind.HomeSection ? (
-                                                <Link
+                                        {NAV_ITEMS.map((item) => (
+                                            <AccordionItem
+                                                className="border-line"
+                                                key={item.id}
+                                                value={item.id}
+                                            >
+                                                <AccordionTrigger
                                                     className={cn(
                                                         PHONE_MENU_ROW_CLASS,
-                                                        'flex border-b border-line focus-camel',
+                                                        'hover:no-underline',
                                                     )}
-                                                    href={homeSectionHref(
-                                                        item.section,
-                                                    )}
-                                                    key={item.id}
-                                                    onClick={() =>
-                                                        pin(item.section)
-                                                    }
                                                 >
                                                     {item.label}
-                                                </Link>
-                                            ) : (
-                                                <AccordionItem
-                                                    className="border-line"
-                                                    key={item.id}
-                                                    value={item.id}
-                                                >
-                                                    <AccordionTrigger
-                                                        className={cn(
-                                                            PHONE_MENU_ROW_CLASS,
-                                                            'hover:no-underline',
-                                                        )}
-                                                    >
-                                                        {item.label}
-                                                    </AccordionTrigger>
-                                                    <PhoneMenuPanel
-                                                        extra={
-                                                            menuExtras[item.id]
-                                                        }
-                                                        menu={item}
-                                                    />
-                                                </AccordionItem>
-                                            ),
-                                        )}
+                                                </AccordionTrigger>
+                                                <PhoneMenuPanel
+                                                    extra={menuExtras[item.id]}
+                                                    menu={item}
+                                                />
+                                            </AccordionItem>
+                                        ))}
                                     </Accordion>
                                     <div className="mt-2 flex items-center gap-1 px-2 pt-2">
                                         <SocialLinkButtons className="app-shell__social-link" />

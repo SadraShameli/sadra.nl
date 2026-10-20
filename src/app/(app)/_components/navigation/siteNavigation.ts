@@ -21,11 +21,14 @@ import {
     homeSectionHref,
     HomeSectionId,
 } from '~/lib/site/homeSections';
+import {
+    FeaturedProjectId,
+    PortfolioProjectNavigation,
+} from '~/lib/site/PortfolioProjectNavigation';
 import { routes, sameOriginRoute } from '~/lib/site/routes';
 
 export enum NavItemKind {
     Groups = 'groups',
-    HomeSection = 'home-section',
     Products = 'products',
 }
 
@@ -50,19 +53,12 @@ export interface NavGroup {
     readonly links: readonly NavLink[];
 }
 
-export interface NavHomeSectionLink extends NavItemBase {
-    readonly kind: NavItemKind.HomeSection;
-    readonly section: HomeSectionId;
-}
-
-export type NavItem = NavHomeSectionLink | NavMenu;
+export type NavItem = NavGroupsMenu | NavProductsMenu;
 
 export interface NavLink {
     readonly href: NavHref;
     readonly label: string;
 }
-
-export type NavMenu = NavGroupsMenu | NavProductsMenu;
 
 export interface NavProduct {
     readonly description: string;
@@ -166,20 +162,47 @@ export const NAV_ITEMS: readonly NavItem[] = [
         products: TOOLS_NAV_PRODUCTS,
     },
     {
+        groups: [
+            {
+                href: new PortfolioProjectNavigation().href(
+                    FeaturedProjectId.SensorHub,
+                ),
+                label: homeSection(HomeSectionId.SensorHub).indexLabel,
+                links: [
+                    {
+                        href: homeSectionHref(HomeSectionId.SensorHub),
+                        label: 'Device overview',
+                    },
+                    {
+                        href: homeSectionHref(HomeSectionId.Readings),
+                        label: 'Live readings',
+                    },
+                    {
+                        href: homeSectionHref(HomeSectionId.Recordings),
+                        label: 'Recordings',
+                    },
+                ],
+            },
+        ],
         id: NavMenuId.SensorHub,
-        kind: NavItemKind.HomeSection,
+        kind: NavItemKind.Groups,
         label: homeSection(HomeSectionId.SensorHub).indexLabel,
-        section: HomeSectionId.SensorHub,
     },
     {
         groups: [
             {
                 href: sameOriginRoute(routes.portfolio, ''),
                 label: siteToolTitle(ToolTicker.Portfolio),
-                links: portfolioContent.sections.map((section) => ({
-                    href: portfolioSectionHref(section.id),
-                    label: section.eyebrow,
-                })),
+                links: [
+                    {
+                        href: homeSectionHref(HomeSectionId.Portfolio),
+                        label: 'Selected work',
+                    },
+                    ...portfolioContent.sections.map((section) => ({
+                        href: portfolioSectionHref(section.id),
+                        label: section.eyebrow,
+                    })),
+                ],
             },
         ],
         id: NavMenuId.Portfolio,
@@ -217,6 +240,7 @@ export const RESUME_NAV_GROUP: NavGroup = {
 
 export const HOME_SECTION_MENU: Readonly<Record<HomeSectionId, NavMenuId>> = {
     [HomeSectionId.About]: NavMenuId.About,
+    [HomeSectionId.Portfolio]: NavMenuId.Portfolio,
     [HomeSectionId.Readings]: NavMenuId.SensorHub,
     [HomeSectionId.Recordings]: NavMenuId.SensorHub,
     [HomeSectionId.SensorHub]: NavMenuId.SensorHub,

@@ -101,6 +101,9 @@ describe('useActiveHomeNavItem', () => {
         await scrollTo(2700);
         expect(seen()).toBe(HomeSectionId.Readings);
 
+        await scrollTo(4700);
+        expect(seen()).toBe(HomeSectionId.Portfolio);
+
         await scrollTo(0);
         expect(seen()).toBe(HomeNavTarget.Top);
     });

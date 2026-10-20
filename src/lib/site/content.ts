@@ -13,11 +13,13 @@ import SetupImage from '~/assets/images/gallery/setup.jpg';
 import SpainChurchImage from '~/assets/images/gallery/spain-church.jpg';
 import SpainPoolImage from '~/assets/images/gallery/spain-pool.jpg';
 import SunnyBenchImage from '~/assets/images/gallery/sunny-bench.jpg';
-import MinomarktImage from '~/assets/images/minomarkt.jpeg';
 import NobearsImage from '~/assets/images/nobears.jpg';
+import MinoMarktPreviewImage from '~/assets/images/portfolio/mino-markt.webp';
+import TradingBotPreviewImage from '~/assets/images/portfolio/trading-bot.webp';
 import ProjectAIImage from '~/assets/images/projectai.jpg';
 import SensorHubImage from '~/assets/images/units.jpg';
 
+import { FeaturedProjectId } from './PortfolioProjectNavigation';
 import { routes } from './routes';
 import { SITE_NAME } from './siteName';
 import { getPublicSiteOrigin, type PublicSiteOrigin } from './url';
@@ -62,6 +64,12 @@ export interface EmphasisHeading {
 
 export type ExternalUrl = `https://${string}`;
 
+export interface FeaturedPortfolioProject {
+    readonly id: FeaturedProjectId;
+    readonly photo: CaptionedPhoto;
+    readonly project: PortfolioSectionView;
+}
+
 export interface HeroModeCopy {
     readonly punctuation: string;
     readonly word: string;
@@ -83,6 +91,7 @@ export interface PortfolioSection {
 export type PortfolioSectionView = {
     date: string;
     highlights?: string[];
+    imageAlt?: string;
     imageUrl?: string;
     location?: { title: string; url?: ExternalUrl | null };
     role?: null | string;
@@ -143,6 +152,13 @@ type HomepageData = {
         readonly heading: EmphasisHeading;
     };
     readonly metaTitle: string;
+    readonly portfolio: {
+        readonly body: string;
+        readonly heading: EmphasisHeading;
+        readonly linkLabel: string;
+        readonly projectLinkLabel: string;
+        readonly selectorLabel: string;
+    };
     readonly recordings: {
         readonly body: string;
         readonly decorChip: string;
@@ -399,6 +415,13 @@ export const homepageContent: HomepageData = {
         heading: { before: 'Live', emphasis: 'readings' },
     },
     metaTitle: `${SITE_OWNER_NAME} | Daytrader & Developer`,
+    portfolio: {
+        body: 'From trading systems and connected hardware to a self-driving robot and an online storefront. A few things I’ve built along the way.',
+        heading: { before: 'Selected', emphasis: 'work.' },
+        linkLabel: 'Explore the portfolio',
+        projectLinkLabel: 'View project',
+        selectorLabel: 'Selected projects',
+    },
     recordings: {
         body: 'Recorded by Sensor Hub devices placed at locations across the Netherlands. Put your headphones on.',
         decorChip: 'Headphones on',
@@ -480,7 +503,7 @@ export const experienceBSP: PortfolioSectionView = {
     url: 'https://bluestarplanning.com',
 };
 
-export const projectTradingBot: PortfolioSectionView = {
+export const projectTradingBot = {
     date: 'Sep 2025 - Present',
     highlights: [
         'Built a modular Python framework for live and paper trading, with separate data, broker and risk-management components',
@@ -488,6 +511,9 @@ export const projectTradingBot: PortfolioSectionView = {
         'Validate strategies with walk-forward testing and Monte Carlo analysis, using Bayesian optimisation and PyTorch for position scoring',
         'Use multiprocessing and caching to support concurrent data processing and execution',
     ],
+    imageAlt:
+        'TradingBot illustration connecting market data, a strategy engine and risk-controlled execution',
+    imageUrl: TradingBotPreviewImage.src,
     location: {
         title: 'Rijswijk, The Netherlands',
     },
@@ -505,7 +531,7 @@ export const projectTradingBot: PortfolioSectionView = {
         'A systematic trading framework used to research strategies and operate live trading across assets and timeframes.',
     title: 'TradingBot',
     url: 'https://github.com/SadraShameli/TradingBot',
-};
+} satisfies PortfolioSectionView;
 
 export const experienceTrading: PortfolioSectionView = {
     date: 'Mar 2023 - Present',
@@ -513,6 +539,8 @@ export const experienceTrading: PortfolioSectionView = {
         'Trade NQ futures, with multiple payouts from futures prop firms',
         'Operate many independent strategies across assets and timeframes, combining small compounding edges with backtesting and validation against overfitting',
     ],
+    imageAlt: projectTradingBot.imageAlt,
+    imageUrl: projectTradingBot.imageUrl,
     location: { title: 'Rijswijk, The Netherlands' },
     role: 'Futures daytrader',
     skills: ['NQ futures', 'Risk management', 'Strategy research', 'Python'],
@@ -546,7 +574,7 @@ export const projectSadraNl: PortfolioSectionView = {
     url: getPublicSiteOrigin(),
 };
 
-export const projectMinoMarkt: PortfolioSectionView = {
+export const projectMinoMarkt = {
     date: 'Nov 2024 - Present',
     highlights: [
         'Custom WooCommerce storefront covering online ordering and in-store pickup',
@@ -554,7 +582,9 @@ export const projectMinoMarkt: PortfolioSectionView = {
         'Strict OOP PHP backend with full type safety and enum usage, with twig based components and blocks.',
         'Customer application in Bootstrap and TypeScript with Google Maps store locator and live store availability',
     ],
-    imageUrl: MinomarktImage.src,
+    imageAlt:
+        'Minimal Mino Markt & Grill wordmark artwork in warm copper and cream',
+    imageUrl: MinoMarktPreviewImage.src,
     location: {
         title: 'Alkmaar, The Netherlands',
         url: 'https://maps.app.goo.gl/2c1ZpKjEK1Z5Bg3T7',
@@ -574,7 +604,7 @@ export const projectMinoMarkt: PortfolioSectionView = {
         'Custom storefront for <strong>Mino Markt & Grill</strong> in Alkmaar, covering loyalty, subscriptions, refunds and order pickup.',
     title: 'Mino Markt',
     url: 'https://minomarkt.nl',
-};
+} satisfies PortfolioSectionView;
 
 export const projectSensorHub: PortfolioSectionView = {
     date: 'Feb 2024 - Present',
@@ -634,6 +664,52 @@ const portfolioProjects: PortfolioSectionView[] = [
     projectMinoMarkt,
     projectSensorHub,
     projectProjectAI,
+];
+
+export const featuredPortfolioProjects: readonly [
+    FeaturedPortfolioProject,
+    ...FeaturedPortfolioProject[],
+] = [
+    {
+        id: FeaturedProjectId.TradingBot,
+        photo: {
+            alt: projectTradingBot.imageAlt,
+            caption: 'The system',
+            image: TradingBotPreviewImage,
+            tag: 'Trading systems',
+        },
+        project: projectTradingBot,
+    },
+    {
+        id: FeaturedProjectId.SensorHub,
+        photo: {
+            alt: 'Sensor Hub environmental telemetry devices in their custom enclosures',
+            caption: 'The hardware',
+            image: SensorHubImage,
+            tag: 'Connected devices',
+        },
+        project: projectSensorHub,
+    },
+    {
+        id: FeaturedProjectId.ProjectAI,
+        photo: {
+            alt: 'Project A.I. self-driving robot on its custom chassis',
+            caption: 'The prototype',
+            image: ProjectAIImage,
+            tag: 'Robotics',
+        },
+        project: projectProjectAI,
+    },
+    {
+        id: FeaturedProjectId.MinoMarkt,
+        photo: {
+            alt: projectMinoMarkt.imageAlt,
+            caption: 'The market',
+            image: MinoMarktPreviewImage,
+            tag: 'Commerce',
+        },
+        project: projectMinoMarkt,
+    },
 ];
 
 export const portfolioContent: PortfolioData = {

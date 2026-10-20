@@ -6,12 +6,7 @@ import { DesktopMenuPanel } from '~/app/(app)/_components/navigation/NavMenuPane
 import {
     NAV_ITEMS,
     NavItemKind,
-    type NavMenu,
 } from '~/app/(app)/_components/navigation/siteNavigation';
-
-const MENUS = NAV_ITEMS.filter(
-    (item): item is NavMenu => item.kind !== NavItemKind.HomeSection,
-);
 
 describe('the desktop navbar menu panels', () => {
     let container: HTMLDivElement;
@@ -32,7 +27,7 @@ describe('the desktop navbar menu panels', () => {
         vi.unstubAllGlobals();
     });
 
-    it.each(MENUS.map((menu) => [menu.label, menu] as const))(
+    it.each(NAV_ITEMS.map((menu) => [menu.label, menu] as const))(
         'keeps the %s panel within the viewport and scrolls it when it is taller',
         (_, menu) => {
             act(() => {
@@ -47,7 +42,7 @@ describe('the desktop navbar menu panels', () => {
     );
 
     it('lays the Tools products out in three columns from laptop width', () => {
-        const products = MENUS.find(
+        const products = NAV_ITEMS.find(
             (menu) => menu.kind === NavItemKind.Products,
         );
         if (products === undefined) throw new Error('No products menu');

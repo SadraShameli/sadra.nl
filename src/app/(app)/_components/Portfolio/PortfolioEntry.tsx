@@ -106,7 +106,7 @@ export default function PortfolioEntry({
 
             {entry.imageUrl ? (
                 <Image
-                    alt={`${entry.title} workspace`}
+                    alt={entry.imageAlt ?? `${entry.title} workspace`}
                     className="aspect-4/3 w-full rounded-lg border border-line object-cover lg:col-start-2 xl:col-start-3 xl:row-start-1"
                     height={600}
                     loading="lazy"

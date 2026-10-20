@@ -4,6 +4,88 @@ const MAX_POSTER_BYTES = 64 * 1024;
 const MAX_POSTER_WIDTH = 1200;
 const MAX_POSTER_HEIGHT = 900;
 
+test('the Sensor Hub menu opens its portfolio tab across pages and after another selection', async ({
+    page,
+}) => {
+    await page.goto('/portfolio');
+    const menu = page.getByRole('navigation', { exact: true, name: 'Main' });
+    const portfolio = page.locator('#portfolio');
+    for (let navigation = 0; navigation < 2; navigation++) {
+        await menu
+            .getByRole('button', { exact: true, name: 'Sensor Hub' })
+            .click();
+        await menu.getByRole('link', { name: /^sensor hub$/i }).click();
+        await expect(page).toHaveURL(/\?project=sensor-hub#portfolio$/);
+        await expect(
+            portfolio.getByRole('tab', { exact: true, name: 'Sensor Hub' }),
+        ).toHaveAttribute('aria-selected', 'true');
+        await portfolio
+            .getByRole('tab', { exact: true, name: 'Mino Markt' })
+            .click();
+        await expect(page).toHaveURL(/\?project=mino-markt#portfolio$/);
+    }
+    await page.reload();
+    await expect(
+        portfolio.getByRole('tab', { exact: true, name: 'Mino Markt' }),
+    ).toHaveAttribute('aria-selected', 'true');
+});
+
+test('the portfolio showcase supports project selection and keyboard navigation', async ({
+    page,
+}) => {
+    await page.goto('/');
+    const portfolio = page.locator('#portfolio');
+    await expect(
+        portfolio.getByRole('tablist', { name: 'Selected projects' }),
+    ).toBeVisible();
+    await expect(
+        portfolio.getByRole('tabpanel', { exact: true, name: 'TradingBot' }),
+    ).toBeVisible();
+    await expect(portfolio.getByRole('tab')).toHaveText([
+        'TradingBot',
+        'Sensor Hub',
+        'Project A.I.',
+        'Mino Markt',
+    ]);
+    await portfolio
+        .getByRole('tab', { exact: true, name: 'TradingBot' })
+        .press('ArrowRight');
+    await expect(
+        portfolio.getByRole('tabpanel', { exact: true, name: 'Sensor Hub' }),
+    ).toBeVisible();
+    await portfolio
+        .getByRole('tab', { exact: true, name: 'Sensor Hub' })
+        .press('ArrowRight');
+    const robot = portfolio.getByRole('tabpanel', {
+        exact: true,
+        name: 'Project A.I.',
+    });
+    await expect(robot).toBeVisible();
+    await expect(
+        robot.getByRole('link', { name: 'View project' }),
+    ).toHaveAttribute('href', 'https://github.com/SadraShameli/ProjectAI');
+    await portfolio
+        .getByRole('tab', { exact: true, name: 'Mino Markt' })
+        .click();
+    const market = portfolio.getByRole('tabpanel', {
+        exact: true,
+        name: 'Mino Markt',
+    });
+    await expect(market).toBeVisible();
+    await expect(market.getByRole('list')).toHaveCount(0);
+    await expect(
+        portfolio.getByRole('link', { name: 'Explore the portfolio' }),
+    ).toHaveAttribute('href', '/portfolio');
+    await expect(
+        page
+            .getByRole('navigation', { exact: true, name: 'Index' })
+            .getByRole('link', {
+                exact: true,
+                name: 'Portfolio',
+            }),
+    ).toHaveAttribute('href', '/#portfolio');
+});
+
 test('the gallery starts continuous scrolling on entry and stops at the end', async ({
     page,
 }) => {
