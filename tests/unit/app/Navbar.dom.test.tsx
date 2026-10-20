@@ -22,7 +22,8 @@ vi.mock('next/navigation', () => ({
 }));
 
 const SENSOR_HUB_HREF = '/?project=sensor-hub#portfolio';
-const SENSOR_HUB_TRIGGER_BOX = new DOMRect(320, 8, 96, 40);
+const PORTFOLIO_TRIGGER_BOX = new DOMRect(320, 8, 96, 40);
+const SENSOR_HUB_TRIGGER_BOX = new DOMRect(416, 8, 96, 40);
 const VIEWPORT_HEIGHT = 1000;
 
 class SilentResizeObserver {
@@ -127,10 +128,13 @@ function placeSections(activeSection: HomeSectionId | null): void {
                     sectionIndex <= activeIndex ? 0 : VIEWPORT_HEIGHT * 2;
                 return new DOMRect(0, top, 1200, VIEWPORT_HEIGHT);
             }
-            return this instanceof HTMLButtonElement &&
-                this.textContent === 'Sensor Hub'
-                ? SENSOR_HUB_TRIGGER_BOX
-                : new DOMRect(0, 0, 0, 0);
+            if (this instanceof HTMLButtonElement) {
+                if (this.textContent === 'Portfolio')
+                    return PORTFOLIO_TRIGGER_BOX;
+                if (this.textContent === 'Sensor Hub')
+                    return SENSOR_HUB_TRIGGER_BOX;
+            }
+            return new DOMRect(0, 0, 0, 0);
         },
     );
 }
@@ -194,7 +198,7 @@ describe('Navbar', () => {
             [...desktopList().querySelectorAll('button')].map(
                 (trigger) => trigger.textContent,
             ),
-        ).toEqual(['Tools', 'Sensor Hub', 'Portfolio', 'About']);
+        ).toEqual(['Tools', 'Portfolio', 'Sensor Hub', 'About']);
         await act(async () => {
             desktopTrigger('Sensor Hub').click();
             await nextFrame();
@@ -252,9 +256,9 @@ describe('Navbar', () => {
             );
             await new Promise((resolve) => setTimeout(resolve, 0));
         });
-        expect(document.activeElement).toBe(desktopTrigger('Sensor Hub'));
+        expect(document.activeElement).toBe(desktopTrigger('Portfolio'));
         await act(async () => {
-            desktopTrigger('Sensor Hub').dispatchEvent(
+            desktopTrigger('Portfolio').dispatchEvent(
                 new KeyboardEvent('keydown', {
                     bubbles: true,
                     key: 'ArrowRight',
@@ -262,24 +266,42 @@ describe('Navbar', () => {
             );
             await new Promise((resolve) => setTimeout(resolve, 0));
         });
-        expect(document.activeElement).toBe(desktopTrigger('Portfolio'));
+        expect(document.activeElement).toBe(desktopTrigger('Sensor Hub'));
     });
 
     it.each([
-        HomeSectionId.SensorHub,
-        HomeSectionId.Readings,
-        HomeSectionId.Recordings,
+        {
+            box: PORTFOLIO_TRIGGER_BOX,
+            label: 'Portfolio',
+            section: HomeSectionId.Portfolio,
+        },
+        {
+            box: SENSOR_HUB_TRIGGER_BOX,
+            label: 'Sensor Hub',
+            section: HomeSectionId.SensorHub,
+        },
+        {
+            box: SENSOR_HUB_TRIGGER_BOX,
+            label: 'Sensor Hub',
+            section: HomeSectionId.Readings,
+        },
+        {
+            box: SENSOR_HUB_TRIGGER_BOX,
+            label: 'Sensor Hub',
+            section: HomeSectionId.Recordings,
+        },
     ])(
-        'marks Sensor Hub and slides the indicator under it while %s is on screen',
-        async (section) => {
+        'marks the menu and slides the indicator under it while $section is on screen',
+        async ({ box, label, section }) => {
             placeSections(section);
             await render(routes.home);
-            expect(
-                desktopTrigger('Sensor Hub').getAttribute('aria-current'),
-            ).toBe('location');
+            expect(desktopTrigger(label).getAttribute('aria-current')).toBe(
+                'location',
+            );
             expect(indicator().style.opacity).toBe('1');
-            expect(indicator().style.width).toBe(
-                `${String(SENSOR_HUB_TRIGGER_BOX.width)}px`,
+            expect(indicator().style.width).toBe(`${String(box.width)}px`);
+            expect(indicator().style.transform).toBe(
+                `translate(${String(box.x)}px, ${String(box.y)}px)`,
             );
         },
     );
@@ -312,7 +334,7 @@ describe('Navbar', () => {
                     '[data-slot="accordion-trigger"]',
                 ),
             ].map((trigger) => trigger.textContent),
-        ).toEqual(['Tools', 'Sensor Hub', 'Portfolio', 'About']);
+        ).toEqual(['Tools', 'Portfolio', 'Sensor Hub', 'About']);
         await act(async () => {
             phoneTrigger('Tools').click();
             await nextFrame();

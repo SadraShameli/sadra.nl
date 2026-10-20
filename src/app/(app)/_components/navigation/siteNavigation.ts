@@ -164,6 +164,27 @@ export const NAV_ITEMS: readonly NavItem[] = [
     {
         groups: [
             {
+                href: sameOriginRoute(routes.portfolio, ''),
+                label: siteToolTitle(ToolTicker.Portfolio),
+                links: [
+                    {
+                        href: homeSectionHref(HomeSectionId.Portfolio),
+                        label: 'Selected work',
+                    },
+                    ...portfolioContent.sections.map((section) => ({
+                        href: portfolioSectionHref(section.id),
+                        label: section.eyebrow,
+                    })),
+                ],
+            },
+        ],
+        id: NavMenuId.Portfolio,
+        kind: NavItemKind.Groups,
+        label: 'Portfolio',
+    },
+    {
+        groups: [
+            {
                 href: new PortfolioProjectNavigation().href(
                     FeaturedProjectId.SensorHub,
                 ),
@@ -187,27 +208,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
         id: NavMenuId.SensorHub,
         kind: NavItemKind.Groups,
         label: homeSection(HomeSectionId.SensorHub).indexLabel,
-    },
-    {
-        groups: [
-            {
-                href: sameOriginRoute(routes.portfolio, ''),
-                label: siteToolTitle(ToolTicker.Portfolio),
-                links: [
-                    {
-                        href: homeSectionHref(HomeSectionId.Portfolio),
-                        label: 'Selected work',
-                    },
-                    ...portfolioContent.sections.map((section) => ({
-                        href: portfolioSectionHref(section.id),
-                        label: section.eyebrow,
-                    })),
-                ],
-            },
-        ],
-        id: NavMenuId.Portfolio,
-        kind: NavItemKind.Groups,
-        label: 'Portfolio',
     },
     {
         groups: [

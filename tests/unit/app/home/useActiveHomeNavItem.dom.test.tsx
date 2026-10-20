@@ -98,11 +98,14 @@ describe('useActiveHomeNavItem', () => {
         await scrollTo(700);
         expect(seen()).toBe(HomeSectionId.Tools);
 
-        await scrollTo(2700);
-        expect(seen()).toBe(HomeSectionId.Readings);
-
-        await scrollTo(4700);
+        await scrollTo(1700);
         expect(seen()).toBe(HomeSectionId.Portfolio);
+
+        await scrollTo(2700);
+        expect(seen()).toBe(HomeSectionId.SensorHub);
+
+        await scrollTo(3700);
+        expect(seen()).toBe(HomeSectionId.Readings);
 
         await scrollTo(0);
         expect(seen()).toBe(HomeNavTarget.Top);
@@ -118,7 +121,7 @@ describe('useActiveHomeNavItem', () => {
         expect(seen()).toBe(HomeSectionId.About);
 
         await scrollTo(700);
-        await scrollTo(2700);
+        await scrollTo(3700);
         expect(seen()).toBe(HomeSectionId.About);
 
         await act(async () => {
