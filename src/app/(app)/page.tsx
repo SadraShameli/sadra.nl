@@ -60,6 +60,8 @@ export default function HomePage() {
                     <ToolCards />
                 </HomeSectionShell>
 
+                <PortfolioShowcaseSection />
+
                 <SensorHubSection />
 
                 <HomeSectionShell
@@ -86,8 +88,6 @@ export default function HomePage() {
                         decorVideo={recordings.decorVideo}
                     />
                 </HomeSectionShell>
-
-                <PortfolioShowcaseSection />
 
                 <AboutSection />
             </main>

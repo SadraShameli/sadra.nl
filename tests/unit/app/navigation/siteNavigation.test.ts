@@ -71,11 +71,11 @@ function toolsProducts(): readonly NavProduct[] {
 }
 
 describe('the navbar items', () => {
-    it('reads Tools, Sensor Hub, Portfolio, About from left to right', () => {
+    it('reads Tools, Portfolio, Sensor Hub, About from left to right', () => {
         expect(NAV_ITEMS.map((item) => item.id)).toEqual([
             NavMenuId.Tools,
-            NavMenuId.SensorHub,
             NavMenuId.Portfolio,
+            NavMenuId.SensorHub,
             NavMenuId.About,
         ]);
     });
@@ -116,10 +116,10 @@ describe('the navbar items', () => {
         });
     });
 
-    it('keeps Sensor Hub, Portfolio and About as small group menus', () => {
+    it('keeps Portfolio, Sensor Hub and About as small group menus', () => {
         for (const id of [
-            NavMenuId.SensorHub,
             NavMenuId.Portfolio,
+            NavMenuId.SensorHub,
             NavMenuId.About,
         ]) {
             const item = navItem(id);
