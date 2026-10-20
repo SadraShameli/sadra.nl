@@ -16,6 +16,7 @@ import {
     OwnerHeroCollage,
     PlaceholderHeroCollage,
 } from './_components/home/OwnerHeroCollage';
+import { PortfolioShowcaseSection } from './_components/home/PortfolioShowcaseSection';
 import { SectionIntro } from './_components/home/SectionIntro';
 import { SensorHubSection } from './_components/home/SensorHubSection';
 import { ToolCards } from './_components/home/ToolCards';
@@ -85,6 +86,8 @@ export default function HomePage() {
                         decorVideo={recordings.decorVideo}
                     />
                 </HomeSectionShell>
+
+                <PortfolioShowcaseSection />
 
                 <AboutSection />
             </main>

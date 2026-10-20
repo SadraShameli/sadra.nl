@@ -4,6 +4,7 @@ import { routes } from './routes';
 
 export enum HomeSectionId {
     About = 'about',
+    Portfolio = 'portfolio',
     Readings = 'readings',
     Recordings = 'recordings',
     SensorHub = 'sensor-hub',
@@ -48,15 +49,22 @@ export const HOME_SECTIONS: readonly HomeSection[] = [
         number: '04',
     },
     {
+        eyebrow: 'Portfolio',
+        id: HomeSectionId.Portfolio,
+        indexLabel: 'Portfolio',
+        navLabel: 'Portfolio',
+        number: '05',
+    },
+    {
         eyebrow: 'Off the clock',
         id: HomeSectionId.About,
         indexLabel: 'About',
         navLabel: 'About',
-        number: '05',
+        number: '06',
     },
 ];
 
-export const FOOTER_SECTION_NUMBER = '06';
+export const FOOTER_SECTION_NUMBER = '07';
 
 export class UnknownHomeSectionError extends Error {
     constructor(id: string) {

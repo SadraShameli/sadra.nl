@@ -5,14 +5,14 @@ import { cn } from '~/lib/utilities';
 
 import { NavGroupColumn } from './NavGroupColumn';
 import { NavProductCard } from './NavProductCard';
-import { NavItemKind, type NavMenu } from './siteNavigation';
+import { type NavItem, NavItemKind } from './siteNavigation';
 
 export const NAV_MENU_SCROLL_CLASS =
     'max-h-[calc(100svh-7rem)] overflow-y-auto';
 
 interface NavMenuPanelProperties {
     readonly extra: ReactNode;
-    readonly menu: NavMenu;
+    readonly menu: NavItem;
 }
 
 export function DesktopMenuPanel({ extra, menu }: NavMenuPanelProperties) {

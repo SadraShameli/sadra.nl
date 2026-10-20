@@ -21,8 +21,8 @@ vi.mock('next/navigation', () => ({
     usePathname: () => navigation.pathname,
 }));
 
-const SENSOR_HUB_HREF = `/#${HomeSectionId.SensorHub}`;
-const SENSOR_HUB_LINK_BOX = new DOMRect(320, 8, 96, 40);
+const SENSOR_HUB_HREF = '/?project=sensor-hub#portfolio';
+const SENSOR_HUB_TRIGGER_BOX = new DOMRect(320, 8, 96, 40);
 const VIEWPORT_HEIGHT = 1000;
 
 class SilentResizeObserver {
@@ -63,14 +63,6 @@ function desktopList(): HTMLElement {
     );
     if (list === null) throw new Error('no desktop navbar list');
     return list;
-}
-
-function desktopSensorHubLink(): HTMLAnchorElement {
-    const link = [...desktopList().querySelectorAll('a')].find(
-        (candidate) => candidate.textContent === 'Sensor Hub',
-    );
-    if (link === undefined) throw new Error('no desktop Sensor Hub link');
-    return link;
 }
 
 function desktopTrigger(label: string): HTMLButtonElement {
@@ -135,8 +127,9 @@ function placeSections(activeSection: HomeSectionId | null): void {
                     sectionIndex <= activeIndex ? 0 : VIEWPORT_HEIGHT * 2;
                 return new DOMRect(0, top, 1200, VIEWPORT_HEIGHT);
             }
-            return this.getAttribute('href') === SENSOR_HUB_HREF
-                ? SENSOR_HUB_LINK_BOX
+            return this instanceof HTMLButtonElement &&
+                this.textContent === 'Sensor Hub'
+                ? SENSOR_HUB_TRIGGER_BOX
                 : new DOMRect(0, 0, 0, 0);
         },
     );
@@ -195,16 +188,20 @@ describe('Navbar', () => {
         vi.unstubAllGlobals();
     });
 
-    it('renders Sensor Hub as a direct link and keeps dropdowns for the other groups', async () => {
+    it('renders every navigation group as a dropdown and links Sensor Hub to its project', async () => {
         await render(routes.home);
-        expect(desktopSensorHubLink().getAttribute('href')).toBe(
-            SENSOR_HUB_HREF,
-        );
         expect(
             [...desktopList().querySelectorAll('button')].map(
                 (trigger) => trigger.textContent,
             ),
-        ).toEqual(['Tools', 'Portfolio', 'About']);
+        ).toEqual(['Tools', 'Sensor Hub', 'Portfolio', 'About']);
+        await act(async () => {
+            desktopTrigger('Sensor Hub').click();
+            await nextFrame();
+        });
+        expect(
+            document.querySelector(`a[href="${CSS.escape(SENSOR_HUB_HREF)}"]`),
+        ).not.toBeNull();
     });
 
     it('opens Tools as product cards with a description and the section links of each product', async () => {
@@ -242,7 +239,7 @@ describe('Navbar', () => {
         ]);
     });
 
-    it('moves the arrow-key focus across the triggers and the Sensor Hub link', async () => {
+    it('moves the arrow-key focus across all dropdown triggers', async () => {
         await render(routes.home);
         const tools = desktopTrigger('Tools');
         tools.focus();
@@ -255,9 +252,9 @@ describe('Navbar', () => {
             );
             await new Promise((resolve) => setTimeout(resolve, 0));
         });
-        expect(document.activeElement).toBe(desktopSensorHubLink());
+        expect(document.activeElement).toBe(desktopTrigger('Sensor Hub'));
         await act(async () => {
-            desktopSensorHubLink().dispatchEvent(
+            desktopTrigger('Sensor Hub').dispatchEvent(
                 new KeyboardEvent('keydown', {
                     bubbles: true,
                     key: 'ArrowRight',
@@ -277,12 +274,12 @@ describe('Navbar', () => {
         async (section) => {
             placeSections(section);
             await render(routes.home);
-            expect(desktopSensorHubLink().getAttribute('aria-current')).toBe(
-                'location',
-            );
+            expect(
+                desktopTrigger('Sensor Hub').getAttribute('aria-current'),
+            ).toBe('location');
             expect(indicator().style.opacity).toBe('1');
             expect(indicator().style.width).toBe(
-                `${String(SENSOR_HUB_LINK_BOX.width)}px`,
+                `${String(SENSOR_HUB_TRIGGER_BOX.width)}px`,
             );
         },
     );
@@ -290,9 +287,13 @@ describe('Navbar', () => {
     it('leaves Sensor Hub unmarked on the home top and on other pages', async () => {
         await render(routes.home);
         expect(homeLink().getAttribute('aria-current')).toBe('location');
-        expect(desktopSensorHubLink().hasAttribute('aria-current')).toBe(false);
+        expect(desktopTrigger('Sensor Hub').hasAttribute('aria-current')).toBe(
+            false,
+        );
         await render(routes.propCalculator.simulator);
-        expect(desktopSensorHubLink().hasAttribute('aria-current')).toBe(false);
+        expect(desktopTrigger('Sensor Hub').hasAttribute('aria-current')).toBe(
+            false,
+        );
     });
 
     it('shows the phone Tools menu as a two-up grid of product tiles', async () => {
@@ -305,17 +306,13 @@ describe('Navbar', () => {
             toggle.click();
             await nextFrame();
         });
-        const sensorHub = [...phoneMenu().querySelectorAll('a')].find(
-            (link) => link.textContent === 'Sensor Hub',
-        );
-        expect(sensorHub?.getAttribute('href')).toBe(SENSOR_HUB_HREF);
         expect(
             [
                 ...phoneMenu().querySelectorAll(
                     '[data-slot="accordion-trigger"]',
                 ),
             ].map((trigger) => trigger.textContent),
-        ).toEqual(['Tools', 'Portfolio', 'About']);
+        ).toEqual(['Tools', 'Sensor Hub', 'Portfolio', 'About']);
         await act(async () => {
             phoneTrigger('Tools').click();
             await nextFrame();

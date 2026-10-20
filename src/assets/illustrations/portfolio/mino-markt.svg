@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="750" viewBox="0 0 1200 750" fill="none">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1200" y2="750" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#35271F"/><stop offset="1" stop-color="#181310"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop stop-color="#D18D5D" stop-opacity=".13"/><stop offset="1" stop-color="#D18D5D" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="copper" x1="320" y1="150" x2="880" y2="590" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D8B08B"/><stop offset=".5" stop-color="#9E6748"/><stop offset="1" stop-color="#C49368"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#B09370" fill-opacity=".12"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="750" fill="url(#background)"/>
+  <rect width="1200" height="750" fill="url(#grid)"/>
+  <ellipse cx="600" cy="365" rx="410" ry="350" fill="url(#glow)"/>
+  <path d="M75 180V75H180M1020 75H1125V180M1125 570V675H1020M180 675H75V570" stroke="url(#copper)" stroke-opacity=".45"/>
+  <rect x="95" y="95" width="1010" height="560" rx="2" stroke="#B18A61" stroke-opacity=".13"/>
+  <circle cx="600" cy="375" r="260" stroke="#C99B70" stroke-opacity=".12"/>
+  <circle cx="600" cy="375" r="239" stroke="#C99B70" stroke-opacity=".08"/>
+  <path d="M600 154L640 194L600 234L560 194Z" stroke="url(#copper)" stroke-width="1.5"/>
+  <path d="M580 194L600 174L620 194L600 214Z" fill="#BE8258" fill-opacity=".28" stroke="#BE8258"/>
+  <path d="M410 194H525M675 194H790" stroke="#B18A61" stroke-opacity=".4"/>
+  <text x="600" y="412" text-anchor="middle" font-family="Georgia, serif" font-size="192" letter-spacing="-7" fill="#F0E4CF">Mino</text>
+  <text x="604" y="471" text-anchor="middle" font-family="monospace" font-size="24" letter-spacing="8" fill="#C5A47F">MARKT &amp; GRILL</text>
+  <path d="M513 515H687" stroke="url(#copper)"/>
+  <text x="602" y="562" text-anchor="middle" font-family="monospace" font-size="15" letter-spacing="5" fill="#A98C6C">ALKMAAR</text>
+  <g fill="#C49A70" fill-opacity=".6">
+    <circle cx="211" cy="375" r="2"/><circle cx="989" cy="375" r="2"/>
+    <circle cx="600" cy="95" r="2"/><circle cx="600" cy="655" r="2"/>
+  </g>
+</svg>
