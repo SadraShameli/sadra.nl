@@ -70,7 +70,7 @@ export class ProgressCoalescer<TProgress> {
         this.pendingFlush = null;
     }
 
-    private listen(): Worker {
+    listen(): Worker {
         this.worker.addEventListener('message', this.intercept);
         return this.worker;
     }

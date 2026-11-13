@@ -168,7 +168,7 @@ test('video posters stay within the homepage image delivery budget', async ({
         const body = await response.body();
         expect(body.byteLength).toBeLessThan(MAX_POSTER_BYTES);
         const dimensions = await page.evaluate(async (source) => {
-            const image = globalThis.document.createElement('img');
+            const image = document.createElement('img');
             image.src = source;
             await image.decode();
             return { height: image.naturalHeight, width: image.naturalWidth };

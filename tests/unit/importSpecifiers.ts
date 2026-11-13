@@ -37,6 +37,19 @@ export function importSpecifiersOf(source: string): ImportSpecifier[] {
         .toArray();
 }
 
+export function isTypeOnlyImportClause(clause: string): boolean {
+    if (/^type\s/.test(clause)) return true;
+    const named = /^\{([^}]*)\}$/.exec(clause)?.[1];
+    if (named === undefined) return false;
+    const members = named
+        .split(',')
+        .map((member) => member.trim())
+        .filter((member) => member !== '');
+    return (
+        members.length > 0 && members.every((member) => /^type\s/.test(member))
+    );
+}
+
 export function moduleGraphFrom(
     entry: string,
     sourceRoot: string,

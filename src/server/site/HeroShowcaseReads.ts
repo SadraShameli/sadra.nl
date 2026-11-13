@@ -20,7 +20,7 @@ export async function readOwnerHeroShowcase(): Promise<HeroShowcaseRecord | null
     'use cache';
     cacheLife('days');
     cacheTag(SiteCacheTag.HeroShowcase);
-    const [row] = await db
+    const [row = null] = await db
         .select({
             averageRHundredths: siteShowcase.averageRHundredths,
             todayProfitAndLossCents: siteShowcase.todayProfitAndLossCents,
@@ -31,5 +31,5 @@ export async function readOwnerHeroShowcase(): Promise<HeroShowcaseRecord | null
         .innerJoin(user, eq(user.id, siteShowcase.userId))
         .where(eq(user.email, ROOT_EMAIL))
         .limit(1);
-    return row ?? null;
+    return row;
 }

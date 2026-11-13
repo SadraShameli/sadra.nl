@@ -15,6 +15,7 @@ import {
     resolvePositionSizing,
 } from '~/lib/prop-calculator/core/PositionSizing';
 import { TradingPhase } from '~/lib/prop-calculator/core/TradingPhase';
+import { withFallback } from '~/lib/schemas/withFallback';
 
 import { type SimInputs } from './types';
 
@@ -50,9 +51,12 @@ const simInputsSizingSchema = z
         fundedCushionPercent: z.number().optional(),
         fundedDayPolicy: z.unknown().optional(),
         fundedRiskPerTrade: z.number().optional(),
-        instrument: z.enum(InstrumentSymbol).optional().catch(undefined),
+        instrument: withFallback(
+            z.enum(InstrumentSymbol).optional(),
+            undefined,
+        ),
         riskPerTrade: z.number(),
-        stopPoints: z.number().optional().catch(undefined),
+        stopPoints: withFallback(z.number().optional(), undefined),
     })
     .superRefine((value, context) => {
         const positionSizing = resolvePositionSizing(

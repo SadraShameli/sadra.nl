@@ -94,9 +94,10 @@ export function PrepChecklist({
 
     const toggle = (key: PrepCheckKey) => {
         if (!isToday) return;
+        const wasChecked = checks[key];
         form.setValue(
             'checks',
-            { ...checks, [key]: !checks[key] },
+            { ...checks, [key]: !wasChecked },
             {
                 shouldDirty: true,
             },

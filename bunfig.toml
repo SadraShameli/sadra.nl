@@ -1,0 +1,1335 @@
+[fmt]
+printWidth = 80
+singleQuote = true
+tabWidth = 4
+
+[fmt.sortTailwindcss]
+stylesheet = "./src/styles/styles.css"
+functions = []
+
+[lint]
+typeAware = true
+ignorePatterns = [
+    ".claude/worktrees",
+    ".next",
+    "drizzle",
+    "public",
+    ".vercel",
+    "node_modules",
+    "next-env.d.ts",
+]
+plugins = [
+    { name = "@next/next-js", specifier = "@next/eslint-plugin-next" },
+    "eslint-plugin-better-tailwindcss",
+    "eslint-plugin-drizzle",
+    { name = "jsx-a11y-js", specifier = "eslint-plugin-jsx-a11y" },
+    "eslint-plugin-perfectionist",
+    { name = "promise-js", specifier = "eslint-plugin-promise" },
+    { name = "react-hooks-js", specifier = "eslint-plugin-react-hooks" },
+    { name = "unicorn-js", specifier = "eslint-plugin-unicorn" },
+]
+
+[lint.rules]
+"@next/next-js/google-font-display" = "warn"
+"@next/next-js/google-font-preconnect" = "warn"
+"@next/next-js/inline-script-id" = "error"
+"@next/next-js/next-script-for-ga" = "warn"
+"@next/next-js/no-assign-module-variable" = "error"
+"@next/next-js/no-async-client-component" = "warn"
+"@next/next-js/no-before-interactive-script-outside-document" = "warn"
+"@next/next-js/no-css-tags" = "warn"
+"@next/next-js/no-document-import-in-page" = "error"
+"@next/next-js/no-duplicate-head" = "error"
+"@next/next-js/no-head-element" = "warn"
+"@next/next-js/no-head-import-in-document" = "error"
+"@next/next-js/no-html-link-for-pages" = "error"
+"@next/next-js/no-img-element" = "warn"
+"@next/next-js/no-location-assign-relative-destination" = "warn"
+"@next/next-js/no-page-custom-font" = "warn"
+"@next/next-js/no-script-component-in-head" = "error"
+"@next/next-js/no-styled-jsx-in-document" = "warn"
+"@next/next-js/no-sync-scripts" = "error"
+"@next/next-js/no-title-in-document-head" = "warn"
+"@next/next-js/no-typos" = "warn"
+"@next/next-js/no-unwanted-polyfillio" = "warn"
+"@typescript-eslint/adjacent-overload-signatures" = "error"
+"@typescript-eslint/array-type" = "off"
+"@typescript-eslint/await-thenable" = "error"
+"@typescript-eslint/ban-ts-comment" = [
+    "error",
+    { minimumDescriptionLength = 10 },
+]
+"@typescript-eslint/ban-tslint-comment" = "error"
+"@typescript-eslint/class-literal-property-style" = "error"
+"@typescript-eslint/consistent-generic-constructors" = "error"
+"@typescript-eslint/consistent-indexed-object-style" = "error"
+"@typescript-eslint/consistent-type-assertions" = "error"
+"@typescript-eslint/consistent-type-definitions" = "off"
+"@typescript-eslint/consistent-type-imports" = [
+    "warn",
+    { fixStyle = "inline-type-imports", prefer = "type-imports" },
+]
+"@typescript-eslint/dot-notation" = "error"
+"@typescript-eslint/no-array-constructor" = "error"
+"@typescript-eslint/no-array-delete" = "error"
+"@typescript-eslint/no-base-to-string" = "error"
+"@typescript-eslint/no-confusing-non-null-assertion" = "error"
+"@typescript-eslint/no-confusing-void-expression" = [
+    "error",
+    { ignoreArrowShorthand = true },
+]
+"@typescript-eslint/no-deprecated" = "error"
+"@typescript-eslint/no-duplicate-enum-values" = "error"
+"@typescript-eslint/no-duplicate-type-constituents" = "error"
+"@typescript-eslint/no-dynamic-delete" = "error"
+"@typescript-eslint/no-empty-function" = "error"
+"@typescript-eslint/no-empty-object-type" = "error"
+"@typescript-eslint/no-explicit-any" = "error"
+"@typescript-eslint/no-extra-non-null-assertion" = "error"
+"@typescript-eslint/no-extraneous-class" = "error"
+"@typescript-eslint/no-floating-promises" = "error"
+"@typescript-eslint/no-for-in-array" = "error"
+"@typescript-eslint/no-generated-empty-object-type" = "error"
+"@typescript-eslint/no-implied-eval" = "error"
+"@typescript-eslint/no-inferrable-types" = "error"
+"@typescript-eslint/no-invalid-void-type" = "error"
+"@typescript-eslint/no-meaningless-void-operator" = "error"
+"@typescript-eslint/no-misused-new" = "error"
+"@typescript-eslint/no-misused-promises" = [
+    "error",
+    { checksVoidReturn = { attributes = false } },
+]
+"@typescript-eslint/no-misused-spread" = "error"
+"@typescript-eslint/no-mixed-enums" = "error"
+"@typescript-eslint/no-namespace" = "error"
+"@typescript-eslint/no-non-null-asserted-nullish-coalescing" = "error"
+"@typescript-eslint/no-non-null-asserted-optional-chain" = "error"
+"@typescript-eslint/no-non-null-assertion" = "error"
+"@typescript-eslint/no-redundant-type-constituents" = "error"
+"@typescript-eslint/no-require-imports" = "error"
+"@typescript-eslint/no-this-alias" = "error"
+"@typescript-eslint/no-unnecessary-boolean-literal-compare" = "error"
+"@typescript-eslint/no-unnecessary-condition" = "error"
+"@typescript-eslint/no-unnecessary-template-expression" = "error"
+"@typescript-eslint/no-unnecessary-type-arguments" = "error"
+"@typescript-eslint/no-unnecessary-type-assertion" = "error"
+"@typescript-eslint/no-unnecessary-type-constraint" = "error"
+"@typescript-eslint/no-unnecessary-type-conversion" = "error"
+"@typescript-eslint/no-unnecessary-type-parameters" = "error"
+"@typescript-eslint/no-unsafe-argument" = "error"
+"@typescript-eslint/no-unsafe-assignment" = "error"
+"@typescript-eslint/no-unsafe-call" = "error"
+"@typescript-eslint/no-unsafe-declaration-merging" = "error"
+"@typescript-eslint/no-unsafe-enum-assignment" = "error"
+"@typescript-eslint/no-unsafe-enum-comparison" = "error"
+"@typescript-eslint/no-unsafe-function-type" = "error"
+"@typescript-eslint/no-unsafe-member-access" = "error"
+"@typescript-eslint/no-unsafe-return" = "error"
+"@typescript-eslint/no-unsafe-unary-minus" = "error"
+"@typescript-eslint/no-unused-expressions" = "error"
+"@typescript-eslint/no-unused-vars" = ["error", { argsIgnorePattern = "^_" }]
+"@typescript-eslint/no-useless-constructor" = "error"
+"@typescript-eslint/no-useless-default-assignment" = "error"
+"@typescript-eslint/no-wrapper-object-types" = "error"
+"@typescript-eslint/non-nullable-type-assertion-style" = "error"
+"@typescript-eslint/only-throw-error" = "error"
+"@typescript-eslint/prefer-as-const" = "error"
+"@typescript-eslint/prefer-find" = "error"
+"@typescript-eslint/prefer-for-of" = "error"
+"@typescript-eslint/prefer-function-type" = "error"
+"@typescript-eslint/prefer-includes" = "error"
+"@typescript-eslint/prefer-literal-enum-member" = "error"
+"@typescript-eslint/prefer-namespace-keyword" = "error"
+"@typescript-eslint/prefer-nullish-coalescing" = "error"
+"@typescript-eslint/prefer-optional-chain" = "error"
+"@typescript-eslint/prefer-promise-reject-errors" = "error"
+"@typescript-eslint/prefer-reduce-type-parameter" = "error"
+"@typescript-eslint/prefer-regexp-exec" = "error"
+"@typescript-eslint/prefer-return-this-type" = "error"
+"@typescript-eslint/prefer-string-starts-ends-with" = "error"
+"@typescript-eslint/related-getter-setter-pairs" = "error"
+"@typescript-eslint/require-await" = "off"
+"@typescript-eslint/restrict-plus-operands" = [
+    "error",
+    { allowAny = false, allowBoolean = false, allowNullish = false, allowNumberAndString = false, allowRegExp = false },
+]
+"@typescript-eslint/restrict-template-expressions" = [
+    "error",
+    { allowBoolean = true, allowNumber = true },
+]
+"@typescript-eslint/return-await" = ["error", "error-handling-correctness-only"]
+"@typescript-eslint/switch-exhaustiveness-check" = "error"
+"@typescript-eslint/triple-slash-reference" = "error"
+"@typescript-eslint/unbound-method" = "error"
+"@typescript-eslint/unified-signatures" = "error"
+"@typescript-eslint/use-unknown-in-catch-callback-variable" = "error"
+"array-bracket-newline" = "off"
+"array-bracket-spacing" = "off"
+"array-element-newline" = "off"
+"arrow-parens" = "off"
+"arrow-spacing" = "off"
+"block-spacing" = "off"
+"brace-style" = "off"
+"bun:test/no-disabled-tests" = "off"
+"bun:test/no-export" = "off"
+"bun:test/no-focused-tests" = "off"
+"bun:test/valid-describe-callback" = "off"
+"bun:test/valid-expect" = "off"
+"bun:test/valid-expect-in-promise" = "off"
+"comma-dangle" = "off"
+"comma-spacing" = "off"
+"comma-style" = "off"
+"computed-property-spacing" = "off"
+"constructor-super" = "off"
+"curly" = "off"
+"dot-location" = "off"
+"dot-notation" = "off"
+"drizzle/enforce-delete-with-where" = [
+    "error",
+    { drizzleObjectName = ["db", "ctx.db"] },
+]
+"drizzle/enforce-update-with-where" = [
+    "error",
+    { drizzleObjectName = ["db", "ctx.db"] },
+]
+"eol-last" = "off"
+"for-direction" = "error"
+"func-call-spacing" = "off"
+"function-call-argument-newline" = "off"
+"function-paren-newline" = "off"
+"generator-star-spacing" = "off"
+"getter-return" = "off"
+"implicit-arrow-linebreak" = "off"
+"indent" = "off"
+"indent-legacy" = "off"
+"jsx-a11y-js/alt-text" = "error"
+"jsx-a11y-js/anchor-ambiguous-text" = "off"
+"jsx-a11y-js/anchor-has-content" = "error"
+"jsx-a11y-js/anchor-is-valid" = "error"
+"jsx-a11y-js/aria-activedescendant-has-tabindex" = "error"
+"jsx-a11y-js/aria-props" = "error"
+"jsx-a11y-js/aria-proptypes" = "error"
+"jsx-a11y-js/aria-role" = "error"
+"jsx-a11y-js/aria-unsupported-elements" = "error"
+"jsx-a11y-js/autocomplete-valid" = "error"
+"jsx-a11y-js/click-events-have-key-events" = "error"
+"jsx-a11y-js/control-has-associated-label" = [
+    "off",
+    { ignoreElements = ["audio", "canvas", "embed", "input", "textarea", "tr", "video"], ignoreRoles = ["grid", "listbox", "menu", "menubar", "radiogroup", "row", "tablist", "toolbar", "tree", "treegrid"], includeRoles = ["alert", "dialog"] },
+]
+"jsx-a11y-js/heading-has-content" = "error"
+"jsx-a11y-js/html-has-lang" = "error"
+"jsx-a11y-js/iframe-has-title" = "error"
+"jsx-a11y-js/img-redundant-alt" = "error"
+"jsx-a11y-js/interactive-supports-focus" = [
+    "error",
+    { tabbable = [
+        "button",
+        "checkbox",
+        "link",
+        "searchbox",
+        "spinbutton",
+        "switch",
+        "textbox",
+    ] },
+]
+"jsx-a11y-js/label-has-associated-control" = "error"
+"jsx-a11y-js/label-has-for" = "off"
+"jsx-a11y-js/media-has-caption" = "error"
+"jsx-a11y-js/mouse-events-have-key-events" = "error"
+"jsx-a11y-js/no-access-key" = "error"
+"jsx-a11y-js/no-autofocus" = "error"
+"jsx-a11y-js/no-distracting-elements" = "error"
+"jsx-a11y-js/no-interactive-element-to-noninteractive-role" = [
+    "error",
+    { canvas = ["img"], tr = ["none", "presentation"] },
+]
+"jsx-a11y-js/no-noninteractive-element-interactions" = [
+    "error",
+    { alert = ["onKeyUp", "onKeyDown", "onKeyPress"], body = ["onError", "onLoad"], dialog = ["onKeyUp", "onKeyDown", "onKeyPress"], handlers = ["onClick", "onError", "onLoad", "onMouseDown", "onMouseUp", "onKeyPress", "onKeyDown", "onKeyUp"], iframe = ["onError", "onLoad"], img = ["onError", "onLoad"] },
+]
+"jsx-a11y-js/no-noninteractive-element-to-interactive-role" = [
+    "error",
+    { fieldset = ["radiogroup", "presentation"], li = ["menuitem", "menuitemradio", "menuitemcheckbox", "option", "row", "tab", "treeitem"], ol = ["listbox", "menu", "menubar", "radiogroup", "tablist", "tree", "treegrid"], table = ["grid"], td = ["gridcell"], ul = ["listbox", "menu", "menubar", "radiogroup", "tablist", "tree", "treegrid"] },
+]
+"jsx-a11y-js/no-noninteractive-tabindex" = [
+    "error",
+    { allowExpressionValues = true, roles = ["tabpanel"], tags = [] },
+]
+"jsx-a11y-js/no-redundant-roles" = "error"
+"jsx-a11y-js/no-static-element-interactions" = [
+    "error",
+    { allowExpressionValues = true, handlers = [
+        "onClick",
+        "onMouseDown",
+        "onMouseUp",
+        "onKeyPress",
+        "onKeyDown",
+        "onKeyUp",
+    ] },
+]
+"jsx-a11y-js/role-has-required-aria-props" = "error"
+"jsx-a11y-js/role-supports-aria-props" = "error"
+"jsx-a11y-js/scope" = "error"
+"jsx-a11y-js/tabindex-no-positive" = "error"
+"jsx-quotes" = "off"
+"key-spacing" = "off"
+"keyword-spacing" = "off"
+"linebreak-style" = "off"
+"lines-around-comment" = "off"
+"logical-assignment-operators" = "off"
+"max-len" = "off"
+"max-statements-per-line" = "off"
+"multiline-ternary" = "off"
+"new-parens" = "off"
+"newline-per-chained-call" = "off"
+"no-array-constructor" = "off"
+"no-async-promise-executor" = "error"
+"no-case-declarations" = "error"
+"no-class-assign" = "off"
+"no-compare-neg-zero" = "error"
+"no-cond-assign" = "error"
+"no-confusing-arrow" = "off"
+"no-const-assign" = "off"
+"no-constant-binary-expression" = "error"
+"no-constant-condition" = "error"
+"no-control-regex" = "error"
+"no-debugger" = "error"
+"no-delete-var" = "error"
+"no-dupe-args" = "off"
+"no-dupe-class-members" = "off"
+"no-dupe-else-if" = "error"
+"no-dupe-keys" = "off"
+"no-duplicate-case" = "error"
+"no-empty" = ["error", { allowEmptyCatch = true }]
+"no-empty-character-class" = "error"
+"no-empty-function" = "off"
+"no-empty-pattern" = "error"
+"no-empty-static-block" = "error"
+"no-ex-assign" = "error"
+"no-extra-boolean-cast" = "error"
+"no-extra-parens" = "off"
+"no-extra-semi" = "off"
+"no-fallthrough" = "error"
+"no-floating-decimal" = "off"
+"no-func-assign" = "off"
+"no-global-assign" = "error"
+"no-implied-eval" = "off"
+"no-import-assign" = "off"
+"no-invalid-regexp" = "error"
+"no-irregular-whitespace" = "error"
+"no-loss-of-precision" = "error"
+"no-misleading-character-class" = "error"
+"no-mixed-operators" = "off"
+"no-mixed-spaces-and-tabs" = "off"
+"no-multi-spaces" = "off"
+"no-multiple-empty-lines" = "off"
+"no-negated-condition" = "off"
+"no-nested-ternary" = "off"
+"no-new-native-nonconstructor" = "off"
+"no-new-symbol" = "off"
+"no-nonoctal-decimal-escape" = "error"
+"no-obj-calls" = "off"
+"no-octal" = "error"
+"no-process-exit" = "off"
+"no-prototype-builtins" = "error"
+"no-redeclare" = "off"
+"no-regex-spaces" = "error"
+"no-return-await" = "off"
+"no-self-assign" = "error"
+"no-setter-return" = "off"
+"no-shadow-restricted-names" = "error"
+"no-spaced-func" = "off"
+"no-sparse-arrays" = "error"
+"no-tabs" = "off"
+"no-this-before-super" = "off"
+"no-throw-literal" = "off"
+"no-trailing-spaces" = "off"
+"no-unassigned-vars" = "error"
+"no-undef" = "off"
+"no-unexpected-multiline" = "off"
+"no-unreachable" = "off"
+"no-unsafe-finally" = "error"
+"no-unsafe-negation" = "off"
+"no-unsafe-optional-chaining" = "error"
+"no-unused-expressions" = "off"
+"no-unused-labels" = "error"
+"no-unused-private-class-members" = "error"
+"no-unused-vars" = "off"
+"no-useless-assignment" = "error"
+"no-useless-backreference" = "error"
+"no-useless-catch" = "error"
+"no-useless-constructor" = "off"
+"no-useless-escape" = "error"
+"no-var" = "error"
+"no-whitespace-before-property" = "off"
+"no-with" = "off"
+"nonblock-statement-body-position" = "off"
+"object-curly-newline" = "off"
+"object-curly-spacing" = "off"
+"object-property-newline" = "off"
+"one-var-declaration-per-line" = "off"
+"operator-linebreak" = "off"
+"padded-blocks" = "off"
+"perfectionist/sort-array-includes" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-classes" = ["off", { order = "asc", type = "natural" }]
+"perfectionist/sort-decorators" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-enums" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-export-attributes" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-exports" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-heritage-clauses" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-import-attributes" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-imports" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-interfaces" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-intersection-types" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-jsx-props" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-maps" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-modules" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-named-exports" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-named-imports" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-object-types" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-objects" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-sets" = ["error", { order = "asc", type = "natural" }]
+"perfectionist/sort-switch-case" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-union-types" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"perfectionist/sort-variable-declarations" = [
+    "error",
+    { order = "asc", type = "natural" },
+]
+"prefer-const" = "error"
+"prefer-promise-reject-errors" = "off"
+"prefer-rest-params" = "error"
+"prefer-spread" = "error"
+"preserve-caught-error" = "error"
+"promise-js/always-return" = "off"
+"promise-js/avoid-new" = "off"
+"promise-js/catch-or-return" = "off"
+"promise-js/no-callback-in-promise" = "warn"
+"promise-js/no-native" = "off"
+"promise-js/no-nesting" = "warn"
+"promise-js/no-new-statics" = "error"
+"promise-js/no-promise-in-callback" = "warn"
+"promise-js/no-return-in-finally" = "warn"
+"promise-js/no-return-wrap" = "error"
+"promise-js/param-names" = "error"
+"promise-js/valid-params" = "warn"
+"quote-props" = "off"
+"quotes" = "off"
+"react-hooks-js/exhaustive-deps" = "warn"
+"react-hooks-js/rules-of-hooks" = "error"
+"react/jsx-child-element-spacing" = "off"
+"react/jsx-closing-bracket-location" = "off"
+"react/jsx-closing-tag-location" = "off"
+"react/jsx-curly-newline" = "off"
+"react/jsx-curly-spacing" = "off"
+"react/jsx-equals-spacing" = "off"
+"react/jsx-first-prop-new-line" = "off"
+"react/jsx-indent" = "off"
+"react/jsx-indent-props" = "off"
+"react/jsx-key" = "off"
+"react/jsx-max-props-per-line" = "off"
+"react/jsx-newline" = "off"
+"react/jsx-one-expression-per-line" = "off"
+"react/jsx-props-no-multi-spaces" = "off"
+
+"react/jsx-tag-spacing" = "off"
+"react/jsx-uses-react" = "off"
+"react/jsx-wrap-multilines" = "off"
+"require-await" = "off"
+"require-yield" = "error"
+"rest-spread-spacing" = "off"
+"semi" = "off"
+"semi-spacing" = "off"
+"semi-style" = "off"
+"space-before-blocks" = "off"
+"space-before-function-paren" = "off"
+"space-in-parens" = "off"
+"space-infix-ops" = "off"
+"space-unary-ops" = "off"
+"switch-colon-spacing" = "off"
+"template-curly-spacing" = "off"
+"template-tag-spacing" = "off"
+"unicorn-js/better-dom-traversing" = "error"
+"unicorn-js/catch-error-name" = "error"
+"unicorn-js/class-reference-in-static-methods" = "error"
+"unicorn-js/comma-spacing" = "off"
+"unicorn-js/comment-content" = "off"
+"unicorn-js/consistent-arrow-return-style" = "off"
+"unicorn-js/consistent-assert" = "error"
+"unicorn-js/consistent-boolean-name" = "error"
+"unicorn-js/consistent-class-member-order" = "error"
+"unicorn-js/consistent-compound-words" = "error"
+"unicorn-js/consistent-conditional-object-spread" = "error"
+"unicorn-js/consistent-date-clone" = "error"
+"unicorn-js/consistent-destructuring" = "off"
+"unicorn-js/consistent-empty-array-spread" = "error"
+"unicorn-js/consistent-existence-index-check" = "error"
+"unicorn-js/consistent-export-decorator-position" = "error"
+"unicorn-js/consistent-function-scoping" = "error"
+"unicorn-js/consistent-function-style" = "off"
+"unicorn-js/consistent-json-file-read" = "error"
+"unicorn-js/consistent-optional-chaining" = "error"
+"unicorn-js/consistent-template-literal-escape" = "error"
+"unicorn-js/consistent-tuple-labels" = "error"
+"unicorn-js/custom-error-definition" = "off"
+"unicorn-js/default-export-style" = "error"
+"unicorn-js/dom-node-dataset" = "error"
+"unicorn-js/empty-brace-spaces" = "off"
+"unicorn-js/error-message" = "error"
+"unicorn-js/escape-case" = "error"
+"unicorn-js/expiring-todo-comments" = "error"
+"unicorn-js/explicit-length-check" = "error"
+"unicorn-js/explicit-timer-delay" = "error"
+"unicorn-js/filename-case" = [
+    "error",
+    { cases = { camelCase = true, kebabCase = true, pascalCase = true }, ignore = [{ "$regexp" = ["^\\[.+\\]", "u"] }, { "$regexp" = ["\\.d\\.ts$", "u"] }] },
+]
+"unicorn-js/id-match" = "off"
+"unicorn-js/import-style" = "error"
+"unicorn-js/indent" = "off"
+"unicorn-js/isolated-functions" = "error"
+"unicorn-js/iteration-fallback-style" = "off"
+"unicorn-js/key-name-casing" = "off"
+"unicorn-js/logical-assignment-operators" = "error"
+"unicorn-js/max-nested-calls" = "error"
+"unicorn-js/name-replacements" = "off"
+"unicorn-js/new-for-builtins" = "error"
+"unicorn-js/no-abusive-eslint-disable" = "error"
+"unicorn-js/no-accessor-recursion" = "error"
+"unicorn-js/no-accidental-bitwise-operator" = "error"
+"unicorn-js/no-anonymous-default-export" = "error"
+"unicorn-js/no-array-callback-reference" = "off"
+"unicorn-js/no-array-concat-in-loop" = "error"
+"unicorn-js/no-array-fill-with-reference-type" = "error"
+"unicorn-js/no-array-from-fill" = "error"
+"unicorn-js/no-array-front-mutation" = "off"
+"unicorn-js/no-array-method-this-argument" = "error"
+"unicorn-js/no-array-reduce" = "off"
+"unicorn-js/no-array-reverse" = "error"
+"unicorn-js/no-array-sort" = "error"
+"unicorn-js/no-array-sort-for-min-max" = "error"
+"unicorn-js/no-array-splice" = "error"
+"unicorn-js/no-asterisk-prefix-in-documentation-comments" = "error"
+"unicorn-js/no-async-iterator-callback" = "error"
+"unicorn-js/no-async-promise-finally" = "error"
+"unicorn-js/no-await-expression-member" = "error"
+"unicorn-js/no-await-in-promise-methods" = "error"
+"unicorn-js/no-barrel-files" = "off"
+"unicorn-js/no-blob-to-file" = "error"
+"unicorn-js/no-boolean-sort-comparator" = "error"
+"unicorn-js/no-break-in-nested-loop" = "error"
+"unicorn-js/no-canvas-to-image" = "error"
+"unicorn-js/no-chained-comparison" = "error"
+"unicorn-js/no-collection-bracket-access" = "error"
+"unicorn-js/no-computed-property-existence-check" = "error"
+"unicorn-js/no-conflicting-constraints" = "error"
+"unicorn-js/no-confusing-array-splice" = "error"
+"unicorn-js/no-confusing-array-with" = "error"
+"unicorn-js/no-console-spaces" = "error"
+"unicorn-js/no-constant-zero-expression" = "error"
+"unicorn-js/no-declarations-before-early-exit" = "error"
+"unicorn-js/no-document-cookie" = "error"
+"unicorn-js/no-double-comparison" = "error"
+"unicorn-js/no-duplicate-if-branches" = "error"
+"unicorn-js/no-duplicate-logical-operands" = "error"
+"unicorn-js/no-duplicate-loops" = "error"
+"unicorn-js/no-duplicate-set-values" = "error"
+"unicorn-js/no-empty-file" = "error"
+"unicorn-js/no-empty-link-text" = "off"
+"unicorn-js/no-error-property-assignment" = "error"
+"unicorn-js/no-exports-in-scripts" = "error"
+"unicorn-js/no-for-each" = "error"
+"unicorn-js/no-for-loop" = "error"
+"unicorn-js/no-global-object-property-assignment" = "error"
+"unicorn-js/no-immediate-mutation" = "error"
+"unicorn-js/no-impossible-length-comparison" = "error"
+"unicorn-js/no-incomplete-accessor-override" = "error"
+"unicorn-js/no-incorrect-query-selector" = "error"
+"unicorn-js/no-incorrect-template-string-interpolation" = "error"
+"unicorn-js/no-ineffective-csp-directives" = "error"
+"unicorn-js/no-instanceof-builtins" = "error"
+"unicorn-js/no-invalid-argument-count" = "error"
+"unicorn-js/no-invalid-boolean-attribute-value" = "error"
+"unicorn-js/no-invalid-character-comparison" = "error"
+"unicorn-js/no-invalid-dom-token" = "error"
+"unicorn-js/no-invalid-fetch-options" = "error"
+"unicorn-js/no-invalid-file-input-accept" = "off"
+"unicorn-js/no-invalid-integrity" = "error"
+"unicorn-js/no-invalid-intl-options" = "error"
+"unicorn-js/no-invalid-property-descriptor" = "error"
+"unicorn-js/no-invalid-remove-event-listener" = "error"
+"unicorn-js/no-invalid-response-options" = "error"
+"unicorn-js/no-invalid-style-set-property" = "error"
+"unicorn-js/no-invalid-temporal-arithmetic" = "error"
+"unicorn-js/no-invalid-url-protocol-comparison" = "error"
+"unicorn-js/no-invalid-well-known-symbol-methods" = "error"
+"unicorn-js/no-javascript-url" = "off"
+"unicorn-js/no-keyword-prefix" = "off"
+"unicorn-js/no-late-current-target-access" = "error"
+"unicorn-js/no-late-event-control" = "error"
+"unicorn-js/no-leading-empty-lines" = "error"
+"unicorn-js/no-lonely-if" = "error"
+"unicorn-js/no-loop-iterable-mutation" = "error"
+"unicorn-js/no-loss-of-precision" = "off"
+"unicorn-js/no-magic-array-flat-depth" = "error"
+"unicorn-js/no-manually-wrapped-comments" = "off"
+"unicorn-js/no-mismatched-map-key" = "error"
+"unicorn-js/no-misrefactored-assignment" = "error"
+"unicorn-js/no-missing-local-resource" = "off"
+"unicorn-js/no-multiple-promise-resolver-calls" = "error"
+"unicorn-js/no-named-default" = "error"
+"unicorn-js/no-negated-array-predicate" = "error"
+"unicorn-js/no-negated-comparison" = "error"
+"unicorn-js/no-negated-condition" = "error"
+"unicorn-js/no-negation-in-equality-check" = "error"
+"unicorn-js/no-nested-ternary" = "off"
+"unicorn-js/no-new-array" = "error"
+"unicorn-js/no-new-buffer" = "error"
+"unicorn-js/no-non-function-verb-prefix" = "error"
+"unicorn-js/no-nonstandard-builtin-properties" = "error"
+"unicorn-js/no-null" = "off"
+"unicorn-js/no-object-as-default-parameter" = "error"
+"unicorn-js/no-object-methods-with-collections" = "error"
+"unicorn-js/no-optional-chaining-on-undeclared-variable" = "error"
+"unicorn-js/no-prevent-default-in-passive-listener" = "error"
+"unicorn-js/no-process-exit" = "error"
+"unicorn-js/no-redundant-comparison" = "error"
+"unicorn-js/no-repeated-call-wrappers" = "off"
+"unicorn-js/no-return-array-push" = "error"
+"unicorn-js/no-selector-as-dom-name" = "error"
+"unicorn-js/no-shorthand-property-overrides" = "error"
+"unicorn-js/no-single-promise-in-promise-methods" = "error"
+"unicorn-js/no-static-only-class" = "error"
+"unicorn-js/no-subtraction-comparison" = "error"
+"unicorn-js/no-thenable" = "error"
+"unicorn-js/no-this-assignment" = "error"
+"unicorn-js/no-this-outside-of-class" = "error"
+"unicorn-js/no-top-level-assignment-in-function" = "error"
+"unicorn-js/no-top-level-side-effects" = "error"
+"unicorn-js/no-transition-all" = "error"
+"unicorn-js/no-typeof-undefined" = "error"
+"unicorn-js/no-uncalled-method" = "error"
+"unicorn-js/no-undeclared-class-members" = "error"
+"unicorn-js/no-unnecessary-array-flat-depth" = "error"
+"unicorn-js/no-unnecessary-array-flat-map" = "error"
+"unicorn-js/no-unnecessary-array-splice-count" = "error"
+"unicorn-js/no-unnecessary-await" = "error"
+"unicorn-js/no-unnecessary-boolean-comparison" = "error"
+"unicorn-js/no-unnecessary-default-arguments" = "off"
+"unicorn-js/no-unnecessary-fetch-options" = "error"
+"unicorn-js/no-unnecessary-global-this" = "error"
+"unicorn-js/no-unnecessary-nested-ternary" = "error"
+"unicorn-js/no-unnecessary-parameters" = "error"
+"unicorn-js/no-unnecessary-polyfills" = "error"
+"unicorn-js/no-unnecessary-slice-end" = "error"
+"unicorn-js/no-unnecessary-splice" = "error"
+"unicorn-js/no-unnecessary-string-trim" = "error"
+"unicorn-js/no-unreadable-array-destructuring" = "error"
+"unicorn-js/no-unreadable-for-of-expression" = "error"
+"unicorn-js/no-unreadable-iife" = "error"
+"unicorn-js/no-unreadable-new-expression" = "off"
+"unicorn-js/no-unreadable-object-destructuring" = "error"
+"unicorn-js/no-unsafe-buffer-conversion" = "error"
+"unicorn-js/no-unsafe-dom-html" = "off"
+"unicorn-js/no-unsafe-json-serialization" = "error"
+"unicorn-js/no-unsafe-promise-all-settled-values" = "error"
+"unicorn-js/no-unsafe-property-key" = "error"
+"unicorn-js/no-unsafe-sqlite-interpolation" = "error"
+"unicorn-js/no-unsafe-string-replacement" = "error"
+"unicorn-js/no-unused-builtin-method-return" = "error"
+"unicorn-js/no-unused-iterator-helper" = "error"
+"unicorn-js/no-unused-properties" = "off"
+"unicorn-js/no-url-in-search-params" = "error"
+"unicorn-js/no-useless-boolean-cast" = "error"
+"unicorn-js/no-useless-coercion" = "error"
+"unicorn-js/no-useless-collection-argument" = "error"
+"unicorn-js/no-useless-compound-assignment" = "error"
+"unicorn-js/no-useless-concat" = "error"
+"unicorn-js/no-useless-continue" = "error"
+"unicorn-js/no-useless-delete-check" = "error"
+"unicorn-js/no-useless-else" = "error"
+"unicorn-js/no-useless-error-capture-stack-trace" = "error"
+"unicorn-js/no-useless-fallback-in-spread" = "error"
+"unicorn-js/no-useless-iterator-to-array" = "error"
+"unicorn-js/no-useless-length-check" = "error"
+"unicorn-js/no-useless-logical-operand" = "error"
+"unicorn-js/no-useless-override" = "error"
+"unicorn-js/no-useless-promise-resolve-reject" = "error"
+"unicorn-js/no-useless-re-export" = "error"
+"unicorn-js/no-useless-recursion" = "error"
+"unicorn-js/no-useless-set-construction" = "error"
+"unicorn-js/no-useless-spread" = "error"
+"unicorn-js/no-useless-switch-case" = "error"
+"unicorn-js/no-useless-template-literals" = "error"
+"unicorn-js/no-useless-undefined" = "error"
+"unicorn-js/no-using-resource-escape" = "error"
+"unicorn-js/no-xor-as-exponentiation" = "error"
+"unicorn-js/no-zero-fractions" = "error"
+"unicorn-js/number-literal-case" = "off"
+"unicorn-js/numeric-separators-style" = "error"
+"unicorn-js/operator-assignment" = "error"
+"unicorn-js/prefer-abort-signal-any" = "error"
+"unicorn-js/prefer-abort-signal-timeout" = "error"
+"unicorn-js/prefer-add-event-listener" = "error"
+"unicorn-js/prefer-add-event-listener-options" = "error"
+"unicorn-js/prefer-aggregate-error" = "error"
+"unicorn-js/prefer-array-find" = "error"
+"unicorn-js/prefer-array-flat" = "error"
+"unicorn-js/prefer-array-flat-map" = "error"
+"unicorn-js/prefer-array-from-async" = "error"
+"unicorn-js/prefer-array-from-map" = "error"
+"unicorn-js/prefer-array-from-range" = "error"
+"unicorn-js/prefer-array-index-of" = "error"
+"unicorn-js/prefer-array-iterable-methods" = "error"
+"unicorn-js/prefer-array-last-methods" = "error"
+"unicorn-js/prefer-array-slice" = "error"
+"unicorn-js/prefer-array-some" = "error"
+"unicorn-js/prefer-at" = "error"
+"unicorn-js/prefer-await" = "error"
+"unicorn-js/prefer-bigint-literals" = "error"
+"unicorn-js/prefer-blob-reading-methods" = "error"
+"unicorn-js/prefer-block-statement-over-iife" = "error"
+"unicorn-js/prefer-boolean-return" = "error"
+"unicorn-js/prefer-class-fields" = "error"
+"unicorn-js/prefer-classlist-toggle" = "error"
+"unicorn-js/prefer-code-point" = "error"
+"unicorn-js/prefer-combined-guards" = "error"
+"unicorn-js/prefer-continue" = "error"
+"unicorn-js/prefer-date-now" = "error"
+"unicorn-js/prefer-default-parameters" = "error"
+"unicorn-js/prefer-direct-iteration" = "error"
+"unicorn-js/prefer-dispose" = "off"
+"unicorn-js/prefer-dom-node-append" = "error"
+"unicorn-js/prefer-dom-node-html-methods" = "error"
+"unicorn-js/prefer-dom-node-remove" = "error"
+"unicorn-js/prefer-dom-node-replace-children" = "error"
+"unicorn-js/prefer-dom-node-text-content" = "error"
+"unicorn-js/prefer-early-return" = "error"
+"unicorn-js/prefer-else-if" = "error"
+"unicorn-js/prefer-error-is-error" = "off"
+"unicorn-js/prefer-escaped-irregular-whitespace" = "error"
+"unicorn-js/prefer-event-target" = "error"
+"unicorn-js/prefer-export-from" = "error"
+"unicorn-js/prefer-flat-math-min-max" = "error"
+"unicorn-js/prefer-get-or-insert-computed" = "error"
+"unicorn-js/prefer-global-number-constants" = "error"
+"unicorn-js/prefer-global-this" = "off"
+"unicorn-js/prefer-group-by" = "error"
+"unicorn-js/prefer-has-check" = "error"
+"unicorn-js/prefer-hoisting-branch-code" = "error"
+"unicorn-js/prefer-https" = "error"
+"unicorn-js/prefer-identifier-import-export-specifiers" = "error"
+"unicorn-js/prefer-import-meta-properties" = "off"
+"unicorn-js/prefer-includes" = "error"
+"unicorn-js/prefer-includes-over-repeated-comparisons" = "error"
+"unicorn-js/prefer-iterable-in-constructor" = "error"
+"unicorn-js/prefer-iterator-concat" = "off"
+"unicorn-js/prefer-iterator-helpers" = "error"
+"unicorn-js/prefer-iterator-to-array" = "error"
+"unicorn-js/prefer-iterator-to-array-at-end" = "error"
+"unicorn-js/prefer-iterator-zip" = "error"
+"unicorn-js/prefer-json-import" = "off"
+"unicorn-js/prefer-keyboard-event-key" = "error"
+"unicorn-js/prefer-literal-ascii" = "error"
+"unicorn-js/prefer-location-assign" = "error"
+"unicorn-js/prefer-logical-operator-over-ternary" = "error"
+"unicorn-js/prefer-map-from-entries" = "error"
+"unicorn-js/prefer-math-abs" = "error"
+"unicorn-js/prefer-math-constants" = "error"
+"unicorn-js/prefer-math-min-max" = "error"
+"unicorn-js/prefer-math-trunc" = "error"
+"unicorn-js/prefer-minimal-ternary" = "error"
+"unicorn-js/prefer-modern-dom-apis" = "error"
+"unicorn-js/prefer-modern-math-apis" = "error"
+"unicorn-js/prefer-module" = "error"
+"unicorn-js/prefer-native-coercion-functions" = "error"
+"unicorn-js/prefer-negative-index" = "error"
+"unicorn-js/prefer-node-protocol" = "error"
+"unicorn-js/prefer-number-coercion" = "error"
+"unicorn-js/prefer-number-is-safe-integer" = "error"
+"unicorn-js/prefer-number-properties" = "error"
+"unicorn-js/prefer-object-define-properties" = "error"
+"unicorn-js/prefer-object-destructuring-defaults" = "error"
+"unicorn-js/prefer-object-from-entries" = "error"
+"unicorn-js/prefer-object-iterable-methods" = "error"
+"unicorn-js/prefer-observer-apis" = "error"
+"unicorn-js/prefer-optional-catch-binding" = "error"
+"unicorn-js/prefer-path2d" = "error"
+"unicorn-js/prefer-private-class-fields" = "error"
+"unicorn-js/prefer-promise-static-methods" = "error"
+"unicorn-js/prefer-promise-try" = "error"
+"unicorn-js/prefer-promise-with-resolvers" = "error"
+"unicorn-js/prefer-prototype-methods" = "error"
+"unicorn-js/prefer-query-selector" = "error"
+"unicorn-js/prefer-queue-microtask" = "error"
+"unicorn-js/prefer-reflect-apply" = "error"
+"unicorn-js/prefer-regexp-escape" = "off"
+"unicorn-js/prefer-regexp-test" = "error"
+"unicorn-js/prefer-response-static-json" = "error"
+"unicorn-js/prefer-scoped-selector" = "error"
+"unicorn-js/prefer-set-has" = "error"
+"unicorn-js/prefer-set-methods" = "error"
+"unicorn-js/prefer-set-size" = "error"
+"unicorn-js/prefer-short-arrow-method" = "off"
+"unicorn-js/prefer-short-escape-sequences" = "error"
+"unicorn-js/prefer-simple-condition-first" = "error"
+"unicorn-js/prefer-simple-sort-comparator" = "error"
+"unicorn-js/prefer-simplified-conditions" = "error"
+"unicorn-js/prefer-single-array-predicate" = "error"
+"unicorn-js/prefer-single-call" = "error"
+"unicorn-js/prefer-single-object-destructuring" = "error"
+"unicorn-js/prefer-single-replace" = "error"
+"unicorn-js/prefer-smaller-scope" = "error"
+"unicorn-js/prefer-split-limit" = "error"
+"unicorn-js/prefer-spread" = "off"
+"unicorn-js/prefer-string-match-all" = "error"
+"unicorn-js/prefer-string-pad-start-end" = "error"
+"unicorn-js/prefer-string-raw" = "error"
+"unicorn-js/prefer-string-repeat" = "error"
+"unicorn-js/prefer-string-replace-all" = "error"
+"unicorn-js/prefer-string-slice" = "error"
+"unicorn-js/prefer-string-starts-ends-with" = "error"
+"unicorn-js/prefer-string-trim-start-end" = "error"
+"unicorn-js/prefer-structured-clone" = "error"
+"unicorn-js/prefer-switch" = "error"
+"unicorn-js/prefer-temporal" = "off"
+"unicorn-js/prefer-temporal-conversion" = "error"
+"unicorn-js/prefer-ternary" = "error"
+"unicorn-js/prefer-then-catch" = "error"
+"unicorn-js/prefer-toggle-attribute" = "error"
+"unicorn-js/prefer-top-level-await" = "error"
+"unicorn-js/prefer-type-error" = "error"
+"unicorn-js/prefer-type-literal-last" = "error"
+"unicorn-js/prefer-uint8array-base64" = "off"
+"unicorn-js/prefer-uint8array-hex" = "off"
+"unicorn-js/prefer-unary-minus" = "error"
+"unicorn-js/prefer-unicode-code-point-escapes" = "error"
+"unicorn-js/prefer-url-can-parse" = "error"
+"unicorn-js/prefer-url-href" = "error"
+"unicorn-js/prefer-url-search-parameters" = "error"
+"unicorn-js/prefer-while-loop-condition" = "error"
+"unicorn-js/relative-url-style" = "error"
+"unicorn-js/require-array-join-separator" = "error"
+"unicorn-js/require-array-sort-compare" = "error"
+"unicorn-js/require-css-escape" = "error"
+"unicorn-js/require-frontmatter-fields" = "off"
+"unicorn-js/require-module-attributes" = "error"
+"unicorn-js/require-module-specifiers" = "error"
+"unicorn-js/require-number-to-fixed-digits-argument" = "error"
+"unicorn-js/require-passive-events" = "error"
+"unicorn-js/require-post-message-target-origin" = "off"
+"unicorn-js/require-proxy-trap-boolean-return" = "error"
+"unicorn-js/require-text-decoder-streaming" = "error"
+"unicorn-js/single-line-block-comment-style" = "error"
+"unicorn-js/string-content" = "off"
+"unicorn-js/switch-case-braces" = "error"
+"unicorn-js/switch-case-break-position" = "error"
+"unicorn-js/template-indent" = "off"
+"unicorn-js/text-encoding-identifier-case" = "error"
+"unicorn-js/throw-new-error" = "error"
+"unicorn-js/try-complexity" = "off"
+"use-isnan" = "error"
+"valid-typeof" = "error"
+"wrap-iife" = "off"
+"wrap-regex" = "off"
+"yield-star-spacing" = "off"
+
+[[lint.overrides]]
+files = ["**/*.{js,mjs,cjs}"]
+rules = {
+    "@next/next-js/google-font-display" = "off",
+    "@next/next-js/google-font-preconnect" = "off",
+    "@next/next-js/inline-script-id" = "off",
+    "@next/next-js/next-script-for-ga" = "off",
+    "@next/next-js/no-assign-module-variable" = "off",
+    "@next/next-js/no-async-client-component" = "off",
+    "@next/next-js/no-before-interactive-script-outside-document" = "off",
+    "@next/next-js/no-css-tags" = "off",
+    "@next/next-js/no-document-import-in-page" = "off",
+    "@next/next-js/no-duplicate-head" = "off",
+    "@next/next-js/no-head-element" = "off",
+    "@next/next-js/no-head-import-in-document" = "off",
+    "@next/next-js/no-html-link-for-pages" = "off",
+    "@next/next-js/no-img-element" = "off",
+    "@next/next-js/no-location-assign-relative-destination" = "off",
+    "@next/next-js/no-page-custom-font" = "off",
+    "@next/next-js/no-script-component-in-head" = "off",
+    "@next/next-js/no-styled-jsx-in-document" = "off",
+    "@next/next-js/no-sync-scripts" = "off",
+    "@next/next-js/no-title-in-document-head" = "off",
+    "@next/next-js/no-typos" = "off",
+    "@next/next-js/no-unwanted-polyfillio" = "off",
+    "@typescript-eslint/adjacent-overload-signatures" = "off",
+    "@typescript-eslint/array-type" = "off",
+    "@typescript-eslint/await-thenable" = "off",
+    "@typescript-eslint/ban-ts-comment" = "error",
+    "@typescript-eslint/ban-tslint-comment" = "off",
+    "@typescript-eslint/class-literal-property-style" = "off",
+    "@typescript-eslint/consistent-generic-constructors" = "off",
+    "@typescript-eslint/consistent-indexed-object-style" = "off",
+    "@typescript-eslint/consistent-type-assertions" = "off",
+    "@typescript-eslint/consistent-type-definitions" = "off",
+    "@typescript-eslint/consistent-type-imports" = "off",
+    "@typescript-eslint/dot-notation" = "off",
+    "@typescript-eslint/no-array-delete" = "off",
+    "@typescript-eslint/no-base-to-string" = "off",
+    "@typescript-eslint/no-confusing-non-null-assertion" = "off",
+    "@typescript-eslint/no-confusing-void-expression" = "off",
+    "@typescript-eslint/no-deprecated" = "off",
+    "@typescript-eslint/no-duplicate-type-constituents" = "off",
+    "@typescript-eslint/no-dynamic-delete" = "off",
+    "@typescript-eslint/no-empty-function" = "off",
+    "@typescript-eslint/no-extraneous-class" = "off",
+    "@typescript-eslint/no-floating-promises" = "off",
+    "@typescript-eslint/no-for-in-array" = "off",
+    "@typescript-eslint/no-generated-empty-object-type" = "off",
+    "@typescript-eslint/no-implied-eval" = "off",
+    "@typescript-eslint/no-inferrable-types" = "off",
+    "@typescript-eslint/no-invalid-void-type" = "off",
+    "@typescript-eslint/no-meaningless-void-operator" = "off",
+    "@typescript-eslint/no-misused-promises" = "off",
+    "@typescript-eslint/no-misused-spread" = "off",
+    "@typescript-eslint/no-mixed-enums" = "off",
+    "@typescript-eslint/no-non-null-asserted-nullish-coalescing" = "off",
+    "@typescript-eslint/no-non-null-assertion" = "off",
+    "@typescript-eslint/no-redundant-type-constituents" = "off",
+    "@typescript-eslint/no-unnecessary-boolean-literal-compare" = "off",
+    "@typescript-eslint/no-unnecessary-condition" = "off",
+    "@typescript-eslint/no-unnecessary-template-expression" = "off",
+    "@typescript-eslint/no-unnecessary-type-arguments" = "off",
+    "@typescript-eslint/no-unnecessary-type-assertion" = "off",
+    "@typescript-eslint/no-unnecessary-type-conversion" = "off",
+    "@typescript-eslint/no-unnecessary-type-parameters" = "off",
+    "@typescript-eslint/no-unsafe-argument" = "off",
+    "@typescript-eslint/no-unsafe-assignment" = "off",
+    "@typescript-eslint/no-unsafe-call" = "off",
+    "@typescript-eslint/no-unsafe-enum-assignment" = "off",
+    "@typescript-eslint/no-unsafe-enum-comparison" = "off",
+    "@typescript-eslint/no-unsafe-member-access" = "off",
+    "@typescript-eslint/no-unsafe-return" = "off",
+    "@typescript-eslint/no-unsafe-unary-minus" = "off",
+    "@typescript-eslint/no-unused-vars" = "error",
+    "@typescript-eslint/no-useless-constructor" = "off",
+    "@typescript-eslint/no-useless-default-assignment" = "off",
+    "@typescript-eslint/non-nullable-type-assertion-style" = "off",
+    "@typescript-eslint/only-throw-error" = "off",
+    "@typescript-eslint/prefer-find" = "off",
+    "@typescript-eslint/prefer-for-of" = "off",
+    "@typescript-eslint/prefer-function-type" = "off",
+    "@typescript-eslint/prefer-includes" = "off",
+    "@typescript-eslint/prefer-literal-enum-member" = "off",
+    "@typescript-eslint/prefer-nullish-coalescing" = "off",
+    "@typescript-eslint/prefer-optional-chain" = "off",
+    "@typescript-eslint/prefer-promise-reject-errors" = "off",
+    "@typescript-eslint/prefer-reduce-type-parameter" = "off",
+    "@typescript-eslint/prefer-regexp-exec" = "off",
+    "@typescript-eslint/prefer-return-this-type" = "off",
+    "@typescript-eslint/prefer-string-starts-ends-with" = "off",
+    "@typescript-eslint/related-getter-setter-pairs" = "off",
+    "@typescript-eslint/require-await" = "off",
+    "@typescript-eslint/restrict-plus-operands" = "off",
+    "@typescript-eslint/restrict-template-expressions" = "off",
+    "@typescript-eslint/return-await" = "off",
+    "@typescript-eslint/switch-exhaustiveness-check" = "off",
+    "@typescript-eslint/unbound-method" = "off",
+    "@typescript-eslint/unified-signatures" = "off",
+    "@typescript-eslint/use-unknown-in-catch-callback-variable" = "off",
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "constructor-super" = "error",
+    "dot-notation" = "off",
+    "drizzle/enforce-delete-with-where" = "off",
+    "drizzle/enforce-update-with-where" = "off",
+    "getter-return" = "error",
+    "jsx-a11y-js/alt-text" = "off",
+    "jsx-a11y-js/anchor-ambiguous-text" = "off",
+    "jsx-a11y-js/anchor-has-content" = "off",
+    "jsx-a11y-js/anchor-is-valid" = "off",
+    "jsx-a11y-js/aria-activedescendant-has-tabindex" = "off",
+    "jsx-a11y-js/aria-props" = "off",
+    "jsx-a11y-js/aria-proptypes" = "off",
+    "jsx-a11y-js/aria-role" = "off",
+    "jsx-a11y-js/aria-unsupported-elements" = "off",
+    "jsx-a11y-js/autocomplete-valid" = "off",
+    "jsx-a11y-js/click-events-have-key-events" = "off",
+    "jsx-a11y-js/control-has-associated-label" = "off",
+    "jsx-a11y-js/heading-has-content" = "off",
+    "jsx-a11y-js/html-has-lang" = "off",
+    "jsx-a11y-js/iframe-has-title" = "off",
+    "jsx-a11y-js/img-redundant-alt" = "off",
+    "jsx-a11y-js/interactive-supports-focus" = "off",
+    "jsx-a11y-js/label-has-associated-control" = "off",
+    "jsx-a11y-js/label-has-for" = "off",
+    "jsx-a11y-js/media-has-caption" = "off",
+    "jsx-a11y-js/mouse-events-have-key-events" = "off",
+    "jsx-a11y-js/no-access-key" = "off",
+    "jsx-a11y-js/no-autofocus" = "off",
+    "jsx-a11y-js/no-distracting-elements" = "off",
+    "jsx-a11y-js/no-interactive-element-to-noninteractive-role" = "off",
+    "jsx-a11y-js/no-noninteractive-element-interactions" = "off",
+    "jsx-a11y-js/no-noninteractive-element-to-interactive-role" = "off",
+    "jsx-a11y-js/no-noninteractive-tabindex" = "off",
+    "jsx-a11y-js/no-redundant-roles" = "off",
+    "jsx-a11y-js/no-static-element-interactions" = "off",
+    "jsx-a11y-js/role-has-required-aria-props" = "off",
+    "jsx-a11y-js/role-supports-aria-props" = "off",
+    "jsx-a11y-js/scope" = "off",
+    "jsx-a11y-js/tabindex-no-positive" = "off",
+    "no-class-assign" = "error",
+    "no-const-assign" = "error",
+    "no-dupe-args" = "error",
+    "no-dupe-class-members" = "error",
+    "no-dupe-keys" = "error",
+    "no-empty-function" = "off",
+    "no-func-assign" = "error",
+    "no-implied-eval" = "off",
+    "no-import-assign" = "error",
+    "no-new-native-nonconstructor" = "error",
+    "no-new-symbol" = "off",
+    "no-obj-calls" = "error",
+    "no-redeclare" = "error",
+    "no-return-await" = "off",
+    "no-setter-return" = "error",
+    "no-this-before-super" = "error",
+    "no-throw-literal" = "off",
+    "no-undef" = "error",
+    "no-unreachable" = "error",
+    "no-unsafe-negation" = "error",
+    "no-useless-constructor" = "off",
+    "no-var" = "off",
+    "no-with" = "error",
+    "prefer-const" = "off",
+    "prefer-promise-reject-errors" = "off",
+    "prefer-rest-params" = "off",
+    "prefer-spread" = "off",
+    "promise-js/always-return" = "off",
+    "promise-js/avoid-new" = "off",
+    "promise-js/catch-or-return" = "off",
+    "promise-js/no-callback-in-promise" = "off",
+    "promise-js/no-native" = "off",
+    "promise-js/no-nesting" = "off",
+    "promise-js/no-new-statics" = "off",
+    "promise-js/no-promise-in-callback" = "off",
+    "promise-js/no-return-in-finally" = "off",
+    "promise-js/no-return-wrap" = "off",
+    "promise-js/param-names" = "off",
+    "promise-js/valid-params" = "off",
+    "react-hooks-js/exhaustive-deps" = "off",
+    "react-hooks-js/rules-of-hooks" = "off",
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+    "require-await" = "off",
+    "unicorn-js/filename-case" = "error",
+    "unicorn-js/no-array-callback-reference" = "error",
+    "unicorn-js/no-array-reduce" = "error",
+    "unicorn-js/prefer-global-this" = "error",
+    "unicorn-js/prefer-module" = "off",
+    "unicorn-js/prefer-spread" = "error",
+}
+
+[[lint.overrides]]
+files = ["tests/**/*.{ts,tsx}"]
+rules = {
+    "no-restricted-syntax" = [
+        "error",
+        { message = "A test, hook or suite timeout above 10 seconds hides a slow test: make the test faster instead of raising its timeout.", selector = ":matches(CallExpression[callee.name=/^(it|test|describe|suite|bench|beforeAll|beforeEach|afterAll|afterEach)$/], CallExpression[callee.object.name=/^(it|test|describe|suite|bench)$/]) > Literal[value>10000]" },
+        { message = "A test, hook or suite timeout above 10 seconds hides a slow test: make the test faster instead of raising its timeout.", selector = "Property[key.name=/^(timeout|testTimeout|hookTimeout|teardownTimeout)$/][value.value>10000]" },
+        { message = "A test, hook or suite timeout above 10 seconds hides a slow test: make the test faster instead of raising its timeout.", selector = "Property[key.value=/^(timeout|testTimeout|hookTimeout|teardownTimeout)$/][value.value>10000]" },
+        { message = "A test, hook or suite timeout above 10 seconds hides a slow test: make the test faster instead of raising its timeout.", selector = ":matches(CallExpression[callee.name='setDefaultTimeout'], CallExpression[callee.property.name='setTimeout']) > Literal[value>10000]" },
+    ],
+}
+
+[[lint.overrides]]
+files = ["tests/**/*.tsx"]
+rules = {
+    "better-tailwindcss/enforce-canonical-classes" = [
+        "error",
+        { entryPoint = "src/styles/styles.css" },
+    ],
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/**/*.{ts,tsx}"]
+rules = {
+    "better-tailwindcss/enforce-canonical-classes" = [
+        "error",
+        { entryPoint = "src/styles/styles.css" },
+    ],
+    "better-tailwindcss/no-restricted-classes" = [
+        "error",
+        { entryPoint = "src/styles/styles.css", restrict = [
+            { message = "Use a type-* utility (type-micro, type-eyebrow, type-small, type-body, type-lead) or text-xs, text-sm, text-base instead of an arbitrary font size.", pattern = "^(?:[\\w\\[\\]&=:>*-]+:)*text-\\[\\d+(?:\\.\\d+)?(?:px|rem|em)\\](?:\\/.+)?$" },
+            { message = "The sm breakpoint is 375px here, so sm:grid-cols-* splits a phone screen. Keep one column on phone and split from md: or lg:.", pattern = "^(?:[\\w\\[\\]&=:>*-]+:)*sm:(?:[\\w\\[\\]&=:>*-]+:)*grid-cols-.+$" },
+            { message = "Show work in progress with Spinner from ~/components/ui/spinner, the one place that spins.", pattern = "^(?:[\\w\\[\\]&=:>*-]+:)*animate-spin$" },
+            { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", pattern = "^(?:[\\w\\[\\]&=:>*-]+:)*(?:text|bg|border|ring|outline|fill|stroke|from|via|to|decoration|divide|shadow|accent|caret)-(?:success|warning|destructive|danger)(?:-foreground)?(?:\\/.+)?$" },
+        ] },
+    ],
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "no-restricted-imports" = [
+        "error",
+        { patterns = [
+            { message = "Import through the ~/ alias (for example '~/lib/...'); only same-folder './' imports stay relative.", regex = "^\\.\\.(?:/|$)" },
+        ] },
+    ],
+    "no-restricted-syntax" = [
+        "error",
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "CallExpression[callee.type='MemberExpression'][callee.property.name='watch']" },
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "VariableDeclarator[init.callee.name=/^use(Form|FormContext)$/] > ObjectPattern > Property[key.name='watch']" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "Literal[value=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "TemplateElement[value.raw=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+    ],
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/**/*.tsx"]
+rules = {
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/lib/email/**"]
+rules = {
+    "better-tailwindcss/no-restricted-classes" = "off",
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/components/**/*.{ts,tsx}"]
+excludeFiles = ["src/components/ui/**"]
+rules = {
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "no-restricted-properties" = [
+        "error",
+        { message = "Format numbers for display with formatCount, formatNumber, formatCurrency or formatPercent from ~/lib/format, so every page groups and rounds the same way.", property = "toLocaleString" },
+        { message = "Format numbers for display with formatCount, formatNumber, formatCurrency or formatPercent from ~/lib/format, so every page groups and rounds the same way.", object = "Intl", property = "NumberFormat" },
+    ],
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/components/**/*.tsx"]
+excludeFiles = ["src/components/ui/**"]
+rules = {
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/components/**/*.tsx"]
+excludeFiles = ["src/components/ui/**", "src/components/ToolPanel.tsx"]
+rules = {
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "no-restricted-syntax" = [
+        "error",
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "CallExpression[callee.type='MemberExpression'][callee.property.name='watch']" },
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "VariableDeclarator[init.callee.name=/^use(Form|FormContext)$/] > ObjectPattern > Property[key.name='watch']" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "Literal[value=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "TemplateElement[value.raw=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+        { message = "Use the shadcn component from ~/components/ui (Button, Input, Label, FieldSet, Select, Textarea, Dialog, Collapsible, Progress) instead of a native form element.", selector = "JSXOpeningElement[name.name=/^(button|datalist|details|dialog|fieldset|input|label|legend|meter|option|progress|select|summary|textarea)$/]" },
+        { message = "Use Tooltip from ~/components/ui/tooltip instead of a native title tooltip.", selector = "JSXOpeningElement[name.name=/^(?!iframe$|svg$)[a-z]/] > JSXAttribute[name.name='title']" },
+        { message = "Spread CHART_BAR_PROPS from ~/components/ui/chart on every Bar, so a chart with one or two bars keeps a capped width instead of a slab.", selector = "JSXOpeningElement[name.name='Bar']:not(:has(JSXSpreadAttribute[argument.name='CHART_BAR_PROPS']))" },
+        { message = "Give a panel its heading through ToolPanel from ~/components/ToolPanel (serif title and optional description), not a hand-built CardHeader, CardTitle or CardDescription.", selector = "JSXOpeningElement[name.name=/^Card(Description|Header|Title)$/]" },
+        { message = "Show figures with StatStrip and label and value facts with DetailList from ~/components, not a hand-built dl, dt or dd list.", selector = "JSXOpeningElement[name.name=/^(dl|dt|dd)$/]" },
+    ],
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/components/ui/**"]
+rules = {
+    "better-tailwindcss/no-restricted-classes" = "off",
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/components/StatStrip.tsx", "src/components/DetailList.tsx"]
+rules = {
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "no-restricted-syntax" = [
+        "error",
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "CallExpression[callee.type='MemberExpression'][callee.property.name='watch']" },
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "VariableDeclarator[init.callee.name=/^use(Form|FormContext)$/] > ObjectPattern > Property[key.name='watch']" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "Literal[value=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "TemplateElement[value.raw=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+        { message = "Use the shadcn component from ~/components/ui (Button, Input, Label, FieldSet, Select, Textarea, Dialog, Collapsible, Progress) instead of a native form element.", selector = "JSXOpeningElement[name.name=/^(button|datalist|details|dialog|fieldset|input|label|legend|meter|option|progress|select|summary|textarea)$/]" },
+        { message = "Use Tooltip from ~/components/ui/tooltip instead of a native title tooltip.", selector = "JSXOpeningElement[name.name=/^(?!iframe$|svg$)[a-z]/] > JSXAttribute[name.name='title']" },
+        { message = "Spread CHART_BAR_PROPS from ~/components/ui/chart on every Bar, so a chart with one or two bars keeps a capped width instead of a slab.", selector = "JSXOpeningElement[name.name='Bar']:not(:has(JSXSpreadAttribute[argument.name='CHART_BAR_PROPS']))" },
+        { message = "Give a panel its heading through ToolPanel from ~/components/ToolPanel (serif title and optional description), not a hand-built CardHeader, CardTitle or CardDescription.", selector = "JSXOpeningElement[name.name=/^Card(Description|Header|Title)$/]" },
+    ],
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/app/**/*.{ts,tsx}"]
+rules = {
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "no-restricted-imports" = [
+        "error",
+        { paths = [{ importNames = ["format"], message = "Format dates for display with formatDisplayDate, formatDisplayDateTime, formatDisplayDateRange or formatDisplayMonth from ~/lib/format, so every page shows one format (18 Oct 2026, 08:58).", name = "date-fns" }, { importNames = ["formatDistanceToNow"], message = "Show relative times with RelativeTime from ~/components/RelativeTime, which formats after hydration so the server and client render the same text.", name = "date-fns" }], patterns = [{ message = "Import through the ~/ alias (for example '~/lib/...'); only same-folder './' imports stay relative.", regex = "^\\.\\.(?:/|$)" }] },
+    ],
+    "no-restricted-properties" = [
+        "error",
+        { message = "Format dates for display with formatDisplayDate, formatDisplayDateTime, formatDisplayDateRange or formatDisplayMonth from ~/lib/format, so every page shows one format (18 Oct 2026, 08:58).", property = "toLocaleDateString" },
+        { message = "Format dates for display with formatDisplayDate, formatDisplayDateTime, formatDisplayDateRange or formatDisplayMonth from ~/lib/format, so every page shows one format (18 Oct 2026, 08:58).", property = "toLocaleTimeString" },
+        { message = "Format dates for display with formatDisplayDate, formatDisplayDateTime, formatDisplayDateRange or formatDisplayMonth from ~/lib/format, so every page shows one format (18 Oct 2026, 08:58).", object = "Intl", property = "DateTimeFormat" },
+        { message = "Format numbers for display with formatCount, formatNumber, formatCurrency or formatPercent from ~/lib/format, so every page groups and rounds the same way.", property = "toLocaleString" },
+        { message = "Format numbers for display with formatCount, formatNumber, formatCurrency or formatPercent from ~/lib/format, so every page groups and rounds the same way.", object = "Intl", property = "NumberFormat" },
+    ],
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = ["src/app/**/*.tsx"]
+rules = {
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "no-restricted-syntax" = [
+        "error",
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "CallExpression[callee.type='MemberExpression'][callee.property.name='watch']" },
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "VariableDeclarator[init.callee.name=/^use(Form|FormContext)$/] > ObjectPattern > Property[key.name='watch']" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "Literal[value=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "TemplateElement[value.raw=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+        { message = "Use the shadcn component from ~/components/ui (Button, Input, Label, FieldSet, Select, Textarea, Dialog, Collapsible, Progress) instead of a native form element.", selector = "JSXOpeningElement[name.name=/^(button|datalist|details|dialog|fieldset|input|label|legend|meter|option|progress|select|summary|textarea)$/]" },
+        { message = "Use Tooltip from ~/components/ui/tooltip instead of a native title tooltip.", selector = "JSXOpeningElement[name.name=/^(?!iframe$|svg$)[a-z]/] > JSXAttribute[name.name='title']" },
+        { message = "Spread CHART_BAR_PROPS from ~/components/ui/chart on every Bar, so a chart with one or two bars keeps a capped width instead of a slab.", selector = "JSXOpeningElement[name.name='Bar']:not(:has(JSXSpreadAttribute[argument.name='CHART_BAR_PROPS']))" },
+        { message = "Give a panel its heading through ToolPanel from ~/components/ToolPanel (serif title and optional description), not a hand-built CardHeader, CardTitle or CardDescription.", selector = "JSXOpeningElement[name.name=/^Card(Description|Header|Title)$/]" },
+        { message = "Use Alert only with variant=\"destructive\", for errors. Show a computed verdict or state with StatusRow from ~/components/StatusRow, and an explanation with InfoNote from ~/components/InfoNote or the info prop of ToolPanel.", selector = "JSXOpeningElement[name.name='Alert']:not(:has(JSXAttribute[name.name='variant'][value.value='destructive']))" },
+        { message = "Use the shared headings: PageHeader for the page title, ToolPanel for a panel title, ToolSectionHeading above a group of panels, PanelSubheading for a sub-section inside a panel.", selector = "JSXOpeningElement[name.name=/^h[1-6]$/]" },
+        { message = "Show figures with StatStrip and label and value facts with DetailList from ~/components, not a hand-built dl, dt or dd list.", selector = "JSXOpeningElement[name.name=/^(dl|dt|dd)$/]" },
+    ],
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}
+
+[[lint.overrides]]
+files = [
+    "src/app/(app)/_components/home/**/*.tsx",
+    "src/app/(app)/_components/Portfolio/**/*.tsx",
+]
+rules = {
+    "bun:test/no-disabled-tests" = "off",
+    "bun:test/no-export" = "off",
+    "bun:test/no-focused-tests" = "off",
+    "bun:test/valid-describe-callback" = "off",
+    "bun:test/valid-expect" = "off",
+    "bun:test/valid-expect-in-promise" = "off",
+    "no-restricted-syntax" = [
+        "error",
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "CallExpression[callee.type='MemberExpression'][callee.property.name='watch']" },
+        { message = "Read form values with useWatch({ control, name }): react-hook-form's watch() is not React Compiler safe, so the component can stop re-rendering.", selector = "VariableDeclarator[init.callee.name=/^use(Form|FormContext)$/] > ObjectPattern > Property[key.name='watch']" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "Literal[value=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+        { message = "No colour coding: show a value, sign, grade or state with words, a sign (+ or -) or an icon in the default ink. Errors use FieldError or Alert variant=\"destructive\", destructive actions use the destructive Button or menu item variant, and charts take their series colours from the --chart-* palette.", selector = "TemplateElement[value.raw=/--(?:color-)?(?:success|warning|danger|destructive)\\b/]" },
+        { message = "Use the shadcn component from ~/components/ui (Button, Input, Label, FieldSet, Select, Textarea, Dialog, Collapsible, Progress) instead of a native form element.", selector = "JSXOpeningElement[name.name=/^(button|datalist|details|dialog|fieldset|input|label|legend|meter|option|progress|select|summary|textarea)$/]" },
+        { message = "Use Tooltip from ~/components/ui/tooltip instead of a native title tooltip.", selector = "JSXOpeningElement[name.name=/^(?!iframe$|svg$)[a-z]/] > JSXAttribute[name.name='title']" },
+        { message = "Spread CHART_BAR_PROPS from ~/components/ui/chart on every Bar, so a chart with one or two bars keeps a capped width instead of a slab.", selector = "JSXOpeningElement[name.name='Bar']:not(:has(JSXSpreadAttribute[argument.name='CHART_BAR_PROPS']))" },
+        { message = "Give a panel its heading through ToolPanel from ~/components/ToolPanel (serif title and optional description), not a hand-built CardHeader, CardTitle or CardDescription.", selector = "JSXOpeningElement[name.name=/^Card(Description|Header|Title)$/]" },
+        { message = "Use Alert only with variant=\"destructive\", for errors. Show a computed verdict or state with StatusRow from ~/components/StatusRow, and an explanation with InfoNote from ~/components/InfoNote or the info prop of ToolPanel.", selector = "JSXOpeningElement[name.name='Alert']:not(:has(JSXAttribute[name.name='variant'][value.value='destructive']))" },
+        { message = "Show figures with StatStrip and label and value facts with DetailList from ~/components, not a hand-built dl, dt or dd list.", selector = "JSXOpeningElement[name.name=/^(dl|dt|dd)$/]" },
+    ],
+    "react/jsx-key" = "off",
+    "react/jsx-uses-react" = "off",
+}

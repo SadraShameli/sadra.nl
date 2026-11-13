@@ -1,9 +1,12 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
-import { aliasPathOf } from '../../../importSpecifiers';
+import {
+    aliasPathOf,
+    importSpecifiersOf,
+    isTypeOnlyImportClause,
+} from '../../../importSpecifiers';
 
 const SOURCE_ROOT = path.join(process.cwd(), 'src');
 const PROP_CALCULATOR = path.join(SOURCE_ROOT, 'lib', 'prop-calculator');
@@ -26,69 +29,11 @@ interface ImportGraph {
 }
 
 function importEdges(file: string): ImportEdge[] {
-    const source = ts.createSourceFile(
-        file,
-        readFileSync(file, 'utf8'),
-        ts.ScriptTarget.Latest,
-        false,
-        file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-    );
-    const edges: ImportEdge[] = [];
-    const visit = (node: ts.Node): void => {
-        if (
-            ts.isImportDeclaration(node) &&
-            ts.isStringLiteral(node.moduleSpecifier)
-        ) {
-            edges.push({
-                isTypeOnly: isTypeOnlyImport(node),
-                specifier: node.moduleSpecifier.text,
-            });
-        } else if (
-            ts.isExportDeclaration(node) &&
-            node.moduleSpecifier &&
-            ts.isStringLiteral(node.moduleSpecifier)
-        ) {
-            edges.push({
-                isTypeOnly: isTypeOnlyExport(node),
-                specifier: node.moduleSpecifier.text,
-            });
-        } else if (
-            ts.isCallExpression(node) &&
-            node.expression.kind === ts.SyntaxKind.ImportKeyword
-        ) {
-            const [argument] = node.arguments;
-            if (argument && ts.isStringLiteral(argument)) {
-                edges.push({ isTypeOnly: false, specifier: argument.text });
-            }
-        }
-        ts.forEachChild(node, visit);
-    };
-    visit(source);
-    return edges;
-}
-
-function isTypeOnlyExport(node: ts.ExportDeclaration): boolean {
-    if (node.isTypeOnly) return true;
-    const clause = node.exportClause;
-    return (
-        clause !== undefined &&
-        ts.isNamedExports(clause) &&
-        clause.elements.length > 0 &&
-        clause.elements.every((element) => element.isTypeOnly)
-    );
-}
-
-function isTypeOnlyImport(node: ts.ImportDeclaration): boolean {
-    const clause = node.importClause;
-    if (!clause) return false;
-    if (clause.phaseModifier === ts.SyntaxKind.TypeKeyword) return true;
-    if (clause.name) return false;
-    const bindings = clause.namedBindings;
-    return (
-        bindings !== undefined &&
-        ts.isNamedImports(bindings) &&
-        bindings.elements.length > 0 &&
-        bindings.elements.every((element) => element.isTypeOnly)
+    return importSpecifiersOf(readFileSync(file, 'utf8')).map(
+        ({ clause, specifier }) => ({
+            isTypeOnly: isTypeOnlyImportClause(clause),
+            specifier,
+        }),
     );
 }
 

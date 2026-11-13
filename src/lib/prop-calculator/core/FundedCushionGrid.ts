@@ -30,7 +30,6 @@ export class FundedCushionGrid {
     private readonly fineStep: number;
     private readonly fineTop: number;
     private readonly tailStep: number;
-    private readonly tailTop: number;
 
     readonly size: number;
 
@@ -73,7 +72,6 @@ export class FundedCushionGrid {
         this.fineStep = fineStep;
         this.fineTop = fineTop;
         this.tailStep = tailStep;
-        this.tailTop = tailTop;
         this.fineCount = Math.round(fineTop / fineStep);
         const tailCount =
             tailTop <= fineTop + BUCKET_EPSILON

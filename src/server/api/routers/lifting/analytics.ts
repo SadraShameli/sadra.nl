@@ -165,7 +165,7 @@ export const liftingAnalyticsRouter = createTRPCRouter({
         }),
 
     summaryHero: protectedProcedure.query(async ({ ctx }) => {
-        const [lastWorkout] = await ctx.db
+        const [lastWorkout = null] = await ctx.db
             .select({
                 endedAt: liftingWorkout.endedAt,
                 id: liftingWorkout.id,
@@ -191,7 +191,7 @@ export const liftingAnalyticsRouter = createTRPCRouter({
         const dates = history.map((w) => w.startedAt);
         return {
             currentStreak: analyzer.currentStreak(dates),
-            lastWorkout: lastWorkout ?? null,
+            lastWorkout,
             recentPrs,
             sessionsThisWeek: analyzer.sessionsPerWeek(dates, 1),
         };

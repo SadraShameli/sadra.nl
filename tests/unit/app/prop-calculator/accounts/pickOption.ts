@@ -4,7 +4,7 @@ export async function pickOption(
     trigger: HTMLElement,
     optionText: ((text: string) => boolean) | string,
 ) {
-    const isWanted =
+    const matchesOption =
         typeof optionText === 'string'
             ? (text: string) => text === optionText
             : optionText;
@@ -16,7 +16,7 @@ export async function pickOption(
     });
     const option = [
         ...document.querySelectorAll<HTMLElement>('[role="option"]'),
-    ].find((candidate) => isWanted(candidate.textContent.trim()));
+    ].find((candidate) => matchesOption(candidate.textContent.trim()));
     if (option === undefined) {
         throw new Error(
             `no option ${typeof optionText === 'string' ? optionText : 'matching the test'}`,

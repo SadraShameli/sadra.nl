@@ -147,7 +147,7 @@ function withCallbackUrl(callbackUrl: null | string): void {
             ? new URLSearchParams()
             : new URLSearchParams({ callbackUrl });
     const search = query.toString();
-    globalThis.history.replaceState(
+    history.replaceState(
         null,
         '',
         search === '' ? routes.auth.login : `${routes.auth.login}?${search}`,

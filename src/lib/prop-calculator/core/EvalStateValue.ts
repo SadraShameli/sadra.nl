@@ -305,7 +305,8 @@ function solveEvalDp(
     const stopRule: DayStopRule = config.stopRule ?? {
         kind: DayStopRuleKind.None,
     };
-    if (!PNL_ONLY_STOP_RULE_KINDS[stopRule.kind]) {
+    const isPnlOnlyStopRule = PNL_ONLY_STOP_RULE_KINDS[stopRule.kind];
+    if (!isPnlOnlyStopRule) {
         throw new Error(
             `${plan.label}: EvalStateValue's cushion-gridded within-day solve only supports stop rules whose trigger depends solely on today's running P&L (none/day-green/after-target): "${stopRule.kind}" depends on the day's loss/win sequence, which the grid does not track per-bucket`,
         );

@@ -74,7 +74,7 @@ class EBoekhoudenSession extends ProviderSessionBase {
     readonly relations: RelationsResource;
     readonly sessions: SessionsResource;
 
-    constructor(private readonly client: EBoekhoudenClient) {
+    constructor(client: EBoekhoudenClient) {
         super();
         this.sessions = new SessionsResource(client);
         this.administrations = new AdministrationsResource(client);

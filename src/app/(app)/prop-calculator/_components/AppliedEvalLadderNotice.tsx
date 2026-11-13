@@ -42,7 +42,8 @@ export function AppliedEvalLadderNotice({
     const { setEvalDayPolicy } = useCalculatorActions();
     const appliedLadder = describeAppliedEvalLadder(state);
     if (appliedLadder === null) return null;
-    const rungSizing = LISTS_RUNG_SIZING[scope]
+    const listsRungSizing = LISTS_RUNG_SIZING[scope];
+    const rungSizing = listsRungSizing
         ? describeNonDefaultRungSizing(state.rungSizing)
         : null;
     return (
