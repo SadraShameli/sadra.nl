@@ -61,11 +61,30 @@ describe('manualMutationInputSchema', () => {
         ).toBe(false);
     });
 
-    it('rejects a description longer than 50 chars', () => {
+    it('accepts a description of exactly 255 chars', () => {
         expect(
             manualMutationInputSchema.safeParse({
                 ...baseInput,
-                description: 'x'.repeat(51),
+                description: 'x'.repeat(255),
+                rowDescription: 'x'.repeat(255),
+            }).success,
+        ).toBe(true);
+    });
+
+    it('rejects a description longer than 255 chars', () => {
+        expect(
+            manualMutationInputSchema.safeParse({
+                ...baseInput,
+                description: 'x'.repeat(256),
+            }).success,
+        ).toBe(false);
+    });
+
+    it('rejects an invoice number longer than 50 chars', () => {
+        expect(
+            manualMutationInputSchema.safeParse({
+                ...baseInput,
+                invoiceNumber: 'x'.repeat(51),
             }).success,
         ).toBe(false);
     });

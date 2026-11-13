@@ -10,15 +10,18 @@ import {
     VatCode,
 } from '~/lib/accounting/providers/eboekhouden/enums';
 
-const DESCRIPTION_MAX_LENGTH = 50;
+const DESCRIPTION_MAX_LENGTH = 255;
+const INVOICE_NUMBER_MAX_LENGTH = 50;
+const PAYMENT_REFERENCE_MAX_LENGTH = 50;
 
 export const manualMutationInputSchema = z.object({
     amount: z.coerce.number().refine((n) => n !== 0, 'Amount cannot be zero'),
     date: isoDateSchema,
     description: z.string().max(DESCRIPTION_MAX_LENGTH).optional(),
     inExVat: z.enum(InExVat).optional(),
-    invoiceNumber: z.string().max(DESCRIPTION_MAX_LENGTH).optional(),
+    invoiceNumber: z.string().max(INVOICE_NUMBER_MAX_LENGTH).optional(),
     ledger: z.coerce.number().int().positive(),
+    paymentReference: z.string().max(PAYMENT_REFERENCE_MAX_LENGTH).optional(),
     relationId: z.coerce.number().int().positive().optional(),
     rowDescription: z.string().max(DESCRIPTION_MAX_LENGTH).optional(),
     rowLedger: z.coerce.number().int().positive(),
@@ -36,6 +39,10 @@ export function buildManualMutationPayload(
             ? InExVat.Excluding
             : InExVat.Including);
     return {
+        ...(input.paymentReference !== undefined && {
+            checkPaymentReference: true,
+            paymentReference: input.paymentReference,
+        }),
         date: input.date,
         description: input.description,
         inExVat,
