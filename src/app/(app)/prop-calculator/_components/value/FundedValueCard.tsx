@@ -53,10 +53,10 @@ export function FundedValueCard({
 }) {
     const [sampleSizeText, setSampleSizeText] = useState('');
     const isSampleSizeInvalid = isInvalidSampleSizeField(sampleSizeText);
-    const sampleSize = fundedValueSampleSize(
-        rulebookSampleThreshold,
-        parseFundedValueSampleSizeField(sampleSizeText),
-    );
+    const sampleSize = fundedValueSampleSize({
+        entered: parseFundedValueSampleSizeField(sampleSizeText),
+        rulebookThreshold: rulebookSampleThreshold,
+    });
 
     const inputs = useMemo(() => ({ cards, sampleSize }), [cards, sampleSize]);
     const settled = useDebouncedValue(inputs, SIM_DEBOUNCE_MS);

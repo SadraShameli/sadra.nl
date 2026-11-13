@@ -1,5 +1,6 @@
 import { type Route } from 'next';
 
+import { withFallback } from '~/lib/schemas/withFallback';
 import {
     type PathWithQuery,
     routes,
@@ -48,7 +49,7 @@ export function loginRedirectFor(
 export function readCallbackUrl(
     searchParameters: Pick<URLSearchParams, 'get'>,
 ): Route {
-    return callbackUrlSchema
-        .catch(routes.home)
-        .parse(searchParameters.get('callbackUrl'));
+    return withFallback(callbackUrlSchema, routes.home).parse(
+        searchParameters.get('callbackUrl'),
+    );
 }

@@ -24,7 +24,7 @@ export function PercentInput({
                 onChange={(event) => onChange(Number(event.target.value))}
                 step={1}
                 type="number"
-                value={value || ''}
+                value={value === 0 || Number.isNaN(value) ? '' : value}
             />
             <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
                 %

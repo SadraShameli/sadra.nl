@@ -538,15 +538,21 @@ describe('dollar sample range text (F-V17, PT-82)', () => {
 
 describe('fundedValueSampleSize (PT-66)', () => {
     it('is empty until a threshold or an entered value exists', () => {
-        expect(fundedValueSampleSize(null, null)).toBeNull();
+        expect(
+            fundedValueSampleSize({ entered: null, rulebookThreshold: null }),
+        ).toBeNull();
     });
 
     it('uses the rulebook threshold when nothing is entered', () => {
-        expect(fundedValueSampleSize(10, null)).toBe(10);
+        expect(
+            fundedValueSampleSize({ entered: null, rulebookThreshold: 10 }),
+        ).toBe(10);
     });
 
     it('prefers the entered value over the rulebook threshold', () => {
-        expect(fundedValueSampleSize(10, 25)).toBe(25);
+        expect(
+            fundedValueSampleSize({ entered: 25, rulebookThreshold: 10 }),
+        ).toBe(25);
     });
 });
 

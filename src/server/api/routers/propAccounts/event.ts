@@ -410,13 +410,13 @@ async function suspensionsOf({
         );
     }
     const confirmedIds = new Set(siblings.map((sibling) => sibling.account.id));
-    const [leftOutId, leftOutLabel] =
-        required
-            .entries()
-            .find(([accountId]) => !confirmedIds.has(accountId)) ?? [];
-    if (leftOutId !== undefined) {
+    const leftOut = required
+        .entries()
+        .find(([accountId]) => !confirmedIds.has(accountId));
+    if (leftOut !== undefined) {
+        const [leftOutId, leftOutLabel] = leftOut;
         throw exclusivityRejection(
-            `Account "${leftOutLabel ?? leftOutId}" (${leftOutId}) is one of the accounts the firm's verified policy suspends when an account moves live; confirm it too, or leave this move live unrecorded`,
+            `Account "${leftOutLabel}" (${leftOutId}) is one of the accounts the firm's verified policy suspends when an account moves live; confirm it too, or leave this move live unrecorded`,
         );
     }
     if (siblings.length === 0) return [];

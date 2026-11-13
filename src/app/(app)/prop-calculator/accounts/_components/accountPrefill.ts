@@ -10,6 +10,7 @@ import {
     serializePlanId,
 } from '~/lib/prop-calculator';
 import { CalculatorUrlParameter, UrlFlag } from '~/lib/schemas/url';
+import { withFallback } from '~/lib/schemas/withFallback';
 import { type PathWithQuery, routes } from '~/lib/site/routes';
 
 import { keepOfferedOptIns } from './accountPlanOptions';
@@ -42,7 +43,10 @@ const optInFlagSchema = z
 
 const prefillQuerySchema = z.object({
     [CalculatorUrlParameter.EarlyWithdrawal]: optInFlagSchema,
-    [CalculatorUrlParameter.Firm]: z.enum(FirmId).optional().catch(undefined),
+    [CalculatorUrlParameter.Firm]: withFallback(
+        z.enum(FirmId).optional(),
+        undefined,
+    ),
     [CalculatorUrlParameter.FundedReset]: optInFlagSchema,
     [CalculatorUrlParameter.Plan]: z.string().optional(),
 });
@@ -68,7 +72,8 @@ export function accountPrefillQuery(prefill: AccountPrefill): string {
         query.set(CalculatorUrlParameter.Plan, prefill.planSerial);
     }
     for (const optIn of Object.values(PlanOptIn)) {
-        if (prefill.optIns[planOptInField(optIn)]) {
+        const isOptedIn = prefill.optIns[planOptInField(optIn)];
+        if (isOptedIn) {
             query.set(OPT_IN_PARAMETERS[optIn], UrlFlag.On);
         }
     }

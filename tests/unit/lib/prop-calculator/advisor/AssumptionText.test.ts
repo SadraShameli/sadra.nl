@@ -43,15 +43,16 @@ const TEXT_FILE = path.join(
 const SOURCE_FILE = /\.tsx?$/;
 const KIND_TEXT_ENTRY = /\[AssumptionKind\.[A-Za-z]+\]:/;
 
+const NON_INPUT_KINDS: ReadonlySet<AssumptionKind> = new Set([
+    AssumptionKind.CumulativePayoutTriggerPriced,
+    AssumptionKind.LadderStepWidened,
+    AssumptionKind.LiveTransferHazard,
+    AssumptionKind.SizingRule,
+]);
+
 const INPUT_KINDS: readonly InputAssumptionKind[] = Object.values(
     AssumptionKind,
-).filter(
-    (kind): kind is InputAssumptionKind =>
-        kind !== AssumptionKind.SizingRule &&
-        kind !== AssumptionKind.LiveTransferHazard &&
-        kind !== AssumptionKind.LadderStepWidened &&
-        kind !== AssumptionKind.CumulativePayoutTriggerPriced,
-);
+).filter((kind): kind is InputAssumptionKind => !NON_INPUT_KINDS.has(kind));
 
 async function filesUnder(directory: string): Promise<string[]> {
     const entries = await readdir(directory, { withFileTypes: true });

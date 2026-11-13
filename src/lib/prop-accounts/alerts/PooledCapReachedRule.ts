@@ -55,6 +55,21 @@ export class PooledCapReachedRule extends AlertRule {
     }
 }
 
+function fundedPlanGroupOf(
+    accounts: ModeledMonitoredAccount[],
+): FundedPlanGroup | undefined {
+    const first = accounts[0];
+    if (first?.plan.kind !== PlanKeyResolutionKind.Resolved) return undefined;
+    const firm = findStoredFirm(first.planKey.firmId);
+    if (firm === undefined) return undefined;
+    return {
+        accounts,
+        firm,
+        plan: first.plan.plan,
+        planSerial: first.planKey.planSerial,
+    };
+}
+
 function fundedPlanGroupsOf(context: AlertContext): readonly FundedPlanGroup[] {
     const funded = context.accounts.filter(
         (monitored): monitored is ModeledMonitoredAccount =>
@@ -69,21 +84,7 @@ function fundedPlanGroupsOf(context: AlertContext): readonly FundedPlanGroup[] {
     );
     return byPlanSerial
         .values()
-        .flatMap((accounts) => {
-            const first = accounts[0];
-            if (first?.plan.kind !== PlanKeyResolutionKind.Resolved) {
-                return [];
-            }
-            const firm = findStoredFirm(first.planKey.firmId);
-            if (firm === undefined) return [];
-            return [
-                {
-                    accounts,
-                    firm,
-                    plan: first.plan.plan,
-                    planSerial: first.planKey.planSerial,
-                },
-            ];
-        })
+        .map(fundedPlanGroupOf)
+        .filter((group): group is FundedPlanGroup => group !== undefined)
         .toArray();
 }

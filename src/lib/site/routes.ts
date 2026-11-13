@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 const SAME_ORIGIN_PATH = /^\/(?![/\\])[^\\\p{Cc}]*$/u;
 
+const EMPTY_QUERY_VALUES: ReadonlySet<unknown> = new Set(['', null, undefined]);
+
 export const sameOriginRouteSchema = z.custom<Route>(
     (value) => typeof value === 'string' && SAME_ORIGIN_PATH.test(value),
     'Must be a same-origin path',
@@ -146,7 +148,7 @@ export function withQuery<const P extends string>(
     parameters: Record<string, null | number | string | undefined>,
 ): PathWithQuery<P> {
     const entries = Object.entries(parameters).filter(
-        ([, v]) => v !== undefined && v !== null && v !== '',
+        ([, v]) => !EMPTY_QUERY_VALUES.has(v),
     );
     if (entries.length === 0) return path;
     const qs = new URLSearchParams(

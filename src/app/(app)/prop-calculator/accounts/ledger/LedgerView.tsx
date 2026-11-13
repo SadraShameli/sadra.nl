@@ -826,7 +826,11 @@ function LedgerFilterBar({
             <FilterSelect
                 label="Account"
                 onValueChange={(value) => {
-                    onChange({ ...filters, accountId: value ?? null });
+                    if (value === undefined) {
+                        onChange({ ...filters, accountId: null });
+                        return;
+                    }
+                    onChange({ ...filters, accountId: value });
                 }}
                 options={accountOptions}
                 placeholder="All accounts"

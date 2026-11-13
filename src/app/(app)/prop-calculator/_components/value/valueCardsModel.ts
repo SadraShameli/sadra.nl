@@ -136,11 +136,11 @@ export function fundedValueEstimateToolsRequest(
     };
 }
 
-export function fundedValueSampleSize(
-    rulebookThreshold: null | number,
-    entered: null | number,
-): null | number {
-    return entered ?? rulebookThreshold;
+export function fundedValueSampleSize(sizes: {
+    readonly entered: null | number;
+    readonly rulebookThreshold: null | number;
+}): null | number {
+    return sizes.entered ?? sizes.rulebookThreshold;
 }
 
 export function isInvalidSampleSizeField(raw: string): boolean {

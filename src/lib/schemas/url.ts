@@ -20,12 +20,14 @@ import {
     formBoundedNumberSchema,
     formPositiveWholeNumberSchema,
 } from '~/lib/schemas/formNumber';
+import { withFallback } from '~/lib/schemas/withFallback';
 
 export const OBJECTIVE_URL_PARAMETER = 'obj';
 
-export const objectiveUrlSchema = z
-    .enum(SizingObjective)
-    .catch(SizingObjective.MonthlyNet);
+export const objectiveUrlSchema = withFallback(
+    z.enum(SizingObjective),
+    SizingObjective.MonthlyNet,
+);
 
 export const PROFILE_TAB_VALUES = [
     'account',
@@ -36,7 +38,10 @@ export const PROFILE_TAB_VALUES = [
     'users',
 ] as const;
 
-export const profileTabSchema = z.enum(PROFILE_TAB_VALUES).catch('account');
+export const profileTabSchema = withFallback(
+    z.enum(PROFILE_TAB_VALUES),
+    'account',
+);
 
 export type ProfileTab = z.infer<typeof profileTabSchema>;
 
@@ -62,7 +67,7 @@ export const resetPasswordSearchSchema = z.object({
 
 export const verifyRequestSearchSchema = z.object({
     email: z.string().optional(),
-    link: z.enum(EmailLink).catch(EmailLink.SignIn),
+    link: withFallback(z.enum(EmailLink), EmailLink.SignIn),
 });
 
 export const authErrorSearchSchema = z.object({
@@ -98,9 +103,10 @@ export const dayStopRuleSchema = z.discriminatedUnion('kind', [
 export const dayPolicySchema = z.object({
     ladder: ladderRungsSchema,
     maxLossesPerDay: stopLossCountSchema.nullable(),
-    sizing: z
-        .literal(PolicySizing.ContractCapped)
-        .catch(PolicySizing.ContractCapped),
+    sizing: withFallback(
+        z.literal(PolicySizing.ContractCapped),
+        PolicySizing.ContractCapped,
+    ),
     stopRule: dayStopRuleSchema,
 });
 
@@ -163,7 +169,10 @@ export const MAX_LAB_SCENARIOS = 20;
 
 function schemaFromBound({ fallback, isInteger, max, min }: ScalarBound) {
     const base = z.coerce.number().min(min).max(max);
-    return (isInteger ? base.transform(Math.floor) : base).catch(fallback);
+    return withFallback(
+        isInteger ? base.transform(Math.floor) : base,
+        fallback,
+    );
 }
 
 export const INSTRUMENT_STOP_PAIR_RULE =

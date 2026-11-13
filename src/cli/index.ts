@@ -27,7 +27,7 @@ export const main = defineCommand({
 
 const isEntryPoint: unknown = Reflect.get(import.meta, 'main');
 
-if (isEntryPoint === true) {
+async function run(): Promise<void> {
     const rawArgs = process.argv.slice(2);
     const unknownFlag = await findUnknownFlag(rawArgs, main, 'cli');
     if (unknownFlag === null) {
@@ -37,3 +37,5 @@ if (isEntryPoint === true) {
         process.exitCode = 1;
     }
 }
+
+if (isEntryPoint === true) await run();

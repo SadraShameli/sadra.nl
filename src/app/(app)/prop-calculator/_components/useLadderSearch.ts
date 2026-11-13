@@ -130,7 +130,7 @@ export function useLadderSearch() {
                 Math.min(
                     MAX_WORKERS,
                     blocks.length,
-                    globalThis.navigator.hardwareConcurrency - 1,
+                    navigator.hardwareConcurrency - 1,
                 ),
             );
 
