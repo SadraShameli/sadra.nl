@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 
-import type { RawTransaction } from '~/lib/accounting/core/types';
+import type { CurrencyCode, RawTransaction } from '~/lib/accounting/core/types';
 
 import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { isoDateSchema } from '~/lib/accounting/core/date';
@@ -14,6 +14,8 @@ const COLUMNS = {
 } as const;
 
 const PAID_STATUS = 'Paid';
+
+const BANK_CURRENCY_PATTERN = /^([A-Z]{3})\s*\(/;
 
 export class PlaneCsvParser {
     parse(content: string, meta: Record<string, unknown>): RawTransaction[] {
@@ -53,8 +55,10 @@ export class PlaneCsvParser {
             if (!dateRaw || !amountRaw || !currencyRaw) continue;
 
             const bankAccount = row[COLUMNS.bankAccount]?.trim() ?? '';
+            const bankCurrency = bankCurrencyOf(bankAccount);
 
             txns.push({
+                ...(bankCurrency !== undefined && { bankCurrency }),
                 date: isoDateSchema.parse(dateRaw),
                 direction: 'IN',
                 merchant: counterpartName,
@@ -68,4 +72,11 @@ export class PlaneCsvParser {
         }
         return txns;
     }
+}
+
+function bankCurrencyOf(bankAccount: string): CurrencyCode | undefined {
+    const parsed = currencyCodeSchema.safeParse(
+        BANK_CURRENCY_PATTERN.exec(bankAccount)?.[1],
+    );
+    return parsed.success ? parsed.data : undefined;
 }
