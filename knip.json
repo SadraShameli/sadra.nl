@@ -9,11 +9,20 @@
         "src/server/db/seeds/**/*.ts"
     ],
     "ignore": ["src/app/(app)/_components/brand/GlitchBrand.tsx"],
+    "ignoreBinaries": ["lint"],
     "ignoreDependencies": [
+        "@next/eslint-plugin-next",
         "baseline-browser-mapping",
         "caniuse-lite",
         "cssnano",
         "cssnano-preset-default",
+        "eslint-plugin-better-tailwindcss",
+        "eslint-plugin-drizzle",
+        "eslint-plugin-jsx-a11y",
+        "eslint-plugin-perfectionist",
+        "eslint-plugin-promise",
+        "eslint-plugin-react-hooks",
+        "eslint-plugin-unicorn",
         "geist",
         "pino-pretty",
         "sharp"
