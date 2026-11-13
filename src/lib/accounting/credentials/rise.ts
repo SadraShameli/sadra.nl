@@ -9,6 +9,8 @@ import {
 const metaSchema = z.object({}).strict();
 
 CredentialRegistry.instance.register({
+    description:
+        'Books payouts when they are paid into your Rise balance. Do not also import the same money as incoming Wise transfers, or it is booked twice.',
     id: CredentialKind.Rise,
     label: 'Rise (CSV)',
     metaFields: [],

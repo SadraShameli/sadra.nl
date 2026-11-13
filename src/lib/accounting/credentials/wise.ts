@@ -22,7 +22,7 @@ CredentialRegistry.instance.register({
         {
             defaultValue: false,
             description:
-                'Also import incoming transfers (payouts). Leave off where a payout CSV already covers the same money.',
+                'Also import incoming transfers (payouts). Leave off where a payout CSV, such as Plane or Rise, already covers the same money, or it is booked twice.',
             key: 'includeIncoming',
             label: 'Import incoming transfers',
             type: MetaFieldType.Boolean,
