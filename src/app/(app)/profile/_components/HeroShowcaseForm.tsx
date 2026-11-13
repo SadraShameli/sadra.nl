@@ -1,6 +1,6 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { useId } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ import {
     type HeroShowcaseInput,
     heroShowcaseInputSchema,
 } from '~/lib/site/HeroShowcase';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 const FIELDS = [
     {
@@ -52,18 +52,21 @@ export function HeroShowcaseForm({
 }: {
     readonly initial: HeroShowcaseInput | null;
 }) {
+    const api = useTRPC();
     const formId = useId();
     const form = useForm<HeroShowcaseInput>({
         defaultValues: initial ?? DEFAULT_HERO_SHOWCASE,
         resolver: zodResolver(heroShowcaseInputSchema),
     });
-    const update = api.site.updateHeroShowcase.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: (_data, values) => {
-            toast.success('Homepage figures saved');
-            form.reset(values);
-        },
-    });
+    const update = useMutation(
+        api.site.updateHeroShowcase.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: (_data, values) => {
+                toast.success('Homepage figures saved');
+                form.reset(values);
+            },
+        }),
+    );
 
     return (
         <form

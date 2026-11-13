@@ -8,7 +8,7 @@ import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 import { WeeklyReviewView } from './WeeklyReviewView';
 
@@ -50,10 +50,10 @@ async function PropAccountsReviewContent() {
         loginRedirectFor(routes.propCalculator.accounts.review),
     );
     await Promise.all([
-        api.propAccounts.account.list.prefetch({}),
-        api.propAccounts.snapshot.latestForAll.prefetch(),
-        api.propAccounts.decision.latestForAll.prefetch(),
-        api.propAccounts.rulebook.get.prefetch(),
+        prefetch(trpc.propAccounts.account.list.queryOptions({})),
+        prefetch(trpc.propAccounts.snapshot.latestForAll.queryOptions()),
+        prefetch(trpc.propAccounts.decision.latestForAll.queryOptions()),
+        prefetch(trpc.propAccounts.rulebook.get.queryOptions()),
     ]);
     return (
         <HydrateClient>

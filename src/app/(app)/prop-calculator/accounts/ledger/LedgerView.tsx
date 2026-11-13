@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Download, Receipt, Wallet } from 'lucide-react';
 import { type ReactNode, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -121,7 +123,7 @@ import {
     firmStatementCreateSchema,
     firmStatementUpdateSchema,
 } from '~/lib/schemas/propAccounts';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 enum LedgerColumn {
     Account = 'account',
@@ -187,13 +189,20 @@ interface PayoutLagRow {
 }
 
 export function LedgerView() {
+    const api = useTRPC();
     const session = useSession();
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const payoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
-    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const feesQuery = useQuery(
+        api.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const externalFirmsQuery = useQuery(
+        api.propAccounts.externalFirm.list.queryOptions(),
+    );
     const externalFirms = externalFirmsQuery.data;
     const [filters, setFilters] = useState<LedgerFilters>(
         DEFAULT_LEDGER_FILTERS,
@@ -392,18 +401,25 @@ function accountFilterOptions(
 }
 
 function DepositsWithdrawalsSection() {
-    const utilities = api.useUtils();
-    const transfersQuery = api.propAccounts.bankroll.list.useQuery();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const transfersQuery = useQuery(
+        api.propAccounts.bankroll.list.queryOptions(),
+    );
     const dialog = useRecordDialog<TransferRow>();
-    const remove = api.propAccounts.bankroll.remove.useMutation({
-        onError: (error) => {
-            toast.error(error.message);
-        },
-        onSuccess: () => {
-            toast.success('Transfer deleted');
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const remove = useMutation(
+        api.propAccounts.bankroll.remove.mutationOptions({
+            onError: (error) => {
+                toast.error(error.message);
+            },
+            onSuccess: () => {
+                toast.success('Transfer deleted');
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
     const rows = transfersQuery.data;
     return (
         <section aria-labelledby="prop-bankroll-heading">
@@ -582,23 +598,32 @@ function FirmReconciliationSection({
 }: {
     readonly externalFirms: readonly ExternalFirmName[];
 }) {
+    const api = useTRPC();
     const session = useSession();
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const payoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const statementsQuery = api.propAccounts.firmStatement.list.useQuery();
-    const utilities = api.useUtils();
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const statementsQuery = useQuery(
+        api.propAccounts.firmStatement.list.queryOptions(),
+    );
+    const queryClient = useQueryClient();
     const dialog = useRecordDialog<StatementRow>();
-    const remove = api.propAccounts.firmStatement.remove.useMutation({
-        onError: (error) => {
-            toast.error(error.message);
-        },
-        onSuccess: () => {
-            toast.success('Statement deleted');
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const remove = useMutation(
+        api.propAccounts.firmStatement.remove.mutationOptions({
+            onError: (error) => {
+                toast.error(error.message);
+            },
+            onSuccess: () => {
+                toast.success('Statement deleted');
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
     const statementById = new Map(
         (statementsQuery.data ?? []).map((row) => [row.id, row]),
     );
@@ -1045,9 +1070,14 @@ function StatementForm({
     readonly externalFirms: readonly ExternalFirmName[];
     readonly onDone: () => void;
 }) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.firmStatement.create.useMutation();
-    const update = api.propAccounts.firmStatement.update.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const create = useMutation(
+        api.propAccounts.firmStatement.create.mutationOptions(),
+    );
+    const update = useMutation(
+        api.propAccounts.firmStatement.update.mutationOptions(),
+    );
     const schema = statementFormSchema(editing?.id ?? null);
     const form = useForm<StatementFormValues>({
         defaultValues:
@@ -1075,7 +1105,7 @@ function StatementForm({
                 error instanceof Error ? error.message : 'Could not save',
             );
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
 
@@ -1308,9 +1338,14 @@ function TransferForm({
     readonly editing: null | TransferRow;
     readonly onDone: () => void;
 }) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.bankroll.create.useMutation();
-    const update = api.propAccounts.bankroll.update.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const create = useMutation(
+        api.propAccounts.bankroll.create.mutationOptions(),
+    );
+    const update = useMutation(
+        api.propAccounts.bankroll.update.mutationOptions(),
+    );
     const schema = transferFormSchema();
     const form = useForm<TransferFormValues>({
         defaultValues:
@@ -1344,7 +1379,7 @@ function TransferForm({
                 error instanceof Error ? error.message : 'Could not save',
             );
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
 

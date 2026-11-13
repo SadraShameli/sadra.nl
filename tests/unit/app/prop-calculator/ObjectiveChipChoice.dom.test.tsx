@@ -50,31 +50,37 @@ vi.mock('~/lib/auth/client', () => ({
     }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            bankroll: {
-                summary: {
-                    useQuery: () => ({
-                        data:
-                            harness.availableCents === null
-                                ? undefined
-                                : { availableCents: harness.availableCents },
-                        isError: harness.isSummaryFailed,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                bankroll: {
+                    summary: {
+                        query: () => ({
+                            data:
+                                harness.availableCents === null
+                                    ? undefined
+                                    : {
+                                          availableCents:
+                                              harness.availableCents,
+                                      },
+                            isError: harness.isSummaryFailed,
+                        }),
+                    },
                 },
-            },
-            rulebook: {
-                get: {
-                    useQuery: () => ({
-                        data: harness.rulebook ?? undefined,
-                        isError: harness.isRulebookFailed,
-                    }),
+                rulebook: {
+                    get: {
+                        query: () => ({
+                            data: harness.rulebook ?? undefined,
+                            isError: harness.isRulebookFailed,
+                        }),
+                    },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 function StateControls() {
     const { applyState, reset } = useCalculatorActions();

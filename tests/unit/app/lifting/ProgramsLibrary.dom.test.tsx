@@ -37,7 +37,8 @@ const harness = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => {
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     const { mutation } = harness;
     const program = {
         category: 'strength',
@@ -60,14 +61,17 @@ vi.mock('~/trpc/react', () => {
         },
         slug: 'two-day-plan',
     };
-    return {
+
+    return trpcDoubleReact({
         api: {
             lifting: {
                 program: {
-                    advance: { useMutation: mutation([]) },
-                    deleteCustom: { useMutation: mutation(harness.deleted) },
+                    advance: { mutation: mutation([]) },
+                    deleteCustom: {
+                        mutation: mutation(harness.deleted),
+                    },
                     listMine: {
-                        useQuery: () => ({
+                        query: () => ({
                             data: {
                                 enrollments: [
                                     {
@@ -95,30 +99,41 @@ vi.mock('~/trpc/react', () => {
                         }),
                     },
                     listOfficial: {
-                        useQuery: () => ({ data: [], isLoading: false }),
-                    },
-                    nextDay: {
-                        useQuery: () => ({
-                            data: { day: { blocks: [], name: 'Day A' } },
+                        query: () => ({
+                            data: [],
                             isLoading: false,
                         }),
                     },
-                    unenroll: { useMutation: mutation(harness.unenrolled) },
+                    nextDay: {
+                        query: () => ({
+                            data: {
+                                day: { blocks: [], name: 'Day A' },
+                            },
+                            isLoading: false,
+                        }),
+                    },
+                    unenroll: {
+                        mutation: mutation(harness.unenrolled),
+                    },
                     updateEnrollment: {
-                        useMutation: mutation(harness.updated),
+                        mutation: mutation(harness.updated),
                     },
                 },
             },
-            useUtils: () => ({
+            queryClient: () => ({
                 lifting: {
                     program: {
-                        listMine: { invalidate: harness.listMineInvalidate },
-                        nextDay: { invalidate: harness.nextDayInvalidate },
+                        listMine: {
+                            invalidate: harness.listMineInvalidate,
+                        },
+                        nextDay: {
+                            invalidate: harness.nextDayInvalidate,
+                        },
                     },
                 },
             }),
         },
-    };
+    });
 });
 
 const { ProgramsLibrary } =

@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
@@ -17,7 +17,7 @@ import {
     recordedAtLiveText,
 } from '~/lib/prop-accounts/firms';
 import { type FirmId } from '~/lib/prop-calculator';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     type MeasuredHazard,
@@ -60,13 +60,20 @@ const NOT_AVAILABLE: MeasuredHazardsState = {
 };
 
 export function useMeasuredHazards(): MeasuredHazardsState {
+    const api = useTRPC();
     const session = useSession();
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
-    const payoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const eventsQuery = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const feesQuery = useQuery(
+        api.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
     const userId = session.data?.user.id;
     const isSessionPending = session.isPending;
     const accounts = accountsQuery.data;

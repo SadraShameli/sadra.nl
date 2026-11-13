@@ -14,7 +14,12 @@ import { isoDateSchema } from '~/lib/accounting/core/date';
 import { LedgerId } from '~/lib/accounting/core/ids';
 import { Eur } from '~/lib/accounting/core/money';
 
-vi.mock('~/trpc/react', () => ({ api: {} }));
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {},
+    });
+});
 
 function booking(
     txnId: string,

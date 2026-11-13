@@ -1,6 +1,6 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import { useId } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -11,22 +11,25 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
 import { type ContactInput, contactInputSchema } from '~/lib/schemas/contact';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 export function ContactForm() {
+    const api = useTRPC();
     const form = useForm<ContactInput>({
         defaultValues: { email: '', honeypot: '', message: '', name: '' },
         resolver: zodResolver(contactInputSchema),
     });
     const formId = useId();
 
-    const send = api.contact.send.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: () => {
-            toast.success("Thanks, I'll reply soon.");
-            form.reset();
-        },
-    });
+    const send = useMutation(
+        api.contact.send.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: () => {
+                toast.success("Thanks, I'll reply soon.");
+                form.reset();
+            },
+        }),
+    );
 
     const onSubmit = form.handleSubmit((values) => send.mutate(values));
 

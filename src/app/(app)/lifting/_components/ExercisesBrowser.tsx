@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, Dumbbell } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -16,11 +16,11 @@ import { DataTableFacetSelect } from '~/components/ui/data-table-facet-select';
 import { NoMatchesState } from '~/components/ui/empty-state';
 import { FilterToggle } from '~/components/ui/filter-toggle';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
-
-type ExerciseRow = RouterOutputs['lifting']['exercise']['list'][number];
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 export function ExercisesBrowser() {
+    type ExerciseRow = RouterOutputs['lifting']['exercise']['list'][number];
+    const api = useTRPC();
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -29,12 +29,14 @@ export function ExercisesBrowser() {
         return () => clearTimeout(id);
     }, [search]);
 
-    const exercises = api.lifting.exercise.list.useQuery({
-        includeCustom: true,
-        limit: 200,
-        offset: 0,
-        search: debouncedSearch,
-    });
+    const exercises = useQuery(
+        api.lifting.exercise.list.queryOptions({
+            includeCustom: true,
+            limit: 200,
+            offset: 0,
+            search: debouncedSearch,
+        }),
+    );
 
     const allRows = useMemo(() => exercises.data ?? [], [exercises.data]);
 

@@ -14,7 +14,7 @@ import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 import { NextSlotView } from './NextSlotView';
 
@@ -58,14 +58,16 @@ async function PropAccountsNextSlotContent() {
         loginRedirectFor(routes.propCalculator.accounts.nextSlot),
     );
     await Promise.all([
-        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
-        api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT),
-        api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT),
-        api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT),
-        api.propAccounts.bankroll.list.prefetch(),
-        api.propAccounts.firmEngagement.list.prefetch(),
-        api.propAccounts.rulebook.get.prefetch(),
-        api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS),
+        prefetch(
+            trpc.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+        ),
+        prefetch(trpc.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT)),
+        prefetch(trpc.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT)),
+        prefetch(trpc.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT)),
+        prefetch(trpc.propAccounts.bankroll.list.queryOptions()),
+        prefetch(trpc.propAccounts.firmEngagement.list.queryOptions()),
+        prefetch(trpc.propAccounts.rulebook.get.queryOptions()),
+        prefetch(trpc.propAccounts.edge.summary.queryOptions(ALL_JOURNAL_DAYS)),
     ]);
     return (
         <HydrateClient>

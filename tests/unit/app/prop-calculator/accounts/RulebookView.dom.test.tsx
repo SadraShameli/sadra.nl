@@ -59,30 +59,33 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            rulebook: {
-                get: { useQuery: () => harness.rulebookQuery },
-                reset: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: harness.reset,
-                    }),
-                },
-                upsert: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutateAsync: harness.upsert,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                rulebook: {
+                    get: { query: () => harness.rulebookQuery },
+                    reset: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: harness.reset,
+                        }),
+                    },
+                    upsert: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutateAsync: harness.upsert,
+                        }),
+                    },
                 },
             },
+            queryClient: () => ({
+                propAccounts: { invalidate: harness.invalidate },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { invalidate: harness.invalidate },
-        }),
-    },
-}));
+    });
+});
 
 vi.mock(
     '~/app/(app)/prop-calculator/accounts/rulebook/useMeasuredHazards',

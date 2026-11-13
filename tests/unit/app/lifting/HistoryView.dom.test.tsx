@@ -17,39 +17,42 @@ const harness = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        lifting: {
-            workout: {
-                delete: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutate: (input: unknown) => {
-                            harness.deleted.push(input);
-                        },
-                        variables: undefined,
-                    }),
-                },
-                list: {
-                    useQuery: () => ({
-                        data: [
-                            {
-                                bodyweightKg: null,
-                                endedAt: new Date('2026-10-01T10:00:00Z'),
-                                id: WORKOUT_ID,
-                                name: null,
-                                notes: null,
-                                startedAt: new Date('2026-10-01T09:00:00Z'),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            lifting: {
+                workout: {
+                    delete: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutate: (input: unknown) => {
+                                harness.deleted.push(input);
                             },
-                        ],
-                        isLoading: false,
-                    }),
+                            variables: undefined,
+                        }),
+                    },
+                    list: {
+                        query: () => ({
+                            data: [
+                                {
+                                    bodyweightKg: null,
+                                    endedAt: new Date('2026-10-01T10:00:00Z'),
+                                    id: WORKOUT_ID,
+                                    name: null,
+                                    notes: null,
+                                    startedAt: new Date('2026-10-01T09:00:00Z'),
+                                },
+                            ],
+                            isLoading: false,
+                        }),
+                    },
                 },
             },
+            queryClient: () => ({}),
         },
-        useUtils: () => ({}),
-    },
-}));
+    });
+});
 
 const { HistoryView } =
     await import('~/app/(app)/lifting/_components/HistoryView');

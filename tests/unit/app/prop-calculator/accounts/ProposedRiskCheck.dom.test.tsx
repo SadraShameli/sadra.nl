@@ -40,15 +40,17 @@ vi.mock('sonner', () => ({
 }));
 
 vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
     const { useState } = await vi.importActual<typeof ReactModule>('react');
-    return {
+
+    return trpcDoubleReact({
         api: {
             propAccounts: {
                 violation: {
                     create: {
-                        useMutation: (
+                        mutation: function useMutationDouble(
                             options: { onSuccess?: () => void } = {},
-                        ) => {
+                        ) {
                             const [variables, setVariables] = useState<null | {
                                 decisionId: null | string;
                             }>(null);
@@ -67,7 +69,7 @@ vi.mock('~/trpc/react', async () => {
                         },
                     },
                     list: {
-                        useQuery: (input: unknown) => {
+                        query: (input: unknown) => {
                             harness.listInputs.push(input);
                             return {
                                 data: harness.violations.isPending
@@ -79,11 +81,11 @@ vi.mock('~/trpc/react', async () => {
                     },
                 },
             },
-            useUtils: () => ({
+            queryClient: () => ({
                 propAccounts: { invalidate: harness.invalidate },
             }),
         },
-    };
+    });
 });
 
 const { ProposedRiskCheck } =

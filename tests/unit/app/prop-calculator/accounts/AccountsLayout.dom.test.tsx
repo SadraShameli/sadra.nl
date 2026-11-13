@@ -35,13 +35,11 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('~/trpc/server', () => {
     const recorder = (): unknown =>
-        new Proxy(vi.fn(), {
-            get: (_target, key) =>
-                key === 'prefetch' ? () => Promise.resolve() : recorder(),
-        });
+        new Proxy(vi.fn(), { get: () => recorder() });
     return {
-        api: recorder(),
         HydrateClient: ({ children }: { children: ReactNode }) => children,
+        prefetch: () => Promise.resolve(),
+        trpc: recorder(),
     };
 });
 

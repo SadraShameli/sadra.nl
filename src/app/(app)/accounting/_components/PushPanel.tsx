@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, Circle, Send, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -15,7 +15,7 @@ import { Progress } from '~/components/ui/progress';
 import { Spinner } from '~/components/ui/spinner';
 import { formatDisplayDate } from '~/lib/format';
 import { apiRoutes } from '~/lib/site/routes';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { useImportStream } from './useImportStream';
 
@@ -43,14 +43,17 @@ export function PushPanel({
     runId,
     targetLabel,
 }: Properties) {
+    const api = useTRPC();
     const [progress, setProgress] = useState<null | {
         current: number;
         total: number;
     }>(null);
     const stream = useImportStream<ImportEvent>();
-    const runQ = api.accounting.runs.get.useQuery(
-        { id: runId ?? '' },
-        { enabled: !!runId },
+    const runQ = useQuery(
+        api.accounting.runs.get.queryOptions(
+            { id: runId ?? '' },
+            { enabled: !!runId },
+        ),
     );
 
     const rowMap = useMemo(() => {

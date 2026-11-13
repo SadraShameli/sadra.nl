@@ -24,26 +24,34 @@ const harness = vi.hoisted(() => ({
     updated: [] as unknown[],
 }));
 
-vi.mock('~/trpc/react', () => {
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     const { recorder } = harness;
-    return {
+
+    return trpcDoubleReact({
         api: {
             lifting: {
                 set: {
-                    complete: { useMutation: recorder(harness.completed) },
-                    create: { useMutation: recorder([]) },
-                    delete: { useMutation: recorder(harness.deleted) },
-                    update: { useMutation: recorder(harness.updated) },
+                    complete: {
+                        mutation: recorder(harness.completed),
+                    },
+                    create: { mutation: recorder([]) },
+                    delete: { mutation: recorder(harness.deleted) },
+                    update: { mutation: recorder(harness.updated) },
                 },
                 workout: {
-                    removeExercise: { useMutation: recorder(harness.removed) },
+                    removeExercise: {
+                        mutation: recorder(harness.removed),
+                    },
                 },
             },
-            useUtils: () => ({
-                lifting: { workout: { getActive: { invalidate: vi.fn() } } },
+            queryClient: () => ({
+                lifting: {
+                    workout: { getActive: { invalidate: vi.fn() } },
+                },
             }),
         },
-    };
+    });
 });
 
 const { ExerciseCard } =

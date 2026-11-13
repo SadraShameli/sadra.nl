@@ -49,25 +49,27 @@ const backend = vi.hoisted(() => {
     };
 });
 
-vi.mock('~/trpc/react', () => {
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     const invalidate = { invalidate: vi.fn() };
-    return {
+
+    return trpcDoubleReact({
         api: {
             accounting: {
                 bankAccounts: {
                     delete: mutationHook(backend.deleteBankAccount),
                     list: {
-                        useQuery: () => ({
+                        query: () => ({
                             data: backend.bankAccounts,
                             isPending: false,
                         }),
                     },
                     upsert: mutationHook(vi.fn()),
                 },
-                ledgers: { list: { useQuery: () => ({ data: [] }) } },
+                ledgers: { list: { query: () => ({ data: [] }) } },
                 rules: {
                     backtest: {
-                        useQuery: () => ({
+                        query: () => ({
                             data: undefined,
                             isFetching: backend.isBacktestFetching,
                         }),
@@ -75,7 +77,7 @@ vi.mock('~/trpc/react', () => {
                     create: mutationHook(vi.fn()),
                     delete: mutationHook(backend.deleteRule),
                     list: {
-                        useQuery: () => ({
+                        query: () => ({
                             data: backend.rules,
                             isPending: false,
                         }),
@@ -85,21 +87,26 @@ vi.mock('~/trpc/react', () => {
                 },
                 taxCodes: {
                     list: {
-                        useQuery: () => ({
-                            data: [{ code: 'BI_EU_INK', label: 'EU purchase' }],
+                        query: () => ({
+                            data: [
+                                {
+                                    code: 'BI_EU_INK',
+                                    label: 'EU purchase',
+                                },
+                            ],
                             isPending: false,
                         }),
                     },
                 },
             },
-            useUtils: () => ({
+            queryClient: () => ({
                 accounting: {
                     bankAccounts: { list: invalidate },
                     rules: { list: invalidate },
                 },
             }),
         },
-    };
+    });
 });
 
 vi.mock('~/app/(app)/accounting/_components/useActiveCredentials', () => ({
@@ -118,7 +125,7 @@ vi.mock('~/app/(app)/accounting/_components/useActiveCredentials', () => ({
 
 function mutationHook(mutate: (input: unknown) => void) {
     return {
-        useMutation: () => ({
+        mutation: () => ({
             isPending: false,
             mutate,
             variables: undefined,

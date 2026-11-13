@@ -43,18 +43,21 @@ vi.mock('next/link', () => ({
     ),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        accounting: {
-            credentials: {
-                list: { useQuery: () => harness.credentials },
-            },
-            mutations: {
-                latestDate: { useQuery: () => harness.latestDate },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            accounting: {
+                credentials: {
+                    list: { query: () => harness.credentials },
+                },
+                mutations: {
+                    latestDate: { query: () => harness.latestDate },
+                },
             },
         },
-    },
-}));
+    });
+});
 
 function runButton(container: HTMLElement): HTMLButtonElement {
     const button = [...container.querySelectorAll('button')].find((b) =>

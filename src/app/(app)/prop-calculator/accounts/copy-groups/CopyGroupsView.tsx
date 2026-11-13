@@ -1,5 +1,7 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Layers, Pencil, Trash2, UserMinus } from 'lucide-react';
 import Link from 'next/link';
 import { useId, useMemo, useRef, useState } from 'react';
@@ -46,7 +48,7 @@ import {
     propRejectionOf,
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { copyGroupSizingSectionsOf } from './copyGroupSizingModel';
 import {
@@ -64,14 +66,25 @@ interface AssignRejection {
 }
 
 export function CopyGroupsView({ userId }: { readonly userId: string }) {
-    const groupsQuery = api.propAccounts.copyGroup.list.useQuery();
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const payoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const snapshotsQuery = api.propAccounts.snapshot.latestForAll.useQuery();
+    const api = useTRPC();
+    const groupsQuery = useQuery(
+        api.propAccounts.copyGroup.list.queryOptions(),
+    );
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const eventsQuery = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
+    const snapshotsQuery = useQuery(
+        api.propAccounts.snapshot.latestForAll.queryOptions(),
+    );
     const headingReference = useRef<HTMLHeadingElement>(null);
     const today = useTodayIsoDate();
     const groups = groupsQuery.data;
@@ -238,22 +251,27 @@ function conflictExplanation(
 }
 
 function CreateGroupForm() {
-    const utilities = api.useUtils();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
     const inputId = useId();
     const errorId = useId();
     const [name, setName] = useState('');
     const [error, setError] = useState<null | string>(null);
-    const create = api.propAccounts.copyGroup.create.useMutation({
-        onError: (mutationError) => {
-            setError(mutationError.message);
-        },
-        onSuccess: (_group, variables) => {
-            toast.success(`${variables.name} created`);
-            setName('');
-            setError(null);
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const create = useMutation(
+        api.propAccounts.copyGroup.create.mutationOptions({
+            onError: (mutationError) => {
+                setError(mutationError.message);
+            },
+            onSuccess: (_group, variables) => {
+                toast.success(`${variables.name} created`);
+                setName('');
+                setError(null);
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
 
     function submit() {
         const problem = copyGroupNameError(name);
@@ -303,23 +321,28 @@ function DeleteGroupDialog({
     readonly onDeleted: () => void;
     readonly row: CopyGroupRow;
 }) {
-    const utilities = api.useUtils();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
     const isDeletedReference = useRef(false);
     const [isOpen, setIsOpen] = useState(false);
     const { group } = row;
     const memberCount = row.members.length + row.otherMembers.length;
-    const remove = api.propAccounts.copyGroup.remove.useMutation({
-        onError: (error) => {
-            setIsOpen(false);
-            toast.error(error.message);
-        },
-        onSuccess: () => {
-            isDeletedReference.current = true;
-            setIsOpen(false);
-            toast.success(`${group.name} deleted`);
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const remove = useMutation(
+        api.propAccounts.copyGroup.remove.mutationOptions({
+            onError: (error) => {
+                setIsOpen(false);
+                toast.error(error.message);
+            },
+            onSuccess: () => {
+                isDeletedReference.current = true;
+                setIsOpen(false);
+                toast.success(`${group.name} deleted`);
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
 
     return (
         <ConfirmDialog
@@ -372,7 +395,8 @@ function GroupSection({
     readonly row: CopyGroupRow;
     readonly sizing: GroupSizingView;
 }) {
-    const utilities = api.useUtils();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
     const headingId = useId();
     const selectId = useId();
     const selectErrorId = useId();
@@ -392,29 +416,33 @@ function GroupSection({
             ),
         [row.members, row.otherMembers, candidates],
     );
-    const assign = api.propAccounts.copyGroup.assign.useMutation({
-        onError: (error, variables) => {
-            if (
-                propRejectionOf(error)?.reason ===
-                PropMutationRejection.MixedStageCopyGroup
-            ) {
-                const candidate = membersById.get(variables.accountId);
-                setRejection({
-                    accountLabel: candidate?.label ?? 'This account',
-                    explanation: conflictExplanation(row, candidate),
-                    message: error.message,
-                });
-                return;
-            }
-            toast.error(error.message);
-        },
-        onSuccess: () => {
-            setRejection(null);
-            setChosenId('');
-            groupHeadingReference.current?.focus();
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const assign = useMutation(
+        api.propAccounts.copyGroup.assign.mutationOptions({
+            onError: (error, variables) => {
+                if (
+                    propRejectionOf(error)?.reason ===
+                    PropMutationRejection.MixedStageCopyGroup
+                ) {
+                    const candidate = membersById.get(variables.accountId);
+                    setRejection({
+                        accountLabel: candidate?.label ?? 'This account',
+                        explanation: conflictExplanation(row, candidate),
+                        message: error.message,
+                    });
+                    return;
+                }
+                toast.error(error.message);
+            },
+            onSuccess: () => {
+                setRejection(null);
+                setChosenId('');
+                groupHeadingReference.current?.focus();
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
 
     function add() {
         if (candidates.every((candidate) => candidate.id !== chosenId)) {
@@ -676,21 +704,26 @@ function RenameGroupForm({
     readonly onClose: () => void;
     readonly row: CopyGroupRow;
 }) {
-    const utilities = api.useUtils();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
     const inputId = useId();
     const errorId = useId();
     const { group } = row;
     const [name, setName] = useState(group.name);
     const [error, setError] = useState<null | string>(null);
-    const update = api.propAccounts.copyGroup.update.useMutation({
-        onError: (mutationError) => {
-            setError(mutationError.message);
-        },
-        onSuccess: () => {
-            onClose();
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const update = useMutation(
+        api.propAccounts.copyGroup.update.mutationOptions({
+            onError: (mutationError) => {
+                setError(mutationError.message);
+            },
+            onSuccess: () => {
+                onClose();
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
 
     function submit() {
         const problem = copyGroupNameError(name);

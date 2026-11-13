@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     BookmarkPlus,
     Calendar,
@@ -39,15 +41,13 @@ import { DistanceUnit, DurationFormat, WeightUnit } from '~/lib/lifting/format';
 import { routineInputSchema } from '~/lib/lifting/schemas';
 import { workoutName } from '~/lib/lifting/workout-name';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type SetRow = WorkoutDetail['exercises'][number]['sets'][number];
 type WorkoutDetail = RouterOutputs['lifting']['workout']['get'];
 interface WorkoutDetailViewProperties {
     initial: WorkoutDetail;
 }
-
-type WorkoutExercise = WorkoutDetail['exercises'][number];
 
 const FILTER_ALL = '__all__';
 
@@ -79,24 +79,30 @@ const SET_COLUMN_VALUE: Readonly<
 
 const routineNameSchema = routineInputSchema.pick({ name: true });
 
-type RoutineNameValues = z.infer<typeof routineNameSchema>;
-
 export function WorkoutDetailView({ initial }: WorkoutDetailViewProperties) {
+    type WorkoutExercise = WorkoutDetail['exercises'][number];
+    const api = useTRPC();
     const router = useRouter();
-    const utilities = api.useUtils();
-    const workout = api.lifting.workout.get.useQuery(
-        { id: initial.id },
-        { initialData: initial },
+    const queryClient = useQueryClient();
+    const workout = useQuery(
+        api.lifting.workout.get.queryOptions(
+            { id: initial.id },
+            { initialData: initial },
+        ),
     );
-    const remove = api.lifting.workout.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Workout deleted');
-            await utilities.lifting.workout.list.invalidate();
-            router.push(routes.lifting.history);
-        },
-    });
-    const settings = api.lifting.settings.get.useQuery();
+    const remove = useMutation(
+        api.lifting.workout.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Workout deleted');
+                await queryClient.invalidateQueries(
+                    api.lifting.workout.list.pathFilter(),
+                );
+                router.push(routes.lifting.history);
+            },
+        }),
+    );
+    const settings = useQuery(api.lifting.settings.get.queryOptions());
     const unitWeight = settings.data?.unitWeight ?? 'kg';
     const unitDistance = settings.data?.unitDistance ?? 'm';
 
@@ -438,8 +444,10 @@ function emptySetColumns(sets: readonly SetRow[]): Record<string, boolean> {
 }
 
 function SaveAsRoutineButton({ workout }: { workout: WorkoutDetail }) {
+    type RoutineNameValues = z.infer<typeof routineNameSchema>;
+    const api = useTRPC();
     const [isOpen, setIsOpen] = useState(false);
-    const utilities = api.useUtils();
+    const queryClient = useQueryClient();
     const blocks = useMemo(
         () => RoutineDraft.blocksOf(workout.exercises),
         [workout.exercises],
@@ -448,14 +456,18 @@ function SaveAsRoutineButton({ workout }: { workout: WorkoutDetail }) {
         defaultValues: { name: workoutName(workout) },
         resolver: zodResolver(routineNameSchema),
     });
-    const create = api.lifting.routine.create.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Routine saved');
-            setIsOpen(false);
-            await utilities.lifting.routine.list.invalidate();
-        },
-    });
+    const create = useMutation(
+        api.lifting.routine.create.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Routine saved');
+                setIsOpen(false);
+                await queryClient.invalidateQueries(
+                    api.lifting.routine.list.pathFilter(),
+                );
+            },
+        }),
+    );
 
     return (
         <Dialog

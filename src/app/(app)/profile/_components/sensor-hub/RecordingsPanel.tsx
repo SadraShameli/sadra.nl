@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { AudioLines, Download, Pencil, Plus } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -45,7 +47,7 @@ import {
     recordingRenameSchema,
 } from '~/lib/schemas/sensor-hub';
 import { apiRoutes } from '~/lib/site/routes';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { SensorHubScopeFilters, useSensorHubScope } from './SensorHubScope';
 
@@ -61,40 +63,55 @@ type RecordingRow = {
 };
 
 export function RecordingsPanel() {
-    const utilities = api.useUtils();
-    const locations = api.location.listAdmin.useQuery();
-    const devices = api.device.listAdmin.useQuery();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const locations = useQuery(api.location.listAdmin.queryOptions());
+    const devices = useQuery(api.device.listAdmin.queryOptions());
 
     const scope = useSensorHubScope();
 
-    const recordings = api.recording.listAdmin.useQuery({
-        device_id: scope.scope.deviceId,
-        limit: 200,
-        location_id: scope.scope.locationId,
-    });
+    const recordings = useQuery(
+        api.recording.listAdmin.queryOptions({
+            device_id: scope.scope.deviceId,
+            limit: 200,
+            location_id: scope.scope.locationId,
+        }),
+    );
 
-    const del = api.recording.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Recording deleted.');
-            await utilities.recording.listAdmin.invalidate();
-        },
-    });
-    const recordingCreateMutation = api.recording.createAdmin.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Recording created.');
-            await utilities.recording.listAdmin.invalidate();
-        },
-    });
+    const del = useMutation(
+        api.recording.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Recording deleted.');
+                await queryClient.invalidateQueries(
+                    api.recording.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const recordingCreateMutation = useMutation(
+        api.recording.createAdmin.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Recording created.');
+                await queryClient.invalidateQueries(
+                    api.recording.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
     const [newOpen, setNewOpen] = useState(false);
-    const rename = api.recording.rename.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Recording renamed.');
-            await utilities.recording.listAdmin.invalidate();
-        },
-    });
+    const rename = useMutation(
+        api.recording.rename.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Recording renamed.');
+                await queryClient.invalidateQueries(
+                    api.recording.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const [renaming, setRenaming] = useState<null | RecordingRow>(null);
 

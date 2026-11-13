@@ -80,7 +80,6 @@ import { infoText, withInfoTexts } from './infoPopover';
 import { statStripValue } from './statStripValue';
 
 type AnyEvent = WorkerTaskEvent<never, unknown>;
-type AnyRequest = PayoutOutlookRequest | PayoutSweepRequest;
 
 interface FakeInstance {
     dispatch: (event: AnyEvent) => void;
@@ -122,15 +121,18 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => sessionState.current,
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            rulebook: {
-                get: { useQuery: () => rulebookQueryState.current },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                rulebook: {
+                    get: { query: () => rulebookQueryState.current },
+                },
             },
         },
-    },
-}));
+    });
+});
 
 vi.mock('~/app/(app)/prop-calculator/_components/ToolPageHeading', () => ({
     ToolPageHeading: renderNothing,
@@ -144,6 +146,7 @@ vi.mock('~/app/(app)/prop-calculator/_components/useWorkerTask', async () => {
     const React = await import('react');
     return {
         useWorkerTask: () => {
+            type AnyRequest = PayoutOutlookRequest | PayoutSweepRequest;
             const [state, dispatch] = React.useReducer<
                 WorkerTaskState<never, unknown>,
                 [WorkerTaskEvent<never, unknown>]

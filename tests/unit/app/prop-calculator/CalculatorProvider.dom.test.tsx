@@ -77,18 +77,21 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => ({ data: null, error: null, isPending: false }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            bankroll: {
-                summary: { useQuery: () => ({ data: undefined }) },
-            },
-            rulebook: {
-                get: { useQuery: () => ({ data: undefined }) },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                bankroll: {
+                    summary: { query: () => ({ data: undefined }) },
+                },
+                rulebook: {
+                    get: { query: () => ({ data: undefined }) },
+                },
             },
         },
-    },
-}));
+    });
+});
 
 const TIMEOUT_MS = 5000;
 const TARGET = LegacySection.TailRisk;

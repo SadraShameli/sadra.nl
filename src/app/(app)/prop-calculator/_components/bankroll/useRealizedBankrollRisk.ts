@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useTodayIsoDate } from '~/app/(app)/prop-calculator/_components/useTodayIsoDate';
@@ -21,7 +21,7 @@ import {
     type Fraction0to1,
 } from '~/lib/prop-calculator';
 import { LOSS_RISK_DRAWS } from '~/lib/prop-calculator/economics';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 export enum RealizedBankrollRiskStatus {
     Failed = 'failed',
@@ -53,13 +53,20 @@ export function useRealizedBankrollRisk({
     lossThreshold,
     userId,
 }: RealizedBankrollRiskInputs): RealizedBankrollRiskState {
+    const api = useTRPC();
     const today = useTodayIsoDate();
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
-    const payoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const eventsQuery = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const feesQuery = useQuery(
+        api.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
 
     const accounts = accountsQuery.data;
     const events = eventsQuery.data;

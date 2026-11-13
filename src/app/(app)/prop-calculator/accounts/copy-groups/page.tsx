@@ -12,7 +12,7 @@ import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 import { CopyGroupsView } from './CopyGroupsView';
 
@@ -44,12 +44,14 @@ async function PropAccountsCopyGroupsContent() {
         loginRedirectFor(routes.propCalculator.accounts.copyGroups),
     );
     await Promise.all([
-        api.propAccounts.copyGroup.list.prefetch(),
-        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
-        api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT),
-        api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT),
-        api.propAccounts.rulebook.get.prefetch(),
-        api.propAccounts.snapshot.latestForAll.prefetch(),
+        prefetch(trpc.propAccounts.copyGroup.list.queryOptions()),
+        prefetch(
+            trpc.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+        ),
+        prefetch(trpc.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT)),
+        prefetch(trpc.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT)),
+        prefetch(trpc.propAccounts.rulebook.get.queryOptions()),
+        prefetch(trpc.propAccounts.snapshot.latestForAll.queryOptions()),
     ]);
     return (
         <HydrateClient>

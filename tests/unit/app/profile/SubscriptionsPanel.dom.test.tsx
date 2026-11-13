@@ -17,29 +17,32 @@ const harness = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        user: {
-            notification: {
-                getMyPrefs: {
-                    useQuery: () => ({
-                        data: { loudness_alert: true },
-                        isLoading: false,
-                    }),
-                },
-                setPref: {
-                    useMutation: () => ({
-                        isPending: false,
-                        mutate: (input: unknown) => {
-                            harness.saved.push(input);
-                        },
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            queryClient: () => ({}),
+            user: {
+                notification: {
+                    getMyPrefs: {
+                        query: () => ({
+                            data: { loudness_alert: true },
+                            isLoading: false,
+                        }),
+                    },
+                    setPref: {
+                        mutation: () => ({
+                            isPending: false,
+                            mutate: (input: unknown) => {
+                                harness.saved.push(input);
+                            },
+                        }),
+                    },
                 },
             },
         },
-        useUtils: () => ({}),
-    },
-}));
+    });
+});
 
 const { SubscriptionsPanel } =
     await import('~/app/(app)/profile/_components/sensor-hub/SubscriptionsPanel');

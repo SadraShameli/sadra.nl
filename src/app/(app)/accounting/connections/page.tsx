@@ -5,7 +5,7 @@ import { AccountingSection } from '~/app/(app)/accounting/_components/Accounting
 import { ConnectionsManager } from '~/app/(app)/accounting/_components/ConnectionsManager';
 import { NewCredentialDialog } from '~/app/(app)/accounting/_components/NewCredentialDialog';
 import { requireRootUser } from '~/lib/auth/guards';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },
@@ -26,7 +26,7 @@ export default function ConnectionsPage() {
 
 async function ConnectionsContent() {
     await requireRootUser();
-    await api.accounting.credentials.list.prefetch();
+    await prefetch(trpc.accounting.credentials.list.queryOptions());
     return (
         <HydrateClient>
             <ConnectionsManager />

@@ -66,7 +66,7 @@ describe('one violation form (PT-27c, F-V20)', () => {
         expect(
             filesMatching(
                 path.join(ACCOUNTS_ROOT, 'review'),
-                /violation\.(?:create|update)\.useMutation\(/,
+                /violation\.(?:create|update)\.mutationOptions\(/,
             ),
         ).toEqual([]);
     });

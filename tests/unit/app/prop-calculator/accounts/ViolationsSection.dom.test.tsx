@@ -77,7 +77,7 @@ const harness = vi.hoisted(() => {
         mutateAsyncOf,
         mutateOf,
         mutation: (name: string) => ({
-            useMutation: (options?: {
+            mutation: (options?: {
                 onError?: (error: unknown) => void;
                 onSuccess?: () => Promise<void> | void;
             }) => ({
@@ -91,7 +91,7 @@ const harness = vi.hoisted(() => {
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
         reset() {
             queries.clear();
@@ -106,23 +106,26 @@ vi.mock('sonner', () => ({
     toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            decision: {
-                listForAccount: harness.query('decision.listForAccount'),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                decision: {
+                    listForAccount: harness.query('decision.listForAccount'),
+                },
+                violation: {
+                    create: harness.mutation('violation.create'),
+                    remove: harness.mutation('violation.remove'),
+                    update: harness.mutation('violation.update'),
+                },
             },
-            violation: {
-                create: harness.mutation('violation.create'),
-                remove: harness.mutation('violation.remove'),
-                update: harness.mutation('violation.update'),
-            },
+            queryClient: () => ({
+                propAccounts: { invalidate: harness.invalidate },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { invalidate: harness.invalidate },
-        }),
-    },
-}));
+    });
+});
 
 function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };

@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Copy, Cpu, Key, Plus, Radio, ShieldOff, Sliders } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -52,7 +54,7 @@ import {
     type DeviceCreateInput,
     deviceCreateSchema,
 } from '~/lib/schemas/sensor-hub';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type DeviceRow = RouterOutputs['device']['listAdmin'][number];
 
@@ -65,43 +67,64 @@ const DeviceColumn = {
 } as const;
 
 export function DevicesPanel() {
-    const utilities = api.useUtils();
-    const devices = api.device.listAdmin.useQuery();
-    const locations = api.location.listAdmin.useQuery();
-    const create = api.device.create.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Device created.');
-            await utilities.device.listAdmin.invalidate();
-        },
-    });
-    const update = api.device.update.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Device updated.');
-            await utilities.device.listAdmin.invalidate();
-        },
-    });
-    const del = api.device.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Device deleted.');
-            await utilities.device.listAdmin.invalidate();
-        },
-    });
-    const issue = api.device.issueToken.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            await utilities.device.listAdmin.invalidate();
-        },
-    });
-    const revoke = api.device.revokeToken.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Token revoked.');
-            await utilities.device.listAdmin.invalidate();
-        },
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const devices = useQuery(api.device.listAdmin.queryOptions());
+    const locations = useQuery(api.location.listAdmin.queryOptions());
+    const create = useMutation(
+        api.device.create.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Device created.');
+                await queryClient.invalidateQueries(
+                    api.device.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const update = useMutation(
+        api.device.update.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Device updated.');
+                await queryClient.invalidateQueries(
+                    api.device.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const del = useMutation(
+        api.device.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Device deleted.');
+                await queryClient.invalidateQueries(
+                    api.device.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const issue = useMutation(
+        api.device.issueToken.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                await queryClient.invalidateQueries(
+                    api.device.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const revoke = useMutation(
+        api.device.revokeToken.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Token revoked.');
+                await queryClient.invalidateQueries(
+                    api.device.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const [newOpen, setNewOpen] = useState(false);
     const [editing, setEditing] = useState<DeviceRow | null>(null);
@@ -475,13 +498,16 @@ function ManageSensorsDialog({
     deviceId: number;
     onClose: () => void;
 }) {
-    const utilities = api.useUtils();
-    const allSensors = api.sensor.listAdmin.useQuery();
-    const devices = api.device.listAdmin.useQuery();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const allSensors = useQuery(api.sensor.listAdmin.queryOptions());
+    const devices = useQuery(api.device.listAdmin.queryOptions());
     const device = devices.data?.find((d) => d.id === deviceId);
-    const deviceQuery = api.device.getDevice.useQuery(
-        { device_id: device?.device_id ?? 0 },
-        { enabled: !!device },
+    const deviceQuery = useQuery(
+        api.device.getDevice.queryOptions(
+            { device_id: device?.device_id ?? 0 },
+            { enabled: !!device },
+        ),
     );
 
     const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -495,17 +521,23 @@ function ManageSensorsDialog({
         }
     }, [deviceQuery.data]);
 
-    const save = api.sensor.setDeviceSensors.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Sensors updated.');
-            await Promise.all([
-                utilities.device.getDevice.invalidate(),
-                utilities.sensor.listDeviceMappings.invalidate(),
-            ]);
-            onClose();
-        },
-    });
+    const save = useMutation(
+        api.sensor.setDeviceSensors.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Sensors updated.');
+                await Promise.all([
+                    queryClient.invalidateQueries(
+                        api.device.getDevice.pathFilter(),
+                    ),
+                    queryClient.invalidateQueries(
+                        api.sensor.listDeviceMappings.pathFilter(),
+                    ),
+                ]);
+                onClose();
+            },
+        }),
+    );
 
     const toggle = (id: number) => {
         setSelected((previous) => {

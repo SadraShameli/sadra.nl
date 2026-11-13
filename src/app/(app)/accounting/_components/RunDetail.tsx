@@ -1,5 +1,7 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -14,7 +16,7 @@ import { Eur } from '~/lib/accounting/core/money';
 import { CredentialRegistry } from '~/lib/accounting/credentials/index';
 import { type RunStatus } from '~/lib/accounting/runs/types';
 import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import { PushPanel } from './PushPanel';
 import { BookingsTable } from './ResultTables';
@@ -31,10 +33,13 @@ const PUSHABLE_STATUSES: ReadonlySet<RunStatus> = new Set([
 ]);
 
 export function RunDetail({ initial }: { initial: RunDetailData }) {
-    const utilities = api.useUtils();
-    const runQ = api.accounting.runs.get.useQuery(
-        { id: initial.id },
-        { initialData: initial },
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const runQ = useQuery(
+        api.accounting.runs.get.queryOptions(
+            { id: initial.id },
+            { initialData: initial },
+        ),
     );
     const run = runQ.data;
 
@@ -43,7 +48,9 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
         setBookings(run.bookings);
     }, [run.bookings]);
 
-    const credentialsQ = api.accounting.credentials.list.useQuery();
+    const credentialsQ = useQuery(
+        api.accounting.credentials.list.queryOptions(),
+    );
     const accountingCredential = credentialsQ.data?.find(
         (c) => c.id === run.accountingCredentialId,
     );
@@ -57,13 +64,17 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
     const skippedCount =
         run.summary.skippedCurrency + run.summary.skippedNoBank;
 
-    const ledgersQ = api.accounting.ledgers.list.useQuery(
-        { credentialId: accountingCredentialId },
-        { enabled: !!accountingCredentialId },
+    const ledgersQ = useQuery(
+        api.accounting.ledgers.list.queryOptions(
+            { credentialId: accountingCredentialId },
+            { enabled: !!accountingCredentialId },
+        ),
     );
-    const rulesQ = api.accounting.rules.list.useQuery(
-        { credentialId: accountingCredentialId },
-        { enabled: !!accountingCredentialId },
+    const rulesQ = useQuery(
+        api.accounting.rules.list.queryOptions(
+            { credentialId: accountingCredentialId },
+            { enabled: !!accountingCredentialId },
+        ),
     );
     const ledgerOptions = useMemo<LedgerReference[]>(
         () =>
@@ -74,8 +85,11 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
         [ledgersQ.data],
     );
 
-    const { mutate: updateBooking } =
-        api.accounting.runs.updateBooking.useMutation({ onError: toastError });
+    const { mutate: updateBooking } = useMutation(
+        api.accounting.runs.updateBooking.mutationOptions({
+            onError: toastError,
+        }),
+    );
     const editBooking = useCallback(
         (txnId: string, patch: Partial<Booking>) => {
             setBookings((previous) =>
@@ -102,7 +116,9 @@ export function RunDetail({ initial }: { initial: RunDetailData }) {
         failed: number;
         posted: number;
     }) => {
-        await utilities.accounting.runs.get.invalidate({ id: run.id });
+        await queryClient.invalidateQueries(
+            api.accounting.runs.get.queryFilter({ id: run.id }),
+        );
         if (s.failed > 0) {
             toast.warning(
                 `Posted ${s.posted}, ${s.failed} failed. See list below.`,

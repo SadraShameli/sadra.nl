@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dumbbell, Plus } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -47,10 +49,9 @@ import {
     MECHANIC_VALUES,
     MUSCLE_VALUES,
 } from '~/lib/lifting/types';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type ExerciseFormInput = z.input<typeof customExerciseInputSchema>;
-type ExerciseRow = RouterOutputs['lifting']['exercise']['list'][number];
 
 const ExerciseColumn = {
     Equipment: 'equipment',
@@ -78,34 +79,50 @@ interface ExerciseDialogProperties {
 }
 
 export function ExercisesManager() {
-    const utilities = api.useUtils();
-    const query = api.lifting.exercise.list.useQuery({
-        includeCustom: true,
-        limit: 500,
-        offset: 0,
-    });
+    type ExerciseRow = RouterOutputs['lifting']['exercise']['list'][number];
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const query = useQuery(
+        api.lifting.exercise.list.queryOptions({
+            includeCustom: true,
+            limit: 500,
+            offset: 0,
+        }),
+    );
 
-    const create = api.lifting.exercise.createCustom.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Exercise created');
-            await utilities.lifting.exercise.list.invalidate();
-        },
-    });
-    const update = api.lifting.exercise.updateCustom.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Exercise updated');
-            await utilities.lifting.exercise.list.invalidate();
-        },
-    });
-    const remove = api.lifting.exercise.deleteCustom.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Exercise deleted');
-            await utilities.lifting.exercise.list.invalidate();
-        },
-    });
+    const create = useMutation(
+        api.lifting.exercise.createCustom.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Exercise created');
+                await queryClient.invalidateQueries(
+                    api.lifting.exercise.list.pathFilter(),
+                );
+            },
+        }),
+    );
+    const update = useMutation(
+        api.lifting.exercise.updateCustom.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Exercise updated');
+                await queryClient.invalidateQueries(
+                    api.lifting.exercise.list.pathFilter(),
+                );
+            },
+        }),
+    );
+    const remove = useMutation(
+        api.lifting.exercise.deleteCustom.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Exercise deleted');
+                await queryClient.invalidateQueries(
+                    api.lifting.exercise.list.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [editing, setEditing] = useState<ExerciseRow | null>(null);

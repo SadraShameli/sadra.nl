@@ -31,16 +31,6 @@ import { AnalysisReport, type ReportPlan } from './AnalysisReport';
 import { HistoryPanel } from './HistoryPanel';
 import { WizardStepper } from './WizardStepper';
 
-type SubmissionState =
-    | {
-          answers: Answers;
-          plan: ReportPlan;
-          result: AssessmentResult;
-          savedId: null | string;
-          status: 'graded';
-      }
-    | { status: 'editing' };
-
 const UNLISTED_PLAN_NAME = 'Plan at the time of this assessment';
 
 export function ChecklistShell({
@@ -52,6 +42,15 @@ export function ChecklistShell({
     history: TradeAssessmentRow[];
     plans: TradingPlanRow[];
 }) {
+    type SubmissionState =
+        | {
+              answers: Answers;
+              plan: ReportPlan;
+              result: AssessmentResult;
+              savedId: null | string;
+              status: 'graded';
+          }
+        | { status: 'editing' };
     const [submission, setSubmission] = useState<SubmissionState>({
         status: 'editing',
     });

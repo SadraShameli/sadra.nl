@@ -26,13 +26,18 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => ({ data: null, error: null, isPending: false }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            rulebook: { get: { useQuery: () => ({ data: undefined }) } },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                rulebook: {
+                    get: { query: () => ({ data: undefined }) },
+                },
+            },
         },
-    },
-}));
+    });
+});
 
 vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(),

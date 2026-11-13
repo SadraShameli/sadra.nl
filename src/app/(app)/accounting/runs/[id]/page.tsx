@@ -5,7 +5,7 @@ import { AccountingSection } from '~/app/(app)/accounting/_components/Accounting
 import { RunDetail } from '~/app/(app)/accounting/_components/RunDetail';
 import { requireRootUser } from '~/lib/auth/guards';
 import { loadOrNotFound, routeIdOrNotFound } from '~/trpc/loadOrNotFound';
-import { api, HydrateClient } from '~/trpc/server';
+import { caller, HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export default function AccountingRunDetailPage({
     params,
@@ -36,9 +36,9 @@ async function AccountingRunDetailContent({
     await requireRootUser();
     const { id } = await params;
     const run = await loadOrNotFound(() =>
-        api.accounting.runs.get({ id: routeIdOrNotFound(id) }),
+        caller.accounting.runs.get({ id: routeIdOrNotFound(id) }),
     );
-    await api.accounting.credentials.list.prefetch();
+    await prefetch(trpc.accounting.credentials.list.queryOptions());
     return (
         <HydrateClient>
             <RunDetail initial={run} />

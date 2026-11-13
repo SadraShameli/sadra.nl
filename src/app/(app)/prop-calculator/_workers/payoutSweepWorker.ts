@@ -25,7 +25,6 @@ import {
 } from './payoutSweepWorkerMessages';
 
 type PayoutWorkerRequest = PayoutOutlookRequest | PayoutSweepRequest;
-type PayoutWorkerResult = PayoutOutlookResult | PayoutSweepResult;
 
 function fail(runId: number, reason: string): void {
     const message: WorkerTaskMessage<never, never> = {
@@ -90,6 +89,7 @@ self.addEventListener(
     (event: MessageEvent<WorkerTaskRequest<PayoutWorkerRequest>>) => {
         const { request, runId } = event.data;
         try {
+            type PayoutWorkerResult = PayoutOutlookResult | PayoutSweepResult;
             const result: PayoutWorkerResult = isPayoutOutlookRequest(request)
                 ? runOutlook(request)
                 : runSweep(request);

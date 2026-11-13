@@ -23,13 +23,12 @@ interface DayStopRulePickerProperties {
 
 const DAY_STOP_RULE_LABEL = 'Day stop rule';
 
-type Kind = DayStopRule['kind'];
-
 export default function DayStopRulePicker({
     id,
     onChange,
     value,
 }: DayStopRulePickerProperties) {
+    type Kind = DayStopRule['kind'];
     const handleKind = (kind: Kind) => {
         switch (kind) {
             case DayStopRuleKind.AfterKLosses: {

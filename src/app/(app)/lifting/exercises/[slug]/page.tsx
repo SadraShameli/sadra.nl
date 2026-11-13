@@ -18,7 +18,7 @@ import {
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
 import { loadOrNotFound } from '~/trpc/loadOrNotFound';
-import { api } from '~/trpc/server';
+import { caller } from '~/trpc/server';
 
 type ExercisePageProperties = PageProps<'/lifting/exercises/[slug]'>;
 
@@ -59,7 +59,7 @@ export default function LiftingExerciseDetailPage({
 async function CustomExerciseDetail({ slug }: { readonly slug: string }) {
     await requireSessionUser();
     const exercise = await loadOrNotFound(() =>
-        api.lifting.exercise.get({ slug }),
+        caller.lifting.exercise.get({ slug }),
     );
     return (
         <LiftingUserSection>

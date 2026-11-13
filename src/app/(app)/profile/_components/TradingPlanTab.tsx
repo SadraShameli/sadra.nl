@@ -80,8 +80,6 @@ const PLAN_TOAST_MESSAGES: Record<string, string> = {
     plan_saved: 'Plan saved.',
 };
 
-type PlanListChange = (plans: TradingPlanRow[]) => TradingPlanRow[];
-
 const PLAN_TOAST_ERRORS: Record<string, string> = {
     plan_last_remaining: 'You must keep at least one trading plan.',
     plan_name_required: 'Plan name is required.',
@@ -89,6 +87,7 @@ const PLAN_TOAST_ERRORS: Record<string, string> = {
 };
 
 export function TradingPlanTab({ plans }: { plans: TradingPlanRow[] }) {
+    type PlanListChange = (plans: TradingPlanRow[]) => TradingPlanRow[];
     const router = useRouter();
     const pathname = usePathname();
     const searchParameters = useSearchParams();

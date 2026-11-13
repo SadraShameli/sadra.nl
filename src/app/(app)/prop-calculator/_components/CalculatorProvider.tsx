@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import {
     createContext,
     type ReactNode,
@@ -16,7 +16,7 @@ import {
     type SimInputs,
     type SimOutputs,
 } from '~/lib/prop-calculator';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { ComputationCache } from './computationCache';
 import {
@@ -112,6 +112,7 @@ const ObjectiveChoiceContext =
     createContext<ObjectiveChoice>(NO_OBJECTIVE_CHOICE);
 
 export function CalculatorProvider({ children }: CalculatorProviderProperties) {
+    const api = useTRPC();
     const calculator = useCalculator();
     const [cache] = useState(() => new ComputationCache());
     const [consumerCount, setConsumerCount] = useState(0);
@@ -149,11 +150,13 @@ export function CalculatorProvider({ children }: CalculatorProviderProperties) {
         isQueryError: isRulebookError,
         userRulebook: rulebook,
     } = useToolRulebook();
-    const summaryQuery = api.propAccounts.bankroll.summary.useQuery(undefined, {
-        enabled: hasSession,
-        refetchOnWindowFocus: false,
-        staleTime: Infinity,
-    });
+    const summaryQuery = useQuery(
+        api.propAccounts.bankroll.summary.queryOptions(undefined, {
+            enabled: hasSession,
+            refetchOnWindowFocus: false,
+            staleTime: Infinity,
+        }),
+    );
     const availableCents = summaryQuery.data?.availableCents;
     const isSummaryPending = summaryQuery.isPending;
     const availableBankroll = useMemo<AvailableBankroll>(

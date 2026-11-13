@@ -16,7 +16,7 @@ vi.mock('~/lib/email', () => ({}));
 vi.mock('~/lib/notify', () => ({ scheduleFanOut: vi.fn() }));
 vi.mock('~/server/api/root', () => ({ createCaller: vi.fn() }));
 vi.mock('~/trpc/server', () => ({
-    api: { recording: { getRecording: mocks.getRecording } },
+    caller: { recording: { getRecording: mocks.getRecording } },
 }));
 
 const PARTIAL_CONTENT = 206;

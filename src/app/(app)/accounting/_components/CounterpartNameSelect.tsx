@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { LabelWithInfo } from '~/components/LabelWithInfo';
@@ -10,7 +10,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '~/components/ui/select';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { useActiveCredentials } from './useActiveCredentials';
 
@@ -26,11 +26,14 @@ export function CounterpartNameSelect({
     onChange: (value?: string) => void;
     value: unknown;
 }) {
+    const api = useTRPC();
     const { accounting } = useActiveCredentials();
     const credentialId = accounting?.id ?? '';
-    const rulesQ = api.accounting.rules.list.useQuery(
-        { credentialId },
-        { enabled: !!credentialId },
+    const rulesQ = useQuery(
+        api.accounting.rules.list.queryOptions(
+            { credentialId },
+            { enabled: !!credentialId },
+        ),
     );
     const names = useMemo(
         () =>

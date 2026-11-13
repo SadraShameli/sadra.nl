@@ -20,13 +20,13 @@ describe('the detail page reads one decision query (PT-68e)', () => {
         const page = sourceOf('[id]', 'page.tsx');
 
         expect(page).not.toContain('decision.latestForAll');
-        expect(page.match(/decision\.list\.prefetch\(/g)).toHaveLength(1);
+        expect(page.match(/decision\.list\.queryOptions\(/g)).toHaveLength(1);
     });
 
     it('does not read the latest-decisions list in the detail view', () => {
         const view = sourceOf('_components', 'detail', 'AccountDetailView.tsx');
 
         expect(view).not.toContain('decision.latestForAll');
-        expect(view).toContain('decision.list.useQuery(LEDGER_LIST_INPUT)');
+        expect(view).toContain('decision.list.queryOptions(LEDGER_LIST_INPUT)');
     });
 });

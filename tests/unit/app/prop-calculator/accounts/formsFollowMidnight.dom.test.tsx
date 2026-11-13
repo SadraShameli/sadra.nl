@@ -49,8 +49,8 @@ const harness = vi.hoisted(() => {
             {},
             {
                 get: (_target, key) => {
-                    if (key === 'useQuery') return () => pending;
-                    if (key === 'useMutation') {
+                    if (key === 'query') return () => pending;
+                    if (key === 'mutation') {
                         return () => ({
                             isPending: false,
                             mutate: vi.fn(),
@@ -78,14 +78,17 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: harness.procedure(['propAccounts']),
-        useUtils: () => ({
-            propAccounts: { invalidate: harness.invalidate },
-        }),
-    },
-}));
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: harness.procedure(['propAccounts']),
+            queryClient: () => ({
+                propAccounts: { invalidate: harness.invalidate },
+            }),
+        },
+    });
+});
 
 interface FormCase {
     readonly create: string;

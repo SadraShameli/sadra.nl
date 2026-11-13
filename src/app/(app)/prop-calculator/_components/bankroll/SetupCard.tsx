@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { BookOpen } from 'lucide-react';
 import { type ReactNode, useCallback, useMemo } from 'react';
 
@@ -34,7 +34,7 @@ import {
     type Quantity,
 } from '~/lib/prop-calculator/economics';
 import { stableJson } from '~/lib/stableJson';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     bankrollBudgetCheck,
@@ -87,17 +87,17 @@ interface SetupCardProperties {
 }
 
 export function SetupCard({ onChange, state }: SetupCardProperties) {
+    const api = useTRPC();
     const { rulebook } = useBankrollVariant();
     const baseResult = useBaseResult();
     const { state: calculatorState } = useCalculatorInputs();
     const session = useSession();
     const userId = session.data?.user.id;
     const hasSession = userId !== undefined;
-    const bankrollSummaryQuery = api.propAccounts.bankroll.summary.useQuery(
-        undefined,
-        {
+    const bankrollSummaryQuery = useQuery(
+        api.propAccounts.bankroll.summary.queryOptions(undefined, {
             enabled: hasSession,
-        },
+        }),
     );
 
     const out = baseResult.result;

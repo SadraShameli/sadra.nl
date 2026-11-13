@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 
-import { render } from '@react-email/render';
+import { render } from 'react-email';
 
 export abstract class EmailMessage {
     abstract readonly subject: string;

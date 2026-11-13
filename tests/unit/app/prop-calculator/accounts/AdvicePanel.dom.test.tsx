@@ -79,7 +79,7 @@ const harness = vi.hoisted(() => {
         mutate,
         mutateOf,
         mutation: (name: string) => ({
-            useMutation: (
+            mutation: (
                 options: {
                     onError?: (error: unknown) => void;
                     onSuccess?: () => void;
@@ -93,7 +93,7 @@ const harness = vi.hoisted(() => {
             }),
         }),
         payoutQuery: () => ({
-            useQuery: (input?: { accountId?: string }) =>
+            query: (input?: { accountId?: string }) =>
                 (input?.accountId === undefined
                     ? (queries.get('payout.list.ledger') ??
                       queries.get('payout.list'))
@@ -101,7 +101,7 @@ const harness = vi.hoisted(() => {
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
         reset() {
             queries.clear();
@@ -142,62 +142,64 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: {
-                get: harness.query('account.get'),
-                list: harness.query('account.list'),
-            },
-            decision: {
-                create: harness.mutation('decision.create'),
-                listForAccount: harness.query('decision.listForAccount'),
-                recordActual: harness.mutation('decision.recordActual'),
-            },
-            dpAdvice: {
-                listForAccount: harness.query('dpAdvice.listForAccount'),
-            },
-            event: {
-                list: harness.query('event.list'),
-                listForAccount: harness.query('event.listForAccount'),
-            },
-            payout: { list: harness.payoutQuery() },
-            rulebook: { get: harness.query('rulebook.get') },
-            snapshot: {
-                listForAccount: harness.query('snapshot.listForAccount'),
-            },
-            violation: {
-                create: harness.mutation('violation.create'),
-                list: harness.query('violation.list'),
-            },
-        },
-        useUtils: () => ({
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
             propAccounts: {
-                decision: { invalidate: harness.invalidate },
-                invalidate: harness.invalidate,
+                account: {
+                    get: harness.query('account.get'),
+                    list: harness.query('account.list'),
+                },
+                decision: {
+                    create: harness.mutation('decision.create'),
+                    listForAccount: harness.query('decision.listForAccount'),
+                    recordActual: harness.mutation('decision.recordActual'),
+                },
+                dpAdvice: {
+                    listForAccount: harness.query('dpAdvice.listForAccount'),
+                },
+                event: {
+                    list: harness.query('event.list'),
+                    listForAccount: harness.query('event.listForAccount'),
+                },
+                payout: { list: harness.payoutQuery() },
+                rulebook: { get: harness.query('rulebook.get') },
+                snapshot: {
+                    listForAccount: harness.query('snapshot.listForAccount'),
+                },
+                violation: {
+                    create: harness.mutation('violation.create'),
+                    list: harness.query('violation.list'),
+                },
             },
-        }),
-    },
-}));
-
-type FakeAdviceState =
-    | {
-          readonly advice: unknown;
-          readonly failedOptima: readonly {
-              readonly reason: string;
-              readonly source: string;
-          }[];
-          readonly phase: 'ready';
-          readonly values?: unknown;
-      }
-    | {
-          readonly phase: 'failed';
-          readonly reason: string;
-          readonly retry: () => void;
-      }
-    | { readonly phase: 'loading' };
+            queryClient: () => ({
+                propAccounts: {
+                    decision: { invalidate: harness.invalidate },
+                    invalidate: harness.invalidate,
+                },
+            }),
+        },
+    });
+});
 
 const adviceBox = vi.hoisted(() => {
+    type FakeAdviceState =
+        | {
+              readonly advice: unknown;
+              readonly failedOptima: readonly {
+                  readonly reason: string;
+                  readonly source: string;
+              }[];
+              readonly phase: 'ready';
+              readonly values?: unknown;
+          }
+        | {
+              readonly phase: 'failed';
+              readonly reason: string;
+              readonly retry: () => void;
+          }
+        | { readonly phase: 'loading' };
     const box: {
         adjust: ((derived: unknown) => unknown) | null;
         inputs: unknown[];

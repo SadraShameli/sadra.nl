@@ -1,5 +1,7 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dumbbell, History, Play } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -12,12 +14,13 @@ import { Button } from '~/components/ui/button';
 import { EmptyStatePanel } from '~/components/ui/empty-state';
 import { Spinner } from '~/components/ui/spinner';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type Routine = RouterOutputs['lifting']['routine']['list'][number];
 
 export function RoutinesView() {
-    const routines = api.lifting.routine.list.useQuery();
+    const api = useTRPC();
+    const routines = useQuery(api.lifting.routine.list.queryOptions());
 
     if (routines.isLoading) {
         return <RoutinesViewSkeleton />;
@@ -42,16 +45,24 @@ export function RoutinesView() {
 }
 
 function RoutinesList({ routines }: { routines: readonly Routine[] }) {
+    const api = useTRPC();
     const router = useRouter();
-    const utilities = api.useUtils();
-    const routineDeletion = api.lifting.routine.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: () => utilities.lifting.routine.list.invalidate(),
-    });
-    const startWorkout = api.lifting.workout.start.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: () => router.push(routes.lifting.log),
-    });
+    const queryClient = useQueryClient();
+    const routineDeletion = useMutation(
+        api.lifting.routine.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: () =>
+                queryClient.invalidateQueries(
+                    api.lifting.routine.list.pathFilter(),
+                ),
+        }),
+    );
+    const startWorkout = useMutation(
+        api.lifting.workout.start.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: () => router.push(routes.lifting.log),
+        }),
+    );
 
     return (
         <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">

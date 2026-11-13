@@ -68,8 +68,6 @@ const scenario: LabScenario = {
     winrate: 0.4,
 };
 
-type LabUpdate = (id: string, patch: Partial<LabScenario>) => void;
-
 const PERCENT = 100;
 const WINRATE_MIN_PERCENT = Math.round(
     CALCULATOR_SCALAR_BOUNDS.wr.min * PERCENT,
@@ -172,6 +170,7 @@ async function save(field: EditorField, text: string) {
 }
 
 describe('StrategyLabPanel editors read CALCULATOR_SCALAR_BOUNDS (PT-53e)', () => {
+    type LabUpdate = (id: string, patch: Partial<LabScenario>) => void;
     let container: HTMLDivElement;
     let root: Root;
     let onUpdate: Mock<LabUpdate>;

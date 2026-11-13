@@ -75,7 +75,7 @@ const harness = vi.hoisted(() => {
         mutateAsyncOf,
         mutateOf,
         mutation: (name: string) => ({
-            useMutation: () => ({
+            mutation: () => ({
                 isPending: false,
                 mutate: mutateOf(name),
                 mutateAsync: mutateAsyncOf(name),
@@ -83,7 +83,7 @@ const harness = vi.hoisted(() => {
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
         reset() {
             queries.clear();
@@ -104,68 +104,73 @@ vi.mock('sonner', () => ({
     toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: {
-                archive: harness.mutation('account.archive'),
-                get: harness.query('account.get'),
-                list: harness.query('account.list'),
-                remove: harness.mutation('account.remove'),
-                unarchive: harness.mutation('account.unarchive'),
-                upgradeToModeled: harness.mutation('account.upgradeToModeled'),
-            },
-            bankroll: { list: harness.query('bankroll.list') },
-            copyGroup: { list: harness.query('copyGroup.list') },
-            decision: {
-                latestForAll: harness.query('decision.latestForAll'),
-                list: harness.query('decision.list'),
-                listForAccount: harness.query('decision.listForAccount'),
-            },
-            event: {
-                list: harness.query('event.list'),
-                listForAccount: harness.query('event.listForAccount'),
-                record: harness.mutation('event.record'),
-            },
-            externalFirm: { list: harness.query('externalFirm.list') },
-            fee: {
-                create: harness.mutation('fee.create'),
-                list: harness.query('fee.list'),
-                remove: harness.mutation('fee.remove'),
-                update: harness.mutation('fee.update'),
-            },
-            payout: {
-                create: harness.mutation('payout.create'),
-                list: harness.query('payout.list'),
-                remove: harness.mutation('payout.remove'),
-                update: harness.mutation('payout.update'),
-            },
-            rulebook: { get: harness.query('rulebook.get') },
-            snapshot: {
-                create: harness.mutation('snapshot.create'),
-                latestForAll: harness.query('snapshot.latestForAll'),
-                latestTwoForAll: harness.query('snapshot.latestForAll'),
-                listForAccount: harness.query('snapshot.listForAccount'),
-                remove: harness.mutation('snapshot.remove'),
-            },
-            violation: {
-                create: harness.mutation('violation.create'),
-                list: harness.query('violation.list'),
-                remove: harness.mutation('violation.remove'),
-                update: harness.mutation('violation.update'),
-            },
-        },
-        useUtils: () => ({
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
             propAccounts: {
                 account: {
-                    get: { cancel: harness.invalidate },
+                    archive: harness.mutation('account.archive'),
+                    get: harness.query('account.get'),
+                    list: harness.query('account.list'),
+                    remove: harness.mutation('account.remove'),
+                    unarchive: harness.mutation('account.unarchive'),
+                    upgradeToModeled: harness.mutation(
+                        'account.upgradeToModeled',
+                    ),
+                },
+                bankroll: { list: harness.query('bankroll.list') },
+                copyGroup: { list: harness.query('copyGroup.list') },
+                decision: {
+                    latestForAll: harness.query('decision.latestForAll'),
+                    list: harness.query('decision.list'),
+                    listForAccount: harness.query('decision.listForAccount'),
+                },
+                event: {
+                    list: harness.query('event.list'),
+                    listForAccount: harness.query('event.listForAccount'),
+                    record: harness.mutation('event.record'),
+                },
+                externalFirm: { list: harness.query('externalFirm.list') },
+                fee: {
+                    create: harness.mutation('fee.create'),
+                    list: harness.query('fee.list'),
+                    remove: harness.mutation('fee.remove'),
+                    update: harness.mutation('fee.update'),
+                },
+                payout: {
+                    create: harness.mutation('payout.create'),
+                    list: harness.query('payout.list'),
+                    remove: harness.mutation('payout.remove'),
+                    update: harness.mutation('payout.update'),
+                },
+                rulebook: { get: harness.query('rulebook.get') },
+                snapshot: {
+                    create: harness.mutation('snapshot.create'),
+                    latestForAll: harness.query('snapshot.latestForAll'),
+                    latestTwoForAll: harness.query('snapshot.latestForAll'),
+                    listForAccount: harness.query('snapshot.listForAccount'),
+                    remove: harness.mutation('snapshot.remove'),
+                },
+                violation: {
+                    create: harness.mutation('violation.create'),
+                    list: harness.query('violation.list'),
+                    remove: harness.mutation('violation.remove'),
+                    update: harness.mutation('violation.update'),
+                },
+            },
+            queryClient: () => ({
+                propAccounts: {
+                    account: {
+                        get: { cancel: harness.invalidate },
+                        invalidate: harness.invalidate,
+                    },
                     invalidate: harness.invalidate,
                 },
-                invalidate: harness.invalidate,
-            },
-        }),
-    },
-}));
+            }),
+        },
+    });
+});
 
 function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };

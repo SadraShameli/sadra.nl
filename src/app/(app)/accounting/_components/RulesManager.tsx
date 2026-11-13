@@ -1,5 +1,7 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Filter, Landmark, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type DateRange } from 'react-day-picker';
@@ -48,7 +50,7 @@ import { currencyCodeSchema } from '~/lib/accounting/core/currency';
 import { CurrencyAmount } from '~/lib/accounting/core/money';
 import { MATCH_TYPES } from '~/lib/accounting/core/rules/matcher';
 import { CredentialRole } from '~/lib/accounting/credentials/index';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { dialogModeOf, dialogSubmitLabels } from './dialogSubmitLabels';
 import {
@@ -142,22 +144,29 @@ export function RuleFormDialog({
     onClose: () => void;
     sourceCredentialId?: string;
 }) {
+    const api = useTRPC();
     const isEdit = mode !== 'new' && 'id' in mode;
     const isPrefill = mode !== 'new' && !('id' in mode);
     const { options: taxCodeOptions } = useTaxCodes(credentialId);
-    const utilities = api.useUtils();
+    const queryClient = useQueryClient();
     const settled = () => {
-        void utilities.accounting.rules.list.invalidate({ credentialId });
+        void queryClient.invalidateQueries(
+            api.accounting.rules.list.queryFilter({ credentialId }),
+        );
         onClose();
     };
-    const create = api.accounting.rules.create.useMutation({
-        onError: toastError,
-        onSuccess: settled,
-    });
-    const update = api.accounting.rules.update.useMutation({
-        onError: toastError,
-        onSuccess: settled,
-    });
+    const create = useMutation(
+        api.accounting.rules.create.mutationOptions({
+            onError: toastError,
+            onSuccess: settled,
+        }),
+    );
+    const update = useMutation(
+        api.accounting.rules.update.mutationOptions({
+            onError: toastError,
+            onSuccess: settled,
+        }),
+    );
 
     const form = useForm<RuleFormValues>({
         defaultValues: {
@@ -247,19 +256,21 @@ export function RuleFormDialog({
     const today = new Date();
     const ninetyDaysAgo = new Date(today);
     ninetyDaysAgo.setDate(today.getDate() - BACKTEST_LOOKBACK_DAYS);
-    const backtestQ = api.accounting.rules.backtest.useQuery(
-        {
-            credentialId: sourceCredentialId ?? '',
-            from: toIso(ninetyDaysAgo),
-            to: toIso(today),
-            ...debounced,
-            currency: debounced.currency ?? undefined,
-            dateFrom: debounced.dateFrom ?? undefined,
-            dateTo: debounced.dateTo ?? undefined,
-            maxAmount: debounced.maxAmount ?? undefined,
-            minAmount: debounced.minAmount ?? undefined,
-        },
-        { enabled: !!sourceCredentialId && debounced.match.length > 0 },
+    const backtestQ = useQuery(
+        api.accounting.rules.backtest.queryOptions(
+            {
+                credentialId: sourceCredentialId ?? '',
+                from: toIso(ninetyDaysAgo),
+                to: toIso(today),
+                ...debounced,
+                currency: debounced.currency ?? undefined,
+                dateFrom: debounced.dateFrom ?? undefined,
+                dateTo: debounced.dateTo ?? undefined,
+                maxAmount: debounced.maxAmount ?? undefined,
+                minAmount: debounced.minAmount ?? undefined,
+            },
+            { enabled: !!sourceCredentialId && debounced.match.length > 0 },
+        ),
     );
 
     const submit = (values: RuleFormValues) => {
@@ -437,12 +448,15 @@ export function RuleFormDialog({
 }
 
 export function RulesManager() {
+    const api = useTRPC();
     const { accounting, isLoading, source } = useActiveCredentials();
     const credentialId = accounting?.id ?? '';
 
-    const ledgersQ = api.accounting.ledgers.list.useQuery(
-        { credentialId },
-        { enabled: !!credentialId },
+    const ledgersQ = useQuery(
+        api.accounting.ledgers.list.queryOptions(
+            { credentialId },
+            { enabled: !!credentialId },
+        ),
     );
     const ledgerOptions = useMemo<LedgerReference[]>(
         () =>
@@ -531,19 +545,24 @@ function BankAccountFormDialog({
     mode: 'new' | BankAccountView;
     onClose: () => void;
 }) {
+    const api = useTRPC();
     const isEdit = mode !== 'new';
-    const utilities = api.useUtils();
+    const queryClient = useQueryClient();
     const invalidate = () =>
-        void utilities.accounting.bankAccounts.list.invalidate({
-            credentialId,
-        });
-    const upsert = api.accounting.bankAccounts.upsert.useMutation({
-        onError: toastError,
-        onSuccess: () => {
-            invalidate();
-            onClose();
-        },
-    });
+        void queryClient.invalidateQueries(
+            api.accounting.bankAccounts.list.queryFilter({
+                credentialId,
+            }),
+        );
+    const upsert = useMutation(
+        api.accounting.bankAccounts.upsert.mutationOptions({
+            onError: toastError,
+            onSuccess: () => {
+                invalidate();
+                onClose();
+            },
+        }),
+    );
     const form = useForm<BankAccountFormValues>({
         defaultValues: {
             currency: isEdit ? mode.currency : '',
@@ -622,15 +641,22 @@ function BankAccountsCard({
     credentialId: string;
     ledgerOptions: LedgerReference[];
 }) {
-    const utilities = api.useUtils();
-    const banksQ = api.accounting.bankAccounts.list.useQuery({ credentialId });
-    const del = api.accounting.bankAccounts.delete.useMutation({
-        onError: toastError,
-        onSuccess: () =>
-            void utilities.accounting.bankAccounts.list.invalidate({
-                credentialId,
-            }),
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const banksQ = useQuery(
+        api.accounting.bankAccounts.list.queryOptions({ credentialId }),
+    );
+    const del = useMutation(
+        api.accounting.bankAccounts.delete.mutationOptions({
+            onError: toastError,
+            onSuccess: () =>
+                void queryClient.invalidateQueries(
+                    api.accounting.bankAccounts.list.queryFilter({
+                        credentialId,
+                    }),
+                ),
+        }),
+    );
 
     const [form, setForm] = useState<'new' | BankAccountView | null>(null);
 
@@ -861,19 +887,30 @@ function RulesCard({
     ledgerOptions: LedgerReference[];
     sourceCredentialId?: string;
 }) {
+    const api = useTRPC();
     const { labelOf } = useTaxCodes(credentialId);
-    const utilities = api.useUtils();
-    const rulesQ = api.accounting.rules.list.useQuery({ credentialId });
-    const del = api.accounting.rules.delete.useMutation({
-        onError: toastError,
-        onSuccess: () =>
-            void utilities.accounting.rules.list.invalidate({ credentialId }),
-    });
-    const { mutate: reorderMutate } = api.accounting.rules.reorder.useMutation({
-        onError: toastError,
-        onSuccess: () =>
-            void utilities.accounting.rules.list.invalidate({ credentialId }),
-    });
+    const queryClient = useQueryClient();
+    const rulesQ = useQuery(
+        api.accounting.rules.list.queryOptions({ credentialId }),
+    );
+    const del = useMutation(
+        api.accounting.rules.delete.mutationOptions({
+            onError: toastError,
+            onSuccess: () =>
+                void queryClient.invalidateQueries(
+                    api.accounting.rules.list.queryFilter({ credentialId }),
+                ),
+        }),
+    );
+    const { mutate: reorderMutate } = useMutation(
+        api.accounting.rules.reorder.mutationOptions({
+            onError: toastError,
+            onSuccess: () =>
+                void queryClient.invalidateQueries(
+                    api.accounting.rules.list.queryFilter({ credentialId }),
+                ),
+        }),
+    );
 
     const [form, setForm] = useState<'new' | null | RuleView>(null);
 

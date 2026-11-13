@@ -32,17 +32,20 @@ const harness = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => {
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     const { query, recorder } = harness;
-    return {
+
+    return trpcDoubleReact({
         api: {
-            device: { listAdmin: { useQuery: query([]) } },
-            location: { listAdmin: { useQuery: query([]) } },
+            device: { listAdmin: { query: query([]) } },
+            location: { listAdmin: { query: query([]) } },
+            queryClient: () => ({}),
             sensor: {
-                create: { useMutation: recorder([]) },
-                delete: { useMutation: recorder([]) },
+                create: { mutation: recorder([]) },
+                delete: { mutation: recorder([]) },
                 listAdmin: {
-                    useQuery: query([
+                    query: query([
                         {
                             created_at: new Date('2026-09-01T00:00:00Z'),
                             id: 9,
@@ -51,18 +54,19 @@ vi.mock('~/trpc/react', () => {
                         },
                     ]),
                 },
-                listDeviceMappings: { useQuery: query([]) },
-                update: { useMutation: recorder([]) },
+                listDeviceMappings: { query: query([]) },
+                update: { mutation: recorder([]) },
             },
             sensorUnit: {
-                create: { useMutation: recorder([]) },
-                delete: { useMutation: recorder(harness.unitsDeleted) },
-                list: { useQuery: query([{ id: UNIT_ID, value: 'lux' }]) },
-                update: { useMutation: recorder(harness.renamed) },
+                create: { mutation: recorder([]) },
+                delete: { mutation: recorder(harness.unitsDeleted) },
+                list: {
+                    query: query([{ id: UNIT_ID, value: 'lux' }]),
+                },
+                update: { mutation: recorder(harness.renamed) },
             },
-            useUtils: () => ({}),
         },
-    };
+    });
 });
 
 const { SensorsPanel } =

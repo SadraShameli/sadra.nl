@@ -1,6 +1,6 @@
 'use client';
-
 import { replaceEqualDeep } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { memo, type ReactNode, useMemo, useState } from 'react';
 
@@ -23,7 +23,7 @@ import {
     PropRecord,
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { AlertsCenter } from './AlertsCenter';
 import { AttemptEconomicsCard } from './AttemptEconomicsCard';
@@ -98,8 +98,11 @@ const LEDGER_FREE_SECTIONS = [
 type LedgerFreeSectionId = (typeof LEDGER_FREE_SECTIONS)[number];
 
 export function OverviewView({ userId }: { readonly userId: string }) {
+    const api = useTRPC();
     const load = useOverviewPortfolioData();
-    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    const externalFirmsQuery = useQuery(
+        api.propAccounts.externalFirm.list.queryOptions(),
+    );
     const externalFirms = externalFirmsQuery.data;
     const today = useTodayIsoDate();
     const engineRequests = useMemo(
@@ -597,7 +600,8 @@ function ReadySection({
 }
 
 function RulebookRepairLink() {
-    const { error } = api.propAccounts.rulebook.get.useQuery();
+    const api = useTRPC();
+    const { error } = useQuery(api.propAccounts.rulebook.get.queryOptions());
     if (!isInvalidStoredRecord(error, PropRecord.Rulebook)) return null;
     return (
         <Button asChild size="sm" variant="outline">
@@ -695,11 +699,14 @@ function StaleLoads({
 }
 
 function useOverviewPortfolioData(): PortfolioLoad {
+    const api = useTRPC();
     const queries = usePortfolioQueries();
-    const { data: firmStatements, error: firmStatementsError } =
-        api.propAccounts.firmStatement.list.useQuery();
-    const { data: rounds, error: roundsError } =
-        api.propAccounts.round.list.useQuery();
+    const { data: firmStatements, error: firmStatementsError } = useQuery(
+        api.propAccounts.firmStatement.list.queryOptions(),
+    );
+    const { data: rounds, error: roundsError } = useQuery(
+        api.propAccounts.round.list.queryOptions(),
+    );
     return useMemo(
         () =>
             portfolioLoad({

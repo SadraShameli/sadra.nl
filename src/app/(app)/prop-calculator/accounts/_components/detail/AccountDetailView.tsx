@@ -1,5 +1,7 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -91,7 +93,7 @@ import {
     PropStoredRecordRejection,
 } from '~/lib/schemas/propAccountOutputs';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import { accountAlerts } from './accountAlerts';
 import { BustDiagnosisCard } from './BustDiagnosisCard';
@@ -185,37 +187,66 @@ export function AccountDetailView({
     readonly id: string;
     readonly userId: string;
 }) {
-    const accountQuery = api.propAccounts.account.get.useQuery({ id });
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const snapshotsQuery = api.propAccounts.snapshot.listForAccount.useQuery({
-        id,
-    });
-    const payoutsQuery = api.propAccounts.payout.list.useQuery({
-        accountId: id,
-    });
-    const feesQuery = api.propAccounts.fee.list.useQuery({ accountId: id });
-    const eventsQuery = api.propAccounts.event.listForAccount.useQuery({ id });
-    const violationsQuery = api.propAccounts.violation.list.useQuery({
-        accountId: id,
-    });
-    const decisionsQuery = api.propAccounts.decision.listForAccount.useQuery({
-        id,
-    });
-    const allEventsQuery =
-        api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const allPayoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const copyGroupsQuery = api.propAccounts.copyGroup.list.useQuery();
-    const latestSnapshotsQuery =
-        api.propAccounts.snapshot.latestTwoForAll.useQuery();
-    const ledgerDecisionsQuery =
-        api.propAccounts.decision.list.useQuery(LEDGER_LIST_INPUT);
-    const ledgerFeesQuery =
-        api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
-    const transfersQuery = api.propAccounts.bankroll.list.useQuery();
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    const api = useTRPC();
+    const accountQuery = useQuery(
+        api.propAccounts.account.get.queryOptions({ id }),
+    );
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const snapshotsQuery = useQuery(
+        api.propAccounts.snapshot.listForAccount.queryOptions({
+            id,
+        }),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions({
+            accountId: id,
+        }),
+    );
+    const feesQuery = useQuery(
+        api.propAccounts.fee.list.queryOptions({ accountId: id }),
+    );
+    const eventsQuery = useQuery(
+        api.propAccounts.event.listForAccount.queryOptions({ id }),
+    );
+    const violationsQuery = useQuery(
+        api.propAccounts.violation.list.queryOptions({
+            accountId: id,
+        }),
+    );
+    const decisionsQuery = useQuery(
+        api.propAccounts.decision.listForAccount.queryOptions({
+            id,
+        }),
+    );
+    const allEventsQuery = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const allPayoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const copyGroupsQuery = useQuery(
+        api.propAccounts.copyGroup.list.queryOptions(),
+    );
+    const latestSnapshotsQuery = useQuery(
+        api.propAccounts.snapshot.latestTwoForAll.queryOptions(),
+    );
+    const ledgerDecisionsQuery = useQuery(
+        api.propAccounts.decision.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const ledgerFeesQuery = useQuery(
+        api.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const transfersQuery = useQuery(
+        api.propAccounts.bankroll.list.queryOptions(),
+    );
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
+    const externalFirmsQuery = useQuery(
+        api.propAccounts.externalFirm.list.queryOptions(),
+    );
     const [storedIssue, setStoredIssue] = useState<null | StoredRecordIssue>(
         null,
     );
@@ -1009,14 +1040,19 @@ function SnapshotHistory({
     readonly onFailure: (error: unknown) => void;
     readonly query: ListQuery<SnapshotRow>;
 }) {
-    const utilities = api.useUtils();
-    const remove = api.propAccounts.snapshot.remove.useMutation({
-        onError: onFailure,
-        onSuccess: () => {
-            toast.success('Snapshot deleted');
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const remove = useMutation(
+        api.propAccounts.snapshot.remove.mutationOptions({
+            onError: onFailure,
+            onSuccess: () => {
+                toast.success('Snapshot deleted');
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
     const rows = query.data;
     const events = eventsQuery.data;
     const series = useMemo(
@@ -1125,21 +1161,27 @@ function StoredRecordActions({
     readonly onResolved: () => void;
     readonly rejection: PropRejection;
 }) {
+    const api = useTRPC();
     const router = useRouter();
-    const utilities = api.useUtils();
+    const queryClient = useQueryClient();
     const removed = {
         onError: (error: { readonly message: string }) => {
             toast.error(error.message);
         },
         onSuccess: () => {
             onResolved();
-            return utilities.propAccounts.invalidate();
+            return queryClient.invalidateQueries(api.propAccounts.pathFilter());
         },
     };
-    const payoutRemoval = api.propAccounts.payout.remove.useMutation(removed);
-    const feeRemoval = api.propAccounts.fee.remove.useMutation(removed);
-    const snapshotRemoval =
-        api.propAccounts.snapshot.remove.useMutation(removed);
+    const payoutRemoval = useMutation(
+        api.propAccounts.payout.remove.mutationOptions(removed),
+    );
+    const feeRemoval = useMutation(
+        api.propAccounts.fee.remove.mutationOptions(removed),
+    );
+    const snapshotRemoval = useMutation(
+        api.propAccounts.snapshot.remove.mutationOptions(removed),
+    );
     const { record, recordId } = rejection;
     if (record === null || recordId === null) return null;
     switch (record) {
@@ -1260,8 +1302,11 @@ function UpgradeToModeled({
     readonly account: StoredAccount;
     readonly externalFirms: readonly ExternalFirmName[];
 }) {
-    const utilities = api.useUtils();
-    const upgrade = api.propAccounts.account.upgradeToModeled.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const upgrade = useMutation(
+        api.propAccounts.account.upgradeToModeled.mutationOptions(),
+    );
     const [selection, setSelection] = useState<AccountPlanSelection>(() =>
         upgradePlanSelection(
             account.firmId,
@@ -1283,7 +1328,7 @@ function UpgradeToModeled({
                 id: account.id,
             });
             toast.success(`${account.label} now follows a modeled plan`);
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         } catch (error) {
             toast.error(errorMessage(error));
         }

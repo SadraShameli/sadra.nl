@@ -8,9 +8,6 @@ import {
     type SizingAdvisorCreateOptions,
 } from '~/lib/prop-calculator/advisor';
 
-type IsOptional<T, K extends keyof T> =
-    object extends Pick<T, K> ? true : false;
-
 describe('substate is required but nullable on every advisor input (PT-19i, F-118)', () => {
     it('is null or Suspended, never undefined, on the factory options and on the Eval, Funded and Live inputs', () => {
         expectTypeOf<
@@ -29,6 +26,8 @@ describe('substate is required but nullable on every advisor input (PT-19i, F-11
     });
 
     it('cannot be left out of any of them, so the compiler flags an omission', () => {
+        type IsOptional<T, K extends keyof T> =
+            object extends Pick<T, K> ? true : false;
         expectTypeOf<
             IsOptional<SizingAdvisorCreateOptions, 'substate'>
         >().toEqualTypeOf<false>();

@@ -9,7 +9,7 @@ import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 import { EdgeView } from './EdgeView';
 
@@ -50,7 +50,9 @@ async function PropAccountsEdgeContent() {
     await requireSessionUser(
         loginRedirectFor(routes.propCalculator.accounts.edge),
     );
-    await api.propAccounts.edge.summary.prefetch(ALL_JOURNAL_DAYS);
+    await prefetch(
+        trpc.propAccounts.edge.summary.queryOptions(ALL_JOURNAL_DAYS),
+    );
     return (
         <HydrateClient>
             <EdgeView />

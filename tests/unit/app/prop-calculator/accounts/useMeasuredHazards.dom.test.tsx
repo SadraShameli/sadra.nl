@@ -54,16 +54,19 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => harness.session,
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: { list: { useQuery: () => harness.accounts } },
-            event: { list: { useQuery: () => harness.events } },
-            fee: { list: { useQuery: () => harness.fees } },
-            payout: { list: { useQuery: () => harness.payouts } },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                account: { list: { query: () => harness.accounts } },
+                event: { list: { query: () => harness.events } },
+                fee: { list: { query: () => harness.fees } },
+                payout: { list: { query: () => harness.payouts } },
+            },
         },
-    },
-}));
+    });
+});
 
 function ledgerOnlyLive() {
     return account(EVAL_PLAN, {

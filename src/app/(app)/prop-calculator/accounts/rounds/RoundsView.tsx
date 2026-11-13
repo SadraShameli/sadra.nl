@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Layers } from 'lucide-react';
 import { useCallback, useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -68,7 +70,7 @@ import { ALL_JOURNAL_DAYS } from '~/lib/prop-accounts/edge';
 import { DEFAULT_RULEBOOK } from '~/lib/prop-calculator/advisor';
 import { roundCreateSchema } from '~/lib/schemas/propAccounts';
 import { stableJson } from '~/lib/stableJson';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     firmColumnsFromSelectValue,
@@ -127,18 +129,33 @@ interface RoundPrefill {
 }
 
 export function RoundsView() {
+    const api = useTRPC();
     const session = useSession();
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
-    const payoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const roundsQuery = api.propAccounts.round.list.useQuery();
-    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const bankrollSummaryQuery = api.propAccounts.bankroll.summary.useQuery();
-    const edgeQuery = api.propAccounts.edge.summary.useQuery(ALL_JOURNAL_DAYS);
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const eventsQuery = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const feesQuery = useQuery(
+        api.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const roundsQuery = useQuery(api.propAccounts.round.list.queryOptions());
+    const externalFirmsQuery = useQuery(
+        api.propAccounts.externalFirm.list.queryOptions(),
+    );
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
+    const bankrollSummaryQuery = useQuery(
+        api.propAccounts.bankroll.summary.queryOptions(),
+    );
+    const edgeQuery = useQuery(
+        api.propAccounts.edge.summary.queryOptions(ALL_JOURNAL_DAYS),
+    );
     const [prefill, setPrefill] = useState<null | RoundPrefill>(null);
 
     const externalFirms = externalFirmsQuery.data ?? EMPTY_EXTERNAL_FIRMS;
@@ -673,9 +690,10 @@ function RoundForm({
     readonly externalFirms: Parameters<typeof firmSelectOptions>[0];
     readonly prefill: null | RoundPrefill;
 }) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.round.create.useMutation();
-    const assign = api.propAccounts.round.assign.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const create = useMutation(api.propAccounts.round.create.mutationOptions());
+    const assign = useMutation(api.propAccounts.round.assign.mutationOptions());
     const options = firmSelectOptions(externalFirms);
     const schema = roundFormSchema();
     const form = useForm<RoundFormValues>({
@@ -722,7 +740,7 @@ function RoundForm({
                 error instanceof Error ? error.message : 'Could not save',
             );
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
 

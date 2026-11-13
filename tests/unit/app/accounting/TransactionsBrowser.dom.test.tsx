@@ -32,44 +32,47 @@ vi.mock('next/link', () => ({
     ),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        accounting: {
-            credentials: {
-                list: {
-                    useQuery: () => ({
-                        data: harness.credentials,
-                        isPending: false,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            accounting: {
+                credentials: {
+                    list: {
+                        query: () => ({
+                            data: harness.credentials,
+                            isPending: false,
+                        }),
+                    },
                 },
-            },
-            transactions: {
-                list: {
-                    useQuery: () => ({
-                        data: harness.hasTransactions
-                            ? [
-                                  {
-                                      date: '2026-10-07',
-                                      direction: 'OUT',
-                                      match: null,
-                                      merchant: 'Anthropic',
-                                      sourceAmount: 1175,
-                                      sourceCurrency: 'USD',
-                                      sourceFee: 0.5,
-                                      sourceFeeCurrency: 'USD',
-                                      sourceId: 'wise',
-                                      txnId: 'card-1',
-                                  },
-                              ]
-                            : [],
-                        error: null,
-                        isPending: false,
-                    }),
+                transactions: {
+                    list: {
+                        query: () => ({
+                            data: harness.hasTransactions
+                                ? [
+                                      {
+                                          date: '2026-10-07',
+                                          direction: 'OUT',
+                                          match: null,
+                                          merchant: 'Anthropic',
+                                          sourceAmount: 1175,
+                                          sourceCurrency: 'USD',
+                                          sourceFee: 0.5,
+                                          sourceFeeCurrency: 'USD',
+                                          sourceId: 'wise',
+                                          txnId: 'card-1',
+                                      },
+                                  ]
+                                : [],
+                            error: null,
+                            isPending: false,
+                        }),
+                    },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 const WISE = {
     id: '00000000-0000-4000-8000-0000000000c1',

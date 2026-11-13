@@ -33,17 +33,15 @@ vi.mock('next/navigation', () => ({
     usePathname: () => '/prop-calculator/accounts/new',
 }));
 
-vi.mock('~/trpc/server', () => ({
-    api: {
-        propAccounts: {
-            account: { list: { prefetch: () => Promise.resolve() } },
-            copyGroup: { list: { prefetch: () => Promise.resolve() } },
-            externalFirm: { list: { prefetch: () => Promise.resolve() } },
-            round: { list: { prefetch: () => Promise.resolve() } },
-        },
-    },
-    HydrateClient: ({ children }: { children: ReactNode }) => children,
-}));
+vi.mock('~/trpc/server', () => {
+    const recorder = (): unknown =>
+        new Proxy(vi.fn(), { get: () => recorder() });
+    return {
+        HydrateClient: ({ children }: { children: ReactNode }) => children,
+        prefetch: () => Promise.resolve(),
+        trpc: recorder(),
+    };
+});
 
 vi.mock('~/app/(app)/prop-calculator/accounts/_components/AccountForm', () => ({
     AccountCreator: (properties: Record<string, unknown>) => (

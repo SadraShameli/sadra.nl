@@ -38,23 +38,31 @@ vi.mock('~/lib/auth/client', () => ({
     useSession: () => ({ data: null, error: null, isPending: false }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            bankroll: {
-                summary: {
-                    useQuery: () => ({
-                        data:
-                            harness.availableCents === null
-                                ? undefined
-                                : { availableCents: harness.availableCents },
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                bankroll: {
+                    summary: {
+                        query: () => ({
+                            data:
+                                harness.availableCents === null
+                                    ? undefined
+                                    : {
+                                          availableCents:
+                                              harness.availableCents,
+                                      },
+                        }),
+                    },
+                },
+                rulebook: {
+                    get: { query: () => ({ data: undefined }) },
                 },
             },
-            rulebook: { get: { useQuery: () => ({ data: undefined }) } },
         },
-    },
-}));
+    });
+});
 
 vi.mock('~/app/(app)/prop-calculator/_components/CalculatorProvider', () => ({
     useBaseResult: () => ({

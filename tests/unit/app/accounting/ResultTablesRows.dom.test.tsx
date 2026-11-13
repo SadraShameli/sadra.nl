@@ -20,16 +20,18 @@ import {
 } from '../../components/formDialog';
 import { chooseRowAction } from '../../components/rowActionsMenu';
 
-vi.mock('~/trpc/react', () => {
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     const mutation = {
-        useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+        mutation: () => ({ isPending: false, mutate: vi.fn() }),
     };
-    return {
+
+    return trpcDoubleReact({
         api: {
             accounting: {
                 rules: {
                     backtest: {
-                        useQuery: () => ({
+                        query: () => ({
                             data: undefined,
                             isFetching: false,
                         }),
@@ -39,18 +41,25 @@ vi.mock('~/trpc/react', () => {
                 },
                 taxCodes: {
                     list: {
-                        useQuery: () => ({
-                            data: [{ code: 'BI_EU_INK', label: 'EU purchase' }],
+                        query: () => ({
+                            data: [
+                                {
+                                    code: 'BI_EU_INK',
+                                    label: 'EU purchase',
+                                },
+                            ],
                             isPending: false,
                         }),
                     },
                 },
             },
-            useUtils: () => ({
-                accounting: { rules: { list: { invalidate: vi.fn() } } },
+            queryClient: () => ({
+                accounting: {
+                    rules: { list: { invalidate: vi.fn() } },
+                },
             }),
         },
-    };
+    });
 });
 
 const SOFTWARE = { id: LedgerId('99'), label: 'Software' };

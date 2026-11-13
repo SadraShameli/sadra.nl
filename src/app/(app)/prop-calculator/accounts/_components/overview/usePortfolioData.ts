@@ -1,7 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     EVENT_LIST_INPUT,
@@ -18,26 +19,37 @@ export function usePortfolioData(): PortfolioLoad {
 }
 
 export function usePortfolioQueries(): PortfolioQueries {
-    const { data: accounts, error: accountsError } =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const { data: copyGroups, error: copyGroupsError } =
-        api.propAccounts.copyGroup.list.useQuery();
-    const { data: decisions, error: decisionsError } =
-        api.propAccounts.decision.list.useQuery(LEDGER_LIST_INPUT);
-    const { data: events, error: eventsError } =
-        api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const { data: fees, error: feesError } =
-        api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
-    const { data: payouts, error: payoutsError } =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const { data: rulebook, error: rulebookError } =
-        api.propAccounts.rulebook.get.useQuery();
-    const { data: snapshots, error: snapshotsError } =
-        api.propAccounts.snapshot.latestTwoForAll.useQuery();
-    const { data: transfers, error: transfersError } =
-        api.propAccounts.bankroll.list.useQuery();
-    const { data: violations, error: violationsError } =
-        api.propAccounts.violation.list.useQuery(LEDGER_LIST_INPUT);
+    const api = useTRPC();
+    const { data: accounts, error: accountsError } = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const { data: copyGroups, error: copyGroupsError } = useQuery(
+        api.propAccounts.copyGroup.list.queryOptions(),
+    );
+    const { data: decisions, error: decisionsError } = useQuery(
+        api.propAccounts.decision.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const { data: events, error: eventsError } = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const { data: fees, error: feesError } = useQuery(
+        api.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const { data: payouts, error: payoutsError } = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const { data: rulebook, error: rulebookError } = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
+    const { data: snapshots, error: snapshotsError } = useQuery(
+        api.propAccounts.snapshot.latestTwoForAll.queryOptions(),
+    );
+    const { data: transfers, error: transfersError } = useQuery(
+        api.propAccounts.bankroll.list.queryOptions(),
+    );
+    const { data: violations, error: violationsError } = useQuery(
+        api.propAccounts.violation.list.queryOptions(LEDGER_LIST_INPUT),
+    );
     return useMemo(
         () => ({
             [PortfolioSource.Accounts]: {

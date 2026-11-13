@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { subDays, subMonths } from 'date-fns';
 import { TrendingUp, Trophy } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -16,7 +16,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { ToolbarSelect } from '~/components/ui/toolbar-select';
 import { formatDisplayDate } from '~/lib/format';
 import { WeightUnit } from '~/lib/lifting/format';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 interface ExerciseProgressProperties {
     exerciseId: string;
@@ -36,8 +36,11 @@ const E1RM_RANGE_LABEL: Record<E1rmRange, string> = {
 };
 
 export function ExerciseProgress({ exerciseId }: ExerciseProgressProperties) {
-    const prs = api.lifting.analytics.prTimeline.useQuery({ id: exerciseId });
-    const settings = api.lifting.settings.get.useQuery();
+    const api = useTRPC();
+    const prs = useQuery(
+        api.lifting.analytics.prTimeline.queryOptions({ id: exerciseId }),
+    );
+    const settings = useQuery(api.lifting.settings.get.queryOptions());
     const unitWeight = settings.data?.unitWeight ?? 'kg';
 
     const prFilters = usePrFilters(prs.data);
@@ -83,6 +86,7 @@ function E1rmTrendChart({
     exerciseId: string;
     unitWeight: 'kg' | 'lb';
 }) {
+    const api = useTRPC();
     const [range, setRange] = useState<E1rmRange>('90');
 
     const queryRange = useMemo(() => {
@@ -97,7 +101,9 @@ function E1rmTrendChart({
         return { exerciseId, from, to };
     }, [exerciseId, range]);
 
-    const trend = api.lifting.analytics.e1rmTrend.useQuery(queryRange);
+    const trend = useQuery(
+        api.lifting.analytics.e1rmTrend.queryOptions(queryRange),
+    );
 
     const chartData = useMemo(
         () =>

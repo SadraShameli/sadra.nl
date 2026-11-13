@@ -1,5 +1,7 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     Activity,
     AlertTriangle,
@@ -25,7 +27,7 @@ import {
     type DataTableColumn,
 } from '~/components/ui/data-table';
 import { EVENT_LABELS, EVENT_TYPES, type EventType } from '~/lib/notify/types';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 const ICONS: Record<EventType, LucideIcon> = {
     device_created: Cpu,
@@ -43,23 +45,27 @@ const DESCRIPTIONS: Record<EventType, string> = {
     recording_created: 'When a new audio recording is uploaded.',
 };
 
-type SubscriptionRow = { enabled: boolean; eventType: EventType };
-
 export function SubscriptionsPanel() {
-    const utilities = api.useUtils();
-    const prefs = api.user.notification.getMyPrefs.useQuery();
-    const notificationPrefMutation = api.user.notification.setPref.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async (_data, variables) => {
-            const label = EVENT_LABELS[variables.eventType];
-            toast.success(
-                variables.enabled
-                    ? `Subscribed to “${label}”`
-                    : `Unsubscribed from “${label}”`,
-            );
-            await utilities.user.notification.getMyPrefs.invalidate();
-        },
-    });
+    type SubscriptionRow = { enabled: boolean; eventType: EventType };
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const prefs = useQuery(api.user.notification.getMyPrefs.queryOptions());
+    const notificationPrefMutation = useMutation(
+        api.user.notification.setPref.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async (_data, variables) => {
+                const label = EVENT_LABELS[variables.eventType];
+                toast.success(
+                    variables.enabled
+                        ? `Subscribed to “${label}”`
+                        : `Unsubscribed from “${label}”`,
+                );
+                await queryClient.invalidateQueries(
+                    api.user.notification.getMyPrefs.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const rows = useMemo<SubscriptionRow[]>(
         () =>

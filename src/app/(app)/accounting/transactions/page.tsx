@@ -4,7 +4,7 @@ import { AccountingPageFrame } from '~/app/(app)/accounting/_components/Accounti
 import { AccountingSection } from '~/app/(app)/accounting/_components/AccountingSection';
 import { TransactionsBrowser } from '~/app/(app)/accounting/_components/TransactionsBrowser';
 import { requireRootUser } from '~/lib/auth/guards';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export const metadata: Metadata = {
     robots: { follow: false, index: false },
@@ -24,7 +24,7 @@ export default function TransactionsPage() {
 
 async function TransactionsContent() {
     await requireRootUser();
-    await api.accounting.credentials.list.prefetch();
+    await prefetch(trpc.accounting.credentials.list.queryOptions());
     return (
         <HydrateClient>
             <TransactionsBrowser />

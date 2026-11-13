@@ -27,7 +27,7 @@ const harness = vi.hoisted(() => {
     return {
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
     };
 });
@@ -38,14 +38,17 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            edge: { summary: harness.query('edge.summary') },
-            rulebook: { get: harness.query('rulebook.get') },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                edge: { summary: harness.query('edge.summary') },
+                rulebook: { get: harness.query('rulebook.get') },
+            },
         },
-    },
-}));
+    });
+});
 
 function answer(data: unknown): FakeQuery {
     return {

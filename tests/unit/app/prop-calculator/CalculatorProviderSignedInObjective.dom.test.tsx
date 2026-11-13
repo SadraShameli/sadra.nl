@@ -44,38 +44,41 @@ vi.mock('~/lib/auth/client', () => ({
     }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            bankroll: {
-                summary: {
-                    useQuery: (
-                        _input: unknown,
-                        options: Record<string, unknown>,
-                    ) => {
-                        harness.queryOptions = options;
-                        return {
-                            data:
-                                harness.availableCents === null
-                                    ? undefined
-                                    : {
-                                          availableCents:
-                                              harness.availableCents,
-                                      },
-                        };
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                bankroll: {
+                    summary: {
+                        query: (
+                            _input: unknown,
+                            options: Record<string, unknown>,
+                        ) => {
+                            harness.queryOptions = options;
+                            return {
+                                data:
+                                    harness.availableCents === null
+                                        ? undefined
+                                        : {
+                                              availableCents:
+                                                  harness.availableCents,
+                                          },
+                            };
+                        },
+                    },
+                },
+                rulebook: {
+                    get: {
+                        query: () => ({
+                            data: harness.rulebook ?? undefined,
+                        }),
                     },
                 },
             },
-            rulebook: {
-                get: {
-                    useQuery: () => ({
-                        data: harness.rulebook ?? undefined,
-                    }),
-                },
-            },
         },
-    },
-}));
+    });
+});
 
 const SWITCH_CENTS = 500_000;
 

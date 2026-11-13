@@ -1,5 +1,7 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Clock, Dumbbell, Flag, Play, Square } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -17,7 +19,7 @@ import {
 } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import { AddExerciseSheet } from './AddExerciseSheet';
 import { ExerciseCard } from './ExerciseCard';
@@ -29,21 +31,38 @@ interface LogShellProperties {
 type Settings = RouterOutputs['lifting']['settings']['get'];
 
 export function LogShell({ initialSettings }: LogShellProperties) {
+    const api = useTRPC();
     const router = useRouter();
-    const utilities = api.useUtils();
-    const activeWorkout = api.lifting.workout.getActive.useQuery();
-    const startWorkout = api.lifting.workout.start.useMutation({
-        onSuccess: () => utilities.lifting.workout.getActive.invalidate(),
-    });
-    const endWorkout = api.lifting.workout.end.useMutation({
-        onSuccess: async () => {
-            await utilities.lifting.workout.getActive.invalidate();
-            router.push(routes.lifting.history);
-        },
-    });
-    const exerciseAddition = api.lifting.workout.addExercise.useMutation({
-        onSuccess: () => utilities.lifting.workout.getActive.invalidate(),
-    });
+    const queryClient = useQueryClient();
+    const activeWorkout = useQuery(
+        api.lifting.workout.getActive.queryOptions(),
+    );
+    const startWorkout = useMutation(
+        api.lifting.workout.start.mutationOptions({
+            onSuccess: () =>
+                queryClient.invalidateQueries(
+                    api.lifting.workout.getActive.pathFilter(),
+                ),
+        }),
+    );
+    const endWorkout = useMutation(
+        api.lifting.workout.end.mutationOptions({
+            onSuccess: async () => {
+                await queryClient.invalidateQueries(
+                    api.lifting.workout.getActive.pathFilter(),
+                );
+                router.push(routes.lifting.history);
+            },
+        }),
+    );
+    const exerciseAddition = useMutation(
+        api.lifting.workout.addExercise.mutationOptions({
+            onSuccess: () =>
+                queryClient.invalidateQueries(
+                    api.lifting.workout.getActive.pathFilter(),
+                ),
+        }),
+    );
 
     const [timerOpen, setTimerOpen] = useState(false);
     const [timerSeconds, setTimerSeconds] = useState(

@@ -1,6 +1,7 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -34,7 +35,7 @@ import {
     type WeekStart,
 } from '~/lib/lifting/types';
 import { cn } from '~/lib/utilities';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type Settings = RouterOutputs['lifting']['settings']['get'];
 
@@ -47,13 +48,18 @@ const LEAD_FIELD_COLUMNS_CLASS =
     'md:grid-cols-[12rem_minmax(0,1fr)] md:gap-x-10';
 
 export function LiftingSettingsForm({ initial }: { initial: Settings }) {
-    const utilities = api.useUtils();
-    const update = api.lifting.settings.update.useMutation({
-        onSuccess: () => {
-            toast.success('Settings saved');
-            return utilities.lifting.settings.get.invalidate();
-        },
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const update = useMutation(
+        api.lifting.settings.update.mutationOptions({
+            onSuccess: () => {
+                toast.success('Settings saved');
+                return queryClient.invalidateQueries(
+                    api.lifting.settings.get.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const [saved, setSaved] = useState<SettingsFormValues>(() =>
         settingsFormValuesOf(initial),

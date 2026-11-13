@@ -97,8 +97,6 @@ vi.mock('~/lib/observability/rate-limit', () => ({
     isWithinRateLimit: vi.fn(() => Promise.resolve(true)),
 }));
 
-type RouterCaller = ReturnType<typeof callerFor>['caller'];
-
 const EXTERNAL_FIRM_ID = VIDEO_IDS.externalFirm;
 const SECOND_EXTERNAL_FIRM_ID = 'b2222222-2222-4222-8222-222222222223';
 
@@ -234,6 +232,8 @@ describe('the account create schema as a tracked union', () => {
 });
 
 describe('propAccounts.account with ledger-only accounts', () => {
+    type RouterCaller = ReturnType<typeof callerFor>['caller'];
+
     it('creates a ledger-only account at a listed firm with any positive whole-dollar size, a plan label, stage and dates', async () => {
         const { caller, queries } = callerFor(SIGNED_IN, ledgerOnlyResponder());
         const created = await caller.account.create(

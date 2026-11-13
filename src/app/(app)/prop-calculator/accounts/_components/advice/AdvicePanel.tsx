@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { Calculator } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useMemo, useState } from 'react';
 
@@ -66,7 +66,7 @@ import {
     type SizingAdvisorCreateOptions,
 } from '~/lib/prop-calculator/advisor';
 import { MAX_ACCEPTED_RUNGS } from '~/lib/schemas/propAccounts';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import { ACCOUNT_ACTION_TEXT } from './accountActionModel';
 import {
@@ -191,29 +191,47 @@ const SUSPENDED_ACCOUNT_TEXT =
     "No sizing, daily plan, payout advice, value figures or risk check is shown for a suspended account. Set the account's status back to Active to see advice again.";
 
 export function AdvicePanel({ id }: { readonly id: string }) {
+    const api = useTRPC();
     const session = useSession();
     const userId = session.data?.user.id;
-    const accountQuery = api.propAccounts.account.get.useQuery({ id });
-    const accountsListQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const snapshotsQuery = api.propAccounts.snapshot.listForAccount.useQuery({
-        id,
-    });
-    const eventsQuery = api.propAccounts.event.listForAccount.useQuery({ id });
-    const ledgerEventsQuery =
-        api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const payoutsQuery = api.propAccounts.payout.list.useQuery({
-        accountId: id,
-    });
-    const ledgerPayoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const dpAdviceQuery = api.propAccounts.dpAdvice.listForAccount.useQuery({
-        id,
-    });
-    const decisionsQuery = api.propAccounts.decision.listForAccount.useQuery({
-        id,
-    });
+    const accountQuery = useQuery(
+        api.propAccounts.account.get.queryOptions({ id }),
+    );
+    const accountsListQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const snapshotsQuery = useQuery(
+        api.propAccounts.snapshot.listForAccount.queryOptions({
+            id,
+        }),
+    );
+    const eventsQuery = useQuery(
+        api.propAccounts.event.listForAccount.queryOptions({ id }),
+    );
+    const ledgerEventsQuery = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions({
+            accountId: id,
+        }),
+    );
+    const ledgerPayoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
+    const dpAdviceQuery = useQuery(
+        api.propAccounts.dpAdvice.listForAccount.queryOptions({
+            id,
+        }),
+    );
+    const decisionsQuery = useQuery(
+        api.propAccounts.decision.listForAccount.queryOptions({
+            id,
+        }),
+    );
 
     const account =
         accountQuery.data === undefined

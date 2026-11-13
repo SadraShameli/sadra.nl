@@ -133,10 +133,6 @@ interface OutputCase {
     readonly table: Table;
 }
 
-type StrictPersonalRules = z.infer<
-    typeof propAccountOutputSchema
->['personalRules'];
-
 const ACCOUNT_ID = VIDEO_IDS.account;
 const EXTERNAL_FIRM_ID = VIDEO_IDS.externalFirm;
 const DECISION_ID = VIDEO_IDS.decision;
@@ -442,6 +438,9 @@ describe('propAccounts output schemas', () => {
     });
 
     it('lets only the listed account output carry unreadable personal rules, as null', () => {
+        type StrictPersonalRules = z.infer<
+            typeof propAccountOutputSchema
+        >['personalRules'];
         const stored = {
             ...camelRow(accountRow()),
             optIns: NO_PLAN_OPT_INS,

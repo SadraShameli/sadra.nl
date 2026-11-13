@@ -1,5 +1,7 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { CircleCheck, FileUp } from 'lucide-react';
 import {
     type ReactNode,
@@ -71,7 +73,7 @@ import {
 } from '~/lib/prop-accounts/csv';
 import { ALL_FIRMS, FirmId } from '~/lib/prop-calculator';
 import { MAX_IMPORT_ROWS } from '~/lib/schemas/propAccounts';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 enum ImportKind {
     Accounts = 'accounts',
@@ -211,8 +213,10 @@ const SNAPSHOT_SHOWN_COLUMNS: readonly SnapshotCsvColumn[] = [
 ];
 
 export function ImportView() {
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
+    const api = useTRPC();
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
 
     if (accountsQuery.data === undefined) {
         return accountsQuery.isError ? (
@@ -268,16 +272,23 @@ function AccountImport({
     accounts: readonly ExistingAccountLabel[];
     externalFirms: readonly ExternalFirmName[];
 }) {
+    const api = useTRPC();
     const { clearCommitted, markCommitted, setText, text } = useImportText();
     const deferredText = useDeferredValue(text);
-    const utilities = api.useUtils();
-    const importMany = api.propAccounts.account.importMany.useMutation({
-        onSuccess: (created) => {
-            toast.success(`Imported ${countOf(created.length, ACCOUNT_NOUN)}`);
-            clearCommitted();
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const queryClient = useQueryClient();
+    const importMany = useMutation(
+        api.propAccounts.account.importMany.mutationOptions({
+            onSuccess: (created) => {
+                toast.success(
+                    `Imported ${countOf(created.length, ACCOUNT_NOUN)}`,
+                );
+                clearCommitted();
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
     const preview = useMemo(
         () =>
             deferredText.trim() === ''
@@ -320,7 +331,10 @@ function AccountImportTab({
 }: {
     accounts: readonly ExistingAccountLabel[];
 }) {
-    const externalFirmsQuery = api.propAccounts.externalFirm.list.useQuery();
+    const api = useTRPC();
+    const externalFirmsQuery = useQuery(
+        api.propAccounts.externalFirm.list.queryOptions(),
+    );
     if (externalFirmsQuery.data !== undefined) {
         return (
             <AccountImport
@@ -750,18 +764,27 @@ function SnapshotImport({
 }: {
     accounts: readonly SnapshotCsvAccount[];
 }) {
+    const api = useTRPC();
     const { clearCommitted, markCommitted, setText, text } = useImportText();
     const deferredText = useDeferredValue(text);
-    const utilities = api.useUtils();
-    const storedQuery = api.propAccounts.snapshot.latestForAll.useQuery();
+    const queryClient = useQueryClient();
+    const storedQuery = useQuery(
+        api.propAccounts.snapshot.latestForAll.queryOptions(),
+    );
     const stored = storedQuery.data;
-    const bulkCreate = api.propAccounts.snapshot.bulkCreate.useMutation({
-        onSuccess: (created) => {
-            toast.success(`Imported ${countOf(created.length, SNAPSHOT_NOUN)}`);
-            clearCommitted();
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const bulkCreate = useMutation(
+        api.propAccounts.snapshot.bulkCreate.mutationOptions({
+            onSuccess: (created) => {
+                toast.success(
+                    `Imported ${countOf(created.length, SNAPSHOT_NOUN)}`,
+                );
+                clearCommitted();
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
     const preview = useMemo(
         () =>
             stored === undefined || deferredText.trim() === ''

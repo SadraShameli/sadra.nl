@@ -24,8 +24,6 @@ const RECORDINGS: RecordingSummary[] = [
     },
 ];
 
-type Player = ReturnType<typeof useAudioPlayer>;
-
 function doNothing(): void {
     return;
 }
@@ -35,6 +33,7 @@ async function playNothing(): Promise<void> {
 }
 
 describe('useAudioPlayer', () => {
+    type Player = ReturnType<typeof useAudioPlayer>;
     let container: HTMLDivElement;
     let root: Root;
     let latest: null | Player;

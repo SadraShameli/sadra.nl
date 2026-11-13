@@ -30,7 +30,7 @@ vi.mock('~/server/helpers/audio', () => ({
     applyAudioFilters: (buffer: Buffer) => ({ buffer, durationSeconds: 1 }),
 }));
 vi.mock('~/trpc/server', () => ({
-    api: {
+    caller: {
         reading: { createReading: mocks.createReading },
         recording: { createRecording: mocks.createRecording },
     },

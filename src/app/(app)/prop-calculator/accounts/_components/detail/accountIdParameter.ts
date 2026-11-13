@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { ACCOUNT_LIST_INPUT } from '~/app/(app)/prop-calculator/accounts/_components/accountListFilters';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
-import { api } from '~/trpc/server';
+import { prefetch, trpc } from '~/trpc/server';
 
 export interface AccountPageSession {
     readonly id: string;
@@ -24,8 +24,10 @@ export async function openAccountPage(
     const id = parsedId.data.toLowerCase();
     const user = await requireSessionUser(loginRedirectFor(pageOf(id)));
     await Promise.all([
-        api.propAccounts.account.get.prefetch({ id }),
-        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
+        prefetch(trpc.propAccounts.account.get.queryOptions({ id })),
+        prefetch(
+            trpc.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+        ),
     ]);
     return { id, userId: user.id };
 }

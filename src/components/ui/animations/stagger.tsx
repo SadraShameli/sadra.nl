@@ -3,6 +3,7 @@
 import {
     easeOut,
     motion,
+    stagger,
     type Transition,
     useInView,
     type Variants,
@@ -31,8 +32,8 @@ const defaultVariants: Variants = {
 
 const defaultTransition: Transition = {
     delay: 0.2,
+    delayChildren: stagger(0.2),
     duration: 0.25,
-    staggerChildren: 0.2,
 };
 
 export default function StaggerAnimation({

@@ -13,7 +13,7 @@ import {
 import { PageTransition } from '~/components/PageTransition';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export const metadata: Metadata = {
     description:
@@ -48,22 +48,32 @@ async function PropAccountDetailContent({
         routes.propCalculator.accounts.detail,
     );
     await Promise.all([
-        api.propAccounts.externalFirm.list.prefetch(),
-        api.propAccounts.snapshot.listForAccount.prefetch({ id }),
-        api.propAccounts.payout.list.prefetch({ accountId: id }),
-        api.propAccounts.fee.list.prefetch({ accountId: id }),
-        api.propAccounts.event.listForAccount.prefetch({ id }),
-        api.propAccounts.event.list.prefetch(EVENT_LIST_INPUT),
-        api.propAccounts.payout.list.prefetch(LEDGER_LIST_INPUT),
-        api.propAccounts.copyGroup.list.prefetch(),
-        api.propAccounts.snapshot.latestTwoForAll.prefetch(),
-        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
-        api.propAccounts.decision.list.prefetch(LEDGER_LIST_INPUT),
-        api.propAccounts.violation.list.prefetch(LEDGER_LIST_INPUT),
-        api.propAccounts.fee.list.prefetch(LEDGER_LIST_INPUT),
-        api.propAccounts.bankroll.list.prefetch(),
-        api.propAccounts.rulebook.get.prefetch(),
-        api.propAccounts.decision.listForAccount.prefetch({ id }),
+        prefetch(trpc.propAccounts.externalFirm.list.queryOptions()),
+        prefetch(
+            trpc.propAccounts.snapshot.listForAccount.queryOptions({ id }),
+        ),
+        prefetch(trpc.propAccounts.payout.list.queryOptions({ accountId: id })),
+        prefetch(trpc.propAccounts.fee.list.queryOptions({ accountId: id })),
+        prefetch(trpc.propAccounts.event.listForAccount.queryOptions({ id })),
+        prefetch(trpc.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT)),
+        prefetch(trpc.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT)),
+        prefetch(trpc.propAccounts.copyGroup.list.queryOptions()),
+        prefetch(trpc.propAccounts.snapshot.latestTwoForAll.queryOptions()),
+        prefetch(
+            trpc.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+        ),
+        prefetch(
+            trpc.propAccounts.decision.list.queryOptions(LEDGER_LIST_INPUT),
+        ),
+        prefetch(
+            trpc.propAccounts.violation.list.queryOptions(LEDGER_LIST_INPUT),
+        ),
+        prefetch(trpc.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT)),
+        prefetch(trpc.propAccounts.bankroll.list.queryOptions()),
+        prefetch(trpc.propAccounts.rulebook.get.queryOptions()),
+        prefetch(
+            trpc.propAccounts.decision.listForAccount.queryOptions({ id }),
+        ),
     ]);
     return (
         <HydrateClient>

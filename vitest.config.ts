@@ -38,6 +38,7 @@ const config = defineConfig({
                     include: ['tests/unit/**/*.dom.test.tsx'],
                     isolate: true,
                     name: 'dom',
+                    setupFiles: ['tests/stubs/domSetup.ts'],
                 },
             },
         ],

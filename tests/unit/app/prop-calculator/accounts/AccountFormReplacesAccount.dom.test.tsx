@@ -65,10 +65,10 @@ const harness = vi.hoisted(() => {
                 get(_target, key) {
                     if (typeof key !== 'string') return;
                     const name = path.join('.');
-                    if (key === 'useQuery') {
+                    if (key === 'query') {
                         return () => queries.get(name) ?? pending;
                     }
-                    if (key === 'useMutation') {
+                    if (key === 'mutation') {
                         return () => ({
                             isPending: false,
                             mutate: vi.fn(),
@@ -85,7 +85,7 @@ const harness = vi.hoisted(() => {
     return {
         api: {
             propAccounts: node(['propAccounts']),
-            useUtils: () => ({ propAccounts: node(['utils']) }),
+            queryClient: () => ({ propAccounts: node(['utils']) }),
         },
         mutateAsyncOf,
         queries,
@@ -104,7 +104,12 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => ({ api: harness.api }));
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: harness.api,
+    });
+});
 
 interface FirmPlan {
     readonly firm: TradingFirm;

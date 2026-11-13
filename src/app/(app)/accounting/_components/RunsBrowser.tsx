@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { type SortingState } from '@tanstack/react-table';
 import { ChevronRight, History } from 'lucide-react';
 import Link from 'next/link';
@@ -30,32 +30,37 @@ import {
 } from '~/lib/accounting/runs/types';
 import { formatDisplayDate, formatDisplayDateTime } from '~/lib/format';
 import { routes } from '~/lib/site/routes';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import { RunStatusBadge, runStatusLabel } from './RunStatusBadge';
 
 const ALL = '__all__';
 const DEFAULT_SORTING: SortingState = [{ desc: true, id: 'createdAt' }];
 
-type RunRow = RouterOutputs['accounting']['runs']['list']['items'][number];
-
 export function RunsBrowser() {
+    type RunRow = RouterOutputs['accounting']['runs']['list']['items'][number];
+    const api = useTRPC();
     const [offset, setOffset] = useState(0);
     const [statusFilter, setStatusFilter] = useState<RunStatus | typeof ALL>(
         ALL,
     );
     const [targetFilter, setTargetFilter] = useState<string>(ALL);
     const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING);
-    const credentialsQ = api.accounting.credentials.list.useQuery();
+    const credentialsQ = useQuery(
+        api.accounting.credentials.list.queryOptions(),
+    );
     const sort = sorting[0];
-    const runsQ = api.accounting.runs.list.useQuery({
-        accountingCredentialId: targetFilter === ALL ? undefined : targetFilter,
-        limit: DATA_TABLE_PAGE_SIZE,
-        offset,
-        sortBy: RUN_SORT_KEYS.find((k) => k === sort?.id),
-        sortDir: sort?.desc === false ? 'asc' : 'desc',
-        status: statusFilter === ALL ? undefined : statusFilter,
-    });
+    const runsQ = useQuery(
+        api.accounting.runs.list.queryOptions({
+            accountingCredentialId:
+                targetFilter === ALL ? undefined : targetFilter,
+            limit: DATA_TABLE_PAGE_SIZE,
+            offset,
+            sortBy: RUN_SORT_KEYS.find((k) => k === sort?.id),
+            sortDir: sort?.desc === false ? 'asc' : 'desc',
+            status: statusFilter === ALL ? undefined : statusFilter,
+        }),
+    );
 
     const hasFilters = statusFilter !== ALL || targetFilter !== ALL;
     const reset = () => {

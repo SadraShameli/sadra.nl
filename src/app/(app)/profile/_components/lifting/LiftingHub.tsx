@@ -17,9 +17,8 @@ const LiftingTab = {
     Workouts: 'workouts',
 } as const;
 
-type LiftingTab = (typeof LiftingTab)[keyof typeof LiftingTab];
-
 export function LiftingHub({ initialSettings }: { initialSettings: Settings }) {
+    type LiftingTab = (typeof LiftingTab)[keyof typeof LiftingTab];
     const tabs: readonly PageTab<LiftingTab>[] = [
         {
             content: <LiftingSettingsForm initial={initialSettings} />,

@@ -83,10 +83,6 @@ type LedgerOnlyFieldText = Pick<
     'hint' | 'input' | 'label' | 'requirement'
 >;
 
-type ParsedValue = null | number | string;
-
-type SnapshotDraftField = Exclude<keyof SnapshotDraft, 'source'>;
-
 const NO_DRAFT_WARNINGS: SnapshotDraftWarnings = {
     fieldWarnings: [],
     formWarnings: [],
@@ -187,6 +183,8 @@ export function parseSnapshotForm(
     values: SnapshotFormValues,
     rules: readonly SnapshotFieldRule[],
 ): SnapshotFormResult {
+    type SnapshotDraftField = Exclude<keyof SnapshotDraft, 'source'>;
+    type ParsedValue = null | number | string;
     const issues = new Map<SnapshotField, string>();
     const draft: Partial<Record<SnapshotDraftField, ParsedValue>> & {
         readonly source: SnapshotSource;

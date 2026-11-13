@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useMemo } from 'react';
@@ -38,7 +38,7 @@ import {
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 interface HubAccountsInputs {
     readonly accounts: readonly (AccountListAccount & LedgerAccountRow)[];
@@ -104,18 +104,34 @@ function hubAccountsSummary(inputs: HubAccountsInputs): HubAccountsSummary {
 }
 
 function SignedInTeaser({ userId }: { readonly userId: string }) {
-    const accountsQuery =
-        api.propAccounts.account.list.useQuery(ACCOUNT_LIST_INPUT);
-    const decisionsQuery =
-        api.propAccounts.decision.list.useQuery(LEDGER_LIST_INPUT);
-    const eventsQuery = api.propAccounts.event.list.useQuery(EVENT_LIST_INPUT);
-    const feesQuery = api.propAccounts.fee.list.useQuery(LEDGER_LIST_INPUT);
-    const payoutsQuery =
-        api.propAccounts.payout.list.useQuery(LEDGER_LIST_INPUT);
-    const copyGroupsQuery = api.propAccounts.copyGroup.list.useQuery();
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
-    const snapshotsQuery = api.propAccounts.snapshot.latestTwoForAll.useQuery();
-    const transfersQuery = api.propAccounts.bankroll.list.useQuery();
+    const api = useTRPC();
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+    );
+    const decisionsQuery = useQuery(
+        api.propAccounts.decision.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const eventsQuery = useQuery(
+        api.propAccounts.event.list.queryOptions(EVENT_LIST_INPUT),
+    );
+    const feesQuery = useQuery(
+        api.propAccounts.fee.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const payoutsQuery = useQuery(
+        api.propAccounts.payout.list.queryOptions(LEDGER_LIST_INPUT),
+    );
+    const copyGroupsQuery = useQuery(
+        api.propAccounts.copyGroup.list.queryOptions(),
+    );
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
+    const snapshotsQuery = useQuery(
+        api.propAccounts.snapshot.latestTwoForAll.queryOptions(),
+    );
+    const transfersQuery = useQuery(
+        api.propAccounts.bankroll.list.queryOptions(),
+    );
 
     const failed = [accountsQuery, feesQuery, payoutsQuery].find(
         (query) => query.isError,

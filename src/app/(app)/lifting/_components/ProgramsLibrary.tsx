@@ -1,5 +1,7 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     ArrowRight,
     Calendar,
@@ -50,7 +52,7 @@ import {
 } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type Enrollment =
     RouterOutputs['lifting']['program']['listMine']['enrollments'][number];
@@ -69,17 +71,20 @@ const SORT_LABEL: Record<SortKey, string> = {
 };
 
 const DAYS_FILTER_VALUES = ['all', '3', '4', '5', '6'] as const;
-type DaysFilter = (typeof DAYS_FILTER_VALUES)[number];
 
 export function ProgramsLibrary({
     officialPrograms,
 }: {
     readonly officialPrograms: OfficialProgram[];
 }) {
-    const official = api.lifting.program.listOfficial.useQuery(undefined, {
-        initialData: officialPrograms,
-    });
-    const mine = api.lifting.program.listMine.useQuery();
+    type DaysFilter = (typeof DAYS_FILTER_VALUES)[number];
+    const api = useTRPC();
+    const official = useQuery(
+        api.lifting.program.listOfficial.queryOptions(undefined, {
+            initialData: officialPrograms,
+        }),
+    );
+    const mine = useQuery(api.lifting.program.listMine.queryOptions());
 
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -330,41 +335,55 @@ function ActiveEnrollmentCard({
     enrollment: Enrollment;
     program: ProgramReference | undefined;
 }) {
-    const utilities = api.useUtils();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
     const [previewOpen, setPreviewOpen] = useState(false);
 
-    const nextDay = api.lifting.program.nextDay.useQuery({ id: enrollment.id });
+    const nextDay = useQuery(
+        api.lifting.program.nextDay.queryOptions({ id: enrollment.id }),
+    );
 
-    const invalidate = () => utilities.lifting.program.listMine.invalidate();
+    const invalidate = () =>
+        queryClient.invalidateQueries(
+            api.lifting.program.listMine.pathFilter(),
+        );
 
-    const advance = api.lifting.program.advance.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Advanced to next day.');
-            await Promise.all([
-                invalidate(),
-                utilities.lifting.program.nextDay.invalidate({
-                    id: enrollment.id,
-                }),
-            ]);
-        },
-    });
+    const advance = useMutation(
+        api.lifting.program.advance.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Advanced to next day.');
+                await Promise.all([
+                    invalidate(),
+                    queryClient.invalidateQueries(
+                        api.lifting.program.nextDay.queryFilter({
+                            id: enrollment.id,
+                        }),
+                    ),
+                ]);
+            },
+        }),
+    );
 
-    const updateEnrollment = api.lifting.program.updateEnrollment.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Program paused.');
-            await invalidate();
-        },
-    });
+    const updateEnrollment = useMutation(
+        api.lifting.program.updateEnrollment.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Program paused.');
+                await invalidate();
+            },
+        }),
+    );
 
-    const unenroll = api.lifting.program.unenroll.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Unenrolled.');
-            await invalidate();
-        },
-    });
+    const unenroll = useMutation(
+        api.lifting.program.unenroll.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Unenrolled.');
+                await invalidate();
+            },
+        }),
+    );
 
     const totalDays =
         program?.schedule.weeks.reduce(
@@ -529,22 +548,30 @@ function EnrollmentCard({
     enrollment: Enrollment;
     program: ProgramReference | undefined;
 }) {
-    const utilities = api.useUtils();
-    const invalidate = () => utilities.lifting.program.listMine.invalidate();
-    const resume = api.lifting.program.updateEnrollment.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Resumed.');
-            await invalidate();
-        },
-    });
-    const unenroll = api.lifting.program.unenroll.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Removed.');
-            await invalidate();
-        },
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const invalidate = () =>
+        queryClient.invalidateQueries(
+            api.lifting.program.listMine.pathFilter(),
+        );
+    const resume = useMutation(
+        api.lifting.program.updateEnrollment.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Resumed.');
+                await invalidate();
+            },
+        }),
+    );
+    const unenroll = useMutation(
+        api.lifting.program.unenroll.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Removed.');
+                await invalidate();
+            },
+        }),
+    );
 
     const status = enrollment.status;
     const total = program?.lengthWeeks ?? 0;
@@ -660,14 +687,19 @@ function openProgramActions(
 }
 
 function OwnedProgramCard({ program }: { program: OwnedProgram }) {
-    const utilities = api.useUtils();
-    const remove = api.lifting.program.deleteCustom.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Custom program deleted.');
-            await utilities.lifting.program.listMine.invalidate();
-        },
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const remove = useMutation(
+        api.lifting.program.deleteCustom.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Custom program deleted.');
+                await queryClient.invalidateQueries(
+                    api.lifting.program.listMine.pathFilter(),
+                );
+            },
+        }),
+    );
     return (
         <Card className="py-4">
             <CardContent className="flex flex-col gap-3">

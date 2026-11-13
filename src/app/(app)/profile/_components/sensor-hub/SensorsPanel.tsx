@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Radio, Ruler } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -56,7 +58,7 @@ import {
     type SensorUnitUpdateInput,
     sensorUnitUpdateSchema,
 } from '~/lib/schemas/sensor-hub';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { SensorHubScopeFilters, useSensorHubScope } from './SensorHubScope';
 
@@ -70,33 +72,46 @@ type SensorRow = {
 type UnitRow = { id: number; value: string };
 
 export function SensorsPanel() {
-    const utilities = api.useUtils();
-    const sensors = api.sensor.listAdmin.useQuery();
-    const units = api.sensorUnit.list.useQuery();
-    const locations = api.location.listAdmin.useQuery();
-    const devices = api.device.listAdmin.useQuery();
-    const mappings = api.sensor.listDeviceMappings.useQuery();
-    const create = api.sensor.create.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Sensor created.');
-            await utilities.sensor.listAdmin.invalidate();
-        },
-    });
-    const update = api.sensor.update.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Sensor updated.');
-            await utilities.sensor.listAdmin.invalidate();
-        },
-    });
-    const del = api.sensor.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Sensor deleted.');
-            await utilities.sensor.listAdmin.invalidate();
-        },
-    });
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const sensors = useQuery(api.sensor.listAdmin.queryOptions());
+    const units = useQuery(api.sensorUnit.list.queryOptions());
+    const locations = useQuery(api.location.listAdmin.queryOptions());
+    const devices = useQuery(api.device.listAdmin.queryOptions());
+    const mappings = useQuery(api.sensor.listDeviceMappings.queryOptions());
+    const create = useMutation(
+        api.sensor.create.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Sensor created.');
+                await queryClient.invalidateQueries(
+                    api.sensor.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const update = useMutation(
+        api.sensor.update.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Sensor updated.');
+                await queryClient.invalidateQueries(
+                    api.sensor.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
+    const del = useMutation(
+        api.sensor.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Sensor deleted.');
+                await queryClient.invalidateQueries(
+                    api.sensor.listAdmin.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const [newOpen, setNewOpen] = useState(false);
     const [editing, setEditing] = useState<null | SensorRow>(null);
@@ -409,35 +424,42 @@ function UnitsManagerDialog({
     onClose: () => void;
     units: UnitRow[];
 }) {
+    const api = useTRPC();
     const formId = useId();
-    const utilities = api.useUtils();
+    const queryClient = useQueryClient();
     const invalidate = async () => {
         await Promise.all([
-            utilities.sensorUnit.list.invalidate(),
-            utilities.sensor.listAdmin.invalidate(),
+            queryClient.invalidateQueries(api.sensorUnit.list.pathFilter()),
+            queryClient.invalidateQueries(api.sensor.listAdmin.pathFilter()),
         ]);
     };
-    const create = api.sensorUnit.create.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Unit added.');
-            await invalidate();
-        },
-    });
-    const del = api.sensorUnit.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Unit deleted.');
-            await invalidate();
-        },
-    });
-    const rename = api.sensorUnit.update.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Unit renamed.');
-            await invalidate();
-        },
-    });
+    const create = useMutation(
+        api.sensorUnit.create.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Unit added.');
+                await invalidate();
+            },
+        }),
+    );
+    const del = useMutation(
+        api.sensorUnit.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Unit deleted.');
+                await invalidate();
+            },
+        }),
+    );
+    const rename = useMutation(
+        api.sensorUnit.update.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Unit renamed.');
+                await invalidate();
+            },
+        }),
+    );
     const [renaming, setRenaming] = useState<null | UnitRow>(null);
     const unitCreateForm = useForm<SensorUnitCreateInput>({
         defaultValues: { value: '' },

@@ -1,6 +1,6 @@
 'use client';
-
 import { keepPreviousData, skipToken } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { addDays } from 'date-fns';
 import { AreaChart as ChartIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -26,7 +26,7 @@ import {
     READINGS_SERIES_LONGEST_SPAN_MS,
 } from '~/lib/schemas/sensor';
 import { cn } from '~/lib/utilities';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     DEFAULT_GRANULARITY,
@@ -36,6 +36,7 @@ import {
 import { ReadingBodySkeleton } from './ReadingSkeleton';
 
 export default function ReadingSection() {
+    const api = useTRPC();
     const [date, setDate] = useState<DateRange>();
     const [chosenLocation, setChosenLocation] =
         useState<typeof location.$inferSelect>();
@@ -44,21 +45,23 @@ export default function ReadingSection() {
     const [granularity, setGranularity] =
         useState<Granularity>(DEFAULT_GRANULARITY);
 
-    const locations = api.location.getLocations.useQuery();
+    const locations = useQuery(api.location.getLocations.queryOptions());
     const defaultLocation = locations.data?.data.at(-1);
     const activeLocation = chosenLocation ?? defaultLocation;
 
-    const currentReading = api.reading.getReadingsInput.useQuery(
-        activeLocation
-            ? {
-                  date_from: date?.from,
-                  date_to: date?.to,
-                  device_id: currentDevice?.device_id,
-                  granularity,
-                  location_id: activeLocation.id,
-              }
-            : skipToken,
-        { placeholderData: keepPreviousData },
+    const currentReading = useQuery(
+        api.reading.getReadingsInput.queryOptions(
+            activeLocation
+                ? {
+                      date_from: date?.from,
+                      date_to: date?.to,
+                      device_id: currentDevice?.device_id,
+                      granularity,
+                      location_id: activeLocation.id,
+                  }
+                : skipToken,
+            { placeholderData: keepPreviousData },
+        ),
     );
 
     const sensors = useMemo(
@@ -69,10 +72,12 @@ export default function ReadingSection() {
         ? chosenSensor
         : sensors?.[0]?.name;
 
-    const devices = api.location.getLocationDevices.useQuery(
-        activeLocation
-            ? { location_id: activeLocation.location_id }
-            : skipToken,
+    const devices = useQuery(
+        api.location.getLocationDevices.queryOptions(
+            activeLocation
+                ? { location_id: activeLocation.location_id }
+                : skipToken,
+        ),
     );
 
     const deviceList = useMemo(() => {

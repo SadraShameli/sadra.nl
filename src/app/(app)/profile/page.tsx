@@ -16,7 +16,7 @@ import { routes } from '~/lib/site/routes';
 import { loadTradingPlans } from '~/lib/trading/loadTradingPlans';
 import { cn } from '~/lib/utilities';
 import { account, db } from '~/server/db';
-import { api, HydrateClient } from '~/trpc/server';
+import { caller, HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 import { AccountDetailsForm } from './_components/AccountDetailsForm';
 import { AccountManagement } from './_components/AccountManagement';
@@ -102,10 +102,10 @@ async function ProfileContent({
         loadTradingPlans(user.id),
         ...(isAdmin
             ? [
-                  api.device.listAdmin.prefetch(),
-                  api.location.listAdmin.prefetch(),
-                  api.sensor.listAdmin.prefetch(),
-                  api.user.notification.getMyPrefs.prefetch(),
+                  prefetch(trpc.device.listAdmin.queryOptions()),
+                  prefetch(trpc.location.listAdmin.queryOptions()),
+                  prefetch(trpc.sensor.listAdmin.queryOptions()),
+                  prefetch(trpc.user.notification.getMyPrefs.queryOptions()),
               ]
             : []),
     ]);
@@ -165,7 +165,7 @@ async function ProfileContent({
         }
         case 'contents': {
             if (isUserIsRoot) {
-                const heroShowcase = await api.site.heroShowcase();
+                const heroShowcase = await caller.site.heroShowcase();
                 content = (
                     <ToolPanel title="Homepage figures">
                         <HeroShowcaseForm initial={heroShowcase} />
@@ -175,7 +175,7 @@ async function ProfileContent({
             break;
         }
         case 'lifting': {
-            const liftingSettings = await api.lifting.settings.get();
+            const liftingSettings = await caller.lifting.settings.get();
             content = <LiftingHub initialSettings={liftingSettings} />;
             break;
         }

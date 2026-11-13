@@ -26,16 +26,18 @@ const harness = vi.hoisted(() => ({
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('~/trpc/react', () => {
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
     const { query, recorder } = harness;
-    return {
+
+    return trpcDoubleReact({
         api: {
             device: {
-                create: { useMutation: recorder([]) },
-                delete: { useMutation: recorder(harness.deleted) },
-                issueToken: { useMutation: recorder(harness.issued) },
+                create: { mutation: recorder([]) },
+                delete: { mutation: recorder(harness.deleted) },
+                issueToken: { mutation: recorder(harness.issued) },
                 listAdmin: {
-                    useQuery: query([
+                    query: query([
                         {
                             created_at: new Date('2026-09-01T00:00:00Z'),
                             device_id: 11,
@@ -62,15 +64,17 @@ vi.mock('~/trpc/react', () => {
                         },
                     ]),
                 },
-                revokeToken: { useMutation: recorder(harness.revoked) },
-                update: { useMutation: recorder([]) },
+                revokeToken: { mutation: recorder(harness.revoked) },
+                update: { mutation: recorder([]) },
             },
             location: {
-                listAdmin: { useQuery: query([{ id: 7, name: 'Home' }]) },
+                listAdmin: {
+                    query: query([{ id: 7, name: 'Home' }]),
+                },
             },
-            useUtils: () => ({}),
+            queryClient: () => ({}),
         },
-    };
+    });
 });
 
 const { DevicesPanel } =

@@ -7,7 +7,7 @@ import { HistoryViewSkeleton } from '~/app/(app)/lifting/_components/LiftingSkel
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 export const metadata: Metadata = {
     description: 'Your training history.',
@@ -44,7 +44,9 @@ async function LiftingHistoryContent() {
     from.setMonth(from.getMonth() - MONTHS_BACK);
     from.setHours(0, 0, 0, 0);
 
-    await api.lifting.workout.list.prefetch({ from, limit: 200, offset: 0 });
+    await prefetch(
+        trpc.lifting.workout.list.queryOptions({ from, limit: 200, offset: 0 }),
+    );
 
     return (
         <HydrateClient>

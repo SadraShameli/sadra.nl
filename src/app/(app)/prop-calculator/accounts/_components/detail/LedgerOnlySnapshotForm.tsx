@@ -1,5 +1,6 @@
 'use client';
-
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -20,7 +21,7 @@ import { PanelSubheading } from '~/components/PanelSubheading';
 import { Button } from '~/components/ui/button';
 import { formatDisplayDate } from '~/lib/format';
 import { AccountTracking, SnapshotField } from '~/lib/prop-accounts';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 export function LedgerOnlySnapshotForm({
     accountId,
@@ -29,8 +30,11 @@ export function LedgerOnlySnapshotForm({
     readonly accountId: string;
     readonly onFailure: (error: unknown) => void;
 }) {
-    const utilities = api.useUtils();
-    const creation = api.propAccounts.snapshot.create.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const creation = useMutation(
+        api.propAccounts.snapshot.create.mutationOptions(),
+    );
     const today = useTodayIsoDate();
     const [values, setValues] = useState<SnapshotFormValues>(() =>
         emptySnapshotFormValues(today),
@@ -61,7 +65,7 @@ export function LedgerOnlySnapshotForm({
         } catch (error) {
             onFailure(error);
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
 

@@ -22,38 +22,41 @@ const AIR_PRESSURE = {
 const readingsInputs = vi.hoisted((): unknown[] => []);
 const readingsState = vi.hoisted(() => ({ hasData: true }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        location: {
-            getLocationDevices: {
-                useQuery: () => ({ data: { data: [] } }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            location: {
+                getLocationDevices: {
+                    query: () => ({ data: { data: [] } }),
+                },
+                getLocations: {
+                    query: () => ({ data: { data: [LOCATION] } }),
+                },
             },
-            getLocations: {
-                useQuery: () => ({ data: { data: [LOCATION] } }),
-            },
-        },
-        reading: {
-            getReadingsInput: {
-                useQuery: (input: unknown) => {
-                    readingsInputs.push(input);
-                    return readingsState.hasData
-                        ? {
-                              data: { data: [AIR_PRESSURE] },
-                              isFetched: true,
-                              isLoading: false,
-                              isRefetching: false,
-                          }
-                        : {
-                              data: undefined,
-                              isFetched: false,
-                              isLoading: false,
-                              isRefetching: false,
-                          };
+            reading: {
+                getReadingsInput: {
+                    query: (input: unknown) => {
+                        readingsInputs.push(input);
+                        return readingsState.hasData
+                            ? {
+                                  data: { data: [AIR_PRESSURE] },
+                                  isFetched: true,
+                                  isLoading: false,
+                                  isRefetching: false,
+                              }
+                            : {
+                                  data: undefined,
+                                  isFetched: false,
+                                  isLoading: false,
+                                  isRefetching: false,
+                              };
+                    },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 beforeEach(() => {
     readingsInputs.length = 0;

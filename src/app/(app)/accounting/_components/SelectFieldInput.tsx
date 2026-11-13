@@ -1,5 +1,5 @@
 'use client';
-
+import { useMutation } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 
@@ -16,7 +16,7 @@ import {
     SelectValue,
 } from '~/components/ui/select';
 import { Spinner } from '~/components/ui/spinner';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 interface FieldOption {
     description?: string;
@@ -46,11 +46,15 @@ export function SelectFieldInput({
     secret,
     value,
 }: Properties) {
+    const api = useTRPC();
     const fieldId = useId();
     const [options, setOptions] = useState<FieldOption[]>([]);
-    const loadMut = api.accounting.fieldOptions.load.useMutation();
-    const loadForCredentialMut =
-        api.accounting.fieldOptions.loadForCredential.useMutation();
+    const loadMut = useMutation(
+        api.accounting.fieldOptions.load.mutationOptions(),
+    );
+    const loadForCredentialMut = useMutation(
+        api.accounting.fieldOptions.loadForCredential.mutationOptions(),
+    );
 
     const stringValue =
         typeof value === 'string' || typeof value === 'number'

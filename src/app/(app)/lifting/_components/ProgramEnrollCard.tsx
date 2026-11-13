@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Check, Copy, Play } from 'lucide-react';
 import { useId, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -18,7 +20,7 @@ import {
     type EnrollProgramInput,
     enrollProgramInputSchema,
 } from '~/lib/lifting/schemas';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type Program = RouterOutputs['lifting']['program']['get'];
 
@@ -27,10 +29,11 @@ interface ProgramEnrollCardProperties {
 }
 
 export function ProgramEnrollCard({ program }: ProgramEnrollCardProperties) {
+    const api = useTRPC();
     const formId = useId();
-    const utilities = api.useUtils();
-    const mine = api.lifting.program.listMine.useQuery();
-    const settings = api.lifting.settings.get.useQuery();
+    const queryClient = useQueryClient();
+    const mine = useQuery(api.lifting.program.listMine.queryOptions());
+    const settings = useQuery(api.lifting.settings.get.queryOptions());
     const unitWeight = settings.data?.unitWeight ?? 'kg';
     const isEnrolled = Boolean(
         mine.data?.enrollments.some(
@@ -42,20 +45,28 @@ export function ProgramEnrollCard({ program }: ProgramEnrollCardProperties) {
     const isCloned = Boolean(
         mine.data?.owned.some((p) => p.name === program.name),
     );
-    const enroll = api.lifting.program.enroll.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Enrolled. Start your first session.');
-            await utilities.lifting.program.listMine.invalidate();
-        },
-    });
-    const clone = api.lifting.program.cloneToCustom.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: async () => {
-            toast.success('Program cloned to your custom programs.');
-            await utilities.lifting.program.listMine.invalidate();
-        },
-    });
+    const enroll = useMutation(
+        api.lifting.program.enroll.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Enrolled. Start your first session.');
+                await queryClient.invalidateQueries(
+                    api.lifting.program.listMine.pathFilter(),
+                );
+            },
+        }),
+    );
+    const clone = useMutation(
+        api.lifting.program.cloneToCustom.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: async () => {
+                toast.success('Program cloned to your custom programs.');
+                await queryClient.invalidateQueries(
+                    api.lifting.program.listMine.pathFilter(),
+                );
+            },
+        }),
+    );
 
     const schedule = program.schedule;
 

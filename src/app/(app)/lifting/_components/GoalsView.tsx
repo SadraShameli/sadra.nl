@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     differenceInCalendarDays,
     eachDayOfInterval,
@@ -88,7 +90,7 @@ import {
 } from '~/lib/lifting/types';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 type GoalRow = RouterOutputs['lifting']['goal']['list'][number];
 
@@ -179,42 +181,52 @@ interface Stats {
 }
 
 export function GoalsView() {
+    const api = useTRPC();
     const formId = useId();
-    const utilities = api.useUtils();
-    const goalsQuery = api.lifting.goal.list.useQuery({});
-    const settings = api.lifting.settings.get.useQuery();
+    const queryClient = useQueryClient();
+    const goalsQuery = useQuery(api.lifting.goal.list.queryOptions({}));
+    const settings = useQuery(api.lifting.settings.get.queryOptions());
     const unitWeight = settings.data?.unitWeight ?? 'kg';
     const goals = useMemo<GoalRow[]>(
         () => goalsQuery.data ?? [],
         [goalsQuery.data],
     );
 
-    const invalidate = () => utilities.lifting.goal.list.invalidate();
-    const create = api.lifting.goal.create.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: () => {
-            toast.success('Goal created');
-            void invalidate();
-        },
-    });
-    const markAchieved = api.lifting.goal.markAchieved.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: () => {
-            toast.success('Goal achieved, nice work.');
-            void invalidate();
-        },
-    });
-    const update = api.lifting.goal.update.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: () => void invalidate(),
-    });
-    const remove = api.lifting.goal.delete.useMutation({
-        onError: (error) => toast.error(error.message),
-        onSuccess: () => {
-            toast.success('Goal deleted');
-            void invalidate();
-        },
-    });
+    const invalidate = () =>
+        queryClient.invalidateQueries(api.lifting.goal.list.pathFilter());
+    const create = useMutation(
+        api.lifting.goal.create.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: () => {
+                toast.success('Goal created');
+                void invalidate();
+            },
+        }),
+    );
+    const markAchieved = useMutation(
+        api.lifting.goal.markAchieved.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: () => {
+                toast.success('Goal achieved, nice work.');
+                void invalidate();
+            },
+        }),
+    );
+    const update = useMutation(
+        api.lifting.goal.update.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: () => void invalidate(),
+        }),
+    );
+    const remove = useMutation(
+        api.lifting.goal.delete.mutationOptions({
+            onError: (error) => toast.error(error.message),
+            onSuccess: () => {
+                toast.success('Goal deleted');
+                void invalidate();
+            },
+        }),
+    );
 
     const newGoalForm = useForm<CreateGoalInput>({
         defaultValues: {

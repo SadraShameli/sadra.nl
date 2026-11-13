@@ -56,32 +56,38 @@ vi.mock('~/lib/auth/client', () => ({
     }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            bankroll: {
-                summary: {
-                    useQuery: () => ({
-                        data:
-                            harness.availableCents === null
-                                ? undefined
-                                : { availableCents: harness.availableCents },
-                        isError: false,
-                        isPending: harness.isSummaryPending,
-                    }),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                bankroll: {
+                    summary: {
+                        query: () => ({
+                            data:
+                                harness.availableCents === null
+                                    ? undefined
+                                    : {
+                                          availableCents:
+                                              harness.availableCents,
+                                      },
+                            isError: false,
+                            isPending: harness.isSummaryPending,
+                        }),
+                    },
                 },
-            },
-            rulebook: {
-                get: {
-                    useQuery: () => ({
-                        data: harness.rulebook ?? undefined,
-                        isError: false,
-                    }),
+                rulebook: {
+                    get: {
+                        query: () => ({
+                            data: harness.rulebook ?? undefined,
+                            isError: false,
+                        }),
+                    },
                 },
             },
         },
-    },
-}));
+    });
+});
 
 interface StubProperties {
     bankrollCents?: null | number;

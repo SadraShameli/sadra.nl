@@ -7,8 +7,6 @@ import {
     useUnsavedChangesGuard,
 } from '~/app/(app)/prop-calculator/accounts/_components/useUnsavedChangesGuard';
 
-type Guard = ReturnType<typeof useUnsavedChangesGuard>;
-
 function answerLeaving(willLeave: boolean): string[] {
     const asked: string[] = [];
     vi.stubGlobal('confirm', (message: string) => {
@@ -25,6 +23,7 @@ function unload(): Event {
 }
 
 describe('useUnsavedChangesGuard', () => {
+    type Guard = ReturnType<typeof useUnsavedChangesGuard>;
     let container: HTMLDivElement;
     let root: Root;
     let latest: Guard | null;

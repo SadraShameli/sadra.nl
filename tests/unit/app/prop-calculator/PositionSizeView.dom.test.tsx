@@ -29,15 +29,18 @@ vi.mock('~/lib/auth/client', () => ({
     }),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            rulebook: {
-                get: { useQuery: () => ({ data: harness.rulebook }) },
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                rulebook: {
+                    get: { query: () => ({ data: harness.rulebook }) },
+                },
             },
         },
-    },
-}));
+    });
+});
 
 const NEAR_FRESH_EVAL_TEXT =
     ECONOMICS_DISCLOSURE_TEXT[EconomicsDisclosure.NearFreshEvalApproximation];

@@ -89,11 +89,11 @@ const harness = vi.hoisted(() => {
         invalidate,
         mutate,
         mutation: () => ({
-            useMutation: () => ({ isPending: false, mutate }),
+            mutation: () => ({ isPending: false, mutate }),
         }),
         queries,
         query: (name: string) => ({
-            useQuery: () => {
+            query: () => {
                 queryCalls.push(name);
                 return queries.get(name) ?? pending;
             },
@@ -133,55 +133,60 @@ vi.mock('~/lib/auth/server', () => ({
 
 vi.mock('~/trpc/server', () => {
     const recorder = (): unknown =>
-        new Proxy(vi.fn(), {
-            get: (_target, key) =>
-                key === 'prefetch' ? () => Promise.resolve() : recorder(),
-        });
+        new Proxy(vi.fn(), { get: () => recorder() });
     return {
-        api: recorder(),
         HydrateClient: ({ children }: { children: ReactNode }) => children,
+        prefetch: () => Promise.resolve(),
+        trpc: recorder(),
     };
 });
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: {
-                archive: harness.mutation(),
-                get: harness.query('account.get'),
-                list: harness.query('account.list'),
-                remove: harness.mutation(),
-                unarchive: harness.mutation(),
-            },
-            bankroll: { list: harness.query('bankroll.list') },
-            copyGroup: { list: harness.query('copyGroup.list') },
-            decision: { list: harness.query('decision.list') },
-            edge: { summary: harness.query('edge.summary') },
-            event: { list: harness.query('event.list') },
-            externalFirm: { list: harness.query('externalFirm.list') },
-            fee: { list: harness.query('fee.list') },
-            firmEngagement: { list: harness.query('firmEngagement.list') },
-            firmStatement: { list: harness.query('firmStatement.list') },
-            payout: { list: harness.query('payout.list') },
-            round: { list: harness.query('round.list') },
-            rulebook: { get: harness.query('rulebook.get') },
-            snapshot: {
-                latestForAll: harness.query('snapshot.latestForAll'),
-                latestTwoForAll: harness.query('snapshot.latestTwoForAll'),
-            },
-            violation: { list: harness.query('violation.list') },
-        },
-        useUtils: () => ({
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
             propAccounts: {
                 account: {
-                    get: { cancel: harness.invalidate },
+                    archive: harness.mutation(),
+                    get: harness.query('account.get'),
+                    list: harness.query('account.list'),
+                    remove: harness.mutation(),
+                    unarchive: harness.mutation(),
+                },
+                bankroll: { list: harness.query('bankroll.list') },
+                copyGroup: { list: harness.query('copyGroup.list') },
+                decision: { list: harness.query('decision.list') },
+                edge: { summary: harness.query('edge.summary') },
+                event: { list: harness.query('event.list') },
+                externalFirm: { list: harness.query('externalFirm.list') },
+                fee: { list: harness.query('fee.list') },
+                firmEngagement: {
+                    list: harness.query('firmEngagement.list'),
+                },
+                firmStatement: {
+                    list: harness.query('firmStatement.list'),
+                },
+                payout: { list: harness.query('payout.list') },
+                round: { list: harness.query('round.list') },
+                rulebook: { get: harness.query('rulebook.get') },
+                snapshot: {
+                    latestForAll: harness.query('snapshot.latestForAll'),
+                    latestTwoForAll: harness.query('snapshot.latestTwoForAll'),
+                },
+                violation: { list: harness.query('violation.list') },
+            },
+            queryClient: () => ({
+                propAccounts: {
+                    account: {
+                        get: { cancel: harness.invalidate },
+                        invalidate: harness.invalidate,
+                    },
                     invalidate: harness.invalidate,
                 },
-                invalidate: harness.invalidate,
-            },
-        }),
-    },
-}));
+            }),
+        },
+    });
+});
 
 const { firm, plan } = firstEvalPlan();
 

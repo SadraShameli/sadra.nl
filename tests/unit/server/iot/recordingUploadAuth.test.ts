@@ -17,7 +17,7 @@ vi.mock('~/lib/email', () => ({}));
 vi.mock('~/lib/notify', () => ({ scheduleFanOut: vi.fn() }));
 vi.mock('~/server/api/root', () => ({ createCaller: vi.fn() }));
 vi.mock('~/trpc/server', () => ({
-    api: { recording: { createRecording: mocks.createRecording } },
+    caller: { recording: { createRecording: mocks.createRecording } },
 }));
 
 const UNAUTHORIZED = 401;

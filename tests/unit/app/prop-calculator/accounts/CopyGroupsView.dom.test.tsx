@@ -109,33 +109,37 @@ const harness = await vi.hoisted(async () => {
         held,
         invalidate,
         mutation: (name: string) => ({
-            useMutation: (options: MutationCallbacks = {}) => ({
-                isPending: useSyncExternalStore(subscribe, () =>
-                    pendingNames.has(name),
-                ),
-                mutate: (input: unknown) => {
-                    calls.push([name, input]);
-                    const finish = async () => {
-                        const outcome = outcomes.get(name);
-                        await (outcome instanceof Error
-                            ? options.onError?.(outcome, input)
-                            : options.onSuccess?.(outcome, input));
-                        setPending(name, false);
-                    };
-                    if (held.has(name)) {
-                        setPending(name, true);
-                        releases.push(finish);
-                    } else {
-                        void finish();
-                    }
-                },
-            }),
+            mutation: function useMutationDouble(
+                options: MutationCallbacks = {},
+            ) {
+                return {
+                    isPending: useSyncExternalStore(subscribe, () =>
+                        pendingNames.has(name),
+                    ),
+                    mutate: (input: unknown) => {
+                        calls.push([name, input]);
+                        const finish = async () => {
+                            const outcome = outcomes.get(name);
+                            await (outcome instanceof Error
+                                ? options.onError?.(outcome, input)
+                                : options.onSuccess?.(outcome, input));
+                            setPending(name, false);
+                        };
+                        if (held.has(name)) {
+                            setPending(name, true);
+                            releases.push(finish);
+                        } else {
+                            void finish();
+                        }
+                    },
+                };
+            },
         }),
         outcomes,
         pendingNames,
         queries,
         query: (name: string) => ({
-            useQuery: () => queries.get(name) ?? pending,
+            query: () => queries.get(name) ?? pending,
         }),
         releases,
         toastError,
@@ -149,27 +153,32 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: { list: harness.query('account.list') },
-            copyGroup: {
-                assign: harness.mutation('copyGroup.assign'),
-                create: harness.mutation('copyGroup.create'),
-                list: harness.query('copyGroup.list'),
-                remove: harness.mutation('copyGroup.remove'),
-                update: harness.mutation('copyGroup.update'),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                account: { list: harness.query('account.list') },
+                copyGroup: {
+                    assign: harness.mutation('copyGroup.assign'),
+                    create: harness.mutation('copyGroup.create'),
+                    list: harness.query('copyGroup.list'),
+                    remove: harness.mutation('copyGroup.remove'),
+                    update: harness.mutation('copyGroup.update'),
+                },
+                event: { list: harness.query('event.list') },
+                payout: { list: harness.query('payout.list') },
+                rulebook: { get: harness.query('rulebook.get') },
+                snapshot: {
+                    latestForAll: harness.query('snapshot.latestForAll'),
+                },
             },
-            event: { list: harness.query('event.list') },
-            payout: { list: harness.query('payout.list') },
-            rulebook: { get: harness.query('rulebook.get') },
-            snapshot: { latestForAll: harness.query('snapshot.latestForAll') },
+            queryClient: () => ({
+                propAccounts: { invalidate: harness.invalidate },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { invalidate: harness.invalidate },
-        }),
-    },
-}));
+    });
+});
 
 vi.mock('sonner', () => ({
     toast: { error: harness.toastError, success: harness.toastSuccess },

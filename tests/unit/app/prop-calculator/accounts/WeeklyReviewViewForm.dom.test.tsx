@@ -69,7 +69,7 @@ const harness = vi.hoisted(() => {
         invalidate,
         mutateAsyncOf,
         mutation: (name: string) => ({
-            useMutation: () => ({
+            mutation: () => ({
                 isPending: false,
                 mutate: vi.fn(),
                 mutateAsync: mutateAsyncOf(name),
@@ -77,7 +77,7 @@ const harness = vi.hoisted(() => {
         }),
         queries,
         query: (name: string) => ({
-            useQuery: (input?: unknown) => {
+            query: (input?: unknown) => {
                 inputs.set(name, [...(inputs.get(name) ?? []), input]);
                 return queries.get(name) ?? pending;
             },
@@ -101,28 +101,35 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock('~/trpc/react', () => ({
-    api: {
-        propAccounts: {
-            account: { list: harness.query('account.list') },
-            decision: { latestForAll: harness.query('decision.latestForAll') },
-            review: {
-                stagesOn: harness.query('review.stagesOn'),
-                submit: harness.mutation('review.submit'),
+vi.mock('~/trpc/react', async () => {
+    const { trpcDoubleReact } = await import('../../../../stubs/trpcDouble');
+    return trpcDoubleReact({
+        api: {
+            propAccounts: {
+                account: { list: harness.query('account.list') },
+                decision: {
+                    latestForAll: harness.query('decision.latestForAll'),
+                },
+                review: {
+                    stagesOn: harness.query('review.stagesOn'),
+                    submit: harness.mutation('review.submit'),
+                },
+                rulebook: { get: harness.query('rulebook.get') },
+                snapshot: {
+                    latestForAll: harness.query('snapshot.latestForAll'),
+                },
+                violation: {
+                    create: harness.mutation('violation.create'),
+                    list: harness.query('violation.list'),
+                    update: harness.mutation('violation.update'),
+                },
             },
-            rulebook: { get: harness.query('rulebook.get') },
-            snapshot: { latestForAll: harness.query('snapshot.latestForAll') },
-            violation: {
-                create: harness.mutation('violation.create'),
-                list: harness.query('violation.list'),
-                update: harness.mutation('violation.update'),
-            },
+            queryClient: () => ({
+                propAccounts: { invalidate: harness.invalidate },
+            }),
         },
-        useUtils: () => ({
-            propAccounts: { invalidate: harness.invalidate },
-        }),
-    },
-}));
+    });
+});
 
 function answer(data: unknown): FakeQuery {
     return { data, error: null, isError: false, isPending: false };

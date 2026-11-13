@@ -9,7 +9,7 @@ import { requireSessionUser } from '~/lib/auth/guards';
 import { loginRedirectFor } from '~/lib/site/privateRoutes';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api, HydrateClient } from '~/trpc/server';
+import { HydrateClient, prefetch, trpc } from '~/trpc/server';
 
 import { LedgerView } from './LedgerView';
 
@@ -44,12 +44,14 @@ async function PropAccountsLedgerContent() {
         loginRedirectFor(routes.propCalculator.accounts.ledger),
     );
     await Promise.all([
-        api.propAccounts.account.list.prefetch(ACCOUNT_LIST_INPUT),
-        api.propAccounts.externalFirm.list.prefetch(),
-        api.propAccounts.payout.list.prefetch({}),
-        api.propAccounts.fee.list.prefetch({}),
-        api.propAccounts.bankroll.list.prefetch(),
-        api.propAccounts.firmStatement.list.prefetch(),
+        prefetch(
+            trpc.propAccounts.account.list.queryOptions(ACCOUNT_LIST_INPUT),
+        ),
+        prefetch(trpc.propAccounts.externalFirm.list.queryOptions()),
+        prefetch(trpc.propAccounts.payout.list.queryOptions({})),
+        prefetch(trpc.propAccounts.fee.list.queryOptions({})),
+        prefetch(trpc.propAccounts.bankroll.list.queryOptions()),
+        prefetch(trpc.propAccounts.firmStatement.list.queryOptions()),
     ]);
     return (
         <HydrateClient>

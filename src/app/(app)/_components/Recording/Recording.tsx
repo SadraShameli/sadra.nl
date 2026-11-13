@@ -1,5 +1,5 @@
 'use client';
-
+import { useQuery } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 
 import { Chip } from '~/app/(app)/_components/home/Chip';
@@ -9,7 +9,7 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { type LoopingVideo } from '~/lib/site/content';
 import { DecorativeSeries } from '~/lib/site/DecorativeSeries';
 import { cn } from '~/lib/utilities';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import { GetRecordingURL } from './helpers';
 import { PlaybackControls } from './PlaybackControls';
@@ -27,7 +27,10 @@ export default function RecordingSection({
     readonly decorChip: string;
     readonly decorVideo: LoopingVideo;
 }) {
-    const recordings = api.recording.getRecordingsNoFile.useQuery();
+    const api = useTRPC();
+    const recordings = useQuery(
+        api.recording.getRecordingsNoFile.queryOptions(),
+    );
 
     const {
         audioRef,

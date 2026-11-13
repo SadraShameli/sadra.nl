@@ -7,7 +7,7 @@ import { LogShell } from '~/app/(app)/lifting/_components/log/LogShell';
 import { PageTransition } from '~/components/PageTransition';
 import { requireSessionUser } from '~/lib/auth/guards';
 import { cn } from '~/lib/utilities';
-import { api } from '~/trpc/server';
+import { caller } from '~/trpc/server';
 
 export const metadata: Metadata = {
     description: 'Log a workout, one tap per set.',
@@ -34,6 +34,6 @@ export default function LiftingLogPage() {
 
 async function LiftingLogContent() {
     await requireSessionUser();
-    const settings = await api.lifting.settings.get();
+    const settings = await caller.lifting.settings.get();
     return <LogShell initialSettings={settings} />;
 }

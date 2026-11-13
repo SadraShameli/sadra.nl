@@ -1,6 +1,8 @@
 'use client';
-
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ShieldCheck } from 'lucide-react';
 import { useId } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -43,7 +45,7 @@ import {
     RuleViolationKind,
     ruleViolationKindLabel,
 } from '~/lib/prop-accounts';
-import { api, type RouterOutputs } from '~/trpc/react';
+import { type RouterOutputs, useTRPC } from '~/trpc/react';
 
 import {
     AddRecordButton,
@@ -91,9 +93,14 @@ export function ViolationForm({
     readonly onDone: () => void;
     readonly onFailure: (error: unknown) => void;
 }) {
-    const utilities = api.useUtils();
-    const create = api.propAccounts.violation.create.useMutation();
-    const update = api.propAccounts.violation.update.useMutation();
+    const api = useTRPC();
+    const queryClient = useQueryClient();
+    const create = useMutation(
+        api.propAccounts.violation.create.mutationOptions(),
+    );
+    const update = useMutation(
+        api.propAccounts.violation.update.mutationOptions(),
+    );
     const schema = violationFormSchema(accountId);
     const today = useTodayIsoDate();
     const form = useForm<ViolationFormValues>({
@@ -137,7 +144,7 @@ export function ViolationForm({
         } catch (error) {
             onFailure(error);
         } finally {
-            await utilities.propAccounts.invalidate();
+            await queryClient.invalidateQueries(api.propAccounts.pathFilter());
         }
     };
 
@@ -313,22 +320,29 @@ export function ViolationsSection({
     readonly onFailure: (error: unknown) => void;
     readonly query: ListQuery<ViolationRow>;
 }) {
+    const api = useTRPC();
     const dialog = useRecordDialog<ViolationRow>();
-    const utilities = api.useUtils();
-    const decisionsQuery = api.propAccounts.decision.listForAccount.useQuery({
-        id: accountId,
-    });
+    const queryClient = useQueryClient();
+    const decisionsQuery = useQuery(
+        api.propAccounts.decision.listForAccount.queryOptions({
+            id: accountId,
+        }),
+    );
     const decisions = decisionsQuery.data ?? [];
     const decisionsById = new Map(
         decisions.map((decision) => [decision.id, decision]),
     );
-    const remove = api.propAccounts.violation.remove.useMutation({
-        onError: onFailure,
-        onSuccess: () => {
-            toast.success('Violation deleted');
-            return utilities.propAccounts.invalidate();
-        },
-    });
+    const remove = useMutation(
+        api.propAccounts.violation.remove.mutationOptions({
+            onError: onFailure,
+            onSuccess: () => {
+                toast.success('Violation deleted');
+                return queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
+            },
+        }),
+    );
     const rows = query.data;
     return (
         <>

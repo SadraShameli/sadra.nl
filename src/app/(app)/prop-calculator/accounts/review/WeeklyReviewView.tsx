@@ -1,6 +1,8 @@
 'use client';
-
 import { keepPreviousData, skipToken } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     Check,
     ChevronLeft,
@@ -60,7 +62,7 @@ import {
 import { type Plan } from '~/lib/prop-calculator';
 import { routes } from '~/lib/site/routes';
 import { cn } from '~/lib/utilities';
-import { api } from '~/trpc/react';
+import { useTRPC } from '~/trpc/react';
 
 import {
     buildWeeklyReview,
@@ -124,13 +126,24 @@ type WeeklyReviewAccountRow = ReturnType<
 >['rows'][number];
 
 export function WeeklyReviewView() {
-    const accountsQuery = api.propAccounts.account.list.useQuery({});
-    const snapshotsQuery = api.propAccounts.snapshot.latestForAll.useQuery();
-    const decisionsQuery = api.propAccounts.decision.latestForAll.useQuery();
-    const rulebookQuery = api.propAccounts.rulebook.get.useQuery();
+    const api = useTRPC();
+    const accountsQuery = useQuery(
+        api.propAccounts.account.list.queryOptions({}),
+    );
+    const snapshotsQuery = useQuery(
+        api.propAccounts.snapshot.latestForAll.queryOptions(),
+    );
+    const decisionsQuery = useQuery(
+        api.propAccounts.decision.latestForAll.queryOptions(),
+    );
+    const rulebookQuery = useQuery(
+        api.propAccounts.rulebook.get.queryOptions(),
+    );
     const today = useTodayIsoDate();
-    const utilities = api.useUtils();
-    const submission = api.propAccounts.review.submit.useMutation();
+    const queryClient = useQueryClient();
+    const submission = useMutation(
+        api.propAccounts.review.submit.mutationOptions(),
+    );
 
     const [valuesByAccount, setValuesByAccount] =
         useState<ReadonlyMap<string, SnapshotFormValues>>(EMPTY_MAP);
@@ -222,8 +235,10 @@ export function WeeklyReviewView() {
                   ),
         [latestSnapshots, reviewAsOf],
     );
-    const stagesQuery = api.propAccounts.review.stagesOn.useQuery(
-        reviewAsOf === null ? skipToken : { asOf: reviewAsOf },
+    const stagesQuery = useQuery(
+        api.propAccounts.review.stagesOn.queryOptions(
+            reviewAsOf === null ? skipToken : { asOf: reviewAsOf },
+        ),
     );
     const stagesOnAsOf = useMemo(
         () =>
@@ -258,9 +273,13 @@ export function WeeklyReviewView() {
             today,
         ],
     );
-    const violationsQuery = api.propAccounts.violation.list.useQuery(
-        violationsFrom === null ? skipToken : { occurredFrom: violationsFrom },
-        { placeholderData: keepPreviousData },
+    const violationsQuery = useQuery(
+        api.propAccounts.violation.list.queryOptions(
+            violationsFrom === null
+                ? skipToken
+                : { occurredFrom: violationsFrom },
+            { placeholderData: keepPreviousData },
+        ),
     );
     const violations = violationsQuery.data ?? EMPTY_VIOLATIONS;
 
@@ -426,7 +445,9 @@ export function WeeklyReviewView() {
                 toast.error(errorTextOf(error));
             }
             try {
-                await utilities.propAccounts.invalidate();
+                await queryClient.invalidateQueries(
+                    api.propAccounts.pathFilter(),
+                );
             } catch (error) {
                 toast.error(errorTextOf(error));
             }
